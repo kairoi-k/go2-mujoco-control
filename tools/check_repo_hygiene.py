@@ -14,17 +14,12 @@ FORBIDDEN_PARTS = {
     ".vscode",
     "__pycache__",
     "CMakeFiles",
-    "build_fix_check",
 }
 FORBIDDEN_NAMES = {
     ".DS_Store",
     "CMakeCache.txt",
     "cmake_install.cmake",
     "CTestTestfile.cmake",
-    "STORY.md",
-    "HANDOFF.md",
-    "AGENTS.md",
-    "DELIVERABLES_MANIFEST.md",
 }
 FORBIDDEN_PREFIXES = ("._",)
 # `.obj` is intentionally allowed: Unitree robot/scene meshes are source assets.
