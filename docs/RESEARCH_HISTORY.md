@@ -18,7 +18,7 @@ This document summarizes milestone-level research progress. It intentionally exc
 
 **Work.** The controller was extended with diagonal-trot phase generation, smooth swing trajectories, Raibert landing adjustment, world/support feedback, constrained contact-force allocation, runtime gating, and incremental dynamics-informed feedforward.
 
-**Result.** The stack is a platform for slow, interpretable locomotion experiments. Under the recorded gates, 0.15 m/s is the reliable cruise, 0.18 m/s is marginal, and 0.21 m/s is out of range. Those numbers are configuration-specific, not a theorem about all model-based control.
+**Result.** Under the recorded gates, 0.15 m/s is the reliable cruise, 0.18 m/s is marginal, and 0.21 m/s is out of range.
 
 **Evidence.** `example/cpp/real_trot_go2.cpp`, related controller sources, and the retained experiment artifacts.
 
@@ -34,4 +34,4 @@ This document summarizes milestone-level research progress. It intentionally exc
 
 ## 4. Motion imitation moved to a companion repository
 
-Kine2Go / Genesis imitation, the seam JSON record, and the conditional-AMP negative baseline are in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research). Do not treat this MuJoCo controller repo as the evidence chain for those claims.
+Kine2Go / Genesis imitation, the seam JSON record, and the conditional-AMP negative baseline are in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).

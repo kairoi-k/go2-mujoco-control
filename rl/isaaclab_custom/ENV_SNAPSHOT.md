@@ -8,5 +8,3 @@ Recorded stack for the velocity-curriculum runs, including `model_54950`:
 - custom configs: `flat_fast*.py` (command curricula ±2.0 … ±3.5 m/s)
 - local RSL-RL NaN guards: PPO ratio clamp, `compute_returns` guard, loss skip; distribution sample guard
 - evaluated checkpoint identity: `model_54950` (not distributed in git)
-
-This snapshot describes one working environment. It is not a container or lockfile.

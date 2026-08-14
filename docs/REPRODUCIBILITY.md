@@ -41,14 +41,10 @@ Do not attach Kine2Go seam or AMP numbers to this repository. Those artifacts ar
 
 Isaac Lab velocity RL uses a separate stack (see `rl/isaaclab_custom/ENV_SNAPSHOT.md`). Configs are in git; the `model_54950` checkpoint is not.
 
-## Curated-release boundary
+Bulk logs, build trees, local checkpoints, and machine-specific caches are not in this tree.
 
-The public candidate contains source code and repository-sized evidence needed to understand the promoted result. Disposable run directories, generated build trees, local checkpoints, private workspace notes, and machine-specific caches are intentionally omitted. The development archive remains the place for complete historical archaeology.
-
-This means the curated snapshot is sufficient to inspect the implementation and claim provenance but may not contain every large/private artifact required to reproduce an old development run bit-for-bit. Missing artifacts must be identified explicitly rather than implied to be downloadable.
-
-The companion Kine2Go repository owns a separate motion-imitation evidence chain; artifacts and conclusions should not be substituted between the two projects.
+The companion Kine2Go repository owns the motion-imitation evidence; do not mix numbers across the two projects.
 
 ## Hosted CI
 
-The full simulator/controller build depends on external simulator/runtime packages and is not represented as a generic GitHub-hosted compile gate. Hosted CI checks curated-tree hygiene; the build and kinematics commands above remain the maintained environment-specific smoke path until a portable simulator CI image is validated.
+The full simulator/controller build depends on external simulator/runtime packages and is not a generic GitHub-hosted compile gate. The build and kinematics commands above are the smoke path.
