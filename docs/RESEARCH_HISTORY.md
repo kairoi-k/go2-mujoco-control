@@ -8,7 +8,7 @@ Milestone-level research progress.
 
 **Work.** The project established the `LowCmd → MuJoCo → LowState` loop, joint/IMU/contact logging, forward and inverse kinematics, world-frame foot-clearance measurements, and parameterized stand / weight-shift / leg-lift sequences.
 
-**Result.** Repeatable stand-up, settle, trot, return-to-stand, and lie-down run as one LowCmd state machine. Smoothstep interpolation and a stand-pose settle are what stitch the segments. Reliable cruise is about 0.15 m/s; 0.18 m/s is a torque-gate edge; 0.21 m/s was rejected. This is the onboarding task (Go2 motion sequencing in MuJoCo), not a speed or natural-gait result.
+**Result.** Repeatable stand-up, settle, trot, return-to-stand, and lie-down run as one LowCmd state machine. Smoothstep interpolation and a stand-pose settle are what stitch the segments. Reliable cruise is about 0.15 m/s; 0.18 m/s is a torque-gate edge; 0.21 m/s was rejected. This is Go2 motion sequencing in MuJoCo, not a speed or natural-gait result.
 
 **Evidence.** `example/cpp/` and the retained artifacts under `example/cpp/experiments/`.
 

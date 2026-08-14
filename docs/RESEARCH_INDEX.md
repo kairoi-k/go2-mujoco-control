@@ -1,10 +1,10 @@
 # Research index
 
-This repository records **model-based Go2 control in MuJoCo** as the promoted result, plus an Isaac Lab velocity-RL second track. It does not own the Kine2Go seam or AMP results.
+This repository records **model-based Go2 control in MuJoCo**, plus an Isaac Lab velocity-RL second track. It does not own the Kine2Go seam or AMP results.
 
-## Promoted implementation
+## Implementation
 
-**Stand-walk-lie sequencing + Raibert trot**, development milestone `73ac543` (2026-08-13).
+**Stand-walk-lie sequencing + Raibert trot**, 2026-08-13.
 
 | Item | Record |
 |---|---|
@@ -40,4 +40,4 @@ Kine2Go / AMP / seam JSON remain in [`kairoi-k/kine2go-research`](https://github
 
 ## Evidence policy
 
-Keep artifacts needed to understand the controller. Omit private session logs and generated builds. Checkpoints stay out of git; `model_54950` is on Release v0.1.0. A new controlled result needs: revision, intervention, held-fixed conditions, configuration, protocol, and artifact paths.
+Keep artifacts needed to understand the controller. Bulk logs and generated builds are not in git; `model_54950` is on Release v0.1.0.

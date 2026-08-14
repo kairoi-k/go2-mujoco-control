@@ -60,4 +60,4 @@ For a higher-level map, see [`../../docs/ARCHITECTURE.md`](../../docs/ARCHITECTU
 
 A research-relevant run should identify the code revision, intervention/configuration, seed, input/reference identity, completion status, metric semantics, and evidence path. Disposable outputs belong in ignored local directories.
 
-The current primary claim and its scope are defined in [`../../docs/RESEARCH_INDEX.md`](../../docs/RESEARCH_INDEX.md). Milestone-level context is summarized in [`../../docs/RESEARCH_HISTORY.md`](../../docs/RESEARCH_HISTORY.md).
+Claims and their scope are in [`../../docs/RESEARCH_INDEX.md`](../../docs/RESEARCH_INDEX.md). History: [`../../docs/RESEARCH_HISTORY.md`](../../docs/RESEARCH_HISTORY.md).

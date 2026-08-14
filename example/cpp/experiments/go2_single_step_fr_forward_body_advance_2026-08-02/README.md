@@ -39,7 +39,7 @@ example/cpp/scripts/run_single_step.sh 35 go2_single_step_fr_forward_body_advanc
 - `data.csv`：原始控制与状态记录。
 - `single_step_summary.csv`：指标汇总。
 - `single_step_overview.png`：足端、接触、机身位移和姿态曲线。
-- `controller.log`、`simulator.log`：运行日志（归档，不进 git）。
+- `controller.log`、`simulator.log`：运行日志（不在 git）。
 
 ## 结论
 

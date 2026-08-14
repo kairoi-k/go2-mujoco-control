@@ -16,7 +16,7 @@ This guide points contributors to the smallest relevant source area for common c
 | Change dynamics-informed feedforward | `example/cpp/trot_experiment_wbc.cpp`, `example/cpp/trot_true_dynamics.h` |
 | Change safety gates / diagnostics | `example/cpp/trot_experiment_diagnostics.cpp` |
 | Change leg-lift / multi-step experiments | `example/cpp/leg_lift_*`, `example/cpp/real_leg_lift_go2.cpp` |
-| Inspect retained experiment evidence | `example/cpp/experiments/`, `docs/archive/experiment-ledger.md` |
+| Inspect retained experiment evidence | `example/cpp/experiments/`, `example/cpp/experiments/CATALOG.md` |
 
 ## Trot controller
 

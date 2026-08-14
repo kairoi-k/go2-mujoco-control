@@ -4,12 +4,10 @@ Research fork of [`unitreerobotics/unitree_mujoco`](https://github.com/unitreero
 
 ![stand-walk-lie](docs/media/stand_walk_lie.gif)
 
-Two tracks. The onboarding result is a 500 Hz LowCmd state machine: stand-up, settle, trot, blend back to stand, lie-down. Reliable C++ cruise is about **0.13–0.18 m/s**. Isaac Lab velocity RL (`rl/`) uses command curricula up to **±3.5 m/s**, fast but short-stride. Imitation work is in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
+Two tracks. The C++ result is a 500 Hz LowCmd state machine: stand-up, settle, trot, blend back to stand, lie-down. Reliable C++ cruise is about **0.13–0.18 m/s**. Isaac Lab velocity RL (`rl/`) uses command curricula up to **±3.5 m/s**, fast but short-stride. Imitation work is in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
 
 ![Isaac Lab 0.5 m/s](docs/media/rl_0.5ms.gif)
 ![Isaac Lab 3.5 m/s](docs/media/rl_3.5ms.gif)
-
-Development milestone `73ac543` is provenance for the archive.
 
 ## Contents
 
@@ -55,7 +53,7 @@ Details: [`rl/README.md`](rl/README.md). Checkpoint: [Release v0.1.0](https://gi
 
 | Track | Where |
 |---|---|
-| Model-based C++ stand-walk-lie + slow trot | `example/cpp/` (promoted) |
+| Model-based C++ stand-walk-lie + slow trot | `example/cpp/` |
 | Isaac Lab velocity RL (fast, short-stride) | `rl/` (`pip install -e rl`) |
 | Kine2Go imitation, AMP, seam JSON | [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research) |
 

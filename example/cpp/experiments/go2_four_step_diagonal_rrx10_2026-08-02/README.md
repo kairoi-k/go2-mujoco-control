@@ -4,7 +4,7 @@
 
 状态：`accepted`
 
-历史决策：`docs/experiment-ledger.md#exp-14rr-前向重心优化`
+索引：`example/cpp/experiments/CATALOG.md`
 
 ## 计划目标
 
@@ -16,7 +16,7 @@
 
 ## 遇到的问题
 
-保守基线第四步 RR 的净空只有 `7.1 mm`，最大姿态为 `2.50°/2.54°`，超过当前 `2°` 验收线。侧向微调和较小前移的探针更差，具体比较见 `example/cpp/experiments/_archive/2026-08-02_sequence-development/README.md`。
+保守基线第四步 RR 的净空只有 `7.1 mm`，最大姿态为 `2.50°/2.54°`，超过当时 `2°` 验收线。侧向微调和较小前移的探针更差。
 
 ## 解决路径
 
@@ -49,5 +49,5 @@ RR 净空由基线的 `7.1 mm` 增至 `21.1 mm`，最大姿态由 `2.50°/2.54°
 
 - `sequence_summary.csv`：每一步的摆脚、净空、足底力、姿态和支撑漂移指标。
 - `sequence_overview.png`：机身世界位移、四步净空、足底力和姿态曲线。
-- `controller.log`：落脚触发和序列完成日志（归档，不进 git）。
+- `controller.log`：落脚触发和序列完成日志（不在 git）。
 - 配置：`example/cpp/configs/go2_four_step_fr_rl_fl_rr.txt`。

@@ -27,7 +27,6 @@
 
 ## 证据与边界
 
-- 详细过程：`docs/notes/环境搭建原始记录.md` 中的 sin²、CPU affinity、true-dynamics WBC 章节。
-- 正式索引：`example/cpp/experiments/CATALOG.md`；历史判断：`docs/experiment-ledger.md`。
-- 原始 CSV、日志和批量跑次在开发归档的 `example/cpp/experiments/_archive/2026-08_*`，不进 git。
+- 索引：`example/cpp/experiments/CATALOG.md`。
+- 原始 CSV、日志和批量跑次不在 git。
 - 当前只证明 MuJoCo 仿真基线；观感仍偏僵碎步，未证明真机安全性或真机迁移效果。

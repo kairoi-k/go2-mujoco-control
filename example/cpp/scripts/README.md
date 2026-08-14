@@ -21,7 +21,7 @@ bash example/cpp/scripts/go2sim fast --view
 
 实验输出：名称 `go2_*` → `experiments/`；其它临时输出 → `experiments/_runs/`。DDS domain 使用 203–207。
 
-历史批量扫参和机器专属启动器不进入公开候选树；需要追溯时以完整开发仓库为档案来源。
+历史批量扫参和机器专属启动器不在 git。
 
 ## 相关文档
 

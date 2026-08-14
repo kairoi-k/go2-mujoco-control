@@ -76,10 +76,8 @@ for ((i=0; i < ${#controller_args[@]}; ++i)); do
     task_name="${controller_args[$((i + 1))]}"
   fi
 done
-# Formal go2_* stay at experiments top-level; everything else goes to _runs/.
-if [[ "$experiment_name" == go2_* ]]; then
-  experiment_dir="$cpp_dir/experiments/$experiment_name"
-elif [[ "$experiment_name" == _archive/* || "$experiment_name" == _runs/* ]]; then
+# Named go2_* directories stay under experiments/; other output goes to experiments/_runs/.
+if [[ "$experiment_name" == go2_* || "$experiment_name" == _runs/* ]]; then
   experiment_dir="$cpp_dir/experiments/$experiment_name"
 else
   experiment_dir="$cpp_dir/experiments/_runs/$experiment_name"

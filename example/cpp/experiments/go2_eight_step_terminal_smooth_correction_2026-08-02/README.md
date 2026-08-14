@@ -2,9 +2,9 @@
 
 日期：2026-08-02
 
-状态：`accepted`（八步扩展候选；尚不等于长距离行走或真机方案）
+状态：`accepted`（八步扩展；尚不等于长距离行走或真机方案）
 
-历史决策：`docs/experiment-ledger.md#exp-17八步闭环与平滑终点收敛`
+索引：`example/cpp/experiments/CATALOG.md`
 
 ## 计划目标
 
@@ -32,7 +32,7 @@
 
 ## 遇到的问题
 
-第一版新增配置时补丁行数写少，最后一个 RR 行被截掉，控制器实际只解析出 7 步；该结果已单独归档，不能冒充八步实验。
+第一版新增配置时补丁行数写少，最后一个 RR 行被截掉，控制器实际只解析出 7 步；该次失败不能冒充八步实验。
 
 第一次重跑时编译了仓库根目录的构建产物，而运行脚本实际调用 `example/cpp/build/real_leg_lift_go2`；因此那轮数据保留为旧二进制对照。随后改为编译脚本真正调用的目标。
 
@@ -65,5 +65,4 @@
 
 - `sequence_summary.csv`：每一步的摆脚、净空、姿态、支撑漂移和跟踪指标。
 - `sequence_overview.png`：序列曲线和最终状态可视化。
-- 原始 `controller.log` / `data.csv` / `simulator.log` 在归档，不进 git。
-- 失败配置和旧二进制对照见 `example/cpp/experiments/_archive/2026-08-02_sequence-development/eight-step-probes/`。
+- 原始 `controller.log` / `data.csv` / `simulator.log` 不在 git。

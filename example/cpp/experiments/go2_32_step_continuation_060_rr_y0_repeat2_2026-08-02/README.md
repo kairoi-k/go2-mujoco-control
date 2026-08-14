@@ -11,4 +11,4 @@
 
 复现配置：example/cpp/configs/go2_32_step_continuation_060_rr_y0.txt。
 
-库内证据是 sequence_summary.csv 和 sequence_overview.png。controller.log / data.csv / simulator.log 在归档，不进 git。
+库内证据是 sequence_summary.csv 和 sequence_overview.png。controller.log / data.csv / simulator.log 不在 git。

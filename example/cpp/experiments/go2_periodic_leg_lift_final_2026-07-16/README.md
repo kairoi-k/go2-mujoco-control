@@ -31,5 +31,5 @@
 - `data.csv`：三周期完整原始数据。
 - `periodic_summary.csv`：各周期关键指标。
 - `periodic_overview.png`：净空、足底力、姿态和关节误差总览。
-- `controller.log`、`simulator.log`：运行日志（归档，不进 git）。
+- `controller.log`、`simulator.log`：运行日志（不在 git）。
 - `recording_validation/`：录制验证数据。

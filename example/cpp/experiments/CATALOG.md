@@ -2,7 +2,7 @@
 
 This directory contains retained artifacts from model-based Go2 control experiments. Directory names are historical and often include the tested behavior, parameterization, repeat number, and date.
 
-The repository does not treat every retained run as a promoted scientific result. Use [`../../../docs/RESEARCH_INDEX.md`](../../../docs/RESEARCH_INDEX.md) for current claims and [`../../../docs/RESEARCH_HISTORY.md`](../../../docs/RESEARCH_HISTORY.md) for milestone-level context.
+Current claims: [`../../../docs/RESEARCH_INDEX.md`](../../../docs/RESEARCH_INDEX.md). Milestone context: [`../../../docs/RESEARCH_HISTORY.md`](../../../docs/RESEARCH_HISTORY.md).
 
 ## How to read an experiment directory
 
@@ -10,9 +10,9 @@ Depending on the experiment, a directory may contain configuration snapshots, CS
 
 ## Evidence classes
 
-- **Promoted evidence:** artifacts explicitly referenced by `docs/RESEARCH_INDEX.md` or a versioned research result.
-- **Supporting evidence:** retained runs that document controller development, repeatability, or failure analysis.
-- **Historical artifacts:** useful for provenance but not current evidence for a promoted claim.
+- **Indexed:** artifacts referenced by `docs/RESEARCH_INDEX.md`.
+- **Supporting:** retained runs that document development, repeatability, or failure analysis.
+- **Historical:** useful for provenance, not current claims.
 
 `_runs/` output is gitignored.
 

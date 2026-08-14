@@ -12,4 +12,4 @@
 
 复现配置：`example/cpp/configs/go2_eight_step_terminal_precomp_210.txt`；运行入口使用 `--world-feedback`。
 
-库内证据是 `sequence_summary.csv` 和 `sequence_overview.png`。`controller.log` / `data.csv` / `simulator.log` 在归档，不进 git。
+库内证据是 `sequence_summary.csv` 和 `sequence_overview.png`。`controller.log` / `data.csv` / `simulator.log` 不在 git。

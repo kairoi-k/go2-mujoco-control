@@ -1,6 +1,6 @@
 # EXP-20：世界位置 + yaw 闭环反馈
 
-这是 2026-08-02 对 Go2 长序列航向反馈的正式摘要。完整的计划目标、问题、解决路径和历史对照见 `docs/experiment-ledger.md` 的 EXP-20。
+这是 2026-08-02 对 Go2 长序列航向反馈的摘要。当前主张见 `docs/RESEARCH_INDEX.md`。
 
 ## 结果
 
@@ -26,8 +26,7 @@ bash example/cpp/scripts/run_leg_sequence.sh 380 \
   --world-feedback --yaw-feedback
 ```
 
-原始运行目录（含本机保留的 `data.csv` 和 `simulator.log`）位于：
-`example/cpp/experiments/_archive/2026-08-02_sequence-development/yaw-feedback-probes/`。
+原始 `data.csv` / `simulator.log` 不在 git。
 
 ## 边界
 
