@@ -1,6 +1,6 @@
 # Research history
 
-This document summarizes milestone-level research progress. It intentionally excludes chat transcripts, agent handoffs, private planning notes, and chronological workspace diaries.
+Milestone-level research progress.
 
 ## 1. Low-level control and instrumentation
 
