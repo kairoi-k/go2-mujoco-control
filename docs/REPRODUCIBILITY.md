@@ -39,6 +39,8 @@ A valid extension should preserve or version:
 
 Do not attach Kine2Go seam or AMP numbers to this repository. Those artifacts are in the companion imitation fork.
 
+Isaac Lab velocity RL uses a separate stack (see `rl/isaaclab_custom/ENV_SNAPSHOT.md`). Configs are in git; the `model_54950` checkpoint is not.
+
 ## Curated-release boundary
 
 The public candidate contains source code and repository-sized evidence needed to understand the promoted result. Disposable run directories, generated build trees, local checkpoints, private workspace notes, and machine-specific caches are intentionally omitted. The development archive remains the place for complete historical archaeology.
