@@ -2,45 +2,49 @@
 
 After the model-based trot hit a low speed ceiling (~0.15 m/s), Isaac Lab / RSL-RL velocity tracking was trained on Unitree Go2.
 
-**Supported claim.** Command curricula of `lin_vel_x ∈ ±2.0, ±2.5, ±3.0, ±3.5 m/s` produced a fast policy (`model_54950`) that follows high speed commands in Isaac Lab. Recorded clips are the `speed_0.5ms` … `speed_3.5ms` comparison set.
+**Supported claim.** Command curricula of `lin_vel_x ∈ ±2.0, ±2.5, ±3.0, ±3.5 m/s` produced a fast policy (`model_54950`) that follows high speed commands in Isaac Lab.
 
 **Outside the claim.** Short-stride velocity tracking, not a natural animal gait and not sim-to-real. Coarse tracking metrics can look good while the gait stays 碎步. `error_vel_xy` in Isaac Lab logs is tracking error, not body speed.
 
-Checkpoints (`model_54950.pt`) and videos are not in git. `*.pt` is gitignored.
+![0.5 m/s](../docs/media/rl_0.5ms.gif)
+![3.5 m/s](../docs/media/rl_3.5ms.gif)
 
-## What is in tree
+## Install
 
-Drop-in configs for Isaac Lab’s Go2 velocity task package:
+This is a gym-registered extension. It subclasses Isaac Lab's official Go2 flat velocity env; you do not copy files into `isaaclab_tasks`.
 
-| File | Command range (`lin_vel_x`) |
+```bash
+# inside the Isaac Lab Python environment
+pip install -e rl
+export ISAACLAB_PATH=/path/to/IsaacLab
+```
+
+Registered task ids:
+
+| Task | `lin_vel_x` |
 |---|---|
-| `isaaclab_custom/flat_fast_env_cfg.py` | ±2.0 m/s |
-| `isaaclab_custom/flat_fast25_env_cfg.py` | ±2.5 m/s |
-| `isaaclab_custom/flat_fast30_env_cfg.py` | ±3.0 m/s |
-| `isaaclab_custom/flat_fast35_env_cfg.py` | ±3.5 m/s |
+| `Isaac-Velocity-Flat-Unitree-Go2-Fast-v0` | ±2.0 m/s |
+| `Isaac-Velocity-Flat-Unitree-Go2-Fast25-v0` | ±2.5 m/s |
+| `Isaac-Velocity-Flat-Unitree-Go2-Fast30-v0` | ±3.0 m/s |
+| `Isaac-Velocity-Flat-Unitree-Go2-Fast35-v0` | ±3.5 m/s |
 
-Recorded training environment: `isaaclab_custom/ENV_SNAPSHOT.md` (Isaac Sim 6.0.1, Isaac Lab v3.0.0-beta2, rsl_rl 5.4.2, Newton / MuJoCo Warp). Local RSL-RL NaN guards (ratio clamp, return guard, loss skip, sample guard) were applied in that environment; they are not vendored here.
+Each has a `-Play-v0` variant.
 
-Copy the four `flat_fast*.py` files into:
+## Play the recorded policy
 
-```text
-source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/go2/
+```bash
+python -m go2_velocity_fast.download -o model_54950.pt
+python -m go2_velocity_fast.play --task Isaac-Velocity-Flat-Unitree-Go2-Fast35-v0 --num_envs 16 --checkpoint model_54950.pt
 ```
 
-next to official `flat_env_cfg.py`. The configs import each other as `isaaclab_tasks.manager_based.locomotion.velocity.config.go2.flat_fast*_env_cfg`, so they have to live in that package. Then register a gym id in that folder’s `__init__.py`, for example:
+`play` / `train` register the gym ids, then run Isaac Lab's RSL-RL scripts. Checkpoint SHA-256: `c2009f890e5b575a8832021ab717dd2dcc23678a64f423d2f4e793d861ed4b42` ([Release v0.1.0](https://github.com/kairoi-k/go2-mujoco-control/releases/tag/v0.1.0)).
 
-```python
-gym.register(
-    id="Isaac-Velocity-Flat-Unitree-Go2-Fast35-v0",
-    entry_point="isaaclab.envs:ManagerBasedRLEnv",
-    disable_env_checker=True,
-    kwargs={
-        "env_cfg_entry_point": f"{__name__}.flat_fast35_env_cfg:UnitreeGo2FlatFast35EnvCfg",
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:UnitreeGo2FlatPPORunnerCfg",
-    },
-)
+## Train
+
+```bash
+python -m go2_velocity_fast.train --task Isaac-Velocity-Flat-Unitree-Go2-Fast35-v0 --headless
 ```
 
-Train / play with Isaac Lab’s usual RSL-RL entry points against that task id. Local RSL-RL NaN guards used for `model_54950` are not in this tree.
+Recorded training environment: [`ENV_SNAPSHOT.md`](ENV_SNAPSHOT.md) (Isaac Sim 6.0.1, Isaac Lab v3.0.0-beta2, rsl_rl 5.4.2, Newton / MuJoCo Warp). Local RSL-RL NaN guards used for `model_54950` are not vendored here.
 
 Imitation / AMP evidence is in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).

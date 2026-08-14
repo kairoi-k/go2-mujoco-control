@@ -23,14 +23,14 @@ Entry points: `example/cpp/`, `docs/ARCHITECTURE.md`, `example/cpp/experiments/C
 
 ## Second track — Isaac Lab velocity RL
 
-Isaac Lab / RSL-RL velocity tracking after the C++ speed ceiling. Configs: `rl/isaaclab_custom/`. Snapshot: `rl/isaaclab_custom/ENV_SNAPSHOT.md`.
+Isaac Lab / RSL-RL velocity tracking after the C++ speed ceiling. Gym-registered package: `rl/` (`pip install -e rl`). Snapshot: `rl/ENV_SNAPSHOT.md`.
 
 | Item | Record |
 |---|---|
 | Task | Go2 flat velocity tracking, command curricula ±2.0 → ±3.5 m/s |
-| Recorded policy | `model_54950` (not in git) |
+| Recorded policy | `model_54950` ([Release v0.1.0](https://github.com/kairoi-k/go2-mujoco-control/releases/tag/v0.1.0)) |
 | Gait | fast, short-stride; official velocity-task reward, no reference motion |
-| Comparison clips | archive `speed_0.5ms` … `speed_3.5ms` |
+| Comparison clips | `docs/media/rl_0.5ms.gif`, `docs/media/rl_3.5ms.gif` |
 
 **Supported claim:** the recorded policy follows high commanded speeds in that Isaac Lab stack.
 
@@ -40,4 +40,4 @@ Kine2Go / AMP / seam JSON remain in [`kairoi-k/kine2go-research`](https://github
 
 ## Evidence policy
 
-Keep artifacts needed to understand the controller. Omit private session logs, generated builds, and checkpoints. A new controlled result needs: revision, intervention, held-fixed conditions, configuration, protocol, and artifact paths.
+Keep artifacts needed to understand the controller. Omit private session logs and generated builds. Checkpoints stay out of git; `model_54950` is on Release v0.1.0. A new controlled result needs: revision, intervention, held-fixed conditions, configuration, protocol, and artifact paths.
