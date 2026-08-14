@@ -1,6 +1,6 @@
 # Research index
 
-This repository records **model-based Go2 control in MuJoCo**: a sequenced stand / walk / lie task and a diagonal-trot stack. It does not own the Kine2Go seam or AMP results.
+This repository records **model-based Go2 control in MuJoCo** as the promoted result, plus an Isaac Lab velocity-RL second track. It does not own the Kine2Go seam or AMP results.
 
 ## Promoted implementation
 
@@ -17,13 +17,26 @@ This repository records **model-based Go2 control in MuJoCo**: a sequenced stand
 
 **Supported claim:** the sequenced task and a slow, measurable trot run in this simulator stack.
 
-**Outside the claim:** demo-speed running, natural animal gait, sim-to-real, or command-conditioned imitation.
+**Outside the C++ claim:** demo-speed running from this controller, natural animal gait, sim-to-real, or command-conditioned imitation.
 
 Entry points: `example/cpp/`, `docs/ARCHITECTURE.md`, `example/cpp/experiments/CATALOG.md`.
 
-## Not in this repository
+## Second track — Isaac Lab velocity RL
 
-Isaac Lab velocity RL (including 3.5 m/s command curricula) and Kine2Go / AMP / seam JSON live elsewhere. `rl/` is a historical note; the implementations and checkpoints are omitted. Imitation evidence is in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
+Isaac Lab / RSL-RL velocity tracking after the C++ speed ceiling. Configs: `rl/isaaclab_custom/`. Snapshot: `rl/isaaclab_custom/ENV_SNAPSHOT.md`.
+
+| Item | Record |
+|---|---|
+| Task | Go2 flat velocity tracking, command curricula ±2.0 → ±3.5 m/s |
+| Recorded policy | `model_54950` (not in git) |
+| Gait | fast, short-stride; official velocity-task reward, no reference motion |
+| Comparison clips | archive `speed_0.5ms` … `speed_3.5ms` |
+
+**Supported claim:** the recorded policy follows high commanded speeds in that Isaac Lab stack.
+
+**Outside the claim:** natural gait, sim-to-real, or that C++ in this repo can reach 3.5 m/s. `error_vel_xy` is tracking error, not body speed.
+
+Kine2Go / AMP / seam JSON remain in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
 
 ## Evidence policy
 

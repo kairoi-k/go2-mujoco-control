@@ -28,9 +28,9 @@ This document summarizes milestone-level research progress. It intentionally exc
 
 **Work.** The repository explored a small MuJoCo PPO implementation and later Isaac Lab / RSL-RL training. The experiments exposed evaluation and training-design pitfalls, including policies that could score well on coarse velocity metrics while producing undesirable or unstable motion.
 
-**Result.** This track remains exploratory. Isaac Lab velocity curricula reached high commanded speeds with a short-stride gait; those policies and videos are not in this curated tree. The work informed later imitation experiments but is not a promoted result here.
+**Result.** Isaac Lab velocity curricula reached commanded speeds up to ±3.5 m/s with a short-stride gait (`model_54950`). That is a useful speed result and not a natural-gait result. Configs are in `rl/isaaclab_custom/`; checkpoints stay in the archive.
 
-**Evidence.** `rl/README.md`. Generated policy checkpoints are omitted.
+**Evidence.** `rl/README.md`, `rl/isaaclab_custom/`.
 
 ## 4. Motion imitation moved to a companion repository
 

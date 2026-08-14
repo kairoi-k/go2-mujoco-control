@@ -11,7 +11,7 @@ This repository combines the Unitree MuJoCo simulator with research-specific C++
 | MuJoCo | DeepMind | physics; 3.3.6 in the research environment |
 | Robot/URDF assets | Unitree and other upstream sources | keep upstream terms |
 
-Isaac Lab / Genesis / Kine2Go are used in companion work, not as implementations in this curated tree.
+Isaac Lab is present here only as recorded velocity-curriculum configs under `rl/`. Genesis / Kine2Go imitation is a companion repository.
 
 Original Unitree READMEs: `docs/upstream/`. The repository root README is the research-project README (avoids case-only collisions with `readme.md`).
 
@@ -22,6 +22,7 @@ Original Unitree READMEs: `docs/upstream/`. The repository root README is the re
 - world/support feedback and simulation instrumentation;
 - constrained contact-force/wrench allocation;
 - incremental dynamics-informed WBC components with guarded fallback;
+- Isaac Lab Go2 velocity-curriculum configs (second track);
 - controlled experiment runners and retained evidence.
 
 Reliable cruise is about 0.15 m/s in this stack. This is not a claim of demo-speed locomotion or a complete full-dynamics WBC.

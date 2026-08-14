@@ -6,6 +6,7 @@
 - removed the leftover Genesis `evaluation/quant_eval.py` (it pointed at a local `/tmp` pipeline);
 - dropped tracked `controller.log` files (gitignore already excludes `*.log`);
 - experiment READMEs no longer claim those logs are in git;
+- Isaac Lab velocity-curriculum configs live in `rl/isaaclab_custom/` as a second track;
 - seam JSON / AMP evidence stay in `kairoi-k/kine2go-research`.
 
 No controller algorithm is changed by this curation.
