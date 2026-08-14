@@ -11,5 +11,3 @@ Start here when reading the repository as a research artifact or contributing to
 | [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md) | environment, build, smoke checks, and evidence-reproduction rules |
 | [`EXPERIMENT_TEMPLATE.md`](EXPERIMENT_TEMPLATE.md) | template for new research records |
 | [`upstream/`](upstream/) | preserved upstream Unitree MuJoCo README files |
-
-The chronological internal experiment diary is intentionally excluded from the curated public tree. Milestone-level context and promoted evidence are maintained in `RESEARCH_HISTORY.md` and `RESEARCH_INDEX.md`; the complete development repository remains the archival record.
