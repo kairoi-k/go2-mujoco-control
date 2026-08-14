@@ -1,0 +1,376 @@
+#!/usr/bin/env python3
+"""Replay a task wrench through the measured base dynamics."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import math
+import statistics
+import sys
+from bisect import bisect_left
+from pathlib import Path
+
+AXES = ("x", "y", "z")
+QCOORD_SUFFIXES = (
+    "trans_x_N",
+    "trans_y_N",
+    "trans_z_N",
+    "rot_x_Nm",
+    "rot_y_Nm",
+    "rot_z_Nm",
+)
+MASS_KG = 15.206408
+GRAVITY_MPS2 = 9.81
+
+
+def finite(row: dict[str, str], name: str) -> float:
+    value = float(row[name])
+    if not math.isfinite(value):
+        raise ValueError(f"non-finite {name}")
+    return value
+
+
+def percentile(values: list[float], fraction: float) -> float:
+    ordered = sorted(values)
+    return ordered[int(fraction * (len(ordered) - 1))]
+
+
+def rms(values: list[float]) -> float:
+    return math.sqrt(statistics.fmean(value * value for value in values))
+
+
+def maximum_abs(values: list[float]) -> float:
+    return max(abs(value) for value in values)
+
+
+def body_to_world(
+    quaternion: tuple[float, float, float, float],
+    vector: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    norm = math.sqrt(sum(value * value for value in quaternion))
+    if not math.isfinite(norm) or norm <= 1e-12:
+        raise ValueError("invalid base quaternion")
+    w, x, y, z = (
+        value / norm for value in quaternion
+    )
+    vx, vy, vz = vector
+    return (
+        (1 - 2 * (y * y + z * z)) * vx
+        + 2 * (x * y - z * w) * vy
+        + 2 * (x * z + y * w) * vz,
+        2 * (x * y + z * w) * vx
+        + (1 - 2 * (x * x + z * z)) * vy
+        + 2 * (y * z - x * w) * vz,
+        2 * (x * z - y * w) * vx
+        + 2 * (y * z + x * w) * vy
+        + (1 - 2 * (x * x + y * y)) * vz,
+    )
+
+
+def solve_linear_system(
+    matrix: list[list[float]], right_hand_side: list[float]
+) -> list[float]:
+    size = len(right_hand_side)
+    augmented = [
+        matrix[row][:] + [right_hand_side[row]]
+        for row in range(size)
+    ]
+    for column in range(size):
+        pivot = max(
+            range(column, size),
+            key=lambda row: abs(augmented[row][column]),
+        )
+        if abs(augmented[pivot][column]) <= 1e-12:
+            raise ValueError("base mass block is singular")
+        augmented[column], augmented[pivot] = (
+            augmented[pivot],
+            augmented[column],
+        )
+        divisor = augmented[column][column]
+        for index in range(column, size + 1):
+            augmented[column][index] /= divisor
+        for row in range(size):
+            if row == column:
+                continue
+            factor = augmented[row][column]
+            if factor == 0.0:
+                continue
+            for index in range(column, size + 1):
+                augmented[row][index] -= (
+                    factor * augmented[column][index]
+                )
+    return [augmented[row][size] for row in range(size)]
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--state-csv", type=Path, required=True)
+    parser.add_argument("--ground-truth-csv", type=Path, required=True)
+    parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--match-tolerance-s", type=float, default=0.0011)
+    parser.add_argument("--mass-kg", type=float, default=MASS_KG)
+    parser.add_argument("--gravity-mps2", type=float, default=GRAVITY_MPS2)
+    args = parser.parse_args()
+
+    if (
+        args.match_tolerance_s <= 0.0
+        or args.mass_kg <= 0.0
+        or args.gravity_mps2 <= 0.0
+    ):
+        print("validation=FAIL: invalid audit parameters")
+        return 2
+
+    try:
+        with args.state_csv.open(newline="", encoding="utf-8") as handle:
+            state_reader = csv.DictReader(handle)
+            state_fields = set(state_reader.fieldnames or ())
+            state_required = {
+                "state_tick_s",
+                "motion_stage",
+                "contact_count",
+                "wbc_shadow_desired_force_x_n",
+            }
+            missing = sorted(state_required - state_fields)
+            if missing:
+                raise ValueError(
+                    "state CSV missing fields: " + ",".join(missing)
+                )
+            state_rows = list(state_reader)
+        with args.ground_truth_csv.open(
+            newline="", encoding="utf-8"
+        ) as handle:
+            truth_reader = csv.DictReader(handle)
+            truth_fields = set(truth_reader.fieldnames or ())
+            truth_required = {
+                "time_s",
+                "base_quat_w",
+                "base_quat_x",
+                "base_quat_y",
+                "base_quat_z",
+            }
+            truth_required.update(
+                f"base_qfrc_constraint_{suffix}"
+                for suffix in QCOORD_SUFFIXES
+            )
+            truth_required.update(
+                f"base_mass_matrix_qcoord_r{row}c{column}"
+                for row in range(6)
+                for column in range(6)
+            )
+            missing = sorted(truth_required - truth_fields)
+            if missing:
+                raise ValueError(
+                    "ground-truth CSV missing fields: " + ",".join(missing)
+                )
+            truth_rows = list(truth_reader)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"validation=FAIL: {exc}")
+        return 2
+
+    if not truth_rows:
+        print("validation=FAIL: empty ground-truth CSV")
+        return 1
+
+    truth_times = [finite(row, "time_s") for row in truth_rows]
+    if any(
+        truth_times[index] <= truth_times[index - 1]
+        for index in range(1, len(truth_times))
+    ):
+        print("validation=FAIL: truth time is not strictly increasing")
+        return 1
+
+    qforce_gap = [[] for _ in QCOORD_SUFFIXES]
+    delta_base_acceleration = [[] for _ in QCOORD_SUFFIXES]
+    by_contact = {
+        count: {
+            "qforce_gap": [[] for _ in QCOORD_SUFFIXES],
+            "delta_acceleration": [[] for _ in QCOORD_SUFFIXES],
+        }
+        for count in (2, 4)
+    }
+    state_walking_rows = 0
+    matched_rows = 0
+    match_failures = 0
+    solve_failures = 0
+    time_errors: list[float] = []
+    time_cursor = 0
+
+    for state in state_rows:
+        if finite(state, "motion_stage") != 2.0:
+            continue
+        state_walking_rows += 1
+        try:
+            state_time = finite(state, "state_tick_s")
+            desired_force_x = finite(
+                state, "wbc_shadow_desired_force_x_n"
+            )
+            contact_count = int(finite(state, "contact_count"))
+        except (KeyError, ValueError):
+            match_failures += 1
+            continue
+
+        next_cursor = bisect_left(truth_times, state_time, time_cursor)
+        candidates = [
+            index
+            for index in (next_cursor - 1, next_cursor)
+            if 0 <= index < len(truth_rows)
+        ]
+        if not candidates:
+            match_failures += 1
+            continue
+        truth_index = min(
+            candidates,
+            key=lambda index: abs(truth_times[index] - state_time),
+        )
+        time_error = truth_times[truth_index] - state_time
+        if abs(time_error) > args.match_tolerance_s:
+            match_failures += 1
+            continue
+        time_cursor = truth_index
+        matched_rows += 1
+        time_errors.append(abs(time_error))
+
+        truth = truth_rows[truth_index]
+        quaternion = tuple(
+            finite(truth, f"base_quat_{axis}")
+            for axis in ("w", "x", "y", "z")
+        )
+        desired_force_world = body_to_world(
+            quaternion,
+            (desired_force_x, 0.0, args.mass_kg * args.gravity_mps2),
+        )
+        target_qforce = [
+            desired_force_world[0],
+            desired_force_world[1],
+            desired_force_world[2],
+            0.0,
+            0.0,
+            0.0,
+        ]
+        actual_qforce = [
+            finite(truth, f"base_qfrc_constraint_{suffix}")
+            for suffix in QCOORD_SUFFIXES
+        ]
+        matrix = [
+            [
+                finite(
+                    truth,
+                    f"base_mass_matrix_qcoord_r{row}c{column}",
+                )
+                for column in range(6)
+            ]
+            for row in range(6)
+        ]
+        gap = [
+            actual_qforce[index] - target_qforce[index]
+            for index in range(6)
+        ]
+        try:
+            delta_acceleration = solve_linear_system(
+                matrix,
+                [-value for value in gap],
+            )
+        except ValueError:
+            solve_failures += 1
+            continue
+        for index in range(6):
+            qforce_gap[index].append(gap[index])
+            delta_base_acceleration[index].append(
+                delta_acceleration[index]
+            )
+        if contact_count in by_contact:
+            bucket = by_contact[contact_count]
+            for index in range(6):
+                bucket["qforce_gap"][index].append(gap[index])
+                bucket["delta_acceleration"][index].append(
+                    delta_acceleration[index]
+                )
+
+    if matched_rows == 0:
+        print("validation=FAIL: no matched walking rows")
+        return 1
+
+    lines = [
+        "dynamics-consistent task replay audit",
+        f"state_rows={len(state_rows)}",
+        f"truth_rows={len(truth_rows)}",
+        f"walking_rows={state_walking_rows}",
+        f"matched_rows={matched_rows}",
+        f"time_match_failures={match_failures}",
+        f"mass_solve_failures={solve_failures}",
+        "max_time_error_s=%.9g" % max(time_errors),
+        "target_wrench_note=body_force_transformed_to_world_translation_qcoord",
+        "counterfactual_note=hold_measured_joint_accelerations_fixed",
+    ]
+    for index, suffix in enumerate(QCOORD_SUFFIXES):
+        lines.extend(
+            [
+                f"qforce_gap_{suffix}_p95_abs=%.9g"
+                % percentile([abs(value) for value in qforce_gap[index]], 0.95),
+                f"qforce_gap_{suffix}_rms=%.9g"
+                % rms(qforce_gap[index]),
+                f"qforce_gap_{suffix}_max_abs=%.9g"
+                % maximum_abs(qforce_gap[index]),
+                f"delta_base_accel_{suffix}_p95_abs=%.9g"
+                % percentile(
+                    [
+                        abs(value)
+                        for value in delta_base_acceleration[index]
+                    ],
+                    0.95,
+                ),
+                f"delta_base_accel_{suffix}_rms=%.9g"
+                % rms(delta_base_acceleration[index]),
+                f"delta_base_accel_{suffix}_max_abs=%.9g"
+                % maximum_abs(delta_base_acceleration[index]),
+            ]
+        )
+    for contact_count, bucket in by_contact.items():
+        if not bucket["qforce_gap"][0]:
+            continue
+        lines.append(
+            f"contact_{contact_count}_rows="
+            f"{len(bucket['qforce_gap'][0])}"
+        )
+        for index, suffix in enumerate(QCOORD_SUFFIXES):
+            lines.extend(
+                [
+                    f"contact_{contact_count}_qforce_gap_{suffix}_p95_abs=%.9g"
+                    % percentile(
+                        [
+                            abs(value)
+                            for value in bucket["qforce_gap"][index]
+                        ],
+                        0.95,
+                    ),
+                    f"contact_{contact_count}_delta_base_accel_{suffix}_p95_abs=%.9g"
+                    % percentile(
+                        [
+                            abs(value)
+                            for value in bucket["delta_acceleration"][index]
+                        ],
+                        0.95,
+                    ),
+                ]
+            )
+    lines.extend(
+        [
+            "interpretation=diagnostic_only_no_wbc_injection",
+            "validation="
+            + (
+                "PASS"
+                if match_failures == 0 and solve_failures == 0
+                else "FAIL"
+            ),
+        ]
+    )
+    report = "\n".join(lines) + "\n"
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(report, encoding="utf-8")
+    print(report, end="")
+    return 0 if match_failures == 0 and solve_failures == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

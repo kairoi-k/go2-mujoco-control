@@ -1,0 +1,11 @@
+# EXP-17 candidate: smooth terminal pre-compensation for the eight-step closed-loop run.
+# Only the final nominal body target changes from 230 mm to 210 mm.
+# leg body_shift_x_m body_shift_y_m foot_lift_height_m swing_x_m swing_y_m body_advance_x_m body_advance_y_m
+FR -0.070 0.060 0.040 0.060 0.000 0.025 0.000
+RL 0.070 -0.060 0.040 0.060 0.000 0.050 0.000
+FL -0.020 -0.060 0.040 0.060 0.000 0.075 0.000
+RR 0.100 0.060 0.040 0.060 0.000 0.100 0.000
+FR 0.030 0.060 0.040 0.060 0.000 0.125 0.000
+RL 0.170 -0.060 0.040 0.060 0.000 0.150 0.000
+FL 0.080 -0.060 0.040 0.060 0.000 0.175 0.000
+RR 0.210 0.000 0.040 0.060 0.000 0.210 0.000

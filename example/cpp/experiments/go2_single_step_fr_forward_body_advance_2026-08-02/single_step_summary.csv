@@ -1,0 +1,2 @@
+leg,target_swing_x_m,target_swing_y_m,actual_swing_x_m,actual_swing_y_m,body_displacement_x_m,body_displacement_y_m,swing_clearance_mean_mm,swing_clearance_max_mm,swing_force_mean,swing_force_max,swing_zero_force_fraction,landing_force_mean,max_abs_roll_deg,max_abs_pitch_deg,max_support_drift_mm,max_abs_q_error_rad,max_abs_tau_est
+FR,0.1,0.0,0.09672257015079364,0.0003538700476190537,0.03828634831746031,0.005292554333333334,19.363341424424426,19.597619,0.0,0.0,1.0,2.14,1.140927820767694,1.1857722533643318,12.391173209623673,0.10817492,10.947468758

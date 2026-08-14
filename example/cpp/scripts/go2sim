@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# go2sim - convenience launcher for the Go2 MuJoCo locomotion experiments.
+# See example/cpp/README.md and docs/ARCHITECTURE.md for the public usage and module map.
+#
+# Examples:
+#   go2sim                    # default 64-cycle headless walk
+#   go2sim fast               # faster preset
+#   go2sim task               # stand -> walk -> lie sequence
+#   go2sim turn 0.3           # turning command
+#   go2sim dist 3.0           # velocity disturbance (m/s)
+#   go2sim payload 10         # payload (kg)
+#   go2sim plan               # staged speed plan
+#   go2sim walk --view        # enable viewer
+# Additional arguments are forwarded to the controller (for example --foot-lift 0.030).
+set -u
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$SCRIPT_DIR/../.." && pwd)"
+RUN="$SCRIPT_DIR/run_trot.sh"
+
+SCENE="${1:-walk}"
+[ $# -gt 0 ] && shift
+
+BASE=(--period 0.60 --duty 0.75 --foot-lift 0.020 --kp 63 --kd 2.8 \
+      --kernel raibert-trot --raibert-velocity-gain 0.05 --raibert-max-adjustment 0.010 \
+      --world-feedback-max 0.060 --world-feedback-slew 0.004 --wbc-primary --domain-id 203)
+
+case "$SCENE" in
+  walk)    ARGS=(--step-length 0.091 --max-cycles 64) ;;
+  imp)     ARGS=(--period 0.50 --step-length 0.080 --kd 5.0 --tau-limit 35 --impulse --raibert-velocity-gain 0.20 --raibert-max-adjustment 0.040 --max-cycles 64) ;;
+  fast)    ARGS=(--step-length 0.110 --tau-limit 19 --max-cycles 64) ;;
+  task)    ARGS=(--step-length 0.091 --task stand-walk-lie) ;;
+  turn)    ARGS=(--step-length 0.091 --turn-rate "${1:-0.3}" --max-cycles 64); [ $# -gt 0 ] && shift ;;
+  dist)    ARGS=(--step-length 0.091 --push-time 4.0 --push-vel-x "${1:-1.5}" --push-duration 0.05 --max-cycles 64); [ $# -gt 0 ] && shift ;;
+  payload) ARGS=(--step-length 0.091 --payload-kg "${1:-5}" --max-cycles 64); [ $# -gt 0 ] && shift ;;
+  plan)    ARGS=(--step-length 0.091 --step-plan "32:0.100,48:0.110,64:0.100,80:0.091" --max-cycles 96) ;;
+  *) echo "unknown scene: $SCENE (walk|fast|task|turn|dist|payload|plan)"; exit 1 ;;
+esac
+
+VIEW="--headless"
+TIMEOUT=220
+EXTRA=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --view) VIEW=""; TIMEOUT=320 ;;
+    *) EXTRA+=("$1") ;;
+  esac
+  shift
+done
+
+NAME="${SCENE}_$(date +%H%M%S)"
+cd "$REPO"
+echo "== go2sim $SCENE $([ -z "$VIEW" ] && echo '(viewer)' || echo '(headless)') =="
+TROT_CPU_AFFINITY_SIM=0 TROT_CPU_AFFINITY_CTRL=1 bash "$RUN" "$TIMEOUT" "$NAME" \
+  --controller-duration 100 "${BASE[@]}" "${ARGS[@]}" $VIEW "${EXTRA[@]}"

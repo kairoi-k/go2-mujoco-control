@@ -1,0 +1,11 @@
+# Cyclic repeat candidate: each leg swings 2 x 60 mm per sequence.
+# The body endpoint advances 120 mm so the relative foot geometry closes.
+# leg body_shift_x_m body_shift_y_m foot_lift_height_m swing_x_m swing_y_m body_advance_x_m body_advance_y_m
+FR -0.070 0.060 0.040 0.060 0.000 0.015 0.000
+RL 0.070 -0.060 0.040 0.060 0.000 0.030 0.000
+FL -0.020 -0.060 0.040 0.060 0.000 0.045 0.000
+RR 0.100 0.060 0.040 0.060 0.000 0.060 0.000
+FR 0.030 0.060 0.040 0.060 0.000 0.075 0.000
+RL 0.170 -0.060 0.040 0.060 0.000 0.090 0.000
+FL 0.080 -0.060 0.040 0.060 0.000 0.105 0.000
+RR 0.210 0.000 0.040 0.060 0.000 0.120 0.000

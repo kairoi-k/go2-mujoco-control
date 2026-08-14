@@ -1,0 +1,155 @@
+--- simulate/mujoco/simulate/simulate.cc.upstream
++++ simulate/mujoco/simulate/simulate.cc
+@@ -2225,6 +2225,35 @@
+     mjv_applyPerturbPose(m_, d_, &this->pert, 1);  // mocap and dynamic bodies
+   }
+ }
++void Simulate::PublishRenderSnapshot(const mjModel* model, const mjData* data) {
++  if (!is_passive_ || !model || !data) {
++    return;
++  }
++
++  // The caller normally is PhysicsLoop. Locking here also keeps model
++  // replacement ordered for other possible producers.
++  MutexLock physics_lock(this->mtx);
++  if (this->exitrequest.load() || model != this->m_ ||
++      !this->m_passive_ || !this->d_passive_ ||
++      this->state_size_ <= 0 ||
++      static_cast<int>(this->render_state_.size()) != this->state_size_) {
++    return;
++  }
++
++  // Never wait for rendering. A missed visual frame is preferable to
++  // delaying the 1 kHz control/data path.
++  std::unique_lock<std::mutex> render_lock(
++      this->render_mtx, std::try_to_lock);
++  if (!render_lock.owns_lock()) {
++    return;
++  }
++
++  mj_getState(model, data, this->render_state_.data(),
++              mjSTATE_INTEGRATION);
++  mj_setState(this->m_passive_, this->d_passive_,
++              this->render_state_.data(), mjSTATE_INTEGRATION);
++  mj_forward(this->m_passive_, this->d_passive_);
++}
+ 
+ //------------------------- Tell the render thread to load a file and wait -------------------------
+ void Simulate::LoadMessage(const char* displayed_filename) {
+@@ -2340,12 +2369,12 @@
+   std::memcpy(eq_active_.data(), this->d_->eq_active, sizeof(this->d_->eq_active[0]) * this->m_->neq);
+   eq_active_prev_ = eq_active_;
+ 
++  state_size_ = mj_stateSize(this->m_, mjSTATE_INTEGRATION);
++
+   // allocate history buffer: smaller of {2000 states, 100 MB}
+   if (!this->is_passive_) {
+     constexpr int kMaxHistoryBytes = 1e8;
+ 
+-    // get state size, size of history buffer
+-    state_size_ = mj_stateSize(this->m_, mjSTATE_INTEGRATION);
+     int state_bytes = state_size_ * sizeof(mjtNum);
+     int history_length = mjMIN(INT_MAX / state_bytes, 2000);
+     int history_bytes = mjMIN(state_bytes * history_length, kMaxHistoryBytes);
+@@ -2406,6 +2435,7 @@
+     // full copy on init
+     m_passive_ = mj_copyModel(nullptr, m_);
+     d_passive_ = mj_copyData(nullptr, m_passive_, d_);
++    render_state_.resize(state_size_);
+   }
+ 
+   // set window title to model name
+@@ -2471,7 +2501,8 @@
+   }
+ 
+   // no model
+-  if (!this->is_passive_ && !this->m_) {
++  if ((!this->is_passive_ && !this->m_) ||
++      (this->is_passive_ && !this->m_passive_)) {
+     // blank screen
+     mjr_rectangle(rect, 0.2f, 0.3f, 0.4f, 1);
+ 
+@@ -2825,14 +2856,23 @@
+   // run event loop
+   while (!this->platform_ui->ShouldCloseWindow() && !this->exitrequest.load()) {
+     {
+-      const MutexLock lock(this->mtx);
+-
++      const MutexLock load_lock(this->mtx);
+       // load model (not on first pass, to show "loading" label)
+       if (this->loadrequest==1) {
+         this->LoadOnRenderThread();
+       } else if (this->loadrequest == 2) {
+         this->loadrequest = 1;
+       }
++    }
++    std::unique_lock<std::recursive_mutex> physics_lock(
++        this->mtx, std::defer_lock);
++    std::unique_lock<std::mutex> render_lock(
++        this->render_mtx, std::defer_lock);
++    if (this->is_passive_) {
++      render_lock.lock();
++    } else {
++      physics_lock.lock();
++    }
+ 
+       // poll and handle events
+       this->platform_ui->PollEvents();
+@@ -2876,7 +2916,16 @@
+                     ngeom * sizeof(mjvGeom));
+         this->scn.ngeom += ngeom;
+       }
+-    }  // MutexLock (unblocks simulation thread)
++
++    // Rendering only consumes the scene built above. Do not hold either
++    // simulation/render lock while the graphics backend presents a frame;
++    // otherwise the physics-side snapshot publisher can be starved by a
++    // high-FPS viewer and the animation appears to jump between snapshots.
++    if (this->is_passive_) {
++      render_lock.unlock();
++    } else {
++      physics_lock.unlock();
++    }
+ 
+     // render while simulation is running
+     this->Render();
+@@ -2892,7 +2941,8 @@
+     }
+   }
+ 
+-  const MutexLock lock(this->mtx);
++  const MutexLock physics_lock(this->mtx);
++  std::lock_guard<std::mutex> render_lock(this->render_mtx);
+   mjv_freeScene(&this->scn);
+   if (is_passive_) {
+     mj_deleteData(d_passive_);
+--- simulate/mujoco/simulate/simulate.h.upstream
++++ simulate/mujoco/simulate/simulate.h
+@@ -59,6 +59,10 @@
+   // mjData corresponding to mjSTATE_INTEGRATION will be synced.
+   void Sync(bool state_only = false);
+ 
++  // Copy only the integration state into the viewer-owned passive data.
++  // The live model/data remain owned by the physics and control threads.
++  void PublishRenderSnapshot(const mjModel* model, const mjData* data);
++
+   void UpdateHField(int hfieldid);
+   void UpdateMesh(int meshid);
+   void UpdateTexture(int texid);
+@@ -139,6 +143,7 @@
+   // owned by Simulate, updated from the user by the Sync() method
+   mjModel* m_passive_ = nullptr;
+   mjData* d_passive_ = nullptr;
++  std::vector<mjtNum> render_state_;
+   std::vector<mjvGeom> user_scn_geoms_;
+ 
+   mjOption mjopt_prev_;
+@@ -177,6 +182,8 @@
+   } pending_ = {};
+ 
+   SimulateMutex mtx;
++  // Separate from mtx so rendering cannot stall physics.
++  std::mutex render_mtx;
+   std::condition_variable_any cond_loadrequest;
+ 
+   int frames_ = 0;

@@ -1,0 +1,43 @@
+# Build products
+**/build/
+**/build-*/
+**/build_*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# IDE / local workspace
+.vscode/
+.idea/
+.cursor/
+
+# OS metadata
+.DS_Store
+._*
+Thumbs.db
+
+# Runtime / generated experiment output
+**/log/
+**/logs/
+**/runs/
+example/cpp/experiments/_runs/
+*.log
+
+# Generated binaries / checkpoints
+*.pt
+*.pth
+*.ckpt
+
+# Local simulator executables
+simulate/mujoco

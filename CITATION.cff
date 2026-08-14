@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use the research extensions in this repository, cite this software and the relevant upstream projects."
+title: "Unitree Go2 MuJoCo control research"
+type: software
+authors:
+  - family-names: Wang
+    given-names: Che
+repository-code: "https://github.com/kairoi-k/go2-mujoco-control"
+license: BSD-3-Clause

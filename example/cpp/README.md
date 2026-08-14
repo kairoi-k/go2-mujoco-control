@@ -1,0 +1,63 @@
+# Go2 C++ control stack
+
+This directory contains the primary model-based locomotion implementation and its retained research artifacts.
+
+## Build
+
+From the repository root, after MuJoCo and Unitree SDK2 are configured:
+
+```bash
+cmake -S example/cpp -B example/cpp/build
+cmake --build example/cpp/build -j"$(nproc)"
+```
+
+The main locomotion target is `real_trot_go2`. Kinematics and other test targets are defined in `CMakeLists.txt`.
+
+Basic smoke checks:
+
+```bash
+./example/cpp/build/test_go2_forward_kinematics
+./example/cpp/build/test_go2_inverse_kinematics
+```
+
+See [`../../docs/REPRODUCIBILITY.md`](../../docs/REPRODUCIBILITY.md) for environment assumptions and simulator build notes.
+
+## Running the simulator/controller pair
+
+`example/cpp/scripts/go2sim` wraps the simulator and controller launch used by the research experiments. Examples:
+
+```bash
+bash example/cpp/scripts/go2sim walk
+bash example/cpp/scripts/go2sim walk --view
+bash example/cpp/scripts/go2sim task
+bash example/cpp/scripts/go2sim turn 0.3
+```
+
+The runner uses dedicated DDS domain IDs. Inspect it and `scripts/run_trot.sh` before adapting the setup to another machine or network.
+
+## Source layout
+
+| Area | Files |
+|---|---|
+| Entry point / CLI | `real_trot_go2.cpp`, `trot_cli.*` |
+| Controller lifecycle | `trot_experiment_lifecycle.cpp` |
+| 500 Hz control loop | `trot_experiment_control.cpp` |
+| Gait and velocity targets | `trot_experiment_gait.cpp`, `raibert_trot_kernel.h`, `raibert_footstep_planner.h` |
+| Dynamics-informed feedforward | `trot_experiment_wbc.cpp`, `trot_true_dynamics.h` |
+| Diagnostics and safety gates | `trot_experiment_diagnostics.cpp`, `trot_types.h` |
+| Kinematics | `go2_forward_kinematics.h`, `go2_inverse_kinematics.h`, `go2_leg_jacobian.h` |
+| Contact / wrench handling | `contact_*`, `go2_contact_torque_mapping.h`, `wbc_runtime_gate.h` |
+| Leg-lift / multi-step sequence | `real_leg_lift_go2.cpp`, `leg_lift_*` |
+| Experiment runners | `scripts/` |
+| Retained evidence | `experiments/`, `experiments/CATALOG.md` |
+| Offline analysis | `tools/analysis/` |
+
+The curated release keeps the maintained runners and omits machine-specific historical batch/parameter-sweep launchers. The complete development repository remains the archival record.
+
+For a higher-level map, see [`../../docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md) and [`../../docs/CODE_GUIDE.md`](../../docs/CODE_GUIDE.md).
+
+## Experiment records
+
+A research-relevant run should identify the code revision, intervention/configuration, seed, input/reference identity, completion status, metric semantics, and evidence path. Disposable outputs belong in ignored local directories; only evidence with durable provenance should be promoted into the curated tree.
+
+The current primary claim and its scope are defined in [`../../docs/RESEARCH_INDEX.md`](../../docs/RESEARCH_INDEX.md). Milestone-level context is summarized in [`../../docs/RESEARCH_HISTORY.md`](../../docs/RESEARCH_HISTORY.md).
