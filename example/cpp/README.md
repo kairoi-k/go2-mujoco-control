@@ -52,12 +52,12 @@ The runner uses dedicated DDS domain IDs. Inspect it and `scripts/run_trot.sh` b
 | Retained evidence | `experiments/`, `experiments/CATALOG.md` |
 | Offline analysis | `tools/analysis/` |
 
-The curated release keeps the maintained runners and omits machine-specific historical batch/parameter-sweep launchers. The complete development repository remains the archival record.
+Maintained runners are in `scripts/`. Historical batch/parameter-sweep launchers are not in this tree.
 
 For a higher-level map, see [`../../docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md) and [`../../docs/CODE_GUIDE.md`](../../docs/CODE_GUIDE.md).
 
 ## Experiment records
 
-A research-relevant run should identify the code revision, intervention/configuration, seed, input/reference identity, completion status, metric semantics, and evidence path. Disposable outputs belong in ignored local directories; only evidence with durable provenance should be promoted into the curated tree.
+A research-relevant run should identify the code revision, intervention/configuration, seed, input/reference identity, completion status, metric semantics, and evidence path. Disposable outputs belong in ignored local directories.
 
 The current primary claim and its scope are defined in [`../../docs/RESEARCH_INDEX.md`](../../docs/RESEARCH_INDEX.md). Milestone-level context is summarized in [`../../docs/RESEARCH_HISTORY.md`](../../docs/RESEARCH_HISTORY.md).

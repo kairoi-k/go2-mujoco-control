@@ -18,7 +18,7 @@ Call out any change that can alter controller behavior, evaluation semantics, ex
 3. which experiment/config/data/evaluator version supports the result;
 4. whether prior results are superseded, invalidated, or remain comparable.
 
-Do not rewrite a failed experiment out of the record when it matters to the evidence trail. Do not change a frozen protocol or acceptance gate in place after observing results. Claims should remain narrower than the evidence; fixing known implementation defects does not prove that no undiscovered defects exist.
+Do not rewrite a failed experiment out of the record when it matters to the evidence trail. Do not change a frozen protocol or acceptance gate in place after observing results.
 
 ## Pull requests
 

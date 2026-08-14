@@ -1,10 +1,10 @@
 # Unitree Go2 MuJoCo control research
 
-Research fork of [`unitreerobotics/unitree_mujoco`](https://github.com/unitreerobotics/unitree_mujoco) for **stand → walk → lie** sequencing, a model-based diagonal trot, and an Isaac Lab velocity-RL second track on Unitree Go2. Not a product, not a general control library, and not the Kine2Go imitation work.
+Research fork of [`unitreerobotics/unitree_mujoco`](https://github.com/unitreerobotics/unitree_mujoco) for Go2 **stand → walk → lie**, a model-based diagonal trot, and an Isaac Lab velocity-RL second track.
 
-> **What this repo actually is.** Two tracks. The onboarding result is a 500 Hz LowCmd state machine: stand-up, settle, trot, blend back to stand, lie-down. Reliable C++ cruise is about **0.13–0.18 m/s**. The second track is Isaac Lab velocity RL (`rl/`): command curricula up to **±3.5 m/s**, fast but short-stride. Motion imitation lives in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
+Two tracks. The onboarding result is a 500 Hz LowCmd state machine: stand-up, settle, trot, blend back to stand, lie-down. Reliable C++ cruise is about **0.13–0.18 m/s**. Isaac Lab velocity RL (`rl/`) uses command curricula up to **±3.5 m/s**, fast but short-stride. Imitation work is in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
 
-Development milestone `73ac543` is provenance for the archive. It need not appear in a clean public snapshot. This repository is that snapshot.
+Development milestone `73ac543` is provenance for the archive.
 
 ## Contents
 

@@ -14,7 +14,7 @@ Depending on the experiment, a directory may contain configuration snapshots, CS
 - **Supporting evidence:** retained runs that document controller development, repeatability, or failure analysis.
 - **Historical artifacts:** useful for provenance but not current evidence for a promoted claim.
 
-Disposable `_runs/` output is intentionally excluded from the curated release and ignored by Git.
+`_runs/` output is gitignored.
 
 ## Adding a new experiment
 
