@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "go2-velocity-fast"
+version = "0.1.0"
+description = "Isaac Lab Go2 velocity curricula (±2.0 to ±3.5 m/s) as a gym-registered extension"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "Che Wang" }]
+
+[project.urls]
+Homepage = "https://github.com/kairoi-k/go2-mujoco-control"
+Release = "https://github.com/kairoi-k/go2-mujoco-control/releases/tag/v0.1.0"
+
+[project.scripts]
+go2-fast-play = "go2_velocity_fast.play:main"
+go2-fast-train = "go2_velocity_fast.train:main"
+go2-fast-download = "go2_velocity_fast.download:main"
+
+[tool.setuptools.packages.find]
+include = ["go2_velocity_fast*"]

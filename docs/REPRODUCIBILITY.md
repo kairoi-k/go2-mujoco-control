@@ -39,7 +39,7 @@ A valid extension should preserve or version:
 
 Do not attach Kine2Go seam or AMP numbers to this repository. Those artifacts are in the companion imitation fork.
 
-Isaac Lab velocity RL uses a separate stack (see `rl/isaaclab_custom/ENV_SNAPSHOT.md`). Configs are in git; the `model_54950` checkpoint is not.
+Isaac Lab velocity RL uses a separate stack (see `rl/ENV_SNAPSHOT.md`). Configs are a gym-registered package (`pip install -e rl`). The recorded `model_54950` checkpoint is on [Release v0.1.0](https://github.com/kairoi-k/go2-mujoco-control/releases/tag/v0.1.0).
 
 Bulk logs, build trees, local checkpoints, and machine-specific caches are not in this tree.
 

@@ -1,10 +1,11 @@
 """Go2 flat velocity curriculum: lin_vel_x ±3.5 m/s.
 
-Drop-in for Isaac Lab's Go2 velocity task package. Gait terms stay at
-the official velocity-task defaults (no reference-motion imitation).
+Gait terms stay at the official velocity-task defaults (no reference-motion imitation).
 """
+
 from isaaclab.utils.configclass import configclass
-from isaaclab_tasks.manager_based.locomotion.velocity.config.go2.flat_fast30_env_cfg import UnitreeGo2FlatFast30EnvCfg
+
+from .flat_fast30_env_cfg import UnitreeGo2FlatFast30EnvCfg
 
 
 @configclass

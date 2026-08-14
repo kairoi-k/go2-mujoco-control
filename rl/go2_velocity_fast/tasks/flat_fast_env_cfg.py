@@ -1,8 +1,5 @@
-"""Go2 flat velocity curriculum: lin_vel_x ±2.0 m/s.
+"""Go2 flat velocity curriculum: lin_vel_x ±2.0 m/s."""
 
-Drop-in next to Isaac Lab's official `flat_env_cfg.py` under
-`isaaclab_tasks/.../velocity/config/go2/`.
-"""
 from isaaclab.utils.configclass import configclass
 from isaaclab_tasks.manager_based.locomotion.velocity.config.go2.flat_env_cfg import UnitreeGo2FlatEnvCfg
 
