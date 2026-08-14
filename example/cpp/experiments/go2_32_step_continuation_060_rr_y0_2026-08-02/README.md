@@ -25,4 +25,4 @@
 
 32 步作为正式压力测试通过，随后 EXP-20 又在 8/24/32 步接入 yaw 保持反馈并完成独立 32 步重复；这不是 100 步、趴下状态机或真机稳定性证明。
 
-库内证据是 sequence_summary.csv 和 sequence_overview.png。controller.log / data.csv / simulator.log 在归档，不进 git。
+库内证据是 sequence_summary.csv 和 sequence_overview.png。controller.log / data.csv / simulator.log 不在 git。

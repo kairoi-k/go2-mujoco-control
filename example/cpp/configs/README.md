@@ -2,9 +2,9 @@
 
 供 `run_leg_sequence.sh` / `real_leg_lift_go2 --sequence-file` 使用。
 
-典型正式配置：
+典型配置：
 
-- `go2_four_step_fr_rl_fl_rr.txt` — 对角四步正式候选
+- `go2_four_step_fr_rl_fl_rr.txt` — 对角四步
 
 格式见加载函数 `LoadStepSequence`（`leg_lift_types.h`）：每步指定抬腿、重心偏移、抬脚高、摆动与机身前进等。
 

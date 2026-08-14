@@ -10,10 +10,8 @@ controller="${cpp_dir}/build/real_leg_lift_go2"
 timeout_s="${1:-45}"
 experiment_name="${2:-go2_two_step_fr_fl_2026-08-02}"
 sequence_file="${3:-${cpp_dir}/configs/go2_two_step_fr_fl.txt}"
-# Formal go2_* stay at experiments top-level; everything else goes to _runs/.
-if [[ "$experiment_name" == go2_* ]]; then
-  experiment_dir="$cpp_dir/experiments/$experiment_name"
-elif [[ "$experiment_name" == _archive/* || "$experiment_name" == _runs/* ]]; then
+# Named go2_* directories stay under experiments/; other output goes to experiments/_runs/.
+if [[ "$experiment_name" == go2_* || "$experiment_name" == _runs/* ]]; then
   experiment_dir="$cpp_dir/experiments/$experiment_name"
 else
   experiment_dir="$cpp_dir/experiments/_runs/$experiment_name"

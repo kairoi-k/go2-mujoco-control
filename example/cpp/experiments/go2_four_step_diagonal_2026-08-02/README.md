@@ -37,4 +37,4 @@ bash example/cpp/scripts/run_leg_sequence.sh 60 go2_four_step_diagonal_2026-08-0
 
 - `sequence_summary.csv`：每一步的摆脚、净空、足底力、姿态和支撑漂移指标。
 - `sequence_overview.png`：机身世界位移、四步净空、足底力和姿态曲线。
-- `controller.log`：落脚触发和序列完成日志（归档，不进 git）。
+- `controller.log`：落脚触发和序列完成日志（不在 git）。

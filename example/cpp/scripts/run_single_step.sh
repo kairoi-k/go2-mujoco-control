@@ -17,10 +17,8 @@ swing_x="${7:-0.100}"
 swing_y="${8:-0.000}"
 body_advance_x="${9:-0.050}"
 body_advance_y="${10:-0.000}"
-# Formal go2_* stay at experiments top-level; everything else goes to _runs/.
-if [[ "$experiment_name" == go2_* ]]; then
-  experiment_dir="$cpp_dir/experiments/$experiment_name"
-elif [[ "$experiment_name" == _archive/* || "$experiment_name" == _runs/* ]]; then
+# Named go2_* directories stay under experiments/; other output goes to experiments/_runs/.
+if [[ "$experiment_name" == go2_* || "$experiment_name" == _runs/* ]]; then
   experiment_dir="$cpp_dir/experiments/$experiment_name"
 else
   experiment_dir="$cpp_dir/experiments/_runs/$experiment_name"

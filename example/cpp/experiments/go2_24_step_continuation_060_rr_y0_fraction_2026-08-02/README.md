@@ -23,7 +23,7 @@
 3. 保留八步前缀、后续继续前进的版本在第 12 步 RR 的 y=60 mm 目标越过小腿关节上限约 0.00046 rad；把后续 RR 横向目标收回到 y=0 后通过预检。
 4. 同一套最终配置的前两次运行分别在第 6 步和第 4 步出现瞬时 min_support_contacts=1，但姿态、漂移、关节误差和力矩都正常；重复运行证明这是接触采样边界抖动。于是健康判断改为 98% 达标采样比例，避免瞬时掉点冒充整步失稳。
 
-以上失败目录和配置保存在 example/cpp/experiments/_archive/2026-08-02_sequence-development/long-sequence-probes/。
+以上失败配置不在 git。
 
 ## 实际具体结果
 
@@ -43,8 +43,8 @@ bash example/cpp/scripts/run_leg_sequence.sh 360 \
 
 ## 证据
 
-库内证据是 sequence_summary.csv 和 sequence_overview.png。controller.log / data.csv / simulator.log 在归档，不进 git。
+库内证据是 sequence_summary.csv 和 sequence_overview.png。controller.log / data.csv / simulator.log 不在 git。
 
 ## 判定与边界
 
-EXP-18 作为 24 步长序列候选通过一次正式运行，证明当前模块可以从 8 步扩展到 24 步而不出现明显累积失稳。它还不是 100 步证明：最大支撑漂移已经接近门槛，尚需重复运行、32 步压力测试、yaw 反馈、停止保护和“趴下”状态机。
+EXP-18 一次 24 步长序列运行通过，证明当前模块可以从 8 步扩展到 24 步而不出现明显累积失稳。它还不是 100 步证明：最大支撑漂移已经接近门槛，尚需重复运行、32 步压力测试、yaw 反馈、停止保护和“趴下”状态机。

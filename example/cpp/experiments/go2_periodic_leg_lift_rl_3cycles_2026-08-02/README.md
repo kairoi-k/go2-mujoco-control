@@ -27,7 +27,7 @@ example/cpp/scripts/run_periodic_leg_lift.sh 3 45 go2_periodic_leg_lift_rl_3cycl
 
 ## 文件
 
-- `data.csv`：三周期完整原始数据，按仓库规则保留在本机但不纳入 Git。
+- `data.csv`：三周期完整原始数据，不在 git。
 - `periodic_summary.csv`：各周期关键指标。
 - `periodic_overview.png`：净空、足底力、姿态和支撑漂移总览。
-- `controller.log`、`simulator.log`：运行日志（归档，不进 git）。
+- `controller.log`、`simulator.log`：运行日志（不在 git）。
