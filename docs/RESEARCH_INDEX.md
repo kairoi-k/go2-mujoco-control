@@ -13,7 +13,7 @@ This repository records **model-based Go2 control in MuJoCo**, plus an Isaac Lab
 | Transitions | Smoothstep interpolation of 12 joint targets; gait amplitude ramps over 0.8 s from the stand pose |
 | Reliable cruise | about 0.15 m/s (`go2sim walk`); 0.18 m/s (`go2sim fast`) needs `--tau-limit 19` |
 | Beyond that | 0.21 m/s rejected under the recorded torque/quality gates |
-| WBC | incremental dynamics-informed components with position-control fallback, not a complete full-dynamics stack |
+| WBC | `--wbc-full` is centroidal QP + foothold MPC; same-gate audit vs 0.15 walk is in `docs/WBC_MPC.md` (not faster; both failed the quality gate in that session) |
 
 **Supported claim:** the sequenced task and a slow, measurable trot run in this simulator stack.
 
