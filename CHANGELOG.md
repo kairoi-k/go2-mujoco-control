@@ -6,6 +6,7 @@
 - `ctest` registers the CPU unit tests (FK still needs the local MuJoCo library).
 - `example/cpp/MODULES.md` points at `docs/CODE_GUIDE.md`.
 - `--wbc-full` centroidal wrench (`W = M a + h`); N-step foothold preview now selects the next Raibert touchdown; stance PD is lowered on that path.
+- Preview terminal velocity error feeds the centroidal `a_x` task on `--wbc-full`.
 
 ## 2026-08-14
 

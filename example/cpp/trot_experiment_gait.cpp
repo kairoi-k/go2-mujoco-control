@@ -140,6 +140,11 @@ bool TrotExperiment::BuildGaitTargets(
     kernel_footstep_plan_valid_ = gait_result.footstep_plan_valid;
     kernel_velocity_error_x_mps_ = gait_result.velocity_error_x_mps;
     kernel_touchdown_target_x_m_ = gait_result.touchdown_target_x_m;
+    preview_n_steps_ = gait_result.preview_n_steps;
+    preview_touchdown_x_m_ = gait_result.preview_touchdown_x_m;
+    preview_terminal_velocity_x_mps_ =
+        gait_result.preview_terminal_velocity_x_mps;
+    have_preview_terminal_velocity_ = preview_n_steps_ > 0;
     const double phase = gait_result.phase;
     current_phase_ = phase;
     const int cycle_index = gait_result.cycle_index;

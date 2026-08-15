@@ -233,6 +233,10 @@ private:
     bool kernel_footstep_plan_valid_ = false;
     double kernel_velocity_error_x_mps_ = 0.0;
     std::array<double, go2::kLegCount> kernel_touchdown_target_x_m_{};
+    int preview_n_steps_ = 0;
+    double preview_touchdown_x_m_ = 0.0;
+    double preview_terminal_velocity_x_mps_ = 0.0;
+    bool have_preview_terminal_velocity_ = false;
 
     double world_reference_x_m_ = 0.0;
     double world_reference_y_m_ = 0.0;

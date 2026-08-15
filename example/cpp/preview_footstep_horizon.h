@@ -174,4 +174,24 @@ inline bool PlanPreviewFootstepHorizon(
     return true;
 }
 
+inline bool PreviewTerminalAcceleration(
+    double nominal_velocity_x_mps,
+    double terminal_velocity_x_mps,
+    int n_steps,
+    double period_s,
+    double &acc_x_mps2)
+{
+    acc_x_mps2 = 0.0;
+    if (n_steps <= 0 ||
+        !(period_s > 0.0) ||
+        !std::isfinite(nominal_velocity_x_mps) ||
+        !std::isfinite(terminal_velocity_x_mps))
+        return false;
+    const double horizon_s =
+        0.5 * period_s * static_cast<double>(n_steps);
+    acc_x_mps2 =
+        (nominal_velocity_x_mps - terminal_velocity_x_mps) / horizon_s;
+    return std::isfinite(acc_x_mps2);
+}
+
 }  // namespace go2_control

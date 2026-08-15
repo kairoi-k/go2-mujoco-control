@@ -14,6 +14,7 @@ Stance legs get an extra `M a` torque; gravity/bias `h` is left to the position 
 - stance PD drops to `kWbcFullStanceKp/Kd` (25 / 2.0) so gravity is not double-counted by the position servo;
 - swing legs remain IK + position control;
 - the Raibert kernel takes the first foothold from an N-step preview (`--preview-horizon`, default 4). Remaining steps stay greedy Raibert. Velocity is propagated with a first-order capture model (rearward placement raises forward speed). This is not a receding-horizon QP.
+- remaining terminal velocity error over that horizon sets the centroidal `a_x` task, so the wrench looks ahead instead of only reacting to the current speed error.
 
 ## How to run
 

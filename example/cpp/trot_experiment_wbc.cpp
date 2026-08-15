@@ -17,6 +17,7 @@
 #include "go2_contact_torque_mapping.h"
 #include "go2_inverse_kinematics.h"
 #include "motion_frame_utils.h"
+#include "preview_footstep_horizon.h"
 
 using namespace unitree::common;
 using namespace unitree::robot;
@@ -243,6 +244,20 @@ void TrotExperiment::UpdateWbcShadow(
                         kShadowWbcMassKg,
                     -3.0, 3.0);
                 a_desired[1] = 0.0;
+                if (params_.wbc_full && have_preview_terminal_velocity_)
+                {
+                    double preview_acc_x = 0.0;
+                    if (go2_control::PreviewTerminalAcceleration(
+                            params_.direction_sign * params_.step_length_m /
+                                params_.period_s,
+                            preview_terminal_velocity_x_mps_,
+                            preview_n_steps_,
+                            params_.period_s,
+                            preview_acc_x))
+                    {
+                        a_desired[0] = Clamp(preview_acc_x, -3.0, 3.0);
+                    }
+                }
             }
             const double bounce_phase =
                 2.0 * kPi * 2.0 / params_.period_s *
