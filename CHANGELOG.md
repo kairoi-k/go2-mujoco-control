@@ -9,6 +9,8 @@
 - Preview terminal velocity error feeds the centroidal `a_x` task on `--wbc-full`.
 - `--wbc-full` contact forces come from a dense inequality QP; footholds come from a receding-horizon MPC that jointly plans the preview.
 - Foothold MPC also plans lateral (y) touchdowns from body-frame `v_y`.
+- Headless `run_trot.sh` no longer waits up to 20 s for a MuJoCo window before starting the controller.
+- Same-gate walk vs `--wbc-full` speed audit recorded in `docs/WBC_MPC.md`: both failed the cycle-quality gate; `--wbc-full` was not faster.
 
 ## 2026-08-14
 

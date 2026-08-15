@@ -246,7 +246,12 @@ if [[ "$sim_ready" != true ]]; then
   exit 1
 fi
 
-activate_simulator_window
+# Headless has no GLFW window. Waiting on xdotool here lets the robot sag
+# under gravity for up to 20s before the controller starts, which trips the
+# cycle-quality gate. Only focus a window when the viewer is actually up.
+if [[ "$sim_headless" != true ]]; then
+  activate_simulator_window
+fi
 
 controller_status=0
 if [[ "$continuous_mode" == true ]]; then
