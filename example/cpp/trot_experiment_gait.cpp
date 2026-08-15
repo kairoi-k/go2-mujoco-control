@@ -144,6 +144,7 @@ bool TrotExperiment::BuildGaitTargets(
     preview_touchdown_x_m_ = gait_result.preview_touchdown_x_m;
     preview_terminal_velocity_x_mps_ =
         gait_result.preview_terminal_velocity_x_mps;
+    preview_planned_acc_x_mps2_ = gait_result.preview_planned_acc_x_mps2;
     have_preview_terminal_velocity_ = preview_n_steps_ > 0;
     const double phase = gait_result.phase;
     current_phase_ = phase;

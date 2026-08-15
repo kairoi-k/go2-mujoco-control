@@ -43,6 +43,7 @@ public:
         last_preview_n_steps_ = 0;
         last_preview_touchdown_x_m_ = 0.0;
         last_preview_terminal_velocity_x_mps_ = 0.0;
+        last_preview_planned_acc_x_mps2_ = 0.0;
     }
 
     // [Phase3] 在线步长/周期变更(cycle 边界调用,渐变趋近防冲击)
@@ -145,6 +146,8 @@ public:
         result.preview_touchdown_x_m = last_preview_touchdown_x_m_;
         result.preview_terminal_velocity_x_mps =
             last_preview_terminal_velocity_x_mps_;
+        result.preview_planned_acc_x_mps2 =
+            last_preview_planned_acc_x_mps2_;
 
         const RaibertFootstepPlannerParams planner_params{
             params_.gait.period_s,
@@ -192,10 +195,14 @@ public:
                     last_preview_touchdown_x_m_ = next_touchdown_x_m;
                     last_preview_terminal_velocity_x_mps_ =
                         preview_output.terminal_velocity_x_mps;
+                    last_preview_planned_acc_x_mps2_ =
+                        preview_output.planned_acc_x_mps2;
                     result.preview_n_steps = last_preview_n_steps_;
                     result.preview_touchdown_x_m = last_preview_touchdown_x_m_;
                     result.preview_terminal_velocity_x_mps =
                         last_preview_terminal_velocity_x_mps_;
+                    result.preview_planned_acc_x_mps2 =
+                        last_preview_planned_acc_x_mps2_;
                 }
                 else
                 {
@@ -345,6 +352,7 @@ private:
     int last_preview_n_steps_ = 0;
     double last_preview_touchdown_x_m_ = 0.0;
     double last_preview_terminal_velocity_x_mps_ = 0.0;
+    double last_preview_planned_acc_x_mps2_ = 0.0;
 };
 
 } // namespace go2_control

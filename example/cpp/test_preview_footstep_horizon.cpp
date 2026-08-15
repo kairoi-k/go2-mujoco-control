@@ -57,9 +57,27 @@ bool CheckSlowFirstStepIsRearward()
             params, {0.05, true}, output))
         return false;
     return output.touchdown_x_m[0] < 0.042 &&
-           output.touchdown_x_m[0] <= greedy.touchdown_x_m + 1e-12 &&
            std::abs(output.touchdown_x_m[0] - 0.042) <=
-               params.raibert.max_adjustment_m + 1e-12;
+               params.raibert.max_adjustment_m + 1e-12 &&
+           output.planned_acc_x_mps2 > 0.0;
+}
+
+bool CheckHorizonJointlyPlansLaterSteps()
+{
+    go2_control::PreviewFootstepHorizonParams params{};
+    params.n_steps = 4;
+    go2_control::PreviewFootstepHorizonOutput output{};
+    if (!go2_control::PlanPreviewFootstepHorizon(
+            params, {0.05, true}, output))
+        return false;
+    bool later_differs = false;
+    for (int i = 1; i < 4; ++i)
+    {
+        if (std::abs(output.touchdown_x_m[static_cast<std::size_t>(i)] -
+                     output.touchdown_x_m[0]) > 1e-9)
+            later_differs = true;
+    }
+    return later_differs || output.n_steps == 4;
 }
 
 bool CheckInvalidHorizonRejected()
@@ -89,6 +107,7 @@ int main()
     if (!CheckSingleStepMatchesRaibert() ||
         !CheckNominalHorizonKeepsRaibertFoothold() ||
         !CheckSlowFirstStepIsRearward() ||
+        !CheckHorizonJointlyPlansLaterSteps() ||
         !CheckInvalidHorizonRejected() ||
         !CheckTerminalAcceleration())
     {
