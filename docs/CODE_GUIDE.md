@@ -14,6 +14,7 @@ This guide points contributors to the smallest relevant source area for common c
 | Change Raibert landing adjustment | `example/cpp/raibert_footstep_planner.h` |
 | Change contact-force allocation | `example/cpp/contact_wrench_*` |
 | Change centroidal wrench / foothold preview | `example/cpp/centroidal_wbc.h`, `example/cpp/preview_footstep_horizon.h`, `example/cpp/contact_wrench_qp.h`, `example/cpp/footstep_mpc.h` |
+| Change `--wbc-full` ID-WBC / SRBD MPC | `example/cpp/go2_rigid_body.h`, `example/cpp/srbd_mpc.h`, `example/cpp/inverse_dynamics_wbc.h`, `example/cpp/dense_qp.h`, `example/cpp/trot_experiment_wbc.cpp` |
 | Change dynamics-informed feedforward | `example/cpp/trot_experiment_wbc.cpp`, `example/cpp/trot_true_dynamics.h` |
 | Change safety gates / diagnostics | `example/cpp/trot_experiment_diagnostics.cpp` |
 | Change leg-lift / multi-step experiments | `example/cpp/leg_lift_*`, `example/cpp/real_leg_lift_go2.cpp` |

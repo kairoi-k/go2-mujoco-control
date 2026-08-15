@@ -17,12 +17,271 @@
 #include "contact_state_filter.h"
 #include "go2_contact_torque_mapping.h"
 #include "go2_inverse_kinematics.h"
+#include "inverse_dynamics_wbc.h"
 #include "motion_frame_utils.h"
 #include "preview_footstep_horizon.h"
+#include "srbd_mpc.h"
 
 using namespace unitree::common;
 using namespace unitree::robot;
 using namespace go2_trot;
+
+namespace
+{
+
+go2_control::RigidBodyState MakeRigidBodyState(
+    const unitree_go::msg::dds_::LowState_ &low,
+    const unitree_go::msg::dds_::SportModeState_ &high)
+{
+    const WorldPose pose = ComputeWorldPose(low, high);
+    go2_control::RigidBodyState state;
+    state.position_world = Eigen::Vector3d(pose.base.x, pose.base.y, pose.base.z);
+    state.quat_world_from_body = Eigen::Quaterniond(
+        pose.quaternion[0], pose.quaternion[1],
+        pose.quaternion[2], pose.quaternion[3]);
+    state.linear_vel_world = Eigen::Vector3d(
+        high.velocity()[0], high.velocity()[1], high.velocity()[2]);
+    state.angular_vel_body = Eigen::Vector3d(
+        low.imu_state().gyroscope()[0],
+        low.imu_state().gyroscope()[1],
+        low.imu_state().gyroscope()[2]);
+    for (int i = 0; i < kMotorCount; ++i)
+    {
+        state.q[i] = low.motor_state()[i].q();
+        state.dq[i] = low.motor_state()[i].dq();
+    }
+    return state;
+}
+
+}  // namespace
+
+void TrotExperiment::UpdateWbcFull(
+    const unitree_go::msg::dds_::LowState_ &state_snapshot,
+    const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot)
+{
+    wbc_shadow_diagnostics_.enabled = true;
+    if (!rigid_body_ || !rigid_body_->loaded())
+        return;
+    go2_control::RigidBodyDynamics dyn;
+    if (!rigid_body_->Evaluate(
+            MakeRigidBodyState(state_snapshot, high_state_snapshot), dyn))
+    {
+        return;
+    }
+    if (!dynamics_logged_)
+    {
+        dynamics_logged_ = true;
+        std::cout << "WBC-FULL rigid body mass=" << dyn.mass_kg
+                  << " com_z=" << dyn.com_world.z()
+                  << " bias_z=" << dyn.bias[2] << "\n";
+    }
+
+    const double gait_elapsed =
+        gait_started_ ? running_time_ - gait_start_time_s_ : 0.0;
+    std::array<bool, go2::kLegCount> measured_contact{};
+    const go2_control::HystereticContactParams contact_params{
+        kShadowContactOnForceN, kShadowContactOffForceN};
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const double force = state_snapshot.foot_force()[leg];
+        bool next_contact = false;
+        if (!go2_control::UpdateHystereticContact(
+                wbc_shadow_contact_state_[leg], force, contact_params,
+                next_contact))
+            return;
+        wbc_shadow_contact_state_[leg] = next_contact;
+        measured_contact[leg] = next_contact;
+    }
+    // During trot the force sensors stay high through lift-off, so measured
+    // 3/4-contact at a scheduled diagonal. The QP uses the gait schedule.
+    std::array<bool, go2::kLegCount> qp_contact = measured_contact;
+    if (gait_started_ && motion_stage_ == 2)
+    {
+        std::array<std::array<bool, go2::kLegCount>, go2_control::kSrbdMaxHorizon>
+            scheduled{};
+        go2_control::FillTrotContactSchedule(
+            gait_elapsed, params_.period_s, params_.duty_factor,
+            1, 0.05, scheduled);
+        qp_contact = scheduled[0];
+    }
+    int contact_mask = 0;
+    int active = 0;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (qp_contact[leg])
+        {
+            ++active;
+            contact_mask |= 1 << static_cast<int>(leg);
+        }
+    }
+    wbc_shadow_diagnostics_.active_contacts = active;
+    wbc_shadow_diagnostics_.contact_mask = contact_mask;
+
+    go2_control::SrbdMpcParams mpc_params;
+    mpc_params.horizon = 6;
+    mpc_params.dt_s = 0.05;
+    mpc_params.mass_kg = dyn.mass_kg;
+    mpc_params.inertia_com_world = dyn.inertia_com_world;
+    mpc_params.friction_mu = kShadowWbcFrictionCoefficient;
+    const bool run_mpc =
+        (wbc_full_ticks_ % 25) == 0 || !last_srbd_.ok;
+    if (run_mpc)
+    {
+        go2_control::SrbdMpcInput mpc_in;
+        mpc_in.state[0] = state_snapshot.imu_state().rpy()[0];
+        mpc_in.state[1] = state_snapshot.imu_state().rpy()[1];
+        mpc_in.state[2] = state_snapshot.imu_state().rpy()[2];
+        mpc_in.state[3] = dyn.com_world.x();
+        mpc_in.state[4] = dyn.com_world.y();
+        mpc_in.state[5] = dyn.com_world.z();
+        mpc_in.state[6] = state_snapshot.imu_state().gyroscope()[0];
+        mpc_in.state[7] = state_snapshot.imu_state().gyroscope()[1];
+        mpc_in.state[8] = state_snapshot.imu_state().gyroscope()[2];
+        mpc_in.state[9] = high_state_snapshot.velocity()[0];
+        mpc_in.state[10] = high_state_snapshot.velocity()[1];
+        mpc_in.state[11] = high_state_snapshot.velocity()[2];
+        mpc_in.reference = mpc_in.state;
+        mpc_in.reference[0] = 0.0;
+        mpc_in.reference[1] = 0.0;
+        mpc_in.reference[4] = 0.0;
+        mpc_in.reference[5] = kWbcPrimaryBaseHeightM;
+        mpc_in.reference[6] = 0.0;
+        mpc_in.reference[7] = 0.0;
+        mpc_in.reference[8] = params_.turn_rate_radps;
+        mpc_in.reference[9] =
+            gait_started_ && motion_stage_ == 2
+                ? params_.direction_sign * params_.step_length_m / params_.period_s
+                : 0.0;
+        mpc_in.reference[10] = 0.0;
+        mpc_in.reference[11] = 0.0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            mpc_in.foot_from_com_world[leg] =
+                dyn.foot_pos_world[leg] - dyn.com_world;
+        if (gait_started_ && motion_stage_ == 2)
+        {
+            go2_control::FillTrotContactSchedule(
+                gait_elapsed, params_.period_s, params_.duty_factor,
+                mpc_params.horizon, mpc_params.dt_s, mpc_in.contact);
+        }
+        else
+        {
+            for (int k = 0; k < mpc_params.horizon; ++k)
+                mpc_in.contact[k] = qp_contact;
+        }
+        go2_control::SrbdMpcOutput mpc_out;
+        if (go2_control::SolveSrbdMpc(mpc_params, mpc_in, mpc_out) && mpc_out.ok)
+            last_srbd_ = mpc_out;
+    }
+    ++wbc_full_ticks_;
+    wbc_shadow_diagnostics_.srbd_ok = last_srbd_.ok;
+
+    go2_control::IdWbcInput wbc_in;
+    wbc_in.dynamics = dyn;
+    wbc_in.contact = qp_contact;
+    if (last_srbd_.ok)
+    {
+        wbc_in.desired_linear_acc_world = last_srbd_.first_linear_acc;
+        const Eigen::Quaterniond quat(
+            state_snapshot.imu_state().quaternion()[0],
+            state_snapshot.imu_state().quaternion()[1],
+            state_snapshot.imu_state().quaternion()[2],
+            state_snapshot.imu_state().quaternion()[3]);
+        wbc_in.desired_angular_acc_body =
+            quat.normalized().toRotationMatrix().transpose() *
+            last_srbd_.first_angular_acc;
+    }
+    if (have_commanded_body_feet_)
+    {
+        const WorldPose pose =
+            ComputeWorldPose(state_snapshot, high_state_snapshot);
+        const Eigen::Quaterniond quat(
+            pose.quaternion[0], pose.quaternion[1],
+            pose.quaternion[2], pose.quaternion[3]);
+        const Eigen::Matrix3d R = quat.normalized().toRotationMatrix();
+        Eigen::Matrix<double, go2_control::kGo2Nv, 1> qvel =
+            Eigen::Matrix<double, go2_control::kGo2Nv, 1>::Zero();
+        qvel.head<3>() = Eigen::Vector3d(
+            high_state_snapshot.velocity()[0],
+            high_state_snapshot.velocity()[1],
+            high_state_snapshot.velocity()[2]);
+        qvel.segment<3>(3) = Eigen::Vector3d(
+            state_snapshot.imu_state().gyroscope()[0],
+            state_snapshot.imu_state().gyroscope()[1],
+            state_snapshot.imu_state().gyroscope()[2]);
+        for (int i = 0; i < kMotorCount; ++i)
+        {
+            const int dof = rigid_body_->MotorDof(i);
+            if (dof >= 6 && dof < go2_control::kGo2Nv)
+                qvel[dof] = state_snapshot.motor_state()[i].dq();
+        }
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (qp_contact[leg])
+                continue;
+            const Eigen::Vector3d p_des =
+                Eigen::Vector3d(pose.base.x, pose.base.y, pose.base.z) +
+                R * Eigen::Vector3d(
+                        commanded_body_feet_[leg].x,
+                        commanded_body_feet_[leg].y,
+                        commanded_body_feet_[leg].z);
+            const Eigen::Vector3d p = dyn.foot_pos_world[leg];
+            const Eigen::Vector3d v = dyn.foot_jac_world[leg] * qvel;
+            wbc_in.swing_acc_world[leg] = 180.0 * (p_des - p) - 16.0 * v;
+        }
+    }
+
+    go2_control::IdWbcOutput wbc_out;
+    const bool solved =
+        go2_control::SolveInverseDynamicsWbc({}, wbc_in, wbc_out) && wbc_out.ok;
+    if (solved)
+    {
+        last_id_wbc_ = wbc_out;
+        have_last_id_wbc_ = true;
+    }
+    else if (have_last_id_wbc_)
+    {
+        wbc_out = last_id_wbc_;
+    }
+    else
+    {
+        return;
+    }
+
+    wbc_shadow_diagnostics_.solver_ok = true;
+    wbc_shadow_diagnostics_.mapping_ok = true;
+    wbc_shadow_diagnostics_.id_wbc_ok = solved;
+    wbc_shadow_diagnostics_.wrench_satisfied = wbc_out.eq_residual < 1.0;
+    wbc_shadow_diagnostics_.constraint_feasible = true;
+    wbc_shadow_diagnostics_.task_satisfied = wbc_out.eq_residual < 1.0;
+    wbc_shadow_diagnostics_.residual_norm = wbc_out.eq_residual;
+    wbc_shadow_diagnostics_.id_eq_residual = wbc_out.eq_residual;
+    wbc_shadow_diagnostics_.task_residual_norm = wbc_out.rne_residual;
+    wbc_shadow_diagnostics_.iterations = wbc_out.iterations;
+    wbc_shadow_diagnostics_.active_contacts = active;
+    wbc_shadow_diagnostics_.contact_mask = contact_mask;
+    wbc_shadow_diagnostics_.max_abs_tau = wbc_out.tau.cwiseAbs().maxCoeff();
+    wbc_shadow_diagnostics_.desired_force_x_n =
+        last_srbd_.ok ? last_srbd_.first_force[0] + last_srbd_.first_force[3] +
+                            last_srbd_.first_force[6] + last_srbd_.first_force[9]
+                      : 0.0;
+    double min_fz = 1.0e9;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const Eigen::Vector3d f = wbc_out.force.segment<3>(3 * static_cast<int>(leg));
+        for (int j = 0; j < 3; ++j)
+        {
+            const int motor = static_cast<int>(3 * leg + j);
+            const int dof = rigid_body_->MotorDof(motor);
+            const int joint_row = dof - 6;
+            wbc_shadow_candidate_torques_[leg][j] =
+                (joint_row >= 0 && joint_row < 12) ? wbc_out.tau[joint_row] : 0.0;
+        }
+        if (qp_contact[leg])
+            min_fz = std::min(min_fz, f.z());
+    }
+    wbc_shadow_diagnostics_.min_contact_normal_force_n =
+        std::isfinite(min_fz) ? min_fz : 0.0;
+}
 
 // --- TrotExperiment::UpdateWbcShadow ---
 void TrotExperiment::UpdateWbcShadow(
@@ -32,6 +291,20 @@ void TrotExperiment::UpdateWbcShadow(
     bool have_high_state)
 {
     wbc_shadow_diagnostics_ = WbcShadowDiagnostics{};
+    const auto shadow_start = std::chrono::steady_clock::now();
+    const auto finish_shadow_timing = [&]() {
+        wbc_shadow_diagnostics_.elapsed_us =
+            std::chrono::duration<double, std::micro>(
+                std::chrono::steady_clock::now() - shadow_start).count();
+        wbc_shadow_diagnostics_.within_budget =
+            wbc_shadow_diagnostics_.elapsed_us <= kShadowWbcBudgetUs;
+    };
+    if (params_.wbc_full && have_state && have_high_state)
+    {
+        UpdateWbcFull(state_snapshot, high_state_snapshot);
+        finish_shadow_timing();
+        return;
+    }
     const TrueDynamics true_dyn = ExtractTrueDynamics(state_snapshot);
     if (true_dyn.valid && !dynamics_logged_)
     {
@@ -44,14 +317,6 @@ void TrotExperiment::UpdateWbcShadow(
     }
     wbc_shadow_candidate_torques_ = {};
     wbc_shadow_diagnostics_.enabled = params_.wbc_shadow;
-    const auto shadow_start = std::chrono::steady_clock::now();
-    const auto finish_shadow_timing = [&]() {
-        wbc_shadow_diagnostics_.elapsed_us =
-            std::chrono::duration<double, std::micro>(
-                std::chrono::steady_clock::now() - shadow_start).count();
-        wbc_shadow_diagnostics_.within_budget =
-            wbc_shadow_diagnostics_.elapsed_us <= kShadowWbcBudgetUs;
-    };
     if (!params_.wbc_shadow || !have_state)
     {
         finish_shadow_timing();

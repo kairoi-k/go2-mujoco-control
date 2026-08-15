@@ -46,12 +46,26 @@ add_executable(real_trot_go2
 )
 target_link_libraries(real_trot_go2 unitree_sdk2 Eigen3::Eigen)
 
+set(_go2_mujoco_lib
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib/libmujoco.so")
+set(_go2_mujoco_inc
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/include")
+set(_go2_model_path
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../unitree_robots/go2/go2.xml")
+if(EXISTS "${_go2_mujoco_lib}")
+    target_include_directories(real_trot_go2 PRIVATE "${_go2_mujoco_inc}")
+    target_link_libraries(real_trot_go2 "${_go2_mujoco_lib}")
+    target_compile_definitions(
+        real_trot_go2 PRIVATE GO2_MODEL_PATH="${_go2_model_path}")
+    set_target_properties(
+        real_trot_go2 PROPERTIES
+        BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
+endif()
+
 function(go2_add_ctest name)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
-set(_go2_mujoco_lib
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib/libmujoco.so")
 if(EXISTS "${_go2_mujoco_lib}")
     add_executable(test_go2_forward_kinematics test_go2_forward_kinematics.cpp)
     target_include_directories(
@@ -112,6 +126,34 @@ target_link_libraries(test_dense_qp Eigen3::Eigen)
 
 add_executable(test_contact_wrench_qp test_contact_wrench_qp.cpp)
 target_link_libraries(test_contact_wrench_qp Eigen3::Eigen)
+
+if(EXISTS "${_go2_mujoco_lib}")
+    add_executable(test_go2_rigid_body test_go2_rigid_body.cpp)
+    target_include_directories(test_go2_rigid_body PRIVATE "${_go2_mujoco_inc}")
+    target_link_libraries(test_go2_rigid_body "${_go2_mujoco_lib}" Eigen3::Eigen)
+    target_compile_definitions(
+        test_go2_rigid_body PRIVATE GO2_MODEL_PATH="${_go2_model_path}")
+    set_target_properties(
+        test_go2_rigid_body PROPERTIES
+        BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
+    go2_add_ctest(test_go2_rigid_body)
+
+    add_executable(test_inverse_dynamics_wbc test_inverse_dynamics_wbc.cpp)
+    target_include_directories(
+        test_inverse_dynamics_wbc PRIVATE "${_go2_mujoco_inc}")
+    target_link_libraries(
+        test_inverse_dynamics_wbc "${_go2_mujoco_lib}" Eigen3::Eigen)
+    target_compile_definitions(
+        test_inverse_dynamics_wbc PRIVATE GO2_MODEL_PATH="${_go2_model_path}")
+    set_target_properties(
+        test_inverse_dynamics_wbc PROPERTIES
+        BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
+    go2_add_ctest(test_inverse_dynamics_wbc)
+endif()
+
+add_executable(test_srbd_mpc test_srbd_mpc.cpp)
+target_link_libraries(test_srbd_mpc Eigen3::Eigen)
+go2_add_ctest(test_srbd_mpc)
 
 add_executable(analyze_contact_torque_replay tools/analysis/analyze_contact_torque_replay.cpp)
 target_include_directories(analyze_contact_torque_replay PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
