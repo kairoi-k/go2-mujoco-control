@@ -16,8 +16,7 @@ Two tracks. The C++ result is a 500 Hz LowCmd state machine: stand-up, settle, t
 - stand / walk / stop / lie sequencing at 500 Hz;
 - diagonal-trot generation and Raibert footstep planning;
 - world/support feedback and CSV logging;
-- constrained contact-force allocation;
-- incremental dynamics-informed WBC **components** with fallback to position control — not a complete full-dynamics WBC stack.
+- constrained contact-force allocation and a centroidal `--wbc-full` path (wrench QP + foothold MPC, `J^T f`); `--wbc-primary` is still incremental feedforward with PD fallback.
 
 ## Quick start (C++)
 

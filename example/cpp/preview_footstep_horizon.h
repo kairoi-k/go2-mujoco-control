@@ -1,9 +1,7 @@
 #pragma once
 
-// N-step Raibert foothold preview with a receding-horizon first step.
-// Remaining steps stay greedy Raibert. Velocity is propagated with a
-// first-order capture model (rearward placement raises forward speed).
-// This is not a receding-horizon QP.
+// N-step receding-horizon foothold MPC. Jointly solves all preview
+// adjustments; the gait kernel applies the first foothold.
 
 #include <array>
 #include <cmath>
@@ -29,6 +27,8 @@ struct PreviewFootstepHorizonOutput
     int n_steps = 0;
     double nominal_velocity_x_mps = 0.0;
     double terminal_velocity_x_mps = 0.0;
+    double planned_acc_x_mps2 = 0.0;
+    int qp_iterations = 0;
     std::array<double, kPreviewHorizonMaxSteps> touchdown_x_m{};
     std::array<double, kPreviewHorizonMaxSteps> predicted_velocity_x_mps{};
 };
@@ -113,6 +113,13 @@ inline double PreviewFirstStepCost(
            kPreviewFirstStepRegularization * adjustment * adjustment;
 }
 
+}  // namespace go2_control
+
+#include "footstep_mpc.h"
+
+namespace go2_control
+{
+
 inline bool PlanPreviewFootstepHorizon(
     const PreviewFootstepHorizonParams &params,
     const RaibertFootstepPlannerInput &input,
@@ -129,6 +136,9 @@ inline bool PlanPreviewFootstepHorizon(
     const double measured_velocity = input.measured_velocity_valid
         ? input.measured_velocity_x_mps
         : greedy.nominal_velocity_x_mps;
+
+    if (SolveFootstepMpc(params, measured_velocity, output))
+        return true;
 
     if (params.n_steps == 1)
         return SimulatePreviewHorizon(

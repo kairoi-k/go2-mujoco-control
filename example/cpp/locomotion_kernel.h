@@ -46,6 +46,7 @@ struct GaitKernelResult
     int preview_n_steps = 0;
     double preview_touchdown_x_m = 0.0;
     double preview_terminal_velocity_x_mps = 0.0;
+    double preview_planned_acc_x_mps2 = 0.0;
 };
 
 class LocomotionKernel

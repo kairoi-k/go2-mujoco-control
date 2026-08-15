@@ -42,11 +42,11 @@ The runner uses dedicated DDS domain IDs. Inspect it and `scripts/run_trot.sh` b
 | Entry point / CLI | `real_trot_go2.cpp`, `trot_cli.*` |
 | Controller lifecycle | `trot_experiment_lifecycle.cpp` |
 | 500 Hz control loop | `trot_experiment_control.cpp` |
-| Gait and velocity targets | `trot_experiment_gait.cpp`, `raibert_trot_kernel.h`, `raibert_footstep_planner.h` |
-| Dynamics-informed feedforward | `trot_experiment_wbc.cpp`, `trot_true_dynamics.h` |
+| Gait and velocity targets | `trot_experiment_gait.cpp`, `raibert_trot_kernel.h`, `raibert_footstep_planner.h`, `footstep_mpc.h` |
+| Dynamics-informed feedforward | `trot_experiment_wbc.cpp`, `trot_true_dynamics.h`, `centroidal_wbc.h` |
 | Diagnostics and safety gates | `trot_experiment_diagnostics.cpp`, `trot_types.h` |
 | Kinematics | `go2_forward_kinematics.h`, `go2_inverse_kinematics.h`, `go2_leg_jacobian.h` |
-| Contact / wrench handling | `contact_*`, `go2_contact_torque_mapping.h`, `wbc_runtime_gate.h` |
+| Contact / wrench handling | `contact_*`, `contact_wrench_qp.h`, `dense_qp.h`, `go2_contact_torque_mapping.h`, `wbc_runtime_gate.h` |
 | Leg-lift / multi-step sequence | `real_leg_lift_go2.cpp`, `leg_lift_*` |
 | Experiment runners | `scripts/` |
 | Retained evidence | `experiments/`, `experiments/CATALOG.md` |

@@ -13,6 +13,7 @@
 #include "centroidal_wbc.h"
 #include "contact_wrench_lexicographic_allocator.h"
 #include "contact_wrench_projected_allocator.h"
+#include "contact_wrench_qp.h"
 #include "contact_state_filter.h"
 #include "go2_contact_torque_mapping.h"
 #include "go2_inverse_kinematics.h"
@@ -246,16 +247,23 @@ void TrotExperiment::UpdateWbcShadow(
                 a_desired[1] = 0.0;
                 if (params_.wbc_full && have_preview_terminal_velocity_)
                 {
-                    double preview_acc_x = 0.0;
-                    if (go2_control::PreviewTerminalAcceleration(
-                            params_.direction_sign * params_.step_length_m /
-                                params_.period_s,
-                            preview_terminal_velocity_x_mps_,
-                            preview_n_steps_,
-                            params_.period_s,
-                            preview_acc_x))
+                    if (std::isfinite(preview_planned_acc_x_mps2_))
+                        a_desired[0] = Clamp(
+                            preview_planned_acc_x_mps2_, -3.0, 3.0);
+                    else
                     {
-                        a_desired[0] = Clamp(preview_acc_x, -3.0, 3.0);
+                        double preview_acc_x = 0.0;
+                        if (go2_control::PreviewTerminalAcceleration(
+                                params_.direction_sign *
+                                    params_.step_length_m /
+                                    params_.period_s,
+                                preview_terminal_velocity_x_mps_,
+                                preview_n_steps_,
+                                params_.period_s,
+                                preview_acc_x))
+                        {
+                            a_desired[0] = Clamp(preview_acc_x, -3.0, 3.0);
+                        }
                     }
                 }
             }
@@ -337,32 +345,29 @@ void TrotExperiment::UpdateWbcShadow(
     go2_control::ContactForces contact_forces{};
     if (params_.wbc_full)
     {
-        go2_control::LexicographicContactWrenchRequest lex_request;
-        lex_request.wrench = request.wrench;
-        lex_request.force_constraints = request.force_constraints;
-        lex_request.moment_task_active = true;
-        go2_control::ContactWrenchLexicographicSlackAllocator lex_allocator;
-        go2_control::LexicographicContactWrenchSolution lex_solution;
-        if (!lex_allocator.Solve(lex_request, lex_solution))
+        go2_control::ContactWrenchQpAllocator qp_allocator;
+        go2_control::ProjectedContactWrenchSolution qp_solution;
+        if (!qp_allocator.Solve(request, qp_solution))
         {
             finish_shadow_timing();
             return;
         }
-        contact_forces = lex_solution.forces;
+        contact_forces = qp_solution.forces;
         wbc_shadow_diagnostics_.solver_ok = true;
-        wbc_shadow_diagnostics_.wrench_satisfied = lex_solution.wrench_satisfied;
+        wbc_shadow_diagnostics_.wrench_satisfied = qp_solution.wrench_satisfied;
         wbc_shadow_diagnostics_.constraint_feasible =
-            lex_solution.constraint_report.feasible;
-        wbc_shadow_diagnostics_.iterations = lex_solution.iterations;
-        wbc_shadow_diagnostics_.residual_norm = lex_solution.residual_norm;
-        wbc_shadow_diagnostics_.task_satisfied = lex_solution.policy_satisfied;
-        wbc_shadow_diagnostics_.task_residual_norm = lex_solution.residual_norm;
+            qp_solution.constraint_report.feasible;
+        wbc_shadow_diagnostics_.iterations = qp_solution.iterations;
+        wbc_shadow_diagnostics_.residual_norm = qp_solution.residual_norm;
+        wbc_shadow_diagnostics_.task_satisfied = qp_solution.task_satisfied;
+        wbc_shadow_diagnostics_.task_residual_norm =
+            qp_solution.task_residual_norm;
         wbc_shadow_diagnostics_.max_axis_friction_ratio =
-            lex_solution.max_axis_friction_ratio;
+            qp_solution.max_axis_friction_ratio;
         wbc_shadow_diagnostics_.max_radial_friction_ratio =
-            lex_solution.max_radial_friction_ratio;
+            qp_solution.max_radial_friction_ratio;
         wbc_shadow_diagnostics_.min_contact_normal_force_n =
-            lex_solution.min_contact_normal_force;
+            qp_solution.min_contact_normal_force;
     }
     else
     {

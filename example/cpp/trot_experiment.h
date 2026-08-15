@@ -236,6 +236,7 @@ private:
     int preview_n_steps_ = 0;
     double preview_touchdown_x_m_ = 0.0;
     double preview_terminal_velocity_x_mps_ = 0.0;
+    double preview_planned_acc_x_mps2_ = 0.0;
     bool have_preview_terminal_velocity_ = false;
 
     double world_reference_x_m_ = 0.0;

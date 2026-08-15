@@ -71,6 +71,7 @@ add_executable(test_go2_inverse_kinematics test_go2_inverse_kinematics.cpp)
 add_executable(test_raibert_footstep_planner test_raibert_footstep_planner.cpp)
 
 add_executable(test_raibert_trot_kernel test_raibert_trot_kernel.cpp)
+target_link_libraries(test_raibert_trot_kernel Eigen3::Eigen)
 
 add_executable(test_motion_frame_utils test_motion_frame_utils.cpp)
 
@@ -104,6 +105,13 @@ add_executable(test_wbc_runtime_gate test_wbc_runtime_gate.cpp)
 add_executable(test_centroidal_wbc test_centroidal_wbc.cpp)
 
 add_executable(test_preview_footstep_horizon test_preview_footstep_horizon.cpp)
+target_link_libraries(test_preview_footstep_horizon Eigen3::Eigen)
+
+add_executable(test_dense_qp test_dense_qp.cpp)
+target_link_libraries(test_dense_qp Eigen3::Eigen)
+
+add_executable(test_contact_wrench_qp test_contact_wrench_qp.cpp)
+target_link_libraries(test_contact_wrench_qp Eigen3::Eigen)
 
 add_executable(analyze_contact_torque_replay tools/analysis/analyze_contact_torque_replay.cpp)
 target_include_directories(analyze_contact_torque_replay PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -125,3 +133,5 @@ go2_add_ctest(test_dynamic_acceleration_target)
 go2_add_ctest(test_wbc_runtime_gate)
 go2_add_ctest(test_centroidal_wbc)
 go2_add_ctest(test_preview_footstep_horizon)
+go2_add_ctest(test_dense_qp)
+go2_add_ctest(test_contact_wrench_qp)
