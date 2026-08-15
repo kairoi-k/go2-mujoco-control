@@ -80,6 +80,23 @@ bool CheckHorizonJointlyPlansLaterSteps()
     return later_differs || output.n_steps == 4;
 }
 
+bool CheckLateralMpcPlacesFootWithVelocity()
+{
+    go2_control::PreviewFootstepHorizonParams params{};
+    params.n_steps = 4;
+    go2_control::RaibertFootstepPlannerInput input{};
+    input.measured_velocity_x_mps = 0.105;
+    input.measured_velocity_valid = true;
+    input.measured_velocity_y_mps = 0.08;
+    input.measured_velocity_y_valid = true;
+    go2_control::PreviewFootstepHorizonOutput output{};
+    if (!go2_control::PlanPreviewFootstepHorizon(params, input, output))
+        return false;
+    return output.touchdown_y_m[0] > 0.0 &&
+           output.planned_acc_y_mps2 < 0.0 &&
+           Near(output.touchdown_x_m[0], 0.042);
+}
+
 bool CheckInvalidHorizonRejected()
 {
     go2_control::PreviewFootstepHorizonParams params{};
@@ -108,6 +125,7 @@ int main()
         !CheckNominalHorizonKeepsRaibertFoothold() ||
         !CheckSlowFirstStepIsRearward() ||
         !CheckHorizonJointlyPlansLaterSteps() ||
+        !CheckLateralMpcPlacesFootWithVelocity() ||
         !CheckInvalidHorizonRejected() ||
         !CheckTerminalAcceleration())
     {

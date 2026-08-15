@@ -31,6 +31,10 @@ struct PreviewFootstepHorizonOutput
     int qp_iterations = 0;
     std::array<double, kPreviewHorizonMaxSteps> touchdown_x_m{};
     std::array<double, kPreviewHorizonMaxSteps> predicted_velocity_x_mps{};
+    std::array<double, kPreviewHorizonMaxSteps> touchdown_y_m{};
+    std::array<double, kPreviewHorizonMaxSteps> predicted_velocity_y_mps{};
+    double terminal_velocity_y_mps = 0.0;
+    double planned_acc_y_mps2 = 0.0;
 };
 
 inline double PreviewNeutralTouchdownX(
@@ -136,8 +140,12 @@ inline bool PlanPreviewFootstepHorizon(
     const double measured_velocity = input.measured_velocity_valid
         ? input.measured_velocity_x_mps
         : greedy.nominal_velocity_x_mps;
+    const double measured_velocity_y = input.measured_velocity_y_valid
+        ? input.measured_velocity_y_mps
+        : 0.0;
 
-    if (SolveFootstepMpc(params, measured_velocity, output))
+    if (SolveFootstepMpc(
+            params, measured_velocity, output, measured_velocity_y))
         return true;
 
     if (params.n_steps == 1)

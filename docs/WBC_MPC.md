@@ -12,7 +12,7 @@ Stance legs get an extra `M a` torque; gravity/bias `h` is left to the position 
 - All six wrench axes stay in the task.
 - Contact forces are the solution of a dense inequality QP (`contact_wrench_qp.h` / `dense_qp.h`): friction pyramid, unilaterality, inactive feet at zero. The pyramid is inscribed in the cone (`μ/√2`). If the QP is infeasible it falls back to the projected allocator.
 - Stance PD is `kWbcFullStanceKp/Kd` (25 / 2.0). Swing legs stay IK + position control. Joint torque is `J^T f`.
-- Footholds come from an N-step receding-horizon QP (`footstep_mpc.h`): all preview adjustments are solved together; only the first is applied. The first-step planned `a_x` is the centroidal acceleration task.
+- Footholds come from an N-step receding-horizon QP (`footstep_mpc.h`): all preview adjustments in x and y are solved together; only the first is applied. The first-step planned `a_x` is the centroidal acceleration task.
 
 This is still centroidal (6-DoF base `M` from the simulator), not a full 18-DoF inverse-dynamics WBC, and not OSQP/qpOASES. It is a complete centroidal WBC + foothold MPC on the `--wbc-full` path.
 

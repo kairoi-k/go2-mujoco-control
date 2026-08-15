@@ -177,8 +177,10 @@ public:
                 state.cycle_index != leg_cycle_index)
             {
                 const RaibertFootstepPlannerInput planner_input{
-                    measured_velocity, request.have_body_velocity};
+                    measured_velocity, request.have_body_velocity,
+                    request.body_velocity_y_mps, request.have_body_velocity};
                 double next_touchdown_x_m = 0.0;
+                double next_touchdown_y_m = 0.0;
                 if (params_.preview_horizon_steps > 0)
                 {
                     PreviewFootstepHorizonParams preview_params;
@@ -191,6 +193,7 @@ public:
                         return false;
                     }
                     next_touchdown_x_m = preview_output.touchdown_x_m[0];
+                    next_touchdown_y_m = preview_output.touchdown_y_m[0];
                     last_preview_n_steps_ = preview_output.n_steps;
                     last_preview_touchdown_x_m_ = next_touchdown_x_m;
                     last_preview_terminal_velocity_x_mps_ =
@@ -220,6 +223,7 @@ public:
                     state.stance_start_x_m =
                         0.5 * params_.gait.direction_sign *
                         params_.gait.step_length_m;
+                    state.stance_start_y_m = 0.0;
                 }
                 else
                 {
@@ -227,13 +231,16 @@ public:
                     // it at stance entry, then plan the following touchdown.
                     state.stance_start_x_m =
                         state.next_touchdown_x_m;
+                    state.stance_start_y_m = state.next_touchdown_y_m;
                 }
                 state.next_touchdown_x_m = next_touchdown_x_m;
+                state.next_touchdown_y_m = next_touchdown_y_m;
                 state.cycle_index = leg_cycle_index;
                 state.initialized = true;
             }
 
             double x_offset = 0.0;
+            double y_offset = 0.0;
             double z_offset = 0.0;
             if (leg_phase < stance_duration)
             {
@@ -243,6 +250,7 @@ public:
                     params_.gait.direction_sign *
                         params_.gait.step_length_m *
                         Smoothstep(stance_phase);
+                y_offset = state.stance_start_y_m;
             }
             else
             {
@@ -252,17 +260,16 @@ public:
                     state.stance_start_x_m -
                     params_.gait.direction_sign *
                         params_.gait.step_length_m;
-                // [impulse] 摆动 x 提前到位: 相位 0.75 到达目标, 剩余
-                // 悬停等触地。降低摆动末端加速度峰值, 让大步长摆动
-                // 追得上目标(q_error 不再爆 0.3-0.5)。
                 const double swing_x_phase =
                     std::min(1.0, swing_phase / 0.75);
                 x_offset =
                     swing_start_x +
                     (state.next_touchdown_x_m - swing_start_x) *
                         SwingFast(swing_x_phase);
-                // z 提前回落(0.75 相位降到 ~0.1 抬升高, 不拖地),
-                // 相位 1.0 完全落地。与 x 到位匹配。
+                y_offset =
+                    state.stance_start_y_m +
+                    (state.next_touchdown_y_m - state.stance_start_y_m) *
+                        SwingFast(swing_x_phase);
                 const double swing_z_phase =
                     std::min(1.0, swing_phase / 0.75);
                 z_offset =
@@ -275,6 +282,7 @@ public:
             result.touchdown_target_x_m[leg] =
                 state.next_touchdown_x_m;
             result.feet[leg].x += blend * x_offset;
+            result.feet[leg].y += blend * y_offset;
             result.feet[leg].z += blend * z_offset;
         }
 
@@ -289,6 +297,8 @@ private:
         int cycle_index = std::numeric_limits<int>::min();
         double stance_start_x_m = 0.0;
         double next_touchdown_x_m = 0.0;
+        double stance_start_y_m = 0.0;
+        double next_touchdown_y_m = 0.0;
         bool initialized = false;
     };
 
