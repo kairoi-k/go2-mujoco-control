@@ -1,6 +1,6 @@
 # example/cpp 模块索引
 
-全局跳转也见 `docs/CODEMAP.md`。
+全局跳转也见 [`docs/CODE_GUIDE.md`](../../docs/CODE_GUIDE.md)。
 
 ## 可执行文件
 
@@ -31,9 +31,9 @@
 
 ## 约定
 
-- 正式实验名 `go2_*` → `experiments/` 顶层
-- 其它跑次 → `experiments/_runs/`
-- 批量脚本 → `scripts/batch/`
+- Named `go2_*` directories stay under `experiments/`
+- Other runs → `experiments/_runs/`
+- Batch scripts → `scripts/batch/`
 
 ## 本地 include 关系（生成）
 

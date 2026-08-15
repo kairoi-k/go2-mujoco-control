@@ -6,6 +6,7 @@
 #   go2sim                    # default 64-cycle headless walk
 #   go2sim fast               # faster preset
 #   go2sim task               # stand -> walk -> lie sequence
+#   go2sim full               # trot with centroidal W=Ma+h wrench
 #   go2sim turn 0.3           # turning command
 #   go2sim dist 3.0           # velocity disturbance (m/s)
 #   go2sim payload 10         # payload (kg)
@@ -29,11 +30,12 @@ case "$SCENE" in
   imp)     ARGS=(--period 0.50 --step-length 0.080 --kd 5.0 --tau-limit 35 --impulse --raibert-velocity-gain 0.20 --raibert-max-adjustment 0.040 --max-cycles 64) ;;
   fast)    ARGS=(--step-length 0.110 --tau-limit 19 --max-cycles 64) ;;
   task)    ARGS=(--step-length 0.091 --task stand-walk-lie) ;;
+  full)    ARGS=(--step-length 0.091 --wbc-full --max-cycles 64) ;;
   turn)    ARGS=(--step-length 0.091 --turn-rate "${1:-0.3}" --max-cycles 64); [ $# -gt 0 ] && shift ;;
   dist)    ARGS=(--step-length 0.091 --push-time 4.0 --push-vel-x "${1:-1.5}" --push-duration 0.05 --max-cycles 64); [ $# -gt 0 ] && shift ;;
   payload) ARGS=(--step-length 0.091 --payload-kg "${1:-5}" --max-cycles 64); [ $# -gt 0 ] && shift ;;
   plan)    ARGS=(--step-length 0.091 --step-plan "32:0.100,48:0.110,64:0.100,80:0.091" --max-cycles 96) ;;
-  *) echo "unknown scene: $SCENE (walk|fast|task|turn|dist|payload|plan)"; exit 1 ;;
+  *) echo "unknown scene: $SCENE (walk|fast|task|full|turn|dist|payload|plan)"; exit 1 ;;
 esac
 
 VIEW="--headless"

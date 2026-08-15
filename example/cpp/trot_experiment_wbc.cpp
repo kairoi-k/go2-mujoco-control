@@ -10,6 +10,8 @@
 #include <sstream>
 #include <thread>
 
+#include "centroidal_wbc.h"
+#include "contact_wrench_lexicographic_allocator.h"
 #include "contact_wrench_projected_allocator.h"
 #include "contact_state_filter.h"
 #include "go2_contact_torque_mapping.h"
@@ -102,9 +104,12 @@ void TrotExperiment::UpdateWbcShadow(
     wbc_shadow_diagnostics_.active_contacts = active_contacts;
     const bool reduced_contact_task =
         params_.wbc_reduced_contact_task &&
+        !params_.wbc_full &&
         active_contacts < go2::kLegCount;
     if (reduced_contact_task)
         request.wrench.task_weights = {1.0, 1.0, 1.0, 0.0, 0.0, 0.0};
+    else if (params_.wbc_full)
+        request.wrench.task_weights = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
     else if (params_.impulse)
     {
         // [wrench-fix] 冲量模式: 姿态力矩权重优先于推力,
@@ -275,15 +280,36 @@ void TrotExperiment::UpdateWbcShadow(
                          gyro_z_radps) -
                     kWbcPrimaryYawAccKd * gyro_z_radps,
                 -4.0, 4.0);
-            for (int i = 0; i < 6; ++i)
+            if (params_.wbc_full)
             {
-                double w = 0.0;
-                for (int j = 0; j < 6; ++j)
-                    w += dyn.base_mass_matrix[i * 6 + j] * a_desired[j];
-                if (i < 3)
-                    desired_force[static_cast<std::size_t>(i)] += w;
-                else
-                    desired_torque[static_cast<std::size_t>(i - 3)] += w;
+                go2_control::CentroidalMass mass;
+                mass.mass_matrix = dyn.base_mass_matrix;
+                mass.bias = dyn.base_qfrc_bias;
+                mass.include_bias = true;
+                go2_control::CentroidalTask task;
+                task.desired_acc = a_desired;
+                go2_control::CentroidalWrench built;
+                if (go2_control::BuildCentroidalWrench(mass, task, built) &&
+                    built.valid)
+                {
+                    desired_force = {
+                        built.wrench[0], built.wrench[1], built.wrench[2]};
+                    desired_torque = {
+                        built.wrench[3], built.wrench[4], built.wrench[5]};
+                }
+            }
+            else
+            {
+                for (int i = 0; i < 6; ++i)
+                {
+                    double w = 0.0;
+                    for (int j = 0; j < 6; ++j)
+                        w += dyn.base_mass_matrix[i * 6 + j] * a_desired[j];
+                    if (i < 3)
+                        desired_force[static_cast<std::size_t>(i)] += w;
+                    else
+                        desired_torque[static_cast<std::size_t>(i - 3)] += w;
+                }
             }
         }
     }
@@ -293,36 +319,69 @@ void TrotExperiment::UpdateWbcShadow(
         desired_torque[0], desired_torque[1], desired_torque[2]};
     wbc_shadow_diagnostics_.contact_mask = contact_mask;
 
-    go2_control::ContactWrenchProjectedAllocator allocator;
-    go2_control::ProjectedContactWrenchSolution wrench_solution;
-    if (!allocator.Solve(request, wrench_solution))
+    go2_control::ContactForces contact_forces{};
+    if (params_.wbc_full)
     {
-        finish_shadow_timing();
-        return;
+        go2_control::LexicographicContactWrenchRequest lex_request;
+        lex_request.wrench = request.wrench;
+        lex_request.force_constraints = request.force_constraints;
+        lex_request.moment_task_active = true;
+        go2_control::ContactWrenchLexicographicSlackAllocator lex_allocator;
+        go2_control::LexicographicContactWrenchSolution lex_solution;
+        if (!lex_allocator.Solve(lex_request, lex_solution))
+        {
+            finish_shadow_timing();
+            return;
+        }
+        contact_forces = lex_solution.forces;
+        wbc_shadow_diagnostics_.solver_ok = true;
+        wbc_shadow_diagnostics_.wrench_satisfied = lex_solution.wrench_satisfied;
+        wbc_shadow_diagnostics_.constraint_feasible =
+            lex_solution.constraint_report.feasible;
+        wbc_shadow_diagnostics_.iterations = lex_solution.iterations;
+        wbc_shadow_diagnostics_.residual_norm = lex_solution.residual_norm;
+        wbc_shadow_diagnostics_.task_satisfied = lex_solution.policy_satisfied;
+        wbc_shadow_diagnostics_.task_residual_norm = lex_solution.residual_norm;
+        wbc_shadow_diagnostics_.max_axis_friction_ratio =
+            lex_solution.max_axis_friction_ratio;
+        wbc_shadow_diagnostics_.max_radial_friction_ratio =
+            lex_solution.max_radial_friction_ratio;
+        wbc_shadow_diagnostics_.min_contact_normal_force_n =
+            lex_solution.min_contact_normal_force;
     }
-
-    wbc_shadow_diagnostics_.solver_ok = true;
-    wbc_shadow_diagnostics_.wrench_satisfied =
-        wrench_solution.wrench_satisfied;
-    wbc_shadow_diagnostics_.constraint_feasible =
-        wrench_solution.constraint_report.feasible;
-    wbc_shadow_diagnostics_.iterations = wrench_solution.iterations;
-    wbc_shadow_diagnostics_.residual_norm =
-        wrench_solution.residual_norm;
-    wbc_shadow_diagnostics_.task_satisfied =
-        wrench_solution.task_satisfied;
-    wbc_shadow_diagnostics_.task_residual_norm =
-        wrench_solution.task_residual_norm;
-    wbc_shadow_diagnostics_.max_axis_friction_ratio =
-        wrench_solution.max_axis_friction_ratio;
-    wbc_shadow_diagnostics_.max_radial_friction_ratio =
-        wrench_solution.max_radial_friction_ratio;
-    wbc_shadow_diagnostics_.min_contact_normal_force_n =
-        wrench_solution.min_contact_normal_force;
+    else
+    {
+        go2_control::ContactWrenchProjectedAllocator allocator;
+        go2_control::ProjectedContactWrenchSolution wrench_solution;
+        if (!allocator.Solve(request, wrench_solution))
+        {
+            finish_shadow_timing();
+            return;
+        }
+        contact_forces = wrench_solution.forces;
+        wbc_shadow_diagnostics_.solver_ok = true;
+        wbc_shadow_diagnostics_.wrench_satisfied =
+            wrench_solution.wrench_satisfied;
+        wbc_shadow_diagnostics_.constraint_feasible =
+            wrench_solution.constraint_report.feasible;
+        wbc_shadow_diagnostics_.iterations = wrench_solution.iterations;
+        wbc_shadow_diagnostics_.residual_norm =
+            wrench_solution.residual_norm;
+        wbc_shadow_diagnostics_.task_satisfied =
+            wrench_solution.task_satisfied;
+        wbc_shadow_diagnostics_.task_residual_norm =
+            wrench_solution.task_residual_norm;
+        wbc_shadow_diagnostics_.max_axis_friction_ratio =
+            wrench_solution.max_axis_friction_ratio;
+        wbc_shadow_diagnostics_.max_radial_friction_ratio =
+            wrench_solution.max_radial_friction_ratio;
+        wbc_shadow_diagnostics_.min_contact_normal_force_n =
+            wrench_solution.min_contact_normal_force;
+    }
 
     go2_control::ContactTorqueMapRequest torque_request;
     torque_request.joint_angles = joint_angles;
-    torque_request.contact_forces = wrench_solution.forces;
+    torque_request.contact_forces = contact_forces;
     torque_request.contact = request.wrench.contact;
     go2_control::ContactTorqueMapSolution torque_solution;
     if (!go2_control::MapContactForcesToJointTorques(

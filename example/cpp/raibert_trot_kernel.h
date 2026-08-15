@@ -3,9 +3,11 @@
 
 #include <array>
 #include <cmath>
+#include <iostream>
 #include <limits>
 
 #include "locomotion_kernel.h"
+#include "preview_footstep_horizon.h"
 #include "raibert_footstep_planner.h"
 
 namespace go2_control
@@ -16,6 +18,7 @@ struct RaibertTrotKernelParams
     GaitKernelParams gait{};
     double velocity_gain_s = 0.20;
     double max_adjustment_m = 0.025;
+    int preview_horizon_steps = 0;
 };
 
 class RaibertTrotKernel final : public LocomotionKernel
@@ -66,7 +69,9 @@ public:
             !(params_.velocity_gain_s >= 0.0) ||
             !(params_.max_adjustment_m >= 0.0) ||
             !std::isfinite(params_.velocity_gain_s) ||
-            !std::isfinite(params_.max_adjustment_m))
+            !std::isfinite(params_.max_adjustment_m) ||
+            params_.preview_horizon_steps < 0 ||
+            params_.preview_horizon_steps > kPreviewHorizonMaxSteps)
         {
             return false;
         }
@@ -133,6 +138,8 @@ public:
         result.velocity_error_x_mps = velocity_error;
         result.nominal_velocity_x_mps = nominal_velocity;  // [Fix 2026-08-13]
         result.footstep_plan_valid = true;
+        result.preview_n_steps = 0;
+        result.preview_touchdown_x_m = 0.0;
 
         const RaibertFootstepPlannerParams planner_params{
             params_.gait.period_s,
@@ -163,11 +170,31 @@ public:
             {
                 const RaibertFootstepPlannerInput planner_input{
                     measured_velocity, request.have_body_velocity};
-                RaibertFootstepPlannerOutput planner_output{};
-                if (!PlanRaibertTouchdown(
-                        planner_params, planner_input, planner_output))
+                double next_touchdown_x_m = 0.0;
+                if (params_.preview_horizon_steps > 0)
                 {
-                    return false;
+                    PreviewFootstepHorizonParams preview_params;
+                    preview_params.raibert = planner_params;
+                    preview_params.n_steps = params_.preview_horizon_steps;
+                    PreviewFootstepHorizonOutput preview_output{};
+                    if (!PlanPreviewFootstepHorizon(
+                            preview_params, planner_input, preview_output))
+                    {
+                        return false;
+                    }
+                    next_touchdown_x_m = preview_output.touchdown_x_m[0];
+                    result.preview_n_steps = preview_output.n_steps;
+                    result.preview_touchdown_x_m = next_touchdown_x_m;
+                }
+                else
+                {
+                    RaibertFootstepPlannerOutput planner_output{};
+                    if (!PlanRaibertTouchdown(
+                            planner_params, planner_input, planner_output))
+                    {
+                        return false;
+                    }
+                    next_touchdown_x_m = planner_output.touchdown_x_m;
                 }
 
                 if (!state.initialized)
@@ -183,7 +210,7 @@ public:
                     state.stance_start_x_m =
                         state.next_touchdown_x_m;
                 }
-                state.next_touchdown_x_m = planner_output.touchdown_x_m;
+                state.next_touchdown_x_m = next_touchdown_x_m;
                 state.cycle_index = leg_cycle_index;
                 state.initialized = true;
             }

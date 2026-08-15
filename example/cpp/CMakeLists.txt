@@ -46,16 +46,25 @@ add_executable(real_trot_go2
 )
 target_link_libraries(real_trot_go2 unitree_sdk2 Eigen3::Eigen)
 
-add_executable(test_go2_forward_kinematics test_go2_forward_kinematics.cpp)
-target_include_directories(
-    test_go2_forward_kinematics
-    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/include")
-target_link_libraries(
-    test_go2_forward_kinematics
+function(go2_add_ctest name)
+    add_test(NAME ${name} COMMAND ${name})
+endfunction()
+
+set(_go2_mujoco_lib
     "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib/libmujoco.so")
-target_compile_definitions(
-    test_go2_forward_kinematics
-    PRIVATE GO2_MODEL_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../../unitree_robots/go2/go2.xml")
+if(EXISTS "${_go2_mujoco_lib}")
+    add_executable(test_go2_forward_kinematics test_go2_forward_kinematics.cpp)
+    target_include_directories(
+        test_go2_forward_kinematics
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/include")
+    target_link_libraries(
+        test_go2_forward_kinematics
+        "${_go2_mujoco_lib}")
+    target_compile_definitions(
+        test_go2_forward_kinematics
+        PRIVATE GO2_MODEL_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../../unitree_robots/go2/go2.xml")
+    go2_add_ctest(test_go2_forward_kinematics)
+endif()
 
 add_executable(test_go2_inverse_kinematics test_go2_inverse_kinematics.cpp)
 
@@ -87,20 +96,32 @@ target_link_libraries(test_projected_contact_wrench_allocator Eigen3::Eigen)
 
 add_executable(test_contact_wrench_lexicographic_allocator test_contact_wrench_lexicographic_allocator.cpp)
 target_link_libraries(test_contact_wrench_lexicographic_allocator Eigen3::Eigen)
-add_test(
-    NAME contact_wrench_lexicographic_allocator
-    COMMAND test_contact_wrench_lexicographic_allocator)
 
 add_executable(test_dynamic_acceleration_target test_dynamic_acceleration_target.cpp)
-add_test(
-    NAME dynamic_acceleration_target
-    COMMAND test_dynamic_acceleration_target)
 
 add_executable(test_wbc_runtime_gate test_wbc_runtime_gate.cpp)
-add_test(
-    NAME wbc_runtime_gate
-    COMMAND test_wbc_runtime_gate)
+
+add_executable(test_centroidal_wbc test_centroidal_wbc.cpp)
+
+add_executable(test_preview_footstep_horizon test_preview_footstep_horizon.cpp)
 
 add_executable(analyze_contact_torque_replay tools/analysis/analyze_contact_torque_replay.cpp)
 target_include_directories(analyze_contact_torque_replay PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(analyze_contact_torque_replay Eigen3::Eigen)
+
+go2_add_ctest(test_go2_inverse_kinematics)
+go2_add_ctest(test_raibert_footstep_planner)
+go2_add_ctest(test_raibert_trot_kernel)
+go2_add_ctest(test_motion_frame_utils)
+go2_add_ctest(test_velocity_filter)
+go2_add_ctest(test_contact_state_filter)
+go2_add_ctest(test_contact_wrench_allocator)
+go2_add_ctest(test_go2_leg_jacobian)
+go2_add_ctest(test_contact_wrench_constraints)
+go2_add_ctest(test_contact_torque_mapping)
+go2_add_ctest(test_projected_contact_wrench_allocator)
+go2_add_ctest(test_contact_wrench_lexicographic_allocator)
+go2_add_ctest(test_dynamic_acceleration_target)
+go2_add_ctest(test_wbc_runtime_gate)
+go2_add_ctest(test_centroidal_wbc)
+go2_add_ctest(test_preview_footstep_horizon)

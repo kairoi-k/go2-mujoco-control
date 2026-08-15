@@ -147,6 +147,11 @@ bool TrotExperiment::BuildGaitTargets(
     {
         active_cycle_index_ = cycle_index;
         ResetCycleDiagnostics();
+        if (gait_result.preview_n_steps > 0)
+        {
+            std::cout << "WBC-FULL preview n=" << gait_result.preview_n_steps
+                      << " x0=" << gait_result.preview_touchdown_x_m << "\n";
+        }
     }
     else if (cycle_index > active_cycle_index_)
     {
@@ -157,6 +162,11 @@ bool TrotExperiment::BuildGaitTargets(
             stop_requested_ = true;
         active_cycle_index_ = cycle_index;
         ResetCycleDiagnostics();
+        if (gait_result.preview_n_steps > 0)
+        {
+            std::cout << "WBC-FULL preview n=" << gait_result.preview_n_steps
+                      << " x0=" << gait_result.preview_touchdown_x_m << "\n";
+        }
         // [Phase3] online gear shift: apply step-length plan at cycle boundary
         for (const auto &plan : params_.step_plan)
         {

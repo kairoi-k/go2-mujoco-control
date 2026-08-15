@@ -13,7 +13,7 @@ using namespace unitree::common;
 using namespace unitree::robot;
 using namespace go2_leg;
 
-// CONTROL LOOP — phase machine + LowCmd write (see CODEMAP)
+// CONTROL LOOP — phase machine + LowCmd write (see docs/CODE_GUIDE.md)
 
 // --- TrackingExperiment::LowCmdWrite ---
 

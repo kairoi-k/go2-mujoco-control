@@ -43,6 +43,8 @@ struct GaitKernelResult
     double velocity_error_x_mps = 0.0;
     double nominal_velocity_x_mps = 0.0;  // [Fix 2026-08-13] kernel 当前生效目标速度 (换挡后 world 同步用)
     bool footstep_plan_valid = false;
+    int preview_n_steps = 0;
+    double preview_touchdown_x_m = 0.0;
 };
 
 class LocomotionKernel

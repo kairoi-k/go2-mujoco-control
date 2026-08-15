@@ -9,7 +9,7 @@ This repository combines the Unitree MuJoCo simulator with research-specific C++
 | Unitree Go2 MuJoCo simulator | Unitree Robotics `unitree_mujoco` | simulator base |
 | Unitree SDK2 / DDS | Unitree Robotics | runtime dependency |
 | MuJoCo | DeepMind | physics; 3.3.6 in the research environment |
-| Robot/URDF assets | Unitree and other upstream sources | keep upstream terms |
+| Robot/URDF assets | Unitree | this checkout vendors Go2 only; H1/G1/B2/… remain upstream |
 
 Isaac Lab is present here as a gym-registered velocity-curriculum package under `rl/` (`pip install -e rl`). Genesis / Kine2Go imitation is a companion repository.
 

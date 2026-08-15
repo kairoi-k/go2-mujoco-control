@@ -14,7 +14,7 @@ C++ locomotion controller
   example/cpp/build/real_trot_go2
           │
           ├─ state snapshot and filtering
-          ├─ gait phase / Raibert target generation
+          ├─ gait phase / Raibert / preview footholds
           ├─ foot targets → IK → joint targets
           ├─ world/support feedback
           ├─ optional contact-force / WBC feedforward
@@ -30,10 +30,10 @@ The core control loop runs at 500 Hz. The simulator and controller remain separa
 |---|---|---|
 | CLI / lifecycle | `trot_cli.*`, `trot_experiment_lifecycle.cpp` | configuration, DDS setup, startup/shutdown |
 | Control loop | `trot_experiment_control.cpp` | phase sequencing and motor-command publication |
-| Gait generation | `trot_experiment_gait.cpp`, `raibert_trot_kernel.h`, `raibert_footstep_planner.h` | diagonal-trot phase logic and footstep targets |
+| Gait generation | `trot_experiment_gait.cpp`, `raibert_trot_kernel.h`, `raibert_footstep_planner.h`, `preview_footstep_horizon.h` | diagonal-trot phase logic, Raibert and N-step preview footholds |
 | Kinematics | `go2_forward_kinematics.h`, `go2_inverse_kinematics.h`, `go2_leg_jacobian.h` | foot/joint transforms and Jacobians |
 | Contact / force allocation | `contact_*`, `go2_contact_torque_mapping.h` | contact-state filtering, wrench allocation, torque mapping |
-| Dynamics-informed feedforward | `trot_true_dynamics.h`, `dynamic_acceleration_target.h`, `wbc_runtime_gate.h` | dynamics terms, acceleration targets, runtime gating |
+| Dynamics-informed feedforward | `trot_true_dynamics.h`, `dynamic_acceleration_target.h`, `wbc_runtime_gate.h`, `centroidal_wbc.h` | dynamics terms, acceleration targets, runtime gating, centroidal `W=Ma+h` |
 | Diagnostics | `trot_experiment_diagnostics.cpp`, `trot_types.h` | safety checks, metrics, structured logging |
 | Quasi-static sequence | `leg_lift_*`, `real_leg_lift_go2.cpp` | leg-lift and multi-step experiments |
 
@@ -53,7 +53,7 @@ The repository describes these components as **incremental dynamics-informed WBC
 
 ## Process and asset boundaries
 
-- `simulate/` and `unitree_robots/` originate from the Unitree simulator stack and are kept close to upstream.
+- `simulate/` and `unitree_robots/go2/` originate from the Unitree simulator stack and are kept close to upstream. Other Unitree robot MJCFs are not vendored here.
 - `example/cpp/` contains the main research-specific control work.
 - `rl/` is an exploratory research track and is not coupled to the model-based controller at runtime.
 - the Kine2Go / Genesis motion-imitation work is maintained in a separate companion repository.

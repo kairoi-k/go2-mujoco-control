@@ -19,7 +19,7 @@ using namespace unitree::common;
 using namespace unitree::robot;
 using namespace go2_trot;
 
-// DIAGNOSTICS — CSV, cycle quality, hard limits (see CODEMAP)
+// DIAGNOSTICS — CSV, cycle quality, hard limits (see docs/CODE_GUIDE.md)
 
 // --- TrotExperiment::WriteCsvHeader ---  [SECTION: csv-header]
 void TrotExperiment::WriteCsvHeader()

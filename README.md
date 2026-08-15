@@ -34,7 +34,7 @@ cmake --build example/cpp/build -j"$(nproc)"
 ./example/cpp/build/test_go2_inverse_kinematics
 ```
 
-Stand-walk-lie (after the simulator is up): see [`example/cpp/README.md`](example/cpp/README.md). `go2sim task` is the sequenced entry; `go2sim walk` / `go2sim fast` are trot-only (fast ≈ 0.18 m/s with a looser torque gate).
+Stand-walk-lie (after the simulator is up): see [`example/cpp/README.md`](example/cpp/README.md). `go2sim task` is the sequenced entry; `go2sim walk` / `go2sim fast` are trot-only (fast ≈ 0.18 m/s with a looser torque gate). `go2sim full` turns on the centroidal `--wbc-full` path; see [`docs/WBC_MPC.md`](docs/WBC_MPC.md).
 
 ## Isaac Lab velocity RL
 
@@ -62,7 +62,7 @@ Details: [`rl/README.md`](rl/README.md). Checkpoint: [Release v0.1.0](https://gi
 ```text
 example/cpp/       controller, tests, runners, retained experiment artifacts
 simulate/          Unitree MuJoCo simulator base
-unitree_robots/    robot models
+unitree_robots/    Go2 MJCF only (other Unitree robots stay upstream)
 rl/                Isaac Lab gym-registered velocity curricula
 docs/media/        README clips
 patches/           simulator/runtime patches

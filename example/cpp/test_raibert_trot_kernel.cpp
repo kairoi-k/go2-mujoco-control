@@ -133,6 +133,39 @@ bool CheckResetAndInvalidInput()
            Near(output.touchdown_target_x_m[static_cast<std::size_t>(go2::Leg::FR)], 0.042);
 }
 
+go2_control::RaibertTrotKernel MakePreviewKernel()
+{
+    go2_control::GaitKernelParams gait{};
+    gait.period_s = 0.8;
+    gait.duty_factor = 0.75;
+    gait.step_length_m = 0.084;
+    gait.direction_sign = 1.0;
+    gait.foot_lift_m = 0.035;
+    gait.blend_duration_s = 0.8;
+    return go2_control::RaibertTrotKernel({gait, 0.20, 0.025, 4});
+}
+
+bool CheckPreviewHorizonClosesLoop()
+{
+    auto kernel = MakePreviewKernel();
+    go2_control::GaitKernelResult nominal{};
+    go2_control::GaitKernelResult slow{};
+    if (!kernel.Compute(Request(0.0, 0.105), nominal))
+        return false;
+    const std::size_t fr = static_cast<std::size_t>(go2::Leg::FR);
+    if (nominal.preview_n_steps != 4 ||
+        !Near(nominal.touchdown_target_x_m[fr], 0.042) ||
+        !Near(nominal.preview_touchdown_x_m, 0.042))
+        return false;
+
+    kernel.Reset();
+    if (!kernel.Compute(Request(0.0, 0.05), slow))
+        return false;
+    return slow.preview_n_steps == 4 &&
+           slow.touchdown_target_x_m[fr] < 0.042 &&
+           Near(slow.touchdown_target_x_m[fr], slow.preview_touchdown_x_m);
+}
+
 } // namespace
 
 int main()
@@ -140,7 +173,8 @@ int main()
     if (!CheckTargetIsFrozenWithinLegCycle() ||
         !CheckCycleBoundaryIsContinuous() ||
         !CheckGearShiftPhaseContinuity() ||
-        !CheckResetAndInvalidInput())
+        !CheckResetAndInvalidInput() ||
+        !CheckPreviewHorizonClosesLoop())
     {
         std::cerr << "Raibert trot kernel checks failed\n";
         return 1;

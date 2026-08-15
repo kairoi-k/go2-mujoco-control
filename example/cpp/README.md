@@ -11,13 +11,12 @@ cmake -S example/cpp -B example/cpp/build
 cmake --build example/cpp/build -j"$(nproc)"
 ```
 
-The main locomotion target is `real_trot_go2`. Kinematics and other test targets are defined in `CMakeLists.txt`.
-
-Basic smoke checks:
+The main locomotion target is `real_trot_go2`. Kinematics and other test targets are defined in `CMakeLists.txt`. `test_go2_forward_kinematics` is built only when `simulate/mujoco/lib/libmujoco.so` is present.
 
 ```bash
-./example/cpp/build/test_go2_forward_kinematics
-./example/cpp/build/test_go2_inverse_kinematics
+cmake -S example/cpp -B example/cpp/build
+cmake --build example/cpp/build -j"$(nproc)"
+ctest --test-dir example/cpp/build --output-on-failure
 ```
 
 See [`../../docs/REPRODUCIBILITY.md`](../../docs/REPRODUCIBILITY.md) for environment assumptions and simulator build notes.
@@ -30,6 +29,7 @@ See [`../../docs/REPRODUCIBILITY.md`](../../docs/REPRODUCIBILITY.md) for environ
 bash example/cpp/scripts/go2sim walk
 bash example/cpp/scripts/go2sim walk --view
 bash example/cpp/scripts/go2sim task
+bash example/cpp/scripts/go2sim full
 bash example/cpp/scripts/go2sim turn 0.3
 ```
 
