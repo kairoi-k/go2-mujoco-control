@@ -248,6 +248,8 @@ bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &j
 
     gait_started_ = true;
     support_anchor_valid_.fill(false);
+    cartesian_state_ = {};
+    have_commanded_world_feet_ = false;
     previous_leg_swing_.fill(false);
     touchdown_recorded_.fill(false);
     touchdown_waiting_contact_.fill(false);
@@ -258,7 +260,20 @@ bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &j
               << params_.period_s
               << " s, duty=" << params_.duty_factor
               << ", step=" << params_.step_length_m
-              << " m, lift=" << params_.foot_lift_m << " m\n";
+              << " m, lift=" << params_.foot_lift_m << " m"
+              << (params_.cartesian_world ? " cartesian-world" : "")
+              << "\n";
+    if (params_.cartesian_world)
+        locomotion_kernel_->SetGaitSlewLimits(0.12, 0.20, 0.20);
+    if (params_.cartesian_world)
+    {
+        const auto sched = go2_control::ScheduleRunningTrot(0.15);
+        locomotion_kernel_->SetGaitPeriod(sched.period_s);
+        locomotion_kernel_->SetGaitDuty(sched.duty_factor);
+        locomotion_kernel_->SetGaitStepLength(sched.step_length_m);
+        locomotion_kernel_->SetGaitFootLift(sched.foot_lift_m);
+        wbc_speed_cmd_mps_ = 0.15;
+    }
 
     (void)joint_targets;
     return true;
@@ -452,12 +467,19 @@ void TrotExperiment::WriteMotorCommands(
             const int i = 3 * static_cast<int>(leg) + joint;
             low_cmd_.motor_cmd()[i].q() = joint_targets[i];
             low_cmd_.motor_cmd()[i].dq() = joint_velocities[i];
-            const double stance_kp = params_.wbc_full
-                ? kWbcFullStanceKp
-                : (params_.impulse ? kImpulseStanceKp : kWbcPrimaryCommandKp);
-            const double stance_kd = params_.wbc_full
-                ? kWbcFullStanceKd
-                : kWbcPrimaryCommandKd;
+            const double vabs = have_filtered_body_velocity_
+                ? std::abs(latest_filtered_body_velocity_[0])
+                : 0.0;
+            const double stance_kp = params_.cartesian_world
+                ? (24.0 + 28.0 * Clamp(vabs / 1.20, 0.0, 1.0))
+                : (params_.wbc_full
+                    ? kWbcFullStanceKp
+                    : (params_.impulse ? kImpulseStanceKp : kWbcPrimaryCommandKp));
+            const double stance_kd = params_.cartesian_world
+                ? 2.5
+                : (params_.wbc_full
+                    ? kWbcFullStanceKd
+                    : kWbcPrimaryCommandKd);
             low_cmd_.motor_cmd()[i].kp() =
                 stance_kp * wbc_stance_blend_[leg] +
                 params_.kp * (1.0 - wbc_stance_blend_[leg]);

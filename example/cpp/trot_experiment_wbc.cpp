@@ -31,7 +31,8 @@ namespace
 
 go2_control::RigidBodyState MakeRigidBodyState(
     const unitree_go::msg::dds_::LowState_ &low,
-    const unitree_go::msg::dds_::SportModeState_ &high)
+    const unitree_go::msg::dds_::SportModeState_ &high,
+    const Eigen::Vector3d &linear_vel_world)
 {
     const WorldPose pose = ComputeWorldPose(low, high);
     go2_control::RigidBodyState state;
@@ -39,8 +40,7 @@ go2_control::RigidBodyState MakeRigidBodyState(
     state.quat_world_from_body = Eigen::Quaterniond(
         pose.quaternion[0], pose.quaternion[1],
         pose.quaternion[2], pose.quaternion[3]);
-    state.linear_vel_world = Eigen::Vector3d(
-        high.velocity()[0], high.velocity()[1], high.velocity()[2]);
+    state.linear_vel_world = linear_vel_world;
     state.angular_vel_body = Eigen::Vector3d(
         low.imu_state().gyroscope()[0],
         low.imu_state().gyroscope()[1],
@@ -53,6 +53,14 @@ go2_control::RigidBodyState MakeRigidBodyState(
     return state;
 }
 
+Eigen::Vector3d ClampVec3(const Eigen::Vector3d &v, double lim)
+{
+    Eigen::Vector3d out = v;
+    for (int i = 0; i < 3; ++i)
+        out[i] = std::clamp(out[i], -lim, lim);
+    return out;
+}
+
 }  // namespace
 
 void TrotExperiment::UpdateWbcFull(
@@ -62,9 +70,31 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_diagnostics_.enabled = true;
     if (!rigid_body_ || !rigid_body_->loaded())
         return;
+    const double pitch_abs = std::abs(
+        static_cast<double>(state_snapshot.imu_state().rpy()[1]));
+    const double roll_abs = std::abs(
+        static_cast<double>(state_snapshot.imu_state().rpy()[0]));
+    const double attitude_fade = std::clamp(
+        1.0 - std::max(0.0, std::max(pitch_abs, roll_abs) - 0.06) / 0.10,
+        0.0, 1.0);
+    const double v_body = have_filtered_body_velocity_
+        ? std::abs(latest_filtered_body_velocity_[0])
+        : 0.0;
+    const double speed_lock = Smoothstep((v_body - 0.40) / 0.60);
+    const double cycle_lock =
+        Smoothstep((static_cast<double>(completed_cycles_) - 24.0) / 20.0);
+    const double cart_lock = params_.cartesian_world
+        ? std::min(cycle_lock, speed_lock) * attitude_fade
+        : 0.0;
+    Eigen::Vector3d linear_vel_world(
+        high_state_snapshot.velocity()[0],
+        high_state_snapshot.velocity()[1],
+        high_state_snapshot.velocity()[2]);
     go2_control::RigidBodyDynamics dyn;
     if (!rigid_body_->Evaluate(
-            MakeRigidBodyState(state_snapshot, high_state_snapshot), dyn))
+            MakeRigidBodyState(
+                state_snapshot, high_state_snapshot, linear_vel_world),
+            dyn))
     {
         return;
     }
@@ -124,13 +154,23 @@ void TrotExperiment::UpdateWbcFull(
     mpc_params.mass_kg = dyn.mass_kg;
     mpc_params.inertia_com_world = dyn.inertia_com_world;
     mpc_params.friction_mu = kShadowWbcFrictionCoefficient;
-    if (!params_.step_plan.empty())
+    if (params_.cartesian_world)
+    {
+        mpc_params.w_vel_xy = 60.0 + 30.0 * cart_lock;
+        mpc_params.w_pos_xy = 6.0;
+        mpc_params.w_ori = 120.0;
+        mpc_params.w_vel_z = 12.0;
+        mpc_params.w_omega = 8.0;
+        mpc_params.w_force = 3.0e-4;
+    }
+    else if (!params_.step_plan.empty())
     {
         mpc_params.w_vel_xy = 80.0;
         mpc_params.w_pos_xy = 20.0;
     }
     const bool run_mpc =
-        (wbc_full_ticks_ % 25) == 0 || !last_srbd_.ok;
+        (wbc_full_ticks_ % (params_.cartesian_world ? 10 : 25)) == 0 ||
+        !last_srbd_.ok;
     if (run_mpc)
     {
         go2_control::SrbdMpcInput mpc_in;
@@ -143,9 +183,9 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.state[6] = state_snapshot.imu_state().gyroscope()[0];
         mpc_in.state[7] = state_snapshot.imu_state().gyroscope()[1];
         mpc_in.state[8] = state_snapshot.imu_state().gyroscope()[2];
-        mpc_in.state[9] = high_state_snapshot.velocity()[0];
-        mpc_in.state[10] = high_state_snapshot.velocity()[1];
-        mpc_in.state[11] = high_state_snapshot.velocity()[2];
+        mpc_in.state[9] = linear_vel_world.x();
+        mpc_in.state[10] = linear_vel_world.y();
+        mpc_in.state[11] = linear_vel_world.z();
         mpc_in.reference = mpc_in.state;
         mpc_in.reference[0] = 0.0;
         mpc_in.reference[1] = 0.0;
@@ -154,7 +194,7 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.reference[6] = 0.0;
         mpc_in.reference[7] = 0.0;
         mpc_in.reference[8] = params_.turn_rate_radps;
-        mpc_in.reference[9] =
+        const double v_cmd =
             gait_started_ && motion_stage_ == 2
                 ? (std::isfinite(kernel_nominal_velocity_x_mps_) &&
                            std::abs(kernel_nominal_velocity_x_mps_) > 1.0e-6
@@ -162,7 +202,28 @@ void TrotExperiment::UpdateWbcFull(
                        : params_.direction_sign * params_.step_length_m /
                              params_.period_s)
                 : 0.0;
-        mpc_in.reference[10] = 0.0;
+        const double yaw =
+            static_cast<double>(state_snapshot.imu_state().rpy()[2]);
+        if (params_.cartesian_world)
+        {
+            mpc_in.reference[2] = world_reference_yaw_rad_;
+            mpc_in.reference[4] = world_reference_y_m_;
+            const double yaw_err = WrapAngle(
+                yaw - world_reference_yaw_rad_);
+            mpc_in.reference[8] = Clamp(-1.2 * yaw_err, -0.30, 0.30);
+            mpc_in.reference[9] =
+                v_cmd * std::cos(world_reference_yaw_rad_);
+            mpc_in.reference[10] =
+                v_cmd * std::sin(world_reference_yaw_rad_);
+            mpc_in.reference[3] =
+                dyn.com_world.x() + mpc_in.reference[9] * mpc_params.dt_s *
+                                        0.5 * mpc_params.horizon;
+        }
+        else
+        {
+            mpc_in.reference[9] = v_cmd;
+            mpc_in.reference[10] = 0.0;
+        }
         mpc_in.reference[11] = 0.0;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             mpc_in.foot_from_com_world[leg] =
@@ -200,7 +261,8 @@ void TrotExperiment::UpdateWbcFull(
             quat.normalized().toRotationMatrix().transpose() *
             last_srbd_.first_angular_acc;
         if (have_filtered_body_velocity_ && gait_started_ &&
-            motion_stage_ == 2 && !params_.step_plan.empty())
+            motion_stage_ == 2 &&
+            (params_.cartesian_world || !params_.step_plan.empty()))
         {
             const double v_des =
                 std::isfinite(kernel_nominal_velocity_x_mps_)
@@ -218,15 +280,31 @@ void TrotExperiment::UpdateWbcFull(
             const double pitch_fade = Clamp(
                 1.0 - std::max(0.0, std::abs(pitch) - 0.06) / 0.12,
                 0.15, 1.0);
+            const double ax_lim = params_.cartesian_world ? 1.0 : 3.0;
+            const double ax_gain = params_.cartesian_world ? 2.0 : 4.0;
             const double ax_body =
-                pitch_fade * Clamp(4.0 * v_err, -3.0, 3.0);
+                pitch_fade * Clamp(ax_gain * v_err, -ax_lim, ax_lim);
             wbc_in.desired_linear_acc_world.x() += ax_body * std::cos(yaw);
             wbc_in.desired_linear_acc_world.y() += ax_body * std::sin(yaw);
-            // Forward GRF below the CoM pitches the nose up. Add a
-            // nose-down angular task so the ID-WBC can use rearward
-            // contacts instead of flipping.
+            const double roll =
+                static_cast<double>(state_snapshot.imu_state().rpy()[0]);
+            const double gyro_x =
+                static_cast<double>(
+                    state_snapshot.imu_state().gyroscope()[0]);
+            wbc_in.desired_angular_acc_body.x() +=
+                (params_.cartesian_world ? -40.0 : -20.0) * roll -
+                (params_.cartesian_world ? 5.0 : 2.5) * gyro_x;
             wbc_in.desired_angular_acc_body.y() +=
-                -10.0 * pitch - 1.2 * gyro_y - 0.35 * ax_body;
+                -12.0 * pitch - 1.5 * gyro_y - 0.25 * ax_body;
+            if (params_.cartesian_world)
+            {
+                const double yaw_err = WrapAngle(
+                    yaw - world_reference_yaw_rad_);
+                const double gyro_z = static_cast<double>(
+                    state_snapshot.imu_state().gyroscope()[2]);
+                wbc_in.desired_angular_acc_body.z() +=
+                    -8.0 * yaw_err - 2.0 * gyro_z;
+            }
         }
     }
     if (have_commanded_body_feet_)
@@ -239,10 +317,7 @@ void TrotExperiment::UpdateWbcFull(
         const Eigen::Matrix3d R = quat.normalized().toRotationMatrix();
         Eigen::Matrix<double, go2_control::kGo2Nv, 1> qvel =
             Eigen::Matrix<double, go2_control::kGo2Nv, 1>::Zero();
-        qvel.head<3>() = Eigen::Vector3d(
-            high_state_snapshot.velocity()[0],
-            high_state_snapshot.velocity()[1],
-            high_state_snapshot.velocity()[2]);
+        qvel.head<3>() = linear_vel_world;
         qvel.segment<3>(3) = Eigen::Vector3d(
             state_snapshot.imu_state().gyroscope()[0],
             state_snapshot.imu_state().gyroscope()[1],
@@ -255,27 +330,81 @@ void TrotExperiment::UpdateWbcFull(
         }
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
+            const Eigen::Vector3d v = dyn.foot_jac_world[leg] * qvel;
             if (qp_contact[leg])
+            {
+                if (params_.cartesian_world && have_commanded_world_feet_)
+                {
+                    const Eigen::Vector3d p_des(
+                        commanded_world_feet_[leg].x,
+                        commanded_world_feet_[leg].y,
+                        commanded_world_feet_[leg].z);
+                    wbc_in.stance_acc_world[leg] = ClampVec3(
+                        (40.0 + 120.0 * cart_lock) *
+                                (p_des - dyn.foot_pos_world[leg]) -
+                            (10.0 + 10.0 * cart_lock) * v,
+                        8.0 + 12.0 * cart_lock);
+                    wbc_in.have_stance_acc = true;
+                }
                 continue;
-            const Eigen::Vector3d p_des =
+            }
+            Eigen::Vector3d p_des =
                 Eigen::Vector3d(pose.base.x, pose.base.y, pose.base.z) +
                 R * Eigen::Vector3d(
                         commanded_body_feet_[leg].x,
                         commanded_body_feet_[leg].y,
                         commanded_body_feet_[leg].z);
+            Eigen::Vector3d v_des = Eigen::Vector3d::Zero();
+            if (params_.cartesian_world && have_commanded_world_feet_)
+            {
+                p_des = Eigen::Vector3d(
+                    commanded_world_feet_[leg].x,
+                    commanded_world_feet_[leg].y,
+                    commanded_world_feet_[leg].z);
+                v_des = Eigen::Vector3d(
+                    cartesian_state_.target_world_vel[leg].x,
+                    cartesian_state_.target_world_vel[leg].y,
+                    cartesian_state_.target_world_vel[leg].z);
+            }
             const Eigen::Vector3d p = dyn.foot_pos_world[leg];
-            const Eigen::Vector3d v = dyn.foot_jac_world[leg] * qvel;
-            wbc_in.swing_acc_world[leg] = 180.0 * (p_des - p) - 16.0 * v;
+            wbc_in.swing_acc_world[leg] = ClampVec3(
+                180.0 * (p_des - p) + 16.0 * (v_des - v),
+                50.0);
         }
     }
 
     go2_control::IdWbcOutput wbc_out;
     go2_control::IdWbcParams id_params;
-    id_params.w_stance_no_slip = 8.0;
+    const int n_contact =
+        (qp_contact[0] ? 1 : 0) + (qp_contact[1] ? 1 : 0) +
+        (qp_contact[2] ? 1 : 0) + (qp_contact[3] ? 1 : 0);
+    id_params.w_stance_no_slip =
+        params_.cartesian_world ? (50.0 + 90.0 * cart_lock) : 8.0;
+    id_params.w_base_lin = params_.cartesian_world ? 80.0 : 80.0;
+    id_params.w_base_ang = params_.cartesian_world ? (80.0 + 30.0 * cart_lock) : 40.0;
+    id_params.w_swing = params_.cartesian_world ? 80.0 : 80.0;
     id_params.tau_limit_nm = 35.0;
-    const bool solved =
+    if (params_.cartesian_world)
+    {
+        id_params.hard_stance_no_slip = false;
+        id_params.w_force = 1.0e-6;
+        id_params.w_force_track = cart_lock * 0.008;
+        if (last_srbd_.ok)
+        {
+            wbc_in.have_force_ref = true;
+            wbc_in.force_ref = last_srbd_.first_force;
+        }
+    }
+    bool solved =
         go2_control::SolveInverseDynamicsWbc(id_params, wbc_in, wbc_out) &&
         wbc_out.ok;
+    if (!solved && id_params.hard_stance_no_slip)
+    {
+        id_params.hard_stance_no_slip = false;
+        solved =
+            go2_control::SolveInverseDynamicsWbc(id_params, wbc_in, wbc_out) &&
+            wbc_out.ok;
+    }
     if (solved)
     {
         last_id_wbc_ = wbc_out;
@@ -288,6 +417,35 @@ void TrotExperiment::UpdateWbcFull(
     else
     {
         return;
+    }
+
+    if (params_.cartesian_world && have_commanded_world_feet_ &&
+        gait_started_ && motion_stage_ == 2 && cart_lock > 0.05)
+    {
+        Eigen::Matrix<double, 12, 1> tau_pd =
+            Eigen::Matrix<double, 12, 1>::Zero();
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (!qp_contact[leg])
+                continue;
+            const Eigen::Vector3d v = dyn.foot_jac_world[leg] * dyn.qvel;
+            const Eigen::Vector3d dp =
+                Eigen::Vector3d(
+                    commanded_world_feet_[leg].x,
+                    commanded_world_feet_[leg].y,
+                    commanded_world_feet_[leg].z) -
+                dyn.foot_pos_world[leg];
+            Eigen::Vector3d f_pd = Eigen::Vector3d::Zero();
+            f_pd.x() = std::clamp(
+                cart_lock * (80.0 * dp.x() - 28.0 * v.x()), -18.0, 18.0);
+            f_pd.y() = std::clamp(
+                cart_lock * (80.0 * dp.y() - 28.0 * v.y()), -18.0, 18.0);
+            tau_pd +=
+                dyn.foot_jac_world[leg].rightCols<12>().transpose() * f_pd;
+        }
+        wbc_out.tau += tau_pd;
+        for (int i = 0; i < 12; ++i)
+            wbc_out.tau[i] = std::clamp(wbc_out.tau[i], -35.0, 35.0);
     }
 
     wbc_shadow_diagnostics_.solver_ok = true;

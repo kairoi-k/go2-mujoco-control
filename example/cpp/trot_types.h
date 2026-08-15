@@ -155,6 +155,7 @@ struct TrotParams
     bool wbc_shadow = false;
     bool wbc_primary = false;
     bool wbc_full = false;
+    bool cartesian_world = false;
     int preview_horizon_steps = 0;
     std::vector<std::pair<int, double>> step_plan;
     std::vector<std::pair<int, double>> period_plan;

@@ -63,6 +63,21 @@ int main()
     passed &= Check(two.force.segment<3>(3).norm() < 0.2, "FL force");
     passed &= Check(two.force.segment<3>(6).norm() < 0.2, "RR force");
 
+    go2_control::IdWbcParams hard = {};
+    hard.hard_stance_no_slip = true;
+    input.desired_linear_acc_world = Eigen::Vector3d(0.4, 0.0, 0.0);
+    input.have_stance_acc = true;
+    go2_control::IdWbcOutput locked;
+    passed &= Check(
+        go2_control::SolveInverseDynamicsWbc(hard, input, locked) && locked.ok,
+        "hard no-slip 2-contact failed");
+    const Eigen::Vector3d acc_fr =
+        dyn.foot_jac_world[0] * locked.qdd;
+    const Eigen::Vector3d acc_rl =
+        dyn.foot_jac_world[3] * locked.qdd;
+    passed &= Check(acc_fr.norm() < 0.05, "FR foot acc");
+    passed &= Check(acc_rl.norm() < 0.05, "RL foot acc");
+
     if (!passed)
     {
         std::cerr << "eq=" << out.eq_residual

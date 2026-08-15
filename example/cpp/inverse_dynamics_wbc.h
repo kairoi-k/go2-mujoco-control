@@ -30,7 +30,9 @@ struct IdWbcParams
     double w_stance_no_slip = 8.0;
     double w_posture = 0.2;
     double w_force = 1.0e-5;
+    double w_force_track = 0.0;
     double w_tau = 1.0e-4;
+    bool hard_stance_no_slip = false;
 };
 
 struct IdWbcInput
@@ -40,6 +42,11 @@ struct IdWbcInput
     Eigen::Vector3d desired_angular_acc_body = Eigen::Vector3d::Zero();
     std::array<bool, go2::kLegCount> contact{};
     std::array<Eigen::Vector3d, go2::kLegCount> swing_acc_world{};
+    std::array<Eigen::Vector3d, go2::kLegCount> stance_acc_world{};
+    bool have_stance_acc = false;
+    bool have_force_ref = false;
+    Eigen::Matrix<double, 12, 1> force_ref =
+        Eigen::Matrix<double, 12, 1>::Zero();
 };
 
 struct IdWbcOutput
@@ -99,8 +106,20 @@ inline bool SolveInverseDynamicsWbc(
         const int col_f = nqdd + static_cast<int>(3 * leg);
         if (input.contact[leg])
         {
-            H.topLeftCorner(nqdd, nqdd) +=
-                2.0 * params.w_stance_no_slip * Jl.transpose() * Jl;
+            if (!params.hard_stance_no_slip)
+            {
+                H.topLeftCorner(nqdd, nqdd) +=
+                    2.0 * params.w_stance_no_slip * Jl.transpose() * Jl;
+                const Eigen::Vector3d jdot_qvel =
+                    input.dynamics.foot_jac_dot_world[leg] *
+                    input.dynamics.qvel;
+                const Eigen::Vector3d a_des = input.have_stance_acc
+                    ? input.stance_acc_world[leg]
+                    : Eigen::Vector3d::Zero();
+                g.head(nqdd) +=
+                    2.0 * params.w_stance_no_slip * Jl.transpose() *
+                    (jdot_qvel - a_des);
+            }
         }
         else
         {
@@ -112,6 +131,18 @@ inline bool SolveInverseDynamicsWbc(
         H(col_f, col_f) += 2.0 * params.w_force;
         H(col_f + 1, col_f + 1) += 2.0 * params.w_force;
         H(col_f + 2, col_f + 2) += 2.0 * params.w_force;
+        if (params.w_force_track > 0.0 && input.have_force_ref)
+        {
+            H(col_f, col_f) += 2.0 * params.w_force_track;
+            H(col_f + 1, col_f + 1) += 2.0 * params.w_force_track;
+            H(col_f + 2, col_f + 2) += 2.0 * params.w_force_track;
+            g[col_f] +=
+                -2.0 * params.w_force_track * input.force_ref[3 * static_cast<int>(leg) + 0];
+            g[col_f + 1] +=
+                -2.0 * params.w_force_track * input.force_ref[3 * static_cast<int>(leg) + 1];
+            g[col_f + 2] +=
+                -2.0 * params.w_force_track * input.force_ref[3 * static_cast<int>(leg) + 2];
+        }
     }
     H.block(6, 6, 12, 12).diagonal().array() += 2.0 * params.w_posture;
 
@@ -126,10 +157,38 @@ inline bool SolveInverseDynamicsWbc(
     g += 2.0 * params.w_tau * tau_map.transpose() * hj;
     H.diagonal().array() += 1.0e-8;
 
-    Eigen::MatrixXd Aeq(6, n);
-    Aeq.leftCols<nqdd>() = M.topRows<6>();
-    Aeq.rightCols<nf>() = -J.leftCols<6>().transpose();
-    const Eigen::VectorXd beq = -h.head<6>();
+    int n_hard = 0;
+    if (params.hard_stance_no_slip)
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (input.contact[leg])
+                n_hard += 3;
+        }
+    }
+    Eigen::MatrixXd Aeq = Eigen::MatrixXd::Zero(6 + n_hard, n);
+    Eigen::VectorXd beq = Eigen::VectorXd::Zero(6 + n_hard);
+    Aeq.block(0, 0, 6, nqdd) = M.topRows<6>();
+    Aeq.block(0, nqdd, 6, nf) = -J.leftCols<6>().transpose();
+    beq.head<6>() = -h.head<6>();
+    if (n_hard > 0)
+    {
+        int row_eq = 6;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (!input.contact[leg])
+                continue;
+            const auto Jl = input.dynamics.foot_jac_world[leg];
+            const Eigen::Vector3d jdot_qvel =
+                input.dynamics.foot_jac_dot_world[leg] * input.dynamics.qvel;
+            const Eigen::Vector3d a_des = input.have_stance_acc
+                ? input.stance_acc_world[leg]
+                : Eigen::Vector3d::Zero();
+            Aeq.block(row_eq, 0, 3, nqdd) = Jl;
+            beq.segment<3>(row_eq) = a_des - jdot_qvel;
+            row_eq += 3;
+        }
+    }
 
     const double mu = params.friction_mu / std::sqrt(2.0);
     const int mineq = 6 * 4 + 24;

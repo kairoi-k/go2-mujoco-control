@@ -15,6 +15,12 @@
 
 Gait timing still comes from the Raibert kernel. The kernel is a warm start / swing target, not the force planner.
 
+## Cartesian world (`--cartesian-world`)
+
+`go2sim full2` turns on world-frame stance hold and Cartesian swing (`cartesian_world_trot.h`). Stance feet are IK'd to a captured world anchor; swing is a world quintic to a Raibert foothold with feedforward velocity; ID-WBC tracks `J qdd + Ĵ q̇ = a_des`. After the first cycles the gait is a short-stance running trot (`T_st ≈ 0.11 s`, duty ~0.5), not the 0.75 walking trot. MPC holds the captured heading; the speed governor follows measured body `v_x` with a small lead.
+
+This is the Mini Cheetah representation, not a 2 m/s result. Headless **280/280 complete**, last-8s **0.50 m/s** (`full2_185811`), return to stand. Peak cycle-mean about **0.79 m/s**. Variance is high; a later 280-cycle repeat can quality-reject. Hard stance equalities and large `J^T` cartesian pulls caused roll kills and were not kept. `go2sim walk` / `full` stay the 0.15 gate.
+
 ## How to run
 
 ```bash

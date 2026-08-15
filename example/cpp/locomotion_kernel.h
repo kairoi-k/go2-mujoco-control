@@ -62,6 +62,9 @@ public:
         GaitKernelResult &result) = 0;
     virtual void SetGaitStepLength(double) {}
     virtual void SetGaitPeriod(double) {}
+    virtual void SetGaitDuty(double) {}
+    virtual void SetGaitFootLift(double) {}
+    virtual void SetGaitSlewLimits(double, double, double) {}
 };
 
 class HandCodedTrotKernel final : public LocomotionKernel

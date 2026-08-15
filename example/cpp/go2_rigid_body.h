@@ -64,6 +64,9 @@ struct RigidBodyDynamics
         Eigen::Matrix<double, kGo2Nv, 1>::Zero();
     std::array<Eigen::Vector3d, go2::kLegCount> foot_pos_world{};
     std::array<Eigen::Matrix<double, 3, kGo2Nv>, go2::kLegCount> foot_jac_world{};
+    std::array<Eigen::Matrix<double, 3, kGo2Nv>, go2::kLegCount> foot_jac_dot_world{};
+    Eigen::Matrix<double, kGo2Nv, 1> qvel =
+        Eigen::Matrix<double, kGo2Nv, 1>::Zero();
 };
 
 class Go2RigidBody
@@ -160,8 +163,11 @@ public:
 
         out.inertia_com_world = CompositeInertiaAboutCom(out.com_world);
 
+        for (int i = 0; i < kGo2Nv; ++i)
+            out.qvel[i] = data_->qvel[i];
         mjtNum jacp[3 * kGo2Nv];
         mjtNum jacr[3 * kGo2Nv];
+        mjtNum jacp_dot[3 * kGo2Nv];
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             const int geom = foot_geom_[leg];
@@ -171,10 +177,19 @@ public:
                 data_->xpos[3 * body + 1],
                 data_->xpos[3 * body + 2]);
             mj_jacGeom(model_, data_, jacp, jacr, geom);
+            const mjtNum point[3] = {
+                out.foot_pos_world[leg].x(),
+                out.foot_pos_world[leg].y(),
+                out.foot_pos_world[leg].z()};
+            mj_jacDot(model_, data_, jacp_dot, nullptr, point, body);
             for (int row = 0; row < 3; ++row)
             {
                 for (int col = 0; col < kGo2Nv; ++col)
+                {
                     out.foot_jac_world[leg](row, col) = jacp[row * kGo2Nv + col];
+                    out.foot_jac_dot_world[leg](row, col) =
+                        jacp_dot[row * kGo2Nv + col];
+                }
             }
         }
         out.valid = out.mass_kg > 1.0 && out.mass_matrix.allFinite() &&

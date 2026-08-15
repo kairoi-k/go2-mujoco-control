@@ -42,6 +42,7 @@ add_executable(real_trot_go2
     trot_experiment.h
     trot_true_dynamics.h
     locomotion_kernel.h
+    cartesian_world_trot.h
     contact_state_filter.h
 )
 target_link_libraries(real_trot_go2 unitree_sdk2 Eigen3::Eigen)
@@ -86,6 +87,9 @@ add_executable(test_raibert_footstep_planner test_raibert_footstep_planner.cpp)
 
 add_executable(test_raibert_trot_kernel test_raibert_trot_kernel.cpp)
 target_link_libraries(test_raibert_trot_kernel Eigen3::Eigen)
+
+add_executable(test_cartesian_world_trot test_cartesian_world_trot.cpp)
+go2_add_ctest(test_cartesian_world_trot)
 
 add_executable(test_motion_frame_utils test_motion_frame_utils.cpp)
 

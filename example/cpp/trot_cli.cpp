@@ -23,7 +23,7 @@ void PrintTrotCliUsage()
            " [--no-velocity-feedforward] [--wbc-shadow]"
            " [--wbc-velocity-wrench] [--wbc-velocity-gain s] [--wbc-max-forward-force n]"
            " [--wbc-torque-feedforward] [--wbc-torque-scale s] [--domain-id n]"
-           " [--wbc-primary] [--wbc-full] [--preview-horizon n]"
+           " [--wbc-primary] [--wbc-full] [--cartesian-world] [--preview-horizon n]"
            " [--wbc-reduced-contact-task]"
            " [--wbc-task-torque-feedforward]"
            " [--direction +/-1] [--support-anchor-feedback]"
@@ -193,6 +193,18 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 if (cfg.params.preview_horizon_steps <= 0)
                     cfg.params.preview_horizon_steps = 4;
             }
+            else if (option == "--cartesian-world")
+            {
+                cfg.params.cartesian_world = true;
+                cfg.params.wbc_full = true;
+                cfg.params.wbc_primary = true;
+                cfg.params.wbc_shadow = true;
+                cfg.params.wbc_velocity_wrench = true;
+                cfg.params.wbc_velocity_gain_s_inv = 6.0;
+                cfg.params.wbc_reduced_contact_task = false;
+                if (cfg.params.preview_horizon_steps <= 0)
+                    cfg.params.preview_horizon_steps = 4;
+            }
             else if (option == "--preview-horizon")
                 cfg.params.preview_horizon_steps =
                     std::stoi(require_value("--preview-horizon"));
@@ -331,6 +343,8 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << "  kernel=" << params.kernel_name << "\n"
               << "  wbc_primary=" << (params.wbc_primary ? "on" : "off") << "\n"
               << "  wbc_full=" << (params.wbc_full ? "on" : "off") << "\n"
+              << "  cartesian_world="
+              << (params.cartesian_world ? "on" : "off") << "\n"
               << "  preview_horizon=" << params.preview_horizon_steps << "\n"
               << "  impulse=" << (params.impulse ? "on" : "off") << "\n"
               << "  task="

@@ -25,6 +25,7 @@
 #include "go2_rigid_body.h"
 #include "srbd_mpc.h"
 #include "inverse_dynamics_wbc.h"
+#include "cartesian_world_trot.h"
 
 using unitree::robot::ChannelPublisherPtr;
 using unitree::robot::ChannelSubscriberPtr;
@@ -195,6 +196,9 @@ private:
     double velocity_filter_alpha_ = 0.0;
     std::array<go2::Vec3, go2::kLegCount> commanded_body_feet_{};
     bool have_commanded_body_feet_ = false;
+    std::array<go2::Vec3, go2::kLegCount> commanded_world_feet_{};
+    bool have_commanded_world_feet_ = false;
+    go2_control::CartesianWorldState cartesian_state_{};
     std::array<bool, go2::kLegCount> previous_leg_swing_{};
     std::array<bool, go2::kLegCount> touchdown_recorded_{};
     std::array<bool, go2::kLegCount> touchdown_waiting_contact_{};
@@ -250,6 +254,8 @@ private:
     std::size_t step_plan_index_ = 0;
     std::size_t period_plan_index_ = 0;
     double wbc_speed_cmd_mps_ = -1.0;
+    double cycle_vx_sum_ = 0.0;
+    int cycle_vx_count_ = 0;
     std::array<double, go2::kLegCount> kernel_touchdown_target_x_m_{};
     int preview_n_steps_ = 0;
     double preview_touchdown_x_m_ = 0.0;

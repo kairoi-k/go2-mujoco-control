@@ -51,18 +51,43 @@ public:
     }
 
     // [Phase3] 在线步长/周期变更(cycle 边界调用,渐变趋近防冲击)
-    void SetGaitStepLength(double step_m)
+    void SetGaitStepLength(double step_m) override
     {
         if (step_m > 0.0 && std::isfinite(step_m))
             target_step_length_m_ = step_m;
     }
-    void SetGaitPeriod(double period_s)
+    void SetGaitPeriod(double period_s) override
     {
         if (period_s > 0.0 && std::isfinite(period_s))
             target_period_s_ = period_s;
     }
+    void SetGaitDuty(double duty) override
+    {
+        if (duty > 0.0 && duty < 1.0 && std::isfinite(duty))
+            target_duty_factor_ = duty;
+    }
+    void SetGaitFootLift(double lift_m) override
+    {
+        if (lift_m >= 0.0 && std::isfinite(lift_m))
+            target_foot_lift_m_ = lift_m;
+    }
+    void SetGaitSlewLimits(double step, double period, double duty) override
+    {
+        if (step > 0.0 && std::isfinite(step))
+            max_step_delta_ = step;
+        if (period > 0.0 && std::isfinite(period))
+            max_period_delta_ = period;
+        if (duty > 0.0 && std::isfinite(duty))
+            max_duty_delta_ = duty;
+    }
     static constexpr double kMaxStepDeltaPerCycle = 0.010;
     static constexpr double kMaxPeriodDeltaPerCycle = 0.020;
+    static constexpr double kMaxDutyDeltaPerCycle = 0.020;
+    double max_step_delta_ = kMaxStepDeltaPerCycle;
+    double max_period_delta_ = kMaxPeriodDeltaPerCycle;
+    double max_duty_delta_ = kMaxDutyDeltaPerCycle;
+    double target_duty_factor_ = -1.0;
+    double target_foot_lift_m_ = -1.0;
     double target_step_length_m_ = -1.0;
     int last_ramp_cycle_index_ = -1;
     double target_period_s_ = -1.0;
@@ -116,7 +141,7 @@ public:
             {
                 const double delta = std::clamp(
                     target_step_length_m_ - params_.gait.step_length_m,
-                    -kMaxStepDeltaPerCycle, kMaxStepDeltaPerCycle);
+                    -max_step_delta_, max_step_delta_);
                 params_.gait.step_length_m += delta;
                 std::cout << "STEPK cycle=" << cycle_index
                           << " step=" << params_.gait.step_length_m << "\n";
@@ -125,8 +150,21 @@ public:
             {
                 const double delta = std::clamp(
                     target_period_s_ - params_.gait.period_s,
-                    -kMaxPeriodDeltaPerCycle, kMaxPeriodDeltaPerCycle);
+                    -max_period_delta_, max_period_delta_);
                 params_.gait.period_s += delta;
+            }
+            if (target_duty_factor_ > 0.0)
+            {
+                const double delta = std::clamp(
+                    target_duty_factor_ - params_.gait.duty_factor,
+                    -max_duty_delta_, max_duty_delta_);
+                params_.gait.duty_factor += delta;
+            }
+            if (target_foot_lift_m_ >= 0.0)
+            {
+                params_.gait.foot_lift_m += std::clamp(
+                    target_foot_lift_m_ - params_.gait.foot_lift_m,
+                    -0.006, 0.006);
             }
             if (params_.speed_adaptive)
             {

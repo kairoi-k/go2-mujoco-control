@@ -14,6 +14,7 @@
 #include "go2_contact_torque_mapping.h"
 #include "go2_inverse_kinematics.h"
 #include "motion_frame_utils.h"
+#include "cartesian_world_trot.h"
 
 using namespace unitree::common;
 using namespace unitree::robot;
@@ -141,6 +142,9 @@ bool TrotExperiment::BuildGaitTargets(
     kernel_velocity_error_x_mps_ = gait_result.velocity_error_x_mps;
     kernel_nominal_velocity_x_mps_ = gait_result.nominal_velocity_x_mps;
     kernel_touchdown_target_x_m_ = gait_result.touchdown_target_x_m;
+    if (params_.cartesian_world && wbc_speed_cmd_mps_ > 0.0)
+        kernel_nominal_velocity_x_mps_ =
+            params_.direction_sign * wbc_speed_cmd_mps_;
     if (gait_result.period_s > 0.0)
         kernel_period_s_ = gait_result.period_s;
     if (gait_result.duty_factor > 0.0)
@@ -171,18 +175,86 @@ bool TrotExperiment::BuildGaitTargets(
         ++completed_cycles_;
         if (max_cycles_ > 0 && completed_cycles_ >= max_cycles_)
             stop_requested_ = true;
+        const double v_meas =
+            cycle_vx_count_ > 0
+                ? params_.direction_sign * cycle_vx_sum_ /
+                      static_cast<double>(cycle_vx_count_)
+                : (have_filtered_body_velocity_
+                       ? params_.direction_sign *
+                             latest_filtered_body_velocity_[0]
+                       : 0.0);
         active_cycle_index_ = cycle_index;
         ResetCycleDiagnostics();
-        if (gait_result.preview_n_steps > 0)
+        if (params_.cartesian_world)
         {
-            std::cout << "WBC-FULL preview n=" << gait_result.preview_n_steps
-                      << " x0=" << gait_result.preview_touchdown_x_m << "\n";
+            if (wbc_speed_cmd_mps_ < 0.0)
+            {
+                wbc_speed_cmd_mps_ = std::abs(
+                    params_.direction_sign * params_.step_length_m /
+                    params_.period_s);
+                locomotion_kernel_->SetGaitSlewLimits(0.12, 0.20, 0.20);
+            }
+            const double pitch =
+                std::abs(static_cast<double>(
+                    state_snapshot.imu_state().rpy()[1]));
+            const double roll =
+                std::abs(static_cast<double>(
+                    state_snapshot.imu_state().rpy()[0]));
+            constexpr double kDeg = go2_trot::kPi / 180.0;
+            const bool attitude_ok = pitch < 5.0 * kDeg && roll < 5.0 * kDeg;
+            if (cycle_index >= 8)
+            {
+                if (attitude_ok)
+                {
+                    const double inc = v_meas >= 0.40 ? 0.06 : 0.03;
+                    const double lead =
+                        (pitch < 2.5 * kDeg && roll < 2.5 * kDeg &&
+                         v_meas >= 0.40)
+                            ? 0.20
+                            : 0.12;
+                    wbc_speed_cmd_mps_ = std::min(
+                        2.45, wbc_speed_cmd_mps_ + inc);
+                    wbc_speed_cmd_mps_ = std::min(
+                        wbc_speed_cmd_mps_,
+                        std::max(0.15, v_meas + lead));
+                }
+                else if (pitch > 8.0 * kDeg || roll > 7.0 * kDeg)
+                {
+                    wbc_speed_cmd_mps_ = std::max(
+                        0.15, std::min(wbc_speed_cmd_mps_, v_meas + 0.04));
+                }
+            }
+            wbc_speed_cmd_mps_ = Clamp(wbc_speed_cmd_mps_, 0.15, 2.45);
+            double v_sched = std::min(
+                wbc_speed_cmd_mps_,
+                std::max(0.15, v_meas + 0.12));
+            if (cycle_index >= 12)
+                v_sched = std::max(0.32, v_sched);
+            const auto sched =
+                go2_control::ScheduleRunningTrot(v_sched);
+            locomotion_kernel_->SetGaitPeriod(sched.period_s);
+            locomotion_kernel_->SetGaitDuty(sched.duty_factor);
+            locomotion_kernel_->SetGaitStepLength(
+                wbc_speed_cmd_mps_ * sched.period_s);
+            locomotion_kernel_->SetGaitFootLift(sched.foot_lift_m);
+            const double v_cap = go2_control::CartesianWorkspaceSpeedCap(
+                kernel_duty_factor_ > 0.05 ? kernel_duty_factor_
+                                           : params_.duty_factor,
+                kernel_period_s_ > 0.05 ? kernel_period_s_
+                                        : params_.period_s);
+            if (wbc_speed_cmd_mps_ > v_cap)
+                wbc_speed_cmd_mps_ = v_cap;
+            std::cout << "CART-GOV cycle=" << cycle_index
+                      << " v_cmd=" << wbc_speed_cmd_mps_
+                      << " v_meas=" << v_meas
+                      << " v_cap=" << v_cap
+                      << " period=" << sched.period_s
+                      << " duty=" << sched.duty_factor
+                      << " Tst=" << sched.stance_time_s
+                      << " step=" << wbc_speed_cmd_mps_ * sched.period_s
+                      << "\n";
         }
-        const double v_meas =
-            have_filtered_body_velocity_
-                ? params_.direction_sign * latest_filtered_body_velocity_[0]
-                : 0.0;
-        if (params_.wbc_full && !params_.step_plan.empty())
+        else if (params_.wbc_full && !params_.step_plan.empty())
         {
             if (wbc_speed_cmd_mps_ < 0.0)
             {
@@ -259,7 +331,66 @@ bool TrotExperiment::BuildGaitTargets(
         actual_world_feet = ComputeWorldFeet(state_snapshot, pose);
         have_actual_world_feet = true;
     }
-    if (params_.world_feedback && have_world_reference_ && have_high_state)
+    if (params_.cartesian_world && have_actual_world_feet)
+    {
+        go2_control::CartesianWorldInput cart;
+        cart.base = pose.base;
+        cart.quaternion = pose.quaternion;
+        cart.actual_world_feet = actual_world_feet;
+        cart.stand_body_feet = go2::AllFootPositions(stand_up_joint_pos_);
+        cart.phase = phase;
+        cart.duty_factor = stance_duration;
+        cart.period_s =
+            gait_result.period_s > 0.05 ? gait_result.period_s
+                                        : params_.period_s;
+        cart.v_cmd_mps =
+            wbc_speed_cmd_mps_ > 0.0
+                ? wbc_speed_cmd_mps_
+                : std::abs(gait_result.nominal_velocity_x_mps);
+        if (have_filtered_body_velocity_)
+        {
+            const double c = std::cos(pose.yaw_rad);
+            const double s = std::sin(pose.yaw_rad);
+            cart.vx_world =
+                latest_filtered_body_velocity_[0] * c -
+                latest_filtered_body_velocity_[1] * s;
+            cart.vy_world =
+                latest_filtered_body_velocity_[0] * s +
+                latest_filtered_body_velocity_[1] * c;
+        }
+        else if (have_world_velocity_)
+        {
+            cart.vx_world = latest_world_velocity_[0];
+            cart.vy_world = latest_world_velocity_[1];
+        }
+        cart.yaw_rad = pose.yaw_rad;
+        cart.roll_rad = static_cast<double>(state_snapshot.imu_state().rpy()[0]);
+        cart.gyro_x = static_cast<double>(
+            state_snapshot.imu_state().gyroscope()[0]);
+        cart.raibert_gain_s = params_.raibert_velocity_gain_s;
+        cart.raibert_max_adj_m = params_.raibert_max_adjustment_m;
+        cart.foot_lift_m =
+            gait_result.duty_factor > 0.0
+                ? std::max(params_.foot_lift_m, 0.022)
+                : params_.foot_lift_m;
+        if (kernel_period_s_ > 0.05)
+        {
+            const auto sched = go2_control::ScheduleRunningTrot(
+                cart.v_cmd_mps);
+            cart.foot_lift_m = sched.foot_lift_m;
+        }
+        cart.blend = Smoothstep(gait_time_s / 0.60);
+        go2_control::ApplyCartesianWorldTrot(cart, cartesian_state_, feet);
+        commanded_world_feet_ = cartesian_state_.target_world;
+        have_commanded_world_feet_ = true;
+        if (wbc_speed_cmd_mps_ < 0.0)
+        {
+            wbc_speed_cmd_mps_ = cart.v_cmd_mps;
+            locomotion_kernel_->SetGaitSlewLimits(0.12, 0.20, 0.20);
+        }
+    }
+    if (params_.world_feedback && have_world_reference_ && have_high_state &&
+        !params_.cartesian_world)
     {
         pose = ComputeWorldPose(state_snapshot, high_state_snapshot);
         const double ref_cos = std::cos(world_reference_yaw_rad_);
@@ -316,7 +447,8 @@ bool TrotExperiment::BuildGaitTargets(
         }
     }
 
-    if (params_.support_anchor_feedback && have_actual_world_feet)
+    if (params_.support_anchor_feedback && have_actual_world_feet &&
+        !params_.cartesian_world)
     {
         const std::array<double, 4> inverse_quaternion = {
             pose.quaternion[0],
@@ -360,7 +492,7 @@ bool TrotExperiment::BuildGaitTargets(
                 anchor_blend * base_anchor.y;
         }
     }
-    if (params_.attitude_feedback)
+    if (params_.attitude_feedback && !params_.cartesian_world)
     {
         const double imu_roll = state_snapshot.imu_state().rpy()[0];
         const double imu_pitch = state_snapshot.imu_state().rpy()[1];

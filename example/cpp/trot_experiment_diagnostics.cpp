@@ -85,6 +85,8 @@ void TrotExperiment::WriteCsvHeader()
 void TrotExperiment::ResetCycleDiagnostics()
 {
     cycle_diagnostics_ = CycleDiagnostics{};
+    cycle_vx_sum_ = 0.0;
+    cycle_vx_count_ = 0;
 }
 
 // [真动力学] 从 lowstate 空槽位(motor 12-17)解析基座质量矩阵与 qfrc_bias
@@ -108,6 +110,11 @@ void TrotExperiment::UpdateCycleDiagnostics(
         cycle_diagnostics_.max_abs_roll_rad, std::abs(roll));
     cycle_diagnostics_.max_abs_pitch_rad = std::max(
         cycle_diagnostics_.max_abs_pitch_rad, std::abs(pitch));
+    if (have_filtered_body_velocity_)
+    {
+        cycle_vx_sum_ += latest_filtered_body_velocity_[0];
+        ++cycle_vx_count_;
+    }
 
     int support_contacts = 0;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -361,8 +368,9 @@ bool TrotExperiment::ValidateCycle(int cycle_index)
     // 冲量模式(dynamic trot): 允许更大的腾空/对角支撑相,
     // 放宽支撑分数与低支撑容忍(动态步态天然有腾空)。
     const double min_support_fraction =
-        params_.wbc_full ? 0.35
-                         : (params_.impulse ? 0.78 : kSafetyMinSupportFraction);
+        params_.cartesian_world ? 0.28
+        : (params_.wbc_full ? 0.35
+                            : (params_.impulse ? 0.78 : kSafetyMinSupportFraction));
     const int max_consecutive_low_support =
         params_.wbc_full ? 250
                          : (params_.impulse ? 40 : kSafetyMaxConsecutiveLowSupport);
