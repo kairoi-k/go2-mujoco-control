@@ -357,15 +357,16 @@ bool TrotExperiment::ComputeWbcPrimaryActive(double &gait_elapsed_s)
     gait_started_ ? running_time_ - gait_start_time_s_ : 0.0;
     if (params_.wbc_primary &&
     motion_stage_ == 2 && gait_started_ && !stop_requested_ &&
-    gait_elapsed_s >= kWbcPrimaryEnterDelayS &&
+    gait_elapsed_s >= (params_.wbc_full ? 0.0 : kWbcPrimaryEnterDelayS) &&
     wbc_shadow_diagnostics_.solver_ok &&
     wbc_shadow_diagnostics_.mapping_ok)
     {
     wbc_primary_active = true;
     // [impulse] 大步长时 wrench 力矩需求大, 放宽 primary 力矩上限,
     // 避免退回位置控制后 q_error 硬限误杀。
-    const double max_abs_torque_nm =
-        params_.impulse ? 40.0 : kWbcPrimaryMaxAbsTorqueNm;
+            const double max_abs_torque_nm =
+        params_.impulse ? 40.0
+                        : (params_.wbc_full ? 35.0 : kWbcPrimaryMaxAbsTorqueNm);
     for (int i = 0; i < kMotorCount; ++i)
     {
         const double candidate =
@@ -425,10 +426,12 @@ void TrotExperiment::WriteMotorCommands(
     if (wbc_primary_active)
     {
     // 扭矩渐变注入:激活后 0.5s 内从 0 线性升到 1,避免跳变冲击
-    const double primary_ramp = Clamp(
-        (gait_elapsed_s - kWbcPrimaryEnterDelayS) /
-            kWbcPrimaryRampS,
-        0.0, 1.0);
+    const double primary_ramp = params_.wbc_full
+        ? 1.0
+        : Clamp(
+            (gait_elapsed_s - kWbcPrimaryEnterDelayS) /
+                kWbcPrimaryRampS,
+            0.0, 1.0);
     // 混合控制:支撑腿 = WBC 扭矩(力控制)+ 弱位置;摆动腿 = 位置控制。
     // 接触状态经一阶平滑(swing<->stance 渐变),避免命令跳变冲击。
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -463,9 +466,9 @@ void TrotExperiment::WriteMotorCommands(
                 params_.kd * (1.0 - wbc_stance_blend_[leg]);
             // 低接触数(过渡/对角支撑)时减弱 WBC 扭矩,避免力分配
             // 在支撑切换瞬间扰动姿态
-            const double contact_scale =
-                wbc_shadow_diagnostics_.active_contacts < 3
-                    ? 0.5 : 1.0;
+            const double contact_scale = params_.wbc_full
+                ? (wbc_shadow_diagnostics_.active_contacts < 2 ? 0.0 : 1.0)
+                : (wbc_shadow_diagnostics_.active_contacts < 3 ? 0.5 : 1.0);
             low_cmd_.motor_cmd()[i].tau() =
                 primary_ramp * contact_scale *
                 wbc_stance_blend_[leg] *

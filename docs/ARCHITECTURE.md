@@ -33,7 +33,7 @@ The core control loop runs at 500 Hz. The simulator and controller remain separa
 | Gait generation | `trot_experiment_gait.cpp`, `raibert_trot_kernel.h`, `raibert_footstep_planner.h`, `preview_footstep_horizon.h`, `footstep_mpc.h` | diagonal-trot, Raibert, receding-horizon foothold MPC |
 | Kinematics | `go2_forward_kinematics.h`, `go2_inverse_kinematics.h`, `go2_leg_jacobian.h` | foot/joint transforms and Jacobians |
 | Contact / force allocation | `contact_*`, `contact_wrench_qp.h`, `dense_qp.h`, `go2_contact_torque_mapping.h` | contact-state filtering, wrench QP, torque mapping |
-| Dynamics-informed feedforward | `trot_true_dynamics.h`, `dynamic_acceleration_target.h`, `wbc_runtime_gate.h`, `centroidal_wbc.h` | dynamics terms, acceleration targets, runtime gating, centroidal `W=Ma+h` |
+| Dynamics-informed feedforward | `trot_true_dynamics.h`, `dynamic_acceleration_target.h`, `wbc_runtime_gate.h`, `centroidal_wbc.h`, `go2_rigid_body.h`, `srbd_mpc.h`, `inverse_dynamics_wbc.h` | `--wbc-primary` incremental feedforward; `--wbc-full` 18-DoF ID-WBC + SRBD MPC |
 | Diagnostics | `trot_experiment_diagnostics.cpp`, `trot_types.h` | safety checks, metrics, structured logging |
 | Quasi-static sequence | `leg_lift_*`, `real_leg_lift_go2.cpp` | leg-lift and multi-step experiments |
 
@@ -49,7 +49,7 @@ At a high level, each control update:
 6. applies runtime gates, limits, and fallback behavior;
 7. publishes `LowCmd` and records diagnostics.
 
-The repository describes `--wbc-full` as centroidal WBC (`W = Ma + h`, contact-force QP, `J^T f`) plus receding-horizon foothold MPC. `--wbc-primary` remains incremental dynamics-informed feedforward.
+The repository describes `--wbc-full` as a controller-side 18-DoF inverse-dynamics WBC plus receding-horizon SRBD MPC. `--wbc-primary` remains incremental dynamics-informed feedforward.
 
 ## Process and asset boundaries
 

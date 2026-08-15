@@ -21,6 +21,9 @@
 #include "locomotion_kernel.h"
 #include "trot_types.h"
 #include "velocity_filter.h"
+#include "go2_rigid_body.h"
+#include "srbd_mpc.h"
+#include "inverse_dynamics_wbc.h"
 
 using unitree::robot::ChannelPublisherPtr;
 using unitree::robot::ChannelSubscriberPtr;
@@ -126,6 +129,9 @@ private:
         bool have_state,
         const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
         bool have_high_state);
+    void UpdateWbcFull(
+        const unitree_go::msg::dds_::LowState_ &state_snapshot,
+        const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot);
     bool PrepareWbcTorqueFeedforward(
         std::array<double, go2_trot::kMotorCount> &torque_ff);
     void UpdateVelocityEstimate(
@@ -227,6 +233,11 @@ private:
     std::array<double, go2::kLegCount> wbc_stance_blend_{};
     go2_trot::WbcShadowDiagnostics wbc_shadow_diagnostics_{};
     go2_control::JointTorques wbc_shadow_candidate_torques_{};
+    std::unique_ptr<go2_control::Go2RigidBody> rigid_body_;
+    go2_control::SrbdMpcOutput last_srbd_{};
+    go2_control::IdWbcOutput last_id_wbc_{};
+    bool have_last_id_wbc_ = false;
+    int wbc_full_ticks_ = 0;
     bool dynamics_logged_ = false;
     int motion_stage_ = 0;
     double current_phase_ = 0.0;

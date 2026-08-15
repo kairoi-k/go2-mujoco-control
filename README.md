@@ -16,7 +16,7 @@ Two tracks. The C++ result is a 500 Hz LowCmd state machine: stand-up, settle, t
 - stand / walk / stop / lie sequencing at 500 Hz;
 - diagonal-trot generation and Raibert footstep planning;
 - world/support feedback and CSV logging;
-- constrained contact-force allocation and a centroidal `--wbc-full` path (wrench QP + foothold MPC, `J^T f`); `--wbc-primary` is still incremental feedforward with PD fallback.
+- constrained contact-force allocation and an 18-DoF `--wbc-full` path (ID-WBC + SRBD MPC); `--wbc-primary` is still incremental feedforward with PD fallback.
 
 ## Quick start (C++)
 
@@ -33,7 +33,7 @@ cmake --build example/cpp/build -j"$(nproc)"
 ./example/cpp/build/test_go2_inverse_kinematics
 ```
 
-Stand-walk-lie (after the simulator is up): see [`example/cpp/README.md`](example/cpp/README.md). `go2sim task` is the sequenced entry; `go2sim walk` / `go2sim fast` are trot-only (fast ≈ 0.18 m/s with a looser torque gate). `go2sim full` turns on the centroidal `--wbc-full` path; see [`docs/WBC_MPC.md`](docs/WBC_MPC.md).
+Stand-walk-lie (after the simulator is up): see [`example/cpp/README.md`](example/cpp/README.md). `go2sim task` is the sequenced entry; `go2sim walk` / `go2sim fast` are trot-only (fast ≈ 0.18 m/s with a looser torque gate). `go2sim full` turns on 18-DoF ID-WBC + SRBD MPC; see [`docs/WBC_MPC.md`](docs/WBC_MPC.md).
 
 ## Isaac Lab velocity RL
 

@@ -144,6 +144,23 @@ bool TrotExperiment::Init()
     WriteCsvHeader();
     InitLowCmd();
 
+    if (params_.wbc_full)
+    {
+#ifdef GO2_MODEL_PATH
+        rigid_body_ = std::make_unique<go2_control::Go2RigidBody>();
+        if (!rigid_body_->Load(GO2_MODEL_PATH))
+        {
+            std::cerr << "Failed to load Go2 MJCF for --wbc-full: "
+                      << GO2_MODEL_PATH << "\n";
+            return false;
+        }
+        std::cout << "WBC-FULL: 18-DoF MJCF model loaded\n";
+#else
+        std::cerr << "--wbc-full requires a controller-side MuJoCo model\n";
+        return false;
+#endif
+    }
+
     std::cout << "Locomotion kernel: " << locomotion_kernel_->Name() << "\n";
 
     lowcmd_publisher_.reset(

@@ -21,11 +21,11 @@ Original Unitree READMEs: `docs/upstream/`. The repository root README is the re
 - diagonal-trot gait generation and Raibert planning;
 - world/support feedback and simulation instrumentation;
 - constrained contact-force/wrench allocation;
-- `--wbc-full` centroidal WBC (dense contact QP) and receding-horizon foothold MPC; `--wbc-primary` remains incremental feedforward with guarded fallback;
+- `--wbc-full` 18-DoF inverse-dynamics WBC and receding-horizon SRBD MPC; `--wbc-primary` remains incremental feedforward with guarded fallback;
 - Isaac Lab Go2 velocity-curriculum gym tasks (second track);
 - controlled experiment runners and retained evidence.
 
-Reliable cruise is about 0.15 m/s in this stack. This is not a claim of demo-speed locomotion or an 18-DoF inverse-dynamics WBC.
+Reliable cruise is about 0.15 m/s in this stack. `--wbc-full` is an 18-DoF inverse-dynamics WBC; it is not a claim of demo-speed locomotion.
 
 ## Licensing and citation
 

@@ -64,7 +64,8 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_shadow_feedforward_reduced_task_gate"
          << ",wbc_shadow_feedforward_gate_code"
          << ",wbc_shadow_feedforward_gate_reason"
-         << ",wbc_shadow_feedforward_max_abs_tau";
+         << ",wbc_shadow_feedforward_max_abs_tau"
+         << ",wbc_full_srbd_ok,wbc_full_id_ok,wbc_full_eq_residual";
     for (int i = 0; i < kMotorCount; ++i)
     {
         csv_ << "," << kMotorNames[i] << "_q_target"
@@ -567,7 +568,10 @@ void TrotExperiment::LogSample(
          << "," << go2_control::WbcFeedforwardGateReasonName(
                 static_cast<go2_control::WbcFeedforwardGateCode>(
                     wbc_shadow_diagnostics_.feedforward_gate_code))
-         << "," << wbc_shadow_diagnostics_.feedforward_max_abs_tau;
+         << "," << wbc_shadow_diagnostics_.feedforward_max_abs_tau
+         << "," << (wbc_shadow_diagnostics_.srbd_ok ? 1 : 0)
+         << "," << (wbc_shadow_diagnostics_.id_wbc_ok ? 1 : 0)
+         << "," << wbc_shadow_diagnostics_.id_eq_residual;
 
     // SECTION: log-joint-cmds (cmd vs state per joint)
     for (int i = 0; i < kMotorCount; ++i)

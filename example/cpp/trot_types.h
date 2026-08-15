@@ -250,6 +250,9 @@ struct WbcShadowDiagnostics
     double elapsed_us = 0.0;
     bool within_budget = true;
     double max_abs_tau = 0.0;
+    bool srbd_ok = false;
+    bool id_wbc_ok = false;
+    double id_eq_residual = 0.0;
     int feedforward_gate_code =
         static_cast<int>(go2_control::WbcFeedforwardGateCode::kDisabled);
     bool feedforward_ready = false;

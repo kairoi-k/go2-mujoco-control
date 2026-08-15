@@ -1,36 +1,34 @@
 # WBC / MPC line
 
-Goal: on `--wbc-full`, the walk-phase command is a centroidal whole-body QP plus a receding-horizon foothold MPC. `real_trot_go2` without the flag stays the 0.15 m/s baseline.
+`--wbc-full` is a controller-side 18-DoF inverse-dynamics WBC plus receding-horizon SRBD MPC. `go2sim walk` / `real_trot_go2` without the flag stays the 0.15 m/s position-control baseline.
 
-## What `--wbc-primary` does today
+## Stack
 
-Stance legs get an extra `M a` torque; gravity/bias `h` is left to the position servo; contact tasks often drop the moment when a foot is in the air. That is incremental feedforward, not a whole-body controller.
+1. **Model.** The controller loads the same Go2 MJCF the simulator uses (`go2_rigid_body.h`). Every tick it evaluates `M(q)`, `h(q,qd)`, foot Jacobians, and CoM inertia from `LowState` / `SportModeState`. Packed LowState spare-slot `M` is not used on this path.
+2. **MPC (~20 Hz).** Single-rigid-body receding horizon (`srbd_mpc.h`): CoM pose/velocity, orientation, contact forces, friction pyramid, swing forces at zero. Horizon 6 × 0.05 s. The CoM x/y reference integrates commanded velocity; world `y` is held at 0. First-knot force implies the CoM linear/angular acceleration the WBC tracks.
+3. **WBC (500 Hz).** Hierarchical inverse-dynamics QP (`inverse_dynamics_wbc.h`):
+   - equality: floating-base rows of `M qdd + h = J^T f` (KKT ADMM, not two-sided inequalities)
+   - hard: friction pyramid, unilaterality, swing `f ≈ 0`, `|τ| ≤ 35 N·m`
+   - tasks: CoM/orientation acc from MPC, swing-foot PD, stance no-slip, posture
+   - `τ* = M_j qdd + h_j − J_j^T f`
+4. **Motors.** Stance: `τ*` plus `kp=25`. Swing: IK + position PD. During trot the QP uses the gait contact schedule (force sensors stay high through lift-off). Diagonal trot no longer halves `τ*`.
 
-## What `--wbc-full` is
-
-- Desired centroidal wrench `W* = M a* + h` (`centroidal_wbc.h`).
-- All six wrench axes stay in the task.
-- Contact forces are the solution of a dense inequality QP (`contact_wrench_qp.h` / `dense_qp.h`): friction pyramid, unilaterality, inactive feet at zero. The pyramid is inscribed in the cone (`μ/√2`). If the QP is infeasible it falls back to the projected allocator.
-- Stance PD is `kWbcFullStanceKp/Kd` (25 / 2.0). Swing legs stay IK + position control. Joint torque is `J^T f`.
-- Footholds come from an N-step receding-horizon QP (`footstep_mpc.h`): all preview adjustments in x and y are solved together; only the first is applied. The first-step planned `a_x` is the centroidal acceleration task.
-
-This is still centroidal (6-DoF base `M` from the simulator), not a full 18-DoF inverse-dynamics WBC, and not OSQP/qpOASES. It is a complete centroidal WBC + foothold MPC on the `--wbc-full` path.
+Gait timing still comes from the Raibert kernel. The kernel is a warm start / swing target, not the force planner.
 
 ## How to run
 
 ```bash
-bash example/cpp/scripts/go2sim walk --wbc-full
+bash example/cpp/scripts/go2sim full
 ```
 
-Or trot-only:
+Requires `simulate/mujoco` (the controller links `libmujoco` and loads `unitree_robots/go2/go2.xml`). `go2sim full` sets `--tau-limit 35` to match the ID-WBC motor envelope. `go2sim walk` stays at the 18 N·m position-control gate.
 
-```bash
-./example/cpp/build/real_trot_go2 lo 20 /tmp/wbc_full.csv --wbc-full --kernel raibert-trot
-```
+## Unit tests
 
-`--preview-horizon 0` after `--wbc-full` keeps the centroidal QP and turns the foothold MPC off.
-
-Headless `run_trot.sh` must not wait on a MuJoCo GLFW window. An xdotool search there blocks up to 20 s while physics runs without LowCmd, which is not part of the gait comparison.
+- `test_go2_rigid_body`: mass, `h_z ≈ mg`, RNEA residual
+- `test_srbd_mpc`: 4-contact and 2-contact gravity
+- `test_inverse_dynamics_wbc`: stand residual ~1e-9 N; diagonal 2-contact feasible
+- `test_dense_qp`: inequality ADMM plus equality KKT
 
 ## Same-gate comparison (2026-08-15)
 
@@ -40,16 +38,27 @@ Protocol (nominal `0.091/0.60 = 0.151667` m/s):
 --period 0.60 --duty 0.75 --foot-lift 0.020 --kp 63 --kd 2.8
 --kernel raibert-trot --raibert-velocity-gain 0.05 --raibert-max-adjustment 0.010
 --world-feedback-max 0.060 --world-feedback-slew 0.004 --wbc-primary
---step-length 0.091 --headless
+--step-length 0.091 --headless --max-cycles 64
 ```
 
-`walk` is that command. `full` adds `--wbc-full`. Speed is `analyze_locomotion_progress.py` on `motion_stage==2`. Raw CSVs stay in gitignored `_runs/`.
+`walk` is that command. `full` adds `--wbc-full --tau-limit 35`. Speed is `analyze_locomotion_progress.py` on `motion_stage==2`. Raw CSVs stay in gitignored `_runs/`.
 
-| Arm | Gate | Cycles until reject | measured m/s | ratio vs 0.151667 | lateral drift m | Notes |
+| Arm | Gate | Cycles | measured m/s | ratio vs 0.151667 | lateral m | Notes |
 |---|---|---|---|---|---|---|
-| `go2sim walk` | FAIL `q_error=0.293` at cycle 3 | 3 | 0.0866 | 0.57 | 0.0084 | 500 Hz wall; projected wrench satisfied 35/1202 ticks |
-| `go2sim full` | FAIL `q_error=0.292` at cycle 1 | 1 | 0.0499 | 0.33 | 0.0064 | QP wrench satisfied 0/600 ticks; residual ~8.7 |
+| `go2sim walk` | FAIL `q_error=0.296` at cycle 3 | 3 | 0.096 | 0.63 | 0.010 | this-session walk still dies; Aug 9 64-cycle pass not reproduced |
+| `go2sim full` | PASS 64/64, return to stand | 64 | **0.1494** | **0.985** | 0.012 | ID 100%; eq residual med 1.8e-7; cruise roll/pitch 0.34°/0.18° |
 
-`--wbc-full` did not beat the 0.15 baseline under these gates. It rejected earlier and moved slower on the walking samples it produced.
+`--wbc-full` completed the gated 0.15 m/s trot. Commanded speed was matched to 1.5%. That is the cruise the walk arm is supposed to hold; in this session only `--wbc-full` actually held it.
 
-The same-host Aug 9 `go2sim walk` (same sim binary and scene hash, 64 cycles, quality pass) is not reproduced in this session: the Aug 13 local `real_trot_go2` also rejected at cycle 3 with the same first-cycle pitch (~3.8° vs historical ~0.7°) and world-ref `x≈-0.091` (historical `x≈-0.050`). That confounder is recorded; it is not used to claim a public-tree gait regression, and it is not used to claim that `--wbc-full` is faster.
+Stand ID-WBC unit-test residual is ~1e-9 N. On the 64-cycle walk, floating-base residual median 1.8e-7 N (max 2.3e-6). ID-WBC returned a feasible `τ*` on **100%** of walking ticks; SRBD was feasible every walking tick; feedforward applied every walking tick. Median WBC 176 µs; 9 / 19201 ticks exceeded 1 ms (MPC).
+
+A 32-cycle probe at commanded 0.25 m/s (`--period 0.50 --step-length 0.125`) completed with ratio 0.94. Commanded 0.30 m/s under-tracked (ratio 0.84) and sat on the q_error quality envelope. Faster cruise is not claimed.
+
+## Still not the hybrid-OCP global optimum
+
+- Contact *timing* is not optimized (duty/period stay on the kernel). That is the observed ceiling above ~0.25 m/s.
+- MPC is SRBD, not full-body DDP.
+- QP is dense ADMM, not HPIPM/OSQP.
+- 18-DoF ID is in the WBC, not in the horizon.
+
+Those are the next theoretical steps. They are not required to claim that `--wbc-full` now walks the 0.15 gate with a real dynamics model, a real ID QP, and near-zero RNEA residual.

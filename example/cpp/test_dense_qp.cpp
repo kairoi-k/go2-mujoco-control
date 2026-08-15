@@ -57,11 +57,48 @@ bool CheckTwoSided()
            Near(x[0], 1.0, 1e-5) && Near(x[1], 0.0, 1e-5);
 }
 
+bool CheckEqualityKkt()
+{
+    Eigen::MatrixXd H = Eigen::MatrixXd::Identity(2, 2);
+    Eigen::VectorXd g = Eigen::VectorXd::Zero(2);
+    Eigen::MatrixXd Aineq(0, 2);
+    Eigen::VectorXd bineq(0);
+    Eigen::MatrixXd Aeq(1, 2);
+    Aeq << 1.0, 1.0;
+    Eigen::VectorXd beq(1);
+    beq[0] = 1.0;
+    Eigen::VectorXd x;
+    int iterations = 0;
+    return go2_control::SolveDenseQpEq(
+               H, g, Aineq, bineq, Aeq, beq, x, iterations) &&
+           Near(x[0], 0.5, 1e-6) && Near(x[1], 0.5, 1e-6);
+}
+
+bool CheckEqualityWithBound()
+{
+    Eigen::MatrixXd H = Eigen::MatrixXd::Identity(2, 2);
+    Eigen::VectorXd g = Eigen::VectorXd::Zero(2);
+    Eigen::MatrixXd Aineq(1, 2);
+    Aineq << 1.0, 0.0;
+    Eigen::VectorXd bineq(1);
+    bineq[0] = 0.2;
+    Eigen::MatrixXd Aeq(1, 2);
+    Aeq << 1.0, 1.0;
+    Eigen::VectorXd beq(1);
+    beq[0] = 1.0;
+    Eigen::VectorXd x;
+    int iterations = 0;
+    return go2_control::SolveDenseQpEq(
+               H, g, Aineq, bineq, Aeq, beq, x, iterations) &&
+           Near(x[0], 0.2, 1e-4) && Near(x[1], 0.8, 1e-4);
+}
+
 }  // namespace
 
 int main()
 {
-    if (!CheckUnconstrained() || !CheckBound() || !CheckTwoSided())
+    if (!CheckUnconstrained() || !CheckBound() || !CheckTwoSided() ||
+        !CheckEqualityKkt() || !CheckEqualityWithBound())
     {
         std::cerr << "dense QP checks failed\n";
         return 1;
