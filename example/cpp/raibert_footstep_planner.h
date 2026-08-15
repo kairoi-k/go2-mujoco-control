@@ -21,6 +21,8 @@ struct RaibertFootstepPlannerInput
 {
     double measured_velocity_x_mps = 0.0;
     bool measured_velocity_valid = false;
+    double measured_velocity_y_mps = 0.0;
+    bool measured_velocity_y_valid = false;
 };
 
 struct RaibertFootstepPlannerOutput

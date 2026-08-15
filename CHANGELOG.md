@@ -8,6 +8,7 @@
 - `--wbc-full` centroidal wrench (`W = M a + h`); N-step foothold preview now selects the next Raibert touchdown; stance PD is lowered on that path.
 - Preview terminal velocity error feeds the centroidal `a_x` task on `--wbc-full`.
 - `--wbc-full` contact forces come from a dense inequality QP; footholds come from a receding-horizon MPC that jointly plans the preview.
+- Foothold MPC also plans lateral (y) touchdowns from body-frame `v_y`.
 
 ## 2026-08-14
 
