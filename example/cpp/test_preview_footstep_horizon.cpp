@@ -70,6 +70,18 @@ bool CheckInvalidHorizonRejected()
     return !go2_control::PlanPreviewFootstepHorizon(params, {}, output);
 }
 
+bool CheckTerminalAcceleration()
+{
+    double acc = 1.0;
+    if (!go2_control::PreviewTerminalAcceleration(0.105, 0.105, 4, 0.8, acc) ||
+        !Near(acc, 0.0))
+        return false;
+    if (!go2_control::PreviewTerminalAcceleration(0.105, 0.045, 4, 0.8, acc))
+        return false;
+    // horizon = 0.5 * 0.8 * 4 = 1.6 s
+    return Near(acc, (0.105 - 0.045) / 1.6);
+}
+
 }  // namespace
 
 int main()
@@ -77,7 +89,8 @@ int main()
     if (!CheckSingleStepMatchesRaibert() ||
         !CheckNominalHorizonKeepsRaibertFoothold() ||
         !CheckSlowFirstStepIsRearward() ||
-        !CheckInvalidHorizonRejected())
+        !CheckInvalidHorizonRejected() ||
+        !CheckTerminalAcceleration())
     {
         std::cerr << "preview footstep horizon checks failed\n";
         return 1;

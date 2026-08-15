@@ -40,6 +40,9 @@ public:
         have_last_gait_time_ = false;
         last_gait_time_s_ = 0.0;
         phase_acc_ = 0.0;  // [Fix 2026-08-13] 连续相位累积
+        last_preview_n_steps_ = 0;
+        last_preview_touchdown_x_m_ = 0.0;
+        last_preview_terminal_velocity_x_mps_ = 0.0;
     }
 
     // [Phase3] 在线步长/周期变更(cycle 边界调用,渐变趋近防冲击)
@@ -138,8 +141,10 @@ public:
         result.velocity_error_x_mps = velocity_error;
         result.nominal_velocity_x_mps = nominal_velocity;  // [Fix 2026-08-13]
         result.footstep_plan_valid = true;
-        result.preview_n_steps = 0;
-        result.preview_touchdown_x_m = 0.0;
+        result.preview_n_steps = last_preview_n_steps_;
+        result.preview_touchdown_x_m = last_preview_touchdown_x_m_;
+        result.preview_terminal_velocity_x_mps =
+            last_preview_terminal_velocity_x_mps_;
 
         const RaibertFootstepPlannerParams planner_params{
             params_.gait.period_s,
@@ -183,8 +188,14 @@ public:
                         return false;
                     }
                     next_touchdown_x_m = preview_output.touchdown_x_m[0];
-                    result.preview_n_steps = preview_output.n_steps;
-                    result.preview_touchdown_x_m = next_touchdown_x_m;
+                    last_preview_n_steps_ = preview_output.n_steps;
+                    last_preview_touchdown_x_m_ = next_touchdown_x_m;
+                    last_preview_terminal_velocity_x_mps_ =
+                        preview_output.terminal_velocity_x_mps;
+                    result.preview_n_steps = last_preview_n_steps_;
+                    result.preview_touchdown_x_m = last_preview_touchdown_x_m_;
+                    result.preview_terminal_velocity_x_mps =
+                        last_preview_terminal_velocity_x_mps_;
                 }
                 else
                 {
@@ -331,6 +342,9 @@ private:
     std::array<LegState, go2::kLegCount> leg_states_{};
     bool have_last_gait_time_ = false;
     double last_gait_time_s_ = 0.0;
+    int last_preview_n_steps_ = 0;
+    double last_preview_touchdown_x_m_ = 0.0;
+    double last_preview_terminal_velocity_x_mps_ = 0.0;
 };
 
 } // namespace go2_control

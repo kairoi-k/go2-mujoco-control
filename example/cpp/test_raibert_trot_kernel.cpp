@@ -166,6 +166,21 @@ bool CheckPreviewHorizonClosesLoop()
            Near(slow.touchdown_target_x_m[fr], slow.preview_touchdown_x_m);
 }
 
+bool CheckPreviewPersistsWithinCycle()
+{
+    auto kernel = MakePreviewKernel();
+    go2_control::GaitKernelResult first{};
+    go2_control::GaitKernelResult later{};
+    if (!kernel.Compute(Request(0.0, 0.05), first) ||
+        !kernel.Compute(Request(0.10, 0.05), later))
+        return false;
+    return first.preview_n_steps == 4 &&
+           later.preview_n_steps == 4 &&
+           Near(later.preview_touchdown_x_m, first.preview_touchdown_x_m) &&
+           Near(later.preview_terminal_velocity_x_mps,
+                first.preview_terminal_velocity_x_mps);
+}
+
 } // namespace
 
 int main()
@@ -174,7 +189,8 @@ int main()
         !CheckCycleBoundaryIsContinuous() ||
         !CheckGearShiftPhaseContinuity() ||
         !CheckResetAndInvalidInput() ||
-        !CheckPreviewHorizonClosesLoop())
+        !CheckPreviewHorizonClosesLoop() ||
+        !CheckPreviewPersistsWithinCycle())
     {
         std::cerr << "Raibert trot kernel checks failed\n";
         return 1;
