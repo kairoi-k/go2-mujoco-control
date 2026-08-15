@@ -19,6 +19,7 @@ struct RaibertTrotKernelParams
     double velocity_gain_s = 0.20;
     double max_adjustment_m = 0.025;
     int preview_horizon_steps = 0;
+    bool speed_adaptive = false;
 };
 
 class RaibertTrotKernel final : public LocomotionKernel
@@ -40,10 +41,13 @@ public:
         have_last_gait_time_ = false;
         last_gait_time_s_ = 0.0;
         phase_acc_ = 0.0;  // [Fix 2026-08-13] 连续相位累积
+        last_ramp_cycle_index_ = -1;
         last_preview_n_steps_ = 0;
         last_preview_touchdown_x_m_ = 0.0;
         last_preview_terminal_velocity_x_mps_ = 0.0;
         last_preview_planned_acc_x_mps2_ = 0.0;
+        base_duty_factor_ = -1.0;
+        base_foot_lift_m_ = -1.0;
     }
 
     // [Phase3] 在线步长/周期变更(cycle 边界调用,渐变趋近防冲击)
@@ -57,8 +61,8 @@ public:
         if (period_s > 0.0 && std::isfinite(period_s))
             target_period_s_ = period_s;
     }
-    static constexpr double kMaxStepDeltaPerCycle = 0.002;
-    static constexpr double kMaxPeriodDeltaPerCycle = 0.02;
+    static constexpr double kMaxStepDeltaPerCycle = 0.010;
+    static constexpr double kMaxPeriodDeltaPerCycle = 0.020;
     double target_step_length_m_ = -1.0;
     int last_ramp_cycle_index_ = -1;
     double target_period_s_ = -1.0;
@@ -105,9 +109,7 @@ public:
         const double phase = cycle_position - std::floor(cycle_position);
         const int cycle_index = static_cast<int>(std::floor(cycle_position));
         // 渐变趋近目标步长/周期(周期边界限幅,防换档冲击)
-        if ((target_step_length_m_ > 0.0 ||
-             target_period_s_ > 0.0) &&
-            cycle_index != last_ramp_cycle_index_)
+        if (cycle_index != last_ramp_cycle_index_)
         {
             last_ramp_cycle_index_ = cycle_index;
             if (target_step_length_m_ > 0.0)
@@ -125,6 +127,33 @@ public:
                     target_period_s_ - params_.gait.period_s,
                     -kMaxPeriodDeltaPerCycle, kMaxPeriodDeltaPerCycle);
                 params_.gait.period_s += delta;
+            }
+            if (params_.speed_adaptive)
+            {
+                if (base_duty_factor_ < 0.0)
+                    base_duty_factor_ = params_.gait.duty_factor;
+                if (base_foot_lift_m_ < 0.0)
+                    base_foot_lift_m_ = params_.gait.foot_lift_m;
+                const double v = std::abs(
+                    params_.gait.direction_sign * params_.gait.step_length_m /
+                    params_.gait.period_s);
+                const double duty_des = std::clamp(
+                    base_duty_factor_ - 0.06 * std::max(0.0, v - 0.60),
+                    0.55, base_duty_factor_);
+                const double duty_delta = std::clamp(
+                    duty_des - params_.gait.duty_factor, -0.02, 0.02);
+                if (std::abs(duty_delta) > 1.0e-6)
+                {
+                    params_.gait.duty_factor += duty_delta;
+                    std::cout << "DUTY cycle=" << cycle_index
+                              << " duty=" << params_.gait.duty_factor << "\n";
+                }
+                const double lift_des = std::clamp(
+                    base_foot_lift_m_ +
+                        0.014 * std::max(0.0, v - 0.20),
+                    base_foot_lift_m_, 0.058);
+                params_.gait.foot_lift_m += std::clamp(
+                    lift_des - params_.gait.foot_lift_m, -0.004, 0.004);
             }
         }
         const double nominal_velocity =
@@ -148,17 +177,23 @@ public:
             last_preview_terminal_velocity_x_mps_;
         result.preview_planned_acc_x_mps2 =
             last_preview_planned_acc_x_mps2_;
+        result.period_s = params_.gait.period_s;
+        result.duty_factor = params_.gait.duty_factor;
+        result.step_length_m = params_.gait.step_length_m;
 
         const RaibertFootstepPlannerParams planner_params{
             params_.gait.period_s,
             params_.gait.step_length_m,
             params_.gait.direction_sign,
             params_.velocity_gain_s,
-            params_.max_adjustment_m};
+            params_.max_adjustment_m,
+            params_.gait.duty_factor};
         const double blend = Smoothstep(
             request.gait_time_s / params_.gait.blend_duration_s);
         const double stance_duration = params_.gait.duty_factor;
         const double swing_duration = 1.0 - stance_duration;
+        const double commanded_travel_m =
+            params_.gait.step_length_m * stance_duration;
 
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
@@ -221,8 +256,7 @@ public:
                 if (!state.initialized)
                 {
                     state.stance_start_x_m =
-                        0.5 * params_.gait.direction_sign *
-                        params_.gait.step_length_m;
+                        0.5 * params_.gait.direction_sign * commanded_travel_m;
                     state.stance_start_y_m = 0.0;
                 }
                 else
@@ -232,6 +266,20 @@ public:
                     state.stance_start_x_m =
                         state.next_touchdown_x_m;
                     state.stance_start_y_m = state.next_touchdown_y_m;
+                }
+                state.stance_travel_m = commanded_travel_m;
+                if (params_.speed_adaptive && request.have_body_velocity)
+                {
+                    // Stay close to commanded travel so PD actually
+                    // demands the gait speed. The speed governor keeps
+                    // v_cmd near v_meas, so slip stays small.
+                    const double v_stance =
+                        0.85 * std::abs(nominal_velocity) +
+                        0.15 * std::abs(measured_velocity);
+                    state.stance_travel_m = std::clamp(
+                        v_stance * params_.gait.period_s * stance_duration,
+                        0.80 * commanded_travel_m,
+                        commanded_travel_m);
                 }
                 state.next_touchdown_x_m = next_touchdown_x_m;
                 state.next_touchdown_y_m = next_touchdown_y_m;
@@ -248,7 +296,7 @@ public:
                 x_offset =
                     state.stance_start_x_m -
                     params_.gait.direction_sign *
-                        params_.gait.step_length_m *
+                        state.stance_travel_m *
                         Smoothstep(stance_phase);
                 y_offset = state.stance_start_y_m;
             }
@@ -259,7 +307,7 @@ public:
                 const double swing_start_x =
                     state.stance_start_x_m -
                     params_.gait.direction_sign *
-                        params_.gait.step_length_m;
+                        state.stance_travel_m;
                 const double swing_x_phase =
                     std::min(1.0, swing_phase / 0.75);
                 x_offset =
@@ -299,6 +347,7 @@ private:
         double next_touchdown_x_m = 0.0;
         double stance_start_y_m = 0.0;
         double next_touchdown_y_m = 0.0;
+        double stance_travel_m = 0.0;
         bool initialized = false;
     };
 
@@ -363,6 +412,8 @@ private:
     double last_preview_touchdown_x_m_ = 0.0;
     double last_preview_terminal_velocity_x_mps_ = 0.0;
     double last_preview_planned_acc_x_mps2_ = 0.0;
+    double base_duty_factor_ = -1.0;
+    double base_foot_lift_m_ = -1.0;
 };
 
 } // namespace go2_control

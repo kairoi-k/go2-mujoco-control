@@ -4,6 +4,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <fstream>
 #include <memory>
 #include <mutex>
@@ -243,6 +244,12 @@ private:
     double current_phase_ = 0.0;
     bool kernel_footstep_plan_valid_ = false;
     double kernel_velocity_error_x_mps_ = 0.0;
+    double kernel_nominal_velocity_x_mps_ = 0.0;
+    double kernel_period_s_ = 0.0;
+    double kernel_duty_factor_ = 0.0;
+    std::size_t step_plan_index_ = 0;
+    std::size_t period_plan_index_ = 0;
+    double wbc_speed_cmd_mps_ = -1.0;
     std::array<double, go2::kLegCount> kernel_touchdown_target_x_m_{};
     int preview_n_steps_ = 0;
     double preview_touchdown_x_m_ = 0.0;

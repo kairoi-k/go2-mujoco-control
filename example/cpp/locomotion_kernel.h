@@ -47,6 +47,9 @@ struct GaitKernelResult
     double preview_touchdown_x_m = 0.0;
     double preview_terminal_velocity_x_mps = 0.0;
     double preview_planned_acc_x_mps2 = 0.0;
+    double period_s = 0.0;
+    double duty_factor = 0.0;
+    double step_length_m = 0.0;
 };
 
 class LocomotionKernel
@@ -106,6 +109,9 @@ public:
         result.touchdown_target_x_m.fill(0.0);
         result.velocity_error_x_mps = 0.0;
         result.footstep_plan_valid = false;
+        result.period_s = params_.period_s;
+        result.duty_factor = params_.duty_factor;
+        result.step_length_m = params_.step_length_m;
 
         const double blend =
             Smoothstep(request.gait_time_s / params_.blend_duration_s);

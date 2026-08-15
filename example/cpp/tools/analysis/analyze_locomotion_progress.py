@@ -22,6 +22,8 @@ def main() -> int:
     parser.add_argument("--target-speed", type=float, required=True)
     parser.add_argument("--direction-sign", type=float, default=1.0)
     parser.add_argument("--min-speed-ratio", type=float, default=0.0)
+    parser.add_argument("--min-cycle", type=int, default=-1)
+    parser.add_argument("--last-seconds", type=float, default=0.0)
     args = parser.parse_args()
 
     if (
@@ -66,6 +68,7 @@ def main() -> int:
                     finite(row, "state_tick_s"),
                     finite(row, "world_base_x_m"),
                     finite(row, "world_base_y_m"),
+                    int(row["cycle_index"]),
                 )
             )
     except (TypeError, ValueError) as exc:
@@ -77,8 +80,21 @@ def main() -> int:
         return 2
 
     walking.sort()
-    start_t, start_x, start_y = walking[0]
-    end_t, end_x, end_y = walking[-1]
+    if args.min_cycle >= 0:
+        walking = [sample for sample in walking if sample[3] >= args.min_cycle]
+    if args.last_seconds > 0.0:
+        end_t = walking[-1][0] if walking else 0.0
+        walking = [
+            sample
+            for sample in walking
+            if sample[0] >= end_t - args.last_seconds
+        ]
+    if len(walking) < 2:
+        print("validation=FAIL: fewer than two walking samples after window")
+        return 2
+
+    start_t, start_x, start_y, _start_cycle = walking[0]
+    end_t, end_x, end_y, _end_cycle = walking[-1]
     duration = end_t - start_t
     if duration <= 0.0:
         print("validation=FAIL: non-positive walking duration")

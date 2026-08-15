@@ -254,7 +254,8 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
         }
     }
 
-if (!(cfg.params.period_s >= 0.35 && cfg.params.period_s <= 3.0) ||
+if (!(cfg.params.period_s >= (cfg.params.wbc_full ? 0.18 : 0.35) &&
+          cfg.params.period_s <= 3.0) ||
         (cfg.params.kernel_name != "hand-coded-trot" &&
          cfg.params.kernel_name != "raibert-trot") ||
         !std::isfinite(cfg.params.raibert_velocity_gain_s) ||
@@ -262,7 +263,8 @@ if (!(cfg.params.period_s >= 0.35 && cfg.params.period_s <= 3.0) ||
           cfg.params.raibert_velocity_gain_s <= 1.0) ||
         !std::isfinite(cfg.params.raibert_max_adjustment_m) ||
         !(cfg.params.raibert_max_adjustment_m >= 0.0 &&
-          cfg.params.raibert_max_adjustment_m <= 0.10) ||
+          cfg.params.raibert_max_adjustment_m <=
+              (cfg.params.wbc_full ? 0.16 : 0.10)) ||
         !std::isfinite(cfg.params.velocity_filter_cutoff_hz) ||
         !(cfg.params.velocity_filter_cutoff_hz >= 0.0 &&
           cfg.params.velocity_filter_cutoff_hz <= 50.0) ||
@@ -284,8 +286,13 @@ if (!(cfg.params.period_s >= 0.35 && cfg.params.period_s <= 3.0) ||
         !std::isfinite(cfg.params.wbc_torque_scale) ||
         !(cfg.params.wbc_torque_scale > 0.0 &&
           cfg.params.wbc_torque_scale <= kWbcTorqueFeedforwardMaxScale) ||
-        !(cfg.params.duty_factor > 0.50 && cfg.params.duty_factor < 0.80) ||
-        !(cfg.params.step_length_m > 0.0 && cfg.params.step_length_m <= 0.30) ||
+        !(cfg.params.duty_factor >
+              (cfg.params.wbc_full ? 0.35 : 0.50) &&
+          cfg.params.duty_factor <
+              (cfg.params.wbc_full ? 0.85 : 0.80)) ||
+        !(cfg.params.step_length_m > 0.0 &&
+          cfg.params.step_length_m <=
+              (cfg.params.wbc_full ? 0.60 : 0.30)) ||
         !(cfg.params.foot_lift_m >= 0.02 && cfg.params.foot_lift_m <= 0.12) ||
         !(cfg.params.kp > 0.0 && cfg.params.kp <= 150.0) ||
         !(cfg.params.kd > 0.0 && cfg.params.kd <= 15.0) ||

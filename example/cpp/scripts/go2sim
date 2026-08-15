@@ -7,6 +7,7 @@
 #   go2sim fast               # faster preset
 #   go2sim task               # stand -> walk -> lie sequence
 #   go2sim full               # trot with 18-DoF ID-WBC + SRBD MPC
+#   go2sim full2              # same stack, ramp to 2 m/s
 #   go2sim turn 0.3           # turning command
 #   go2sim dist 3.0           # velocity disturbance (m/s)
 #   go2sim payload 10         # payload (kg)
@@ -31,15 +32,26 @@ case "$SCENE" in
   fast)    ARGS=(--step-length 0.110 --tau-limit 19 --max-cycles 64) ;;
   task)    ARGS=(--step-length 0.091 --task stand-walk-lie) ;;
   full)    ARGS=(--step-length 0.091 --wbc-full --tau-limit 35 --max-cycles 64) ;;
+  full2)   ARGS=(--wbc-full --tau-limit 35 --period 0.60 --duty 0.75 --step-length 0.091 \
+                 --foot-lift 0.028 --raibert-velocity-gain 0.22 --raibert-max-adjustment 0.120 \
+                 --world-feedback-max 0.030 \
+                 --step-plan "12:0.12,24:0.16,36:0.20,48:0.24,60:0.28,72:0.32,84:0.36,96:0.40,108:0.44,120:0.48,132:0.52,144:0.56" \
+                 --period-plan "36:0.50,60:0.42,84:0.36,108:0.32,132:0.28" \
+                 --max-cycles 280) ;;
   turn)    ARGS=(--step-length 0.091 --turn-rate "${1:-0.3}" --max-cycles 64); [ $# -gt 0 ] && shift ;;
   dist)    ARGS=(--step-length 0.091 --push-time 4.0 --push-vel-x "${1:-1.5}" --push-duration 0.05 --max-cycles 64); [ $# -gt 0 ] && shift ;;
   payload) ARGS=(--step-length 0.091 --payload-kg "${1:-5}" --max-cycles 64); [ $# -gt 0 ] && shift ;;
   plan)    ARGS=(--step-length 0.091 --step-plan "32:0.100,48:0.110,64:0.100,80:0.091" --max-cycles 96) ;;
-  *) echo "unknown scene: $SCENE (walk|fast|task|full|turn|dist|payload|plan)"; exit 1 ;;
+  *) echo "unknown scene: $SCENE (walk|fast|task|full|full2|turn|dist|payload|plan)"; exit 1 ;;
 esac
 
 VIEW="--headless"
 TIMEOUT=220
+CTRL_DUR=100
+if [ "$SCENE" = "full2" ]; then
+  TIMEOUT=560
+  CTRL_DUR=320
+fi
 EXTRA=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -53,4 +65,4 @@ NAME="${SCENE}_$(date +%H%M%S)"
 cd "$REPO"
 echo "== go2sim $SCENE $([ -z "$VIEW" ] && echo '(viewer)' || echo '(headless)') =="
 TROT_CPU_AFFINITY_SIM=0 TROT_CPU_AFFINITY_CTRL=1 bash "$RUN" "$TIMEOUT" "$NAME" \
-  --controller-duration 100 "${BASE[@]}" "${ARGS[@]}" $VIEW "${EXTRA[@]}"
+  --controller-duration "$CTRL_DUR" "${BASE[@]}" "${ARGS[@]}" $VIEW "${EXTRA[@]}"

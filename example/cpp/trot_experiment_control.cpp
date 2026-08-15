@@ -467,11 +467,11 @@ void TrotExperiment::WriteMotorCommands(
             // 低接触数(过渡/对角支撑)时减弱 WBC 扭矩,避免力分配
             // 在支撑切换瞬间扰动姿态
             const double contact_scale = params_.wbc_full
-                ? (wbc_shadow_diagnostics_.active_contacts < 2 ? 0.0 : 1.0)
+                ? 1.0
                 : (wbc_shadow_diagnostics_.active_contacts < 3 ? 0.5 : 1.0);
             low_cmd_.motor_cmd()[i].tau() =
                 primary_ramp * contact_scale *
-                wbc_stance_blend_[leg] *
+                (params_.wbc_full ? 1.0 : wbc_stance_blend_[leg]) *
                 wbc_shadow_candidate_torques_[leg][joint];
         }
     }

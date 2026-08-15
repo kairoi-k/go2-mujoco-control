@@ -139,7 +139,12 @@ bool TrotExperiment::BuildGaitTargets(
     }
     kernel_footstep_plan_valid_ = gait_result.footstep_plan_valid;
     kernel_velocity_error_x_mps_ = gait_result.velocity_error_x_mps;
+    kernel_nominal_velocity_x_mps_ = gait_result.nominal_velocity_x_mps;
     kernel_touchdown_target_x_m_ = gait_result.touchdown_target_x_m;
+    if (gait_result.period_s > 0.0)
+        kernel_period_s_ = gait_result.period_s;
+    if (gait_result.duty_factor > 0.0)
+        kernel_duty_factor_ = gait_result.duty_factor;
     preview_n_steps_ = gait_result.preview_n_steps;
     preview_touchdown_x_m_ = gait_result.preview_touchdown_x_m;
     preview_terminal_velocity_x_mps_ =
@@ -173,30 +178,77 @@ bool TrotExperiment::BuildGaitTargets(
             std::cout << "WBC-FULL preview n=" << gait_result.preview_n_steps
                       << " x0=" << gait_result.preview_touchdown_x_m << "\n";
         }
-        // [Phase3] online gear shift: apply step-length plan at cycle boundary
-        for (const auto &plan : params_.step_plan)
+        const double v_meas =
+            have_filtered_body_velocity_
+                ? params_.direction_sign * latest_filtered_body_velocity_[0]
+                : 0.0;
+        if (params_.wbc_full && !params_.step_plan.empty())
         {
-            if (cycle_index == plan.first)
+            if (wbc_speed_cmd_mps_ < 0.0)
             {
-                locomotion_kernel_->SetGaitStepLength(plan.second);
-                std::cout << "STEP-PLAN cycle=" << cycle_index
-                          << " step=" << plan.second << "\n";
+                wbc_speed_cmd_mps_ = std::abs(
+                    params_.direction_sign * params_.step_length_m /
+                    params_.period_s);
+            }
+            const double pitch =
+                std::abs(static_cast<double>(
+                    state_snapshot.imu_state().rpy()[1]));
+            const double roll =
+                std::abs(static_cast<double>(
+                    state_snapshot.imu_state().rpy()[0]));
+            constexpr double kDeg = go2_trot::kPi / 180.0;
+            const double period = cycle_index >= 12 ? 0.34 : 0.52;
+            double step = std::clamp((v_meas + 0.10) * period, 0.091, 0.52);
+            if (v_meas >= 0.90 * (step / period) &&
+                pitch < 6.0 * kDeg && roll < 6.0 * kDeg)
+                step = std::min(0.52, step + 0.012);
+            if (pitch > 10.0 * kDeg || roll > 10.0 * kDeg)
+                step = std::max(0.091, step - 0.010);
+            wbc_speed_cmd_mps_ = step / period;
+            locomotion_kernel_->SetGaitPeriod(period);
+            locomotion_kernel_->SetGaitStepLength(step);
+            std::cout << "SPEED-GOV cycle=" << cycle_index
+                      << " v_cmd=" << wbc_speed_cmd_mps_
+                      << " v_meas=" << v_meas
+                      << " period=" << period
+                      << " step=" << step << "\n";
+        }
+        else
+        {
+            for (const auto &plan : params_.step_plan)
+            {
+                if (cycle_index == plan.first)
+                {
+                    locomotion_kernel_->SetGaitStepLength(plan.second);
+                    std::cout << "STEP-PLAN cycle=" << cycle_index
+                              << " step=" << plan.second << "\n";
+                }
+            }
+            for (const auto &plan : params_.period_plan)
+            {
+                if (cycle_index == plan.first)
+                {
+                    locomotion_kernel_->SetGaitPeriod(plan.second);
+                    std::cout << "PERIOD-PLAN cycle=" << cycle_index
+                              << " period=" << plan.second << "\n";
+                }
             }
         }
-        for (const auto &plan : params_.period_plan)
-        {
-            if (cycle_index == plan.first)
-            {
-                locomotion_kernel_->SetGaitPeriod(plan.second);
-                std::cout << "PERIOD-PLAN cycle=" << cycle_index
-                          << " period=" << plan.second << "\n";
-            }
-        }
-        std::cout << "Trot cycle " << cycle_index << " started\n";
+        std::cout << "Trot cycle " << cycle_index << " started"
+                  << " v_cmd=" << gait_result.nominal_velocity_x_mps
+                  << " v_meas="
+                  << (have_filtered_body_velocity_
+                          ? latest_filtered_body_velocity_[0]
+                          : 0.0)
+                  << " period=" << gait_result.period_s
+                  << " step=" << gait_result.step_length_m
+                  << " duty=" << gait_result.duty_factor << "\n";
     }
 
     feet = gait_result.feet;
-    const double stance_duration = params_.duty_factor;
+    const double stance_duration =
+        gait_result.duty_factor > 0.05 ? gait_result.duty_factor
+                                       : params_.duty_factor;
 
     WorldPose pose{};
     std::array<go2::Vec3, go2::kLegCount> actual_world_feet{};
@@ -357,7 +409,15 @@ bool TrotExperiment::BuildGaitTargets(
     }
     commanded_body_feet_ = feet;
     have_commanded_body_feet_ = true;
-    if (!go2::AllLegInverseKinematics(feet, joint_targets))
+    if (params_.wbc_full)
+    {
+        if (!go2::AllLegInverseKinematicsClamped(feet, joint_targets))
+        {
+            std::cerr << "Trot IK failed at gait_time=" << gait_time_s << "\n";
+            return false;
+        }
+    }
+    else if (!go2::AllLegInverseKinematics(feet, joint_targets))
     {
         std::cerr << "Trot IK failed at gait_time=" << gait_time_s << "\n";
         return false;

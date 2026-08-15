@@ -33,7 +33,7 @@ struct SrbdMpcParams
     double w_pos_xy = 40.0;
     double w_pos_z = 80.0;
     double w_ori = 80.0;
-    double w_vel_xy = 20.0;
+    double w_vel_xy = 40.0;
     double w_vel_z = 8.0;
     double w_omega = 4.0;
     double w_force = 1.0e-4;
@@ -287,9 +287,9 @@ inline bool SolveSrbdMpc(
     return true;
 }
 
-// Diagonal trot contact at time t: FR+RL vs FL+RR, offset by half period.
-inline void FillTrotContactSchedule(
-    double gait_time_s,
+// Diagonal trot contact from the kernel phase (0-1), then dt/period ahead.
+inline void FillTrotContactSchedulePhase(
+    double phase,
     double period_s,
     double duty,
     int horizon,
@@ -301,22 +301,33 @@ inline void FillTrotContactSchedule(
         return;
     for (int k = 0; k < horizon && k < kSrbdMaxHorizon; ++k)
     {
-        const double t = gait_time_s + static_cast<double>(k) * dt_s;
-        const double cycle = t / period_s;
-        const double a = cycle - std::floor(cycle);
-        const double b = a + 0.5 - std::floor(a + 0.5);
+        double a = phase + static_cast<double>(k) * dt_s / period_s;
+        a -= std::floor(a);
+        if (a < 0.0)
+            a += 1.0;
+        double b = a + 0.5;
+        b -= std::floor(b);
         const bool pair_a = a < duty;  // FR, RL
         const bool pair_b = b < duty;  // FL, RR
         contact[k][static_cast<std::size_t>(go2::Leg::FR)] = pair_a;
         contact[k][static_cast<std::size_t>(go2::Leg::RL)] = pair_a;
         contact[k][static_cast<std::size_t>(go2::Leg::FL)] = pair_b;
         contact[k][static_cast<std::size_t>(go2::Leg::RR)] = pair_b;
-        if (!pair_a && !pair_b)
-        {
-            contact[k][static_cast<std::size_t>(go2::Leg::FR)] = true;
-            contact[k][static_cast<std::size_t>(go2::Leg::RL)] = true;
-        }
     }
+}
+
+// Diagonal trot contact at time t: FR+RL vs FL+RR, offset by half period.
+inline void FillTrotContactSchedule(
+    double gait_time_s,
+    double period_s,
+    double duty,
+    int horizon,
+    double dt_s,
+    std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon> &contact)
+{
+    const double cycle = (period_s > 0.0) ? (gait_time_s / period_s) : 0.0;
+    FillTrotContactSchedulePhase(
+        cycle - std::floor(cycle), period_s, duty, horizon, dt_s, contact);
 }
 
 }  // namespace go2_control

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -48,8 +49,8 @@ bool CheckTargetIsFrozenWithinLegCycle()
 
     const std::size_t fr = static_cast<std::size_t>(go2::Leg::FR);
     return first.footstep_plan_valid &&
-           Near(first.touchdown_target_x_m[fr], 0.042) &&
-           Near(later.touchdown_target_x_m[fr], 0.042);
+           Near(first.touchdown_target_x_m[fr], 0.0315) &&
+           Near(later.touchdown_target_x_m[fr], 0.0315);
 }
 
 bool CheckCycleBoundaryIsContinuous()
@@ -65,9 +66,9 @@ bool CheckCycleBoundaryIsContinuous()
 
     const std::size_t fr = static_cast<std::size_t>(go2::Leg::FR);
     const double expected_next_target =
-        0.042 + 0.20 * (0.05 - 0.105);
+        0.0315 + 0.20 * (0.05 - 0.105);
     return Near(boundary.touchdown_target_x_m[fr], expected_next_target) &&
-           Near(boundary.feet[fr].x, 0.042);
+           Near(boundary.feet[fr].x, 0.0315);
 }
 
 // [Fix 2026-08-13] gear shift 后 phase 连续 (旧实现 elapsed/period 在换挡时瞬移)
@@ -130,7 +131,7 @@ bool CheckResetAndInvalidInput()
 
     kernel.Reset();
     return kernel.Compute(Request(0.0, 0.105), output) &&
-           Near(output.touchdown_target_x_m[static_cast<std::size_t>(go2::Leg::FR)], 0.042);
+           Near(output.touchdown_target_x_m[static_cast<std::size_t>(go2::Leg::FR)], 0.0315);
 }
 
 go2_control::RaibertTrotKernel MakePreviewKernel()
@@ -154,15 +155,15 @@ bool CheckPreviewHorizonClosesLoop()
         return false;
     const std::size_t fr = static_cast<std::size_t>(go2::Leg::FR);
     if (nominal.preview_n_steps != 4 ||
-        !Near(nominal.touchdown_target_x_m[fr], 0.042) ||
-        !Near(nominal.preview_touchdown_x_m, 0.042))
+        !Near(nominal.touchdown_target_x_m[fr], 0.0315) ||
+        !Near(nominal.preview_touchdown_x_m, 0.0315))
         return false;
 
     kernel.Reset();
     if (!kernel.Compute(Request(0.0, 0.05), slow))
         return false;
     return slow.preview_n_steps == 4 &&
-           slow.touchdown_target_x_m[fr] < 0.042 &&
+           slow.touchdown_target_x_m[fr] < 0.0315 &&
            Near(slow.touchdown_target_x_m[fr], slow.preview_touchdown_x_m);
 }
 
@@ -181,6 +182,33 @@ bool CheckPreviewPersistsWithinCycle()
                 first.preview_terminal_velocity_x_mps);
 }
 
+bool CheckSpeedAdaptiveStanceUsesMeasuredTravel()
+{
+    go2_control::GaitKernelParams gait{};
+    gait.period_s = 0.8;
+    gait.duty_factor = 0.75;
+    gait.step_length_m = 0.084;
+    gait.direction_sign = 1.0;
+    gait.foot_lift_m = 0.035;
+    gait.blend_duration_s = 0.001;
+    go2_control::RaibertTrotKernel kernel(
+        {gait, 0.0, 0.0, 0, true});
+    go2_control::GaitKernelResult mid{};
+    if (!kernel.Compute(Request(0.0, 0.05), mid) ||
+        !kernel.Compute(Request(0.30, 0.05), mid))
+    {
+        return false;
+    }
+    const std::size_t fr = static_cast<std::size_t>(go2::Leg::FR);
+    const double commanded_travel = 0.084 * 0.75;
+    const double v_nom = 0.084 / 0.8;
+    const double v_stance = 0.85 * v_nom + 0.15 * 0.05;
+    const double travel = std::clamp(
+        v_stance * 0.8 * 0.75, 0.80 * commanded_travel, commanded_travel);
+    const double expected = 0.5 * commanded_travel - travel * 0.5;
+    return Near(mid.feet[fr].x, expected, 1e-6);
+}
+
 } // namespace
 
 int main()
@@ -190,7 +218,8 @@ int main()
         !CheckGearShiftPhaseContinuity() ||
         !CheckResetAndInvalidInput() ||
         !CheckPreviewHorizonClosesLoop() ||
-        !CheckPreviewPersistsWithinCycle())
+        !CheckPreviewPersistsWithinCycle() ||
+        !CheckSpeedAdaptiveStanceUsesMeasuredTravel())
     {
         std::cerr << "Raibert trot kernel checks failed\n";
         return 1;

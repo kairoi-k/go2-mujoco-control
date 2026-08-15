@@ -191,7 +191,8 @@ inline std::unique_ptr<go2_control::LocomotionKernel> CreateLocomotionKernel(
             go2_control::RaibertTrotKernelParams{
                 gait_params, params.raibert_velocity_gain_s,
                 params.raibert_max_adjustment_m,
-                params.preview_horizon_steps});
+                params.preview_horizon_steps,
+                params.wbc_full && !params.step_plan.empty()});
     }
     return std::make_unique<go2_control::HandCodedTrotKernel>(
         gait_params);

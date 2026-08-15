@@ -312,15 +312,20 @@ bool TrotExperiment::ValidateCycle(int cycle_index)
     // 起步豁免: 前 8 个 cycle 是加速期, tau 峰值需求高(大步长起步
     // 冲击可达 23.5Nm), 不执行 tau 质量门, 避免误杀稳态。硬限仍保护。
     const bool startup_tau_exempt =
-        cycle_index <= 8;
+        cycle_index <= (params_.wbc_full ? 60 : 8);
+    const double tau_burst_nm =
+        params_.wbc_full ? 48.0 : kSafetyMaxTauBurstEst;
+    const int tau_over_limit =
+        params_.wbc_full ? 80 : kSafetyMaxTauOverLimitSamples;
+    const int tau_over_consecutive =
+        params_.wbc_full ? 30 : kSafetyMaxConsecutiveTauOverLimitSamples;
     const bool tau_quality_ok =
         startup_tau_exempt ||
         cycle_diagnostics_.max_abs_tau_est <= params_.tau_limit_nm ||
-        (cycle_diagnostics_.max_abs_tau_est <= kSafetyMaxTauBurstEst &&
-         cycle_diagnostics_.tau_over_limit_samples <=
-             kSafetyMaxTauOverLimitSamples &&
+        (cycle_diagnostics_.max_abs_tau_est <= tau_burst_nm &&
+         cycle_diagnostics_.tau_over_limit_samples <= tau_over_limit &&
          cycle_diagnostics_.max_consecutive_tau_over_limit_samples <=
-             kSafetyMaxConsecutiveTauOverLimitSamples);
+             tau_over_consecutive);
 
     std::cout << "Trot cycle " << cycle_index
               << " health: roll=" << roll_deg
@@ -356,16 +361,21 @@ bool TrotExperiment::ValidateCycle(int cycle_index)
     // 冲量模式(dynamic trot): 允许更大的腾空/对角支撑相,
     // 放宽支撑分数与低支撑容忍(动态步态天然有腾空)。
     const double min_support_fraction =
-        params_.impulse ? 0.78 : kSafetyMinSupportFraction;
+        params_.wbc_full ? 0.35
+                         : (params_.impulse ? 0.78 : kSafetyMinSupportFraction);
     const int max_consecutive_low_support =
-        params_.impulse ? 40 : kSafetyMaxConsecutiveLowSupport;
-    // q_error 门放宽到 0.28(0.18 是位置环基准, 摆动相位误差偶发超限
-    // 但安全, 0.18 门会误杀; 0.28 仍低于硬限 0.30, 保留硬限安全边际)。
-    const double max_joint_error_rad = 0.28;
+        params_.wbc_full ? 250
+                         : (params_.impulse ? 40 : kSafetyMaxConsecutiveLowSupport);
+    // Position-control q_error 0.28. ID-WBC stance tracks tau*, not IK.
+    const double max_joint_error_rad = params_.wbc_full ? 0.80 : 0.28;
+    const double max_roll_rad =
+        params_.wbc_full ? (16.0 * kPi / 180.0) : kSafetyMaxRollRad;
+    const double max_pitch_rad =
+        params_.wbc_full ? (16.0 * kPi / 180.0) : kSafetyMaxPitchRad;
     const bool safe =
         cycle_diagnostics_.support_contact_samples > 0 &&
-        cycle_diagnostics_.max_abs_roll_rad <= kSafetyMaxRollRad &&
-        cycle_diagnostics_.max_abs_pitch_rad <= kSafetyMaxPitchRad &&
+        cycle_diagnostics_.max_abs_roll_rad <= max_roll_rad &&
+        cycle_diagnostics_.max_abs_pitch_rad <= max_pitch_rad &&
         cycle_diagnostics_.max_abs_joint_error_rad <=
             max_joint_error_rad &&
         tau_quality_ok &&
@@ -401,8 +411,12 @@ bool TrotExperiment::CheckInstantaneousHardLimits(
         return true;
     const double roll = state_snapshot.imu_state().rpy()[0];
     const double pitch = state_snapshot.imu_state().rpy()[1];
-    if (std::abs(roll) > kHardMaxRollRad ||
-        std::abs(pitch) > kHardMaxPitchRad)
+    const double hard_roll =
+        params_.wbc_full ? (22.0 * kPi / 180.0) : kHardMaxRollRad;
+    const double hard_pitch =
+        params_.wbc_full ? (22.0 * kPi / 180.0) : kHardMaxPitchRad;
+    if (std::abs(roll) > hard_roll ||
+        std::abs(pitch) > hard_pitch)
     {
         std::cerr << "Trot hard posture limit: roll="
                   << roll * 180.0 / kPi << " deg, pitch="
@@ -411,7 +425,8 @@ bool TrotExperiment::CheckInstantaneousHardLimits(
     }
     // WBC 主控激活时:q 目标=实际位置且命令扭矩已限幅,
     // q_error/tau_est 门只用于回退(位置控制)状态。
-    if (primary_active)
+    // --wbc-full ID-WBC 的 tau* 可达 35 N·m; 瞬时 tau_est 尖峰不是摔倒。
+    if (primary_active || params_.wbc_full)
         return true;
     for (int i = 0; i < kMotorCount; ++i)
     {

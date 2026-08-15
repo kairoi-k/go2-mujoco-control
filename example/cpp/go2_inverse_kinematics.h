@@ -86,4 +86,29 @@ inline bool AllLegInverseKinematics(
     return true;
 }
 
+inline bool AllLegInverseKinematicsClamped(
+    std::array<Vec3, kLegCount> &foot_positions,
+    std::array<double, kJointCount> &joint_positions)
+{
+    if (AllLegInverseKinematics(foot_positions, joint_positions))
+        return true;
+    for (int iter = 0; iter < 16; ++iter)
+    {
+        for (std::size_t leg_index = 0; leg_index < kLegCount; ++leg_index)
+        {
+            const LegGeometry geometry =
+                Geometry(static_cast<Leg>(leg_index));
+            foot_positions[leg_index].x =
+                geometry.hip_x +
+                0.88 * (foot_positions[leg_index].x - geometry.hip_x);
+            foot_positions[leg_index].y =
+                geometry.hip_y +
+                0.88 * (foot_positions[leg_index].y - geometry.hip_y);
+        }
+        if (AllLegInverseKinematics(foot_positions, joint_positions))
+            return true;
+    }
+    return false;
+}
+
 } // namespace go2

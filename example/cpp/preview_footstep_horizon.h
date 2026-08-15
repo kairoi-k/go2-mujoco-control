@@ -40,7 +40,7 @@ struct PreviewFootstepHorizonOutput
 inline double PreviewNeutralTouchdownX(
     const RaibertFootstepPlannerParams &params)
 {
-    return 0.5 * params.direction_sign * params.step_length_m;
+    return RaibertNominalTouchdownX(params);
 }
 
 inline double PreviewAdjustmentFromTouchdown(

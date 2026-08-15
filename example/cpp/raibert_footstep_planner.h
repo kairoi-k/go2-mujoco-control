@@ -15,7 +15,21 @@ struct RaibertFootstepPlannerParams
     double direction_sign = 1.0;
     double velocity_gain_s = 0.20;
     double max_adjustment_m = 0.025;
+    double duty_factor = 1.0;
 };
+
+inline double RaibertStanceTravelM(const RaibertFootstepPlannerParams &params)
+{
+    double duty = params.duty_factor;
+    if (!(duty > 0.0 && duty <= 1.0))
+        duty = 1.0;
+    return params.step_length_m * duty;
+}
+
+inline double RaibertNominalTouchdownX(const RaibertFootstepPlannerParams &params)
+{
+    return 0.5 * params.direction_sign * RaibertStanceTravelM(params);
+}
 
 struct RaibertFootstepPlannerInput
 {
@@ -42,12 +56,14 @@ inline bool PlanRaibertTouchdown(
         !(params.step_length_m >= 0.0) ||
         !(params.velocity_gain_s >= 0.0) ||
         !(params.max_adjustment_m >= 0.0) ||
+        !(params.duty_factor > 0.0 && params.duty_factor <= 1.0) ||
         !(std::abs(std::abs(params.direction_sign) - 1.0) < 1e-9) ||
         !std::isfinite(params.period_s) ||
         !std::isfinite(params.step_length_m) ||
         !std::isfinite(params.direction_sign) ||
         !std::isfinite(params.velocity_gain_s) ||
         !std::isfinite(params.max_adjustment_m) ||
+        !std::isfinite(params.duty_factor) ||
         (input.measured_velocity_valid &&
          !std::isfinite(input.measured_velocity_x_mps)))
     {
@@ -70,7 +86,7 @@ inline bool PlanRaibertTouchdown(
     output.velocity_error_x_mps = velocity_error;
     output.adjustment_m = adjustment;
     output.touchdown_x_m =
-        0.5 * params.direction_sign * params.step_length_m + adjustment;
+        RaibertNominalTouchdownX(params) + adjustment;
     return std::isfinite(output.touchdown_x_m);
 }
 

@@ -76,8 +76,6 @@ void TrotExperiment::UpdateWbcFull(
                   << " bias_z=" << dyn.bias[2] << "\n";
     }
 
-    const double gait_elapsed =
-        gait_started_ ? running_time_ - gait_start_time_s_ : 0.0;
     std::array<bool, go2::kLegCount> measured_contact{};
     const go2_control::HystereticContactParams contact_params{
         kShadowContactOnForceN, kShadowContactOffForceN};
@@ -95,13 +93,16 @@ void TrotExperiment::UpdateWbcFull(
     // During trot the force sensors stay high through lift-off, so measured
     // 3/4-contact at a scheduled diagonal. The QP uses the gait schedule.
     std::array<bool, go2::kLegCount> qp_contact = measured_contact;
+    const double gait_period =
+        kernel_period_s_ > 0.05 ? kernel_period_s_ : params_.period_s;
+    const double gait_duty =
+        kernel_duty_factor_ > 0.05 ? kernel_duty_factor_ : params_.duty_factor;
     if (gait_started_ && motion_stage_ == 2)
     {
         std::array<std::array<bool, go2::kLegCount>, go2_control::kSrbdMaxHorizon>
             scheduled{};
-        go2_control::FillTrotContactSchedule(
-            gait_elapsed, params_.period_s, params_.duty_factor,
-            1, 0.05, scheduled);
+        go2_control::FillTrotContactSchedulePhase(
+            current_phase_, gait_period, gait_duty, 1, 0.0, scheduled);
         qp_contact = scheduled[0];
     }
     int contact_mask = 0;
@@ -118,11 +119,16 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_diagnostics_.contact_mask = contact_mask;
 
     go2_control::SrbdMpcParams mpc_params;
-    mpc_params.horizon = 6;
-    mpc_params.dt_s = 0.05;
+    mpc_params.horizon = 8;
+    mpc_params.dt_s = std::clamp(gait_period / 8.0, 0.020, 0.05);
     mpc_params.mass_kg = dyn.mass_kg;
     mpc_params.inertia_com_world = dyn.inertia_com_world;
     mpc_params.friction_mu = kShadowWbcFrictionCoefficient;
+    if (!params_.step_plan.empty())
+    {
+        mpc_params.w_vel_xy = 80.0;
+        mpc_params.w_pos_xy = 20.0;
+    }
     const bool run_mpc =
         (wbc_full_ticks_ % 25) == 0 || !last_srbd_.ok;
     if (run_mpc)
@@ -150,7 +156,11 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.reference[8] = params_.turn_rate_radps;
         mpc_in.reference[9] =
             gait_started_ && motion_stage_ == 2
-                ? params_.direction_sign * params_.step_length_m / params_.period_s
+                ? (std::isfinite(kernel_nominal_velocity_x_mps_) &&
+                           std::abs(kernel_nominal_velocity_x_mps_) > 1.0e-6
+                       ? kernel_nominal_velocity_x_mps_
+                       : params_.direction_sign * params_.step_length_m /
+                             params_.period_s)
                 : 0.0;
         mpc_in.reference[10] = 0.0;
         mpc_in.reference[11] = 0.0;
@@ -159,8 +169,8 @@ void TrotExperiment::UpdateWbcFull(
                 dyn.foot_pos_world[leg] - dyn.com_world;
         if (gait_started_ && motion_stage_ == 2)
         {
-            go2_control::FillTrotContactSchedule(
-                gait_elapsed, params_.period_s, params_.duty_factor,
+            go2_control::FillTrotContactSchedulePhase(
+                current_phase_, gait_period, gait_duty,
                 mpc_params.horizon, mpc_params.dt_s, mpc_in.contact);
         }
         else
@@ -189,6 +199,35 @@ void TrotExperiment::UpdateWbcFull(
         wbc_in.desired_angular_acc_body =
             quat.normalized().toRotationMatrix().transpose() *
             last_srbd_.first_angular_acc;
+        if (have_filtered_body_velocity_ && gait_started_ &&
+            motion_stage_ == 2 && !params_.step_plan.empty())
+        {
+            const double v_des =
+                std::isfinite(kernel_nominal_velocity_x_mps_)
+                    ? kernel_nominal_velocity_x_mps_
+                    : 0.0;
+            const double v_err =
+                v_des - latest_filtered_body_velocity_[0];
+            const double yaw =
+                static_cast<double>(state_snapshot.imu_state().rpy()[2]);
+            const double pitch =
+                static_cast<double>(state_snapshot.imu_state().rpy()[1]);
+            const double gyro_y =
+                static_cast<double>(
+                    state_snapshot.imu_state().gyroscope()[1]);
+            const double pitch_fade = Clamp(
+                1.0 - std::max(0.0, std::abs(pitch) - 0.06) / 0.12,
+                0.15, 1.0);
+            const double ax_body =
+                pitch_fade * Clamp(4.0 * v_err, -3.0, 3.0);
+            wbc_in.desired_linear_acc_world.x() += ax_body * std::cos(yaw);
+            wbc_in.desired_linear_acc_world.y() += ax_body * std::sin(yaw);
+            // Forward GRF below the CoM pitches the nose up. Add a
+            // nose-down angular task so the ID-WBC can use rearward
+            // contacts instead of flipping.
+            wbc_in.desired_angular_acc_body.y() +=
+                -10.0 * pitch - 1.2 * gyro_y - 0.35 * ax_body;
+        }
     }
     if (have_commanded_body_feet_)
     {
@@ -231,8 +270,12 @@ void TrotExperiment::UpdateWbcFull(
     }
 
     go2_control::IdWbcOutput wbc_out;
+    go2_control::IdWbcParams id_params;
+    id_params.w_stance_no_slip = 8.0;
+    id_params.tau_limit_nm = 35.0;
     const bool solved =
-        go2_control::SolveInverseDynamicsWbc({}, wbc_in, wbc_out) && wbc_out.ok;
+        go2_control::SolveInverseDynamicsWbc(id_params, wbc_in, wbc_out) &&
+        wbc_out.ok;
     if (solved)
     {
         last_id_wbc_ = wbc_out;
