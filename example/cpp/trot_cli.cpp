@@ -23,6 +23,7 @@ void PrintTrotCliUsage()
            " [--no-velocity-feedforward] [--wbc-shadow]"
            " [--wbc-velocity-wrench] [--wbc-velocity-gain s] [--wbc-max-forward-force n]"
            " [--wbc-torque-feedforward] [--wbc-torque-scale s] [--domain-id n]"
+           " [--wbc-primary] [--wbc-full] [--preview-horizon n]"
            " [--wbc-reduced-contact-task]"
            " [--wbc-task-torque-feedforward]"
            " [--direction +/-1] [--support-anchor-feedback]"
@@ -181,6 +182,20 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.params.wbc_velocity_wrench = true;
                 cfg.params.wbc_velocity_gain_s_inv = 6.0;
             }
+            else if (option == "--wbc-full")
+            {
+                cfg.params.wbc_full = true;
+                cfg.params.wbc_primary = true;
+                cfg.params.wbc_shadow = true;
+                cfg.params.wbc_velocity_wrench = true;
+                cfg.params.wbc_velocity_gain_s_inv = 6.0;
+                cfg.params.wbc_reduced_contact_task = false;
+                if (cfg.params.preview_horizon_steps <= 0)
+                    cfg.params.preview_horizon_steps = 4;
+            }
+            else if (option == "--preview-horizon")
+                cfg.params.preview_horizon_steps =
+                    std::stoi(require_value("--preview-horizon"));
             else if (option == "--wbc-velocity-wrench")
             {
                 cfg.params.wbc_velocity_wrench = true;
@@ -278,6 +293,9 @@ if (!(cfg.params.period_s >= 0.35 && cfg.params.period_s <= 3.0) ||
         !(std::abs(std::abs(cfg.params.direction_sign) - 1.0) < 1e-9) ||
         !(cfg.params.support_anchor_gain >= 0.0 &&
           cfg.params.support_anchor_gain <= 1.0) ||
+        cfg.params.preview_horizon_steps < 0 ||
+        cfg.params.preview_horizon_steps >
+            go2_control::kPreviewHorizonMaxSteps ||
         (cfg.task_mode && cfg.continuous_mode) ||
         (cfg.task_mode &&
          (!std::isfinite(cfg.duration_s) || cfg.duration_s <= 0.0)))
@@ -305,6 +323,8 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << "  kp/kd=" << params.kp << "/" << params.kd << "\n"
               << "  kernel=" << params.kernel_name << "\n"
               << "  wbc_primary=" << (params.wbc_primary ? "on" : "off") << "\n"
+              << "  wbc_full=" << (params.wbc_full ? "on" : "off") << "\n"
+              << "  preview_horizon=" << params.preview_horizon_steps << "\n"
               << "  impulse=" << (params.impulse ? "on" : "off") << "\n"
               << "  task="
               << (cfg.task_mode ? "stand-walk-lie" : "trot-only") << "\n"

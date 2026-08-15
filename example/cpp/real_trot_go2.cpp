@@ -1,4 +1,4 @@
-// main only — implementation in trot_*.cpp; see docs/CODEMAP.md
+// main only — implementation in trot_*.cpp; see docs/CODE_GUIDE.md
 #include <csignal>
 #include <chrono>
 #include <iostream>

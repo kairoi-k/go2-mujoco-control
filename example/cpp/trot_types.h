@@ -77,6 +77,9 @@ constexpr double kWbcPrimaryTurnYawAccKp = 12.0;
 constexpr double kWbcPrimaryTurnYawKp = 3.0;
 constexpr double kWbcPrimaryCommandKp = 63.0;
 constexpr double kWbcPrimaryCommandKd = 2.8;
+// Full centroidal path owns gravity in the wrench, so stance PD is softer.
+constexpr double kWbcFullStanceKp = 25.0;
+constexpr double kWbcFullStanceKd = 2.0;
 constexpr double kWbcPrimaryEnterDelayS = 0.5;
 constexpr double kWbcPrimaryRampS = 0.5;
 constexpr double kWbcPrimaryBlendTauS = 0.12;
@@ -151,6 +154,8 @@ struct TrotParams
     double world_feedback_slew_m = kWorldFeedbackSlewM;
     bool wbc_shadow = false;
     bool wbc_primary = false;
+    bool wbc_full = false;
+    int preview_horizon_steps = 0;
     std::vector<std::pair<int, double>> step_plan;
     std::vector<std::pair<int, double>> period_plan;
     double turn_rate_radps = 0.0;
@@ -185,7 +190,8 @@ inline std::unique_ptr<go2_control::LocomotionKernel> CreateLocomotionKernel(
         return std::make_unique<go2_control::RaibertTrotKernel>(
             go2_control::RaibertTrotKernelParams{
                 gait_params, params.raibert_velocity_gain_s,
-                params.raibert_max_adjustment_m});
+                params.raibert_max_adjustment_m,
+                params.preview_horizon_steps});
     }
     return std::make_unique<go2_control::HandCodedTrotKernel>(
         gait_params);

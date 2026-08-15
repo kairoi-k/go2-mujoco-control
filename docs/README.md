@@ -9,5 +9,5 @@ Start here when reading the repository as a research artifact or contributing to
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | simulator/controller runtime and control architecture |
 | [`CODE_GUIDE.md`](CODE_GUIDE.md) | source-level navigation for contributors |
 | [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md) | environment, build, smoke checks, and evidence-reproduction rules |
-| [`EXPERIMENT_TEMPLATE.md`](EXPERIMENT_TEMPLATE.md) | template for new research records |
+| [`WBC_MPC.md`](WBC_MPC.md) | centroidal wrench + foothold preview (`--wbc-full`) |
 | [`upstream/`](upstream/) | preserved upstream Unitree MuJoCo README files |

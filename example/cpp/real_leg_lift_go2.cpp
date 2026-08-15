@@ -1,4 +1,4 @@
-// main only — parse CLI then run TrackingExperiment; see docs/CODEMAP.md
+// main only — parse CLI then run TrackingExperiment; see docs/CODE_GUIDE.md
 #include <chrono>
 #include <iostream>
 #include <thread>

@@ -19,7 +19,7 @@ using namespace unitree::common;
 using namespace unitree::robot;
 using namespace go2_trot;
 
-// CONTROL LOOP — 500Hz LowCmdWrite state machine (see CODEMAP)
+// CONTROL LOOP — 500Hz LowCmdWrite state machine (see docs/CODE_GUIDE.md)
 
 // --- TrotExperiment::LowCmdWrite ---
 void TrotExperiment::LowCmdWrite()
@@ -449,12 +449,17 @@ void TrotExperiment::WriteMotorCommands(
             const int i = 3 * static_cast<int>(leg) + joint;
             low_cmd_.motor_cmd()[i].q() = joint_targets[i];
             low_cmd_.motor_cmd()[i].dq() = joint_velocities[i];
+            const double stance_kp = params_.wbc_full
+                ? kWbcFullStanceKp
+                : (params_.impulse ? kImpulseStanceKp : kWbcPrimaryCommandKp);
+            const double stance_kd = params_.wbc_full
+                ? kWbcFullStanceKd
+                : kWbcPrimaryCommandKd;
             low_cmd_.motor_cmd()[i].kp() =
-                (params_.impulse ? kImpulseStanceKp : kWbcPrimaryCommandKp) *
-                    wbc_stance_blend_[leg] +
+                stance_kp * wbc_stance_blend_[leg] +
                 params_.kp * (1.0 - wbc_stance_blend_[leg]);
             low_cmd_.motor_cmd()[i].kd() =
-                kWbcPrimaryCommandKd * wbc_stance_blend_[leg] +
+                stance_kd * wbc_stance_blend_[leg] +
                 params_.kd * (1.0 - wbc_stance_blend_[leg]);
             // 低接触数(过渡/对角支撑)时减弱 WBC 扭矩,避免力分配
             // 在支撑切换瞬间扰动姿态

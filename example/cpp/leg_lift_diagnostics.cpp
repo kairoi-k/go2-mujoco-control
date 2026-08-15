@@ -13,7 +13,7 @@ using namespace unitree::common;
 using namespace unitree::robot;
 using namespace go2_leg;
 
-// DIAGNOSTICS — CSV, step validation, motion checks (see CODEMAP)
+// DIAGNOSTICS — CSV, step validation, motion checks (see docs/CODE_GUIDE.md)
 
 // --- TrackingExperiment::WriteCsvHeader ---  [SECTION: csv-header]
 void TrackingExperiment::WriteCsvHeader()

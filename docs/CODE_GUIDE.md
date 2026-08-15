@@ -13,6 +13,7 @@ This guide points contributors to the smallest relevant source area for common c
 | Change gait phase or foot targets | `example/cpp/trot_experiment_gait.cpp`, `example/cpp/raibert_trot_kernel.h` |
 | Change Raibert landing adjustment | `example/cpp/raibert_footstep_planner.h` |
 | Change contact-force allocation | `example/cpp/contact_wrench_*` |
+| Change centroidal wrench / foothold preview | `example/cpp/centroidal_wbc.h`, `example/cpp/preview_footstep_horizon.h` |
 | Change dynamics-informed feedforward | `example/cpp/trot_experiment_wbc.cpp`, `example/cpp/trot_true_dynamics.h` |
 | Change safety gates / diagnostics | `example/cpp/trot_experiment_diagnostics.cpp` |
 | Change leg-lift / multi-step experiments | `example/cpp/leg_lift_*`, `example/cpp/real_leg_lift_go2.cpp` |
@@ -43,7 +44,7 @@ The quasi-static action-sequence implementation is split into:
 ## Supporting headers
 
 - Kinematics: `go2_forward_kinematics.h`, `go2_inverse_kinematics.h`, `go2_leg_jacobian.h`
-- Gait: `locomotion_kernel.h`, `raibert_trot_kernel.h`, `raibert_footstep_planner.h`
+- Gait: `locomotion_kernel.h`, `raibert_trot_kernel.h`, `raibert_footstep_planner.h`, `preview_footstep_horizon.h`
 - Contact / WBC: `contact_*.h`, `wbc_runtime_gate.h`, `go2_contact_torque_mapping.h`
 - Filtering / frames: `velocity_filter.h`, `motion_frame_utils.h`, `contact_state_filter.h`
 
