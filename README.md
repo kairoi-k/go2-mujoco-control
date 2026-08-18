@@ -2,9 +2,9 @@
 
 Research fork of [`unitreerobotics/unitree_mujoco`](https://github.com/unitreerobotics/unitree_mujoco) for Go2 **stand → walk → lie** and model-based diagonal trot control in MuJoCo.
 
-![stand-walk-lie](docs/media/stand_walk_lie.gif)
+![stand-walk-lie](docs/media/stand_walk_lie_wbcfull.gif)
 
-The C++ result is a 500 Hz LowCmd state machine: stand-up, settle, trot, blend back to stand, lie-down. Reliable C++ cruise is about **0.13–0.18 m/s**. The independent Isaac Lab velocity-RL track is maintained in [`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl); imitation work is in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
+The C++ result is a 500 Hz LowCmd state machine: stand-up, settle, `--wbc-full` trot, blend back to stand, lie-down. On this tree the sequenced / 64-cycle plant is **18-DoF ID-WBC + SRBD MPC**. Repeated `--wbc-full` cruise is about **0.12–0.15 m/s** (`go2sim full` n=5: 0.130 ± 0.011). Watch [`docs/media/stand_walk_lie_wbcfull.mp4`](docs/media/stand_walk_lie_wbcfull.mp4). The independent Isaac Lab velocity-RL track is maintained in [`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl); imitation work is in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
 
 ## Contents
 
@@ -30,7 +30,7 @@ cmake --build example/cpp/build -j"$(nproc)"
 ./example/cpp/build/test_go2_inverse_kinematics
 ```
 
-Stand-walk-lie (after the simulator is up): see [`example/cpp/README.md`](example/cpp/README.md). `go2sim task` is the sequenced entry; `go2sim walk` / `go2sim fast` are trot-only (fast ≈ 0.18 m/s with a looser torque gate). `go2sim full` turns on 18-DoF ID-WBC + SRBD MPC; see [`docs/WBC_MPC.md`](docs/WBC_MPC.md).
+Stand-walk-lie (after the simulator is up): see [`example/cpp/README.md`](example/cpp/README.md). `go2sim task` is the sequenced `--wbc-full` entry; `go2sim full` is the same plant for 64 cycles. `go2sim walk` / `go2sim fast` are the older `--wbc-primary` trot-only paths and are not the current homepage claim. See [`docs/WBC_MPC.md`](docs/WBC_MPC.md).
 
 ## Related track
 

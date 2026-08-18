@@ -26,7 +26,7 @@ Original Unitree READMEs: `docs/upstream/`. The repository root README is the re
 - `--wbc-full` 18-DoF inverse-dynamics WBC and receding-horizon SRBD MPC; `--wbc-primary` remains incremental feedforward with guarded fallback;
 - controlled experiment runners and retained evidence.
 
-Reliable cruise is about 0.15 m/s in this stack. `--wbc-full` is an 18-DoF inverse-dynamics WBC; it is not a claim of demo-speed locomotion.
+Reliable `--wbc-full` cruise on this tree is about 0.12–0.15 m/s. `--wbc-full` is an 18-DoF inverse-dynamics WBC; it is not a claim of demo-speed locomotion.
 
 ## Licensing and citation
 

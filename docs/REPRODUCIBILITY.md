@@ -29,7 +29,7 @@ The simulator/controller pair inherits the DDS/runtime assumptions of the Unitre
 
 ## What a reproduction should preserve
 
-The sequenced controller and trot gates were finalized on 2026-08-13. Claims for this tree are in [`RESEARCH_INDEX.md`](RESEARCH_INDEX.md).
+The sequenced `--wbc-full` controller on `go2sim task` / `full` was indexed on 2026-08-18 (`2b82dae`). Claims for this tree are in [`RESEARCH_INDEX.md`](RESEARCH_INDEX.md).
 
 A valid extension should preserve or version:
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-08-19
+
+- `go2sim task` / `full` on main are `--wbc-full --tau-limit 35` (`2b82dae`). Indexed cruise is the 2026-08-18 repeat: `full` n=5 **0.130 ± 0.011 m/s**, `task` n=3 **0.139 ± 0.004 m/s**. Record: `example/cpp/experiments/go2_wbc_full_mainline_repeat_2026-08-18`.
+- Homepage clip is `docs/media/stand_walk_lie_wbcfull.gif` / `.mp4`. The older `--wbc-primary` `stand_walk_lie.gif` is kept.
+- 2026-08-15 single-run 0.149 m/s stays in `docs/WBC_MPC.md` as historical. `go2sim walk` (`--wbc-primary`) is not claimed on this tree.
+
 ## 2026-08-15
 
 - Checkout vendors Go2 MJCF only; unused Unitree robot meshes are not in this tree.
