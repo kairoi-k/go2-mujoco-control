@@ -1,0 +1,10 @@
+walking_rows=4001
+walking_duration_s=7.998000
+walking_distance_m=1.065814
+target_speed_mps=0.151667
+measured_speed_mps=0.135615
+endpoint_speed_mps=0.133260
+speed_ratio=0.894164
+max_lateral_drift_m=0.011584
+min_speed_ratio=0.000000
+validation=PASS
