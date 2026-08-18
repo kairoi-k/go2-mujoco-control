@@ -29,6 +29,9 @@ void TrotExperiment::WriteCsvHeader()
          << ",motion_clock_wall_mode,motion_clock_wall_dt_s"
          << ",motion_clock_paused,motion_clock_pause_count"
          << ",motion_stage,cycle_index,phase"
+         << ",wbc_primary_blend,wbc_gait_reference_blend"
+         << ",wbc_contact_schedule_blend,wbc_contact_transition_blend"
+         << ",wbc_measured_contact_mask,wbc_com_z_m,wbc_com_ref_z_m"
          << ",world_base_x_m,world_base_y_m,world_base_z_m,world_yaw_error_rad"
          << ",world_feedback_x_m,world_feedback_y_m"
          << ",body_velocity_x_mps,body_velocity_y_mps,body_velocity_z_mps"
@@ -524,6 +527,13 @@ void TrotExperiment::LogSample(
          << "," << motion_clock_pause_count_
          << "," << task_.motion_stage_ << ","
          << active_cycle_index_ << "," << current_phase_ << ","
+         << wbc_shadow_diagnostics_.primary_blend << ","
+         << wbc_shadow_diagnostics_.gait_reference_blend << ","
+         << wbc_shadow_diagnostics_.contact_schedule_blend << ","
+         << wbc_shadow_diagnostics_.contact_transition_blend << ","
+         << wbc_shadow_diagnostics_.measured_contact_mask << ","
+         << wbc_shadow_diagnostics_.com_z_m << ","
+         << wbc_shadow_diagnostics_.com_ref_z_m << ","
          << pose.base.x << "," << pose.base.y << "," << pose.base.z << ","
          << world_yaw_error_rad_
          << "," << world_feedback_x_m_ << "," << world_feedback_y_m_

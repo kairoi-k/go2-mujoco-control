@@ -85,6 +85,15 @@ constexpr double kWbcPrimaryRampS = 0.5;
 constexpr double kWbcPrimaryBlendTauS = 0.12;
 constexpr double kWbcPrimaryWrenchEnableS = 1.5;
 constexpr double kWbcPrimaryMaxAbsTorqueNm = 25.0;
+// Full WBC is connected during settle and remains connected through the
+// return-to-stand phase. These rates bound the handoff instead of allowing a
+// one-cycle PD -> ID-WBC command jump.
+constexpr double kWbcFullPlantRiseDurationS = 0.65;
+constexpr double kWbcFullPlantFallDurationS = 0.35;
+constexpr double kWbcFullComHeightSlewMps = 0.15;
+constexpr double kWbcFullContactHandoffStartS = 0.30;
+constexpr double kWbcFullContactHandoffDurationS = 0.30;
+constexpr double kWbcFullContactTorqueBlendS = 0.12;
 // 冲量主控 v1 (--impulse): 线动量任务(加速度域)增益
 constexpr double kImpulseLinVelKpS = 2.0;    // 速度误差 -> 加速度(渐进, 留稳定余量)
 constexpr double kImpulseLinVelKd = 2.0;     // 加速度阻尼(反速度差分)
@@ -255,6 +264,13 @@ struct WbcShadowDiagnostics
     bool srbd_ok = false;
     bool id_wbc_ok = false;
     double id_eq_residual = 0.0;
+    double primary_blend = 0.0;
+    double gait_reference_blend = 0.0;
+    double contact_schedule_blend = 0.0;
+    double contact_transition_blend = 1.0;
+    int measured_contact_mask = 0;
+    double com_z_m = 0.0;
+    double com_ref_z_m = 0.0;
     int feedforward_gate_code =
         static_cast<int>(go2_control::WbcFeedforwardGateCode::kDisabled);
     bool feedforward_ready = false;

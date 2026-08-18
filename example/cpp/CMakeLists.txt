@@ -129,6 +129,8 @@ add_executable(test_dynamic_acceleration_target tests/test_dynamic_acceleration_
 
 add_executable(test_wbc_runtime_gate tests/test_wbc_runtime_gate.cpp)
 
+add_executable(test_wbc_transition tests/test_wbc_transition.cpp)
+
 add_executable(test_centroidal_wbc tests/test_centroidal_wbc.cpp)
 
 add_executable(test_preview_footstep_horizon tests/test_preview_footstep_horizon.cpp)
@@ -187,6 +189,7 @@ go2_add_ctest(test_projected_contact_wrench_allocator)
 go2_add_ctest(test_contact_wrench_lexicographic_allocator)
 go2_add_ctest(test_dynamic_acceleration_target)
 go2_add_ctest(test_wbc_runtime_gate)
+go2_add_ctest(test_wbc_transition)
 go2_add_ctest(test_centroidal_wbc)
 go2_add_ctest(test_preview_footstep_horizon)
 go2_add_ctest(test_dense_qp)

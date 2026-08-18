@@ -15,6 +15,22 @@
 
 Gait timing still comes from the Raibert kernel. The kernel is a warm start / swing target, not the force planner.
 
+## Bumpless stand-to-walk handoff
+
+`--wbc-full` now uses the same WBC/MPC plant during settle, locomotion, and
+return-to-stand. Stand-up and lie-down remain joint-PD phases because the
+near-floor posture is outside the SRBD support model. During settle the QP
+uses measured support; the CoM reference is slewed from the measured CoM to
+`kWbcPrimaryBaseHeightM`, and the total motor command (torque, `kp`, and `kd`)
+is blended over bounded rise/fall durations. The gait velocity reference is
+then quintically blended over `kGaitBlendDuration`; the scheduled diagonal
+contact mask is held back briefly and its resulting WBC torque is interpolated
+when the mask changes.
+
+The CSV handoff evidence is `wbc_primary_blend`,
+`wbc_gait_reference_blend`, `wbc_contact_schedule_blend`,
+`wbc_contact_transition_blend`, `wbc_com_z_m`, and `wbc_com_ref_z_m`.
+
 ## Cartesian world (`--cartesian-world`)
 
 `go2sim full2` turns on world-frame stance hold and Cartesian swing (`cartesian_world_trot.h`). Stance feet are IK'd to a captured world anchor; swing is a world quintic to a Raibert foothold with feedforward velocity; ID-WBC tracks `J qdd + Ĵ q̇ = a_des`. After the first cycles the gait is a short-stance running trot (`T_st ≈ 0.11 s`, duty ~0.5), not the 0.75 walking trot. MPC holds the captured heading; the speed governor follows measured body `v_x` with a small lead.
@@ -35,6 +51,7 @@ Requires `simulate/mujoco` (the controller links `libmujoco` and loads `unitree_
 - `test_srbd_mpc`: 4-contact and 2-contact gravity
 - `test_inverse_dynamics_wbc`: stand residual ~1e-9 N; diagonal 2-contact feasible
 - `test_dense_qp`: inequality ADMM plus equality KKT
+- `test_wbc_transition`: stage gates, bounded plant blend, and reference/contact handoff endpoints
 
 ## Same-gate comparison (2026-08-15)
 

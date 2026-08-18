@@ -71,6 +71,18 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_diagnostics_.enabled = true;
     if (!rigid_body_ || !rigid_body_->loaded())
         return;
+    const int motion_stage = task_.motion_stage_;
+    const bool walking_stage =
+        task_.gait_started_ && motion_stage == 2 &&
+        !task_.stop_requested_;
+    const double gait_elapsed_s = task_.gait_started_
+        ? std::max(0.0, running_time_ - task_.gait_start_time_s_)
+        : 0.0;
+    const double gait_reference_blend = walking_stage
+        ? go2_control::WbcGaitReferenceBlend(
+            gait_elapsed_s, kGaitBlendDuration)
+        : 0.0;
+    wbc_shadow_diagnostics_.gait_reference_blend = gait_reference_blend;
     const double pitch_abs = std::abs(
         static_cast<double>(state_snapshot.imu_state().rpy()[1]));
     const double roll_abs = std::abs(
@@ -126,6 +138,30 @@ void TrotExperiment::UpdateWbcFull(
                   << " bias_z=" << dyn.bias[2] << "\n";
     }
 
+    // reference[5] is the SRBD CoM z state, not the high-state world-base z.
+    // Track the measured CoM while the WBC plant is not in charge, then slew
+    // to the walking CoM height once settle begins. This keeps the reference
+    // frame explicit and prevents a height impulse at gait start.
+    const bool plant_stage = go2_control::WbcPlantStageAllowed(
+        params_.wbc_full, motion_stage);
+    const double ref_dt = std::clamp(
+        last_motion_dt_s_ > 1.0e-6 ? last_motion_dt_s_ : dt_,
+        0.0, kStateClockMaxGapS);
+    if (!plant_stage || !wbc_com_height_ref_valid_)
+    {
+        wbc_com_height_ref_m_ = dyn.com_world.z();
+        wbc_com_height_ref_valid_ = plant_stage;
+    }
+    if (plant_stage)
+    {
+        wbc_com_height_ref_m_ += std::clamp(
+            kWbcPrimaryBaseHeightM - wbc_com_height_ref_m_,
+            -kWbcFullComHeightSlewMps * ref_dt,
+            kWbcFullComHeightSlewMps * ref_dt);
+    }
+    wbc_shadow_diagnostics_.com_z_m = dyn.com_world.z();
+    wbc_shadow_diagnostics_.com_ref_z_m = wbc_com_height_ref_m_;
+
     std::array<bool, go2::kLegCount> measured_contact{};
     const go2_control::HystereticContactParams contact_params{
         kShadowContactOnForceN, kShadowContactOffForceN};
@@ -140,21 +176,38 @@ void TrotExperiment::UpdateWbcFull(
         wbc_shadow_contact_state_[leg] = next_contact;
         measured_contact[leg] = next_contact;
     }
-    // During trot the force sensors stay high through lift-off, so measured
-    // 3/4-contact at a scheduled diagonal. The QP uses the gait schedule.
+    int measured_contact_mask = 0;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (measured_contact[leg])
+            measured_contact_mask |= 1 << static_cast<int>(leg);
+    }
+    wbc_shadow_diagnostics_.measured_contact_mask = measured_contact_mask;
+
+    // During settle and return-to-stand the QP uses the measured four-foot
+    // support set. At gait start hold that support set through a short
+    // handoff while the foot references are still in their own blend. The
+    // contact mask then follows the diagonal schedule; the resulting WBC
+    // torque is interpolated below as well.
     std::array<bool, go2::kLegCount> qp_contact = measured_contact;
+    double contact_schedule_blend = 0.0;
     const double gait_period =
         kernel_period_s_ > 0.05 ? kernel_period_s_ : params_.period_s;
     const double gait_duty =
         kernel_duty_factor_ > 0.05 ? kernel_duty_factor_ : params_.duty_factor;
-    if (task_.gait_started_ && task_.motion_stage_ == 2)
+    if (walking_stage)
     {
+        contact_schedule_blend = go2_control::WbcContactScheduleBlend(
+            gait_elapsed_s, kWbcFullContactHandoffStartS,
+            kWbcFullContactHandoffDurationS);
         std::array<std::array<bool, go2::kLegCount>, go2_control::kSrbdMaxHorizon>
             scheduled{};
         go2_control::FillTrotContactSchedulePhase(
             current_phase_, gait_period, gait_duty, 1, 0.0, scheduled);
-        qp_contact = scheduled[0];
+        if (contact_schedule_blend >= 1.0)
+            qp_contact = scheduled[0];
     }
+    wbc_shadow_diagnostics_.contact_schedule_blend = contact_schedule_blend;
     int contact_mask = 0;
     int active = 0;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -212,21 +265,28 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.reference = mpc_in.state;
         mpc_in.reference[0] = 0.0;
         mpc_in.reference[1] = 0.0;
-        mpc_in.reference[4] = 0.0;
-        mpc_in.reference[5] = kWbcPrimaryBaseHeightM;
+        // Hold the current horizontal pose and yaw outside locomotion. Only
+        // the walking reference is allowed to move those set-points.
+        mpc_in.reference[2] = mpc_in.state[2];
+        mpc_in.reference[3] = mpc_in.state[3];
+        mpc_in.reference[4] = mpc_in.state[4];
+        mpc_in.reference[5] = wbc_com_height_ref_m_;
         mpc_in.reference[6] = 0.0;
         mpc_in.reference[7] = 0.0;
-        mpc_in.reference[8] = (task_.goal_enabled_
-            ? task_.TurnEnable(running_time_) * task_.commanded_turn_rate_radps_
-            : params_.turn_rate_radps);
-        const double v_cmd =
-            task_.gait_started_ && task_.motion_stage_ == 2
-                ? (std::isfinite(kernel_nominal_velocity_x_mps_) &&
-                           std::abs(kernel_nominal_velocity_x_mps_) > 1.0e-6
-                       ? kernel_nominal_velocity_x_mps_
-                       : params_.direction_sign * params_.step_length_m /
-                             params_.period_s)
-                : 0.0;
+        mpc_in.reference[8] = walking_stage
+            ? (task_.goal_enabled_
+                ? task_.TurnEnable(running_time_) *
+                      task_.commanded_turn_rate_radps_
+                : params_.turn_rate_radps)
+            : 0.0;
+        const double raw_v_cmd = walking_stage
+            ? (std::isfinite(kernel_nominal_velocity_x_mps_) &&
+                       std::abs(kernel_nominal_velocity_x_mps_) > 1.0e-6
+                   ? kernel_nominal_velocity_x_mps_
+                   : params_.direction_sign * params_.step_length_m /
+                         params_.period_s)
+            : 0.0;
+        const double v_cmd = gait_reference_blend * raw_v_cmd;
         const double yaw =
             static_cast<double>(state_snapshot.imu_state().rpy()[2]);
         if (params_.cartesian_world)
@@ -284,7 +344,7 @@ void TrotExperiment::UpdateWbcFull(
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             mpc_in.foot_from_com_world[leg] =
                 dyn.foot_pos_world[leg] - dyn.com_world;
-        if (task_.gait_started_ && task_.motion_stage_ == 2)
+        if (walking_stage && contact_schedule_blend >= 1.0)
         {
             go2_control::FillTrotContactSchedulePhase(
                 current_phase_, gait_period, gait_duty,
@@ -316,13 +376,12 @@ void TrotExperiment::UpdateWbcFull(
         wbc_in.desired_angular_acc_body =
             quat.normalized().toRotationMatrix().transpose() *
             last_srbd_.first_angular_acc;
-        if (have_filtered_body_velocity_ && task_.gait_started_ &&
-            task_.motion_stage_ == 2 &&
+        if (have_filtered_body_velocity_ && walking_stage &&
             (params_.cartesian_world || !params_.step_plan.empty()))
         {
             const double v_des =
                 std::isfinite(kernel_nominal_velocity_x_mps_)
-                    ? kernel_nominal_velocity_x_mps_
+                    ? gait_reference_blend * kernel_nominal_velocity_x_mps_
                     : 0.0;
             const double v_err =
                 v_des - latest_filtered_body_velocity_[0];
@@ -537,7 +596,7 @@ void TrotExperiment::UpdateWbcFull(
     }
 
     if (params_.cartesian_world && have_commanded_world_feet_ &&
-        task_.gait_started_ && task_.motion_stage_ == 2 &&
+        walking_stage &&
         (cart_lock > 0.05) &&
         !(cartesian_kp_frozen_ && cartesian_latched_kp_ <= 5.0))
     {
@@ -585,6 +644,7 @@ void TrotExperiment::UpdateWbcFull(
         last_srbd_.ok ? last_srbd_.first_force[0] + last_srbd_.first_force[3] +
                             last_srbd_.first_force[6] + last_srbd_.first_force[9]
                       : 0.0;
+    const auto previous_candidate = wbc_shadow_candidate_torques_;
     double min_fz = 1.0e9;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
@@ -600,6 +660,44 @@ void TrotExperiment::UpdateWbcFull(
         if (qp_contact[leg])
             min_fz = std::min(min_fz, f.z());
     }
+    const auto fresh_candidate = wbc_shadow_candidate_torques_;
+    if (!have_wbc_solution_contact_mask_)
+    {
+        have_wbc_solution_contact_mask_ = true;
+        wbc_solution_contact_mask_ = contact_mask;
+        wbc_contact_transition_blend_ = 1.0;
+    }
+    else if (wbc_solution_contact_mask_ != contact_mask)
+    {
+        wbc_contact_transition_from_torques_ = previous_candidate;
+        wbc_contact_transition_start_s_ = running_time_;
+        wbc_solution_contact_mask_ = contact_mask;
+        wbc_contact_transition_blend_ = 0.0;
+    }
+    if (wbc_contact_transition_blend_ < 1.0)
+    {
+        wbc_contact_transition_blend_ = Smoothstep(
+            (running_time_ - wbc_contact_transition_start_s_) /
+                kWbcFullContactTorqueBlendS);
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            for (int joint = 0; joint < 3; ++joint)
+            {
+                wbc_shadow_candidate_torques_[leg][joint] =
+                    (1.0 - wbc_contact_transition_blend_) *
+                        wbc_contact_transition_from_torques_[leg][joint] +
+                    wbc_contact_transition_blend_ *
+                        fresh_candidate[leg][joint];
+            }
+        }
+    }
+    wbc_shadow_diagnostics_.contact_transition_blend =
+        wbc_contact_transition_blend_;
+    wbc_shadow_diagnostics_.max_abs_tau = 0.0;
+    for (const auto &leg_torque : wbc_shadow_candidate_torques_)
+        for (const double tau : leg_torque)
+            wbc_shadow_diagnostics_.max_abs_tau = std::max(
+                wbc_shadow_diagnostics_.max_abs_tau, std::abs(tau));
     wbc_shadow_diagnostics_.min_contact_normal_force_n =
         std::isfinite(min_fz) ? min_fz : 0.0;
 }

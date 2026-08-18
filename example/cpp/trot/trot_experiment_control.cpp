@@ -93,6 +93,13 @@ void TrotExperiment::LowCmdWrite()
     if (task_.sequence_finished_)
         finished_.store(true);
 
+    std::array<double, kMotorCount> wbc_torque_ff{};
+    const bool apply_wbc_torque_ff =
+        UpdateWbcShadowAndTorqueFf(
+            state_snapshot, have_state,
+            high_state_snapshot, have_high_state,
+            wbc_torque_ff);
+
     double gait_elapsed_s = 0.0;
     const bool wbc_primary_active =
         ComputeWbcPrimaryActive(gait_elapsed_s);
@@ -114,12 +121,6 @@ void TrotExperiment::LowCmdWrite()
         joint_targets = task_.stand_up_joint_pos_;
         task_.motion_stage_ = 3;
     }
-    std::array<double, kMotorCount> wbc_torque_ff{};
-    const bool apply_wbc_torque_ff =
-        UpdateWbcShadowAndTorqueFf(
-            state_snapshot, have_state,
-            high_state_snapshot, have_high_state,
-            wbc_torque_ff);
 
     UpdateJointVelocityFeedforward(
         joint_targets, motion_dt, motion_clock_paused,
@@ -320,34 +321,70 @@ double TrotExperiment::MotionClockStep(
 }
 bool TrotExperiment::ComputeWbcPrimaryActive(double &gait_elapsed_s)
 {
-    bool wbc_primary_active = false;
-    gait_elapsed_s = task_.gait_started_ ? running_time_ - task_.gait_start_time_s_ : 0.0;
-    task_.gait_started_ ? running_time_ - task_.gait_start_time_s_ : 0.0;
-    if (params_.wbc_primary &&
-    task_.motion_stage_ == 2 && task_.gait_started_ && !task_.stop_requested_ &&
-    gait_elapsed_s >= (params_.wbc_full ? 0.0 : kWbcPrimaryEnterDelayS) &&
-    wbc_shadow_diagnostics_.solver_ok &&
-    wbc_shadow_diagnostics_.mapping_ok)
+    gait_elapsed_s = task_.gait_started_
+        ? running_time_ - task_.gait_start_time_s_
+        : 0.0;
+
+    if (!params_.wbc_primary)
     {
-    wbc_primary_active = true;
+        wbc_primary_blend_ = 0.0;
+        wbc_shadow_diagnostics_.primary_blend = 0.0;
+        return false;
+    }
+
+    const bool stage_allowed = go2_control::WbcPlantStageAllowed(
+        params_.wbc_full, task_.motion_stage_);
+    const bool requires_full_support =
+        params_.wbc_full &&
+        go2_control::WbcPlantStageRequiresFullSupport(task_.motion_stage_);
+    const bool support_ready =
+        !requires_full_support ||
+        wbc_shadow_diagnostics_.active_contacts >= go2::kLegCount;
+    bool candidate_ready =
+        stage_allowed && support_ready &&
+        wbc_shadow_diagnostics_.solver_ok &&
+        wbc_shadow_diagnostics_.mapping_ok;
+
     // [impulse] 大步长时 wrench 力矩需求大, 放宽 primary 力矩上限,
-    // 避免退回位置控制后 q_error 硬限误杀。
-            const double max_abs_torque_nm =
+    // 避免退回位置控制后 q_error 硬限误杀。Full WBC still gets the
+    // bounded command blend below; this check only rejects non-finite or
+    // physically implausible candidates.
+    const double max_abs_torque_nm =
         params_.impulse ? 40.0
                         : (params_.wbc_full ? 35.0 : kWbcPrimaryMaxAbsTorqueNm);
-    for (int i = 0; i < kMotorCount; ++i)
+    if (candidate_ready)
     {
-        const double candidate =
-            wbc_shadow_candidate_torques_[i / 3][i % 3];
-        if (!std::isfinite(candidate) ||
-            std::abs(candidate) > max_abs_torque_nm)
+        for (int i = 0; i < kMotorCount; ++i)
         {
-            wbc_primary_active = false;
-            break;
+            const double candidate =
+                wbc_shadow_candidate_torques_[i / 3][i % 3];
+            if (!std::isfinite(candidate) ||
+                std::abs(candidate) > max_abs_torque_nm)
+            {
+                candidate_ready = false;
+                break;
+            }
         }
     }
+
+    const double blend_dt = last_motion_dt_s_ > 1.0e-6
+        ? last_motion_dt_s_ : dt_;
+    if (params_.wbc_full)
+    {
+        wbc_primary_blend_ = go2_control::WbcSlewUnitBlend(
+            wbc_primary_blend_, candidate_ready, blend_dt,
+            kWbcFullPlantRiseDurationS, kWbcFullPlantFallDurationS);
     }
-    return wbc_primary_active;
+    else
+    {
+        // Keep the original delayed latch for incremental WBC. The new
+        // settle-to-walk handoff is deliberately limited to --wbc-full.
+        const bool delayed_ready = candidate_ready &&
+            gait_elapsed_s >= kWbcPrimaryEnterDelayS;
+        wbc_primary_blend_ = delayed_ready ? 1.0 : 0.0;
+    }
+    wbc_shadow_diagnostics_.primary_blend = wbc_primary_blend_;
+    return wbc_primary_blend_ > 1.0e-6;
 }
 bool TrotExperiment::PhaseRunGait(
     const unitree_go::msg::dds_::LowState_ &state_snapshot,
@@ -447,109 +484,121 @@ void TrotExperiment::WriteMotorCommands(
     const std::array<double, go2_trot::kMotorCount> &wbc_torque_ff,
     bool apply_wbc_torque_ff)
 {
-    if (wbc_primary_active)
+    const bool use_wbc_command =
+        params_.wbc_primary && wbc_primary_blend_ > 1.0e-6 &&
+        (wbc_primary_active || params_.wbc_full);
+    const double stand_pd_release =
+        params_.wbc_full && task_.motion_stage_ == 1
+            ? Smoothstep(
+                (running_time_ - TrotTask::kStandUpDuration) /
+                    kWbcFullPlantRiseDurationS)
+            : 1.0;
+    const double fallback_kp = task_.motion_stage_ == 0
+        ? 100.0
+        : (100.0 * (1.0 - stand_pd_release) +
+           params_.kp * stand_pd_release);
+    const double fallback_kd = task_.motion_stage_ == 0
+        ? 3.5
+        : (3.5 * (1.0 - stand_pd_release) +
+           params_.kd * stand_pd_release);
+    if (use_wbc_command)
     {
-    // 扭矩渐变注入:激活后 0.5s 内从 0 线性升到 1,避免跳变冲击
-    const double primary_ramp = params_.wbc_full
-        ? 1.0
-        : Clamp(
-            (gait_elapsed_s - kWbcPrimaryEnterDelayS) /
-                kWbcPrimaryRampS,
-            0.0, 1.0);
-    // 混合控制:支撑腿 = WBC 扭矩(力控制)+ 弱位置;摆动腿 = 位置控制。
-    // 接触状态经一阶平滑(swing<->stance 渐变),避免命令跳变冲击。
-    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-    {
-        const bool leg_in_stance =
-            (wbc_shadow_diagnostics_.contact_mask &
-             (1 << leg)) != 0;
-        const double target_blend = leg_in_stance ? 1.0 : 0.0;
-        wbc_stance_blend_[leg] +=
-            (target_blend - wbc_stance_blend_[leg]) *
-            (dt_ / kWbcPrimaryBlendTauS);
-        if (wbc_stance_blend_[leg] < 0.0)
-            wbc_stance_blend_[leg] = 0.0;
-        if (wbc_stance_blend_[leg] > 1.0)
-            wbc_stance_blend_[leg] = 1.0;
-        for (int joint = 0; joint < 3; ++joint)
+        // Incremental WBC keeps its original delayed ramp. Full WBC uses the
+        // plant blend itself as the total command weight, including torque
+        // and gains, so the PD -> ID-WBC handoff is bumpless.
+        const double primary_ramp = params_.wbc_full
+            ? 1.0
+            : Clamp(
+                (gait_elapsed_s - kWbcPrimaryEnterDelayS) /
+                    kWbcPrimaryRampS,
+                0.0, 1.0);
+        const double blend_dt = last_motion_dt_s_ > 1.0e-6
+            ? last_motion_dt_s_ : dt_;
+        const bool cartesian_locomotion =
+            params_.cartesian_world && task_.motion_stage_ == 2;
+        const double force_blend = cartesian_locomotion
+            ? UpdateCartesianForceBlend() : 0.0;
+        const double vabs = have_filtered_body_velocity_
+            ? std::abs(latest_filtered_body_velocity_[0])
+            : 0.0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const int i = 3 * static_cast<int>(leg) + joint;
-            low_cmd_.motor_cmd()[i].q() = joint_targets[i];
-            low_cmd_.motor_cmd()[i].dq() = joint_velocities[i];
-            // Mini Cheetah split after latch: joint PD yields, ID-WBC
-            // keeps the world plant and J^T f pushes the body.
-            const double vabs = have_filtered_body_velocity_
-                ? std::abs(latest_filtered_body_velocity_[0])
-                : 0.0;
-            const double force_blend = UpdateCartesianForceBlend();
-            const double speed_kp =
-                24.0 + 28.0 * Clamp(vabs / 1.20, 0.0, 1.0);
-            const bool use_latched =
-                cartesian_cruise_latched_ &&
-                (cartesian_yield_hold_ > 0.08 ||
-                 cartesian_kp_frozen_ ||
-                 cartesian_plateau_cycles_ >= 16);
-            if (!use_latched)
-                cartesian_latched_kp_ = speed_kp;
-            const double high_kp =
-                use_latched ? cartesian_latched_kp_ : speed_kp;
-            const double plant = Smoothstep(
-                (0.40 - cartesian_stance_s_) / 0.12);
-            const double yield = plant * force_blend;
-            // Kim et al. 2019: joint kp=3, kd=0.3 in locomotion.
-            // After freeze, latched_kp is the command. Mixing 3
-            // through force_blend (142839 blend 0.25–0.55 at Tst=0.15)
-            // dropped motor sagittal to ~10 while CART-GOV printed 18.
-            // Campaign baseline: do not mix toward paper kp=3.
-            // That mix made CART-GOV kp lie; paper kp is a closed cell.
-            const double sagittal_kp = high_kp;
-            (void)plant;
-            (void)yield;
-            const double hip_floor =
-                cartesian_stance_s_ <= 0.36 ? 48.0 : 36.0;
-            const double hip_kp = std::max(high_kp, hip_floor);
-            const double stance_kp = params_.cartesian_world
-                ? (joint == 0 ? hip_kp : sagittal_kp)
-                : (params_.wbc_full
-                    ? kWbcFullStanceKp
-                    : (params_.impulse ? kImpulseStanceKp : kWbcPrimaryCommandKp));
-            const double kd_cheetah =
-                cartesian_kp_frozen_
-                    ? Smoothstep((8.0 - cartesian_latched_kp_) / 5.0)
-                    : 0.0;
-            const double stance_kd = params_.cartesian_world
-                ? (joint == 0 ? 2.6
-                   : (2.5 * (1.0 - kd_cheetah) + 0.3 * kd_cheetah))
-                : (params_.wbc_full
-                    ? kWbcFullStanceKd
-                    : kWbcPrimaryCommandKd);
-            // 142128: CART-GOV printed kp=3 but FR_thigh motor kp
-            // median was 33 because swing mixed params_.kp=63 through
-            // wbc_stance_blend. Cheetah uses 3/0.3 on all sagittal
-            // joints once latched. Do not mix 63 after freeze.
-            double cmd_kp = stance_kp * wbc_stance_blend_[leg] +
-                params_.kp * (1.0 - wbc_stance_blend_[leg]);
-            double cmd_kd = stance_kd * wbc_stance_blend_[leg] +
-                params_.kd * (1.0 - wbc_stance_blend_[leg]);
-            if (params_.cartesian_world && cartesian_kp_frozen_)
+            const bool leg_in_stance =
+                (wbc_shadow_diagnostics_.contact_mask &
+                 (1 << leg)) != 0;
+            const double target_blend = leg_in_stance ? 1.0 : 0.0;
+            wbc_stance_blend_[leg] +=
+                (target_blend - wbc_stance_blend_[leg]) *
+                Clamp(blend_dt / kWbcPrimaryBlendTauS, 0.0, 1.0);
+            wbc_stance_blend_[leg] =
+                Clamp(wbc_stance_blend_[leg], 0.0, 1.0);
+            for (int joint = 0; joint < 3; ++joint)
             {
-                cmd_kp = (joint == 0 ? hip_kp : sagittal_kp);
-                cmd_kd = stance_kd;
+                const int i = 3 * static_cast<int>(leg) + joint;
+                low_cmd_.motor_cmd()[i].q() = joint_targets[i];
+                low_cmd_.motor_cmd()[i].dq() = joint_velocities[i];
+
+                double stance_kp = params_.wbc_full
+                    ? kWbcFullStanceKp
+                    : (params_.impulse
+                        ? kImpulseStanceKp : kWbcPrimaryCommandKp);
+                double stance_kd = params_.wbc_full
+                    ? kWbcFullStanceKd : kWbcPrimaryCommandKd;
+                if (cartesian_locomotion)
+                {
+                    // Mini Cheetah-style Cartesian campaign gains apply only
+                    // after the gait reference has started; settle remains a
+                    // conventional full-WBC stance plant.
+                    const double speed_kp =
+                        24.0 + 28.0 * Clamp(vabs / 1.20, 0.0, 1.0);
+                    const bool use_latched =
+                        cartesian_cruise_latched_ &&
+                        (cartesian_yield_hold_ > 0.08 ||
+                         cartesian_kp_frozen_ ||
+                         cartesian_plateau_cycles_ >= 16);
+                    if (!use_latched)
+                        cartesian_latched_kp_ = speed_kp;
+                    const double high_kp =
+                        use_latched ? cartesian_latched_kp_ : speed_kp;
+                    const double hip_floor =
+                        cartesian_stance_s_ <= 0.36 ? 48.0 : 36.0;
+                    const double hip_kp = std::max(high_kp, hip_floor);
+                    stance_kp = joint == 0 ? hip_kp : high_kp;
+                    const double kd_cheetah =
+                        cartesian_kp_frozen_
+                            ? Smoothstep((8.0 - cartesian_latched_kp_) / 5.0)
+                            : 0.0;
+                    stance_kd = joint == 0
+                        ? 2.6
+                        : (2.5 * (1.0 - kd_cheetah) + 0.3 * kd_cheetah);
+                }
+
+                const double gain_blend = params_.wbc_full
+                    ? wbc_primary_blend_ : wbc_stance_blend_[leg];
+                double cmd_kp = stance_kp * gain_blend +
+                    fallback_kp * (1.0 - gain_blend);
+                double cmd_kd = stance_kd * gain_blend +
+                    fallback_kd * (1.0 - gain_blend);
+                low_cmd_.motor_cmd()[i].kp() = cmd_kp;
+                low_cmd_.motor_cmd()[i].kd() = cmd_kd;
+
+                const double contact_scale = params_.wbc_full
+                    ? 1.0
+                    : (wbc_shadow_diagnostics_.active_contacts < 3 ? 0.5 : 1.0);
+                const double torque_blend = params_.wbc_full
+                    ? wbc_primary_blend_
+                    : primary_ramp * contact_scale * wbc_stance_blend_[leg];
+                const double fallback_tau = apply_wbc_torque_ff
+                    ? wbc_torque_ff[i] : 0.0;
+                const double candidate_tau =
+                    wbc_shadow_candidate_torques_[leg][joint];
+                low_cmd_.motor_cmd()[i].tau() =
+                    torque_blend * (std::isfinite(candidate_tau)
+                        ? candidate_tau : 0.0) +
+                    (1.0 - torque_blend) * fallback_tau;
             }
-            low_cmd_.motor_cmd()[i].kp() = cmd_kp;
-            low_cmd_.motor_cmd()[i].kd() = cmd_kd;
-            // 低接触数(过渡/对角支撑)时减弱 WBC 扭矩,避免力分配
-            // 在支撑切换瞬间扰动姿态
-            const double contact_scale = params_.wbc_full
-                ? 1.0
-                : (wbc_shadow_diagnostics_.active_contacts < 3 ? 0.5 : 1.0);
-            low_cmd_.motor_cmd()[i].tau() =
-                primary_ramp * contact_scale *
-                (params_.wbc_full ? 1.0 : wbc_stance_blend_[leg]) *
-                wbc_shadow_candidate_torques_[leg][joint];
         }
-    }
-    wbc_shadow_diagnostics_.feedforward_applied = true;
+        wbc_shadow_diagnostics_.feedforward_applied = true;
     }
     else
     {
@@ -557,10 +606,8 @@ void TrotExperiment::WriteMotorCommands(
     {
         low_cmd_.motor_cmd()[i].q() = joint_targets[i];
         low_cmd_.motor_cmd()[i].dq() = joint_velocities[i];
-        low_cmd_.motor_cmd()[i].kp() =
-            task_.motion_stage_ == 0 ? 100.0 : params_.kp;
-        low_cmd_.motor_cmd()[i].kd() =
-            task_.motion_stage_ == 0 ? 3.5 : params_.kd;
+        low_cmd_.motor_cmd()[i].kp() = fallback_kp;
+        low_cmd_.motor_cmd()[i].kd() = fallback_kd;
         low_cmd_.motor_cmd()[i].tau() =
             apply_wbc_torque_ff ? wbc_torque_ff[i] : 0.0;
     }

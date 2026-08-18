@@ -27,6 +27,7 @@
 #include "srbd_mpc.h"
 #include "inverse_dynamics_wbc.h"
 #include "cartesian_world_trot.h"
+#include "wbc_transition.h"
 
 using unitree::robot::ChannelPublisherPtr;
 using unitree::robot::ChannelSubscriberPtr;
@@ -217,6 +218,14 @@ private:
     int completed_cycles_ = 0;
     std::array<bool, go2::kLegCount> wbc_shadow_contact_state_{};
     std::array<double, go2::kLegCount> wbc_stance_blend_{};
+    double wbc_primary_blend_ = 0.0;
+    double wbc_com_height_ref_m_ = 0.0;
+    bool wbc_com_height_ref_valid_ = false;
+    bool have_wbc_solution_contact_mask_ = false;
+    int wbc_solution_contact_mask_ = 0;
+    double wbc_contact_transition_start_s_ = 0.0;
+    double wbc_contact_transition_blend_ = 1.0;
+    go2_control::JointTorques wbc_contact_transition_from_torques_{};
     go2_trot::WbcShadowDiagnostics wbc_shadow_diagnostics_{};
     go2_control::JointTorques wbc_shadow_candidate_torques_{};
     std::unique_ptr<go2_control::Go2RigidBody> rigid_body_;
