@@ -1,0 +1,11 @@
+walking_rows=4004
+walking_duration_s=8.006000
+walking_distance_m=1.079352
+target_speed_mps=0.151667
+measured_speed_mps=0.137120
+endpoint_speed_mps=0.134818
+speed_ratio=0.904090
+max_lateral_drift_m=0.014993
+min_speed_ratio=0.000000
+validation=PASS
+source=wbcfull_rerun_2026-08-18/last.json
