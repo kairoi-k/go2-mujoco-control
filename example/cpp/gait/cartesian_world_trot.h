@@ -22,29 +22,22 @@ struct RunningTrotSchedule
     double stance_time_s = 0.45;
 };
 
-// Keep v * T_stance inside the hip workspace (~0.22 m). Cadence and duty
-// fall together so a 2 m/s trot is a short-stance running gait, not a
-// stretched walking trot.
+// Map commanded speed to gait numbers. Stance time is 0.10/v, but the
+// upper bound is 0.45 s (walking) not 0.11 s, so 0.3 m/s does not snap
+// into a running stance. Duty and lift lerp from walking at 0.15 m/s
+// to a short-stance trot at 2.0 m/s. v * T_stance stays ~0.10 m.
 inline RunningTrotSchedule ScheduleRunningTrot(double v_cmd_mps)
 {
     const double v = std::clamp(v_cmd_mps, 0.10, 2.60);
     RunningTrotSchedule out;
-    if (v <= 0.30)
-    {
-        out.period_s = 0.40;
-        out.duty_factor = 0.55;
-        out.stance_time_s = out.duty_factor * out.period_s;
-        out.step_length_m = v * out.period_s;
-        out.foot_lift_m = 0.036;
-        return out;
-    }
-    const double t = std::clamp((v - 0.30) / (2.00 - 0.30), 0.0, 1.0);
-    out.duty_factor = 0.50 + t * (0.38 - 0.50);
-    out.stance_time_s = std::clamp(0.10 / v, 0.09, 0.11);
-    out.period_s = std::clamp(out.stance_time_s / out.duty_factor, 0.22, 0.45);
+    const double t = std::clamp((v - 0.15) / (2.00 - 0.15), 0.0, 1.0);
+    out.duty_factor = 0.75 + t * (0.38 - 0.75);
+    out.stance_time_s = std::clamp(0.10 / v, 0.09, 0.45);
+    out.period_s = std::clamp(
+        out.stance_time_s / std::max(0.35, out.duty_factor), 0.22, 0.60);
     out.stance_time_s = out.duty_factor * out.period_s;
     out.step_length_m = v * out.period_s;
-    out.foot_lift_m = std::clamp(0.036 + 0.012 * t, 0.036, 0.052);
+    out.foot_lift_m = 0.028 + t * (0.052 - 0.028);
     return out;
 }
 
@@ -52,6 +45,39 @@ inline double CartesianWorkspaceSpeedCap(double duty, double period_s)
 {
     const double t_st = std::max(0.08, duty * period_s);
     return 0.24 / t_st;
+}
+
+// MIT Cheetah-Software ConvexMPCLocomotion trot / trot-run.
+// python port: OffsetDurationGait(10, [0,5,5,0], [5,5,5,5]) duty 0.50,
+// trotRunning duration 4/10 duty 0.40, period ≈ 10 * dtMPC ≈ 0.27–0.30 s.
+// This is a gait switch, not a walk-duty morph from 0.75.
+inline RunningTrotSchedule ScheduleCheetahTrot(double v_cmd_mps)
+{
+    const double v = std::clamp(v_cmd_mps, 0.10, 2.60);
+    RunningTrotSchedule out;
+    const double t = std::clamp((v - 0.50) / 1.30, 0.0, 1.0);
+    out.duty_factor = 0.50 + t * (0.40 - 0.50);
+    out.period_s = 0.30 + t * (0.26 - 0.30);
+    out.stance_time_s = out.duty_factor * out.period_s;
+    out.step_length_m = v * out.period_s;
+    out.foot_lift_m = 0.040 + t * 0.012;
+    return out;
+}
+
+// Same table, morph starts at 0.15 so a 0.30 sit still shortens stance.
+// Pin-at-2.0 (RN) completed 400 at last-8s 0.016: running duty with
+// v_cmd=0.15 makes 4 cm steps and never accelerates.
+inline RunningTrotSchedule ScheduleCheetahTrotEarly(double v_cmd_mps)
+{
+    const double v = std::clamp(v_cmd_mps, 0.10, 2.60);
+    RunningTrotSchedule out;
+    const double t = std::clamp((v - 0.15) / 0.85, 0.0, 1.0);
+    out.duty_factor = 0.50 + t * (0.40 - 0.50);
+    out.period_s = 0.30 + t * (0.26 - 0.30);
+    out.stance_time_s = out.duty_factor * out.period_s;
+    out.step_length_m = v * out.period_s;
+    out.foot_lift_m = 0.040 + t * 0.012;
+    return out;
 }
 
 inline go2::Vec3 RotateByQuat(
@@ -128,28 +154,64 @@ struct WorldTouchdownInput
     double vy_des_world = 0.0;
     double stance_time_s = 0.12;
     double velocity_gain_s = 0.08;
+    double velocity_gain_y = -1.0;
     double max_adjustment_m = 0.14;
     double ground_z = 0.02;
+    bool measured_placement = false;
+    // Cheetah-Software: hip at TD = hip_now + vWorld * swingTimeRemaining.
+    // Without this, the foot is planted behind hip-at-TD and brakes.
+    double swing_remaining_s = 0.0;
+    // Lateral capture on world Y. 0 = off (8.15 baseline). T1 died with
+    // 1.4–2.1 m Y drift; velocity mix alone tracks the crab.
+    double ypos_gain = 0.0;
+    double y_ref = 0.0;
 };
 
 inline go2::Vec3 PlanWorldTouchdown(const WorldTouchdownInput &in)
 {
     const double t_st = std::max(0.05, in.stance_time_s);
-    const double vx_mid = 0.65 * in.vx_des_world + 0.35 * in.vx_world;
-    const double vy_mid = 0.65 * in.vy_des_world + 0.35 * in.vy_world;
+    // 220910 held kp=10 at 0.31 m/s with the v_des mix. Cheetah
+    // vWorld*0.5*Tst at high kp (215401) marched. Use measured v for
+    // the 0.5*Tst term only after PD has yielded.
+    const double vx_mid = in.measured_placement
+        ? in.vx_world
+        : (0.65 * in.vx_des_world + 0.35 * in.vx_world);
+    // 104319: vWorld on Y integrated to 0.39 m lateral drift and
+    // sagged below 0.20. Hold heading with the mix; Cheetah accel is
+    // the sagittal 0.5*Tst term.
+    const double vy_mid =
+        0.65 * in.vy_des_world + 0.35 * in.vy_world;
     const double dx_nom = 0.5 * vx_mid * t_st;
     const double dy_nom = 0.5 * vy_mid * t_st;
     double dx_adj = in.velocity_gain_s * (in.vx_world - in.vx_des_world);
-    double dy_adj = in.velocity_gain_s * (in.vy_world - in.vy_des_world);
-    const double adj = std::hypot(dx_adj, dy_adj);
-    if (adj > in.max_adjustment_m && adj > 1.0e-9)
+    const double gy =
+        in.velocity_gain_y >= 0.0 ? in.velocity_gain_y : in.velocity_gain_s;
+    double dy_adj = gy * (in.vy_world - in.vy_des_world);
+    if (std::abs(gy - in.velocity_gain_s) < 1.0e-12)
     {
-        const double s = in.max_adjustment_m / adj;
-        dx_adj *= s;
-        dy_adj *= s;
+        const double adj = std::hypot(dx_adj, dy_adj);
+        if (adj > in.max_adjustment_m && adj > 1.0e-9)
+        {
+            const double s = in.max_adjustment_m / adj;
+            dx_adj *= s;
+            dy_adj *= s;
+        }
     }
-    return {in.hip_world.x + dx_nom + dx_adj,
-            in.hip_world.y + dy_nom + dy_adj,
+    else
+    {
+        dx_adj = std::clamp(dx_adj, -in.max_adjustment_m, in.max_adjustment_m);
+        dy_adj = std::clamp(dy_adj, -in.max_adjustment_m, in.max_adjustment_m);
+    }
+    const double t_rem = std::max(0.0, in.swing_remaining_s);
+    // 105123/122612: vy_world * t_rem integrated lateral crab
+    // (0.7 m over a paper-kp hold). Cheetah sagittal lead stays
+    // vWorld; heading uses v_des so a crab does not plant further
+    // sideways.
+    double dy_pos = in.ypos_gain * (in.hip_world.y - in.y_ref);
+    dy_pos = std::clamp(dy_pos, -0.08, 0.08);
+    return {in.hip_world.x + in.vx_world * t_rem + dx_nom + dx_adj,
+            in.hip_world.y + in.vy_des_world * t_rem + dy_nom + dy_adj +
+                dy_pos,
             in.ground_z};
 }
 
@@ -182,9 +244,19 @@ struct CartesianWorldInput
     double roll_rad = 0.0;
     double gyro_x = 0.0;
     double raibert_gain_s = 0.08;
+    double raibert_gain_y = -1.0;
     double raibert_max_adj_m = 0.14;
+    double ypos_gain = 0.0;
+    double y_ref = 0.0;
     double foot_lift_m = 0.028;
     double blend = 1.0;
+    bool measured_placement = false;
+    bool predict_hip_at_td = false;
+    // Command +X world instead of rotating v_des with yaw. T1 curved
+    // 10–25 deg and walked to Y=-17 m; body-frame v_des follows that yaw.
+    bool world_heading = false;
+    // Front/rear differential Y from yaw. 0 = off. W1 left yaw at -27 deg.
+    double yaw_gain = 0.0;
 };
 
 inline bool LegScheduledStance(std::size_t leg, double phase, double duty)
@@ -265,14 +337,50 @@ inline go2::Vec3 SwingWorldVelocity(
     return v;
 }
 
+inline void CommandedWorldVelocity(
+    double v_cmd_mps, double yaw_rad, bool world_heading,
+    double &vx_des, double &vy_des)
+{
+    if (world_heading)
+    {
+        vx_des = v_cmd_mps;
+        vy_des = 0.0;
+        return;
+    }
+    vx_des = v_cmd_mps * std::cos(yaw_rad);
+    vy_des = v_cmd_mps * std::sin(yaw_rad);
+}
+
+inline double YawFootYOffset(double yaw_rad, bool front, double yaw_gain)
+{
+    const double dy = std::clamp(yaw_gain * yaw_rad, -0.06, 0.06);
+    return front ? dy : -dy;
+}
+
+inline void ApplyLateralFootOffsets(
+    std::size_t leg, const CartesianWorldInput &in, go2::Vec3 &target)
+{
+    const bool left =
+        leg == static_cast<std::size_t>(go2::Leg::FL) ||
+        leg == static_cast<std::size_t>(go2::Leg::RL);
+    const bool front =
+        leg == static_cast<std::size_t>(go2::Leg::FL) ||
+        leg == static_cast<std::size_t>(go2::Leg::FR);
+    const double widen =
+        0.014 * std::clamp(in.v_cmd_mps / 0.80, 0.0, 1.4);
+    target.y += left ? widen : -widen;
+    target.y += YawFootYOffset(in.yaw_rad, front, in.yaw_gain);
+}
+
 inline void ApplyCartesianWorldTrot(
     const CartesianWorldInput &in,
     CartesianWorldState &state,
     std::array<go2::Vec3, go2::kLegCount> &body_feet)
 {
     const double yaw = in.yaw_rad;
-    const double vx_des = in.v_cmd_mps * std::cos(yaw);
-    const double vy_des = in.v_cmd_mps * std::sin(yaw);
+    double vx_des = 0.0;
+    double vy_des = 0.0;
+    CommandedWorldVelocity(in.v_cmd_mps, yaw, in.world_heading, vx_des, vy_des);
     const double t_st = std::max(0.05, in.duty_factor * in.period_s);
     const double blend = std::clamp(in.blend, 0.0, 1.0);
 
@@ -301,18 +409,25 @@ inline void ApplyCartesianWorldTrot(
             td.vy_des_world = vy_des;
             td.stance_time_s = t_st;
             td.velocity_gain_s = in.raibert_gain_s;
+            td.velocity_gain_y = in.raibert_gain_y;
             td.max_adjustment_m = in.raibert_max_adj_m;
+            td.ypos_gain = in.ypos_gain;
+            td.y_ref = in.y_ref;
             td.ground_z = state.swing_start_world[leg].z;
+            td.measured_placement = in.measured_placement;
+            if (in.predict_hip_at_td)
+            {
+                const double t_sw = std::max(
+                    0.05, (1.0 - in.duty_factor) * in.period_s);
+                td.swing_remaining_s =
+                    (1.0 - LegSwingPhase(leg, in.phase, in.duty_factor)) *
+                    t_sw;
+            }
             // Capture-point: step into a roll so GRF rights the body.
             td.vy_world += 0.22 * in.roll_rad / std::max(0.08, t_st) +
                            0.08 * in.gyro_x;
             state.swing_target_world[leg] = PlanWorldTouchdown(td);
-            const bool left =
-                leg == static_cast<std::size_t>(go2::Leg::FL) ||
-                leg == static_cast<std::size_t>(go2::Leg::RL);
-            const double widen =
-                0.014 * std::clamp(in.v_cmd_mps / 0.80, 0.0, 1.4);
-            state.swing_target_world[leg].y += left ? widen : -widen;
+            ApplyLateralFootOffsets(leg, in, state.swing_target_world[leg]);
             state.stance_valid[leg] = false;
         }
         else if (!stance)
@@ -328,17 +443,22 @@ inline void ApplyCartesianWorldTrot(
             td.vy_des_world = vy_des;
             td.stance_time_s = t_st;
             td.velocity_gain_s = in.raibert_gain_s;
+            td.velocity_gain_y = in.raibert_gain_y;
             td.max_adjustment_m = in.raibert_max_adj_m;
+            td.ypos_gain = in.ypos_gain;
+            td.y_ref = in.y_ref;
             td.ground_z = state.swing_start_world[leg].z;
-            state.swing_target_world[leg] = PlanWorldTouchdown(td);
+            td.measured_placement = in.measured_placement;
+            if (in.predict_hip_at_td)
             {
-                const bool left =
-                    leg == static_cast<std::size_t>(go2::Leg::FL) ||
-                    leg == static_cast<std::size_t>(go2::Leg::RL);
-                const double widen =
-                    0.014 * std::clamp(in.v_cmd_mps / 0.80, 0.0, 1.4);
-                state.swing_target_world[leg].y += left ? widen : -widen;
+                const double t_sw = std::max(
+                    0.05, (1.0 - in.duty_factor) * in.period_s);
+                td.swing_remaining_s =
+                    (1.0 - LegSwingPhase(leg, in.phase, in.duty_factor)) *
+                    t_sw;
             }
+            state.swing_target_world[leg] = PlanWorldTouchdown(td);
+            ApplyLateralFootOffsets(leg, in, state.swing_target_world[leg]);
         }
 
         go2::Vec3 p_world = in.actual_world_feet[leg];

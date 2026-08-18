@@ -14,10 +14,18 @@
 #include "go2_contact_torque_mapping.h"
 #include "go2_inverse_kinematics.h"
 #include "motion_frame_utils.h"
+#include "full2_campaign_env.h"
 
 using namespace unitree::common;
 using namespace unitree::robot;
 using namespace go2_trot;
+
+static_assert(TrotTask::kStandUpDuration == kStandUpDuration);
+static_assert(TrotTask::kStandSettleDuration == kStandSettleDuration);
+static_assert(TrotTask::kStandDownDuration == kStandDownDuration);
+static_assert(TrotTask::kStopTransitionDuration == kStopTransitionDuration);
+static_assert(TrotTask::kFinalHoldDuration == kFinalHoldDuration);
+static_assert(TrotTask::kGaitBlendDuration == kGaitBlendDuration);
 
 // CONTROL LOOP — 500Hz LowCmdWrite state machine (see docs/CODE_GUIDE.md)
 
@@ -50,7 +58,7 @@ void TrotExperiment::LowCmdWrite()
     bool motion_clock_paused = false;
     const double motion_dt = MotionClockStep(state_snapshot, motion_clock_paused);
 
-    std::array<double, kMotorCount> joint_targets = stand_up_joint_pos_;
+    std::array<double, kMotorCount> joint_targets = task_.stand_up_joint_pos_;
     UpdateVelocityEstimate(state_snapshot, high_state_snapshot, have_high_state, motion_dt);
     std::array<double, kMotorCount> joint_velocities{};
     if (PhaseLieDown(joint_targets))
@@ -77,11 +85,13 @@ void TrotExperiment::LowCmdWrite()
     }
 
     if (external_stop_requested_.load())
-        stop_requested_ = true;
+        task_.stop_requested_ = true;
     if (PhaseStopToStand(joint_targets))
     {
         // SECTION: stop-to-stand
     }
+    if (task_.sequence_finished_)
+        finished_.store(true);
 
     double gait_elapsed_s = 0.0;
     const bool wbc_primary_active =
@@ -93,16 +103,16 @@ void TrotExperiment::LowCmdWrite()
             wbc_primary_active))
     {
         std::cerr << "Trot hard safety limit reached; stopping\n";
-        stop_requested_ = true;
-        task_completion_requested_ = false;
-        if (stop_start_time_s_ == 0.0)
+        task_.stop_requested_ = true;
+        task_.task_completion_requested_ = false;
+        if (task_.stop_start_time_s_ == 0.0)
         {
-            stop_start_time_s_ = running_time_;
-            stop_origin_joint_targets_ = joint_targets;
-            have_stop_origin_joint_targets_ = true;
+            task_.stop_start_time_s_ = running_time_;
+            task_.stop_origin_joint_targets_ = joint_targets;
+            task_.have_stop_origin_joint_targets_ = true;
         }
-        joint_targets = stand_up_joint_pos_;
-        motion_stage_ = 3;
+        joint_targets = task_.stand_up_joint_pos_;
+        task_.motion_stage_ = 3;
     }
     std::array<double, kMotorCount> wbc_torque_ff{};
     const bool apply_wbc_torque_ff =
@@ -142,111 +152,36 @@ void TrotExperiment::PublishLowCmdWithCrc()
 
 bool TrotExperiment::PhaseStandUp(std::array<double, go2_trot::kMotorCount> &joint_targets)
 {
-    if (!(running_time_ < kStandUpDuration))
-        return false;
-
-    motion_stage_ = 0;
-    // SECTION: stand-up
-    const double phase = Smoothstep(running_time_ / kStandUpDuration);
-    for (int i = 0; i < kMotorCount; ++i)
-    {
-        joint_targets[i] =
-            phase * stand_up_joint_pos_[i] +
-            (1.0 - phase) * start_joint_pos_[i];
-    }
-
-    return true;
+    return task_.PhaseStandUp(running_time_, joint_targets);
 }
 
 bool TrotExperiment::PhaseLieDown(std::array<double, go2_trot::kMotorCount> &joint_targets)
 {
-    if (!(task_mode_ && lie_down_started_))
-        return false;
-
-    const double lie_elapsed =
-        running_time_ - lie_down_start_time_s_;
-    // SECTION: lie-down
-    const double lie_phase =
-        Smoothstep(lie_elapsed / kStandDownDuration);
-    motion_stage_ = lie_elapsed < kStandDownDuration ? 4 : 5;
-    for (int i = 0; i < kMotorCount; ++i)
-    {
-        joint_targets[i] =
-            (1.0 - lie_phase) * stand_up_joint_pos_[i] +
-            lie_phase * stand_down_joint_pos_[i];
-    }
-    if (lie_elapsed >= kStandDownDuration + kLieDownHoldDuration)
-    {
-        finished_.store(true);
-        std::cout << "Task completed: stand-walk-lie\n";
-    }
-
-    return true;
+    return task_.PhaseLieDown(running_time_, joint_targets);
 }
 
 bool TrotExperiment::PhaseStandSettle(std::array<double, go2_trot::kMotorCount> &joint_targets)
 {
-    if (!(running_time_ >= kStandUpDuration &&
-          running_time_ < kStandUpDuration + kStandSettleDuration))
-        return false;
-
-    motion_stage_ = 1;
-
     (void)joint_targets;
-    return true;
+    return task_.PhaseStandSettle(running_time_);
 }
 
 bool TrotExperiment::PhaseStopToStand(std::array<double, go2_trot::kMotorCount> &joint_targets)
 {
-    if (!stop_requested_)
-        return false;
-
-    if (stop_start_time_s_ == 0.0)
+    const bool active = task_.PhaseStopToStand(running_time_, joint_targets);
+    if (task_.lie_down_started_ &&
+        task_.lie_down_start_time_s_ == running_time_)
     {
-        stop_start_time_s_ = running_time_;
-        stop_origin_joint_targets_ = joint_targets;
-        have_stop_origin_joint_targets_ = true;
-        std::cout << "Trot stopping; returning to stand\n";
+        active_cycle_index_ = -1;
+        completed_cycles_ = 0;
     }
-    motion_stage_ = 3;
-    const double stop_blend = Smoothstep(
-        (running_time_ - stop_start_time_s_) / kStopTransitionDuration);
-    for (int i = 0; i < kMotorCount; ++i)
-    {
-        joint_targets[i] =
-            (1.0 - stop_blend) * stop_origin_joint_targets_[i] +
-            stop_blend * stand_up_joint_pos_[i];
-    }
-    if (running_time_ - stop_start_time_s_ >=
-        kStopTransitionDuration + kFinalHoldDuration)
-    {
-        if (task_mode_ && task_completion_requested_ &&
-            !lie_down_started_)
-        {
-            lie_down_started_ = true;
-            stop_requested_ = false;
-            gait_started_ = false;
-            task_completion_requested_ = false;
-            lie_down_start_time_s_ = running_time_;
-            active_cycle_index_ = -1;
-            completed_cycles_ = 0;
-            std::cout << "Task state: RETURN_TO_STAND -> LIE_DOWN\n";
-        }
-        else
-        {
-            finished_.store(true);
-        }
-    }
-    return true;
+    return active;
 }
 
 bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &joint_targets)
 {
-    if (gait_started_)
+    if (!task_.BeginGait(running_time_))
         return false;
-    // Only after stand-up/settle chain falls through.
-
-    gait_started_ = true;
     support_anchor_valid_.fill(false);
     cartesian_state_ = {};
     have_commanded_world_feet_ = false;
@@ -254,8 +189,6 @@ bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &j
     touchdown_recorded_.fill(false);
     touchdown_waiting_contact_.fill(false);
     have_leg_phase_history_ = false;
-    gait_start_time_s_ = running_time_;
-    motion_stage_ = 2;
     std::cout << "Starting diagonal trot: period="
               << params_.period_s
               << " s, duty=" << params_.duty_factor
@@ -263,16 +196,36 @@ bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &j
               << " m, lift=" << params_.foot_lift_m << " m"
               << (params_.cartesian_world ? " cartesian-world" : "")
               << "\n";
+    if (task_.goal_enabled_)
+    {
+        std::cout << "Task world goal x=" << task_.goal_x_
+                  << " y=" << task_.goal_y_
+                  << " tol=" << task_.goal_tol_ << " m\n";
+    }
     if (params_.cartesian_world)
         locomotion_kernel_->SetGaitSlewLimits(0.12, 0.20, 0.20);
     if (params_.cartesian_world)
     {
-        const auto sched = go2_control::ScheduleRunningTrot(0.15);
-        locomotion_kernel_->SetGaitPeriod(sched.period_s);
-        locomotion_kernel_->SetGaitDuty(sched.duty_factor);
-        locomotion_kernel_->SetGaitStepLength(sched.step_length_m);
-        locomotion_kernel_->SetGaitFootLift(sched.foot_lift_m);
+        locomotion_kernel_->SetGaitPeriod(params_.period_s);
+        locomotion_kernel_->SetGaitDuty(params_.duty_factor);
+        locomotion_kernel_->SetGaitStepLength(params_.step_length_m);
+        locomotion_kernel_->SetGaitFootLift(params_.foot_lift_m);
         wbc_speed_cmd_mps_ = 0.15;
+        cartesian_cruise_latched_ = false;
+        cartesian_force_blend_ = 0.0;
+        cartesian_yield_hold_ = 0.0;
+        cartesian_yield_v_ref_ = 0.0;
+        cartesian_plateau_cycles_ = 0;
+        cartesian_force_cycles_ = 0;
+        cartesian_latched_kp_ = 26.0;
+        cartesian_kp_frozen_ = false;
+        cartesian_paper_cycles_ = 0;
+        cartesian_paper_latched_ = false;
+        cartesian_open_latched_ = false;
+        cartesian_open_t_latched_ = 0.0;
+        cartesian_duty_ = 0.75;
+        cartesian_stance_s_ = 0.45;
+        cartesian_step_m_ = params_.step_length_m;
     }
 
     (void)joint_targets;
@@ -368,10 +321,10 @@ double TrotExperiment::MotionClockStep(
 bool TrotExperiment::ComputeWbcPrimaryActive(double &gait_elapsed_s)
 {
     bool wbc_primary_active = false;
-    gait_elapsed_s = gait_started_ ? running_time_ - gait_start_time_s_ : 0.0;
-    gait_started_ ? running_time_ - gait_start_time_s_ : 0.0;
+    gait_elapsed_s = task_.gait_started_ ? running_time_ - task_.gait_start_time_s_ : 0.0;
+    task_.gait_started_ ? running_time_ - task_.gait_start_time_s_ : 0.0;
     if (params_.wbc_primary &&
-    motion_stage_ == 2 && gait_started_ && !stop_requested_ &&
+    task_.motion_stage_ == 2 && task_.gait_started_ && !task_.stop_requested_ &&
     gait_elapsed_s >= (params_.wbc_full ? 0.0 : kWbcPrimaryEnterDelayS) &&
     wbc_shadow_diagnostics_.solver_ok &&
     wbc_shadow_diagnostics_.mapping_ok)
@@ -402,10 +355,25 @@ bool TrotExperiment::PhaseRunGait(
     bool have_high_state,
     std::array<double, kMotorCount> &joint_targets)
 {
-    if (gait_started_ && !stop_requested_ && !lie_down_started_)
+    if (task_.InLocomotion())
     {
-    motion_stage_ = 2;
-    const double gait_time_s = running_time_ - gait_start_time_s_;
+    task_.motion_stage_ = 2;
+    const double gait_time_s = running_time_ - task_.gait_start_time_s_;
+    if (have_high_state)
+    {
+        const WorldPose pose =
+            ComputeWorldPose(state_snapshot, high_state_snapshot);
+        if (task_.goal_enabled_)
+        {
+            const double scale =
+                task_.CommandedStepScale(pose.base.x, pose.base.y);
+            if (scale < 0.999)
+                locomotion_kernel_->SetGaitStepLength(
+                    params_.step_length_m * scale);
+            task_.UpdateTurnFromPose(
+                pose.base.x, pose.base.y, pose.yaw_rad);
+        }
+    }
     // SECTION: gait-targets
     if (!BuildGaitTargets(
             gait_time_s,
@@ -414,22 +382,63 @@ bool TrotExperiment::PhaseRunGait(
             have_high_state,
             joint_targets))
     {
-        stop_requested_ = true;
+        task_.stop_requested_ = true;
     }
-    if (!continuous_mode_ && !stop_requested_ &&
+    if (have_high_state && !task_.stop_requested_)
+    {
+        const WorldPose pose =
+            ComputeWorldPose(state_snapshot, high_state_snapshot);
+        if (task_.MaybeReachWorldGoal(pose.base.x, pose.base.y))
+        {
+            std::cout << "Task reached world goal x=" << pose.base.x
+                      << " y=" << pose.base.y
+                      << " remaining="
+                      << task_.RemainingXy(pose.base.x, pose.base.y)
+                      << " m; RETURN_TO_STAND\n";
+        }
+    }
+    if (!continuous_mode_ && !task_.stop_requested_ &&
         gait_time_s >= duration_s_ &&
         std::isfinite(duration_s_))
     {
-        stop_requested_ = true;
-        if (task_mode_)
+        task_.stop_requested_ = true;
+        if (task_.task_mode_)
         {
-            task_completion_requested_ = true;
+            task_.task_completion_requested_ = true;
             std::cout << "Task transition: LOCOMOTION -> RETURN_TO_STAND\n";
         }
     }
     }
     return true;
 }
+
+double TrotExperiment::UpdateCartesianForceBlend()
+{
+    if (!params_.cartesian_world)
+    {
+        cartesian_force_blend_ = 0.0;
+        return 0.0;
+    }
+    const double vabs = have_filtered_body_velocity_
+        ? std::abs(latest_filtered_body_velocity_[0])
+        : 0.0;
+    const double tst_blend = Smoothstep(
+        (0.40 - cartesian_stance_s_) / 0.12);
+    const double speed_gate = Smoothstep((vabs - 0.28) / 0.15);
+    const double target = tst_blend * speed_gate;
+    if (Full2EnvDouble("FULL2_NO_BLEND", 0.0) > 0.5)
+    {
+        cartesian_force_blend_ = 0.0;
+        return 0.0;
+    }
+    // 210225 completed 90 at 0.32 with blend tracking speed_gate through
+    // the Tst slew. 210548 floored blend at Tst<=0.18 and reversed.
+    // After Tst settles, cartesian_yield_hold_ is a one-way kp-yield
+    // floor so we do not re-stiffen when v_meas sags.
+    cartesian_force_blend_ = std::max(cartesian_yield_hold_, target);
+    return cartesian_force_blend_;
+}
+
 void TrotExperiment::WriteMotorCommands(
     bool wbc_primary_active,
     double gait_elapsed_s,
@@ -467,25 +476,68 @@ void TrotExperiment::WriteMotorCommands(
             const int i = 3 * static_cast<int>(leg) + joint;
             low_cmd_.motor_cmd()[i].q() = joint_targets[i];
             low_cmd_.motor_cmd()[i].dq() = joint_velocities[i];
+            // Mini Cheetah split after latch: joint PD yields, ID-WBC
+            // keeps the world plant and J^T f pushes the body.
             const double vabs = have_filtered_body_velocity_
                 ? std::abs(latest_filtered_body_velocity_[0])
                 : 0.0;
+            const double force_blend = UpdateCartesianForceBlend();
+            const double speed_kp =
+                24.0 + 28.0 * Clamp(vabs / 1.20, 0.0, 1.0);
+            const bool use_latched =
+                cartesian_cruise_latched_ &&
+                (cartesian_yield_hold_ > 0.08 ||
+                 cartesian_kp_frozen_ ||
+                 cartesian_plateau_cycles_ >= 16);
+            if (!use_latched)
+                cartesian_latched_kp_ = speed_kp;
+            const double high_kp =
+                use_latched ? cartesian_latched_kp_ : speed_kp;
+            const double plant = Smoothstep(
+                (0.40 - cartesian_stance_s_) / 0.12);
+            const double yield = plant * force_blend;
+            // Kim et al. 2019: joint kp=3, kd=0.3 in locomotion.
+            // After freeze, latched_kp is the command. Mixing 3
+            // through force_blend (142839 blend 0.25–0.55 at Tst=0.15)
+            // dropped motor sagittal to ~10 while CART-GOV printed 18.
+            // Campaign baseline: do not mix toward paper kp=3.
+            // That mix made CART-GOV kp lie; paper kp is a closed cell.
+            const double sagittal_kp = high_kp;
+            (void)plant;
+            (void)yield;
+            const double hip_floor =
+                cartesian_stance_s_ <= 0.36 ? 48.0 : 36.0;
+            const double hip_kp = std::max(high_kp, hip_floor);
             const double stance_kp = params_.cartesian_world
-                ? (24.0 + 28.0 * Clamp(vabs / 1.20, 0.0, 1.0))
+                ? (joint == 0 ? hip_kp : sagittal_kp)
                 : (params_.wbc_full
                     ? kWbcFullStanceKp
                     : (params_.impulse ? kImpulseStanceKp : kWbcPrimaryCommandKp));
+            const double kd_cheetah =
+                cartesian_kp_frozen_
+                    ? Smoothstep((8.0 - cartesian_latched_kp_) / 5.0)
+                    : 0.0;
             const double stance_kd = params_.cartesian_world
-                ? 2.5
+                ? (joint == 0 ? 2.6
+                   : (2.5 * (1.0 - kd_cheetah) + 0.3 * kd_cheetah))
                 : (params_.wbc_full
                     ? kWbcFullStanceKd
                     : kWbcPrimaryCommandKd);
-            low_cmd_.motor_cmd()[i].kp() =
-                stance_kp * wbc_stance_blend_[leg] +
+            // 142128: CART-GOV printed kp=3 but FR_thigh motor kp
+            // median was 33 because swing mixed params_.kp=63 through
+            // wbc_stance_blend. Cheetah uses 3/0.3 on all sagittal
+            // joints once latched. Do not mix 63 after freeze.
+            double cmd_kp = stance_kp * wbc_stance_blend_[leg] +
                 params_.kp * (1.0 - wbc_stance_blend_[leg]);
-            low_cmd_.motor_cmd()[i].kd() =
-                stance_kd * wbc_stance_blend_[leg] +
+            double cmd_kd = stance_kd * wbc_stance_blend_[leg] +
                 params_.kd * (1.0 - wbc_stance_blend_[leg]);
+            if (params_.cartesian_world && cartesian_kp_frozen_)
+            {
+                cmd_kp = (joint == 0 ? hip_kp : sagittal_kp);
+                cmd_kd = stance_kd;
+            }
+            low_cmd_.motor_cmd()[i].kp() = cmd_kp;
+            low_cmd_.motor_cmd()[i].kd() = cmd_kd;
             // 低接触数(过渡/对角支撑)时减弱 WBC 扭矩,避免力分配
             // 在支撑切换瞬间扰动姿态
             const double contact_scale = params_.wbc_full
@@ -506,9 +558,9 @@ void TrotExperiment::WriteMotorCommands(
         low_cmd_.motor_cmd()[i].q() = joint_targets[i];
         low_cmd_.motor_cmd()[i].dq() = joint_velocities[i];
         low_cmd_.motor_cmd()[i].kp() =
-            motion_stage_ == 0 ? 100.0 : params_.kp;
+            task_.motion_stage_ == 0 ? 100.0 : params_.kp;
         low_cmd_.motor_cmd()[i].kd() =
-            motion_stage_ == 0 ? 3.5 : params_.kd;
+            task_.motion_stage_ == 0 ? 3.5 : params_.kd;
         low_cmd_.motor_cmd()[i].tau() =
             apply_wbc_torque_ff ? wbc_torque_ff[i] : 0.0;
     }
@@ -582,7 +634,7 @@ void TrotExperiment::UpdateGaitWorldDiagnostics(
     last_touchdown_actual_x_m_ = 0.0;
     last_touchdown_x_error_m_ = 0.0;
     last_touchdown_y_error_m_ = 0.0;
-    if (gait_started_ && !stop_requested_)
+    if (task_.gait_started_ && !task_.stop_requested_)
     {
         UpdateCycleDiagnostics(
             current_phase_,

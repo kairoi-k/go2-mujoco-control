@@ -28,7 +28,8 @@ void PrintTrotCliUsage()
            " [--wbc-task-torque-feedforward]"
            " [--direction +/-1] [--support-anchor-feedback]"
            " [--support-anchor-gain g] [--forever] [--stop-file path]"
-           " [--task stand-walk-lie]\n";
+           " [--task stand-walk-lie]"
+           " [--goal-x m] [--goal-y m] [--goal-tol m]\n";
 }
 
 bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *error_out)
@@ -108,6 +109,21 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                         "unsupported task '" + task_name +
                         "' (use stand-walk-lie)");
                 cfg.task_mode = true;
+            }
+            else if (option == "--goal-x")
+            {
+                cfg.goal.x = std::stod(require_value("--goal-x"));
+                cfg.goal.enabled = true;
+            }
+            else if (option == "--goal-y")
+            {
+                cfg.goal.y = std::stod(require_value("--goal-y"));
+                cfg.goal.enabled = true;
+            }
+            else if (option == "--goal-tol")
+            {
+                cfg.goal.tol = std::stod(require_value("--goal-tol"));
+                cfg.goal.enabled = true;
             }
             else if (option == "--domain-id")
                 cfg.domain_id = std::stoi(require_value("--domain-id"));
@@ -255,8 +271,8 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
         }
         catch (const std::exception &error)
         {
-            std::cerr << "Argument error: " << error.what() << "\n";
-            return 2;
+            if (error_out) *error_out = error.what();
+            return false;
         }
         }
         catch (const std::exception &error)
@@ -317,7 +333,12 @@ if (!(cfg.params.period_s >= (cfg.params.wbc_full ? 0.18 : 0.35) &&
             go2_control::kPreviewHorizonMaxSteps ||
         (cfg.task_mode && cfg.continuous_mode) ||
         (cfg.task_mode &&
-         (!std::isfinite(cfg.duration_s) || cfg.duration_s <= 0.0)))
+         (!std::isfinite(cfg.duration_s) || cfg.duration_s <= 0.0)) ||
+        (cfg.goal.enabled &&
+         (!std::isfinite(cfg.goal.x) || !std::isfinite(cfg.goal.y) ||
+          !std::isfinite(cfg.goal.tol) || cfg.goal.tol < 0.02 ||
+          cfg.goal.tol > 1.0)) ||
+        (cfg.goal.enabled && cfg.params.cartesian_world))
     {
         if (error_out) *error_out = "Invalid trot parameters";
         return false;
@@ -349,6 +370,13 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << "  impulse=" << (params.impulse ? "on" : "off") << "\n"
               << "  task="
               << (cfg.task_mode ? "stand-walk-lie" : "trot-only") << "\n"
+              << "  goal="
+              << (cfg.goal.enabled
+                      ? ("world (" + std::to_string(cfg.goal.x) + ", " +
+                         std::to_string(cfg.goal.y) + ") tol=" +
+                         std::to_string(cfg.goal.tol) + " m")
+                      : "off")
+              << "\n"
               << "  run_mode=" << (cfg.continuous_mode ? "continuous" : "bounded")
               << "\n"
               << "Press enter to start\n";

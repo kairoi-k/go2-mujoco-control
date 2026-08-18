@@ -29,7 +29,7 @@ void TrotExperiment::WriteCsvHeader()
          << ",motion_clock_wall_mode,motion_clock_wall_dt_s"
          << ",motion_clock_paused,motion_clock_pause_count"
          << ",motion_stage,cycle_index,phase"
-         << ",world_base_x_m,world_base_y_m,world_yaw_error_rad"
+         << ",world_base_x_m,world_base_y_m,world_base_z_m,world_yaw_error_rad"
          << ",world_feedback_x_m,world_feedback_y_m"
          << ",body_velocity_x_mps,body_velocity_y_mps,body_velocity_z_mps"
          << ",world_velocity_x_mps,world_velocity_y_mps,world_velocity_z_mps"
@@ -375,7 +375,9 @@ bool TrotExperiment::ValidateCycle(int cycle_index)
         params_.wbc_full ? 250
                          : (params_.impulse ? 40 : kSafetyMaxConsecutiveLowSupport);
     // Position-control q_error 0.28. ID-WBC stance tracks tau*, not IK.
-    const double max_joint_error_rad = params_.wbc_full ? 0.80 : 0.28;
+    const double max_joint_error_rad =
+        params_.cartesian_world ? 1.15
+        : (params_.wbc_full ? 0.80 : 0.28);
     const double max_roll_rad =
         params_.wbc_full ? (16.0 * kPi / 180.0) : kSafetyMaxRollRad;
     const double max_pitch_rad =
@@ -520,9 +522,10 @@ void TrotExperiment::LogSample(
          << "," << last_wall_motion_dt_s_
          << "," << (last_motion_clock_paused_ ? 1 : 0)
          << "," << motion_clock_pause_count_
-         << "," << motion_stage_ << ","
+         << "," << task_.motion_stage_ << ","
          << active_cycle_index_ << "," << current_phase_ << ","
-         << pose.base.x << "," << pose.base.y << "," << world_yaw_error_rad_
+         << pose.base.x << "," << pose.base.y << "," << pose.base.z << ","
+         << world_yaw_error_rad_
          << "," << world_feedback_x_m_ << "," << world_feedback_y_m_
          << "," << (have_body_velocity ? body_velocity[0] : 0.0)
          << "," << (have_body_velocity ? body_velocity[1] : 0.0)

@@ -1,5 +1,6 @@
 #include "trot_experiment.h"
 #include "trot_true_dynamics.h"
+#include "full2_campaign_env.h"
 
 #include <algorithm>
 #include <chrono>
@@ -80,12 +81,31 @@ void TrotExperiment::UpdateWbcFull(
     const double v_body = have_filtered_body_velocity_
         ? std::abs(latest_filtered_body_velocity_[0])
         : 0.0;
-    const double speed_lock = Smoothstep((v_body - 0.40) / 0.60);
-    const double cycle_lock =
-        Smoothstep((static_cast<double>(completed_cycles_) - 24.0) / 20.0);
-    const double cart_lock = params_.cartesian_world
-        ? std::min(cycle_lock, speed_lock) * attitude_fade
-        : 0.0;
+    const double cycle_lock = params_.cartesian_world
+        ? Smoothstep((static_cast<double>(completed_cycles_) - 8.0) / 8.0)
+        : Smoothstep((static_cast<double>(completed_cycles_) - 24.0) / 20.0);
+    const double force_blend = UpdateCartesianForceBlend();
+    const double tst_gate = params_.cartesian_world
+        ? Smoothstep((0.40 - cartesian_stance_s_) / 0.12)
+        : 1.0;
+    double cart_lock = 0.0;
+    if (params_.cartesian_world)
+    {
+        if (Full2EnvDouble("FULL2_NO_LOCK", 0.0) > 0.5)
+            cart_lock = 0.0;
+        else if (Full2EnvDouble("FULL2_LOCK_DA84", 0.0) > 0.5)
+        {
+            // 233312: min(cycle, speed) * attitude. Current G2 multiplies
+            // force_blend * tst_gate and locks from cycle 8.
+            const double speed_lock = Smoothstep((v_body - 0.40) / 0.60);
+            const double cycle_lock_da84 =
+                Smoothstep((static_cast<double>(completed_cycles_) - 24.0) /
+                           20.0);
+            cart_lock = std::min(cycle_lock_da84, speed_lock) * attitude_fade;
+        }
+        else
+            cart_lock = cycle_lock * attitude_fade * force_blend * tst_gate;
+    }
     Eigen::Vector3d linear_vel_world(
         high_state_snapshot.velocity()[0],
         high_state_snapshot.velocity()[1],
@@ -127,7 +147,7 @@ void TrotExperiment::UpdateWbcFull(
         kernel_period_s_ > 0.05 ? kernel_period_s_ : params_.period_s;
     const double gait_duty =
         kernel_duty_factor_ > 0.05 ? kernel_duty_factor_ : params_.duty_factor;
-    if (gait_started_ && motion_stage_ == 2)
+    if (task_.gait_started_ && task_.motion_stage_ == 2)
     {
         std::array<std::array<bool, go2::kLegCount>, go2_control::kSrbdMaxHorizon>
             scheduled{};
@@ -156,12 +176,15 @@ void TrotExperiment::UpdateWbcFull(
     mpc_params.friction_mu = kShadowWbcFrictionCoefficient;
     if (params_.cartesian_world)
     {
-        mpc_params.w_vel_xy = 60.0 + 30.0 * cart_lock;
+        mpc_params.w_vel_xy = 80.0 + 40.0 * cart_lock + 40.0 * force_blend * tst_gate;
         mpc_params.w_pos_xy = 6.0;
-        mpc_params.w_ori = 120.0;
+        mpc_params.w_ori = 120.0 + 30.0 * force_blend * tst_gate;
         mpc_params.w_vel_z = 12.0;
         mpc_params.w_omega = 8.0;
-        mpc_params.w_force = 3.0e-4;
+            mpc_params.w_force = 3.0e-4;
+            // 121733: any paper-kp force_track/weight slew sagged in
+            // ~10 cycles. 105123 held 0.35 with these MPC weights
+            // unchanged. Transmit GRF later, after a hold.
     }
     else if (!params_.step_plan.empty())
     {
@@ -193,9 +216,11 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.reference[5] = kWbcPrimaryBaseHeightM;
         mpc_in.reference[6] = 0.0;
         mpc_in.reference[7] = 0.0;
-        mpc_in.reference[8] = params_.turn_rate_radps;
+        mpc_in.reference[8] = (task_.goal_enabled_
+            ? task_.TurnEnable(running_time_) * task_.commanded_turn_rate_radps_
+            : params_.turn_rate_radps);
         const double v_cmd =
-            gait_started_ && motion_stage_ == 2
+            task_.gait_started_ && task_.motion_stage_ == 2
                 ? (std::isfinite(kernel_nominal_velocity_x_mps_) &&
                            std::abs(kernel_nominal_velocity_x_mps_) > 1.0e-6
                        ? kernel_nominal_velocity_x_mps_
@@ -211,24 +236,55 @@ void TrotExperiment::UpdateWbcFull(
             const double yaw_err = WrapAngle(
                 yaw - world_reference_yaw_rad_);
             mpc_in.reference[8] = Clamp(-1.2 * yaw_err, -0.30, 0.30);
+            double v_ref = v_cmd;
+            if (cartesian_kp_frozen_ && cartesian_latched_kp_ <= 5.0)
+            {
+                // 105123 MPC+0.35 still asked ~74 N because w_vel_xy
+                // was 160; ground GRF x mean 0 N. Lead 0.20 with
+                // w_vel_xy=40 is a moderate hole; WBIC applies it.
+                v_ref = std::copysign(
+                    std::min(std::abs(v_cmd), v_body + 0.35), v_cmd);
+            }
+            else if (force_blend > 0.05 && tst_gate > 0.30 &&
+                v_body > v_cmd && v_body < 2.20)
+                v_ref = v_body;
             mpc_in.reference[9] =
-                v_cmd * std::cos(world_reference_yaw_rad_);
+                v_ref * std::cos(world_reference_yaw_rad_);
             mpc_in.reference[10] =
-                v_cmd * std::sin(world_reference_yaw_rad_);
+                v_ref * std::sin(world_reference_yaw_rad_);
             mpc_in.reference[3] =
                 dyn.com_world.x() + mpc_in.reference[9] * mpc_params.dt_s *
                                         0.5 * mpc_params.horizon;
         }
         else
         {
-            mpc_in.reference[9] = v_cmd;
-            mpc_in.reference[10] = 0.0;
+            double v_ref = v_cmd;
+            if (task_.goal_enabled_ && !task_.reached_goal_)
+            {
+                const WorldPose pose =
+                    ComputeWorldPose(state_snapshot, high_state_snapshot);
+                v_ref *= task_.CommandedStepScale(pose.base.x, pose.base.y);
+                const double path_yaw = std::atan2(
+                    task_.goal_y_ - world_reference_y_m_,
+                    task_.goal_x_ - world_reference_x_m_);
+                mpc_in.reference[2] = path_yaw;
+                mpc_in.reference[4] = dyn.com_world.y();
+                mpc_in.reference[8] = Clamp(
+                    -1.2 * WrapAngle(yaw - path_yaw), -0.30, 0.30);
+                mpc_in.reference[9] = v_ref * std::cos(path_yaw);
+                mpc_in.reference[10] = v_ref * std::sin(path_yaw);
+            }
+            else
+            {
+                mpc_in.reference[9] = v_ref;
+                mpc_in.reference[10] = 0.0;
+            }
         }
         mpc_in.reference[11] = 0.0;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             mpc_in.foot_from_com_world[leg] =
                 dyn.foot_pos_world[leg] - dyn.com_world;
-        if (gait_started_ && motion_stage_ == 2)
+        if (task_.gait_started_ && task_.motion_stage_ == 2)
         {
             go2_control::FillTrotContactSchedulePhase(
                 current_phase_, gait_period, gait_duty,
@@ -260,8 +316,8 @@ void TrotExperiment::UpdateWbcFull(
         wbc_in.desired_angular_acc_body =
             quat.normalized().toRotationMatrix().transpose() *
             last_srbd_.first_angular_acc;
-        if (have_filtered_body_velocity_ && gait_started_ &&
-            motion_stage_ == 2 &&
+        if (have_filtered_body_velocity_ && task_.gait_started_ &&
+            task_.motion_stage_ == 2 &&
             (params_.cartesian_world || !params_.step_plan.empty()))
         {
             const double v_des =
@@ -280,8 +336,23 @@ void TrotExperiment::UpdateWbcFull(
             const double pitch_fade = Clamp(
                 1.0 - std::max(0.0, std::abs(pitch) - 0.06) / 0.12,
                 0.15, 1.0);
-            const double ax_lim = params_.cartesian_world ? 1.0 : 3.0;
-            const double ax_gain = params_.cartesian_world ? 2.0 : 4.0;
+            // 233312-era cartesian ax: 1 m/s² / gain 2, faded by pitch.
+            // Later paper_push/blend formulas either exploded (143932)
+            // or left CoM ax at 0 while wx glued the feet (141715).
+            double ax_lim = params_.cartesian_world ? 1.0 : 3.0;
+            double ax_gain = params_.cartesian_world ? 2.0 : 4.0;
+            const double ax_lim_ov = Full2EnvDouble("FULL2_AX_LIM", -1.0);
+            if (ax_lim_ov > 0.0)
+                ax_lim = ax_lim_ov;
+            const double ax_gain_ov = Full2EnvDouble("FULL2_AX_GAIN", -1.0);
+            if (ax_gain_ov > 0.0)
+                ax_gain = ax_gain_ov;
+            const double ax_foot = Full2EnvDouble("FULL2_AX_FOOT", 0.0);
+            const double ax_foot_v = Full2EnvDouble("FULL2_AX_FOOT_V", 0.0);
+            const double v_now = latest_filtered_body_velocity_[0];
+            if (ax_foot > 0.0 && cartesian_last_foot_error_m_ > ax_foot &&
+                (ax_foot_v <= 0.0 || v_now >= ax_foot_v))
+                ax_lim = 0.0;
             const double ax_body =
                 pitch_fade * Clamp(ax_gain * v_err, -ax_lim, ax_lim);
             wbc_in.desired_linear_acc_world.x() += ax_body * std::cos(yaw);
@@ -291,11 +362,19 @@ void TrotExperiment::UpdateWbcFull(
             const double gyro_x =
                 static_cast<double>(
                     state_snapshot.imu_state().gyroscope()[0]);
+            double roll_kp = params_.cartesian_world ? 40.0 : 20.0;
+            const double roll_ov = Full2EnvDouble("FULL2_ROLL", -1.0);
+            if (roll_ov > 0.0)
+                roll_kp = roll_ov;
             wbc_in.desired_angular_acc_body.x() +=
-                (params_.cartesian_world ? -40.0 : -20.0) * roll -
+                -roll_kp * roll -
                 (params_.cartesian_world ? 5.0 : 2.5) * gyro_x;
+            double pitch_kp = 12.0;
+            const double pitch_ov = Full2EnvDouble("FULL2_PITCH", -1.0);
+            if (pitch_ov > 0.0)
+                pitch_kp = pitch_ov;
             wbc_in.desired_angular_acc_body.y() +=
-                -12.0 * pitch - 1.5 * gyro_y - 0.25 * ax_body;
+                -pitch_kp * pitch - 1.5 * gyro_y - 0.25 * ax_body;
             if (params_.cartesian_world)
             {
                 const double yaw_err = WrapAngle(
@@ -339,11 +418,26 @@ void TrotExperiment::UpdateWbcFull(
                         commanded_world_feet_[leg].x,
                         commanded_world_feet_[leg].y,
                         commanded_world_feet_[leg].z);
-                    wbc_in.stance_acc_world[leg] = ClampVec3(
-                        (40.0 + 120.0 * cart_lock) *
-                                (p_des - dyn.foot_pos_world[leg]) -
-                            (10.0 + 10.0 * cart_lock) * v,
-                        8.0 + 12.0 * cart_lock);
+                    if (cartesian_kp_frozen_ && cartesian_latched_kp_ <= 5.0)
+                    {
+                        // Mini Cheetah WBIC: J qdd + Jdot qd ≈ 0, not a
+                        // cartesian spring. 132034 zeroed a_des.x and
+                        // dropped hard no-slip; last-8s 0.32 with more
+                        // Y crab. Keep the keeper damper; anisotropy
+                        // is in the no-slip weights.
+                        wbc_in.stance_acc_world[leg] = ClampVec3(-8.0 * v, 4.0);
+                    }
+                    else
+                    {
+                        const double kp_foot =
+                            40.0 + 120.0 * cart_lock + 100.0 * force_blend * tst_gate;
+                        const double kd_foot =
+                            10.0 + 10.0 * cart_lock + 12.0 * force_blend * tst_gate;
+                        wbc_in.stance_acc_world[leg] = ClampVec3(
+                            kp_foot * (p_des - dyn.foot_pos_world[leg]) -
+                                kd_foot * v,
+                            8.0 + 12.0 * cart_lock + 10.0 * force_blend * tst_gate);
+                    }
                     wbc_in.have_stance_acc = true;
                 }
                 continue;
@@ -367,9 +461,12 @@ void TrotExperiment::UpdateWbcFull(
                     cartesian_state_.target_world_vel[leg].z);
             }
             const Eigen::Vector3d p = dyn.foot_pos_world[leg];
+            const double swing_kp = Full2EnvDouble("FULL2_SWING_KP", 180.0);
+            const double swing_kd = Full2EnvDouble("FULL2_SWING_KD", 16.0);
+            const double swing_acc_lim = Full2EnvDouble("FULL2_SWING_ACC", 50.0);
             wbc_in.swing_acc_world[leg] = ClampVec3(
-                180.0 * (p_des - p) + 16.0 * (v_des - v),
-                50.0);
+                swing_kp * (p_des - p) + swing_kd * (v_des - v),
+                swing_acc_lim);
         }
     }
 
@@ -378,15 +475,35 @@ void TrotExperiment::UpdateWbcFull(
     const int n_contact =
         (qp_contact[0] ? 1 : 0) + (qp_contact[1] ? 1 : 0) +
         (qp_contact[2] ? 1 : 0) + (qp_contact[3] ? 1 : 0);
-    id_params.w_stance_no_slip =
-        params_.cartesian_world ? (50.0 + 90.0 * cart_lock) : 8.0;
+        id_params.w_stance_no_slip =
+            params_.cartesian_world ? (50.0 + 90.0 * cart_lock) : 8.0;
     id_params.w_base_lin = params_.cartesian_world ? 80.0 : 80.0;
-    id_params.w_base_ang = params_.cartesian_world ? (80.0 + 30.0 * cart_lock) : 40.0;
+    const double w_lin_ov = Full2EnvDouble("FULL2_W_LIN", -1.0);
+    if (w_lin_ov > 0.0)
+        id_params.w_base_lin = w_lin_ov;
+    id_params.w_base_ang = params_.cartesian_world
+        ? (80.0 + 30.0 * cart_lock)
+        : 40.0;
+    const double w_ang_ov = Full2EnvDouble("FULL2_W_ANG", -1.0);
+    if (w_ang_ov > 0.0)
+        id_params.w_base_ang = w_ang_ov;
     id_params.w_swing = params_.cartesian_world ? 80.0 : 80.0;
+    const double w_sw_ov = Full2EnvDouble("FULL2_W_SWING", -1.0);
+    if (w_sw_ov > 0.0)
+        id_params.w_swing = w_sw_ov;
     id_params.tau_limit_nm = 35.0;
+    const double tau_ov = Full2EnvDouble("FULL2_TAU", -1.0);
+    if (tau_ov > 0.0)
+        id_params.tau_limit_nm = tau_ov;
     if (params_.cartesian_world)
     {
+        // Original cartesian-world: soft no-slip only. Hard equality
+        // and freeze wx-open both produced either a 0.33 sit or a
+        // one-cycle 0.40 then roll (152821/161952).
         id_params.hard_stance_no_slip = false;
+        const double wx_x = Full2EnvDouble("FULL2_WX_X", -1.0);
+        if (wx_x >= 0.0)
+            id_params.w_stance_no_slip_x = wx_x;
         id_params.w_force = 1.0e-6;
         id_params.w_force_track = cart_lock * 0.008;
         if (last_srbd_.ok)
@@ -420,7 +537,9 @@ void TrotExperiment::UpdateWbcFull(
     }
 
     if (params_.cartesian_world && have_commanded_world_feet_ &&
-        gait_started_ && motion_stage_ == 2 && cart_lock > 0.05)
+        task_.gait_started_ && task_.motion_stage_ == 2 &&
+        (cart_lock > 0.05) &&
+        !(cartesian_kp_frozen_ && cartesian_latched_kp_ <= 5.0))
     {
         Eigen::Matrix<double, 12, 1> tau_pd =
             Eigen::Matrix<double, 12, 1>::Zero();
@@ -435,11 +554,12 @@ void TrotExperiment::UpdateWbcFull(
                     commanded_world_feet_[leg].y,
                     commanded_world_feet_[leg].z) -
                 dyn.foot_pos_world[leg];
-            Eigen::Vector3d f_pd = Eigen::Vector3d::Zero();
-            f_pd.x() = std::clamp(
+            Eigen::Vector3d f_hold = Eigen::Vector3d::Zero();
+            f_hold.x() = std::clamp(
                 cart_lock * (80.0 * dp.x() - 28.0 * v.x()), -18.0, 18.0);
-            f_pd.y() = std::clamp(
+            f_hold.y() = std::clamp(
                 cart_lock * (80.0 * dp.y() - 28.0 * v.y()), -18.0, 18.0);
+            const Eigen::Vector3d f_pd = (1.0 - force_blend) * f_hold;
             tau_pd +=
                 dyn.foot_jac_world[leg].rightCols<12>().transpose() * f_pd;
         }
@@ -588,9 +708,9 @@ void TrotExperiment::UpdateWbcShadow(
 
     double desired_force_x_n = 0.0;
     if (params_.wbc_velocity_wrench &&
-        motion_stage_ == 2 &&
-        gait_started_ &&
-        !stop_requested_ &&
+        task_.motion_stage_ == 2 &&
+        task_.gait_started_ &&
+        !task_.stop_requested_ &&
         have_filtered_body_velocity_)
     {
         const double target_velocity_x_mps =
@@ -616,8 +736,8 @@ void TrotExperiment::UpdateWbcShadow(
         desired_tau_x_nm, desired_tau_y_nm, desired_tau_z_nm};
     const bool enhanced_wrench_active =
         params_.wbc_primary && have_high_state &&
-        gait_started_ &&
-        (running_time_ - gait_start_time_s_) >=
+        task_.gait_started_ &&
+        (running_time_ - task_.gait_start_time_s_) >=
             kWbcPrimaryWrenchEnableS;
     if (enhanced_wrench_active)
     {
@@ -735,7 +855,7 @@ void TrotExperiment::UpdateWbcShadow(
             }
             const double bounce_phase =
                 2.0 * kPi * 2.0 / params_.period_s *
-                (running_time_ - gait_start_time_s_);
+                (running_time_ - task_.gait_start_time_s_);
             const double bounce_acc =
                 params_.bounce_acc_amp * std::sin(bounce_phase);
             a_desired[2] = params_.impulse
@@ -760,12 +880,16 @@ void TrotExperiment::UpdateWbcShadow(
                 kWbcPrimaryPitchAccKp * (pitch_ref_rad - pitch_rad) -
                     kWbcPrimaryPitchAccKd * gyro_y_radps,
                 -attitude_acc_lim, attitude_acc_lim);
-            const double turn_enable_w = Clamp(
-                (running_time_ - gait_start_time_s_ - 4.0) / 2.0,
-                0.0, 1.0);
+            const double turn_rate = task_.goal_enabled_
+                ? task_.TurnEnable(running_time_) *
+                      task_.commanded_turn_rate_radps_
+                : params_.turn_rate_radps;
+            const double turn_enable_w = task_.goal_enabled_
+                ? 1.0
+                : task_.TurnEnable(running_time_);
             a_desired[5] = Clamp(
                 kWbcPrimaryTurnYawAccKp *
-                        (turn_enable_w * params_.turn_rate_radps -
+                        (turn_enable_w * turn_rate -
                          gyro_z_radps) -
                     kWbcPrimaryYawAccKd * gyro_z_radps,
                 -4.0, 4.0);
@@ -909,7 +1033,7 @@ bool TrotExperiment::PrepareWbcTorqueFeedforward(
     gate_input.shadow_enabled =
         params_.wbc_shadow && wbc_shadow_diagnostics_.enabled;
     gate_input.locomotion_active =
-        motion_stage_ == 2 && gait_started_ && !stop_requested_;
+        task_.motion_stage_ == 2 && task_.gait_started_ && !task_.stop_requested_;
     gate_input.solver_ok = wbc_shadow_diagnostics_.solver_ok;
     gate_input.mapping_ok = wbc_shadow_diagnostics_.mapping_ok;
     gate_input.wrench_satisfied =

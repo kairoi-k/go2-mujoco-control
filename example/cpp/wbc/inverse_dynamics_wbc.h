@@ -28,6 +28,10 @@ struct IdWbcParams
     double w_base_ang = 40.0;
     double w_swing = 80.0;
     double w_stance_no_slip = 8.0;
+    // <0 means use w_stance_no_slip on that axis (isotropic).
+    double w_stance_no_slip_x = -1.0;
+    double w_stance_no_slip_y = -1.0;
+    double w_stance_no_slip_z = -1.0;
     double w_posture = 0.2;
     double w_force = 1.0e-5;
     double w_force_track = 0.0;
@@ -108,8 +112,19 @@ inline bool SolveInverseDynamicsWbc(
         {
             if (!params.hard_stance_no_slip)
             {
+                const double wx = params.w_stance_no_slip_x >= 0.0
+                    ? params.w_stance_no_slip_x
+                    : params.w_stance_no_slip;
+                const double wy = params.w_stance_no_slip_y >= 0.0
+                    ? params.w_stance_no_slip_y
+                    : params.w_stance_no_slip;
+                const double wz = params.w_stance_no_slip_z >= 0.0
+                    ? params.w_stance_no_slip_z
+                    : params.w_stance_no_slip;
+                const Eigen::Matrix3d Wns =
+                    Eigen::Vector3d(wx, wy, wz).asDiagonal();
                 H.topLeftCorner(nqdd, nqdd) +=
-                    2.0 * params.w_stance_no_slip * Jl.transpose() * Jl;
+                    2.0 * Jl.transpose() * Wns * Jl;
                 const Eigen::Vector3d jdot_qvel =
                     input.dynamics.foot_jac_dot_world[leg] *
                     input.dynamics.qvel;
@@ -117,8 +132,7 @@ inline bool SolveInverseDynamicsWbc(
                     ? input.stance_acc_world[leg]
                     : Eigen::Vector3d::Zero();
                 g.head(nqdd) +=
-                    2.0 * params.w_stance_no_slip * Jl.transpose() *
-                    (jdot_qvel - a_des);
+                    2.0 * Jl.transpose() * Wns * (jdot_qvel - a_des);
             }
         }
         else

@@ -41,7 +41,7 @@ int main(int argc, const char **argv)
 
     TrotExperiment experiment(
         cfg.duration_s, cfg.csv_path, cfg.params, cfg.max_cycles,
-        cfg.continuous_mode, cfg.stop_file_path, cfg.task_mode);
+        cfg.continuous_mode, cfg.stop_file_path, cfg.task_mode, cfg.goal);
     if (!experiment.Init())
         return 1;
 

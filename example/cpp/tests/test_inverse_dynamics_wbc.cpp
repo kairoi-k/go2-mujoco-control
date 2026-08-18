@@ -78,6 +78,26 @@ int main()
     passed &= Check(acc_fr.norm() < 0.05, "FR foot acc");
     passed &= Check(acc_rl.norm() < 0.05, "RL foot acc");
 
+    go2_control::IdWbcParams aniso = {};
+    aniso.w_stance_no_slip = 250.0;
+    aniso.w_stance_no_slip_x = 25.0;
+    aniso.w_base_lin = 80.0;
+    aniso.hard_stance_no_slip = false;
+    input.desired_linear_acc_world = Eigen::Vector3d(2.0, 0.0, 0.0);
+    input.have_stance_acc = true;
+    input.stance_acc_world.fill(Eigen::Vector3d::Zero());
+    go2_control::IdWbcOutput push;
+    passed &= Check(
+        go2_control::SolveInverseDynamicsWbc(aniso, input, push) && push.ok,
+        "aniso X no-slip failed");
+    double fx = 0.0;
+    for (int i = 0; i < 4; ++i)
+    {
+        if (input.contact[static_cast<std::size_t>(i)])
+            fx += push.force[3 * i];
+    }
+    passed &= Check(fx > 8.0, "aniso X should allow sagittal GRF");
+
     if (!passed)
     {
         std::cerr << "eq=" << out.eq_residual

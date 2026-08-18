@@ -97,8 +97,8 @@ bool TrotExperiment::WaitForNaturalSettle(double timeout_s)
             {
                 std::lock_guard<std::mutex> lock(state_mutex_);
                 for (int i = 0; i < kMotorCount; ++i)
-                    start_joint_pos_[i] = low_state_.motor_state()[i].q();
-                have_start_joint_pos_ = true;
+                    task_.start_joint_pos_[i] = low_state_.motor_state()[i].q();
+                task_.have_start_joint_pos_ = true;
                 std::cout << "Natural LowState settled\n";
                 return true;
             }
@@ -128,6 +128,13 @@ bool TrotExperiment::CaptureWorldReference()
     have_world_reference_ = true;
     std::cout << "World reference captured: x=" << pose.base.x
               << " y=" << pose.base.y << " yaw=" << pose.yaw_rad << "\n";
+    if (task_.goal_enabled_)
+    {
+        std::cout << "World A→B remaining="
+                  << task_.RemainingXy(pose.base.x, pose.base.y)
+                  << " m toward (" << task_.goal_x_ << ", "
+                  << task_.goal_y_ << ")\n";
+    }
     return true;
 }
 
@@ -225,7 +232,7 @@ void TrotExperiment::RequestStop()
 {
     if (!external_stop_requested_.exchange(true))
     {
-        task_completion_requested_ = false;
+        task_.task_completion_requested_ = false;
         std::cout << "Trot external stop requested; returning to stand\n";
     }
 }

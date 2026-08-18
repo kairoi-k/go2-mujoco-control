@@ -30,7 +30,7 @@ case "$SCENE" in
   walk)    ARGS=(--step-length 0.091 --max-cycles 64) ;;
   imp)     ARGS=(--period 0.50 --step-length 0.080 --kd 5.0 --tau-limit 35 --impulse --raibert-velocity-gain 0.20 --raibert-max-adjustment 0.040 --max-cycles 64) ;;
   fast)    ARGS=(--step-length 0.110 --tau-limit 19 --max-cycles 64) ;;
-  task)    ARGS=(--step-length 0.091 --task stand-walk-lie) ;;
+  task)    ARGS=(--step-length 0.091 --task stand-walk-lie --wbc-full --tau-limit 35) ;;
   full)    ARGS=(--step-length 0.091 --wbc-full --tau-limit 35 --max-cycles 64) ;;
   full2)   ARGS=(--wbc-full --cartesian-world --tau-limit 35 --period 0.60 --duty 0.75 --step-length 0.091 \
                  --foot-lift 0.028 --raibert-velocity-gain 0.12 --raibert-max-adjustment 0.140 \

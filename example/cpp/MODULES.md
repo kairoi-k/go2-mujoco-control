@@ -6,7 +6,7 @@
 
 | 目标 | 入口 | 实现 |
 |---|---|---|
-| `real_trot_go2` | `real_trot_go2.cpp` | `trot_cli.*` + `trot_experiment_*` |
+| `real_trot_go2` | `trot/real_trot_go2.cpp` | `trot_cli.*` + `trot_task.*` + `trot_experiment_*` |
 | `real_leg_lift_go2` | `real_leg_lift_go2.cpp` | `leg_lift_cli.*` + `leg_lift_*` |
 | `stand_go2` / `hold_pose_go2` / `track_*` | 同名 cpp | 单体小工具 |
 | `test_*` | 同名 cpp | 单测 |
@@ -14,12 +14,13 @@
 
 ## trot 阅读顺序
 
-1. `trot_cli.cpp` — 参数从哪来
-2. `trot_experiment.h` — 状态有哪些字段
-3. `trot_experiment_control.cpp` 搜 `SECTION:` — 主环阶段
-4. `trot_experiment_gait.cpp` / `raibert_trot_kernel.h` — 脚点
-5. `trot_experiment_wbc.cpp` — 力/力矩
-6. `trot_experiment_diagnostics.cpp` — 门禁与 CSV
+1. `trot/trot_cli.cpp` — 参数从哪来
+2. `trot/trot_task.*` — 站立/行走/趴下
+3. `trot/trot_experiment.h` — 剩余运行时状态
+4. `trot/trot_experiment_control.cpp` 搜 `SECTION:` — 主环
+5. `trot/trot_experiment_gait.cpp` / `gait/raibert_trot_kernel.h` — 脚点
+6. `trot/trot_experiment_wbc.cpp` — 力/力矩
+7. `trot/trot_experiment_diagnostics.cpp` — 门禁与 CSV
 
 ## leg-lift 阅读顺序
 
@@ -64,17 +65,15 @@
 
 ## 清晰化进度快照
 
-- trot：main/CLI/模块拆分完成，control 有 SECTION/AUTO-TOC/ROADMAP
+- 布局：`apps/` `trot/` `gait/` `kinematics/` `contact/` `wbc/` `util/` `leg_lift/` `tests/`
+- trot：`TrotTask` 拥有站立/行走/趴下；`TrotExperiment` 保留 DDS/gait/WBC/诊断
 - leg_lift：main/CLI/模块拆分完成；相位已抽 StandUp/Settle/WeightShift/FootLift/FootSwing/LandingHold/BodyReturn
-- 主链剩余：gait 前置逻辑、publish 尾段已薄
-- 已抽尾段：`UpdateAttitudeFeedback` / `ApplyTaskSpaceIk` / `WriteMotorCommands` / `PublishLowCmdWithCrc`
-- 相位方法：StandUp/Settle/WeightShift/FootLift/FootSwing/FootLowerActive/LandingHold/BodyReturn/BetweenCycles/TerminalCorrection
 - 单测：example/cpp/build/test_* 应全绿
 
 ## trot 相位方法
 
-- `PhaseLieDown` / `PhaseStandUp` / `PhaseStandSettle` / `PhaseStopToStand` / `PhaseStartGait`（`trot_experiment_control.cpp`）
-- 主链其余段已抽：快照/时钟/WBC 判定/gait 执行/命令写入/诊断（见上方方法清单）
+- `TrotTask::PhaseLieDown` / `PhaseStandUp` / `PhaseStandSettle` / `PhaseStopToStand` / `BeginGait`（`trot/trot_task.cpp`）
+- 主链其余段：快照/时钟/WBC 判定/gait 执行/命令写入/诊断
 
 ## 体量（约，自动更新）
 

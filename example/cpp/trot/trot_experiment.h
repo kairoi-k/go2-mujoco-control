@@ -20,6 +20,7 @@
 
 #include "go2_contact_torque_mapping.h"
 #include "locomotion_kernel.h"
+#include "trot_task.h"
 #include "trot_types.h"
 #include "velocity_filter.h"
 #include "go2_rigid_body.h"
@@ -47,17 +48,18 @@ public:
         int max_cycles,
         bool continuous_mode,
         const std::string &stop_file_path,
-        bool task_mode)
+        bool task_mode,
+        TrotGoalConfig goal = {})
         : duration_s_(duration_s),
           csv_path_(csv_path),
           params_(std::move(params)),
           max_cycles_(max_cycles),
           continuous_mode_(continuous_mode),
           stop_file_path_(stop_file_path),
-          task_mode_(task_mode),
           locomotion_kernel_(go2_trot::CreateLocomotionKernel(params_)),
           velocity_filter_({params_.velocity_filter_cutoff_hz})
     {
+        task_.Configure(task_mode, goal);
     }
 
     bool Init();
@@ -114,6 +116,7 @@ private:
     bool PhaseStartGait(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseStopToStand(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseLieDown(std::array<double, go2_trot::kMotorCount> &joint_targets);
+    double UpdateCartesianForceBlend();
     void PublishLowCmdWithCrc();
     void LogSample(
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
@@ -158,20 +161,8 @@ private:
     void ResetCycleDiagnostics();
 
 private:
-    const std::array<double, go2_trot::kMotorCount> stand_up_joint_pos_ = {
-        0.00571868, 0.608813, -1.21763,
-        -0.00571868, 0.608813, -1.21763,
-        0.00571868, 0.608813, -1.21763,
-        -0.00571868, 0.608813, -1.21763};
-    const std::array<double, go2_trot::kMotorCount> stand_down_joint_pos_ = {
-        0.0473455, 1.22187, -2.44375,
-        -0.0473455, 1.22187, -2.44375,
-        0.0473455, 1.22187, -2.44375,
-        -0.0473455, 1.22187, -2.44375};
-
-    std::array<double, go2_trot::kMotorCount> start_joint_pos_{};
+    TrotTask task_;
     std::array<double, go2_trot::kMotorCount> previous_joint_targets_{};
-    bool have_start_joint_pos_ = false;
     bool have_previous_joint_targets_ = false;
 
     const double dt_ = go2_trot::kDt;
@@ -181,7 +172,6 @@ private:
     const int max_cycles_;
     const bool continuous_mode_;
     const std::string stop_file_path_;
-    const bool task_mode_;
     std::unique_ptr<go2_control::LocomotionKernel> locomotion_kernel_;
     go2_control::FirstOrderVelocityFilter velocity_filter_;
     go2_control::Vector3 latest_world_velocity_{};
@@ -211,7 +201,6 @@ private:
     double last_touchdown_y_error_m_ = 0.0;
 
     double running_time_ = 0.0;
-    double gait_start_time_s_ = 0.0;
     double last_state_tick_s_ = 0.0;
     bool have_last_state_tick_ = false;
     double last_motion_dt_s_ = 0.0;
@@ -226,14 +215,6 @@ private:
 
     int active_cycle_index_ = -1;
     int completed_cycles_ = 0;
-    bool gait_started_ = false;
-    bool stop_requested_ = false;
-    bool task_completion_requested_ = false;
-    bool lie_down_started_ = false;
-    double lie_down_start_time_s_ = 0.0;
-    double stop_start_time_s_ = 0.0;
-    std::array<double, go2_trot::kMotorCount> stop_origin_joint_targets_{};
-    bool have_stop_origin_joint_targets_ = false;
     std::array<bool, go2::kLegCount> wbc_shadow_contact_state_{};
     std::array<double, go2::kLegCount> wbc_stance_blend_{};
     go2_trot::WbcShadowDiagnostics wbc_shadow_diagnostics_{};
@@ -244,7 +225,6 @@ private:
     bool have_last_id_wbc_ = false;
     int wbc_full_ticks_ = 0;
     bool dynamics_logged_ = false;
-    int motion_stage_ = 0;
     double current_phase_ = 0.0;
     bool kernel_footstep_plan_valid_ = false;
     double kernel_velocity_error_x_mps_ = 0.0;
@@ -254,6 +234,23 @@ private:
     std::size_t step_plan_index_ = 0;
     std::size_t period_plan_index_ = 0;
     double wbc_speed_cmd_mps_ = -1.0;
+    double cartesian_last_v_meas_ = -1.0;
+    double cartesian_last_foot_error_m_ = 0.0;
+    bool cartesian_cruise_latched_ = false;
+    double cartesian_force_blend_ = 0.0;
+    double cartesian_yield_hold_ = 0.0;
+    double cartesian_yield_v_ref_ = 0.0;
+    int cartesian_plateau_cycles_ = 0;
+    int cartesian_force_cycles_ = 0;
+    double cartesian_latched_kp_ = 26.0;
+    bool cartesian_kp_frozen_ = false;
+    int cartesian_paper_cycles_ = 0;
+    bool cartesian_paper_latched_ = false;
+    bool cartesian_open_latched_ = false;
+    double cartesian_open_t_latched_ = 0.0;
+    double cartesian_duty_ = 0.75;
+    double cartesian_stance_s_ = 0.45;
+    double cartesian_step_m_ = 0.091;
     double cycle_vx_sum_ = 0.0;
     int cycle_vx_count_ = 0;
     std::array<double, go2::kLegCount> kernel_touchdown_target_x_m_{};

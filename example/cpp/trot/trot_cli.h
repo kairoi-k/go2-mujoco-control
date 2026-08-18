@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "trot_task.h"
 #include "trot_types.h"
 
 namespace go2_trot {
@@ -17,6 +18,7 @@ struct TrotCliConfig {
     bool continuous_mode = false;
     bool task_mode = false;
     std::string stop_file_path;
+    TrotGoalConfig goal{};
 };
 
 // Returns false and writes message to *error_out on failure.
