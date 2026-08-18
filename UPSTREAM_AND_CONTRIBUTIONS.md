@@ -11,7 +11,9 @@ This repository combines the Unitree MuJoCo simulator with research-specific C++
 | MuJoCo | DeepMind | physics; 3.3.6 in the research environment |
 | Robot/URDF assets | Unitree | this checkout vendors Go2 only; H1/G1/B2/… remain upstream |
 
-Isaac Lab is present here as a gym-registered velocity-curriculum package under `rl/` (`pip install -e rl`). Genesis / Kine2Go imitation is a companion repository.
+Isaac Lab / RSL-RL velocity RL is maintained in the companion repository
+[`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl).
+Genesis / Kine2Go imitation is maintained in a separate companion repository.
 
 Original Unitree READMEs: `docs/upstream/`. The repository root README is the research-project README (avoids case-only collisions with `readme.md`).
 
@@ -22,7 +24,6 @@ Original Unitree READMEs: `docs/upstream/`. The repository root README is the re
 - world/support feedback and simulation instrumentation;
 - constrained contact-force/wrench allocation;
 - `--wbc-full` 18-DoF inverse-dynamics WBC and receding-horizon SRBD MPC; `--wbc-primary` remains incremental feedforward with guarded fallback;
-- Isaac Lab Go2 velocity-curriculum gym tasks (second track);
 - controlled experiment runners and retained evidence.
 
 Reliable cruise is about 0.15 m/s in this stack. `--wbc-full` is an 18-DoF inverse-dynamics WBC; it is not a claim of demo-speed locomotion.

@@ -55,7 +55,9 @@ The repository describes `--wbc-full` as a controller-side 18-DoF inverse-dynami
 
 - `simulate/` and `unitree_robots/go2/` originate from the Unitree simulator stack and are kept close to upstream. Other Unitree robot MJCFs are not vendored here.
 - `example/cpp/` contains the main research-specific control work.
-- `rl/` is an exploratory research track and is not coupled to the model-based controller at runtime.
+- Isaac Lab / RSL-RL velocity RL is maintained in the separate
+  [`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl)
+  repository and is not coupled to this controller at runtime.
 - the Kine2Go / Genesis motion-imitation work is maintained in a separate companion repository.
 
 For source-level navigation, see [`CODE_GUIDE.md`](CODE_GUIDE.md). For upstream provenance, see [`../UPSTREAM_AND_CONTRIBUTIONS.md`](../UPSTREAM_AND_CONTRIBUTIONS.md).

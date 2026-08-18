@@ -1,13 +1,10 @@
 # Unitree Go2 MuJoCo control research
 
-Research fork of [`unitreerobotics/unitree_mujoco`](https://github.com/unitreerobotics/unitree_mujoco) for Go2 **stand → walk → lie**, a model-based diagonal trot, and an Isaac Lab velocity-RL second track.
+Research fork of [`unitreerobotics/unitree_mujoco`](https://github.com/unitreerobotics/unitree_mujoco) for Go2 **stand → walk → lie** and model-based diagonal trot control in MuJoCo.
 
 ![stand-walk-lie](docs/media/stand_walk_lie.gif)
 
-Two tracks. The C++ result is a 500 Hz LowCmd state machine: stand-up, settle, trot, blend back to stand, lie-down. Reliable C++ cruise is about **0.13–0.18 m/s**. Isaac Lab velocity RL (`rl/`) uses command curricula up to **±3.5 m/s**, fast but short-stride. Imitation work is in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
-
-![Isaac Lab 0.5 m/s](docs/media/rl_0.5ms.gif)
-![Isaac Lab 3.5 m/s](docs/media/rl_3.5ms.gif)
+The C++ result is a 500 Hz LowCmd state machine: stand-up, settle, trot, blend back to stand, lie-down. Reliable C++ cruise is about **0.13–0.18 m/s**. The independent Isaac Lab velocity-RL track is maintained in [`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl); imitation work is in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
 
 ## Contents
 
@@ -35,25 +32,18 @@ cmake --build example/cpp/build -j"$(nproc)"
 
 Stand-walk-lie (after the simulator is up): see [`example/cpp/README.md`](example/cpp/README.md). `go2sim task` is the sequenced entry; `go2sim walk` / `go2sim fast` are trot-only (fast ≈ 0.18 m/s with a looser torque gate). `go2sim full` turns on 18-DoF ID-WBC + SRBD MPC; see [`docs/WBC_MPC.md`](docs/WBC_MPC.md).
 
-## Isaac Lab velocity RL
+## Related track
 
-Gym-registered extension in `rl/`. No copy into `isaaclab_tasks`.
-
-```bash
-pip install -e rl
-export ISAACLAB_PATH=/path/to/IsaacLab
-python -m go2_velocity_fast.download -o model_54950.pt
-python -m go2_velocity_fast.play --task Isaac-Velocity-Flat-Unitree-Go2-Fast35-v0 --num_envs 16 --checkpoint model_54950.pt
-```
-
-Details: [`rl/README.md`](rl/README.md). Checkpoint: [Release v0.1.0](https://github.com/kairoi-k/go2-mujoco-control/releases/tag/v0.1.0).
+Isaac Lab / RSL-RL velocity curricula for Go2 are maintained in the separate
+[`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl)
+repository. This control repository does not vendor or install that package.
 
 ## Tracks
 
 | Track | Where |
 |---|---|
 | Model-based C++ stand-walk-lie + slow trot | `example/cpp/` |
-| Isaac Lab velocity RL (fast, short-stride) | `rl/` (`pip install -e rl`) |
+| Isaac Lab velocity RL (fast, short-stride) | [`go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl) |
 | Kine2Go imitation, AMP, seam JSON | [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research) |
 
 ## Map
@@ -62,7 +52,6 @@ Details: [`rl/README.md`](rl/README.md). Checkpoint: [Release v0.1.0](https://gi
 example/cpp/       controller, tests, runners, retained experiment artifacts
 simulate/          Unitree MuJoCo simulator base
 unitree_robots/    Go2 MJCF only (other Unitree robots stay upstream)
-rl/                Isaac Lab gym-registered velocity curricula
 docs/media/        README clips
 patches/           simulator/runtime patches
 scripts/           environment helpers
@@ -72,7 +61,7 @@ docs/              architecture, reproducibility, research history
 ## Docs
 
 - [`docs/RESEARCH_INDEX.md`](docs/RESEARCH_INDEX.md) — claims vs this tree
-- [`rl/README.md`](rl/README.md) — Isaac Lab velocity RL second track
+- [`go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl) — Isaac Lab velocity RL companion
 - [`docs/RESEARCH_HISTORY.md`](docs/RESEARCH_HISTORY.md) — milestone history
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — runtime/control architecture
 - [`docs/CODE_GUIDE.md`](docs/CODE_GUIDE.md) — source map

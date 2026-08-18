@@ -15,9 +15,9 @@
 
 ## 2026-08-14
 
-- README clips for stand-walk-lie and Isaac Lab 0.5 / 3.5 m/s.
-- Isaac Lab track is a gym-registered package (`pip install -e rl`).
-- `model_54950` published on GitHub Release v0.1.0.
+- README clip for stand-walk-lie.
+- Isaac Lab velocity-RL snapshot and `model_54950` were published; that track
+  is now maintained in [`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl).
 
 ## 2026-08-13
 

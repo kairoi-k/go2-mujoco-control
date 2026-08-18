@@ -1,6 +1,6 @@
 # Research index
 
-This repository records **model-based Go2 control in MuJoCo**, plus an Isaac Lab velocity-RL second track. It does not own the Kine2Go seam or AMP results.
+This repository records **model-based Go2 control in MuJoCo**. Isaac Lab velocity RL and Kine2Go imitation are maintained in separate companion repositories.
 
 ## Implementation
 
@@ -21,23 +21,14 @@ This repository records **model-based Go2 control in MuJoCo**, plus an Isaac Lab
 
 Entry points: `example/cpp/`, `docs/ARCHITECTURE.md`, `example/cpp/experiments/CATALOG.md`.
 
-## Second track — Isaac Lab velocity RL
+## Companion research tracks
 
-Isaac Lab / RSL-RL velocity tracking after the C++ speed ceiling. Gym-registered package: `rl/` (`pip install -e rl`). Snapshot: `rl/ENV_SNAPSHOT.md`.
-
-| Item | Record |
-|---|---|
-| Task | Go2 flat velocity tracking, command curricula ±2.0 → ±3.5 m/s |
-| Recorded policy | `model_54950` ([Release v0.1.0](https://github.com/kairoi-k/go2-mujoco-control/releases/tag/v0.1.0)) |
-| Gait | fast, short-stride; official velocity-task reward, no reference motion |
-| Comparison clips | `docs/media/rl_0.5ms.gif`, `docs/media/rl_3.5ms.gif` |
-
-**Supported claim:** the recorded policy follows high commanded speeds in that Isaac Lab stack.
-
-**Outside the claim:** natural gait, sim-to-real, or that C++ in this repo can reach 3.5 m/s. `error_vel_xy` is tracking error, not body speed.
-
-Kine2Go / AMP / seam JSON remain in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
+Isaac Lab / RSL-RL velocity curricula, their environment snapshot, clips, and
+checkpoint record live in [`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl).
+Motion imitation, AMP, and seam JSON live in
+[`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
 
 ## Evidence policy
 
-Keep artifacts needed to understand the controller. Bulk logs and generated builds are not in git; `model_54950` is on Release v0.1.0.
+Keep artifacts needed to understand the controller. Bulk logs and generated
+builds are not in git; RL assets belong to the RL companion repository.
