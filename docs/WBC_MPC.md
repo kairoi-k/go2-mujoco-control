@@ -1,6 +1,6 @@
 # WBC / MPC line
 
-`--wbc-full` is a controller-side 18-DoF inverse-dynamics WBC plus receding-horizon SRBD MPC. `go2sim walk` / `real_trot_go2` without the flag stays the 0.15 m/s position-control baseline.
+`--wbc-full` is a controller-side 18-DoF inverse-dynamics WBC plus receding-horizon SRBD MPC. `go2sim task` and `go2sim full` both turn it on (`--tau-limit 35`). `go2sim walk` / `real_trot_go2` without the flag is the older `--wbc-primary` position-control path; that path is not the current homepage plant and was not reproduced on 2026-08-15.
 
 ## Stack
 
@@ -19,7 +19,7 @@ Gait timing still comes from the Raibert kernel. The kernel is a warm start / sw
 
 `go2sim full2` turns on world-frame stance hold and Cartesian swing (`cartesian_world_trot.h`). Stance feet are IK'd to a captured world anchor; swing is a world quintic to a Raibert foothold with feedforward velocity; ID-WBC tracks `J qdd + Ĵ q̇ = a_des`. After the first cycles the gait is a short-stance running trot (`T_st ≈ 0.11 s`, duty ~0.5), not the 0.75 walking trot. MPC holds the captured heading; the speed governor follows measured body `v_x` with a small lead.
 
-This is the Mini Cheetah representation, not a 2 m/s result. Headless **280/280 complete**, last-8s **0.50 m/s** (`full2_185811`), return to stand. Peak cycle-mean about **0.79 m/s**. Variance is high; a later 280-cycle repeat can quality-reject. Hard stance equalities and large `J^T` cartesian pulls caused roll kills and were not kept. `go2sim walk` / `full` stay the 0.15 gate.
+This is the Mini Cheetah representation, not a 2 m/s result. Headless **280/280 complete**, last-8s **0.50 m/s** (`full2_185811`), return to stand. Peak cycle-mean about **0.79 m/s**. Variance is high; a later 280-cycle repeat can quality-reject. Hard stance equalities and large `J^T` cartesian pulls caused roll kills and were not kept. `go2sim task` / `full` stay the walking `--wbc-full` plant (~0.12–0.15 m/s).
 
 ## How to run
 
@@ -27,7 +27,7 @@ This is the Mini Cheetah representation, not a 2 m/s result. Headless **280/280 
 bash example/cpp/scripts/go2sim full
 ```
 
-Requires `simulate/mujoco` (the controller links `libmujoco` and loads `unitree_robots/go2/go2.xml`). `go2sim full` sets `--tau-limit 35` to match the ID-WBC motor envelope. `go2sim walk` stays at the 18 N·m position-control gate.
+Requires `simulate/mujoco` (the controller links `libmujoco` and loads `unitree_robots/go2/go2.xml`). `go2sim task` and `go2sim full` set `--wbc-full --tau-limit 35` to match the ID-WBC motor envelope. `go2sim walk` stays at the 18 N·m `--wbc-primary` gate.
 
 ## Unit tests
 
@@ -36,7 +36,18 @@ Requires `simulate/mujoco` (the controller links `libmujoco` and loads `unitree_
 - `test_inverse_dynamics_wbc`: stand residual ~1e-9 N; diagonal 2-contact feasible
 - `test_dense_qp`: inequality ADMM plus equality KKT
 
-## Same-gate comparison (2026-08-15)
+## Current indexed repeat (2026-08-18)
+
+Same OLS protocol (`motion_stage==2`, target 0.151667 m/s), git `2b82dae`, DDS domain 220, headless, CPU affinity 0/1. Raw CSVs stay in gitignored `_runs/`. Compact record: [`example/cpp/experiments/go2_wbc_full_mainline_repeat_2026-08-18`](../example/cpp/experiments/go2_wbc_full_mainline_repeat_2026-08-18/README.md).
+
+| Arm | n | Gate | measured m/s | ratio vs 0.151667 | notes |
+|---|---|---|---|---|---|
+| `go2sim full` | 5 | 5/5 complete, return to stand | **0.130 ± 0.011** (0.116–0.147) | 0.77–0.97 | scatter tracks motion-clock pauses / slip |
+| `go2sim task` | 3 | 3/3 stand-walk-lie | **0.139 ± 0.004** | 0.89–0.95 | ~8 s walk window |
+
+This is the number `docs/RESEARCH_INDEX.md` quotes. It does not replace the 2026-08-15 single-run 0.149 below; that session is kept as historical.
+
+## Same-gate comparison (2026-08-15, historical)
 
 Protocol (nominal `0.091/0.60 = 0.151667` m/s):
 
@@ -54,7 +65,7 @@ Protocol (nominal `0.091/0.60 = 0.151667` m/s):
 | `go2sim walk` | FAIL `q_error=0.296` at cycle 3 | 3 | 0.096 | 0.63 | 0.010 | this-session walk still dies; Aug 9 64-cycle pass not reproduced |
 | `go2sim full` | PASS 64/64, return to stand | 64 | **0.1494** | **0.985** | 0.012 | ID 100%; eq residual med 1.8e-7; cruise roll/pitch 0.34°/0.18° |
 
-`--wbc-full` completed the gated 0.15 m/s trot. Commanded speed was matched to 1.5%. That is the cruise the walk arm is supposed to hold; in this session only `--wbc-full` actually held it.
+That session's `--wbc-full` completed the gated 0.15 m/s trot and matched the command to 1.5% **on that one run**. Only `--wbc-full` held the gate; `go2sim walk` died. Later n=5 repeats on `2b82dae` sit lower (0.12–0.15); use the 2026-08-18 table for the indexed claim.
 
 Stand ID-WBC unit-test residual is ~1e-9 N. On the 64-cycle walk, floating-base residual median 1.8e-7 N (max 2.3e-6). ID-WBC returned a feasible `τ*` on **100%** of walking ticks; SRBD was feasible every walking tick; feedforward applied every walking tick. Median WBC 176 µs; 9 / 19201 ticks exceeded 1 ms (MPC).
 
@@ -67,4 +78,4 @@ A 32-cycle probe at commanded 0.25 m/s (`--period 0.50 --step-length 0.125`) com
 - QP is dense ADMM, not HPIPM/OSQP.
 - 18-DoF ID is in the WBC, not in the horizon.
 
-Those are the next theoretical steps. They are not required to claim that `--wbc-full` now walks the 0.15 gate with a real dynamics model, a real ID QP, and near-zero RNEA residual.
+Those are the next theoretical steps. They are not required to claim that `--wbc-full` walks a slow Raibert trot with a real dynamics model, a real ID QP, and near-zero RNEA residual.

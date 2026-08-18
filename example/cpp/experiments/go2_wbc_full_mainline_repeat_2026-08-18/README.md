@@ -1,7 +1,7 @@
 # `--wbc-full` 主线重复测量（64 圈 + stand-walk-lie）
 
 - 日期：2026-08-18 / 2026-08-19
-- 状态：supporting（当前 `go2sim task` / `go2sim full` 的机器重复；不替换 2026-08-15 单次 0.149 m/s 索引数字）
+- 状态：indexed（`docs/RESEARCH_INDEX.md` 当前巡航数字。2026-08-15 单次 0.149 m/s 仍留在 `docs/WBC_MPC.md` 作历史）
 - 代码：`2b82dae`（`Refactor example/cpp into modules and extract TrotTask`）
 - 目的：主线把 `go2sim task` 改成 `--wbc-full --tau-limit 35` 之后，用同一套入口做可审计的 n 次重复，记下速度散布，而不是只留 gitignored `_runs/`。
 
@@ -54,7 +54,7 @@ TROT_CPU_AFFINITY_SIM=0 TROT_CPU_AFFINITY_CTRL=1
 - 证明：`2b82dae` 上 `--wbc-full` 能重复走完 64 圈和 stand-walk-lie；短序列约 0.14 m/s；长序列常见 0.12–0.15 m/s，受时钟暂停/打滑影响。
 - 不证明：原主页 `--wbc-primary` 站立小跑仍可复现；A→B；2 m/s；`go2sim walk` 现在能过门。
 - 不覆盖：2026-08-15 写入 `docs/WBC_MPC.md` 的单次 **0.149 m/s / ratio 0.985**。那是另一次会话的单点，不是这 n=5。
-- 主页 GIF `docs/media/stand_walk_lie.gif` 仍是旧 `--wbc-primary` 片段，不是这批植物。
+- 主页片段改为 `docs/media/stand_walk_lie_wbcfull.gif` / `.mp4`。旧 `stand_walk_lie.gif` 仍是 `--wbc-primary` 历史片段，没有覆盖。
 
 ## 证据
 

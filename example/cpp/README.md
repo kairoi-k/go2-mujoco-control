@@ -26,14 +26,14 @@ See [`../../docs/REPRODUCIBILITY.md`](../../docs/REPRODUCIBILITY.md) for environ
 `example/cpp/scripts/go2sim` wraps the simulator and controller launch used by the research experiments. Examples:
 
 ```bash
-bash example/cpp/scripts/go2sim walk
-bash example/cpp/scripts/go2sim walk --view
 bash example/cpp/scripts/go2sim task
+bash example/cpp/scripts/go2sim task --view
 bash example/cpp/scripts/go2sim full
+bash example/cpp/scripts/go2sim walk
 bash example/cpp/scripts/go2sim turn 0.3
 ```
 
-The runner uses dedicated DDS domain IDs. Inspect it and `scripts/run_trot.sh` before adapting the setup to another machine or network.
+`task` and `full` are `--wbc-full --tau-limit 35`. `walk` is the older `--wbc-primary` path. The runner uses dedicated DDS domain IDs. Inspect it and `scripts/run_trot.sh` before adapting the setup to another machine or network.
 
 ## Source layout
 
