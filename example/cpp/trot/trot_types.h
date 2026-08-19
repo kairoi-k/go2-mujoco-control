@@ -15,6 +15,7 @@
 
 #include "go2_inverse_kinematics.h"
 #include "locomotion_kernel.h"
+#include "motion_event_response.h"
 #include "raibert_trot_kernel.h"
 #include "wbc_runtime_gate.h"
 
@@ -177,6 +178,9 @@ struct TrotParams
     double velocity_filter_cutoff_hz = 4.0;
     bool velocity_feedforward = true;
     bool wall_clock_motion = false;
+    bool reactive_events = false;
+    std::string event_script_path;
+    std::vector<go2_control::MotionEvent> event_schedule;
 };
 
 inline std::unique_ptr<go2_control::LocomotionKernel> CreateLocomotionKernel(

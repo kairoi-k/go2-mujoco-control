@@ -53,7 +53,7 @@ public:
     // [Phase3] 在线步长/周期变更(cycle 边界调用,渐变趋近防冲击)
     void SetGaitStepLength(double step_m) override
     {
-        if (step_m > 0.0 && std::isfinite(step_m))
+        if (step_m >= 0.0 && std::isfinite(step_m))
             target_step_length_m_ = step_m;
     }
     void SetGaitPeriod(double period_s) override
@@ -137,7 +137,7 @@ public:
         if (cycle_index != last_ramp_cycle_index_)
         {
             last_ramp_cycle_index_ = cycle_index;
-            if (target_step_length_m_ > 0.0)
+            if (target_step_length_m_ >= 0.0)
             {
                 const double delta = std::clamp(
                     target_step_length_m_ - params_.gait.step_length_m,

@@ -41,7 +41,7 @@ for ((i = 0; i < ${#controller_args[@]}; ++i)); do
   elif [[ "$arg" == "--camera-follow" ]]; then
     # simulator-only flag: track the robot body in the GUI camera
     sim_camera_follow=true
-  elif [[ "$arg" == "--push-time" || "$arg" == "--push-force-x" || "$arg" == "--push-duration" || "$arg" == "--push-vel-x" || "$arg" == "--push-torque-pitch" || "$arg" == "--payload-kg" ]]; then
+  elif [[ "$arg" == "--push-time" || "$arg" == "--push-force-x" || "$arg" == "--push-duration" || "$arg" == "--push-vel-x" || "$arg" == "--push-torque-pitch" || "$arg" == "--payload-kg" || "$arg" == "--friction-time" || "$arg" == "--friction-mu" || "$arg" == "--friction-duration" ]]; then
     # simulator-only disturbance flags: consume value
     sim_push_args+=("$arg" "${controller_args[$((i + 1))]}")
     i=$((i + 1))

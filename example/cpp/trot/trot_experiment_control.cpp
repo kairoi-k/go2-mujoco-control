@@ -182,6 +182,15 @@ bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &j
 {
     if (!task_.BeginGait(running_time_))
         return false;
+    if (motion_event_response_enabled_)
+    {
+        motion_event_layer_.Reset();
+        motion_event_detector_.Reset();
+        motion_event_state_ = {};
+        auto_motion_event_ = {};
+        motion_reference_ = {};
+        last_motion_event_type_ = go2_control::MotionEventType::kNone;
+    }
     support_anchor_valid_.fill(false);
     cartesian_state_ = {};
     have_commanded_world_feet_ = false;
@@ -230,6 +239,73 @@ bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &j
 
     (void)joint_targets;
     return true;
+}
+void TrotExperiment::UpdateMotionEventResponse(
+    double gait_elapsed_s, double motion_dt_s,
+    const unitree_go::msg::dds_::LowState_ &state_snapshot)
+{
+    if (!motion_event_response_enabled_)
+        return;
+
+    go2_control::MotionReference nominal;
+    nominal.vx_mps = params_.direction_sign *
+        (params_.step_length_m / params_.period_s);
+    if (params_.cartesian_world && wbc_speed_cmd_mps_ > 0.0)
+        nominal.vx_mps = params_.direction_sign * wbc_speed_cmd_mps_;
+    nominal.yaw_rate_radps = task_.goal_enabled_
+        ? task_.commanded_turn_rate_radps_
+        : params_.turn_rate_radps;
+    nominal.step_scale = 1.0;
+    nominal.duty_factor = params_.duty_factor;
+    nominal.foot_lift_m = params_.foot_lift_m;
+
+    go2_control::MotionSensorSample sensor;
+    sensor.velocity_x_mps = latest_filtered_body_velocity_[0];
+    sensor.velocity_y_mps = latest_filtered_body_velocity_[1];
+    sensor.have_velocity = have_filtered_body_velocity_;
+    sensor.accel_x_mps2 = static_cast<double>(
+        state_snapshot.imu_state().accelerometer()[0]);
+    sensor.accel_y_mps2 = static_cast<double>(
+        state_snapshot.imu_state().accelerometer()[1]);
+    sensor.accel_z_mps2 = static_cast<double>(
+        state_snapshot.imu_state().accelerometer()[2]);
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (state_snapshot.foot_force()[leg] >= kContactForceThreshold)
+            ++sensor.contact_count;
+    }
+    auto_motion_event_ = motion_event_detector_.Observe(
+        gait_elapsed_s, motion_dt_s, sensor, nominal);
+    const go2_control::MotionEvent *sensor_event =
+        auto_motion_event_.IsActive(gait_elapsed_s)
+            ? &auto_motion_event_
+            : nullptr;
+
+    motion_event_state_ = motion_event_layer_.Update(
+        gait_elapsed_s, motion_dt_s, nominal, params_.event_schedule,
+        sensor_event);
+    motion_reference_ = motion_event_state_.reference;
+
+    const double velocity_step =
+        std::abs(motion_reference_.vx_mps) * params_.period_s;
+    const double scaled_nominal_step =
+        std::abs(params_.step_length_m) * motion_reference_.step_scale;
+    const double event_step = std::min(velocity_step, scaled_nominal_step);
+    locomotion_kernel_->SetGaitStepLength(event_step);
+    locomotion_kernel_->SetGaitDuty(motion_reference_.duty_factor);
+    locomotion_kernel_->SetGaitFootLift(motion_reference_.foot_lift_m);
+
+    if (motion_event_state_.active_event != last_motion_event_type_)
+    {
+        std::cout << "Motion event "
+                  << go2_control::MotionEventName(
+                         motion_event_state_.active_event)
+                  << " priority=" << motion_event_state_.active_priority
+                  << " ref_vx=" << motion_reference_.vx_mps
+                  << " ref_yaw=" << motion_reference_.yaw_rate_radps
+                  << "\n";
+        last_motion_event_type_ = motion_event_state_.active_event;
+    }
 }
 bool TrotExperiment::SnapshotState(
     unitree_go::msg::dds_::LowState_ &state_snapshot,
@@ -374,6 +450,9 @@ bool TrotExperiment::PhaseRunGait(
                 pose.base.x, pose.base.y, pose.yaw_rad);
         }
     }
+    if (motion_event_response_enabled_)
+        UpdateMotionEventResponse(
+            gait_time_s, last_motion_dt_s_, state_snapshot);
     // SECTION: gait-targets
     if (!BuildGaitTargets(
             gait_time_s,

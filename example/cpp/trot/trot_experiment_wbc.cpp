@@ -216,7 +216,9 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.reference[5] = kWbcPrimaryBaseHeightM;
         mpc_in.reference[6] = 0.0;
         mpc_in.reference[7] = 0.0;
-        mpc_in.reference[8] = (task_.goal_enabled_
+        mpc_in.reference[8] = motion_event_response_enabled_
+            ? motion_reference_.yaw_rate_radps
+            : (task_.goal_enabled_
             ? task_.TurnEnable(running_time_) * task_.commanded_turn_rate_radps_
             : params_.turn_rate_radps);
         const double v_cmd =
@@ -714,8 +716,10 @@ void TrotExperiment::UpdateWbcShadow(
         have_filtered_body_velocity_)
     {
         const double target_velocity_x_mps =
-            params_.direction_sign * params_.step_length_m /
-            params_.period_s;
+            motion_event_response_enabled_
+                ? motion_reference_.vx_mps
+                : params_.direction_sign * params_.step_length_m /
+                      params_.period_s;
         const double velocity_error_x_mps =
             target_velocity_x_mps - latest_filtered_body_velocity_[0];
         desired_force_x_n = Clamp(
@@ -795,8 +799,10 @@ void TrotExperiment::UpdateWbcShadow(
                 // 冲量主控 v1: 线动量任务(加速度域)
                 // a = Kp*(v_target - v) + Kd*(-a_meas)
                 const double target_vx =
-                    params_.direction_sign * params_.step_length_m /
-                    params_.period_s;
+                    motion_event_response_enabled_
+                        ? motion_reference_.vx_mps
+                        : params_.direction_sign * params_.step_length_m /
+                              params_.period_s;
                 const double target_vy = 0.0;
                 if (have_filtered_body_velocity_)
                 {
@@ -831,7 +837,8 @@ void TrotExperiment::UpdateWbcShadow(
                         kShadowWbcMassKg,
                     -3.0, 3.0);
                 a_desired[1] = 0.0;
-                if (params_.wbc_full && have_preview_terminal_velocity_)
+                if (params_.wbc_full && !motion_event_response_enabled_ &&
+                    have_preview_terminal_velocity_)
                 {
                     if (std::isfinite(preview_planned_acc_x_mps2_))
                         a_desired[0] = Clamp(
@@ -880,13 +887,17 @@ void TrotExperiment::UpdateWbcShadow(
                 kWbcPrimaryPitchAccKp * (pitch_ref_rad - pitch_rad) -
                     kWbcPrimaryPitchAccKd * gyro_y_radps,
                 -attitude_acc_lim, attitude_acc_lim);
-            const double turn_rate = task_.goal_enabled_
-                ? task_.TurnEnable(running_time_) *
-                      task_.commanded_turn_rate_radps_
-                : params_.turn_rate_radps;
-            const double turn_enable_w = task_.goal_enabled_
+            const double turn_rate = motion_event_response_enabled_
+                ? motion_reference_.yaw_rate_radps
+                : (task_.goal_enabled_
+                    ? task_.TurnEnable(running_time_) *
+                          task_.commanded_turn_rate_radps_
+                    : params_.turn_rate_radps);
+            const double turn_enable_w = motion_event_response_enabled_
                 ? 1.0
-                : task_.TurnEnable(running_time_);
+                : (task_.goal_enabled_
+                    ? 1.0
+                    : task_.TurnEnable(running_time_));
             a_desired[5] = Clamp(
                 kWbcPrimaryTurnYawAccKp *
                         (turn_enable_w * turn_rate -

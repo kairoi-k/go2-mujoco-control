@@ -1,0 +1,558 @@
+#pragma once
+
+// Shared event-to-reference policy for reactive locomotion experiments.
+// Events modify continuous locomotion references; they never splice joint
+// trajectories or switch the WBC/MPC plant.
+
+#include <algorithm>
+#include <cmath>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+
+namespace go2_control
+{
+
+enum class MotionEventType
+{
+    kNone = 0,
+    kEmergencyStop,
+    kObstacleLeft,
+    kObstacleRight,
+    kTurnLeft,
+    kTurnRight,
+    kSlip,
+    kLowFriction,
+    kImpact,
+};
+
+inline const char *MotionEventName(MotionEventType type) noexcept
+{
+    switch (type)
+    {
+    case MotionEventType::kEmergencyStop:
+        return "emergency_stop";
+    case MotionEventType::kObstacleLeft:
+        return "obstacle_left";
+    case MotionEventType::kObstacleRight:
+        return "obstacle_right";
+    case MotionEventType::kTurnLeft:
+        return "turn_left";
+    case MotionEventType::kTurnRight:
+        return "turn_right";
+    case MotionEventType::kSlip:
+        return "slip";
+    case MotionEventType::kLowFriction:
+        return "low_friction";
+    case MotionEventType::kImpact:
+        return "impact";
+    case MotionEventType::kNone:
+        break;
+    }
+    return "none";
+}
+
+inline bool ParseMotionEventType(
+    const std::string &name,
+    MotionEventType &type)
+{
+    if (name == "emergency_stop" || name == "stop")
+        type = MotionEventType::kEmergencyStop;
+    else if (name == "obstacle_left")
+        type = MotionEventType::kObstacleLeft;
+    else if (name == "obstacle_right")
+        type = MotionEventType::kObstacleRight;
+    else if (name == "turn_left")
+        type = MotionEventType::kTurnLeft;
+    else if (name == "turn_right")
+        type = MotionEventType::kTurnRight;
+    else if (name == "slip")
+        type = MotionEventType::kSlip;
+    else if (name == "low_friction")
+        type = MotionEventType::kLowFriction;
+    else if (name == "impact")
+        type = MotionEventType::kImpact;
+    else if (name == "none")
+        type = MotionEventType::kNone;
+    else
+        return false;
+    return true;
+}
+
+struct MotionReference
+{
+    double vx_mps = 0.0;
+    double vy_mps = 0.0;
+    double yaw_rate_radps = 0.0;
+    double step_scale = 1.0;
+    double duty_factor = 0.75;
+    double foot_lift_m = 0.020;
+};
+
+struct MotionEvent
+{
+    MotionEventType type = MotionEventType::kNone;
+    double start_time_s = 0.0;
+    double duration_s = 0.0;
+    double magnitude = 0.0;
+
+    bool IsActive(double time_s) const noexcept
+    {
+        return type != MotionEventType::kNone &&
+               std::isfinite(start_time_s) &&
+               std::isfinite(duration_s) && duration_s > 0.0 &&
+               time_s >= start_time_s &&
+               time_s < start_time_s + duration_s;
+    }
+};
+
+inline bool LoadMotionEventScript(
+    const std::string &path,
+    std::vector<MotionEvent> &events,
+    std::string *error = nullptr)
+{
+    events.clear();
+    std::ifstream input(path);
+    if (!input)
+    {
+        if (error)
+            *error = "cannot open event script: " + path;
+        return false;
+    }
+
+    std::string line;
+    int line_number = 0;
+    while (std::getline(input, line))
+    {
+        ++line_number;
+        const std::size_t comment = line.find('#');
+        if (comment != std::string::npos)
+            line.resize(comment);
+        std::istringstream stream(line);
+        double start_s = 0.0;
+        double duration_s = 0.0;
+        std::string name;
+        if (!(stream >> start_s >> duration_s >> name))
+        {
+            if (line.find_first_not_of(" \t\r\n") == std::string::npos)
+                continue;
+            if (error)
+                *error = "event script line " + std::to_string(line_number) +
+                         " requires: start duration event [magnitude]";
+            events.clear();
+            return false;
+        }
+
+        double magnitude = 0.0;
+        std::string magnitude_token;
+        if (stream >> magnitude_token)
+        {
+            std::istringstream magnitude_stream(magnitude_token);
+            if (!(magnitude_stream >> magnitude) || !magnitude_stream.eof())
+            {
+                if (error)
+                    *error = "event script line " +
+                             std::to_string(line_number) +
+                             " has invalid magnitude";
+                events.clear();
+                return false;
+            }
+        }
+        std::string extra;
+        if (stream >> extra)
+        {
+            if (error)
+                *error = "event script line " + std::to_string(line_number) +
+                         " has too many fields";
+            events.clear();
+            return false;
+        }
+
+        MotionEventType type = MotionEventType::kNone;
+        if (!ParseMotionEventType(name, type))
+        {
+            if (error)
+                *error = "event script line " + std::to_string(line_number) +
+                         " has unknown event: " + name;
+            events.clear();
+            return false;
+        }
+        if (!std::isfinite(start_s) || start_s < 0.0 ||
+            !std::isfinite(duration_s) || duration_s <= 0.0 ||
+            !std::isfinite(magnitude))
+        {
+            if (error)
+                *error = "event script line " + std::to_string(line_number) +
+                         " has invalid timing or magnitude";
+            events.clear();
+            return false;
+        }
+        events.push_back({type, start_s, duration_s, magnitude});
+    }
+
+    std::sort(events.begin(), events.end(),
+              [](const MotionEvent &a, const MotionEvent &b) {
+                  return a.start_time_s < b.start_time_s;
+              });
+    return true;
+}
+
+struct MotionSensorSample
+{
+    double velocity_x_mps = 0.0;
+    double velocity_y_mps = 0.0;
+    double accel_x_mps2 = 0.0;
+    double accel_y_mps2 = 0.0;
+    double accel_z_mps2 = 0.0;
+    int contact_count = 0;
+    bool have_velocity = false;
+};
+
+struct MotionEventDetectorConfig
+{
+    double warmup_s = 0.50;
+    double slip_velocity_error_mps = 0.45;
+    double slip_confirm_s = 0.06;
+    double impact_horizontal_accel_mps2 = 8.5;
+    double impact_vertical_excess_mps2 = 18.0;
+    double impact_release_s = 0.12;
+    double event_duration_s = 0.80;
+    double cooldown_s = 0.90;
+    double gravity_mps2 = 9.81;
+};
+
+class MotionEventDetector
+{
+public:
+    explicit MotionEventDetector(MotionEventDetectorConfig config = {})
+        : config_(config)
+    {
+    }
+
+    void Reset() noexcept
+    {
+        active_event_ = {};
+        slip_accum_s_ = 0.0;
+        impact_clear_accum_s_ = 0.0;
+        impact_latched_ = false;
+        last_trigger_time_s_ = -1.0e9;
+    }
+
+    MotionEvent Observe(
+        double time_s,
+        double dt_s,
+        const MotionSensorSample &sample,
+        const MotionReference &nominal)
+    {
+        if (active_event_.IsActive(time_s))
+            return active_event_;
+        active_event_ = {};
+        const bool impact =
+            sample.contact_count >= 2 &&
+            (std::hypot(sample.accel_x_mps2, sample.accel_y_mps2) >=
+                 config_.impact_horizontal_accel_mps2 ||
+             std::abs(sample.accel_z_mps2 - config_.gravity_mps2) >=
+                 config_.impact_vertical_excess_mps2);
+        if (impact_latched_)
+        {
+            if (impact)
+                impact_clear_accum_s_ = 0.0;
+            else if (dt_s > 0.0)
+                impact_clear_accum_s_ += std::min(dt_s, 0.050);
+            if (impact_clear_accum_s_ >= config_.impact_release_s)
+            {
+                impact_latched_ = false;
+                impact_clear_accum_s_ = 0.0;
+            }
+        }
+        if (!std::isfinite(time_s) || time_s < config_.warmup_s ||
+            !(dt_s > 0.0) ||
+            time_s - last_trigger_time_s_ < config_.cooldown_s)
+        {
+            slip_accum_s_ = 0.0;
+            return {};
+        }
+
+        if (impact && !impact_latched_)
+            return Trigger(MotionEventType::kImpact, time_s);
+
+        if (sample.have_velocity)
+        {
+            const double velocity_error =
+                std::hypot(sample.velocity_x_mps - nominal.vx_mps,
+                           sample.velocity_y_mps - nominal.vy_mps);
+            if (velocity_error >= config_.slip_velocity_error_mps &&
+                sample.contact_count >= 2)
+                slip_accum_s_ += std::min(dt_s, 0.050);
+            else
+                slip_accum_s_ = 0.0;
+            if (slip_accum_s_ >= config_.slip_confirm_s)
+                return Trigger(MotionEventType::kSlip, time_s);
+        }
+        else
+        {
+            slip_accum_s_ = 0.0;
+        }
+        return {};
+    }
+
+private:
+    MotionEvent Trigger(MotionEventType type, double time_s)
+    {
+        active_event_ = {
+            type, time_s, config_.event_duration_s, 0.0};
+        last_trigger_time_s_ = time_s;
+        slip_accum_s_ = 0.0;
+        if (type == MotionEventType::kImpact)
+        {
+            impact_latched_ = true;
+            impact_clear_accum_s_ = 0.0;
+        }
+        return active_event_;
+    }
+
+    MotionEventDetectorConfig config_;
+    MotionEvent active_event_{};
+    double slip_accum_s_ = 0.0;
+    double impact_clear_accum_s_ = 0.0;
+    bool impact_latched_ = false;
+    double last_trigger_time_s_ = -1.0e9;
+};
+
+struct MotionEventResponseConfig
+{
+    double max_abs_vx_mps = 0.60;
+    double max_abs_vy_mps = 0.25;
+    double max_abs_yaw_rate_radps = 0.35;
+    double accel_mps2 = 0.80;
+    double decel_mps2 = 2.50;
+    double lateral_accel_mps2 = 0.60;
+    double yaw_accel_radps2 = 1.20;
+    double step_scale_rate_s = 2.50;
+    double duty_rate_s = 0.80;
+    double foot_lift_rate_mps = 0.030;
+    double turn_speed_scale = 0.65;
+    double obstacle_speed_scale = 0.35;
+    double slip_speed_scale = 0.45;
+    double low_friction_speed_scale = 0.45;
+    double emergency_step_scale = 0.45;
+    double protective_duty_factor = 0.82;
+    double protective_foot_lift_m = 0.024;
+    double default_turn_rate_radps = 0.18;
+};
+
+struct MotionEventResponse
+{
+    MotionReference reference{};
+    MotionReference target{};
+    MotionEventType active_event = MotionEventType::kNone;
+    int active_priority = 0;
+    bool event_active = false;
+};
+
+inline int MotionEventPriority(MotionEventType type) noexcept
+{
+    switch (type)
+    {
+    case MotionEventType::kEmergencyStop:
+    case MotionEventType::kImpact:
+        return 100;
+    case MotionEventType::kObstacleLeft:
+    case MotionEventType::kObstacleRight:
+        return 80;
+    case MotionEventType::kSlip:
+    case MotionEventType::kLowFriction:
+        return 60;
+    case MotionEventType::kTurnLeft:
+    case MotionEventType::kTurnRight:
+        return 40;
+    case MotionEventType::kNone:
+        break;
+    }
+    return 0;
+}
+
+class MotionEventResponseLayer
+{
+public:
+    explicit MotionEventResponseLayer(MotionEventResponseConfig config = {})
+        : config_(config)
+    {
+    }
+
+    void Reset() noexcept
+    {
+        initialized_ = false;
+        current_ = {};
+    }
+
+    MotionEventResponse Update(
+        double time_s,
+        double dt_s,
+        const MotionReference &nominal,
+        const std::vector<MotionEvent> &scheduled_events = {},
+        const MotionEvent *sensor_event = nullptr)
+    {
+        MotionEvent selected{};
+        int selected_priority = 0;
+        auto consider = [&](const MotionEvent &event) {
+            if (!event.IsActive(time_s))
+                return;
+            const int priority = MotionEventPriority(event.type);
+            if (priority > selected_priority ||
+                (priority == selected_priority &&
+                 event.start_time_s > selected.start_time_s))
+            {
+                selected = event;
+                selected_priority = priority;
+            }
+        };
+        for (const MotionEvent &event : scheduled_events)
+            consider(event);
+        if (sensor_event != nullptr)
+            consider(*sensor_event);
+
+        MotionReference target = ClampReference(nominal);
+        ApplyEventTarget(selected, target);
+        if (!initialized_)
+        {
+            current_ = ClampReference(nominal);
+            initialized_ = true;
+        }
+        const double dt = std::isfinite(dt_s)
+            ? std::clamp(dt_s, 0.0, 0.050)
+            : 0.0;
+        current_.vx_mps = RateLimitSigned(
+            current_.vx_mps, target.vx_mps, dt,
+            config_.accel_mps2, config_.decel_mps2);
+        current_.vy_mps = RateLimit(
+            current_.vy_mps, target.vy_mps, dt,
+            config_.lateral_accel_mps2);
+        current_.yaw_rate_radps = RateLimit(
+            current_.yaw_rate_radps, target.yaw_rate_radps, dt,
+            config_.yaw_accel_radps2);
+        current_.step_scale = RateLimit(
+            current_.step_scale, target.step_scale, dt,
+            config_.step_scale_rate_s);
+        current_.duty_factor = RateLimit(
+            current_.duty_factor, target.duty_factor, dt,
+            config_.duty_rate_s);
+        current_.foot_lift_m = RateLimit(
+            current_.foot_lift_m, target.foot_lift_m, dt,
+            config_.foot_lift_rate_mps);
+
+        MotionEventResponse output;
+        output.reference = current_;
+        output.target = target;
+        output.active_event = selected.type;
+        output.active_priority = selected_priority;
+        output.event_active = selected.type != MotionEventType::kNone;
+        return output;
+    }
+
+private:
+    static double RateLimit(
+        double current, double target, double dt, double rate) noexcept
+    {
+        if (!(dt > 0.0))
+            return current;
+        if (!(rate > 0.0) || !std::isfinite(current))
+            return target;
+        if (!std::isfinite(target))
+            return current;
+        const double delta = std::clamp(target - current, -rate * dt, rate * dt);
+        return current + delta;
+    }
+
+    static double RateLimitSigned(
+        double current, double target, double dt,
+        double accel, double decel) noexcept
+    {
+        if (!(dt > 0.0))
+            return current;
+        const bool accelerating = std::abs(target) > std::abs(current) &&
+                                  current * target >= 0.0;
+        const double rate = accelerating ? accel : decel;
+        return RateLimit(current, target, dt, rate);
+    }
+
+    MotionReference ClampReference(MotionReference reference) const noexcept
+    {
+        reference.vx_mps = std::clamp(
+            reference.vx_mps, -config_.max_abs_vx_mps, config_.max_abs_vx_mps);
+        reference.vy_mps = std::clamp(
+            reference.vy_mps, -config_.max_abs_vy_mps, config_.max_abs_vy_mps);
+        reference.yaw_rate_radps = std::clamp(
+            reference.yaw_rate_radps, -config_.max_abs_yaw_rate_radps,
+            config_.max_abs_yaw_rate_radps);
+        reference.step_scale = std::clamp(reference.step_scale, 0.25, 1.25);
+        reference.duty_factor = std::clamp(reference.duty_factor, 0.45, 0.90);
+        reference.foot_lift_m = std::clamp(reference.foot_lift_m, 0.015, 0.080);
+        return reference;
+    }
+
+    void ApplyEventTarget(
+        const MotionEvent &event,
+        MotionReference &target) const noexcept
+    {
+        const double turn = event.magnitude != 0.0
+            ? std::abs(event.magnitude)
+            : config_.default_turn_rate_radps;
+        switch (event.type)
+        {
+        case MotionEventType::kEmergencyStop:
+        case MotionEventType::kImpact:
+            target.vx_mps = 0.0;
+            target.vy_mps = 0.0;
+            target.yaw_rate_radps = 0.0;
+            target.step_scale = config_.emergency_step_scale;
+            target.duty_factor = config_.protective_duty_factor;
+            target.foot_lift_m = config_.protective_foot_lift_m;
+            break;
+        case MotionEventType::kObstacleLeft:
+            target.vx_mps *= config_.obstacle_speed_scale;
+            target.yaw_rate_radps = turn;
+            target.step_scale = std::min(target.step_scale, 0.70);
+            target.duty_factor = std::max(
+                target.duty_factor, config_.protective_duty_factor);
+            break;
+        case MotionEventType::kObstacleRight:
+            target.vx_mps *= config_.obstacle_speed_scale;
+            target.yaw_rate_radps = -turn;
+            target.step_scale = std::min(target.step_scale, 0.70);
+            target.duty_factor = std::max(
+                target.duty_factor, config_.protective_duty_factor);
+            break;
+        case MotionEventType::kTurnLeft:
+            target.vx_mps *= config_.turn_speed_scale;
+            target.yaw_rate_radps = turn;
+            break;
+        case MotionEventType::kTurnRight:
+            target.vx_mps *= config_.turn_speed_scale;
+            target.yaw_rate_radps = -turn;
+            break;
+        case MotionEventType::kSlip:
+            target.vx_mps *= config_.slip_speed_scale;
+            target.step_scale = std::min(target.step_scale, 0.60);
+            target.duty_factor = std::max(
+                target.duty_factor, config_.protective_duty_factor);
+            break;
+        case MotionEventType::kLowFriction:
+            target.vx_mps *= config_.low_friction_speed_scale;
+            target.step_scale = std::min(target.step_scale, 0.60);
+            target.duty_factor = std::max(
+                target.duty_factor, config_.protective_duty_factor);
+            break;
+        case MotionEventType::kNone:
+            break;
+        }
+        target = ClampReference(target);
+    }
+
+    MotionEventResponseConfig config_;
+    MotionReference current_{};
+    bool initialized_ = false;
+};
+
+} // namespace go2_control

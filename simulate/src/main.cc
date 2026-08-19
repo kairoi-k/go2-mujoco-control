@@ -894,6 +894,12 @@ namespace
     static bool push_active_logged_ = false;
     static bool push_vel_applied_ = false;
     static bool payload_applied_ = false;
+    static int friction_geom_id = -1;
+    static mjtNum friction_nominal_mu = 0.0;
+    static bool friction_saved = false;
+    static bool friction_changed = false;
+    static bool friction_config_logged = false;
+    static bool friction_event_restored = false;
     // cpu-sim syncronization point
     std::chrono::time_point<mj::Simulate::Clock> syncCPU;
     mjtNum syncSim = 0;
@@ -905,6 +911,14 @@ namespace
     // run until asked to exit
     while (!sim.exitrequest.load())
     {
+      if (!friction_config_logged)
+      {
+        std::cout << "FRICTION config time=" << param::config.friction_time_s
+                  << " mu=" << param::config.friction_mu
+                  << " duration=" << param::config.friction_duration_s
+                  << "\n";
+        friction_config_logged = true;
+      }
       // disturbance push: set xfrc every step (covers all stepping paths)
       static int push_body_id = -1;
       if (push_body_id < 0)
@@ -913,6 +927,17 @@ namespace
         if (push_body_id < 0)
           push_body_id = mj_name2id(m, mjOBJ_BODY, "torso_link");
         std::cout << "PUSH body_id=" << push_body_id << "\n";
+      }
+      if (!friction_saved && m != nullptr)
+      {
+        friction_geom_id = mj_name2id(m, mjOBJ_GEOM, "floor");
+        if (friction_geom_id >= 0)
+        {
+          friction_nominal_mu = m->geom_friction[3 * friction_geom_id];
+          friction_saved = true;
+          std::cout << "FRICTION floor_geom_id=" << friction_geom_id
+                    << " nominal_mu=" << friction_nominal_mu << "\n";
+        }
       }
       if (param::config.payload_kg > 0.0 && !payload_applied_)
       {
@@ -935,6 +960,28 @@ namespace
           d->time >= param::config.push_time_s &&
           d->time <= param::config.push_time_s +
                          param::config.push_duration_s;
+      if (friction_saved && d != nullptr &&
+          param::config.friction_time_s >= 0.0 &&
+          !friction_changed && !friction_event_restored &&
+          d->time >= param::config.friction_time_s)
+      {
+        const double mu = std::max(
+            0.01, std::min(5.0, param::config.friction_mu));
+        m->geom_friction[3 * friction_geom_id] = mu;
+        friction_changed = true;
+        std::cerr << "FRICTION event active t=" << d->time
+                  << " mu=" << mu << std::endl;
+      }
+      if (friction_changed && friction_saved && d != nullptr &&
+          d->time > param::config.friction_time_s +
+                         param::config.friction_duration_s)
+      {
+        m->geom_friction[3 * friction_geom_id] = friction_nominal_mu;
+        friction_changed = false;
+        friction_event_restored = true;
+        std::cerr << "FRICTION restored t=" << d->time
+                  << " mu=" << friction_nominal_mu << std::endl;
+      }
       if (param::config.push_time_s >= 0.0 && d != nullptr &&
           !push_window)
       {

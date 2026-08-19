@@ -80,6 +80,27 @@ public:
         return "hand-coded-trot";
     }
 
+    void SetGaitStepLength(double step_m) override
+    {
+        if (step_m >= 0.0 && std::isfinite(step_m))
+            params_.step_length_m = step_m;
+    }
+    void SetGaitPeriod(double period_s) override
+    {
+        if (period_s > 0.0 && std::isfinite(period_s))
+            params_.period_s = period_s;
+    }
+    void SetGaitDuty(double duty) override
+    {
+        if (duty > 0.0 && duty < 1.0 && std::isfinite(duty))
+            params_.duty_factor = duty;
+    }
+    void SetGaitFootLift(double lift_m) override
+    {
+        if (lift_m >= 0.0 && std::isfinite(lift_m))
+            params_.foot_lift_m = lift_m;
+    }
+
     bool Compute(
         const GaitKernelRequest &request,
         GaitKernelResult &result) override

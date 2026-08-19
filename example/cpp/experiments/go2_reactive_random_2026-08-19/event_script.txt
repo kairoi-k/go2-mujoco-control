@@ -1,0 +1,8 @@
+# Deterministic mixed-event stress sequence; times are relative to gait start.
+0.9 0.8 turn_right 0.16
+2.0 0.7 obstacle_left 0.20
+3.1 0.9 low_friction 0.0
+4.6 0.6 turn_left 0.18
+5.5 0.8 obstacle_right 0.20
+7.0 0.7 emergency_stop 0.0
+9.0 0.8 turn_right 0.14

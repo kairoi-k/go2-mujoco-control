@@ -27,7 +27,8 @@ void PrintTrotCliUsage()
            " [--wbc-reduced-contact-task]"
            " [--wbc-task-torque-feedforward]"
            " [--direction +/-1] [--support-anchor-feedback]"
-           " [--support-anchor-gain g] [--forever] [--stop-file path]"
+           " [--support-anchor-gain g] [--event-script path]"
+           " [--forever] [--stop-file path]"
            " [--task stand-walk-lie]"
            " [--goal-x m] [--goal-y m] [--goal-tol m]\n";
 }
@@ -97,10 +98,14 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.params.wall_clock_motion = true;
             else if (option == "--max-cycles")
                 cfg.max_cycles = std::stoi(require_value("--max-cycles"));
+            else if (option == "--reactive-events")
+                cfg.params.reactive_events = true;
             else if (option == "--forever")
                 cfg.continuous_mode = true;
             else if (option == "--stop-file")
                 cfg.stop_file_path = require_value("--stop-file");
+            else if (option == "--event-script")
+                cfg.params.event_script_path = require_value("--event-script");
             else if (option == "--task")
             {
                 const std::string task_name = require_value("--task");
@@ -282,6 +287,16 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
         }
     }
 
+    if (!cfg.params.event_script_path.empty() &&
+        !go2_control::LoadMotionEventScript(
+            cfg.params.event_script_path, cfg.params.event_schedule,
+            error_out))
+    {
+        if (error_out && error_out->empty())
+            *error_out = "invalid event script";
+        return false;
+    }
+
 if (!(cfg.params.period_s >= (cfg.params.wbc_full ? 0.18 : 0.35) &&
           cfg.params.period_s <= 3.0) ||
         (cfg.params.kernel_name != "hand-coded-trot" &&
@@ -365,9 +380,18 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << "  wbc_primary=" << (params.wbc_primary ? "on" : "off") << "\n"
               << "  wbc_full=" << (params.wbc_full ? "on" : "off") << "\n"
               << "  cartesian_world="
+              << "  reactive_events="
+              << ((params.reactive_events || !params.event_schedule.empty()) ? "on" : "off") << "\n"
               << (params.cartesian_world ? "on" : "off") << "\n"
               << "  preview_horizon=" << params.preview_horizon_steps << "\n"
               << "  impulse=" << (params.impulse ? "on" : "off") << "\n"
+              << "  event_script="
+              << (params.event_script_path.empty()
+                      ? "off"
+                      : (params.event_script_path + " (" +
+                         std::to_string(params.event_schedule.size()) +
+                         " events)"))
+              << "\n"
               << "  task="
               << (cfg.task_mode ? "stand-walk-lie" : "trot-only") << "\n"
               << "  goal="

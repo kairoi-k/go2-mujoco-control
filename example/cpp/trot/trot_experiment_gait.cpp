@@ -146,6 +146,8 @@ bool TrotExperiment::BuildGaitTargets(
     if (params_.cartesian_world && wbc_speed_cmd_mps_ > 0.0)
         kernel_nominal_velocity_x_mps_ =
             params_.direction_sign * wbc_speed_cmd_mps_;
+    if (motion_event_response_enabled_)
+        kernel_nominal_velocity_x_mps_ = motion_reference_.vx_mps;
     if (gait_result.period_s > 0.0)
         kernel_period_s_ = gait_result.period_s;
     if (gait_result.duty_factor > 0.0)
@@ -636,10 +638,12 @@ bool TrotExperiment::BuildGaitTargets(
                 : world_reference_yaw_rad_;
         world_yaw_error_rad_ = WrapAngle(pose.yaw_rad - heading_ref);
         const bool turn_active =
-            task_.goal_enabled_
-                ? task_.TurnEnable(running_time_) > 0.0 &&
-                      std::abs(task_.commanded_turn_rate_radps_) > 1.0e-4
-                : params_.turn_rate_radps != 0.0;
+            motion_event_response_enabled_
+                ? std::abs(motion_reference_.yaw_rate_radps) > 1.0e-4
+                : (task_.goal_enabled_
+                       ? task_.TurnEnable(running_time_) > 0.0 &&
+                             std::abs(task_.commanded_turn_rate_radps_) > 1.0e-4
+                       : params_.turn_rate_radps != 0.0);
         const double yaw_trim = turn_active
             ? 0.0
             : Clamp(
