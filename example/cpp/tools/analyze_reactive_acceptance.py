@@ -253,6 +253,11 @@ def response_metrics(
         value for row in active
         if math.isfinite(value := number(row, "imu_yaw_rad"))
     ]
+    ref_yaw_values = finite(active, "event_ref_yaw_rate_radps")
+    ref_yaw_peak = max((abs(value) for value in ref_yaw_values), default=math.nan)
+    active_roll = finite(active, "imu_roll_rad")
+    active_pitch = finite(active, "imu_pitch_rad")
+    post_yaw_values = finite(post, "imu_yaw_rad")
     pre_vx = median(pre, "world_velocity_x_mps")
     active_vx_min, active_vx_max = extrema(active, "world_velocity_x_mps")
     post_vx = median(post, "world_velocity_x_mps")
@@ -300,6 +305,11 @@ def response_metrics(
         "yaw_integral_delta_rad": unwrap_delta(yaw_values),
         "reference_vx_mps": ref_vx,
         "reference_yaw_rate_radps": ref_yaw,
+        "reference_yaw_rate_peak_abs_radps": ref_yaw_peak,
+        "active_abs_roll_max_rad": max((abs(value) for value in active_roll), default=math.nan),
+        "active_abs_pitch_max_rad": max((abs(value) for value in active_pitch), default=math.nan),
+        "post_yaw_min_rad": min(post_yaw_values, default=math.nan),
+        "post_yaw_max_rad": max(post_yaw_values, default=math.nan),
         "target_vx_mps": target_vx,
         "target_yaw_rate_radps": target_yaw,
         "event_rows": float(len(active)),
@@ -337,7 +347,7 @@ def response_metrics(
         )
     elif event in {"obstacle_left", "obstacle_right"}:
         metrics["brake_ok"] = float(
-            math.isfinite(ref_yaw) and abs(ref_yaw) >= 0.10
+            math.isfinite(ref_yaw_peak) and ref_yaw_peak >= 0.10
             and math.isfinite(metrics["yaw_change_rad"])
             and abs(metrics["yaw_change_rad"]) >= 0.08
             and metrics["lateral_shift_ok"] == 1.0
@@ -393,6 +403,20 @@ def analyze(path_string: str) -> dict[str, object]:
             and contact["obstacle_contact_max_count"] <= 0.0
             and contact["obstacle_contact_max_force_N"] <= 1.0e-6
         )
+        metrics["obstacle_posture_ok"] = float(
+            math.isfinite(metrics.get("active_abs_roll_max_rad", math.nan))
+            and metrics["active_abs_roll_max_rad"] <= 0.14
+            and math.isfinite(metrics.get("active_abs_pitch_max_rad", math.nan))
+            and metrics["active_abs_pitch_max_rad"] <= 0.20
+        )
+        if expected == "obstacle_right":
+            metrics["post_yaw_sign_ok"] = float(
+                metrics["post_yaw_max_rad"] <= 0.05
+            )
+        else:
+            metrics["post_yaw_sign_ok"] = float(
+                metrics["post_yaw_min_rad"] >= -0.05
+            )
     status_keys = (
         "controller_status", "safety_status", "quality_status",
         "analysis_status", "ground_truth_status", "dynamics_status",
@@ -432,6 +456,10 @@ def analyze(path_string: str) -> dict[str, object]:
         and metrics.get("post_rows", 0.0) >= 50.0
         and metrics.get("brake_ok", 0.0) == 1.0
         and obstacle_ok
+        and (expected not in {"obstacle_left", "obstacle_right"}
+             or metrics.get("post_yaw_sign_ok", 0.0) == 1.0)
+        and (expected not in {"obstacle_left", "obstacle_right"}
+             or metrics.get("obstacle_posture_ok", 0.0) == 1.0)
         and (
             expected not in {"turn_left", "turn_right",
                              "obstacle_left", "obstacle_right"}

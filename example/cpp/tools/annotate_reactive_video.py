@@ -113,6 +113,11 @@ def main() -> None:
         text_filter(f"DATA GATE: {strict} | {response}", "24", "h-48", 18),
     ]
     if math.isfinite(start) and math.isfinite(end):
+        after_event_text = (
+            "WBC STANCE HOLD"
+            if event_name == "EMERGENCY_STOP"
+            else "RECOVERY / REFERENCE RAMP"
+        )
         filters += [
             f"drawbox=x=0:y=ih-30:w=iw:h=30:color=red@0.55:t=fill:"
             f"enable='between(t,{start:.3f},{end:.3f})'",
@@ -125,7 +130,7 @@ def main() -> None:
                 f"between(t,{start:.3f},{end:.3f})",
             ),
             text_filter(
-                "RECOVERY / REFERENCE RAMP",
+                after_event_text,
                 "w/2-170",
                 "h-26",
                 18,

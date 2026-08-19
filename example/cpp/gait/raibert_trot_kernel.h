@@ -38,6 +38,8 @@ public:
     void Reset() noexcept
     {
         leg_states_ = {};
+        stance_hold_ = false;
+        stance_hold_blend_ = 0.0;
         have_last_gait_time_ = false;
         last_gait_time_s_ = 0.0;
         phase_acc_ = 0.0;  // [Fix 2026-08-13] 连续相位累积
@@ -71,8 +73,15 @@ public:
         if (lift_m >= 0.0 && std::isfinite(lift_m))
             target_foot_lift_m_ = lift_m;
     }
-    void SetStanceHold(bool hold, double) override
+    void SetStanceHold(bool hold, double gait_time_s) override
     {
+        if (!hold && stance_hold_ && std::isfinite(gait_time_s))
+        {
+            phase_acc_ = 0.0;
+            have_last_gait_time_ = false;
+            leg_states_ = {};
+            last_ramp_cycle_index_ = -1;
+        }
         stance_hold_ = hold;
     }
     void SetGaitSlewLimits(double step, double period, double duty) override
@@ -119,7 +128,7 @@ public:
         const double gait_dt = have_last_gait_time_
             ? std::max(0.0, request.gait_time_s - last_gait_time_s_)
             : 0.0;
-        if (have_last_gait_time_)
+        if (have_last_gait_time_ && !stance_hold_)
         {
             phase_acc_ += gait_dt / params_.gait.period_s;
         }

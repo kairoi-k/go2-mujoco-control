@@ -101,8 +101,10 @@ public:
         if (lift_m >= 0.0 && std::isfinite(lift_m))
             params_.foot_lift_m = lift_m;
     }
-    void SetStanceHold(bool hold, double) override
+    void SetStanceHold(bool hold, double gait_time_s) override
     {
+        if (!hold && stance_hold_ && std::isfinite(gait_time_s))
+            phase_origin_gait_time_s_ = gait_time_s;
         stance_hold_ = hold;
     }
 
@@ -123,8 +125,9 @@ public:
             return false;
         }
 
-        const double cycle_position =
-            request.gait_time_s / params_.period_s;
+        const double effective_gait_time = std::max(
+            0.0, request.gait_time_s - phase_origin_gait_time_s_);
+        const double cycle_position = effective_gait_time / params_.period_s;
         if (!std::isfinite(cycle_position) ||
             cycle_position >
                 static_cast<double>(std::numeric_limits<int>::max()))
@@ -143,9 +146,9 @@ public:
         result.step_length_m = params_.step_length_m;
 
         const double blend =
-            Smoothstep(request.gait_time_s / params_.blend_duration_s);
+            Smoothstep(effective_gait_time / params_.blend_duration_s);
         const double dt = last_gait_time_ >= 0.0
-            ? std::max(0.0, request.gait_time_s - last_gait_time_)
+            ? std::max(0.0, effective_gait_time - last_gait_time_)
             : 0.0;
         const double hold_step = std::clamp(dt / 0.25, 0.0, 1.0);
         const double hold_target = stance_hold_ ? 1.0 : 0.0;
@@ -186,7 +189,7 @@ public:
             result.feet[leg].x += gait_blend * x_offset;
             result.feet[leg].z += gait_blend * z_offset;
         }
-        last_gait_time_ = request.gait_time_s;
+        last_gait_time_ = effective_gait_time;
         return true;
     }
 
@@ -206,6 +209,7 @@ private:
     bool stance_hold_ = false;
     double stance_hold_blend_ = 0.0;
     double last_gait_time_ = -1.0;
+    double phase_origin_gait_time_s_ = 0.0;
 };
 
 } // namespace go2_control

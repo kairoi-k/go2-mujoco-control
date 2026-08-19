@@ -118,6 +118,40 @@ int main()
         "Turn reference did not have the expected sign.");
     passed &= Check(!output.reference.hold_stance, "Stance hold did not release after emergency event.");
 
+    MotionEventResponseConfig obstacle_config;
+    MotionEventResponseLayer obstacle_layer(obstacle_config);
+    const std::vector<MotionEvent> obstacle_events = {
+        {MotionEventType::kObstacleRight, 0.0, 20.0, 0.48},
+    };
+    auto obstacle_output = obstacle_layer.Update(
+        0.0, 0.0, nominal, obstacle_events);
+    passed &= Check(
+        obstacle_output.target.vy_mps < 0.0 &&
+            obstacle_output.target.yaw_rate_radps < 0.0,
+        "Obstacle entry reference sign was wrong.");
+    obstacle_output = obstacle_layer.Update(
+        1.5, 0.002, nominal, obstacle_events);
+    passed &= Check(
+        obstacle_output.target.vy_mps < 0.0 &&
+            obstacle_output.target.yaw_rate_radps < 0.0 &&
+            std::abs(obstacle_output.target.yaw_rate_radps) < 0.20,
+        "Obstacle turn did not transition to the bounded hold yaw.");
+    obstacle_output = obstacle_layer.Update(
+        12.0, 0.002, nominal, obstacle_events);
+    passed &= Check(
+        obstacle_output.target.vy_mps == 0.0,
+        "Obstacle lateral command did not end after clearance.");
+    MotionSensorSample obstacle_sensor{};
+    obstacle_sensor.have_velocity = true;
+    obstacle_sensor.velocity_y_mps = 0.10;
+    obstacle_sensor.have_angular_velocity_z = true;
+    obstacle_sensor.angular_velocity_z_radps = 0.10;
+    obstacle_output = obstacle_layer.Update(
+        20.1, 0.002, nominal, {}, nullptr, &obstacle_sensor);
+    passed &= Check(
+        obstacle_output.reference.vy_mps <= 0.0 &&
+            obstacle_output.reference.yaw_rate_radps <= 0.0,
+        "Obstacle recovery produced an opposite-sign command.");
     if (!passed)
         return 1;
     std::cout << "Motion event response checks passed.\n";

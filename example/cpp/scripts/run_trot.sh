@@ -371,6 +371,9 @@ elif [[ -n "$max_cycles_requested" ]]; then
     echo "Trot experiment did not complete the requested cycles; see $experiment_dir/controller.log" >&2
     completion_status=1
   fi
+elif grep -q "Emergency stop hold complete; ending in WBC stance" \
+    "$experiment_dir/controller.log"; then
+  :
 elif ! grep -q "Trot stopping; returning to stand" "$experiment_dir/controller.log"; then
   echo "Trot experiment did not reach a controlled stop; see $experiment_dir/controller.log" >&2
   completion_status=1

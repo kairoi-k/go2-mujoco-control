@@ -1,0 +1,587 @@
+{
+  "protocol_name": "go2_reactive_transition_matrix",
+  "protocol_version": "1.1",
+  "created_at": "2026-08-20T02:09:19+08:00",
+  "events": [
+    "emergency_stop",
+    "obstacle_left",
+    "obstacle_right",
+    "turn_left",
+    "turn_right",
+    "slip",
+    "low_friction",
+    "impact"
+  ],
+  "source_events": [
+    "obstacle_left",
+    "obstacle_right",
+    "turn_left",
+    "turn_right",
+    "slip",
+    "low_friction",
+    "impact"
+  ],
+  "absorbing_events": [
+    "emergency_stop"
+  ],
+  "pair_count": 49,
+  "event_start_s": 1.5,
+  "event_duration_s": 2.0,
+  "second_event_start_s": 3.5,
+  "controller_duration_s": 7.5,
+  "post_event_window_s": 1.5,
+  "transition_tolerance_s": 0.08,
+  "event_magnitudes": {
+    "emergency_stop": 0.0,
+    "obstacle_left": 0.48,
+    "obstacle_right": 0.48,
+    "turn_left": 0.55,
+    "turn_right": 0.55,
+    "slip": 0.0,
+    "low_friction": 0.0,
+    "impact": 0.0
+  },
+  "controller_args": [
+    "--wbc-full",
+    "--step-length",
+    "0.091",
+    "--period",
+    "0.60",
+    "--duty",
+    "0.75",
+    "--foot-lift",
+    "0.020",
+    "--kernel",
+    "raibert-trot",
+    "--raibert-velocity-gain",
+    "0.05",
+    "--raibert-max-adjustment",
+    "0.010",
+    "--tau-limit",
+    "35",
+    "--controller-duration",
+    "7.5",
+    "--headless"
+  ],
+  "sensor_events_enabled": false,
+  "scene": "/home/che/dev/go2-mujoco-control/unitree_robots/go2/scene_leg_lift_demo.xml",
+  "scene_sha256": "12286418247d0e240ae131b5ae5c60f3a7a481d4754aefe4517476e937aa05b8",
+  "controller": "/home/che/dev/go2-mujoco-control/example/cpp/build/real_trot_go2",
+  "controller_sha256": "195a60441c5c3b64fcc06f85e2d4c892bba9b37d9d476c0e40cf6cc1b17669f1",
+  "reference_rate_limits": {
+    "vx_mps_per_s": 2.5,
+    "vy_mps_per_s": 1.5,
+    "yaw_rate_radps_per_s": 2.0
+  },
+  "acceptance_limits": {
+    "max_abs_roll_rad": 0.25,
+    "max_abs_pitch_rad": 0.25,
+    "max_actual_velocity_jump_mps": 0.08,
+    "min_contact_count": 1,
+    "max_solver_residual": 0.001
+  },
+  "terminal_policy": "emergency_stop is absorbing: any event may transition into it, but no transition out is required; WBC stance hold ends the run.",
+  "max_attempts": 2,
+  "retry_delay_s": 5.0,
+  "domain_base": 100,
+  "domain_stride": 49,
+  "selected_start_index": 1,
+  "selected_count": 49,
+  "pair_specs": [
+    {
+      "index": 1,
+      "source": "obstacle_left",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 2,
+      "source": "obstacle_left",
+      "target": "obstacle_right"
+    },
+    {
+      "index": 3,
+      "source": "obstacle_left",
+      "target": "turn_left"
+    },
+    {
+      "index": 4,
+      "source": "obstacle_left",
+      "target": "turn_right"
+    },
+    {
+      "index": 5,
+      "source": "obstacle_left",
+      "target": "slip"
+    },
+    {
+      "index": 6,
+      "source": "obstacle_left",
+      "target": "low_friction"
+    },
+    {
+      "index": 7,
+      "source": "obstacle_left",
+      "target": "impact"
+    },
+    {
+      "index": 8,
+      "source": "obstacle_right",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 9,
+      "source": "obstacle_right",
+      "target": "obstacle_left"
+    },
+    {
+      "index": 10,
+      "source": "obstacle_right",
+      "target": "turn_left"
+    },
+    {
+      "index": 11,
+      "source": "obstacle_right",
+      "target": "turn_right"
+    },
+    {
+      "index": 12,
+      "source": "obstacle_right",
+      "target": "slip"
+    },
+    {
+      "index": 13,
+      "source": "obstacle_right",
+      "target": "low_friction"
+    },
+    {
+      "index": 14,
+      "source": "obstacle_right",
+      "target": "impact"
+    },
+    {
+      "index": 15,
+      "source": "turn_left",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 16,
+      "source": "turn_left",
+      "target": "obstacle_left"
+    },
+    {
+      "index": 17,
+      "source": "turn_left",
+      "target": "obstacle_right"
+    },
+    {
+      "index": 18,
+      "source": "turn_left",
+      "target": "turn_right"
+    },
+    {
+      "index": 19,
+      "source": "turn_left",
+      "target": "slip"
+    },
+    {
+      "index": 20,
+      "source": "turn_left",
+      "target": "low_friction"
+    },
+    {
+      "index": 21,
+      "source": "turn_left",
+      "target": "impact"
+    },
+    {
+      "index": 22,
+      "source": "turn_right",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 23,
+      "source": "turn_right",
+      "target": "obstacle_left"
+    },
+    {
+      "index": 24,
+      "source": "turn_right",
+      "target": "obstacle_right"
+    },
+    {
+      "index": 25,
+      "source": "turn_right",
+      "target": "turn_left"
+    },
+    {
+      "index": 26,
+      "source": "turn_right",
+      "target": "slip"
+    },
+    {
+      "index": 27,
+      "source": "turn_right",
+      "target": "low_friction"
+    },
+    {
+      "index": 28,
+      "source": "turn_right",
+      "target": "impact"
+    },
+    {
+      "index": 29,
+      "source": "slip",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 30,
+      "source": "slip",
+      "target": "obstacle_left"
+    },
+    {
+      "index": 31,
+      "source": "slip",
+      "target": "obstacle_right"
+    },
+    {
+      "index": 32,
+      "source": "slip",
+      "target": "turn_left"
+    },
+    {
+      "index": 33,
+      "source": "slip",
+      "target": "turn_right"
+    },
+    {
+      "index": 34,
+      "source": "slip",
+      "target": "low_friction"
+    },
+    {
+      "index": 35,
+      "source": "slip",
+      "target": "impact"
+    },
+    {
+      "index": 36,
+      "source": "low_friction",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 37,
+      "source": "low_friction",
+      "target": "obstacle_left"
+    },
+    {
+      "index": 38,
+      "source": "low_friction",
+      "target": "obstacle_right"
+    },
+    {
+      "index": 39,
+      "source": "low_friction",
+      "target": "turn_left"
+    },
+    {
+      "index": 40,
+      "source": "low_friction",
+      "target": "turn_right"
+    },
+    {
+      "index": 41,
+      "source": "low_friction",
+      "target": "slip"
+    },
+    {
+      "index": 42,
+      "source": "low_friction",
+      "target": "impact"
+    },
+    {
+      "index": 43,
+      "source": "impact",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 44,
+      "source": "impact",
+      "target": "obstacle_left"
+    },
+    {
+      "index": 45,
+      "source": "impact",
+      "target": "obstacle_right"
+    },
+    {
+      "index": 46,
+      "source": "impact",
+      "target": "turn_left"
+    },
+    {
+      "index": 47,
+      "source": "impact",
+      "target": "turn_right"
+    },
+    {
+      "index": 48,
+      "source": "impact",
+      "target": "slip"
+    },
+    {
+      "index": 49,
+      "source": "impact",
+      "target": "low_friction"
+    }
+  ],
+  "git_head": "ed63e23ba9e9eba233313838b7296eaa4076d96a",
+  "repo": "/home/che/dev/go2-mujoco-control",
+  "run_command": "/home/che/dev/go2-mujoco-control/example/cpp/tools/run_reactive_transition_matrix.py",
+  "selected_pairs": [
+    {
+      "index": 1,
+      "source": "obstacle_left",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 2,
+      "source": "obstacle_left",
+      "target": "obstacle_right"
+    },
+    {
+      "index": 3,
+      "source": "obstacle_left",
+      "target": "turn_left"
+    },
+    {
+      "index": 4,
+      "source": "obstacle_left",
+      "target": "turn_right"
+    },
+    {
+      "index": 5,
+      "source": "obstacle_left",
+      "target": "slip"
+    },
+    {
+      "index": 6,
+      "source": "obstacle_left",
+      "target": "low_friction"
+    },
+    {
+      "index": 7,
+      "source": "obstacle_left",
+      "target": "impact"
+    },
+    {
+      "index": 8,
+      "source": "obstacle_right",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 9,
+      "source": "obstacle_right",
+      "target": "obstacle_left"
+    },
+    {
+      "index": 10,
+      "source": "obstacle_right",
+      "target": "turn_left"
+    },
+    {
+      "index": 11,
+      "source": "obstacle_right",
+      "target": "turn_right"
+    },
+    {
+      "index": 12,
+      "source": "obstacle_right",
+      "target": "slip"
+    },
+    {
+      "index": 13,
+      "source": "obstacle_right",
+      "target": "low_friction"
+    },
+    {
+      "index": 14,
+      "source": "obstacle_right",
+      "target": "impact"
+    },
+    {
+      "index": 15,
+      "source": "turn_left",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 16,
+      "source": "turn_left",
+      "target": "obstacle_left"
+    },
+    {
+      "index": 17,
+      "source": "turn_left",
+      "target": "obstacle_right"
+    },
+    {
+      "index": 18,
+      "source": "turn_left",
+      "target": "turn_right"
+    },
+    {
+      "index": 19,
+      "source": "turn_left",
+      "target": "slip"
+    },
+    {
+      "index": 20,
+      "source": "turn_left",
+      "target": "low_friction"
+    },
+    {
+      "index": 21,
+      "source": "turn_left",
+      "target": "impact"
+    },
+    {
+      "index": 22,
+      "source": "turn_right",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 23,
+      "source": "turn_right",
+      "target": "obstacle_left"
+    },
+    {
+      "index": 24,
+      "source": "turn_right",
+      "target": "obstacle_right"
+    },
+    {
+      "index": 25,
+      "source": "turn_right",
+      "target": "turn_left"
+    },
+    {
+      "index": 26,
+      "source": "turn_right",
+      "target": "slip"
+    },
+    {
+      "index": 27,
+      "source": "turn_right",
+      "target": "low_friction"
+    },
+    {
+      "index": 28,
+      "source": "turn_right",
+      "target": "impact"
+    },
+    {
+      "index": 29,
+      "source": "slip",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 30,
+      "source": "slip",
+      "target": "obstacle_left"
+    },
+    {
+      "index": 31,
+      "source": "slip",
+      "target": "obstacle_right"
+    },
+    {
+      "index": 32,
+      "source": "slip",
+      "target": "turn_left"
+    },
+    {
+      "index": 33,
+      "source": "slip",
+      "target": "turn_right"
+    },
+    {
+      "index": 34,
+      "source": "slip",
+      "target": "low_friction"
+    },
+    {
+      "index": 35,
+      "source": "slip",
+      "target": "impact"
+    },
+    {
+      "index": 36,
+      "source": "low_friction",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 37,
+      "source": "low_friction",
+      "target": "obstacle_left"
+    },
+    {
+      "index": 38,
+      "source": "low_friction",
+      "target": "obstacle_right"
+    },
+    {
+      "index": 39,
+      "source": "low_friction",
+      "target": "turn_left"
+    },
+    {
+      "index": 40,
+      "source": "low_friction",
+      "target": "turn_right"
+    },
+    {
+      "index": 41,
+      "source": "low_friction",
+      "target": "slip"
+    },
+    {
+      "index": 42,
+      "source": "low_friction",
+      "target": "impact"
+    },
+    {
+      "index": 43,
+      "source": "impact",
+      "target": "emergency_stop"
+    },
+    {
+      "index": 44,
+      "source": "impact",
+      "target": "obstacle_left"
+    },
+    {
+      "index": 45,
+      "source": "impact",
+      "target": "obstacle_right"
+    },
+    {
+      "index": 46,
+      "source": "impact",
+      "target": "turn_left"
+    },
+    {
+      "index": 47,
+      "source": "impact",
+      "target": "turn_right"
+    },
+    {
+      "index": 48,
+      "source": "impact",
+      "target": "slip"
+    },
+    {
+      "index": 49,
+      "source": "impact",
+      "target": "low_friction"
+    }
+  ]
+}

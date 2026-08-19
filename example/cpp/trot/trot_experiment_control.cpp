@@ -85,7 +85,12 @@ void TrotExperiment::LowCmdWrite()
     }
 
     if (external_stop_requested_.load())
-        task_.stop_requested_ = true;
+    {
+        if (emergency_stop_latched_)
+            task_.sequence_finished_ = true;
+        else
+            task_.stop_requested_ = true;
+    }
     if (PhaseStopToStand(joint_targets))
     {
         // SECTION: stop-to-stand
@@ -190,6 +195,8 @@ bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &j
         auto_motion_event_ = {};
         motion_reference_ = {};
         last_motion_event_type_ = go2_control::MotionEventType::kNone;
+        emergency_stop_latched_ = false;
+        emergency_stop_finish_time_s_ = 0.0;
     }
     support_anchor_valid_.fill(false);
     cartesian_state_ = {};
@@ -266,6 +273,9 @@ void TrotExperiment::UpdateMotionEventResponse(
     sensor.raw_velocity_x_mps = latest_raw_body_velocity_[0];
     sensor.raw_velocity_y_mps = latest_raw_body_velocity_[1];
     sensor.have_raw_velocity = have_raw_body_velocity_;
+    sensor.angular_velocity_z_radps = static_cast<double>(
+        state_snapshot.imu_state().gyroscope()[2]);
+    sensor.have_angular_velocity_z = true;
     sensor.accel_x_mps2 = static_cast<double>(
         state_snapshot.imu_state().accelerometer()[0]);
     sensor.accel_y_mps2 = static_cast<double>(
@@ -291,8 +301,47 @@ void TrotExperiment::UpdateMotionEventResponse(
 
     motion_event_state_ = motion_event_layer_.Update(
         gait_elapsed_s, motion_dt_s, nominal, params_.event_schedule,
-        sensor_event);
+        sensor_event, &sensor);
     motion_reference_ = motion_event_state_.reference;
+
+    // An emergency stop is terminal for this bounded experiment.  Once the
+    // event is seen, keep the same WBC/MPC plant in four-foot stance instead
+    // of letting the scheduled event expire and restarting the trot.
+    if (motion_event_state_.active_event ==
+            go2_control::MotionEventType::kEmergencyStop &&
+        !emergency_stop_latched_)
+    {
+        emergency_stop_latched_ = true;
+        motion_event_layer_.SetEmergencyStopLatched(true);
+        emergency_stop_finish_time_s_ =
+            motion_event_state_.active_event_end_time_s +
+            kEmergencyStopPostHoldDurationS;
+        std::cout << "Emergency stop latched; holding WBC stance until t="
+                  << emergency_stop_finish_time_s_ << " s\n";
+    }
+    if (emergency_stop_latched_)
+    {
+        // Keep the safety target and stance hold latched, but do not overwrite
+        // the slew-limited velocity reference. The common transition layer
+        // continues braking toward zero after the scheduled event expires.
+        motion_event_state_.target.vx_mps = 0.0;
+        motion_event_state_.target.vy_mps = 0.0;
+        motion_event_state_.target.yaw_rate_radps = 0.0;
+        motion_event_state_.target.hold_stance = true;
+        motion_reference_.hold_stance = true;
+        motion_reference_.step_scale =
+            std::min(motion_reference_.step_scale, 0.45);
+        motion_reference_.duty_factor =
+            std::max(motion_reference_.duty_factor, 0.82);
+        motion_reference_.foot_lift_m =
+            std::max(motion_reference_.foot_lift_m, 0.024);
+        if (!task_.sequence_finished_ &&
+            gait_elapsed_s >= emergency_stop_finish_time_s_)
+        {
+            task_.sequence_finished_ = true;
+            std::cout << "Emergency stop hold complete; ending in WBC stance\n";
+        }
+    }
 
     const double velocity_step =
         std::abs(motion_reference_.vx_mps) * params_.period_s;
@@ -486,6 +535,7 @@ bool TrotExperiment::PhaseRunGait(
         }
     }
     if (!continuous_mode_ && !task_.stop_requested_ &&
+        !task_.sequence_finished_ && !emergency_stop_latched_ &&
         gait_time_s >= duration_s_ &&
         std::isfinite(duration_s_))
     {

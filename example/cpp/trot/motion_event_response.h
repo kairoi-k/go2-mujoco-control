@@ -211,6 +211,8 @@ struct MotionSensorSample
     int contact_count = 0;
     bool have_velocity = false;
     bool have_raw_velocity = false;
+    double angular_velocity_z_radps = 0.0;
+    bool have_angular_velocity_z = false;
 };
 
 struct MotionEventDetectorConfig
@@ -220,7 +222,7 @@ struct MotionEventDetectorConfig
     double slip_confirm_s = 0.06;
     double impact_horizontal_accel_mps2 = 8.5;
     double impact_vertical_excess_mps2 = 18.0;
-    double impact_extreme_vertical_excess_mps2 = 28.0;
+    double impact_extreme_vertical_excess_mps2 = 40.0;
     double impact_velocity_jump_mps = 0.35;
     double impact_release_s = 0.50;
     double event_duration_s = 0.80;
@@ -362,9 +364,19 @@ struct MotionEventResponseConfig
     double accel_mps2 = 0.80;
     // Obstacle avoidance keeps its turn amplitude, but releases lateral/yaw
     // references more gently so the body does not roll at event exit.
+    double obstacle_entry_lateral_accel_mps2 = 0.45;
+    double obstacle_entry_yaw_accel_radps2 = 0.70;
     double obstacle_recovery_accel_mps2 = 0.45;
     double obstacle_recovery_lateral_accel_mps2 = 0.75;
-    double obstacle_recovery_yaw_accel_radps2 = 1.00;
+    double obstacle_recovery_yaw_accel_radps2 = 1.50;
+    double obstacle_recovery_lateral_damping_gain = 0.35;
+    double obstacle_recovery_yaw_damping_gain = 2.00;
+    // Obstacle response is a lane change: turn briefly, keep a bounded
+    // lateral command until the physical obstacle is cleared, then coast.
+    double obstacle_turn_duration_s = 1.40;
+    double obstacle_lateral_command_duration_s = 11.0;
+    double obstacle_hold_yaw_rate_radps = 0.06;
+    double obstacle_duty_factor = 0.78;
     double decel_mps2 = 2.50;
     double lateral_accel_mps2 = 1.50;
     double yaw_accel_radps2 = 2.00;
@@ -373,7 +385,7 @@ struct MotionEventResponseConfig
     double foot_lift_rate_mps = 0.030;
     double turn_speed_scale = 0.78;
     double obstacle_speed_scale = 0.70;
-    double obstacle_lateral_speed_mps = 0.60;
+    double obstacle_lateral_speed_mps = 0.45;
     double slip_speed_scale = 0.45;
     double low_friction_speed_scale = 0.45;
     double emergency_step_scale = 0.45;
@@ -389,6 +401,10 @@ struct MotionEventResponse
     MotionEventType active_event = MotionEventType::kNone;
     int active_priority = 0;
     bool event_active = false;
+    // The selected event timing is exported so the experiment sequencer can
+    // implement terminal events without guessing from the reference ramp.
+    double active_event_start_time_s = 0.0;
+    double active_event_end_time_s = 0.0;
 };
 
 inline int MotionEventPriority(MotionEventType type) noexcept
@@ -426,6 +442,14 @@ public:
         last_active_event_ = MotionEventType::kNone;
         initialized_ = false;
         current_ = {};
+        emergency_stop_latched_ = false;
+    }
+
+    // Keep the safety target active after a scheduled emergency event expires.
+    // The reference itself still reaches zero through the same slew limiter.
+    void SetEmergencyStopLatched(bool latched) noexcept
+    {
+        emergency_stop_latched_ = latched;
     }
 
     MotionEventResponse Update(
@@ -433,29 +457,42 @@ public:
         double dt_s,
         const MotionReference &nominal,
         const std::vector<MotionEvent> &scheduled_events = {},
-        const MotionEvent *sensor_event = nullptr)
+        const MotionEvent *sensor_event = nullptr,
+        const MotionSensorSample *sensor_sample = nullptr)
     {
         MotionEvent selected{};
         int selected_priority = 0;
-        auto consider = [&](const MotionEvent &event) {
-            if (!event.IsActive(time_s))
-                return;
-            const int priority = MotionEventPriority(event.type);
-            if (priority > selected_priority ||
-                (priority == selected_priority &&
-                 event.start_time_s > selected.start_time_s))
-            {
-                selected = event;
-                selected_priority = priority;
-            }
-        };
-        for (const MotionEvent &event : scheduled_events)
-            consider(event);
-        if (sensor_event != nullptr)
-            consider(*sensor_event);
+        if (emergency_stop_latched_)
+        {
+            // A latched stop is an absorbing event, but it is intentionally
+            // passed through the ordinary reference slew below. This keeps
+            // the emergency response bounded and makes the transition matrix
+            // test the same continuous interface after the event window.
+            selected = {MotionEventType::kEmergencyStop, time_s, 1.0e9, 0.0};
+            selected_priority = MotionEventPriority(selected.type);
+        }
+        else
+        {
+            auto consider = [&](const MotionEvent &event) {
+                if (!event.IsActive(time_s))
+                    return;
+                const int priority = MotionEventPriority(event.type);
+                if (priority > selected_priority ||
+                    (priority == selected_priority &&
+                     event.start_time_s > selected.start_time_s))
+                {
+                    selected = event;
+                    selected_priority = priority;
+                }
+            };
+            for (const MotionEvent &event : scheduled_events)
+                consider(event);
+            if (sensor_event != nullptr)
+                consider(*sensor_event);
+        }
 
         MotionReference target = ClampReference(nominal);
-        ApplyEventTarget(selected, target);
+        ApplyEventTarget(selected, time_s, target);
         if (!initialized_)
         {
             current_ = ClampReference(nominal);
@@ -471,20 +508,52 @@ public:
              std::abs(current_.vy_mps - target.vy_mps) > 1.0e-6 ||
              std::abs(current_.yaw_rate_radps - target.yaw_rate_radps) >
                  1.0e-6);
+        MotionReference slew_target = target;
+        if (obstacle_recovery && sensor_sample != nullptr)
+        {
+            if (sensor_sample->have_velocity)
+            {
+                const double damped_vy = std::clamp(
+                    -config_.obstacle_recovery_lateral_damping_gain *
+                        sensor_sample->velocity_y_mps,
+                    -config_.max_abs_vy_mps, config_.max_abs_vy_mps);
+                slew_target.vy_mps =
+                    last_active_event_ == MotionEventType::kObstacleRight
+                        ? std::min(0.0, damped_vy)
+                        : std::max(0.0, damped_vy);
+            }
+            if (sensor_sample->have_angular_velocity_z)
+            {
+                const double damped_yaw = std::clamp(
+                    -config_.obstacle_recovery_yaw_damping_gain *
+                        sensor_sample->angular_velocity_z_radps,
+                    -config_.max_abs_yaw_rate_radps,
+                    config_.max_abs_yaw_rate_radps);
+                slew_target.yaw_rate_radps =
+                    last_active_event_ == MotionEventType::kObstacleRight
+                        ? std::min(0.0, damped_yaw)
+                        : std::max(0.0, damped_yaw);
+            }
+        }
+        const bool obstacle_entry = IsObstacleEvent(selected.type);
         current_.vx_mps = RateLimitSigned(
-            current_.vx_mps, target.vx_mps, dt,
+            current_.vx_mps, slew_target.vx_mps, dt,
             obstacle_recovery ? config_.obstacle_recovery_accel_mps2
                               : config_.accel_mps2,
             config_.decel_mps2);
         current_.vy_mps = RateLimit(
-            current_.vy_mps, target.vy_mps, dt,
+            current_.vy_mps, slew_target.vy_mps, dt,
             obstacle_recovery
                 ? config_.obstacle_recovery_lateral_accel_mps2
+                : obstacle_entry
+                ? config_.obstacle_entry_lateral_accel_mps2
                 : config_.lateral_accel_mps2);
         current_.yaw_rate_radps = RateLimit(
-            current_.yaw_rate_radps, target.yaw_rate_radps, dt,
+            current_.yaw_rate_radps, slew_target.yaw_rate_radps, dt,
             obstacle_recovery
                 ? config_.obstacle_recovery_yaw_accel_radps2
+                : obstacle_entry
+                ? config_.obstacle_entry_yaw_accel_radps2
                 : config_.yaw_accel_radps2);
         current_.step_scale = RateLimit(
             current_.step_scale, target.step_scale, dt,
@@ -507,6 +576,12 @@ public:
         output.active_event = selected.type;
         output.active_priority = selected_priority;
         output.event_active = selected.type != MotionEventType::kNone;
+        if (output.event_active)
+        {
+            output.active_event_start_time_s = selected.start_time_s;
+            output.active_event_end_time_s =
+                selected.start_time_s + selected.duration_s;
+        }
         return output;
     }
 
@@ -558,12 +633,20 @@ private:
     }
 
     void ApplyEventTarget(
-        const MotionEvent &event,
+        const MotionEvent &event, double time_s,
         MotionReference &target) const noexcept
     {
         const double turn = event.magnitude != 0.0
             ? std::abs(event.magnitude)
             : config_.default_turn_rate_radps;
+        const double obstacle_elapsed_s =
+            IsObstacleEvent(event.type) && std::isfinite(time_s)
+                ? std::max(0.0, time_s - event.start_time_s)
+                : 0.0;
+        const bool obstacle_lateral_active =
+            obstacle_elapsed_s < config_.obstacle_lateral_command_duration_s;
+        const bool obstacle_turn_active =
+            obstacle_elapsed_s < config_.obstacle_turn_duration_s;
         switch (event.type)
         {
         case MotionEventType::kEmergencyStop:
@@ -578,19 +661,23 @@ private:
             break;
         case MotionEventType::kObstacleLeft:
             target.vx_mps *= config_.obstacle_speed_scale;
-            target.vy_mps = config_.obstacle_lateral_speed_mps;
-            target.yaw_rate_radps = turn;
+            target.vy_mps = obstacle_lateral_active
+                ? config_.obstacle_lateral_speed_mps : 0.0;
+            target.yaw_rate_radps = obstacle_turn_active
+                ? turn : config_.obstacle_hold_yaw_rate_radps;
             target.step_scale = std::min(target.step_scale, 0.70);
             target.duty_factor = std::max(
-                target.duty_factor, config_.protective_duty_factor);
+                target.duty_factor, config_.obstacle_duty_factor);
             break;
         case MotionEventType::kObstacleRight:
             target.vx_mps *= config_.obstacle_speed_scale;
-            target.vy_mps = -config_.obstacle_lateral_speed_mps;
-            target.yaw_rate_radps = -turn;
+            target.vy_mps = obstacle_lateral_active
+                ? -config_.obstacle_lateral_speed_mps : 0.0;
+            target.yaw_rate_radps = obstacle_turn_active
+                ? -turn : -config_.obstacle_hold_yaw_rate_radps;
             target.step_scale = std::min(target.step_scale, 0.70);
             target.duty_factor = std::max(
-                target.duty_factor, config_.protective_duty_factor);
+                target.duty_factor, config_.obstacle_duty_factor);
             break;
         case MotionEventType::kTurnLeft:
             target.vx_mps *= config_.turn_speed_scale;
@@ -622,6 +709,7 @@ private:
     MotionReference current_{};
     bool initialized_ = false;
     MotionEventType last_active_event_ = MotionEventType::kNone;
+    bool emergency_stop_latched_ = false;
 };
 
 } // namespace go2_control

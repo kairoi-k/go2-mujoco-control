@@ -328,6 +328,30 @@ void TrotExperiment::UpdateWbcFull(
         wbc_in.desired_angular_acc_body =
             quat.normalized().toRotationMatrix().transpose() *
             last_srbd_.first_angular_acc;
+        if (emergency_stop_latched_ && motion_reference_.hold_stance)
+        {
+            // The short emergency-stop window is a four-contact balance
+            // problem, not another gait step.  Keep a bounded measured-
+            // velocity damper in the WBC task so a stale MPC force cannot
+            // push the body forward while the feet are being frozen.
+            constexpr double kEmergencyVelocityKp = 6.0;
+            wbc_in.desired_linear_acc_world.x() = Clamp(
+                -kEmergencyVelocityKp * linear_vel_world.x(), -2.5, 2.5);
+            wbc_in.desired_linear_acc_world.y() = Clamp(
+                -kEmergencyVelocityKp * linear_vel_world.y(), -2.0, 2.0);
+            const double roll = static_cast<double>(
+                state_snapshot.imu_state().rpy()[0]);
+            const double pitch = static_cast<double>(
+                state_snapshot.imu_state().rpy()[1]);
+            const double gyro_x = static_cast<double>(
+                state_snapshot.imu_state().gyroscope()[0]);
+            const double gyro_y = static_cast<double>(
+                state_snapshot.imu_state().gyroscope()[1]);
+            wbc_in.desired_angular_acc_body.x() = Clamp(
+                -40.0 * roll - 8.0 * gyro_x, -4.0, 4.0);
+            wbc_in.desired_angular_acc_body.y() = Clamp(
+                -40.0 * pitch - 8.0 * gyro_y, -4.0, 4.0);
+        }
         if (have_filtered_body_velocity_ && task_.gait_started_ &&
             task_.motion_stage_ == 2 &&
             (params_.cartesian_world || !params_.step_plan.empty()))

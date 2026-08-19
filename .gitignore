@@ -54,3 +54,6 @@ example/cpp/experiments/go2_reactive_*/contact_ground_truth.csv
 example/cpp/experiments/go2_reactive_*/contact_ground_truth_analysis.txt
 example/cpp/experiments/go2_reactive_*/contact_ground_truth_dynamics_analysis.txt
 example/cpp/experiments/go2_reactive_*/run_metadata.txt
+
+# Retained local audit iteration; curated final protocol/report remain tracked.
+example/cpp/experiments/go2_reactive_transition_matrix_*_iter1_sensor_events/

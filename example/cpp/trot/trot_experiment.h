@@ -166,6 +166,8 @@ private:
     void ResetCycleDiagnostics();
 
 private:
+    static constexpr double kEmergencyStopPostHoldDurationS = 1.50;
+
     TrotTask task_;
     std::array<double, go2_trot::kMotorCount> previous_joint_targets_{};
     bool have_previous_joint_targets_ = false;
@@ -186,6 +188,8 @@ private:
     bool motion_event_response_enabled_ = false;
     go2_control::MotionEventType last_motion_event_type_ =
         go2_control::MotionEventType::kNone;
+    bool emergency_stop_latched_ = false;
+    double emergency_stop_finish_time_s_ = 0.0;
     go2_control::FirstOrderVelocityFilter velocity_filter_;
     go2_control::Vector3 latest_world_velocity_{};
     go2_control::Vector3 latest_raw_body_velocity_{};
