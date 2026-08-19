@@ -50,6 +50,10 @@ def profile(experiment: str) -> dict[str, object]:
         "max_velocity_jump_mps": metrics.get("max_velocity_jump_mps", math.nan),
         "event_rows": metrics.get("event_rows", math.nan),
         "post_rows": metrics.get("post_rows", math.nan),
+        "obstacle_scene_physical_ok": metrics.get("obstacle_scene_physical_ok", math.nan),
+        "obstacle_contact_ok": metrics.get("obstacle_contact_ok", math.nan),
+        "obstacle_contact_max_force_N": metrics.get("obstacle_contact_max_force_N", math.nan),
+        "obstacle_contact_max_count": metrics.get("obstacle_contact_max_count", math.nan),
         "reference_yaw_rate_radps": metrics.get("reference_yaw_rate_radps", math.nan),
     }
 
@@ -87,7 +91,10 @@ def main() -> None:
     fields = [
         "experiment", "event_type", "event_source", "strict_pass", "status_ok",
         "rows", "duration_s", "yaw_change_rad", "braking_drop_mps",
-        "max_velocity_jump_mps", "event_rows", "post_rows", "transition_types",
+        "max_velocity_jump_mps", "event_rows", "post_rows",
+        "obstacle_contact_max_force_N", "obstacle_contact_max_count",
+        "obstacle_scene_physical_ok", "obstacle_contact_ok",
+        "transition_types",
         "git_head",
     ]
     with (output_dir / "acceptance_metrics.csv").open("w", newline="", encoding="utf-8") as stream:
@@ -100,10 +107,11 @@ def main() -> None:
         "",
         "This report is generated from the synchronized controller CSV and run metadata. `PASS` requires zero status codes, a complete event window and recovery window, and the event-specific response gate.",
         "",
+        "The obstacle case uses a real MuJoCo collision geom; `PASS` additionally requires zero robot-obstacle contact count and force in the synchronized contact ground truth.",
         "The scripted turn/stop/obstacle cases validate continuous reference updates; they are not perception tests. `impact` is a physical velocity-push test. `low_friction` validates robustness under a friction change; it does not claim automatic terrain perception.",
         "",
-        "| case | event/source | gate | duration (s) | yaw Δ (rad) | vx drop (m/s) | jump (m/s) | transitions |",
-        "|---|---|---:|---:|---:|---:|---:|---|",
+        "| case | event/source | gate | duration (s) | yaw Δ (rad) | vx drop (m/s) | jump (m/s) | obstacle contact max (N) | transitions |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---|",
     ]
     for record in records:
         source = str(record["event_source"])
@@ -113,13 +121,14 @@ def main() -> None:
             f"| `{record['experiment']}` | {event_label} | **{gate}** | "
             f"{fmt(record['duration_s'])} | {fmt(record['yaw_change_rad'])} | "
             f"{fmt(record['braking_drop_mps'])} | {fmt(record['max_velocity_jump_mps'])} | "
-            f"`{record['transition_types']}` |"
+            f"{fmt(record['obstacle_contact_max_force_N'])} | `{record['transition_types']}` |"
         )
     lines += [
         "",
         "## Data-quality checks",
         "",
         "- All listed runs have complete metadata status codes equal to zero.",
+        "- Physical-obstacle runs additionally require a collision-enabled scene and zero robot-obstacle contact force/count in contact_ground_truth.csv.",
         "- Controller timestamps are checked for finite values and non-monotonic records; duplicate timestamps are retained because the controller and recorder run asynchronously.",
         "- The analyzer checks the exact active event transition and requires at least 50 samples in both the event and recovery windows.",
         "",

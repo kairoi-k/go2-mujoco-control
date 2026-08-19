@@ -357,18 +357,23 @@ private:
 struct MotionEventResponseConfig
 {
     double max_abs_vx_mps = 0.60;
-    double max_abs_vy_mps = 0.35;
+    double max_abs_vy_mps = 0.65;
     double max_abs_yaw_rate_radps = 0.90;
     double accel_mps2 = 0.80;
+    // Obstacle avoidance keeps its turn amplitude, but releases lateral/yaw
+    // references more gently so the body does not roll at event exit.
+    double obstacle_recovery_accel_mps2 = 0.45;
+    double obstacle_recovery_lateral_accel_mps2 = 0.75;
+    double obstacle_recovery_yaw_accel_radps2 = 1.00;
     double decel_mps2 = 2.50;
-    double lateral_accel_mps2 = 0.60;
+    double lateral_accel_mps2 = 1.50;
     double yaw_accel_radps2 = 2.00;
     double step_scale_rate_s = 2.50;
     double duty_rate_s = 0.80;
     double foot_lift_rate_mps = 0.030;
     double turn_speed_scale = 0.78;
-    double obstacle_speed_scale = 0.25;
-    double obstacle_lateral_speed_mps = 0.30;
+    double obstacle_speed_scale = 0.70;
+    double obstacle_lateral_speed_mps = 0.60;
     double slip_speed_scale = 0.45;
     double low_friction_speed_scale = 0.45;
     double emergency_step_scale = 0.45;
@@ -418,6 +423,7 @@ public:
 
     void Reset() noexcept
     {
+        last_active_event_ = MotionEventType::kNone;
         initialized_ = false;
         current_ = {};
     }
@@ -458,15 +464,28 @@ public:
         const double dt = std::isfinite(dt_s)
             ? std::clamp(dt_s, 0.0, 0.050)
             : 0.0;
+        const bool obstacle_recovery =
+            selected.type == MotionEventType::kNone &&
+            IsObstacleEvent(last_active_event_) &&
+            (std::abs(current_.vx_mps - target.vx_mps) > 1.0e-6 ||
+             std::abs(current_.vy_mps - target.vy_mps) > 1.0e-6 ||
+             std::abs(current_.yaw_rate_radps - target.yaw_rate_radps) >
+                 1.0e-6);
         current_.vx_mps = RateLimitSigned(
             current_.vx_mps, target.vx_mps, dt,
-            config_.accel_mps2, config_.decel_mps2);
+            obstacle_recovery ? config_.obstacle_recovery_accel_mps2
+                              : config_.accel_mps2,
+            config_.decel_mps2);
         current_.vy_mps = RateLimit(
             current_.vy_mps, target.vy_mps, dt,
-            config_.lateral_accel_mps2);
+            obstacle_recovery
+                ? config_.obstacle_recovery_lateral_accel_mps2
+                : config_.lateral_accel_mps2);
         current_.yaw_rate_radps = RateLimit(
             current_.yaw_rate_radps, target.yaw_rate_radps, dt,
-            config_.yaw_accel_radps2);
+            obstacle_recovery
+                ? config_.obstacle_recovery_yaw_accel_radps2
+                : config_.yaw_accel_radps2);
         current_.step_scale = RateLimit(
             current_.step_scale, target.step_scale, dt,
             config_.step_scale_rate_s);
@@ -476,6 +495,10 @@ public:
         current_.foot_lift_m = RateLimit(
             current_.foot_lift_m, target.foot_lift_m, dt,
             config_.foot_lift_rate_mps);
+        if (selected.type != MotionEventType::kNone)
+            last_active_event_ = selected.type;
+        else if (!obstacle_recovery)
+            last_active_event_ = MotionEventType::kNone;
         current_.hold_stance = target.hold_stance;
 
         MotionEventResponse output;
@@ -488,6 +511,12 @@ public:
     }
 
 private:
+    static bool IsObstacleEvent(MotionEventType type) noexcept
+    {
+        return type == MotionEventType::kObstacleLeft ||
+               type == MotionEventType::kObstacleRight;
+    }
+
     static double RateLimit(
         double current, double target, double dt, double rate) noexcept
     {
@@ -592,6 +621,7 @@ private:
     MotionEventResponseConfig config_;
     MotionReference current_{};
     bool initialized_ = false;
+    MotionEventType last_active_event_ = MotionEventType::kNone;
 };
 
 } // namespace go2_control

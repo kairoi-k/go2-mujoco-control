@@ -183,6 +183,7 @@ namespace
       foot_geom_ids_.fill(-1);
       geom_leg_ids_.assign(model->ngeom, -1);
       leg_root_body_ids_.fill(-1);
+      obstacle_geom_id_ = mj_name2id(model, mjOBJ_GEOM, "reactive_obstacle");
 
       static constexpr std::array<const char *, 4> kLegs = {
           "FR", "FL", "RR", "RL"};
@@ -271,6 +272,9 @@ namespace
                  << ",subtree_com_world_x_m,subtree_com_world_y_m,subtree_com_world_z_m,subtree_linvel_world_x_mps,subtree_linvel_world_y_mps,subtree_linvel_world_z_mps"
                  << ",total_contact_grf_world_x_N,total_contact_grf_world_y_N,total_contact_grf_world_z_N"
                  << ",total_contact_moment_world_x_Nm,total_contact_moment_world_y_Nm,total_contact_moment_world_z_Nm";
+        stream_ << ",reactive_obstacle_contact_count,reactive_obstacle_contact_force_N"
+                 << ",reactive_obstacle_contact_normal_force_N"
+                 << ",reactive_obstacle_contact_other_geom_id";
         for (const char *leg : kLegs)
         {
           stream_ << "," << leg << "_sensor_force_site_x_N"
@@ -421,6 +425,44 @@ namespace
       }
       return contact_grf_world;
     }
+    void ComputeObstacleContact(
+        const mjModel *model, const mjData *data,
+        int *contact_count, double *force_N, double *normal_force_N,
+        int *other_geom_id) const
+    {
+      *contact_count = 0;
+      *force_N = 0.0;
+      *normal_force_N = 0.0;
+      *other_geom_id = -1;
+      if (obstacle_geom_id_ < 0)
+        return;
+      mjtNum contact_force[6];
+      for (int contact_id = 0; contact_id < data->ncon; ++contact_id)
+      {
+        const mjContact &contact = data->contact[contact_id];
+        if (contact.exclude != 0 || contact.efc_address < 0 ||
+            (contact.geom[0] != obstacle_geom_id_ &&
+             contact.geom[1] != obstacle_geom_id_))
+        {
+          continue;
+        }
+        mj_contactForce(model, data, contact_id, contact_force);
+        const int other_geom = contact.geom[0] == obstacle_geom_id_
+            ? contact.geom[1]
+            : contact.geom[0];
+        if (model->geom_bodyid[other_geom] == 0)
+        {
+          continue;
+        }
+        if (*other_geom_id < 0)
+          *other_geom_id = other_geom;
+        ++(*contact_count);
+        *force_N += std::hypot(
+            contact_force[0],
+            std::hypot(contact_force[1], contact_force[2]));
+        *normal_force_N += std::abs(contact_force[0]);
+      }
+    }
 
     void Log(const mjModel *model, mjData *data)
     {
@@ -482,6 +524,14 @@ namespace
           ComputeContactGrf(model, data, &total_contact_grf_world,
                             &total_contact_moment_world,
                             &foot_contact_grf_world);
+      int obstacle_contact_count = 0;
+      double obstacle_contact_force_N = 0.0;
+      double obstacle_contact_normal_force_N = 0.0;
+      int obstacle_contact_other_geom_id = -1;
+      ComputeObstacleContact(model, data, &obstacle_contact_count,
+                             &obstacle_contact_force_N,
+                             &obstacle_contact_normal_force_N,
+                             &obstacle_contact_other_geom_id);
       stream_ << std::setprecision(12) << data->time
               << "," << step_index_
               << "," << total_mass_kg_
@@ -520,7 +570,11 @@ namespace
               << "," << total_contact_grf_world[2]
               << "," << total_contact_moment_world[0]
               << "," << total_contact_moment_world[1]
-              << "," << total_contact_moment_world[2];
+              << "," << total_contact_moment_world[2]
+              << "," << obstacle_contact_count
+              << "," << obstacle_contact_force_N
+              << "," << obstacle_contact_normal_force_N
+              << "," << obstacle_contact_other_geom_id;
 
       for (std::size_t i = 0; i < kLegs.size(); ++i)
       {
@@ -639,6 +693,7 @@ namespace
     mjModel *model_ = nullptr;
     int base_body_id_ = -1;
     std::array<int, 4> sensor_ids_ = {-1, -1, -1, -1};
+    int obstacle_geom_id_ = -1;
     std::vector<mjtNum> full_mass_matrix_;
     std::vector<std::string> dof_labels_;
     std::array<int, 4> touch_ids_ = {-1, -1, -1, -1};

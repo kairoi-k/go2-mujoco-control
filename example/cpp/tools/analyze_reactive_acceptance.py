@@ -9,6 +9,7 @@ import re
 import json
 import math
 import statistics
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
@@ -76,6 +77,74 @@ def read_metadata(path: Path) -> dict[str, str]:
                 key, value = line.split("=", 1)
                 metadata[key] = value
     return metadata
+
+
+def scene_obstacle_status(metadata: dict[str, str]) -> tuple[bool, bool, str]:
+    argv = metadata.get("argv", "")
+    marker = "--scene-file "
+    if marker not in argv:
+        return False, False, ""
+    token = argv.split(marker, 1)[1].split(" --", 1)[0]
+    scene = Path(token)
+    if not scene.is_absolute() and not scene.exists():
+        scene = Path(__file__).resolve().parents[3] / scene
+    if not scene.exists():
+        return False, False, str(scene)
+    try:
+        root = ET.parse(scene).getroot()
+        geom = root.find(".//geom[@name='reactive_obstacle']")
+        if geom is None:
+            return True, False, str(scene)
+        contype = int(geom.attrib.get("contype", "1"))
+        conaffinity = int(geom.attrib.get("conaffinity", "1"))
+        return True, bool(contype and conaffinity), str(scene)
+    except (OSError, ET.ParseError, ValueError):
+        return True, False, str(scene)
+
+
+def obstacle_contact_metrics(path: Path) -> dict[str, float]:
+    file = path / "contact_ground_truth.csv"
+    if not file.exists():
+        return {
+            "obstacle_contact_data_ok": 0.0,
+            "obstacle_contact_max_force_N": math.nan,
+            "obstacle_contact_max_normal_force_N": math.nan,
+            "obstacle_contact_max_count": math.nan,
+        }
+    try:
+        with file.open(newline="") as stream:
+            reader = csv.DictReader(stream)
+            required = {
+                "reactive_obstacle_contact_count",
+                "reactive_obstacle_contact_force_N",
+                "reactive_obstacle_contact_normal_force_N",
+            }
+            if not required.issubset(reader.fieldnames or set()):
+                return {
+                    "obstacle_contact_data_ok": 0.0,
+                    "obstacle_contact_max_force_N": math.nan,
+                    "obstacle_contact_max_normal_force_N": math.nan,
+                    "obstacle_contact_max_count": math.nan,
+                }
+            rows = list(reader)
+        force = finite(rows, "reactive_obstacle_contact_force_N")
+        normal = finite(rows, "reactive_obstacle_contact_normal_force_N")
+        counts = finite(rows, "reactive_obstacle_contact_count")
+        if not force or not normal or not counts:
+            raise ValueError("empty obstacle contact data")
+        return {
+            "obstacle_contact_data_ok": 1.0,
+            "obstacle_contact_max_force_N": max(force),
+            "obstacle_contact_max_normal_force_N": max(normal),
+            "obstacle_contact_max_count": max(counts),
+        }
+    except (OSError, csv.Error, ValueError):
+        return {
+            "obstacle_contact_data_ok": 0.0,
+            "obstacle_contact_max_force_N": math.nan,
+            "obstacle_contact_max_normal_force_N": math.nan,
+            "obstacle_contact_max_count": math.nan,
+        }
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:
@@ -312,6 +381,18 @@ def analyze(path_string: str) -> dict[str, object]:
     elif external:
         expected, start, end, external_detail = external
         metrics = response_metrics(rows, expected, start, end)
+    if expected in {"obstacle_left", "obstacle_right"}:
+        scene_exists, scene_physical, _ = scene_obstacle_status(metadata)
+        contact = obstacle_contact_metrics(path)
+        metrics.update(contact)
+        metrics["obstacle_scene_physical_ok"] = float(
+            scene_exists and scene_physical
+        )
+        metrics["obstacle_contact_ok"] = float(
+            contact["obstacle_contact_data_ok"] == 1.0
+            and contact["obstacle_contact_max_count"] <= 0.0
+            and contact["obstacle_contact_max_force_N"] <= 1.0e-6
+        )
     status_keys = (
         "controller_status", "safety_status", "quality_status",
         "analysis_status", "ground_truth_status", "dynamics_status",
@@ -339,12 +420,18 @@ def analyze(path_string: str) -> dict[str, object]:
         "metrics": metrics,
     }
     status_ok = bool(rows) and all(value == 0 for value in statuses.values())
+    obstacle_ok = (
+        expected not in {"obstacle_left", "obstacle_right"}
+        or (metrics.get("obstacle_scene_physical_ok", 0.0) == 1.0
+            and metrics.get("obstacle_contact_ok", 0.0) == 1.0)
+    )
     script_ok = bool(
         scheduled
         and scripted_transition_ok(event_transitions, expected)
         and metrics.get("event_rows", 0.0) >= 50.0
         and metrics.get("post_rows", 0.0) >= 50.0
         and metrics.get("brake_ok", 0.0) == 1.0
+        and obstacle_ok
         and (
             expected not in {"turn_left", "turn_right",
                              "obstacle_left", "obstacle_right"}

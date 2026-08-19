@@ -84,10 +84,13 @@ def main() -> None:
     dv = num(metrics.get("braking_drop_mps"))
     ref_yaw = num(metrics.get("reference_yaw_rate_radps"))
     dy = num(metrics.get("lateral_shift_m"))
+    contact_max = num(metrics.get("obstacle_contact_max_force_N"))
     if event_name.startswith("OBSTACLE") and math.isfinite(dy):
         response = (
             f"response: Δy={dy:+.3f} m | yaw_delta={yaw:+.3f} rad | "
             f"ref_yaw={ref_yaw:+.3f} rad/s"
+            + (f" | obstacle_contact_max={contact_max:.1f} N"
+               if math.isfinite(contact_max) else "")
         )
     elif math.isfinite(yaw) and math.isfinite(dv):
         response = (

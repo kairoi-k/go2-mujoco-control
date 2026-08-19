@@ -40,6 +40,8 @@ example/cpp/experiments/_runs/
 # Nested case outputs in the verified v4 evidence package stay in OneDrive.
 example/cpp/experiments/go2_reactive_acceptance_verified_v4_*/**/data.csv
 example/cpp/experiments/go2_reactive_acceptance_verified_v4_*/**/contact_ground_truth.csv
+# The corrected v5 acceptance bundle is delivered through OneDrive.
+example/cpp/experiments/go2_reactive_acceptance_verified_v5_2026-08-19/
 *.pth
 *.ckpt
 

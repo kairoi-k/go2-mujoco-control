@@ -20,8 +20,10 @@
   <worldbody>
     <light pos="0 0 1.5" dir="0 0 -1" directional="true" castshadow="false"/>
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
-    <!-- Visual obstacle proxy; the scripted event supplies the trigger. -->
-    <geom name="reactive_obstacle" pos="0.75 0 0.18" type="box" size="0.12 0.14 0.18" material="reactive_obstacle_red" contype="0" conaffinity="0"/>
-    <geom name="reactive_obstacle_marker" pos="0.75 0 0.37" type="box" size="0.14 0.16 0.015" material="reactive_obstacle_yellow" contype="0" conaffinity="0"/>
+    <!-- The red box is a real MuJoCo collision body. A successful run must
+         pass around it with zero robot-obstacle contact force. -->
+    <geom name="reactive_obstacle" pos="1.30 0 0.16" type="box" size="0.10 0.10 0.16" material="reactive_obstacle_red" contype="1" conaffinity="1"/>
+    <!-- Visual cap only; it does not participate in collision. -->
+    <geom name="reactive_obstacle_marker" pos="1.30 0 0.335" type="box" size="0.12 0.12 0.015" material="reactive_obstacle_yellow" contype="0" conaffinity="0"/>
   </worldbody>
 </mujoco>
