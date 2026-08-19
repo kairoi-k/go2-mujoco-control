@@ -1,0 +1,2 @@
+# start_s duration_s event magnitude; time is relative to gait start
+2.0 1.2 slip 0.0

@@ -94,7 +94,15 @@ def main():
                     stop_seen_at = now
                 elif now - stop_seen_at >= args.post_roll:
                     break
-            frame = capture.frame(window).crop(crop_box)
+            try:
+                frame = capture.frame(window).crop(crop_box)
+            except RuntimeError as exc:
+                # A bounded experiment closes the MuJoCo window immediately
+                # after its controlled stop. Treat that as the natural end
+                # of recording instead of discarding encoded frames.
+                if str(exc) in {"XGetGeometry failed", "XGetImage failed"}:
+                    break
+                raise
             encoder.stdin.write(frame.tobytes())
             frame_count += 1
             next_frame += period

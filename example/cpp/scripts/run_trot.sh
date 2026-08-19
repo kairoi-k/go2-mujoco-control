@@ -284,6 +284,10 @@ else
     >"$experiment_dir/controller.log" 2>&1 || controller_status=$?
 fi
 
+if [[ "${TROT_RECORDING_GRACE_S:-0}" != "0" ]]; then
+  sleep "${TROT_RECORDING_GRACE_S}"
+fi
+
 stop_simulator
 
 safety_status=0
