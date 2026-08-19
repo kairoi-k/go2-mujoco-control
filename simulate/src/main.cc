@@ -993,8 +993,8 @@ namespace
       {
         d->qvel[0] += param::config.push_vel_x_mps;
         push_vel_applied_ = true;
-        std::cout << "PUSH vel applied t=" << d->time
-                  << " qvel0=" << d->qvel[0] << "\n";
+        std::cerr << "PUSH vel applied t=" << d->time
+                  << " qvel0=" << d->qvel[0] << std::endl;
       }
       if (push_window && push_body_id >= 0)
       {
@@ -1013,11 +1013,11 @@ namespace
         if (!push_active_logged_)
         {
           push_active_logged_ = true;
-          std::cout << "PUSH active t=" << d->time
+          std::cerr << "PUSH active t=" << d->time
                     << " force=" << param::config.push_force_x_n
                     << " qfrc0=" << d->qfrc_applied[0]
                     << " qfrc3=" << d->qfrc_applied[3]
-                    << " qvel0=" << d->qvel[0] << "\n";
+                    << " qvel0=" << d->qvel[0] << std::endl;
         }
       }
       if (shutdown_requested)

@@ -1,2 +1,2 @@
 # start_s duration_s event magnitude; time is relative to gait start
-2.0 1.2 obstacle_right 0.22
+4.0 4.0 obstacle_right 0.55

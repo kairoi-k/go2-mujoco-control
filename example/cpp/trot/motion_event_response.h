@@ -201,24 +201,29 @@ inline bool LoadMotionEventScript(
 struct MotionSensorSample
 {
     double velocity_x_mps = 0.0;
+    double raw_velocity_x_mps = 0.0;
+    double raw_velocity_y_mps = 0.0;
     double velocity_y_mps = 0.0;
     double accel_x_mps2 = 0.0;
     double accel_y_mps2 = 0.0;
     double accel_z_mps2 = 0.0;
     int contact_count = 0;
     bool have_velocity = false;
+    bool have_raw_velocity = false;
 };
 
 struct MotionEventDetectorConfig
 {
-    double warmup_s = 0.50;
+    double warmup_s = 1.50;
     double slip_velocity_error_mps = 0.45;
     double slip_confirm_s = 0.06;
     double impact_horizontal_accel_mps2 = 8.5;
     double impact_vertical_excess_mps2 = 18.0;
-    double impact_release_s = 0.12;
+    double impact_extreme_vertical_excess_mps2 = 28.0;
+    double impact_velocity_jump_mps = 0.35;
+    double impact_release_s = 0.50;
     double event_duration_s = 0.80;
-    double cooldown_s = 0.90;
+    double cooldown_s = 1.50;
     double gravity_mps2 = 9.81;
 };
 
@@ -235,7 +240,10 @@ public:
         active_event_ = {};
         slip_accum_s_ = 0.0;
         impact_clear_accum_s_ = 0.0;
+        previous_velocity_x_mps_ = 0.0;
+        previous_velocity_y_mps_ = 0.0;
         impact_latched_ = false;
+        have_previous_velocity_ = false;
         last_trigger_time_s_ = -1.0e9;
     }
 
@@ -248,12 +256,34 @@ public:
         if (active_event_.IsActive(time_s))
             return active_event_;
         active_event_ = {};
+        double velocity_jump_mps = 0.0;
+        const bool have_velocity =
+            sample.have_raw_velocity || sample.have_velocity;
+        const double velocity_x = sample.have_raw_velocity
+            ? sample.raw_velocity_x_mps
+            : sample.velocity_x_mps;
+        const double velocity_y = sample.have_raw_velocity
+            ? sample.raw_velocity_y_mps
+            : sample.velocity_y_mps;
+        if (have_velocity)
+        {
+            if (have_previous_velocity_ && dt_s > 0.0)
+            {
+                velocity_jump_mps = std::hypot(
+                    velocity_x - previous_velocity_x_mps_,
+                    velocity_y - previous_velocity_y_mps_);
+            }
+            previous_velocity_x_mps_ = velocity_x;
+            previous_velocity_y_mps_ = velocity_y;
+            have_previous_velocity_ = true;
+        }
         const bool impact =
             sample.contact_count >= 2 &&
-            (std::hypot(sample.accel_x_mps2, sample.accel_y_mps2) >=
-                 config_.impact_horizontal_accel_mps2 ||
-             std::abs(sample.accel_z_mps2 - config_.gravity_mps2) >=
-                 config_.impact_vertical_excess_mps2);
+            (velocity_jump_mps >= config_.impact_velocity_jump_mps ||
+             (std::abs(sample.accel_z_mps2 - config_.gravity_mps2) >=
+                  config_.impact_extreme_vertical_excess_mps2 &&
+              std::hypot(sample.accel_x_mps2, sample.accel_y_mps2) >=
+                  5.0));
         if (impact_latched_)
         {
             if (impact)
@@ -297,6 +327,9 @@ public:
         return {};
     }
 
+    double previous_velocity_x_mps_ = 0.0;
+    double previous_velocity_y_mps_ = 0.0;
+    bool have_previous_velocity_ = false;
 private:
     MotionEvent Trigger(MotionEventType type, double time_s)
     {
@@ -324,7 +357,7 @@ struct MotionEventResponseConfig
 {
     double max_abs_vx_mps = 0.60;
     double max_abs_vy_mps = 0.25;
-    double max_abs_yaw_rate_radps = 0.35;
+    double max_abs_yaw_rate_radps = 0.55;
     double accel_mps2 = 0.80;
     double decel_mps2 = 2.50;
     double lateral_accel_mps2 = 0.60;

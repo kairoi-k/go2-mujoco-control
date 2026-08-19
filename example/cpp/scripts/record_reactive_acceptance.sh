@@ -28,7 +28,7 @@ mkdir -p "$(dirname "$output")"
 run_log="/tmp/${experiment_name//\//_}.recording.log"
 rm -f "$output" "$run_log"
 
-TROT_RECORDING_GRACE_S=5 bash "$cpp_dir/scripts/run_trot.sh" "$wall_timeout" "$experiment_name" "$@" >"$run_log" 2>&1 &
+TROT_RECORDING_GRACE_S="${TROT_RECORDING_GRACE_S:-5}" bash "$cpp_dir/scripts/run_trot.sh" "$wall_timeout" "$experiment_name" "$@" >"$run_log" 2>&1 &
 run_pid=$!
 
 window=""
@@ -51,8 +51,8 @@ DISPLAY=:0 LD_LIBRARY_PATH="$xdotool_lib" "$xdotool" windowactivate "$window" >/
 python3 "$recorder" "$output" \
   --ffmpeg "$ffmpeg" \
   --title MuJoCo \
-  --duration 20 \
-  --fps 20 \
+  --duration "${TROT_RECORD_DURATION_S:-24}" \
+  --fps "${TROT_RECORD_FPS:-20}" \
   --crop-x 0 --crop-y 0 --crop-width 1280 --crop-height 720 \
   --output-width 1280 --output-height 720 \
   --preset medium --crf 18

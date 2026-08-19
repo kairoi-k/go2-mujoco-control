@@ -263,6 +263,9 @@ void TrotExperiment::UpdateMotionEventResponse(
     sensor.velocity_x_mps = latest_filtered_body_velocity_[0];
     sensor.velocity_y_mps = latest_filtered_body_velocity_[1];
     sensor.have_velocity = have_filtered_body_velocity_;
+    sensor.raw_velocity_x_mps = latest_raw_body_velocity_[0];
+    sensor.raw_velocity_y_mps = latest_raw_body_velocity_[1];
+    sensor.have_raw_velocity = have_raw_body_velocity_;
     sensor.accel_x_mps2 = static_cast<double>(
         state_snapshot.imu_state().accelerometer()[0]);
     sensor.accel_y_mps2 = static_cast<double>(
@@ -274,10 +277,15 @@ void TrotExperiment::UpdateMotionEventResponse(
         if (state_snapshot.foot_force()[leg] >= kContactForceThreshold)
             ++sensor.contact_count;
     }
-    auto_motion_event_ = motion_event_detector_.Observe(
-        gait_elapsed_s, motion_dt_s, sensor, nominal);
+    auto_motion_event_ = {};
+    if (params_.reactive_events)
+    {
+        auto_motion_event_ = motion_event_detector_.Observe(
+            gait_elapsed_s, motion_dt_s, sensor, nominal);
+    }
     const go2_control::MotionEvent *sensor_event =
-        auto_motion_event_.IsActive(gait_elapsed_s)
+        params_.reactive_events &&
+                auto_motion_event_.IsActive(gait_elapsed_s)
             ? &auto_motion_event_
             : nullptr;
 

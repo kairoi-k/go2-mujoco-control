@@ -47,22 +47,26 @@ int main()
     MotionEventDetector detector;
     MotionSensorSample sensor;
     sensor.contact_count = 4;
-    sensor.accel_x_mps2 = 9.0;
+    sensor.have_velocity = true;
+    sensor.velocity_x_mps = 0.0;
     auto automatic = detector.Observe(
-        0.6, 0.002, sensor, nominal);
+        1.6, 0.002, sensor, nominal);
+    sensor.velocity_x_mps = 0.8;
+    automatic = detector.Observe(
+        1.602, 0.002, sensor, nominal);
     passed &= Check(
         automatic.type == MotionEventType::kImpact,
         "Impact detector did not trigger.");
     for (int i = 1; i <= 500; ++i)
-        automatic = detector.Observe(0.6 + i * 0.002, 0.002, sensor, nominal);
+        automatic = detector.Observe(1.602 + i * 0.002, 0.002, sensor, nominal);
     passed &= Check(
         automatic.type == MotionEventType::kNone,
         "Impact detector retriggered while the impact signal stayed high.");
-    sensor.accel_x_mps2 = 0.0;
-    for (int i = 0; i < 80; ++i)
-        detector.Observe(1.602 + i * 0.002, 0.002, sensor, nominal);
-    sensor.accel_x_mps2 = 9.0;
-    automatic = detector.Observe(1.762, 0.002, sensor, nominal);
+    sensor.velocity_x_mps = 0.0;
+    for (int i = 0; i < 300; ++i)
+        detector.Observe(2.602 + i * 0.002, 0.002, sensor, nominal);
+    sensor.velocity_x_mps = 0.8;
+    automatic = detector.Observe(3.2, 0.002, sensor, nominal);
     passed &= Check(
         automatic.type == MotionEventType::kImpact,
         "Impact detector did not re-arm after the signal cleared.");
@@ -71,8 +75,8 @@ int main()
     sensor.contact_count = 4;
     sensor.have_velocity = true;
     sensor.velocity_x_mps = 0.8;
-    for (int i = 0; i < 40; ++i)
-        automatic = detector.Observe(0.6 + i * 0.002, 0.002, sensor, nominal);
+    for (int i = 0; i < 100; ++i)
+        automatic = detector.Observe(1.6 + i * 0.002, 0.002, sensor, nominal);
     passed &= Check(
         automatic.type == MotionEventType::kSlip,
         "Slip detector did not trigger.");
