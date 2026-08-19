@@ -1,0 +1,477 @@
+[
+  {
+    "experiment": "baseline",
+    "rows": 11552,
+    "max_time_s": 23.102,
+    "statuses": {
+      "controller_status": 0,
+      "safety_status": 0,
+      "quality_status": 0,
+      "analysis_status": 0,
+      "ground_truth_status": 0,
+      "dynamics_status": 0,
+      "completion_status": 0
+    },
+    "event_transitions": [
+      {
+        "time_s": 0.0,
+        "type": "none",
+        "priority": 0
+      }
+    ],
+    "scheduled_event": null,
+    "gait_start_s": 3.5,
+    "metrics": {},
+    "strict_pass": true
+  },
+  {
+    "experiment": "emergency_stop",
+    "rows": 11557,
+    "max_time_s": 23.104,
+    "statuses": {
+      "controller_status": 0,
+      "safety_status": 0,
+      "quality_status": 0,
+      "analysis_status": 0,
+      "ground_truth_status": 0,
+      "dynamics_status": 0,
+      "completion_status": 0
+    },
+    "event_transitions": [
+      {
+        "time_s": 0.0,
+        "type": "none",
+        "priority": 0
+      },
+      {
+        "time_s": 7.504,
+        "type": "emergency_stop",
+        "priority": 100
+      },
+      {
+        "time_s": 10.502,
+        "type": "none",
+        "priority": 0
+      }
+    ],
+    "scheduled_event": {
+      "type": "emergency_stop",
+      "start_s": 7.502,
+      "end_s": 10.501999999999999,
+      "relative_start_s": 4.0,
+      "relative_end_s": 7.0
+    },
+    "gait_start_s": 3.502,
+    "metrics": {
+      "pre_vx_mps": 0.143461399,
+      "active_vx_min_mps": -0.054062624,
+      "active_vx_max_mps": 0.154938906,
+      "post_vx_mps": 0.11439442250000001,
+      "stop_tail_abs_vx_max_mps": 0.015082243,
+      "stop_tail_abs_vx_median_mps": 0.004475165,
+      "max_velocity_jump_mps": 0.009024670513464351,
+      "braking_drop_mps": 0.197524023,
+      "pre_y_m": 0.001113759,
+      "active_end_y_m": 0.0030505755,
+      "lateral_shift_m": 0.0019368165,
+      "pre_yaw_rad": 0.024903518,
+      "active_end_yaw_rad": 0.027214349,
+      "yaw_change_rad": 0.0023108309999999993,
+      "yaw_integral_delta_rad": 0.009842201999999998,
+      "reference_vx_mps": 0.0,
+      "reference_yaw_rate_radps": 0.0,
+      "target_vx_mps": 0.0,
+      "target_yaw_rate_radps": 0.0,
+      "event_rows": 1500.0,
+      "post_rows": 1500.0,
+      "directional_yaw_ok": NaN,
+      "lateral_shift_ok": NaN,
+      "brake_ok": 1.0
+    },
+    "strict_pass": true
+  },
+  {
+    "experiment": "impact",
+    "rows": 11558,
+    "max_time_s": 23.106,
+    "statuses": {
+      "controller_status": 0,
+      "safety_status": 0,
+      "quality_status": 0,
+      "analysis_status": 0,
+      "ground_truth_status": 0,
+      "dynamics_status": 0,
+      "completion_status": 0
+    },
+    "event_transitions": [
+      {
+        "time_s": 0.0,
+        "type": "none",
+        "priority": 0
+      },
+      {
+        "time_s": 6.868,
+        "type": "impact",
+        "priority": 100
+      },
+      {
+        "time_s": 7.668,
+        "type": "none",
+        "priority": 0
+      }
+    ],
+    "scheduled_event": {
+      "type": "impact",
+      "start_s": 6.868,
+      "end_s": 7.668,
+      "source": "push_dv=0.801mps"
+    },
+    "gait_start_s": 3.502,
+    "metrics": {
+      "pre_vx_mps": 0.1458583395,
+      "active_vx_min_mps": -0.300714046,
+      "active_vx_max_mps": 0.945034623,
+      "post_vx_mps": 0.149501264,
+      "stop_tail_abs_vx_max_mps": 0.791218638,
+      "stop_tail_abs_vx_median_mps": 0.129456006,
+      "max_velocity_jump_mps": 0.8005985983411323,
+      "braking_drop_mps": 0.4465723855,
+      "pre_y_m": -0.0002373265,
+      "active_end_y_m": -0.002404715,
+      "lateral_shift_m": -0.0021673885,
+      "pre_yaw_rad": 0.0202977545,
+      "active_end_yaw_rad": -0.062604144,
+      "yaw_change_rad": -0.0829018985,
+      "yaw_integral_delta_rad": -0.07696549500000004,
+      "reference_vx_mps": 0.0,
+      "reference_yaw_rate_radps": 0.0,
+      "target_vx_mps": 0.0,
+      "target_yaw_rate_radps": 0.0,
+      "event_rows": 401.0,
+      "post_rows": 1501.0,
+      "directional_yaw_ok": NaN,
+      "lateral_shift_ok": NaN,
+      "brake_ok": 1.0
+    },
+    "strict_pass": true
+  },
+  {
+    "experiment": "low_friction",
+    "rows": 11555,
+    "max_time_s": 23.104,
+    "statuses": {
+      "controller_status": 0,
+      "safety_status": 0,
+      "quality_status": 0,
+      "analysis_status": 0,
+      "ground_truth_status": 0,
+      "dynamics_status": 0,
+      "completion_status": 0
+    },
+    "event_transitions": [
+      {
+        "time_s": 0.0,
+        "type": "none",
+        "priority": 0
+      }
+    ],
+    "scheduled_event": {
+      "type": "low_friction",
+      "start_s": 8.002,
+      "end_s": 9.002,
+      "source": "simulator_friction"
+    },
+    "gait_start_s": 3.502,
+    "metrics": {
+      "pre_vx_mps": 0.11351690049999999,
+      "active_vx_min_mps": 0.072904617,
+      "active_vx_max_mps": 0.192479372,
+      "post_vx_mps": 0.137220614,
+      "stop_tail_abs_vx_max_mps": 0.192479372,
+      "stop_tail_abs_vx_median_mps": 0.1317507925,
+      "max_velocity_jump_mps": 0.01767868185540056,
+      "braking_drop_mps": 0.040612283499999985,
+      "pre_y_m": 0.00447752,
+      "active_end_y_m": 0.006147140000000001,
+      "lateral_shift_m": 0.001669620000000001,
+      "pre_yaw_rad": 0.0055751,
+      "active_end_yaw_rad": 0.008850169,
+      "yaw_change_rad": 0.0032750689999999994,
+      "yaw_integral_delta_rad": 0.005406177999999999,
+      "reference_vx_mps": 0.151666667,
+      "reference_yaw_rate_radps": 0.0,
+      "target_vx_mps": 0.151666667,
+      "target_yaw_rate_radps": 0.0,
+      "event_rows": 501.0,
+      "post_rows": 1504.0,
+      "directional_yaw_ok": NaN,
+      "lateral_shift_ok": NaN,
+      "brake_ok": 1.0
+    },
+    "strict_pass": true
+  },
+  {
+    "experiment": "obstacle_right",
+    "rows": 11553,
+    "max_time_s": 23.104,
+    "statuses": {
+      "controller_status": 0,
+      "safety_status": 0,
+      "quality_status": 0,
+      "analysis_status": 0,
+      "ground_truth_status": 0,
+      "dynamics_status": 0,
+      "completion_status": 0
+    },
+    "event_transitions": [
+      {
+        "time_s": 0.0,
+        "type": "none",
+        "priority": 0
+      },
+      {
+        "time_s": 7.504,
+        "type": "obstacle_right",
+        "priority": 80
+      },
+      {
+        "time_s": 11.504,
+        "type": "none",
+        "priority": 0
+      }
+    ],
+    "scheduled_event": {
+      "type": "obstacle_right",
+      "start_s": 7.502,
+      "end_s": 11.501999999999999,
+      "relative_start_s": 4.0,
+      "relative_end_s": 8.0
+    },
+    "gait_start_s": 3.502,
+    "metrics": {
+      "pre_vx_mps": 0.13755454099999997,
+      "active_vx_min_mps": -0.035708833,
+      "active_vx_max_mps": 0.149748981,
+      "post_vx_mps": 0.108483851,
+      "stop_tail_abs_vx_max_mps": 0.118097231,
+      "stop_tail_abs_vx_median_mps": 0.07155666499999999,
+      "max_velocity_jump_mps": 0.037928597090060495,
+      "braking_drop_mps": 0.17326337399999997,
+      "pre_y_m": 0.002616449,
+      "active_end_y_m": -0.066304433,
+      "lateral_shift_m": -0.06892088199999999,
+      "pre_yaw_rad": 0.021031389,
+      "active_end_yaw_rad": -0.1696503015,
+      "yaw_change_rad": -0.1906816905,
+      "yaw_integral_delta_rad": -0.18418638299999981,
+      "reference_vx_mps": 0.037916667,
+      "reference_yaw_rate_radps": -0.18,
+      "target_vx_mps": 0.037916667,
+      "target_yaw_rate_radps": -0.18,
+      "event_rows": 2000.0,
+      "post_rows": 1499.0,
+      "directional_yaw_ok": 1.0,
+      "lateral_shift_ok": 1.0,
+      "brake_ok": 1.0
+    },
+    "strict_pass": true
+  },
+  {
+    "experiment": "slip",
+    "rows": 11552,
+    "max_time_s": 23.102,
+    "statuses": {
+      "controller_status": 0,
+      "safety_status": 0,
+      "quality_status": 0,
+      "analysis_status": 0,
+      "ground_truth_status": 0,
+      "dynamics_status": 0,
+      "completion_status": 0
+    },
+    "event_transitions": [
+      {
+        "time_s": 0.0,
+        "type": "none",
+        "priority": 0
+      },
+      {
+        "time_s": 7.5,
+        "type": "slip",
+        "priority": 60
+      },
+      {
+        "time_s": 9.5,
+        "type": "none",
+        "priority": 0
+      }
+    ],
+    "scheduled_event": {
+      "type": "slip",
+      "start_s": 7.5,
+      "end_s": 9.5,
+      "relative_start_s": 4.0,
+      "relative_end_s": 6.0
+    },
+    "gait_start_s": 3.5,
+    "metrics": {
+      "pre_vx_mps": 0.12380518,
+      "active_vx_min_mps": -0.034086902,
+      "active_vx_max_mps": 0.156242833,
+      "post_vx_mps": 0.1349540205,
+      "stop_tail_abs_vx_max_mps": 0.130384594,
+      "stop_tail_abs_vx_median_mps": 0.0732388755,
+      "max_velocity_jump_mps": 0.022189771413396082,
+      "braking_drop_mps": 0.157892082,
+      "pre_y_m": 0.00239596,
+      "active_end_y_m": 0.011820554,
+      "lateral_shift_m": 0.009424594000000001,
+      "pre_yaw_rad": 0.024125341,
+      "active_end_yaw_rad": 0.0216177485,
+      "yaw_change_rad": -0.0025075925000000027,
+      "yaw_integral_delta_rad": 0.00617183,
+      "reference_vx_mps": 0.06825,
+      "reference_yaw_rate_radps": 0.0,
+      "target_vx_mps": 0.06825,
+      "target_yaw_rate_radps": 0.0,
+      "event_rows": 1001.0,
+      "post_rows": 1500.0,
+      "directional_yaw_ok": NaN,
+      "lateral_shift_ok": NaN,
+      "brake_ok": 1.0
+    },
+    "strict_pass": true
+  },
+  {
+    "experiment": "turn_left",
+    "rows": 11553,
+    "max_time_s": 23.104,
+    "statuses": {
+      "controller_status": 0,
+      "safety_status": 0,
+      "quality_status": 0,
+      "analysis_status": 0,
+      "ground_truth_status": 0,
+      "dynamics_status": 0,
+      "completion_status": 0
+    },
+    "event_transitions": [
+      {
+        "time_s": 0.0,
+        "type": "none",
+        "priority": 0
+      },
+      {
+        "time_s": 7.502,
+        "type": "turn_left",
+        "priority": 40
+      },
+      {
+        "time_s": 11.502,
+        "type": "none",
+        "priority": 0
+      }
+    ],
+    "scheduled_event": {
+      "type": "turn_left",
+      "start_s": 7.502,
+      "end_s": 11.501999999999999,
+      "relative_start_s": 4.0,
+      "relative_end_s": 8.0
+    },
+    "gait_start_s": 3.502,
+    "metrics": {
+      "pre_vx_mps": 0.15081653750000001,
+      "active_vx_min_mps": -0.011321717,
+      "active_vx_max_mps": 0.200265199,
+      "post_vx_mps": 0.131630428,
+      "stop_tail_abs_vx_max_mps": 0.186156079,
+      "stop_tail_abs_vx_median_mps": 0.137414694,
+      "max_velocity_jump_mps": 0.01511293259755763,
+      "braking_drop_mps": 0.16213825450000002,
+      "pre_y_m": 0.0006237875,
+      "active_end_y_m": 0.059817072,
+      "lateral_shift_m": 0.0591932845,
+      "pre_yaw_rad": 0.02260233,
+      "active_end_yaw_rad": 0.388741851,
+      "yaw_change_rad": 0.366139521,
+      "yaw_integral_delta_rad": 0.37448605300000004,
+      "reference_vx_mps": 0.1183,
+      "reference_yaw_rate_radps": 0.9,
+      "target_vx_mps": 0.1183,
+      "target_yaw_rate_radps": 0.9,
+      "event_rows": 2000.0,
+      "post_rows": 1500.0,
+      "directional_yaw_ok": 1.0,
+      "lateral_shift_ok": NaN,
+      "brake_ok": 1.0
+    },
+    "strict_pass": true
+  },
+  {
+    "experiment": "turn_right",
+    "rows": 11551,
+    "max_time_s": 23.102,
+    "statuses": {
+      "controller_status": 0,
+      "safety_status": 0,
+      "quality_status": 0,
+      "analysis_status": 0,
+      "ground_truth_status": 0,
+      "dynamics_status": 0,
+      "completion_status": 0
+    },
+    "event_transitions": [
+      {
+        "time_s": 0.0,
+        "type": "none",
+        "priority": 0
+      },
+      {
+        "time_s": 7.502,
+        "type": "turn_right",
+        "priority": 40
+      },
+      {
+        "time_s": 11.502,
+        "type": "none",
+        "priority": 0
+      }
+    ],
+    "scheduled_event": {
+      "type": "turn_right",
+      "start_s": 7.5,
+      "end_s": 11.5,
+      "relative_start_s": 4.0,
+      "relative_end_s": 8.0
+    },
+    "gait_start_s": 3.5,
+    "metrics": {
+      "pre_vx_mps": 0.11445601650000001,
+      "active_vx_min_mps": 0.01561918,
+      "active_vx_max_mps": 0.16299504,
+      "post_vx_mps": 0.113413915,
+      "stop_tail_abs_vx_max_mps": 0.16299504,
+      "stop_tail_abs_vx_median_mps": 0.106893025,
+      "max_velocity_jump_mps": 0.025257668593312924,
+      "braking_drop_mps": 0.09883683650000001,
+      "pre_y_m": -0.0007517909999999999,
+      "active_end_y_m": -0.0457151045,
+      "lateral_shift_m": -0.0449633135,
+      "pre_yaw_rad": 0.0187160865,
+      "active_end_yaw_rad": -0.3195848315,
+      "yaw_change_rad": -0.338300918,
+      "yaw_integral_delta_rad": -0.331978068,
+      "reference_vx_mps": 0.1183,
+      "reference_yaw_rate_radps": -0.9,
+      "target_vx_mps": 0.1183,
+      "target_yaw_rate_radps": -0.9,
+      "event_rows": 2000.0,
+      "post_rows": 1501.0,
+      "directional_yaw_ok": 1.0,
+      "lateral_shift_ok": NaN,
+      "brake_ok": 1.0
+    },
+    "strict_pass": true
+  }
+]

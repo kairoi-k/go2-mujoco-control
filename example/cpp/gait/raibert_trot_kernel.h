@@ -71,6 +71,10 @@ public:
         if (lift_m >= 0.0 && std::isfinite(lift_m))
             target_foot_lift_m_ = lift_m;
     }
+    void SetStanceHold(bool hold, double) override
+    {
+        stance_hold_ = hold;
+    }
     void SetGaitSlewLimits(double step, double period, double duty) override
     {
         if (step > 0.0 && std::isfinite(step))
@@ -112,10 +116,12 @@ public:
         // [Fix 2026-08-13] 连续相位累积: phase += dt / current_period
         // 旧实现 elapsed/period 在换挡(period 渐变)时 cycle_position 瞬移;
         // 新实现 period 变化只影响未来增量, 无跳变.
+        const double gait_dt = have_last_gait_time_
+            ? std::max(0.0, request.gait_time_s - last_gait_time_s_)
+            : 0.0;
         if (have_last_gait_time_)
         {
-            const double dt = request.gait_time_s - last_gait_time_s_;
-            phase_acc_ += dt / params_.gait.period_s;
+            phase_acc_ += gait_dt / params_.gait.period_s;
         }
         const double cycle_position = phase_acc_;
         if (!std::isfinite(cycle_position) ||
@@ -130,6 +136,7 @@ public:
             return false;
         }
         last_gait_time_s_ = request.gait_time_s;
+        const double hold_step = std::clamp(gait_dt / 0.25, 0.0, 1.0);
 
         const double phase = cycle_position - std::floor(cycle_position);
         const int cycle_index = static_cast<int>(std::floor(cycle_position));
@@ -228,7 +235,11 @@ public:
             params_.gait.duty_factor};
         const double blend = Smoothstep(
             request.gait_time_s / params_.gait.blend_duration_s);
+        const double hold_target = stance_hold_ ? 1.0 : 0.0;
+        stance_hold_blend_ +=
+            (hold_target - stance_hold_blend_) * hold_step;
         const double stance_duration = params_.gait.duty_factor;
+        const double gait_blend = blend * (1.0 - stance_hold_blend_);
         const double swing_duration = 1.0 - stance_duration;
         const double commanded_travel_m =
             params_.gait.step_length_m * stance_duration;
@@ -367,9 +378,9 @@ public:
 
             result.touchdown_target_x_m[leg] =
                 state.next_touchdown_x_m;
-            result.feet[leg].x += blend * x_offset;
-            result.feet[leg].y += blend * y_offset;
-            result.feet[leg].z += blend * z_offset;
+            result.feet[leg].x += gait_blend * x_offset;
+            result.feet[leg].y += gait_blend * y_offset;
+            result.feet[leg].z += gait_blend * z_offset;
         }
 
         have_last_gait_time_ = true;
@@ -443,6 +454,8 @@ private:
     }
 
     RaibertTrotKernelParams params_;
+    bool stance_hold_ = false;
+    double stance_hold_blend_ = 0.0;
     std::array<LegState, go2::kLegCount> leg_states_{};
     bool have_last_gait_time_ = false;
     double last_gait_time_s_ = 0.0;

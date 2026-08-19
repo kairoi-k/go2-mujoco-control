@@ -36,6 +36,10 @@ example/cpp/experiments/_runs/
 
 # Generated binaries / checkpoints
 *.pt
+
+# Nested case outputs in the verified v4 evidence package stay in OneDrive.
+example/cpp/experiments/go2_reactive_acceptance_verified_v4_*/**/data.csv
+example/cpp/experiments/go2_reactive_acceptance_verified_v4_*/**/contact_ground_truth.csv
 *.pth
 *.ckpt
 

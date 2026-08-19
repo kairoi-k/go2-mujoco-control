@@ -83,14 +83,21 @@ def main() -> None:
     yaw = num(metrics.get("yaw_change_rad"))
     dv = num(metrics.get("braking_drop_mps"))
     ref_yaw = num(metrics.get("reference_yaw_rate_radps"))
-    response = (
-        f"response: yaw_delta={yaw:+.3f} rad | "
-        f"vx_drop={dv:.3f} m/s | ref_yaw={ref_yaw:+.3f} rad/s"
-        if math.isfinite(yaw) and math.isfinite(dv)
-        else ("response: nominal walk; no event injected"
-              if not scheduled else
-              "response: physical disturbance; see synchronized CSV report")
-    )
+    dy = num(metrics.get("lateral_shift_m"))
+    if event_name.startswith("OBSTACLE") and math.isfinite(dy):
+        response = (
+            f"response: Δy={dy:+.3f} m | yaw_delta={yaw:+.3f} rad | "
+            f"ref_yaw={ref_yaw:+.3f} rad/s"
+        )
+    elif math.isfinite(yaw) and math.isfinite(dv):
+        response = (
+            f"response: yaw_delta={yaw:+.3f} rad | "
+            f"vx_drop={dv:.3f} m/s | ref_yaw={ref_yaw:+.3f} rad/s"
+        )
+    else:
+        response = ("response: nominal walk; no event injected"
+                    if not scheduled else
+                    "response: physical disturbance; see synchronized CSV report")
     filters = [
         "drawbox=x=0:y=0:w=iw:h=86:color=black@0.65:t=fill",
         text_filter(

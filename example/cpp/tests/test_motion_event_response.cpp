@@ -96,7 +96,8 @@ int main()
     output = layer.Update(0.2, 0.002, nominal, events);
     passed &= Check(
         output.active_event == MotionEventType::kEmergencyStop &&
-            output.active_priority > MotionEventPriority(MotionEventType::kTurnLeft),
+            output.active_priority > MotionEventPriority(MotionEventType::kTurnLeft) &&
+            output.reference.hold_stance,
         "Emergency stop did not override turn by priority.");
     passed &= Check(
         output.reference.vx_mps < nominal.vx_mps &&
@@ -115,6 +116,7 @@ int main()
     passed &= Check(
         output.reference.yaw_rate_radps > 0.0,
         "Turn reference did not have the expected sign.");
+    passed &= Check(!output.reference.hold_stance, "Stance hold did not release after emergency event.");
 
     if (!passed)
         return 1;

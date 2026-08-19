@@ -149,11 +149,16 @@ void TrotExperiment::UpdateWbcFull(
         kernel_duty_factor_ > 0.05 ? kernel_duty_factor_ : params_.duty_factor;
     if (task_.gait_started_ && task_.motion_stage_ == 2)
     {
-        std::array<std::array<bool, go2::kLegCount>, go2_control::kSrbdMaxHorizon>
-            scheduled{};
-        go2_control::FillTrotContactSchedulePhase(
-            current_phase_, gait_period, gait_duty, 1, 0.0, scheduled);
-        qp_contact = scheduled[0];
+        if (motion_event_response_enabled_ && motion_reference_.hold_stance)
+            qp_contact.fill(true);
+        else
+        {
+            std::array<std::array<bool, go2::kLegCount>, go2_control::kSrbdMaxHorizon>
+                scheduled{};
+            go2_control::FillTrotContactSchedulePhase(
+                current_phase_, gait_period, gait_duty, 1, 0.0, scheduled);
+            qp_contact = scheduled[0];
+        }
     }
     int contact_mask = 0;
     int active = 0;
@@ -279,7 +284,8 @@ void TrotExperiment::UpdateWbcFull(
             else
             {
                 mpc_in.reference[9] = v_ref;
-                mpc_in.reference[10] = 0.0;
+                mpc_in.reference[10] = motion_event_response_enabled_
+                    ? motion_reference_.vy_mps : 0.0;
             }
         }
         mpc_in.reference[11] = 0.0;
@@ -288,7 +294,11 @@ void TrotExperiment::UpdateWbcFull(
                 dyn.foot_pos_world[leg] - dyn.com_world;
         if (task_.gait_started_ && task_.motion_stage_ == 2)
         {
-            go2_control::FillTrotContactSchedulePhase(
+            if (motion_event_response_enabled_ && motion_reference_.hold_stance)
+                for (int k = 0; k < mpc_params.horizon; ++k)
+                    mpc_in.contact[k].fill(true);
+            if (!(motion_event_response_enabled_ && motion_reference_.hold_stance))
+                go2_control::FillTrotContactSchedulePhase(
                 current_phase_, gait_period, gait_duty,
                 mpc_params.horizon, mpc_params.dt_s, mpc_in.contact);
         }
@@ -709,6 +719,7 @@ void TrotExperiment::UpdateWbcShadow(
     wbc_shadow_diagnostics_.reduced_contact_task = reduced_contact_task;
 
     double desired_force_x_n = 0.0;
+    double desired_force_y_n = 0.0;
     if (params_.wbc_velocity_wrench &&
         task_.motion_stage_ == 2 &&
         task_.gait_started_ &&
@@ -727,9 +738,17 @@ void TrotExperiment::UpdateWbcShadow(
                 velocity_error_x_mps,
             -params_.wbc_max_forward_force_n,
             params_.wbc_max_forward_force_n);
+        const double target_velocity_y_mps =
+            motion_event_response_enabled_ ? motion_reference_.vy_mps : 0.0;
+        const double velocity_error_y_mps =
+            target_velocity_y_mps - latest_filtered_body_velocity_[1];
+        desired_force_y_n = Clamp(
+            kShadowWbcMassKg * params_.wbc_velocity_gain_s_inv *
+                velocity_error_y_mps,
+            -params_.wbc_max_forward_force_n,
+            params_.wbc_max_forward_force_n);
     }
     wbc_shadow_diagnostics_.desired_force_x_n = desired_force_x_n;
-    double desired_force_y_n = 0.0;
     double desired_force_z_n = 0.0;  // [增量式] z 力交给位置伺服(避免重复补偿)
     double desired_tau_x_nm = 0.0;
     double desired_tau_y_nm = 0.0;
@@ -836,7 +855,10 @@ void TrotExperiment::UpdateWbcShadow(
                     kWbcPrimaryVelGain1S * desired_force_x_n /
                         kShadowWbcMassKg,
                     -3.0, 3.0);
-                a_desired[1] = 0.0;
+                a_desired[1] = Clamp(
+                    kWbcPrimaryVelGain1S * desired_force_y_n /
+                        kShadowWbcMassKg,
+                    -2.0, 2.0);
                 if (params_.wbc_full && !motion_event_response_enabled_ &&
                     have_preview_terminal_velocity_)
                 {

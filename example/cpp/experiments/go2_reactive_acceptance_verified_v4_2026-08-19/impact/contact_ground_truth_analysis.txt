@@ -1,0 +1,9 @@
+rows=14641
+time_span_s=29.28
+median_dt_s=0.002
+contact_samples=52959
+min_contact_grf_z_N=5.00486679
+max_contact_grf_z_N=429.144246
+max_contact_grf_norm_N=526.466334
+negative_contact_grf_z_samples=0
+validation=PASS

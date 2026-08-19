@@ -88,6 +88,7 @@ struct MotionReference
     double step_scale = 1.0;
     double duty_factor = 0.75;
     double foot_lift_m = 0.020;
+    bool hold_stance = false;
 };
 
 struct MotionEvent
@@ -356,17 +357,18 @@ private:
 struct MotionEventResponseConfig
 {
     double max_abs_vx_mps = 0.60;
-    double max_abs_vy_mps = 0.25;
-    double max_abs_yaw_rate_radps = 0.55;
+    double max_abs_vy_mps = 0.35;
+    double max_abs_yaw_rate_radps = 0.90;
     double accel_mps2 = 0.80;
     double decel_mps2 = 2.50;
     double lateral_accel_mps2 = 0.60;
-    double yaw_accel_radps2 = 1.20;
+    double yaw_accel_radps2 = 2.00;
     double step_scale_rate_s = 2.50;
     double duty_rate_s = 0.80;
     double foot_lift_rate_mps = 0.030;
-    double turn_speed_scale = 0.65;
-    double obstacle_speed_scale = 0.35;
+    double turn_speed_scale = 0.78;
+    double obstacle_speed_scale = 0.25;
+    double obstacle_lateral_speed_mps = 0.30;
     double slip_speed_scale = 0.45;
     double low_friction_speed_scale = 0.45;
     double emergency_step_scale = 0.45;
@@ -474,6 +476,7 @@ public:
         current_.foot_lift_m = RateLimit(
             current_.foot_lift_m, target.foot_lift_m, dt,
             config_.foot_lift_rate_mps);
+        current_.hold_stance = target.hold_stance;
 
         MotionEventResponse output;
         output.reference = current_;
@@ -542,9 +545,11 @@ private:
             target.step_scale = config_.emergency_step_scale;
             target.duty_factor = config_.protective_duty_factor;
             target.foot_lift_m = config_.protective_foot_lift_m;
+            target.hold_stance = event.type == MotionEventType::kEmergencyStop;
             break;
         case MotionEventType::kObstacleLeft:
             target.vx_mps *= config_.obstacle_speed_scale;
+            target.vy_mps = config_.obstacle_lateral_speed_mps;
             target.yaw_rate_radps = turn;
             target.step_scale = std::min(target.step_scale, 0.70);
             target.duty_factor = std::max(
@@ -552,6 +557,7 @@ private:
             break;
         case MotionEventType::kObstacleRight:
             target.vx_mps *= config_.obstacle_speed_scale;
+            target.vy_mps = -config_.obstacle_lateral_speed_mps;
             target.yaw_rate_radps = -turn;
             target.step_scale = std::min(target.step_scale, 0.70);
             target.duty_factor = std::max(

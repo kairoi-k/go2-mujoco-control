@@ -204,12 +204,22 @@ def response_metrics(
     ref_vx = median(active, "event_ref_vx_mps")
     ref_yaw = median(active, "event_ref_yaw_rate_radps")
     target_vx = median(active, "event_target_vx_mps")
+    stop_tail = [
+        row for row in active
+        if number(row, "cmd_time_s") >= max(start, end - 0.75)
+    ]
+    stop_tail_vx = [
+        abs(value) for row in stop_tail
+        if math.isfinite(value := number(row, "world_velocity_x_mps"))
+    ]
     target_yaw = median(active, "event_target_yaw_rate_radps")
     metrics = {
         "pre_vx_mps": pre_vx,
         "active_vx_min_mps": active_vx_min,
         "active_vx_max_mps": active_vx_max,
         "post_vx_mps": post_vx,
+        "stop_tail_abs_vx_max_mps": max(stop_tail_vx, default=math.nan),
+        "stop_tail_abs_vx_median_mps": statistics.median(stop_tail_vx) if stop_tail_vx else math.nan,
         "max_velocity_jump_mps": max_velocity_jump_mps,
         "braking_drop_mps": pre_vx - active_vx_min,
         "pre_y_m": pre_y,
@@ -232,17 +242,36 @@ def response_metrics(
         metrics["directional_yaw_ok"] = float(metrics["yaw_change_rad"] < -0.12)
     else:
         metrics["directional_yaw_ok"] = math.nan
+    if event == "obstacle_left":
+        metrics["lateral_shift_ok"] = float(metrics["lateral_shift_m"] >= 0.05)
+    elif event == "obstacle_right":
+        metrics["lateral_shift_ok"] = float(metrics["lateral_shift_m"] <= -0.05)
+    else:
+        metrics["lateral_shift_ok"] = math.nan
     if event == "emergency_stop":
+        hold_values = [
+            int(number(row, "event_hold_stance", 0.0)) for row in stop_tail
+        ]
         metrics["brake_ok"] = float(
-            math.isfinite(pre_vx) and math.isfinite(active_vx_min)
-            and pre_vx - active_vx_min >= 0.05
+            math.isfinite(pre_vx)
+            and math.isfinite(metrics["stop_tail_abs_vx_max_mps"])
+            and metrics["stop_tail_abs_vx_max_mps"] <= 0.035
             and abs(target_vx) <= 0.02
+            and bool(hold_values)
+            and min(hold_values) == 1
         )
-    elif event in {"turn_left", "turn_right", "obstacle_left", "obstacle_right"}:
+    elif event in {"turn_left", "turn_right"}:
         metrics["brake_ok"] = float(
             math.isfinite(ref_yaw) and abs(ref_yaw) >= 0.20
             and math.isfinite(metrics["yaw_change_rad"])
             and abs(metrics["yaw_change_rad"]) >= 0.12
+        )
+    elif event in {"obstacle_left", "obstacle_right"}:
+        metrics["brake_ok"] = float(
+            math.isfinite(ref_yaw) and abs(ref_yaw) >= 0.10
+            and math.isfinite(metrics["yaw_change_rad"])
+            and abs(metrics["yaw_change_rad"]) >= 0.08
+            and metrics["lateral_shift_ok"] == 1.0
         )
     elif event in {"slip", "low_friction", "impact"}:
         metrics["brake_ok"] = float(
@@ -331,7 +360,12 @@ def analyze(path_string: str) -> dict[str, object]:
                 external_detail == "simulator_friction")
         )
     )
-    result["strict_pass"] = status_ok and (script_ok or external_ok)
+    baseline_ok = (
+        scheduled is None and external is None
+        and len(rows) >= 10000 and math.isfinite(max_time)
+        and max_time >= 20.0
+    )
+    result["strict_pass"] = status_ok and (script_ok or external_ok or baseline_ok)
     return result
 
 

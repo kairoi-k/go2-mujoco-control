@@ -29,7 +29,7 @@ void TrotExperiment::WriteCsvHeader()
          << ",motion_clock_wall_mode,motion_clock_wall_dt_s"
          << ",motion_clock_paused,motion_clock_pause_count"
          << ",motion_stage,cycle_index,phase"
-         << ",event_active,event_priority,event_type,event_ref_vx_mps,event_ref_vy_mps,event_ref_yaw_rate_radps,event_target_vx_mps,event_target_vy_mps,event_target_yaw_rate_radps"
+         << ",event_active,event_priority,event_type,event_hold_stance,event_ref_vx_mps,event_ref_vy_mps,event_ref_yaw_rate_radps,event_target_vx_mps,event_target_vy_mps,event_target_yaw_rate_radps"
          << ",world_base_x_m,world_base_y_m,world_base_z_m,world_yaw_error_rad"
          << ",world_feedback_x_m,world_feedback_y_m"
          << ",body_velocity_x_mps,body_velocity_y_mps,body_velocity_z_mps"
@@ -528,6 +528,7 @@ void TrotExperiment::LogSample(
          << (motion_event_state_.event_active ? 1 : 0)
          << "," << motion_event_state_.active_priority
          << "," << static_cast<int>(motion_event_state_.active_event)
+         << "," << (motion_reference_.hold_stance ? 1 : 0)
          << "," << motion_reference_.vx_mps
          << "," << motion_reference_.vy_mps
          << "," << motion_reference_.yaw_rate_radps
