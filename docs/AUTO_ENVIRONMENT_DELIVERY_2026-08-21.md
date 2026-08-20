@@ -2,8 +2,8 @@
 This note records the current, reproducible acceptance package for the Go2 WBC-full controller.
 ## Verified automatic sensing
 - Baseline: height-map valid rate 1.000, max age 0.020 s, no obstacle event, zero obstacle contact.
-- Physical obstacle: scene `scene_reactive_obstacle.xml`; `obstacle_left` detected at 5.040 s, latency 0.040 s after warmup, lateral shift 0.445 m, contact count/force 0/0. A later reappearance is treated as a separate event only after the obstacle has been clear for at least 250 ms.
-- Physical impact: simulator push 0.8 m/s at state tick 8.002 s; `impact` at 8.004 s (2 ms), `emergency_stop` at 8.504 s (0.5 s delay), velocity jump 0.803 m/s, max roll/pitch 0.0868/0.1738 rad, WBC residual 1.6964e-5.
+- Physical obstacle: scene `scene_reactive_obstacle.xml`; `obstacle_left` detected at 5.040 s, latency 0.040 s after warmup, lateral shift 0.449 m, contact count/force 0/0. A later reappearance is treated as a separate event only after the obstacle has been clear for at least 250 ms.
+- Physical impact: simulator push 0.8 m/s at state tick 8.002 s; `impact` at 8.004 s (2 ms), `emergency_stop` at 8.504 s (0.5 s delay), velocity jump 0.800 m/s, max roll/pitch 0.1245/0.1863 rad, WBC residual 1.6964e-5.
 - All three runs have controller, safety, quality, analysis, ground-truth, dynamics and completion status 0; strict analyzers pass.
 ## Unified-transition evidence
 The 49 directed transitions in `go2_reactive_transition_matrix_final_2026-08-20` use one MotionEventResponseLayer and one gait/WBC/MPC plant. All 49 pass the same sequence, timing, continuity, priority and safety gates. This is scripted transition coverage, not a claim of autonomous perception for every token.
