@@ -54,6 +54,31 @@ inline const char *MotionEventName(MotionEventType type) noexcept
     return "none";
 }
 
+enum class MotionEventSource
+{
+    kNone = 0,
+    kScheduled,
+    kSensor,
+    kSafetyLatch,
+};
+
+inline const char *MotionEventSourceName(
+    MotionEventSource source) noexcept
+{
+    switch (source)
+    {
+    case MotionEventSource::kScheduled:
+        return "scheduled";
+    case MotionEventSource::kSensor:
+        return "sensor";
+    case MotionEventSource::kSafetyLatch:
+        return "safety_latch";
+    case MotionEventSource::kNone:
+        break;
+    }
+    return "none";
+}
+
 inline bool ParseMotionEventType(
     const std::string &name,
     MotionEventType &type)
@@ -588,6 +613,7 @@ struct MotionEventResponse
     MotionReference target{};
     MotionEventType active_event = MotionEventType::kNone;
     int active_priority = 0;
+    MotionEventSource active_source = MotionEventSource::kNone;
     bool event_active = false;
     // The selected event timing is exported so the experiment sequencer can
     // implement terminal events without guessing from the reference ramp.
@@ -650,6 +676,7 @@ public:
     {
         MotionEvent selected{};
         int selected_priority = 0;
+        MotionEventSource selected_source = MotionEventSource::kNone;
         if (emergency_stop_latched_)
         {
             // A latched stop is an absorbing event, but it is intentionally
@@ -658,10 +685,12 @@ public:
             // test the same continuous interface after the event window.
             selected = {MotionEventType::kEmergencyStop, time_s, 1.0e9, 0.0};
             selected_priority = MotionEventPriority(selected.type);
+            selected_source = MotionEventSource::kSafetyLatch;
         }
         else
         {
-            auto consider = [&](const MotionEvent &event) {
+            auto consider = [&](const MotionEvent &event,
+                                MotionEventSource source) {
                 if (!event.IsActive(time_s))
                     return;
                 const int priority = MotionEventPriority(event.type);
@@ -671,12 +700,13 @@ public:
                 {
                     selected = event;
                     selected_priority = priority;
+                    selected_source = source;
                 }
             };
             for (const MotionEvent &event : scheduled_events)
-                consider(event);
+                consider(event, MotionEventSource::kScheduled);
             if (sensor_event != nullptr)
-                consider(*sensor_event);
+                consider(*sensor_event, MotionEventSource::kSensor);
         }
 
         MotionReference target = ClampReference(nominal);
@@ -763,6 +793,7 @@ public:
         output.target = target;
         output.active_event = selected.type;
         output.active_priority = selected_priority;
+        output.active_source = selected_source;
         output.event_active = selected.type != MotionEventType::kNone;
         if (output.event_active)
         {

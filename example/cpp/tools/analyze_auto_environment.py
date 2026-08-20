@@ -17,6 +17,13 @@ EVENT_NAMES = {
     6: "slip", 7: "low_friction", 8: "impact",
 }
 
+SOURCE_NAMES = {
+    0: "none",
+    1: "scheduled",
+    2: "sensor",
+    3: "safety_latch",
+}
+
 
 def number(row: dict[str, str], key: str, default=math.nan) -> float:
     try:
@@ -57,6 +64,9 @@ def transitions(data):
                 "time_s": round(number(row, "cmd_time_s"), 4),
                 "type": EVENT_NAMES.get(event, f"unknown_{event}"),
                 "priority": int(number(row, "event_priority", 0.0)),
+                "source": int(number(row, "event_source", 0.0)),
+                "source_name": SOURCE_NAMES.get(
+                    int(number(row, "event_source", 0.0)), "unknown"),
             })
             previous = event
     return result
@@ -168,10 +178,12 @@ def analyze(path: Path, expect_obstacle: bool):
         gaps_ok = all(b["time_s"] - a["time_s"] >= 0.25
                       for a, b in zip(obstacle_events, obstacle_events[1:]))
         event_ok = bool(obstacle_events) and not unexpected and gaps_ok
-        detection_ok = (event_ok and 0 <= latency <= .50 and
+        source_ok = all(item["source"] == 2 for item in obstacle_events)
+        detection_ok = (event_ok and source_ok and 0 <= latency <= .50 and
                         has_obstacle_scene(path) and response_ok)
     else:
         event_ok = not non_none
+        source_ok = True
         detection_ok = event_ok
     result.update({
         "rows": len(data), "statuses": statuses, "observed_transitions": observed,
@@ -181,14 +193,15 @@ def analyze(path: Path, expect_obstacle: bool):
         "obstacle_events": obstacle_events,
         "detection_latency_after_warmup_s": latency, "lateral_shift_m": lateral_shift,
         "obstacle_contact": contact, "map_ok": map_ok, "event_ok": event_ok,
-        "detection_ok": detection_ok, "response_ok": response_ok,
+        "detection_ok": detection_ok, "source_ok": source_ok,
+        "response_ok": response_ok,
         "contact_ok": contact_ok, "finite_required_columns": finite,
         "max_abs_roll_rad": max_roll, "max_abs_pitch_rad": max_pitch,
         "posture_ok": posture_ok, "max_wbc_full_eq_residual": max_residual,
         "solver_ok": solver_ok, "status_ok": status_ok,
     })
     result["strict_pass"] = all((status_ok, map_ok, finite, posture_ok, solver_ok,
-                                  contact_ok, event_ok, detection_ok))
+                                  contact_ok, event_ok, detection_ok, source_ok))
     return result
 
 
@@ -216,6 +229,7 @@ def main() -> int:
                   f"statuses: {item['statuses']}",
                   f"map valid rate: {item.get('map_valid_rate_after_first', math.nan):.3f}",
                   f"obstacle event: {item.get('obstacle_event')}",
+                  f"event source: {item.get('obstacle_event', {}).get('source_name', 'none') if item.get('obstacle_event') else 'none'}",
                   f"obstacle events: {item.get('obstacle_events')}",
                   f"detection latency after warmup: {item.get('detection_latency_after_warmup_s', math.nan):.3f} s",
                   f"lateral shift: {item.get('lateral_shift_m', math.nan):.3f} m",

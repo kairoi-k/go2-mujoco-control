@@ -30,6 +30,13 @@ EVENT_NAMES = {
     8: "impact",
 }
 
+SOURCE_NAMES = {
+    0: "none",
+    1: "scheduled",
+    2: "sensor",
+    3: "safety_latch",
+}
+
 
 def finite_column(data: list[dict[str, str]], key: str) -> bool:
     return all(math.isfinite(number(row, key)) for row in data)
@@ -48,6 +55,9 @@ def transitions_with_state(data: list[dict[str, str]]) -> list[dict[str, object]
                     "state_tick_s": round(number(row, "state_tick_s"), 4),
                     "type": EVENT_NAMES.get(event, f"unknown_{event}"),
                     "priority": int(number(row, "event_priority", 0.0)),
+                    "source": int(number(row, "event_source", 0.0)),
+                    "source_name": SOURCE_NAMES.get(
+                        int(number(row, "event_source", 0.0)), "unknown"),
                 }
             )
             previous = event
@@ -163,8 +173,11 @@ def analyze(path: Path, push_tolerance_s: float) -> dict:
         and impact_state_time < obstacle_state_time + 8.0
         and int(obstacle.get("priority", 0)) == 80
         and int(impact.get("priority", 0)) == 100
+        and int(obstacle.get("source", 0)) == 2
+        and int(impact.get("source", 0)) == 2
         and emergency is not None
         and int(emergency.get("priority", 0)) == 100
+        and int(emergency.get("source", 0)) == 1
     )
     map_ok = bool(valid_map) and map_rate >= 0.95 and max_map_age <= 0.15
     timing_ok = (

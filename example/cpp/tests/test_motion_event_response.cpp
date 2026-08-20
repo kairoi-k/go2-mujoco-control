@@ -180,8 +180,20 @@ int main()
         output.active_event == MotionEventType::kTurnLeft,
         "Turn event was not selected at t=0.");
     passed &= Check(
+        output.active_source == MotionEventSource::kScheduled,
+        "Scheduled event source was not preserved.");
+    passed &= Check(
         output.reference.vx_mps == nominal.vx_mps,
         "Initial reference was not initialized from nominal.");
+
+    const MotionEvent sensor_test_event = {
+        MotionEventType::kObstacleLeft, 2.0, 0.5, 0.18};
+    output = layer.Update(
+        2.0, 0.002, nominal, {}, &sensor_test_event);
+    passed &= Check(
+        output.active_event == MotionEventType::kObstacleLeft &&
+            output.active_source == MotionEventSource::kSensor,
+        "Sensor event source was not preserved.");
 
     output = layer.Update(0.2, 0.002, nominal, events);
     passed &= Check(
@@ -189,6 +201,9 @@ int main()
             output.active_priority > MotionEventPriority(MotionEventType::kTurnLeft) &&
             output.reference.hold_stance,
         "Emergency stop did not override turn by priority.");
+    passed &= Check(
+        output.active_source == MotionEventSource::kScheduled,
+        "Scheduled emergency source was not preserved.");
     passed &= Check(
         output.reference.vx_mps < nominal.vx_mps &&
             output.reference.vx_mps > 0.0,

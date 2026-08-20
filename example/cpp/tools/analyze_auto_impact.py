@@ -22,6 +22,13 @@ EVENT_NAMES = {
     8: "impact",
 }
 
+SOURCE_NAMES = {
+    0: "none",
+    1: "scheduled",
+    2: "sensor",
+    3: "safety_latch",
+}
+
 
 def number(row: dict[str, str], key: str, default: float = math.nan) -> float:
     try:
@@ -58,6 +65,9 @@ def transitions(data: list[dict[str, str]]) -> list[dict[str, float | str]]:
                 "state_tick_s": number(row, "state_tick_s"),
                 "type": event,
                 "priority": int(number(row, "event_priority", 0)),
+                "source": int(number(row, "event_source", 0)),
+                "source_name": SOURCE_NAMES.get(
+                    int(number(row, "event_source", 0)), "unknown"),
             })
             previous = event
     return result
@@ -123,6 +133,9 @@ def analyze(path: Path, push_tolerance_s: float) -> dict:
     max_pitch = max((abs(number(row, "imu_pitch_rad")) for row in data), default=math.nan)
     max_residual = max((number(row, "wbc_full_eq_residual") for row in data), default=math.nan)
     sequence_ok = [item["type"] for item in observed] == ["none", "impact", "emergency_stop"]
+    source_ok = (
+        impact is not None and stop is not None and
+        impact.get("source") == 2 and stop.get("source") == 1)
     latency = state_impact - push if math.isfinite(state_impact) and math.isfinite(push) else math.nan
     stop_delay = state_stop - state_impact if math.isfinite(state_stop) and math.isfinite(state_impact) else math.nan
     jump = max_adjacent_velocity_jump(data, push) if math.isfinite(push) else math.nan
@@ -147,12 +160,13 @@ def analyze(path: Path, push_tolerance_s: float) -> dict:
         "max_abs_roll_rad": max_roll, "max_abs_pitch_rad": max_pitch,
         "max_wbc_full_eq_residual": max_residual,
         "sequence_ok": sequence_ok, "hold_complete": hold_complete,
+        "source_ok": source_ok,
         "status_ok": status_ok, "map_ok": map_ok, "timing_ok": timing_ok,
         "dynamics_ok": dynamics_ok, "finite_required_columns": finite,
         "posture_ok": posture_ok, "solver_ok": solver_ok,
     })
     result["strict_pass"] = all((status_ok, map_ok, timing_ok, dynamics_ok,
-                                  sequence_ok, hold_complete, finite,
+                                  sequence_ok, source_ok, hold_complete, finite,
                                   posture_ok, solver_ok))
     return result
 
@@ -170,6 +184,7 @@ def main() -> int:
     lines = ["# Automatic physical-impact acceptance", "",
              f"Strict pass: {report['strict_pass']}", "",
              f"Observed transitions: {report.get('observed_transitions')}",
+             f"Event sources: {[(x.get('type'), x.get('source_name')) for x in report.get('observed_transitions', [])]}",
              f"Push / impact / emergency state time: {report.get('push_state_time_s')} / {report.get('impact_state_time_s')} / {report.get('emergency_stop_state_time_s')} s",
              f"Impact latency: {report.get('impact_detection_latency_s')} s",
              f"Emergency-stop delay: {report.get('emergency_stop_delay_s')} s",
