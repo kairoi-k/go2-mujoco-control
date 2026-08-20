@@ -74,6 +74,17 @@ int main()
     sensor = {};
     sensor.contact_count = 4;
     sensor.have_velocity = true;
+    sensor.velocity_x_mps = 0.0;
+    detector.Observe(10.0, 0.002, sensor, nominal);
+    sensor.velocity_x_mps = 0.8;
+    automatic = detector.Observe(10.0, 0.0, sensor, nominal);
+    passed &= Check(
+        automatic.type == MotionEventType::kImpact,
+        "Impact detector missed a duplicate-tick velocity jump.");
+    detector.Reset();
+    sensor = {};
+    sensor.contact_count = 4;
+    sensor.have_velocity = true;
     sensor.velocity_x_mps = 0.8;
     for (int i = 0; i < 100; ++i)
         automatic = detector.Observe(1.6 + i * 0.002, 0.002, sensor, nominal);

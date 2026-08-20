@@ -13,6 +13,7 @@
 障碍场景使用带碰撞的 reactive_obstacle 实体；验收同时要求：地图有效率不低于 95%、地图年龄不超过 150 ms、检测延迟（预热结束后）不超过 0.50 s、目标方向正确、机身发生同向横移、WBC 残差不超过 1e-3、姿态不超过 0.25 rad、障碍物真实接触力和接触次数均为 0。无障碍基线必须全程不产生 obstacle 事件。
 
 可复现实验：先运行 baseline 与 scene_reactive_obstacle 两组，再用 example/cpp/tools/analyze_auto_environment.py 生成 JSON/Markdown 严格报告。原始 CSV、接触真值和 simulator/controller 日志只作为验收证据，不作为源码提交内容。
+物理冲击的自动检测与急停验收使用 `example/cpp/tools/analyze_auto_impact.py`；它把模拟器日志中的施力时刻与控制器 `state_tick_s` 对齐，单独检查检测延迟、急停延迟、速度突变、姿态、WBC 残差和最终保持。
 ## 运行链路
 
 ```text
@@ -81,8 +82,8 @@ python3 example/cpp/tools/analyze_reactive_events.py \
 
 ## 已验证结果
 
-- 2026-08-20 自动高度图验收：无障碍基线与真实碰撞障碍两组均严格通过；地图有效率 100%、最大年龄 20 ms；障碍检测延迟 90 ms，自动选择 obstacle_left，机身横移 0.453 m，障碍物接触次数/法向力均为 0。
-- 2026-08-20 物理冲击自动验收：0.8 m/s 仿真速度冲击被自动识别为 impact，随后 0.5 s 进入 emergency_stop；controller/safety/quality/completion = 0/0/0/0，最大 roll 4.35°、pitch 9.27°。
+- 2026-08-21 自动高度图验收（新二进制复核）：无障碍基线与真实碰撞障碍两组严格通过；地图有效率 100%、最大年龄 20 ms；障碍检测延迟 40 ms，自动选择 obstacle_left，机身横移 0.423 m，障碍物接触次数/法向力均为 0。
+- 2026-08-21 物理冲击自动验收（新二进制复核）：0.8 m/s 仿真冲击在 state_tick=8.004 s 被识别，2 ms 后进入 impact，0.5 s 后进入 emergency_stop；最大速度突变 0.800 m/s，最大 roll 0.0844 rad、pitch 0.1618 rad，WBC 残差 1.6963e-5，全部状态码为 0。
 - 低摩擦负向验收保持无误报：仅降低地面摩擦但未产生可观测滑移时不生成事件；低摩擦 token 的响应和滑移确认由单元测试覆盖，不能把“潜在摩擦变化”冒充成已检测事件。
 
 

@@ -62,3 +62,7 @@ example/cpp/experiments/go2_reactive_transition_matrix_*_iter1_sensor_events/
 # keep the reproducible protocol, manifests, scripts, and reports trackable.
 example/cpp/experiments/go2_reactive_transition_matrix_final_2026-08-20/runs/
 example/cpp/experiments/go2_reactive_transition_matrix_final_2026-08-20/runner_logs/
+
+# Automatic environment-sensing raw runs are local/evidence artifacts; keep
+# large CSV/log outputs out of the repository.
+example/cpp/experiments/go2_auto_environment_*/

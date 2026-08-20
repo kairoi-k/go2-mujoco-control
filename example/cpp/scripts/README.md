@@ -14,6 +14,7 @@
 | `record_periodic_leg_lift.sh` | 周期抬腿录制（需显式配置捕获工具目录） |
 
 自动环境感知验收：`../tools/analyze_auto_environment.py` 会检查高度图新鲜度、自动事件、参考方向、姿态、WBC 残差和真实障碍物接触。
+物理冲击→急停验收：`../tools/analyze_auto_impact.py`；它将 simulator.log 的施力时刻与 data.csv 的 state_tick_s 对齐并输出严格报告。
 ```bash
 bash example/cpp/scripts/go2sim walk --view
 bash example/cpp/scripts/go2sim walk

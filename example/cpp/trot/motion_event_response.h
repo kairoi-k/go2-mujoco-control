@@ -264,6 +264,7 @@ public:
         active_event_ = {};
         low_friction_accum_s_ = 0.0;
         obstacle_accum_s_ = 0.0;
+        obstacle_first_seen_time_s_ = -1.0;
         slip_candidate_age_s_ = 0.0;
         impact_clear_accum_s_ = 0.0;
         previous_velocity_x_mps_ = 0.0;
@@ -296,7 +297,10 @@ public:
             : sample.velocity_y_mps;
         if (have_velocity)
         {
-            if (have_previous_velocity_ && dt_s > 0.0)
+            // LowState and SportModeState can arrive twice for one tick. A
+            // real impulse may appear on the duplicate, so do not discard a
+            // large raw-velocity jump merely because dt_s is zero.
+            if (have_previous_velocity_)
             {
                 velocity_jump_mps = std::hypot(
                     velocity_x - previous_velocity_x_mps_,
@@ -325,8 +329,10 @@ public:
                 impact_clear_accum_s_ = 0.0;
             }
         }
+        const bool duplicate_tick_impact = impact && dt_s == 0.0;
         if (!std::isfinite(time_s) || time_s < config_.warmup_s ||
-            !(dt_s > 0.0) ||
+            dt_s < 0.0 ||
+            (dt_s == 0.0 && !duplicate_tick_impact) ||
             time_s - last_trigger_time_s_ < config_.cooldown_s)
         {
             low_friction_accum_s_ = 0.0;
@@ -401,6 +407,7 @@ private:
             sample.obstacle_scan_age_s > config_.max_sensor_age_s)
         {
             obstacle_accum_s_ = 0.0;
+            obstacle_first_seen_time_s_ = -1.0;
             obstacle_latched_ = false;
             return {};
         }
@@ -419,13 +426,19 @@ private:
         if (!center && !left && !right)
         {
             obstacle_accum_s_ = 0.0;
+            obstacle_first_seen_time_s_ = -1.0;
             obstacle_latched_ = false;
             return {};
         }
         if (obstacle_latched_)
             return {};
+        if (obstacle_first_seen_time_s_ < 0.0 ||
+            !std::isfinite(obstacle_first_seen_time_s_))
+            obstacle_first_seen_time_s_ = time_s;
         obstacle_accum_s_ += std::min(std::max(dt_s, 0.0), 0.050);
-        if (obstacle_accum_s_ < config_.obstacle_confirm_s)
+        const double seen_duration_s = time_s - obstacle_first_seen_time_s_;
+        if (obstacle_accum_s_ < config_.obstacle_confirm_s &&
+            seen_duration_s < config_.obstacle_confirm_s)
             return {};
         bool avoid_left = false;
         if (right && !left && !center)
@@ -475,6 +488,7 @@ private:
     MotionEvent active_event_{};
     double low_friction_accum_s_ = 0.0;
     double obstacle_accum_s_ = 0.0;
+    double obstacle_first_seen_time_s_ = -1.0;
     double slip_candidate_age_s_ = 0.0;
     double previous_velocity_error_mps_ = 0.0;
     double impact_clear_accum_s_ = 0.0;
