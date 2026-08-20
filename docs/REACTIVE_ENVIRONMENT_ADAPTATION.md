@@ -6,7 +6,7 @@
 
 当前站起/趴下仍沿用原有插值；进入 gait 后，脚本事件和传感器事件共用同一过渡层。
 
-## 自动环境感知（当前主线，代码提交 `dd0a606`）
+## 自动环境感知（当前主线，代码提交 `239f940`）
 
 模拟器通过 rt/go2/environment_heightmap 发布 base_link 坐标系高度图；控制器订阅后在每个控制周期检查地图新鲜度，并把前方中心、左、右三个扇区压缩成障碍扫描。检测到连续 40 ms 的有效障碍后，自动生成 obstacle_left/right token，送入同一个 MotionEventResponseLayer。这里没有拼接关节动作，也没有切换 WBC/MPC 植物。
 障碍扫描短暂丢帧不会立即重置已确认障碍；只有连续清空达到 250 ms 才重新允许同一检测器触发，避免同一实体的瞬时丢帧造成重复动作。
@@ -78,16 +78,16 @@ bash example/cpp/scripts/run_trot.sh 80 go2_reactive_low_friction_push08_2026-08
   --friction-time 8 --friction-mu 0.05 --friction-duration 1
 ```
 
-实体低摩擦区域正向验收使用 `unitree_robots/go2/scene_low_friction_patch.xml`：正常平面后接入带碰撞的 `mu=0.005` patch，不使用 `--friction-time`。控制器由支撑脚世界系运动学自动确认 `low_friction(sensor)`，并由 `analyze_auto_low_friction.py` 检查场景、事件来源、进入 patch 的时序、证据阈值、速度降低、姿态和求解器状态。
+实体低摩擦区域正向验收使用 `unitree_robots/go2/scene_low_friction_patch.xml`：正常平面后接入带碰撞的 `mu=0.0001` patch，不使用 `--friction-time`；为保证物理滑移可观测，验收采用更快的探测步态。控制器由支撑脚世界系运动学自动确认 `low_friction(sensor)`，并由 `analyze_auto_low_friction.py` 检查场景、事件来源、进入 patch 的时序、证据阈值、速度降低、姿态和求解器状态。
 
 ```bash
-bash example/cpp/scripts/run_trot.sh 80 go2_auto_environment_low_friction_patch_sensor_v9_2026-08-21 \
-  --wbc-full --step-length 0.091 --period 0.60 --duty 0.75 --foot-lift 0.020 \
+bash example/cpp/scripts/run_trot.sh 100 go2_auto_environment_low_friction_patch_sensor_fast_v14_2026-08-21 \
+  --wbc-full --step-length 0.14 --period 0.55 --duty 0.65 --foot-lift 0.025 \
   --kernel raibert-trot --raibert-velocity-gain 0.05 --raibert-max-adjustment 0.010 \
   --tau-limit 35 --max-cycles 12 --headless --domain-id 222 \
   --controller-duration 12 --auto-environment --scene unitree_robots/go2/scene_low_friction_patch.xml
 python3 example/cpp/tools/analyze_auto_low_friction.py \
-  example/cpp/experiments/go2_auto_environment_low_friction_patch_sensor_v9_2026-08-21
+  example/cpp/experiments/go2_auto_environment_low_friction_patch_sensor_fast_v14_2026-08-21
 ```
 
 结果可用以下工具读取：
@@ -99,9 +99,9 @@ python3 example/cpp/tools/analyze_reactive_events.py \
 
 ## 已验证结果
 
-- 2026-08-21 自动高度图验收（提交 `dd0a606`）：无障碍基线与真实碰撞障碍两组严格通过；地图有效率 100%、最大年龄 20 ms；自动选择 obstacle_left，机身横移且障碍物接触次数/法向力均为 0。
-- 2026-08-21 物理冲击自动验收（提交 `dd0a606`）：0.8 m/s 仿真冲击在 state_tick=8.002 s 被识别，2 ms 后进入 impact，0.5 s 后进入 emergency_stop；最大速度突变 0.802 m/s，最大 roll 0.045 rad、pitch 0.162 rad，WBC 残差 1.6964e-5，全部状态码为 0。
-- 2026-08-21 实体低摩擦区域验收（提交 `dd0a606`）：正常地面进入 `mu=0.005` 的碰撞 patch 后由支撑脚运动学自动生成 `low_friction(sensor)`，严格序列 `none -> low_friction -> none`；证据峰值 0.1945，目标 `vx` 从 0.1517 降至 0.06825 m/s，姿态/求解器/质量状态码均为 0。全局摩擦仅下降但无可观测滑移仍保持负向边界，不冒充成功。
+- 2026-08-21 自动高度图验收（提交 `239f940`）：无障碍基线与真实碰撞障碍两组严格通过；地图有效率 100%、最大年龄 20 ms；自动选择 obstacle_left，机身横移 0.222 m，障碍物接触次数/法向力均为 0。
+- 2026-08-21 物理冲击自动验收（提交 `239f940`）：0.8 m/s 仿真冲击在 state_tick=8.002 s 被识别，2 ms 后进入 impact，0.5 s 后进入 emergency_stop；最大速度突变 0.802 m/s，最大 roll 0.028 rad、pitch 0.162 rad，WBC 残差 1.6964e-5，全部状态码为 0。
+- 2026-08-21 实体低摩擦区域验收（提交 `239f940`）：正常地面进入 `mu=0.0001` 的碰撞 patch 后由支撑脚运动学自动生成 `low_friction(sensor)`；更快探测步态连续两次严格通过，证据峰值 0.2420/0.1571，姿态/求解器/质量状态码均为 0。全局摩擦仅下降但无可观测滑移仍保持负向边界，不冒充成功。
 - 低摩擦负向验收保持无误报：仅降低地面摩擦但未产生可观测滑移时不生成事件；支撑脚运动学检测通道及低摩擦 token 的响应由单元测试覆盖，但当前摩擦-only 工况尚未形成严格的自动 `sensor` 事件，不把“潜在摩擦变化”冒充成已检测事件。
 
 
@@ -114,7 +114,7 @@ python3 example/cpp/tools/analyze_reactive_events.py \
 
 这些结果证明了“事件→统一连续参考→同一 WBC/MPC”链路和最坏工况记录已经成立，但不等于对任意真实障碍都已完成感知；实机部署还需要把上游感知事件接入同一接口，并重新标定阈值。
 
-## 当前自动感知优先级证据（commit `dd0a606`）
+## 当前自动感知优先级证据（commit `239f940`）
 
 最新交付以当前提交的基线/障碍/冲击/抢占/低摩擦验收为准：实体障碍期间发生 0.8 m/s 物理冲击，`obstacle_left → impact` 在 2 ms 内完成抢占，随后约 0.5 s 进入 `emergency_stop`；实体低摩擦 patch 由支撑脚运动学自动检测。所有严格分析器通过，无碰撞且所有状态码为 0。
 

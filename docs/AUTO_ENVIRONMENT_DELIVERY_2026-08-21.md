@@ -1,6 +1,6 @@
 # Automatic environment sensing delivery
 
-This note records the reproducible source-aware acceptance package for the Go2 WBC-full controller at code commit `dd0a606` (documentation may be committed separately).
+This note records the reproducible source-aware acceptance package for the Go2 WBC-full controller at code commit `239f940` (documentation may be committed separately).
 
 ## Verified automatic sensing
 
@@ -15,9 +15,9 @@ The CSV `event_source` field makes the evidence auditable: automatic obstacle an
 
 ## Physical low-friction acceptance
 
-The former global-friction-only trial is intentionally retained as a negative boundary: changing the whole floor coefficient without producing measurable support-foot motion did not justify a sensor event. The positive acceptance is now a physical patch scene, `unitree_robots/go2/scene_low_friction_patch.xml`: the robot walks from a normal plane onto a collidable patch with `mu=0.005`, while no `--friction-time` script is used. Support-foot world kinematics feed a leaky evidence window; duplicate DDS state ticks do not erase elapsed evidence, and low-friction detection has hysteresis, re-arm suppression after other events, and a minimum current support-foot speed gate.
+The former global-friction-only trial is intentionally retained as a negative boundary: changing the whole floor coefficient without producing measurable support-foot motion did not justify a sensor event. The positive acceptance is now a physical patch scene, `unitree_robots/go2/scene_low_friction_patch.xml`: the robot walks from a normal plane onto a collidable patch with `mu=0.0001`, while no `--friction-time` script is used. Support-foot world kinematics feed a leaky evidence window; duplicate DDS state ticks do not erase elapsed evidence, and low-friction detection has hysteresis, re-arm suppression after other events, and a minimum current support-foot speed gate. The acceptance uses a deliberately faster probe gait to make the friction loss physically observable rather than claiming that every nominal gait must slip.
 
-The strict patch run `go2_auto_environment_low_friction_patch_sensor_v9_2026-08-21` passes: `none -> low_friction(sensor) -> none`, detection occurs after the gait enters the patch, support evidence reaches `0.1945` (threshold `0.08`), target `vx` drops from `0.1517` to `0.06825 m/s`, and posture/solver/quality statuses remain zero. Re-run it with `example/cpp/tools/analyze_auto_low_friction.py`; the analyzer rejects scripted friction changes, missing physical patch geometry, wrong event source, out-of-patch detections, insufficient support evidence, and unsafe numerical/posture results.
+The repeated strict runs `go2_auto_environment_low_friction_patch_sensor_fast_v14_2026-08-21` and `...fast_v15...` both pass: `none -> low_friction(sensor) -> none`, detection occurs after entering the patch, evidence peaks at `0.2420` and `0.1571`, target `vx` is reduced, and posture/solver/quality statuses remain zero. Re-run either with `example/cpp/tools/analyze_auto_low_friction.py`; the analyzer rejects scripted friction changes, missing physical patch geometry, wrong event source, out-of-patch detections, insufficient support evidence, and unsafe numerical/posture results.
 
 ## Unified-transition evidence
 
