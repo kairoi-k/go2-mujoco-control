@@ -84,6 +84,15 @@ int main()
     detector.Reset();
     sensor = {};
     sensor.contact_count = 4;
+    sensor.accel_z_mps2 = 9.81 + 41.0;
+    sensor.accel_y_mps2 = 6.0;
+    automatic = detector.Observe(1.6, 0.002, sensor, nominal);
+    passed &= Check(
+        automatic.type == MotionEventType::kImpact,
+        "IMU-only impact fallback did not trigger.");
+    detector.Reset();
+    sensor = {};
+    sensor.contact_count = 4;
     sensor.have_velocity = true;
     sensor.velocity_x_mps = 0.8;
     for (int i = 0; i < 100; ++i)

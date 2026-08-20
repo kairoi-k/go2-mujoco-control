@@ -312,13 +312,22 @@ public:
             previous_velocity_y_mps_ = velocity_y;
             have_previous_velocity_ = true;
         }
-        const bool impact =
-            sample.contact_count >= 2 &&
-            (velocity_jump_mps >= config_.impact_velocity_jump_mps ||
-             (std::abs(sample.accel_z_mps2 - config_.gravity_mps2) >=
-                  config_.impact_extreme_vertical_excess_mps2 &&
-              std::hypot(sample.accel_x_mps2, sample.accel_y_mps2) >=
-                  5.0));
+        // A planned gait maneuver can create large vertical and lateral IMU
+        // accelerations without an external collision (the obstacle lane
+        // change is one example). When body velocity is available, use its
+        // discontinuity as the collision signature and do not let controlled
+        // acceleration create a false impact. Keep acceleration as a
+        // fallback for platforms that expose IMU data but no velocity.
+        const bool impact_velocity =
+            have_velocity &&
+            velocity_jump_mps >= config_.impact_velocity_jump_mps;
+        const bool impact_acceleration_fallback =
+            !have_velocity &&
+            std::abs(sample.accel_z_mps2 - config_.gravity_mps2) >=
+                config_.impact_extreme_vertical_excess_mps2 &&
+            std::hypot(sample.accel_x_mps2, sample.accel_y_mps2) >= 5.0;
+        const bool impact = sample.contact_count >= 2 &&
+                            (impact_velocity || impact_acceleration_fallback);
         if (impact_latched_)
         {
             if (impact)
