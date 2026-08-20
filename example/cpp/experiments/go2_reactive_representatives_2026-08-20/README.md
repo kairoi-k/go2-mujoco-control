@@ -6,4 +6,4 @@
 
 `turn_left_long` 只改变偏航参考；`obstacle_left_physical` 使用 `scene_reactive_obstacle.xml` 的真实红色碰撞箱，避障命令同时包含横移和偏航，验收条件是绕开且机器人—障碍物接触力/次数均为 0。`obstacle_to_turn_handoff` 专门展示长窗口衔接，不是两个短动作一闪而过。
 
-视频在 `videos/`；`representative_manifest.json` 记录实际事件时段、运行目录和文件大小；`metrics.csv` 及两张图用于区分“参考变化”和“物理环境变化”。原始运行证据仍在本地仓库对应的 `example/cpp/experiments/_runs/reactive_representative_*`。
+原始视频在 `videos/`；带同步数据面板的视频在 `videos_data_panel/`，总合集为 `reactive_representatives_data_panel_collection.mp4`。面板左侧实线是测量反馈，虚线是控制器参考，红色游标是当前视频时刻；上图为 vx/vy，下图为 yaw rate。`representative_manifest.json` 和 `data_panel_manifest.json` 记录文件与实际事件时段；`metrics.csv` 及两张图用于区分“参考变化”和“物理环境变化”。原始运行证据仍在本地仓库对应的 `example/cpp/experiments/_runs/reactive_representative_*`。
