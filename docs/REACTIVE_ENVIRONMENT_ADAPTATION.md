@@ -15,6 +15,8 @@
 
 可复现实验：先运行 baseline 与 scene_reactive_obstacle 两组，再用 example/cpp/tools/analyze_auto_environment.py 生成 JSON/Markdown 严格报告。原始 CSV、接触真值和 simulator/controller 日志只作为验收证据，不作为源码提交内容。
 物理冲击的自动检测与急停验收使用 `example/cpp/tools/analyze_auto_impact.py`；它把模拟器日志中的施力时刻与控制器 `state_tick_s` 对齐，单独检查检测延迟、急停延迟、速度突变、姿态、WBC 残差和最终保持。
+
+CSV 的 `event_source` 记录事件来源：`1=scheduled`（脚本或自动安排的后续急停）、`2=sensor`（速度/IMU/高度图自动检测）、`3=safety_latch`（急停保持）。自动障碍和冲击验收要求来源必须为 `sensor`，不能用脚本事件冒充环境感知。
 ## 运行链路
 
 ```text
@@ -97,7 +99,7 @@ python3 example/cpp/tools/analyze_reactive_events.py \
 
 这些结果证明了“事件→统一连续参考→同一 WBC/MPC”链路和最坏工况记录已经成立，但不等于对任意真实障碍都已完成感知；实机部署还需要把上游感知事件接入同一接口，并重新标定阈值。
 
-## 当前自动感知优先级证据（commit `5158ff2`）
+## 当前自动感知优先级证据（commit `3f1c4bd`）
 
 最新交付以当前提交的三组基线/障碍/冲击和一组抢占验收为准：实体障碍期间发生 0.8 m/s 物理冲击，`obstacle_left → impact` 在 4 ms 内完成抢占，随后 0.5 s 进入 `emergency_stop`，严格序列为 `none → obstacle_left → impact → emergency_stop`，无碰撞且所有状态码为 0。
 
