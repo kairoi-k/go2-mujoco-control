@@ -82,6 +82,10 @@ def has_obstacle_scene(path: Path) -> bool:
     if marker not in argv:
         return False
     scene = Path(argv.split(marker, 1)[1].split(" --", 1)[0])
+    if not scene.is_absolute():
+        repo_root = Path(__file__).resolve().parents[3]
+        candidates = (Path.cwd() / scene, repo_root / scene)
+        scene = next((candidate for candidate in candidates if candidate.exists()), scene)
     if not scene.exists():
         return False
     try:
