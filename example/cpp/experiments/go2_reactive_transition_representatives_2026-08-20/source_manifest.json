@@ -1,0 +1,166 @@
+[
+  {
+    "id": "physical_obstacle_left_to_turn_left",
+    "title": "AB PHYSICAL | OBSTACLE LEFT -> TURN LEFT",
+    "subtitle": "real collision box | A 4.0 s + B 4.0 s + recovery",
+    "video": "/mnt/c/Cloud/OneDrive/收件箱/go2_reactive_representatives_2026-08-20/videos/obstacle_to_turn_handoff.mp4",
+    "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/_runs/reactive_representative_obstacle_to_turn_handoff",
+    "clip_start_s": 3.5,
+    "clip_duration_s": 15.0,
+    "event_spans": [
+      {
+        "start_s": 2.5,
+        "end_s": 6.5,
+        "label": "OBSTACLE LEFT",
+        "color": "green"
+      },
+      {
+        "start_s": 6.5,
+        "end_s": 10.5,
+        "label": "TURN LEFT",
+        "color": "cyan"
+      }
+    ],
+    "source_event": "obstacle_left",
+    "target_event": "turn_left",
+    "scene_file": "unitree_robots/go2/scene_reactive_obstacle.xml"
+  },
+  {
+    "id": "pair_002_obstacle_left_to_obstacle_right",
+    "title": "AB 002 | OBSTACLE LEFT -> OBSTACLE RIGHT",
+    "subtitle": "scheduled reference handoff | A 4.0 s + B 4.0 s + recovery",
+    "video": "/mnt/c/Cloud/OneDrive/收件箱/go2_reactive_transition_matrix_long_flat_2026-08-20/videos/002_002_obstacle-left__to__obstacle-right.mp4",
+    "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/_runs/reactive_transition_long_002_002_obstacle-left__to__obstacle-right",
+    "clip_start_s": 3.5,
+    "clip_duration_s": 15.0,
+    "event_spans": [
+      {
+        "start_s": 2.5,
+        "end_s": 6.5,
+        "label": "OBSTACLE LEFT",
+        "color": "green"
+      },
+      {
+        "start_s": 6.5,
+        "end_s": 10.5,
+        "label": "OBSTACLE RIGHT",
+        "color": "green"
+      }
+    ],
+    "source_event": "obstacle_left",
+    "target_event": "obstacle_right",
+    "scene_file": "unitree_robots/go2/scene_leg_lift_demo.xml"
+  },
+  {
+    "id": "pair_018_turn_left_to_turn_right",
+    "title": "AB 018 | TURN LEFT -> TURN RIGHT",
+    "subtitle": "scheduled reference handoff | A 4.0 s + B 4.0 s + recovery",
+    "video": "/mnt/c/Cloud/OneDrive/收件箱/go2_reactive_transition_matrix_long_flat_2026-08-20/videos/018_018_turn-left__to__turn-right.mp4",
+    "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/_runs/reactive_transition_long_018_018_turn-left__to__turn-right",
+    "clip_start_s": 3.5,
+    "clip_duration_s": 15.0,
+    "event_spans": [
+      {
+        "start_s": 2.502,
+        "end_s": 6.504,
+        "label": "TURN LEFT",
+        "color": "cyan"
+      },
+      {
+        "start_s": 6.504,
+        "end_s": 10.502,
+        "label": "TURN RIGHT",
+        "color": "cyan"
+      }
+    ],
+    "source_event": "turn_left",
+    "target_event": "turn_right",
+    "scene_file": "unitree_robots/go2/scene_leg_lift_demo.xml"
+  },
+  {
+    "id": "pair_034_slip_to_low_friction",
+    "title": "AB 034 | SLIP -> LOW FRICTION",
+    "subtitle": "scheduled reference handoff | A 4.0 s + B 4.0 s + recovery",
+    "video": "/mnt/c/Cloud/OneDrive/收件箱/go2_reactive_transition_matrix_long_flat_2026-08-20/videos/034_034_slip__to__low-friction.mp4",
+    "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/_runs/reactive_transition_long_034_034_slip__to__low-friction",
+    "clip_start_s": 3.5,
+    "clip_duration_s": 15.0,
+    "event_spans": [
+      {
+        "start_s": 2.502,
+        "end_s": 6.502000000000001,
+        "label": "SLIP",
+        "color": "orange"
+      },
+      {
+        "start_s": 6.502000000000001,
+        "end_s": 10.502,
+        "label": "LOW FRICTION",
+        "color": "orange"
+      }
+    ],
+    "source_event": "slip",
+    "target_event": "low_friction",
+    "scene_file": "unitree_robots/go2/scene_leg_lift_demo.xml"
+  },
+  {
+    "id": "pair_040_low_friction_to_turn_right",
+    "title": "AB 040 | LOW FRICTION -> TURN RIGHT",
+    "subtitle": "scheduled reference handoff | A 4.0 s + B 4.0 s + recovery",
+    "video": "/mnt/c/Cloud/OneDrive/收件箱/go2_reactive_transition_matrix_long_flat_2026-08-20/videos/040_040_low-friction__to__turn-right.mp4",
+    "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/_runs/reactive_transition_long_040_040_low-friction__to__turn-right",
+    "clip_start_s": 3.5,
+    "clip_duration_s": 15.0,
+    "event_spans": [
+      {
+        "start_s": 2.502,
+        "end_s": 6.504,
+        "label": "LOW FRICTION",
+        "color": "orange"
+      },
+      {
+        "start_s": 6.504,
+        "end_s": 10.502,
+        "label": "TURN RIGHT",
+        "color": "cyan"
+      }
+    ],
+    "source_event": "low_friction",
+    "target_event": "turn_right",
+    "scene_file": "unitree_robots/go2/scene_leg_lift_demo.xml"
+  },
+  {
+    "id": "physical_impact_to_emergency_stop",
+    "title": "AB PHYSICAL | IMPACT -> EMERGENCY STOP",
+    "subtitle": "real MuJoCo velocity push | automatic impact detection + emergency stop",
+    "video": "/mnt/c/Cloud/OneDrive/收件箱/go2_reactive_transition_representatives_2026-08-20/videos/physical_impact_to_emergency_stop.mp4",
+    "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/_runs/reactive_representative_impact_physical_to_emergency_stop",
+    "event_script": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_representatives_2026-08-20/event_scripts/impact_physical_to_emergency_stop.txt",
+    "clip_start_s": 3.5,
+    "clip_duration_s": 15.0,
+    "event_spans": [
+      {
+        "start_s": 3.218,
+        "end_s": 4.018,
+        "label": "PHYSICAL IMPACT",
+        "color": "red"
+      },
+      {
+        "start_s": 8.504,
+        "end_s": 15.0,
+        "label": "EMERGENCY STOP",
+        "color": "red"
+      }
+    ],
+    "source_event": "impact",
+    "target_event": "emergency_stop",
+    "scene_file": "unitree_robots/go2/scene_leg_lift_demo.xml",
+    "physical_push": {
+      "push_time_s": 8.0,
+      "push_velocity_mps": 0.8,
+      "push_duration_s": 0.2,
+      "detected_event_start_s": 6.718,
+      "detected_event_end_s": 7.518
+    }
+  }
+]
