@@ -96,3 +96,9 @@ python3 example/cpp/tools/analyze_reactive_events.py \
 - `go2_reactive_auto_push_2026-08-19`：1.5 m/s 速度冲击触发安全失败（roll 105.89°、pitch 77.13°），作为当前控制器稳定包络的明确失败边界保留，未冒充成功。
 
 这些结果证明了“事件→统一连续参考→同一 WBC/MPC”链路和最坏工况记录已经成立，但不等于对任意真实障碍都已完成感知；实机部署还需要把上游感知事件接入同一接口，并重新标定阈值。
+
+## 当前自动感知优先级证据（commit `5158ff2`）
+
+最新交付以当前提交的三组基线/障碍/冲击和一组抢占验收为准：实体障碍期间发生 0.8 m/s 物理冲击，`obstacle_left → impact` 在 4 ms 内完成抢占，随后 0.5 s 进入 `emergency_stop`，严格序列为 `none → obstacle_left → impact → emergency_stop`，无碰撞且所有状态码为 0。
+
+组合实验的物理时间统一按 MuJoCo `state_tick_s` 计算；`cmd_time_s` 只用于控制器事件顺序，避免把两个时钟误读成提前触发。
