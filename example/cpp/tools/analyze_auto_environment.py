@@ -119,6 +119,7 @@ def analyze(path: Path, expect_obstacle: bool):
     non_none = [item for item in observed if item["type"] != "none"]
     obstacle = next((item for item in non_none if str(item["type"]).startswith(
         "obstacle_")), None)
+    obstacle_events = [item for item in non_none if str(item["type"]).startswith("obstacle_")]
     contact = contact_max(path)
     required = ("world_velocity_x_mps", "world_velocity_y_mps", "imu_roll_rad",
                 "imu_pitch_rad", "wbc_full_eq_residual")
@@ -158,7 +159,11 @@ def analyze(path: Path, expect_obstacle: bool):
     contact_ok = (not expect_obstacle or (contact["rows"] > 100 and
                   contact["max_count"] == 0 and contact["max_force_N"] == 0))
     if expect_obstacle:
-        event_ok = len(non_none) == 1 and obstacle is not None
+        unexpected = [item for item in non_none
+                      if not str(item["type"]).startswith("obstacle_")]
+        gaps_ok = all(b["time_s"] - a["time_s"] >= 0.25
+                      for a, b in zip(obstacle_events, obstacle_events[1:]))
+        event_ok = bool(obstacle_events) and not unexpected and gaps_ok
         detection_ok = (event_ok and 0 <= latency <= .50 and
                         has_obstacle_scene(path) and response_ok)
     else:
@@ -169,6 +174,7 @@ def analyze(path: Path, expect_obstacle: bool):
         "gait_start_s": gait_start, "first_map_s": first_map,
         "map_valid_rows": len(valid_map), "map_valid_rate_after_first": map_rate,
         "max_map_age_s": max_age, "obstacle_event": obstacle,
+        "obstacle_events": obstacle_events,
         "detection_latency_after_warmup_s": latency, "lateral_shift_m": lateral_shift,
         "obstacle_contact": contact, "map_ok": map_ok, "event_ok": event_ok,
         "detection_ok": detection_ok, "response_ok": response_ok,
@@ -206,6 +212,7 @@ def main() -> int:
                   f"statuses: {item['statuses']}",
                   f"map valid rate: {item.get('map_valid_rate_after_first', math.nan):.3f}",
                   f"obstacle event: {item.get('obstacle_event')}",
+                  f"obstacle events: {item.get('obstacle_events')}",
                   f"detection latency after warmup: {item.get('detection_latency_after_warmup_s', math.nan):.3f} s",
                   f"lateral shift: {item.get('lateral_shift_m', math.nan):.3f} m",
                   f"obstacle contact: {item.get('obstacle_contact')}", ""]

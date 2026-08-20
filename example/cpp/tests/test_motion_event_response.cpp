@@ -105,6 +105,16 @@ int main()
     passed &= Check(
         automatic.type == MotionEventType::kObstacleLeft,
         "Centered obstacle did not select a clear-side response.");
+    automatic = detector.Observe(9.8, 0.02, sensor, nominal);
+    sensor.obstacle_center_distance_m = -1.0;
+    sensor.obstacle_center_height_m = 0.0;
+    detector.Observe(9.82, 0.02, sensor, nominal);
+    sensor.obstacle_center_distance_m = 0.75;
+    sensor.obstacle_center_height_m = 0.25;
+    automatic = detector.Observe(9.84, 0.02, sensor, nominal);
+    passed &= Check(
+        automatic.type == MotionEventType::kNone,
+        "Obstacle detector retriggered after a transient scan gap.");
 
     detector.Reset();
     sensor = {};

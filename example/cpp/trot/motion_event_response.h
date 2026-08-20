@@ -238,6 +238,7 @@ struct MotionEventDetectorConfig
     double obstacle_max_distance_m = 1.30;
     double obstacle_min_height_m = 0.10;
     double obstacle_confirm_s = 0.04;
+    double obstacle_rearm_clear_s = 0.25;
     double max_sensor_age_s = 0.15;
     double slip_velocity_error_mps = 0.45;
     double slip_confirm_s = 0.06;
@@ -264,6 +265,7 @@ public:
         active_event_ = {};
         low_friction_accum_s_ = 0.0;
         obstacle_accum_s_ = 0.0;
+        obstacle_clear_accum_s_ = 0.0;
         obstacle_first_seen_time_s_ = -1.0;
         slip_candidate_age_s_ = 0.0;
         impact_clear_accum_s_ = 0.0;
@@ -408,7 +410,7 @@ private:
         {
             obstacle_accum_s_ = 0.0;
             obstacle_first_seen_time_s_ = -1.0;
-            obstacle_latched_ = false;
+            obstacle_clear_accum_s_ = 0.0;
             return {};
         }
         const auto blocked = [&](double distance_m, double height_m) {
@@ -427,9 +429,18 @@ private:
         {
             obstacle_accum_s_ = 0.0;
             obstacle_first_seen_time_s_ = -1.0;
-            obstacle_latched_ = false;
+            obstacle_clear_accum_s_ = obstacle_latched_
+                ? obstacle_clear_accum_s_ + std::min(std::max(dt_s, 0.0), 0.050)
+                : 0.0;
+            if (obstacle_latched_ &&
+                obstacle_clear_accum_s_ >= config_.obstacle_rearm_clear_s)
+            {
+                obstacle_latched_ = false;
+                obstacle_clear_accum_s_ = 0.0;
+            }
             return {};
         }
+        obstacle_clear_accum_s_ = 0.0;
         if (obstacle_latched_)
             return {};
         if (obstacle_first_seen_time_s_ < 0.0 ||
@@ -489,6 +500,7 @@ private:
     double low_friction_accum_s_ = 0.0;
     double obstacle_accum_s_ = 0.0;
     double obstacle_first_seen_time_s_ = -1.0;
+    double obstacle_clear_accum_s_ = 0.0;
     double slip_candidate_age_s_ = 0.0;
     double previous_velocity_error_mps_ = 0.0;
     double impact_clear_accum_s_ = 0.0;
