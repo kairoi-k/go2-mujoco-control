@@ -193,6 +193,9 @@ bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &j
         motion_event_detector_.Reset();
         motion_event_state_ = {};
         auto_motion_event_ = {};
+        auto_emergency_stop_event_ = {};
+        runtime_event_schedule_ = params_.event_schedule;
+        auto_emergency_stop_scheduled_ = false;
         motion_reference_ = {};
         last_motion_event_type_ = go2_control::MotionEventType::kNone;
         emergency_stop_latched_ = false;
@@ -288,19 +291,36 @@ void TrotExperiment::UpdateMotionEventResponse(
             ++sensor.contact_count;
     }
     auto_motion_event_ = {};
-    if (params_.reactive_events)
+    if (params_.reactive_events ||
+        params_.impact_to_emergency_stop_delay_s >= 0.0)
     {
         auto_motion_event_ = motion_event_detector_.Observe(
             gait_elapsed_s, motion_dt_s, sensor, nominal);
     }
+    if (auto_motion_event_.type == go2_control::MotionEventType::kImpact &&
+        params_.impact_to_emergency_stop_delay_s >= 0.0 &&
+        !auto_emergency_stop_scheduled_)
+    {
+        auto_emergency_stop_event_ = {
+            go2_control::MotionEventType::kEmergencyStop,
+            auto_motion_event_.start_time_s +
+                params_.impact_to_emergency_stop_delay_s,
+            0.80,
+            0.0};
+        runtime_event_schedule_.push_back(auto_emergency_stop_event_);
+        auto_emergency_stop_scheduled_ = true;
+        std::cout << "Auto emergency stop scheduled after impact at gait t="
+                  << auto_emergency_stop_event_.start_time_s << " s\n";
+    }
     const go2_control::MotionEvent *sensor_event =
-        params_.reactive_events &&
+        (params_.reactive_events ||
+         params_.impact_to_emergency_stop_delay_s >= 0.0) &&
                 auto_motion_event_.IsActive(gait_elapsed_s)
             ? &auto_motion_event_
             : nullptr;
 
     motion_event_state_ = motion_event_layer_.Update(
-        gait_elapsed_s, motion_dt_s, nominal, params_.event_schedule,
+        gait_elapsed_s, motion_dt_s, nominal, runtime_event_schedule_,
         sensor_event, &sensor);
     motion_reference_ = motion_event_state_.reference;
 

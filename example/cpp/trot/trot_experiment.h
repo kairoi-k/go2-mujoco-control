@@ -10,6 +10,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <unitree/common/thread/thread.hpp>
 #include <unitree/idl/go2/LowCmd_.hpp>
@@ -57,11 +58,13 @@ public:
           continuous_mode_(continuous_mode),
           stop_file_path_(stop_file_path),
           locomotion_kernel_(go2_trot::CreateLocomotionKernel(params_)),
+          runtime_event_schedule_(params_.event_schedule),
           velocity_filter_({params_.velocity_filter_cutoff_hz})
     {
         task_.Configure(task_mode, goal);
         motion_event_response_enabled_ =
-            params_.reactive_events || !params_.event_schedule.empty();
+            params_.reactive_events || !params_.event_schedule.empty() ||
+            params_.impact_to_emergency_stop_delay_s >= 0.0;
     }
 
     bool Init();
@@ -185,6 +188,9 @@ private:
     go2_control::MotionEventResponse motion_event_state_{};
     go2_control::MotionReference motion_reference_{};
     go2_control::MotionEvent auto_motion_event_{};
+    go2_control::MotionEvent auto_emergency_stop_event_{};
+    std::vector<go2_control::MotionEvent> runtime_event_schedule_;
+    bool auto_emergency_stop_scheduled_ = false;
     bool motion_event_response_enabled_ = false;
     go2_control::MotionEventType last_motion_event_type_ =
         go2_control::MotionEventType::kNone;

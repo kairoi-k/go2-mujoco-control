@@ -29,6 +29,7 @@ void PrintTrotCliUsage()
            " [--direction +/-1] [--support-anchor-feedback]"
            " [--support-anchor-gain g] [--event-script path]"
            " [--forever] [--stop-file path]"
+           " [--impact-to-emergency-stop-delay s]"
            " [--task stand-walk-lie]"
            " [--goal-x m] [--goal-y m] [--goal-tol m]\n";
 }
@@ -100,6 +101,12 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.max_cycles = std::stoi(require_value("--max-cycles"));
             else if (option == "--reactive-events")
                 cfg.params.reactive_events = true;
+            else if (option == "--impact-to-emergency-stop-delay")
+            {
+                cfg.params.impact_to_emergency_stop_delay_s =
+                    std::stod(require_value("--impact-to-emergency-stop-delay"));
+                cfg.params.reactive_events = true;
+            }
             else if (option == "--forever")
                 cfg.continuous_mode = true;
             else if (option == "--stop-file")
@@ -329,6 +336,9 @@ if (!(cfg.params.period_s >= (cfg.params.wbc_full ? 0.18 : 0.35) &&
         !std::isfinite(cfg.params.wbc_torque_scale) ||
         !(cfg.params.wbc_torque_scale > 0.0 &&
           cfg.params.wbc_torque_scale <= kWbcTorqueFeedforwardMaxScale) ||
+        !std::isfinite(cfg.params.impact_to_emergency_stop_delay_s) ||
+        (cfg.params.impact_to_emergency_stop_delay_s < -1.0 ||
+         cfg.params.impact_to_emergency_stop_delay_s > 5.0) ||
         !(cfg.params.duty_factor >
               (cfg.params.wbc_full ? 0.35 : 0.50) &&
           cfg.params.duty_factor <
@@ -382,6 +392,8 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << "  cartesian_world="
               << "  reactive_events="
               << ((params.reactive_events || !params.event_schedule.empty()) ? "on" : "off") << "\n"
+              << "  impact_to_emergency_stop_delay="
+              << params.impact_to_emergency_stop_delay_s << " s\n"
               << (params.cartesian_world ? "on" : "off") << "\n"
               << "  preview_horizon=" << params.preview_horizon_steps << "\n"
               << "  impulse=" << (params.impulse ? "on" : "off") << "\n"

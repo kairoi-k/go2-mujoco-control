@@ -179,6 +179,9 @@ struct TrotParams
     bool velocity_feedforward = true;
     bool wall_clock_motion = false;
     bool reactive_events = false;
+    // >= 0 enables a detector-driven emergency stop after a physical impact.
+    // A negative value keeps the legacy detector-only behavior.
+    double impact_to_emergency_stop_delay_s = -1.0;
     std::string event_script_path;
     std::vector<go2_control::MotionEvent> event_schedule;
 };
