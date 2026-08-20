@@ -242,8 +242,6 @@ struct MotionEventDetectorConfig
     double max_sensor_age_s = 0.15;
     double slip_velocity_error_mps = 0.45;
     double slip_confirm_s = 0.06;
-    double impact_horizontal_accel_mps2 = 8.5;
-    double impact_vertical_excess_mps2 = 18.0;
     double impact_extreme_vertical_excess_mps2 = 40.0;
     double impact_velocity_jump_mps = 0.35;
     double impact_release_s = 0.50;
@@ -285,9 +283,7 @@ public:
         const MotionSensorSample &sample,
         const MotionReference &nominal)
     {
-        if (active_event_.IsActive(time_s))
-            return active_event_;
-        active_event_ = {};
+        const bool active_event = active_event_.IsActive(time_s);
         double velocity_jump_mps = 0.0;
         const bool have_velocity =
             sample.have_raw_velocity || sample.have_velocity;
@@ -340,6 +336,32 @@ public:
                 impact_clear_accum_s_ = 0.0;
             }
         }
+        // Safety events may arrive while a lower-priority response is still
+        // active. Keep updating velocity history above, but let a new impact
+        // preempt obstacle/slip/turn responses immediately instead of waiting
+        // for their duration or the ordinary event cooldown to expire.
+        if (active_event)
+        {
+            const bool active_is_safety =
+                active_event_.type == MotionEventType::kImpact ||
+                active_event_.type == MotionEventType::kEmergencyStop;
+            if (impact && !impact_latched_ && !active_is_safety)
+                return Trigger(MotionEventType::kImpact, time_s);
+            const MotionEvent obstacle = DetectObstacle(time_s, dt_s, sample);
+            const bool active_is_obstacle =
+                active_event_.type == MotionEventType::kObstacleLeft ||
+                active_event_.type == MotionEventType::kObstacleRight;
+            if (obstacle.type != MotionEventType::kNone &&
+                !active_is_safety && !active_is_obstacle)
+            {
+                // A newly observed physical obstacle outranks an ongoing
+                // slip/low-friction response and bypasses the old event's
+                // cooldown just like impact does.
+                return Trigger(obstacle.type, time_s, obstacle.magnitude);
+            }
+            return active_event_;
+        }
+        active_event_ = {};
         const bool duplicate_tick_impact = impact && dt_s == 0.0;
         if (!std::isfinite(time_s) || time_s < config_.warmup_s ||
             dt_s < 0.0 ||

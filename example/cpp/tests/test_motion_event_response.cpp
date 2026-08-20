@@ -114,8 +114,19 @@ int main()
     passed &= Check(
         automatic.type == MotionEventType::kObstacleLeft,
         "Centered obstacle did not select a clear-side response.");
-    automatic = detector.Observe(9.8, 0.02, sensor, nominal);
+    sensor.have_velocity = true;
+    sensor.velocity_x_mps = 0.0;
+    detector.Observe(1.70, 0.02, sensor, nominal);
+    sensor.velocity_x_mps = 0.8;
+    automatic = detector.Observe(1.72, 0.02, sensor, nominal);
+    passed &= Check(
+        automatic.type == MotionEventType::kImpact,
+        "Impact did not preempt an active obstacle response.");
+    detector.Reset();
+    sensor.have_velocity = false;
+    sensor.velocity_x_mps = 0.0;
     sensor.obstacle_center_distance_m = -1.0;
+    automatic = detector.Observe(9.8, 0.02, sensor, nominal);
     sensor.obstacle_center_height_m = 0.0;
     detector.Observe(9.82, 0.02, sensor, nominal);
     sensor.obstacle_center_distance_m = 0.75;
@@ -151,6 +162,15 @@ int main()
         automatic.type == MotionEventType::kLowFriction,
         "Sustained moderate velocity mismatch did not trigger low friction.");
 
+    sensor.have_obstacle_scan = true;
+    sensor.obstacle_scan_age_s = 0.0;
+    sensor.obstacle_center_distance_m = 0.75;
+    sensor.obstacle_center_height_m = 0.25;
+    for (int i = 0; i < 3; ++i)
+        automatic = detector.Observe(2.0 + i * 0.02, 0.02, sensor, nominal);
+    passed &= Check(
+        automatic.type == MotionEventType::kObstacleLeft,
+        "Obstacle did not preempt an active low-friction response.");
     std::vector<MotionEvent> events = {
         {MotionEventType::kTurnLeft, 0.0, 2.0, 0.18},
         {MotionEventType::kEmergencyStop, 0.2, 1.0, 0.0},
