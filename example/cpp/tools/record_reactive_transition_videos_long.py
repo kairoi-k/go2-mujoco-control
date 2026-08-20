@@ -53,6 +53,20 @@ def obstacle_metrics(run_dir: Path, uses_obstacle: bool) -> tuple[float | None, 
     return force, count, force <= 1.0e-6 and count <= 0.0
 
 
+def media_duration(ffprobe: Path, path: Path) -> float:
+    result = subprocess.run(
+        [str(ffprobe), "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"ffprobe failed: {path}")
+    try:
+        return float(result.stdout.strip())
+    except ValueError as exc:
+        raise RuntimeError(f"invalid duration: {path}") from exc
+
+
 def write_index(path: Path, records: list[dict[str, object]]) -> None:
     fields = ["pair_index", "run_id", "source_event", "target_event", "status", "video", "duration_s", "obstacle_contact_force_max_N", "obstacle_contact_count_max", "obstacle_contact_pass"]
     with path.open("w", newline="", encoding="utf-8-sig") as stream:
@@ -100,6 +114,7 @@ def main() -> int:
     repo = Path(__file__).resolve().parents[3]
     record_script = repo / "example/cpp/scripts/record_reactive_acceptance.sh"
     ffmpeg = Path.home() / ".local/share/unitree_mujoco_capture_tools/tools/ffmpeg-static/bin/ffmpeg"
+    ffprobe = ffmpeg.with_name("ffprobe")
     manifests = sorted((args.matrix_root / "manifests").glob("*.json"))
     selected: list[dict[str, object]] = []
     for path in manifests:
@@ -117,7 +132,21 @@ def main() -> int:
     protocol = args.protocol_root.resolve()
     event_dir = protocol / "event_scripts"
     event_dir.mkdir(parents=True, exist_ok=True)
+    selected_indices = {int(item["pair_index"]) for item in selected}
+    manifest_path = args.output_root / "video_manifest.json"
     records: list[dict[str, object]] = []
+    if manifest_path.exists():
+        try:
+            previous = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if isinstance(previous, list):
+                records = [
+                    item for item in previous
+                    if isinstance(item, dict)
+                    and int(item.get("pair_index", -1)) not in selected_indices
+                    and item.get("status") == "pass"
+                ]
+        except (OSError, ValueError, TypeError):
+            records = []
 
     for ordinal, source_item in enumerate(selected):
         index = int(source_item["pair_index"])
@@ -142,7 +171,8 @@ def main() -> int:
         if final.exists() and final.stat().st_size >= 100_000 and run_dir.joinpath("data.csv").exists():
             spans = event_spans(run_dir, args.clip_start, fallback)
             force, count, passed = obstacle_metrics(run_dir, uses_obstacle)
-            item.update({"status": "pass", "size_bytes": final.stat().st_size, "resumed": True, "event_spans": [{"start_s": s, "end_s": e, "label": label, "color": color} for s, e, label, color in spans], "obstacle_contact_force_max_N": force, "obstacle_contact_count_max": count, "obstacle_contact_pass": passed})
+            duration = media_duration(ffprobe, final)
+            item.update({"status": "pass", "size_bytes": final.stat().st_size, "duration_s": round(duration, 3), "resumed": True, "event_spans": [{"start_s": s, "end_s": e, "label": label, "color": color} for s, e, label, color in spans], "obstacle_contact_force_max_N": force, "obstacle_contact_count_max": count, "obstacle_contact_pass": passed})
             records.append(item)
             continue
         if args.dry_run:
@@ -159,20 +189,21 @@ def main() -> int:
         started = time.monotonic()
         result = subprocess.run(command, cwd=repo, env=env)
         if result.returncode != 0:
-            item.update({"status": "record_failed", "returncode": result.returncode})
-            records.append(item)
-            (args.output_root / "video_manifest.json").write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+            manifest_path.write_text(json.dumps(sorted(records, key=lambda entry: int(entry["pair_index"])), ensure_ascii=False, indent=2), encoding="utf-8")
             raise SystemExit(f"recording failed for {run_id}")
         spans = event_spans(run_dir, args.clip_start, fallback)
         render(ffmpeg, raw, final, spec, spans)
         raw.unlink(missing_ok=True)
         force, count, passed = obstacle_metrics(run_dir, uses_obstacle)
-        item.update({"status": "pass", "size_bytes": final.stat().st_size, "elapsed_s": round(time.monotonic() - started, 2), "event_spans": [{"start_s": s, "end_s": e, "label": label, "color": color} for s, e, label, color in spans], "obstacle_contact_force_max_N": force, "obstacle_contact_count_max": count, "obstacle_contact_pass": passed})
+        duration = media_duration(ffprobe, final)
+        if abs(duration - args.clip_duration) > 0.05:
+            raise RuntimeError(f"unexpected clip duration {duration:.3f}s: {final}")
+        item.update({"status": "pass", "size_bytes": final.stat().st_size, "duration_s": round(duration, 3), "elapsed_s": round(time.monotonic() - started, 2), "event_spans": [{"start_s": s, "end_s": e, "label": label, "color": color} for s, e, label, color in spans], "obstacle_contact_force_max_N": force, "obstacle_contact_count_max": count, "obstacle_contact_pass": passed})
         records.append(item)
-        (args.output_root / "video_manifest.json").write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+        manifest_path.write_text(json.dumps(sorted(records, key=lambda entry: int(entry["pair_index"])), ensure_ascii=False, indent=2), encoding="utf-8")
 
     records.sort(key=lambda item: int(item["pair_index"]))
-    (args.output_root / "video_manifest.json").write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+    manifest_path.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
     write_index(args.output_root / "video_index.csv", records)
     if not args.dry_run and args.count == 49 and len(records) == 49:
         build_sequential(ffmpeg, args.output_root, records)

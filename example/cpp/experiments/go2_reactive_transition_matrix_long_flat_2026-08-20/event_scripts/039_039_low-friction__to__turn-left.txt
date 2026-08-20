@@ -1,0 +1,3 @@
+# Generated long-window protocol: times are relative to walking controller clock.
+2.5 4.0 low_friction 0.000000
+6.5 4.0 turn_left 0.550000
