@@ -87,8 +87,8 @@ python3 example/cpp/tools/analyze_reactive_events.py \
 
 ## 已验证结果
 
-- 2026-08-21 自动高度图验收（最终提交复核）：无障碍基线与真实碰撞障碍两组严格通过；地图有效率 100%、最大年龄 20 ms；障碍检测延迟 40 ms，自动选择 obstacle_left，机身横移 0.449 m，障碍物接触次数/法向力均为 0。
-- 2026-08-21 物理冲击自动验收（最终提交复核）：0.8 m/s 仿真冲击在 state_tick=8.002 s 被识别，2 ms 后进入 impact，0.5 s 后进入 emergency_stop；最大速度突变 0.800 m/s，最大 roll 0.1245 rad、pitch 0.1863 rad，WBC 残差 1.6964e-5，全部状态码为 0。
+- 2026-08-21 自动高度图验收（提交 `be2fa38`）：无障碍基线与真实碰撞障碍两组严格通过；地图有效率 100%、最大年龄 20 ms；障碍检测延迟 46 ms，自动选择 obstacle_left，机身横移 0.460 m，障碍物接触次数/法向力均为 0。
+- 2026-08-21 物理冲击自动验收（提交 `be2fa38`）：0.8 m/s 仿真冲击在 state_tick=8.002 s 被识别，2 ms 后进入 impact，0.5 s 后进入 emergency_stop；最大速度突变 0.801 m/s，最大 roll 0.075 rad、pitch 0.162 rad，WBC 残差 1.6964e-5，全部状态码为 0。
 - 低摩擦负向验收保持无误报：仅降低地面摩擦但未产生可观测滑移时不生成事件；支撑脚运动学检测通道及低摩擦 token 的响应由单元测试覆盖，但当前摩擦-only 工况尚未形成严格的自动 `sensor` 事件，不把“潜在摩擦变化”冒充成已检测事件。
 
 
@@ -101,8 +101,8 @@ python3 example/cpp/tools/analyze_reactive_events.py \
 
 这些结果证明了“事件→统一连续参考→同一 WBC/MPC”链路和最坏工况记录已经成立，但不等于对任意真实障碍都已完成感知；实机部署还需要把上游感知事件接入同一接口，并重新标定阈值。
 
-## 当前自动感知优先级证据（commit `3f1c4bd`）
+## 当前自动感知优先级证据（commit `be2fa38`）
 
-最新交付以当前提交的三组基线/障碍/冲击和一组抢占验收为准：实体障碍期间发生 0.8 m/s 物理冲击，`obstacle_left → impact` 在 4 ms 内完成抢占，随后 0.5 s 进入 `emergency_stop`，严格序列为 `none → obstacle_left → impact → emergency_stop`，无碰撞且所有状态码为 0。
+最新交付以当前提交的三组基线/障碍/冲击和一组抢占验收为准：实体障碍期间发生 0.8 m/s 物理冲击，`obstacle_left → impact` 在 2 ms 内完成抢占，随后约 0.5 s 进入 `emergency_stop`，严格序列为 `none → obstacle_left → impact → emergency_stop`，无碰撞且所有状态码为 0。
 
 组合实验的物理时间统一按 MuJoCo `state_tick_s` 计算；`cmd_time_s` 只用于控制器事件顺序，避免把两个时钟误读成提前触发。

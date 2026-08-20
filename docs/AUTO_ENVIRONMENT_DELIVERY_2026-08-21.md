@@ -1,13 +1,13 @@
 # Automatic environment sensing delivery
 
-This note records the reproducible source-aware acceptance package for the Go2 WBC-full controller at commit `3f1c4bd`.
+This note records the reproducible source-aware acceptance package for the Go2 WBC-full controller at commit `be2fa38`.
 
 ## Verified automatic sensing
 
 - Baseline: height-map valid rate 1.000, maximum map age 0.020 s, no obstacle event, and zero obstacle contact.
-- Physical obstacle: `scene_reactive_obstacle.xml`; `obstacle_left` is detected at controller time 5.040 s (MuJoCo state tick 6.244 s), with 0.040 s post-warmup latency, target `vy=0.45 m/s` and yaw `0.18 rad/s`, lateral shift 0.449 m, and zero contact count/force; source is `sensor`.
-- Physical impact: an 0.8 m/s simulator push at state tick 8.002 s is detected at 8.006 s (4 ms), followed by `emergency_stop` at 8.506 s (0.5 s delay); velocity jump 0.792 m/s, maximum roll/pitch 0.076/0.162 rad, WBC residual `1.6964e-5`; impact source is `sensor`.
-- Priority preemption: while the physical obstacle response is active, the same 0.8 m/s push is detected at state tick 7.004 s (2 ms after the push) and preempts `obstacle_left` before its eight-second response window expires; the final sequence is `none -> obstacle_left -> impact -> emergency_stop` with zero obstacle contact, sources `sensor -> sensor -> scheduled`.
+- Physical obstacle: `scene_reactive_obstacle.xml`; `obstacle_left` is detected at controller time 5.048 s (MuJoCo state tick 6.322 s), with 0.046 s post-warmup latency, target `vy=0.45 m/s` and yaw `0.18 rad/s`, lateral shift 0.460 m, and zero contact count/force; source is `sensor`.
+- Physical impact: an 0.8 m/s simulator push at state tick 8.002 s is detected at 8.004 s (2 ms), followed by `emergency_stop` at 8.504 s (0.5 s delay); velocity jump 0.801 m/s, maximum roll/pitch 0.075/0.162 rad, WBC residual `1.6964e-5`; impact source is `sensor`.
+- Priority preemption: while the physical obstacle response is active, the same 0.8 m/s push is detected at state tick 7.004 s (2 ms after the push) and preempts `obstacle_left`; the final sequence is `none -> obstacle_left -> impact -> emergency_stop` with zero obstacle contact, sources `sensor -> sensor -> scheduled`.
 
 All final runs have controller, safety, quality, analysis, ground-truth, dynamics, and completion status `0`; strict analyzers pass.
 
