@@ -10,6 +10,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <unitree/common/thread/thread.hpp>
 #include <unitree/idl/go2/LowCmd_.hpp>
@@ -57,9 +58,13 @@ public:
           continuous_mode_(continuous_mode),
           stop_file_path_(stop_file_path),
           locomotion_kernel_(go2_trot::CreateLocomotionKernel(params_)),
+          runtime_event_schedule_(params_.event_schedule),
           velocity_filter_({params_.velocity_filter_cutoff_hz})
     {
         task_.Configure(task_mode, goal);
+        motion_event_response_enabled_ =
+            params_.reactive_events || !params_.event_schedule.empty() ||
+            params_.impact_to_emergency_stop_delay_s >= 0.0;
     }
 
     bool Init();
@@ -114,6 +119,9 @@ private:
     bool PhaseStandUp(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseStandSettle(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseStartGait(std::array<double, go2_trot::kMotorCount> &joint_targets);
+    void UpdateMotionEventResponse(
+        double gait_elapsed_s, double motion_dt_s,
+        const unitree_go::msg::dds_::LowState_ &state_snapshot);
     bool PhaseStopToStand(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseLieDown(std::array<double, go2_trot::kMotorCount> &joint_targets);
     double UpdateCartesianForceBlend();
@@ -161,6 +169,8 @@ private:
     void ResetCycleDiagnostics();
 
 private:
+    static constexpr double kEmergencyStopPostHoldDurationS = 1.50;
+
     TrotTask task_;
     std::array<double, go2_trot::kMotorCount> previous_joint_targets_{};
     bool have_previous_joint_targets_ = false;
@@ -173,6 +183,19 @@ private:
     const bool continuous_mode_;
     const std::string stop_file_path_;
     std::unique_ptr<go2_control::LocomotionKernel> locomotion_kernel_;
+    go2_control::MotionEventResponseLayer motion_event_layer_;
+    go2_control::MotionEventDetector motion_event_detector_;
+    go2_control::MotionEventResponse motion_event_state_{};
+    go2_control::MotionReference motion_reference_{};
+    go2_control::MotionEvent auto_motion_event_{};
+    go2_control::MotionEvent auto_emergency_stop_event_{};
+    std::vector<go2_control::MotionEvent> runtime_event_schedule_;
+    bool auto_emergency_stop_scheduled_ = false;
+    bool motion_event_response_enabled_ = false;
+    go2_control::MotionEventType last_motion_event_type_ =
+        go2_control::MotionEventType::kNone;
+    bool emergency_stop_latched_ = false;
+    double emergency_stop_finish_time_s_ = 0.0;
     go2_control::FirstOrderVelocityFilter velocity_filter_;
     go2_control::Vector3 latest_world_velocity_{};
     go2_control::Vector3 latest_raw_body_velocity_{};

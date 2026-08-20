@@ -1,0 +1,5 @@
+# The obstacle is at x=1.30 m; trigger before the robot reaches it.
+# Times are relative to gait start (the gait starts at about 3.5 s).
+# Walk for 2 s first, then keep the avoidance command through the obstacle.
+# Turn briefly, keep the side-step through the obstacle, then recover before gait end.
+2.0 14.0 obstacle_right 0.48

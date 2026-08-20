@@ -36,8 +36,24 @@ example/cpp/experiments/_runs/
 
 # Generated binaries / checkpoints
 *.pt
+
+# Nested case outputs in the verified v4 evidence package stay in OneDrive.
+example/cpp/experiments/go2_reactive_acceptance_verified_v4_*/**/data.csv
+example/cpp/experiments/go2_reactive_acceptance_verified_v4_*/**/contact_ground_truth.csv
+# The corrected v5 acceptance bundle is delivered through OneDrive.
+example/cpp/experiments/go2_reactive_acceptance_verified_v5_2026-08-19/
 *.pth
 *.ckpt
 
 # Local simulator executables
 simulate/mujoco
+
+# Reactive WBC runtime outputs; keep curated READMEs, scripts, and media.
+example/cpp/experiments/go2_reactive_*/data.csv
+example/cpp/experiments/go2_reactive_*/contact_ground_truth.csv
+example/cpp/experiments/go2_reactive_*/contact_ground_truth_analysis.txt
+example/cpp/experiments/go2_reactive_*/contact_ground_truth_dynamics_analysis.txt
+example/cpp/experiments/go2_reactive_*/run_metadata.txt
+
+# Retained local audit iteration; curated final protocol/report remain tracked.
+example/cpp/experiments/go2_reactive_transition_matrix_*_iter1_sensor_events/

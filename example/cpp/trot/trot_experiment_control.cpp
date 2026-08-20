@@ -85,7 +85,12 @@ void TrotExperiment::LowCmdWrite()
     }
 
     if (external_stop_requested_.load())
-        task_.stop_requested_ = true;
+    {
+        if (emergency_stop_latched_)
+            task_.sequence_finished_ = true;
+        else
+            task_.stop_requested_ = true;
+    }
     if (PhaseStopToStand(joint_targets))
     {
         // SECTION: stop-to-stand
@@ -182,6 +187,20 @@ bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &j
 {
     if (!task_.BeginGait(running_time_))
         return false;
+    if (motion_event_response_enabled_)
+    {
+        motion_event_layer_.Reset();
+        motion_event_detector_.Reset();
+        motion_event_state_ = {};
+        auto_motion_event_ = {};
+        auto_emergency_stop_event_ = {};
+        runtime_event_schedule_ = params_.event_schedule;
+        auto_emergency_stop_scheduled_ = false;
+        motion_reference_ = {};
+        last_motion_event_type_ = go2_control::MotionEventType::kNone;
+        emergency_stop_latched_ = false;
+        emergency_stop_finish_time_s_ = 0.0;
+    }
     support_anchor_valid_.fill(false);
     cartesian_state_ = {};
     have_commanded_world_feet_ = false;
@@ -230,6 +249,141 @@ bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &j
 
     (void)joint_targets;
     return true;
+}
+void TrotExperiment::UpdateMotionEventResponse(
+    double gait_elapsed_s, double motion_dt_s,
+    const unitree_go::msg::dds_::LowState_ &state_snapshot)
+{
+    if (!motion_event_response_enabled_)
+        return;
+
+    go2_control::MotionReference nominal;
+    nominal.vx_mps = params_.direction_sign *
+        (params_.step_length_m / params_.period_s);
+    if (params_.cartesian_world && wbc_speed_cmd_mps_ > 0.0)
+        nominal.vx_mps = params_.direction_sign * wbc_speed_cmd_mps_;
+    nominal.yaw_rate_radps = task_.goal_enabled_
+        ? task_.commanded_turn_rate_radps_
+        : params_.turn_rate_radps;
+    nominal.step_scale = 1.0;
+    nominal.duty_factor = params_.duty_factor;
+    nominal.foot_lift_m = params_.foot_lift_m;
+
+    go2_control::MotionSensorSample sensor;
+    sensor.velocity_x_mps = latest_filtered_body_velocity_[0];
+    sensor.velocity_y_mps = latest_filtered_body_velocity_[1];
+    sensor.have_velocity = have_filtered_body_velocity_;
+    sensor.raw_velocity_x_mps = latest_raw_body_velocity_[0];
+    sensor.raw_velocity_y_mps = latest_raw_body_velocity_[1];
+    sensor.have_raw_velocity = have_raw_body_velocity_;
+    sensor.angular_velocity_z_radps = static_cast<double>(
+        state_snapshot.imu_state().gyroscope()[2]);
+    sensor.have_angular_velocity_z = true;
+    sensor.accel_x_mps2 = static_cast<double>(
+        state_snapshot.imu_state().accelerometer()[0]);
+    sensor.accel_y_mps2 = static_cast<double>(
+        state_snapshot.imu_state().accelerometer()[1]);
+    sensor.accel_z_mps2 = static_cast<double>(
+        state_snapshot.imu_state().accelerometer()[2]);
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (state_snapshot.foot_force()[leg] >= kContactForceThreshold)
+            ++sensor.contact_count;
+    }
+    auto_motion_event_ = {};
+    if (params_.reactive_events ||
+        params_.impact_to_emergency_stop_delay_s >= 0.0)
+    {
+        auto_motion_event_ = motion_event_detector_.Observe(
+            gait_elapsed_s, motion_dt_s, sensor, nominal);
+    }
+    if (auto_motion_event_.type == go2_control::MotionEventType::kImpact &&
+        params_.impact_to_emergency_stop_delay_s >= 0.0 &&
+        !auto_emergency_stop_scheduled_)
+    {
+        auto_emergency_stop_event_ = {
+            go2_control::MotionEventType::kEmergencyStop,
+            auto_motion_event_.start_time_s +
+                params_.impact_to_emergency_stop_delay_s,
+            0.80,
+            0.0};
+        runtime_event_schedule_.push_back(auto_emergency_stop_event_);
+        auto_emergency_stop_scheduled_ = true;
+        std::cout << "Auto emergency stop scheduled after impact at gait t="
+                  << auto_emergency_stop_event_.start_time_s << " s\n";
+    }
+    const go2_control::MotionEvent *sensor_event =
+        (params_.reactive_events ||
+         params_.impact_to_emergency_stop_delay_s >= 0.0) &&
+                auto_motion_event_.IsActive(gait_elapsed_s)
+            ? &auto_motion_event_
+            : nullptr;
+
+    motion_event_state_ = motion_event_layer_.Update(
+        gait_elapsed_s, motion_dt_s, nominal, runtime_event_schedule_,
+        sensor_event, &sensor);
+    motion_reference_ = motion_event_state_.reference;
+
+    // An emergency stop is terminal for this bounded experiment.  Once the
+    // event is seen, keep the same WBC/MPC plant in four-foot stance instead
+    // of letting the scheduled event expire and restarting the trot.
+    if (motion_event_state_.active_event ==
+            go2_control::MotionEventType::kEmergencyStop &&
+        !emergency_stop_latched_)
+    {
+        emergency_stop_latched_ = true;
+        motion_event_layer_.SetEmergencyStopLatched(true);
+        emergency_stop_finish_time_s_ =
+            motion_event_state_.active_event_end_time_s +
+            kEmergencyStopPostHoldDurationS;
+        std::cout << "Emergency stop latched; holding WBC stance until t="
+                  << emergency_stop_finish_time_s_ << " s\n";
+    }
+    if (emergency_stop_latched_)
+    {
+        // Keep the safety target and stance hold latched, but do not overwrite
+        // the slew-limited velocity reference. The common transition layer
+        // continues braking toward zero after the scheduled event expires.
+        motion_event_state_.target.vx_mps = 0.0;
+        motion_event_state_.target.vy_mps = 0.0;
+        motion_event_state_.target.yaw_rate_radps = 0.0;
+        motion_event_state_.target.hold_stance = true;
+        motion_reference_.hold_stance = true;
+        motion_reference_.step_scale =
+            std::min(motion_reference_.step_scale, 0.45);
+        motion_reference_.duty_factor =
+            std::max(motion_reference_.duty_factor, 0.82);
+        motion_reference_.foot_lift_m =
+            std::max(motion_reference_.foot_lift_m, 0.024);
+        if (!task_.sequence_finished_ &&
+            gait_elapsed_s >= emergency_stop_finish_time_s_)
+        {
+            task_.sequence_finished_ = true;
+            std::cout << "Emergency stop hold complete; ending in WBC stance\n";
+        }
+    }
+
+    const double velocity_step =
+        std::abs(motion_reference_.vx_mps) * params_.period_s;
+    const double scaled_nominal_step =
+        std::abs(params_.step_length_m) * motion_reference_.step_scale;
+    const double event_step = std::min(velocity_step, scaled_nominal_step);
+    locomotion_kernel_->SetStanceHold(motion_reference_.hold_stance, gait_elapsed_s);
+    locomotion_kernel_->SetGaitStepLength(event_step);
+    locomotion_kernel_->SetGaitDuty(motion_reference_.duty_factor);
+    locomotion_kernel_->SetGaitFootLift(motion_reference_.foot_lift_m);
+
+    if (motion_event_state_.active_event != last_motion_event_type_)
+    {
+        std::cout << "Motion event "
+                  << go2_control::MotionEventName(
+                         motion_event_state_.active_event)
+                  << " priority=" << motion_event_state_.active_priority
+                  << " ref_vx=" << motion_reference_.vx_mps
+                  << " ref_yaw=" << motion_reference_.yaw_rate_radps
+                  << "\n";
+        last_motion_event_type_ = motion_event_state_.active_event;
+    }
 }
 bool TrotExperiment::SnapshotState(
     unitree_go::msg::dds_::LowState_ &state_snapshot,
@@ -374,6 +528,9 @@ bool TrotExperiment::PhaseRunGait(
                 pose.base.x, pose.base.y, pose.yaw_rad);
         }
     }
+    if (motion_event_response_enabled_)
+        UpdateMotionEventResponse(
+            gait_time_s, last_motion_dt_s_, state_snapshot);
     // SECTION: gait-targets
     if (!BuildGaitTargets(
             gait_time_s,
@@ -398,6 +555,7 @@ bool TrotExperiment::PhaseRunGait(
         }
     }
     if (!continuous_mode_ && !task_.stop_requested_ &&
+        !task_.sequence_finished_ && !emergency_stop_latched_ &&
         gait_time_s >= duration_s_ &&
         std::isfinite(duration_s_))
     {

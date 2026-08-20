@@ -65,6 +65,7 @@ public:
     virtual void SetGaitDuty(double) {}
     virtual void SetGaitFootLift(double) {}
     virtual void SetGaitSlewLimits(double, double, double) {}
+    virtual void SetStanceHold(bool, double) {}
 };
 
 class HandCodedTrotKernel final : public LocomotionKernel
@@ -78,6 +79,33 @@ public:
     const char *Name() const noexcept override
     {
         return "hand-coded-trot";
+    }
+
+    void SetGaitStepLength(double step_m) override
+    {
+        if (step_m >= 0.0 && std::isfinite(step_m))
+            params_.step_length_m = step_m;
+    }
+    void SetGaitPeriod(double period_s) override
+    {
+        if (period_s > 0.0 && std::isfinite(period_s))
+            params_.period_s = period_s;
+    }
+    void SetGaitDuty(double duty) override
+    {
+        if (duty > 0.0 && duty < 1.0 && std::isfinite(duty))
+            params_.duty_factor = duty;
+    }
+    void SetGaitFootLift(double lift_m) override
+    {
+        if (lift_m >= 0.0 && std::isfinite(lift_m))
+            params_.foot_lift_m = lift_m;
+    }
+    void SetStanceHold(bool hold, double gait_time_s) override
+    {
+        if (!hold && stance_hold_ && std::isfinite(gait_time_s))
+            phase_origin_gait_time_s_ = gait_time_s;
+        stance_hold_ = hold;
     }
 
     bool Compute(
@@ -97,8 +125,9 @@ public:
             return false;
         }
 
-        const double cycle_position =
-            request.gait_time_s / params_.period_s;
+        const double effective_gait_time = std::max(
+            0.0, request.gait_time_s - phase_origin_gait_time_s_);
+        const double cycle_position = effective_gait_time / params_.period_s;
         if (!std::isfinite(cycle_position) ||
             cycle_position >
                 static_cast<double>(std::numeric_limits<int>::max()))
@@ -117,7 +146,15 @@ public:
         result.step_length_m = params_.step_length_m;
 
         const double blend =
-            Smoothstep(request.gait_time_s / params_.blend_duration_s);
+            Smoothstep(effective_gait_time / params_.blend_duration_s);
+        const double dt = last_gait_time_ >= 0.0
+            ? std::max(0.0, effective_gait_time - last_gait_time_)
+            : 0.0;
+        const double hold_step = std::clamp(dt / 0.25, 0.0, 1.0);
+        const double hold_target = stance_hold_ ? 1.0 : 0.0;
+        stance_hold_blend_ +=
+            (hold_target - stance_hold_blend_) * hold_step;
+        const double gait_blend = blend * (1.0 - stance_hold_blend_);
         const double half_step = 0.5 * params_.step_length_m;
         const double stance_duration = params_.duty_factor;
         const double swing_duration = 1.0 - params_.duty_factor;
@@ -149,9 +186,10 @@ public:
                     params_.foot_lift_m * std::sin(kPi * swing_phase);
             }
             x_offset *= params_.direction_sign;
-            result.feet[leg].x += blend * x_offset;
-            result.feet[leg].z += blend * z_offset;
+            result.feet[leg].x += gait_blend * x_offset;
+            result.feet[leg].z += gait_blend * z_offset;
         }
+        last_gait_time_ = effective_gait_time;
         return true;
     }
 
@@ -168,6 +206,10 @@ private:
     }
 
     GaitKernelParams params_;
+    bool stance_hold_ = false;
+    double stance_hold_blend_ = 0.0;
+    double last_gait_time_ = -1.0;
+    double phase_origin_gait_time_s_ = 0.0;
 };
 
 } // namespace go2_control

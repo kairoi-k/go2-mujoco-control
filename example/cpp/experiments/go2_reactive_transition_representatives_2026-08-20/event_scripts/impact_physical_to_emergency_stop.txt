@@ -1,0 +1,3 @@
+# Physical impact at t=8.0 s; emergency-stop reference arrives at gait t=8.5 s.
+# The impact itself is injected by run_trot.sh simulator flags, not by this file.
+8.500 4.000 emergency_stop 0.000000

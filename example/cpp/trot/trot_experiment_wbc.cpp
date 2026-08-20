@@ -149,11 +149,16 @@ void TrotExperiment::UpdateWbcFull(
         kernel_duty_factor_ > 0.05 ? kernel_duty_factor_ : params_.duty_factor;
     if (task_.gait_started_ && task_.motion_stage_ == 2)
     {
-        std::array<std::array<bool, go2::kLegCount>, go2_control::kSrbdMaxHorizon>
-            scheduled{};
-        go2_control::FillTrotContactSchedulePhase(
-            current_phase_, gait_period, gait_duty, 1, 0.0, scheduled);
-        qp_contact = scheduled[0];
+        if (motion_event_response_enabled_ && motion_reference_.hold_stance)
+            qp_contact.fill(true);
+        else
+        {
+            std::array<std::array<bool, go2::kLegCount>, go2_control::kSrbdMaxHorizon>
+                scheduled{};
+            go2_control::FillTrotContactSchedulePhase(
+                current_phase_, gait_period, gait_duty, 1, 0.0, scheduled);
+            qp_contact = scheduled[0];
+        }
     }
     int contact_mask = 0;
     int active = 0;
@@ -216,7 +221,9 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.reference[5] = kWbcPrimaryBaseHeightM;
         mpc_in.reference[6] = 0.0;
         mpc_in.reference[7] = 0.0;
-        mpc_in.reference[8] = (task_.goal_enabled_
+        mpc_in.reference[8] = motion_event_response_enabled_
+            ? motion_reference_.yaw_rate_radps
+            : (task_.goal_enabled_
             ? task_.TurnEnable(running_time_) * task_.commanded_turn_rate_radps_
             : params_.turn_rate_radps);
         const double v_cmd =
@@ -277,7 +284,8 @@ void TrotExperiment::UpdateWbcFull(
             else
             {
                 mpc_in.reference[9] = v_ref;
-                mpc_in.reference[10] = 0.0;
+                mpc_in.reference[10] = motion_event_response_enabled_
+                    ? motion_reference_.vy_mps : 0.0;
             }
         }
         mpc_in.reference[11] = 0.0;
@@ -286,7 +294,11 @@ void TrotExperiment::UpdateWbcFull(
                 dyn.foot_pos_world[leg] - dyn.com_world;
         if (task_.gait_started_ && task_.motion_stage_ == 2)
         {
-            go2_control::FillTrotContactSchedulePhase(
+            if (motion_event_response_enabled_ && motion_reference_.hold_stance)
+                for (int k = 0; k < mpc_params.horizon; ++k)
+                    mpc_in.contact[k].fill(true);
+            if (!(motion_event_response_enabled_ && motion_reference_.hold_stance))
+                go2_control::FillTrotContactSchedulePhase(
                 current_phase_, gait_period, gait_duty,
                 mpc_params.horizon, mpc_params.dt_s, mpc_in.contact);
         }
@@ -316,6 +328,30 @@ void TrotExperiment::UpdateWbcFull(
         wbc_in.desired_angular_acc_body =
             quat.normalized().toRotationMatrix().transpose() *
             last_srbd_.first_angular_acc;
+        if (emergency_stop_latched_ && motion_reference_.hold_stance)
+        {
+            // The short emergency-stop window is a four-contact balance
+            // problem, not another gait step.  Keep a bounded measured-
+            // velocity damper in the WBC task so a stale MPC force cannot
+            // push the body forward while the feet are being frozen.
+            constexpr double kEmergencyVelocityKp = 6.0;
+            wbc_in.desired_linear_acc_world.x() = Clamp(
+                -kEmergencyVelocityKp * linear_vel_world.x(), -2.5, 2.5);
+            wbc_in.desired_linear_acc_world.y() = Clamp(
+                -kEmergencyVelocityKp * linear_vel_world.y(), -2.0, 2.0);
+            const double roll = static_cast<double>(
+                state_snapshot.imu_state().rpy()[0]);
+            const double pitch = static_cast<double>(
+                state_snapshot.imu_state().rpy()[1]);
+            const double gyro_x = static_cast<double>(
+                state_snapshot.imu_state().gyroscope()[0]);
+            const double gyro_y = static_cast<double>(
+                state_snapshot.imu_state().gyroscope()[1]);
+            wbc_in.desired_angular_acc_body.x() = Clamp(
+                -40.0 * roll - 8.0 * gyro_x, -4.0, 4.0);
+            wbc_in.desired_angular_acc_body.y() = Clamp(
+                -40.0 * pitch - 8.0 * gyro_y, -4.0, 4.0);
+        }
         if (have_filtered_body_velocity_ && task_.gait_started_ &&
             task_.motion_stage_ == 2 &&
             (params_.cartesian_world || !params_.step_plan.empty()))
@@ -707,6 +743,7 @@ void TrotExperiment::UpdateWbcShadow(
     wbc_shadow_diagnostics_.reduced_contact_task = reduced_contact_task;
 
     double desired_force_x_n = 0.0;
+    double desired_force_y_n = 0.0;
     if (params_.wbc_velocity_wrench &&
         task_.motion_stage_ == 2 &&
         task_.gait_started_ &&
@@ -714,8 +751,10 @@ void TrotExperiment::UpdateWbcShadow(
         have_filtered_body_velocity_)
     {
         const double target_velocity_x_mps =
-            params_.direction_sign * params_.step_length_m /
-            params_.period_s;
+            motion_event_response_enabled_
+                ? motion_reference_.vx_mps
+                : params_.direction_sign * params_.step_length_m /
+                      params_.period_s;
         const double velocity_error_x_mps =
             target_velocity_x_mps - latest_filtered_body_velocity_[0];
         desired_force_x_n = Clamp(
@@ -723,9 +762,17 @@ void TrotExperiment::UpdateWbcShadow(
                 velocity_error_x_mps,
             -params_.wbc_max_forward_force_n,
             params_.wbc_max_forward_force_n);
+        const double target_velocity_y_mps =
+            motion_event_response_enabled_ ? motion_reference_.vy_mps : 0.0;
+        const double velocity_error_y_mps =
+            target_velocity_y_mps - latest_filtered_body_velocity_[1];
+        desired_force_y_n = Clamp(
+            kShadowWbcMassKg * params_.wbc_velocity_gain_s_inv *
+                velocity_error_y_mps,
+            -params_.wbc_max_forward_force_n,
+            params_.wbc_max_forward_force_n);
     }
     wbc_shadow_diagnostics_.desired_force_x_n = desired_force_x_n;
-    double desired_force_y_n = 0.0;
     double desired_force_z_n = 0.0;  // [增量式] z 力交给位置伺服(避免重复补偿)
     double desired_tau_x_nm = 0.0;
     double desired_tau_y_nm = 0.0;
@@ -795,8 +842,10 @@ void TrotExperiment::UpdateWbcShadow(
                 // 冲量主控 v1: 线动量任务(加速度域)
                 // a = Kp*(v_target - v) + Kd*(-a_meas)
                 const double target_vx =
-                    params_.direction_sign * params_.step_length_m /
-                    params_.period_s;
+                    motion_event_response_enabled_
+                        ? motion_reference_.vx_mps
+                        : params_.direction_sign * params_.step_length_m /
+                              params_.period_s;
                 const double target_vy = 0.0;
                 if (have_filtered_body_velocity_)
                 {
@@ -830,8 +879,12 @@ void TrotExperiment::UpdateWbcShadow(
                     kWbcPrimaryVelGain1S * desired_force_x_n /
                         kShadowWbcMassKg,
                     -3.0, 3.0);
-                a_desired[1] = 0.0;
-                if (params_.wbc_full && have_preview_terminal_velocity_)
+                a_desired[1] = Clamp(
+                    kWbcPrimaryVelGain1S * desired_force_y_n /
+                        kShadowWbcMassKg,
+                    -2.0, 2.0);
+                if (params_.wbc_full && !motion_event_response_enabled_ &&
+                    have_preview_terminal_velocity_)
                 {
                     if (std::isfinite(preview_planned_acc_x_mps2_))
                         a_desired[0] = Clamp(
@@ -880,13 +933,17 @@ void TrotExperiment::UpdateWbcShadow(
                 kWbcPrimaryPitchAccKp * (pitch_ref_rad - pitch_rad) -
                     kWbcPrimaryPitchAccKd * gyro_y_radps,
                 -attitude_acc_lim, attitude_acc_lim);
-            const double turn_rate = task_.goal_enabled_
-                ? task_.TurnEnable(running_time_) *
-                      task_.commanded_turn_rate_radps_
-                : params_.turn_rate_radps;
-            const double turn_enable_w = task_.goal_enabled_
+            const double turn_rate = motion_event_response_enabled_
+                ? motion_reference_.yaw_rate_radps
+                : (task_.goal_enabled_
+                    ? task_.TurnEnable(running_time_) *
+                          task_.commanded_turn_rate_radps_
+                    : params_.turn_rate_radps);
+            const double turn_enable_w = motion_event_response_enabled_
                 ? 1.0
-                : task_.TurnEnable(running_time_);
+                : (task_.goal_enabled_
+                    ? 1.0
+                    : task_.TurnEnable(running_time_));
             a_desired[5] = Clamp(
                 kWbcPrimaryTurnYawAccKp *
                         (turn_enable_w * turn_rate -

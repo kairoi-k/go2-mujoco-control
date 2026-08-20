@@ -1,0 +1,7 @@
+# Times are relative to gait start, not process start.
+# start_s duration_s event magnitude
+0.8 1.6 turn_left 0.18
+1.2 0.8 emergency_stop 0.0
+3.2 1.0 obstacle_right 0.22
+5.0 1.2 slip 0.0
+7.0 0.8 impact 0.0

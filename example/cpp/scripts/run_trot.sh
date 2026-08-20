@@ -6,6 +6,7 @@ cpp_dir="$(cd "$script_dir/.." && pwd)"
 repo_dir="$(cd "$cpp_dir/../.." && pwd)"
 simulator="$repo_dir/simulate/build/unitree_mujoco"
 controller="$cpp_dir/build/real_trot_go2"
+scene_arg="scene_leg_lift_demo.xml"
 scene_file="$repo_dir/unitree_robots/go2/scene_leg_lift_demo.xml"
 
 timeout_s="$1"
@@ -41,7 +42,20 @@ for ((i = 0; i < ${#controller_args[@]}; ++i)); do
   elif [[ "$arg" == "--camera-follow" ]]; then
     # simulator-only flag: track the robot body in the GUI camera
     sim_camera_follow=true
-  elif [[ "$arg" == "--push-time" || "$arg" == "--push-force-x" || "$arg" == "--push-duration" || "$arg" == "--push-vel-x" || "$arg" == "--push-torque-pitch" || "$arg" == "--payload-kg" ]]; then
+  elif [[ "$arg" == "--scene-file" ]]; then
+    if (( i + 1 >= ${#controller_args[@]} )); then
+      echo "--scene-file requires a value" >&2
+      exit 2
+    fi
+    scene_arg="${controller_args[$((i + 1))]}"
+    if [[ "$scene_arg" == /* ]]; then
+      scene_file="$scene_arg"
+    else
+      scene_file="$repo_dir/$scene_arg"
+      scene_arg="$scene_file"
+    fi
+    i=$((i + 1))
+  elif [[ "$arg" == "--push-time" || "$arg" == "--push-force-x" || "$arg" == "--push-duration" || "$arg" == "--push-vel-x" || "$arg" == "--push-torque-pitch" || "$arg" == "--payload-kg" || "$arg" == "--friction-time" || "$arg" == "--friction-mu" || "$arg" == "--friction-duration" ]]; then
     # simulator-only disturbance flags: consume value
     sim_push_args+=("$arg" "${controller_args[$((i + 1))]}")
     i=$((i + 1))
@@ -138,7 +152,7 @@ if ! flock -n 9; then
   exit 2
 fi
 
-existing_sim_pids="$(pgrep -f -x "$simulator -i $domain_id -r go2 -s scene_leg_lift_demo.xml" || true)"
+existing_sim_pids="$(pgrep -f -x "$simulator -i $domain_id -r go2 -s $scene_arg" || true)"
 if [[ -n "$existing_sim_pids" ]]; then
   echo "Existing MuJoCo simulator detected in DDS domain $domain_id; use a different --domain-id for parallel runs." >&2
   exit 2
@@ -221,7 +235,7 @@ env -u WAYLAND_DISPLAY \
 DISPLAY="$display_value" \
 XDG_RUNTIME_DIR="$runtime_dir" \
 PULSE_SERVER="$pulse_server" \
-  ${sim_affinity:+taskset -c "$sim_affinity"} "$simulator" -i "$domain_id" -r go2 -s scene_leg_lift_demo.xml \
+  ${sim_affinity:+taskset -c "$sim_affinity"} "$simulator" -i "$domain_id" -r go2 -s "$scene_arg" \
   --ground-truth-log "$ground_truth_file" \
   $([[ "$sim_headless" == true ]] && printf %s --headless) \
   $([[ "$sim_camera_follow" == true ]] && printf %s --camera-follow) \
@@ -282,6 +296,10 @@ else
     lo "$controller_duration_s" "$experiment_dir/data.csv" \
     "${controller_args[@]}" \
     >"$experiment_dir/controller.log" 2>&1 || controller_status=$?
+fi
+
+if [[ "${TROT_RECORDING_GRACE_S:-0}" != "0" ]]; then
+  sleep "${TROT_RECORDING_GRACE_S}"
 fi
 
 stop_simulator
@@ -353,6 +371,9 @@ elif [[ -n "$max_cycles_requested" ]]; then
     echo "Trot experiment did not complete the requested cycles; see $experiment_dir/controller.log" >&2
     completion_status=1
   fi
+elif grep -q "Emergency stop hold complete; ending in WBC stance" \
+    "$experiment_dir/controller.log"; then
+  :
 elif ! grep -q "Trot stopping; returning to stand" "$experiment_dir/controller.log"; then
   echo "Trot experiment did not reach a controlled stop; see $experiment_dir/controller.log" >&2
   completion_status=1

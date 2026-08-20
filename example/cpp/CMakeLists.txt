@@ -127,6 +127,8 @@ target_link_libraries(test_contact_wrench_lexicographic_allocator Eigen3::Eigen)
 
 add_executable(test_dynamic_acceleration_target tests/test_dynamic_acceleration_target.cpp)
 
+add_executable(test_motion_event_response tests/test_motion_event_response.cpp)
+
 add_executable(test_wbc_runtime_gate tests/test_wbc_runtime_gate.cpp)
 
 add_executable(test_centroidal_wbc tests/test_centroidal_wbc.cpp)
@@ -186,6 +188,7 @@ go2_add_ctest(test_contact_torque_mapping)
 go2_add_ctest(test_projected_contact_wrench_allocator)
 go2_add_ctest(test_contact_wrench_lexicographic_allocator)
 go2_add_ctest(test_dynamic_acceleration_target)
+go2_add_ctest(test_motion_event_response)
 go2_add_ctest(test_wbc_runtime_gate)
 go2_add_ctest(test_centroidal_wbc)
 go2_add_ctest(test_preview_footstep_horizon)

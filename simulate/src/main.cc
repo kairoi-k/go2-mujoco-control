@@ -183,6 +183,7 @@ namespace
       foot_geom_ids_.fill(-1);
       geom_leg_ids_.assign(model->ngeom, -1);
       leg_root_body_ids_.fill(-1);
+      obstacle_geom_id_ = mj_name2id(model, mjOBJ_GEOM, "reactive_obstacle");
 
       static constexpr std::array<const char *, 4> kLegs = {
           "FR", "FL", "RR", "RL"};
@@ -271,6 +272,9 @@ namespace
                  << ",subtree_com_world_x_m,subtree_com_world_y_m,subtree_com_world_z_m,subtree_linvel_world_x_mps,subtree_linvel_world_y_mps,subtree_linvel_world_z_mps"
                  << ",total_contact_grf_world_x_N,total_contact_grf_world_y_N,total_contact_grf_world_z_N"
                  << ",total_contact_moment_world_x_Nm,total_contact_moment_world_y_Nm,total_contact_moment_world_z_Nm";
+        stream_ << ",reactive_obstacle_contact_count,reactive_obstacle_contact_force_N"
+                 << ",reactive_obstacle_contact_normal_force_N"
+                 << ",reactive_obstacle_contact_other_geom_id";
         for (const char *leg : kLegs)
         {
           stream_ << "," << leg << "_sensor_force_site_x_N"
@@ -421,6 +425,44 @@ namespace
       }
       return contact_grf_world;
     }
+    void ComputeObstacleContact(
+        const mjModel *model, const mjData *data,
+        int *contact_count, double *force_N, double *normal_force_N,
+        int *other_geom_id) const
+    {
+      *contact_count = 0;
+      *force_N = 0.0;
+      *normal_force_N = 0.0;
+      *other_geom_id = -1;
+      if (obstacle_geom_id_ < 0)
+        return;
+      mjtNum contact_force[6];
+      for (int contact_id = 0; contact_id < data->ncon; ++contact_id)
+      {
+        const mjContact &contact = data->contact[contact_id];
+        if (contact.exclude != 0 || contact.efc_address < 0 ||
+            (contact.geom[0] != obstacle_geom_id_ &&
+             contact.geom[1] != obstacle_geom_id_))
+        {
+          continue;
+        }
+        mj_contactForce(model, data, contact_id, contact_force);
+        const int other_geom = contact.geom[0] == obstacle_geom_id_
+            ? contact.geom[1]
+            : contact.geom[0];
+        if (model->geom_bodyid[other_geom] == 0)
+        {
+          continue;
+        }
+        if (*other_geom_id < 0)
+          *other_geom_id = other_geom;
+        ++(*contact_count);
+        *force_N += std::hypot(
+            contact_force[0],
+            std::hypot(contact_force[1], contact_force[2]));
+        *normal_force_N += std::abs(contact_force[0]);
+      }
+    }
 
     void Log(const mjModel *model, mjData *data)
     {
@@ -482,6 +524,14 @@ namespace
           ComputeContactGrf(model, data, &total_contact_grf_world,
                             &total_contact_moment_world,
                             &foot_contact_grf_world);
+      int obstacle_contact_count = 0;
+      double obstacle_contact_force_N = 0.0;
+      double obstacle_contact_normal_force_N = 0.0;
+      int obstacle_contact_other_geom_id = -1;
+      ComputeObstacleContact(model, data, &obstacle_contact_count,
+                             &obstacle_contact_force_N,
+                             &obstacle_contact_normal_force_N,
+                             &obstacle_contact_other_geom_id);
       stream_ << std::setprecision(12) << data->time
               << "," << step_index_
               << "," << total_mass_kg_
@@ -520,7 +570,11 @@ namespace
               << "," << total_contact_grf_world[2]
               << "," << total_contact_moment_world[0]
               << "," << total_contact_moment_world[1]
-              << "," << total_contact_moment_world[2];
+              << "," << total_contact_moment_world[2]
+              << "," << obstacle_contact_count
+              << "," << obstacle_contact_force_N
+              << "," << obstacle_contact_normal_force_N
+              << "," << obstacle_contact_other_geom_id;
 
       for (std::size_t i = 0; i < kLegs.size(); ++i)
       {
@@ -639,6 +693,7 @@ namespace
     mjModel *model_ = nullptr;
     int base_body_id_ = -1;
     std::array<int, 4> sensor_ids_ = {-1, -1, -1, -1};
+    int obstacle_geom_id_ = -1;
     std::vector<mjtNum> full_mass_matrix_;
     std::vector<std::string> dof_labels_;
     std::array<int, 4> touch_ids_ = {-1, -1, -1, -1};
@@ -894,6 +949,12 @@ namespace
     static bool push_active_logged_ = false;
     static bool push_vel_applied_ = false;
     static bool payload_applied_ = false;
+    static int friction_geom_id = -1;
+    static mjtNum friction_nominal_mu = 0.0;
+    static bool friction_saved = false;
+    static bool friction_changed = false;
+    static bool friction_config_logged = false;
+    static bool friction_event_restored = false;
     // cpu-sim syncronization point
     std::chrono::time_point<mj::Simulate::Clock> syncCPU;
     mjtNum syncSim = 0;
@@ -905,6 +966,14 @@ namespace
     // run until asked to exit
     while (!sim.exitrequest.load())
     {
+      if (!friction_config_logged)
+      {
+        std::cout << "FRICTION config time=" << param::config.friction_time_s
+                  << " mu=" << param::config.friction_mu
+                  << " duration=" << param::config.friction_duration_s
+                  << "\n";
+        friction_config_logged = true;
+      }
       // disturbance push: set xfrc every step (covers all stepping paths)
       static int push_body_id = -1;
       if (push_body_id < 0)
@@ -913,6 +982,17 @@ namespace
         if (push_body_id < 0)
           push_body_id = mj_name2id(m, mjOBJ_BODY, "torso_link");
         std::cout << "PUSH body_id=" << push_body_id << "\n";
+      }
+      if (!friction_saved && m != nullptr)
+      {
+        friction_geom_id = mj_name2id(m, mjOBJ_GEOM, "floor");
+        if (friction_geom_id >= 0)
+        {
+          friction_nominal_mu = m->geom_friction[3 * friction_geom_id];
+          friction_saved = true;
+          std::cout << "FRICTION floor_geom_id=" << friction_geom_id
+                    << " nominal_mu=" << friction_nominal_mu << "\n";
+        }
       }
       if (param::config.payload_kg > 0.0 && !payload_applied_)
       {
@@ -935,6 +1015,28 @@ namespace
           d->time >= param::config.push_time_s &&
           d->time <= param::config.push_time_s +
                          param::config.push_duration_s;
+      if (friction_saved && d != nullptr &&
+          param::config.friction_time_s >= 0.0 &&
+          !friction_changed && !friction_event_restored &&
+          d->time >= param::config.friction_time_s)
+      {
+        const double mu = std::max(
+            0.01, std::min(5.0, param::config.friction_mu));
+        m->geom_friction[3 * friction_geom_id] = mu;
+        friction_changed = true;
+        std::cerr << "FRICTION event active t=" << d->time
+                  << " mu=" << mu << std::endl;
+      }
+      if (friction_changed && friction_saved && d != nullptr &&
+          d->time > param::config.friction_time_s +
+                         param::config.friction_duration_s)
+      {
+        m->geom_friction[3 * friction_geom_id] = friction_nominal_mu;
+        friction_changed = false;
+        friction_event_restored = true;
+        std::cerr << "FRICTION restored t=" << d->time
+                  << " mu=" << friction_nominal_mu << std::endl;
+      }
       if (param::config.push_time_s >= 0.0 && d != nullptr &&
           !push_window)
       {
@@ -946,8 +1048,8 @@ namespace
       {
         d->qvel[0] += param::config.push_vel_x_mps;
         push_vel_applied_ = true;
-        std::cout << "PUSH vel applied t=" << d->time
-                  << " qvel0=" << d->qvel[0] << "\n";
+        std::cerr << "PUSH vel applied t=" << d->time
+                  << " qvel0=" << d->qvel[0] << std::endl;
       }
       if (push_window && push_body_id >= 0)
       {
@@ -966,11 +1068,11 @@ namespace
         if (!push_active_logged_)
         {
           push_active_logged_ = true;
-          std::cout << "PUSH active t=" << d->time
+          std::cerr << "PUSH active t=" << d->time
                     << " force=" << param::config.push_force_x_n
                     << " qfrc0=" << d->qfrc_applied[0]
                     << " qfrc3=" << d->qfrc_applied[3]
-                    << " qvel0=" << d->qvel[0] << "\n";
+                    << " qvel0=" << d->qvel[0] << std::endl;
         }
       }
       if (shutdown_requested)

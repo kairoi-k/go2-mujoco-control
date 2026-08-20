@@ -1,0 +1,8 @@
+experiment,event_type,event_source,strict_pass,status_ok,rows,duration_s,yaw_change_rad,braking_drop_mps,max_velocity_jump_mps,event_rows,post_rows,transition_types,git_head
+go2_reactive_acceptance_baseline_video_v3_2026-08-19,nominal,none,False,True,11555,23.108,nan,nan,nan,nan,nan,none,9258c7b992d63f59ba1c8f91dff0a03e4d2d503f
+go2_reactive_acceptance_turn_left_video_v1_2026-08-19,turn_left,scripted_reference,True,True,11553,23.106,0.20724942950000003,0.143671065,0.01886586722919569,2001.0,1499.0,none -> turn_left -> none,9258c7b992d63f59ba1c8f91dff0a03e4d2d503f
+go2_reactive_acceptance_turn_right_video_v1_2026-08-19,turn_right,scripted_reference,True,True,11552,23.102,-0.2085031045,0.149075387,0.025469740817986763,2000.0,1501.0,none -> turn_right -> none,9258c7b992d63f59ba1c8f91dff0a03e4d2d503f
+go2_reactive_acceptance_obstacle_right_video_v1_2026-08-19,obstacle_right,scripted_reference,True,True,11553,23.104,-0.1611501185,0.166535005,0.025797893039866047,2000.0,1500.0,none -> obstacle_right -> none,9258c7b992d63f59ba1c8f91dff0a03e4d2d503f
+go2_reactive_acceptance_emergency_stop_video_v2_2026-08-19,emergency_stop,scripted_reference,True,True,11560,23.102,0.0026201959999999982,0.146808224,0.019125745174176846,1509.0,1500.0,none -> emergency_stop -> none,9258c7b992d63f59ba1c8f91dff0a03e4d2d503f
+go2_reactive_acceptance_impact_video_v3_2026-08-19,impact,push_dv=0.802mps,True,True,11552,23.104,-0.018449130999999997,0.241837211,0.8020643889215681,401.0,1500.0,none -> impact -> none,9258c7b992d63f59ba1c8f91dff0a03e4d2d503f
+go2_reactive_acceptance_low_friction_video_v3_2026-08-19,low_friction,simulator_friction,True,True,11558,23.106,0.0028682614999999967,0.08216187400000001,0.01393853832358989,501.0,1500.0,none,9258c7b992d63f59ba1c8f91dff0a03e4d2d503f

@@ -40,6 +40,9 @@ inline struct SimulationConfig
     double push_vel_x_mps = 0.0;
     double payload_kg = 0.0;
     double push_duration_s = 0.2;
+    double friction_time_s = -1.0;
+    double friction_mu = 0.20;
+    double friction_duration_s = 1.0;
 
     void load_from_yaml(const std::string &filename)
     {
@@ -85,6 +88,9 @@ inline po::variables_map helper(int argc, char** argv)
         ("push-time", po::value<double>(&config.push_time_s), "Disturbance push start time (s); <0 disables")
         ("push-force-x", po::value<double>(&config.push_force_x_n), "Disturbance push force along world x (N)")
         ("push-torque-pitch", po::value<double>(&config.push_torque_pitch_nm), "Disturbance pitch torque (Nm)")
+        ("friction-time", po::value<double>(&config.friction_time_s), "Ground friction change start time (s); <0 disables")
+        ("friction-mu", po::value<double>(&config.friction_mu), "Ground friction coefficient during the event")
+        ("friction-duration", po::value<double>(&config.friction_duration_s), "Ground friction event duration (s)")
         ("push-vel-x", po::value<double>(&config.push_vel_x_mps), "Disturbance base velocity kick along world x (m/s)")
         ("payload-kg", po::value<double>(&config.payload_kg), "Additional torso payload mass (kg)")
         ("push-duration", po::value<double>(&config.push_duration_s), "Disturbance push duration (s)")

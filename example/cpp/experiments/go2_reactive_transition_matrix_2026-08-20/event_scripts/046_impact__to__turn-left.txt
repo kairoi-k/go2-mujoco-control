@@ -1,0 +1,5 @@
+# Reactive transition-matrix protocol v1.0
+# Adjacent events share one controller and one transition layer.
+# Times are relative to gait start; no pair-specific gains are used.
+1.500 2.000 impact 0.000000
+3.500 2.000 turn_left 0.550000

@@ -1,0 +1,3 @@
+# Two long adjacent references: obstacle response, then pure yaw turn.
+2.5 4.0 obstacle_left 0.48
+6.5 4.0 turn_left 0.80

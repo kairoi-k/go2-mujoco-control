@@ -1,0 +1,2 @@
+# Non-active placeholder: enables sensor event detection without scripted actions.
+100.0 1.0 none 0.0

@@ -1,0 +1,4 @@
+# start_s duration_s event magnitude; time is relative to gait start
+# The controller latches the emergency stop after the event and adds a
+# short WBC stance hold, so the gait cannot restart after braking.
+4.0 3.0 emergency_stop 0.0

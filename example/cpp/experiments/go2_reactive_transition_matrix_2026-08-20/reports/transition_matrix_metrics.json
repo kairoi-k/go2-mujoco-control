@@ -1,0 +1,4725 @@
+{
+  "generated_at": "2026-08-20T02:32:15+08:00",
+  "protocol": {
+    "protocol_name": "go2_reactive_transition_matrix",
+    "protocol_version": "1.1",
+    "created_at": "2026-08-20T02:09:19+08:00",
+    "events": [
+      "emergency_stop",
+      "obstacle_left",
+      "obstacle_right",
+      "turn_left",
+      "turn_right",
+      "slip",
+      "low_friction",
+      "impact"
+    ],
+    "source_events": [
+      "obstacle_left",
+      "obstacle_right",
+      "turn_left",
+      "turn_right",
+      "slip",
+      "low_friction",
+      "impact"
+    ],
+    "absorbing_events": [
+      "emergency_stop"
+    ],
+    "pair_count": 49,
+    "event_start_s": 1.5,
+    "event_duration_s": 2.0,
+    "second_event_start_s": 3.5,
+    "controller_duration_s": 7.5,
+    "post_event_window_s": 1.5,
+    "transition_tolerance_s": 0.08,
+    "event_magnitudes": {
+      "emergency_stop": 0.0,
+      "obstacle_left": 0.48,
+      "obstacle_right": 0.48,
+      "turn_left": 0.55,
+      "turn_right": 0.55,
+      "slip": 0.0,
+      "low_friction": 0.0,
+      "impact": 0.0
+    },
+    "controller_args": [
+      "--wbc-full",
+      "--step-length",
+      "0.091",
+      "--period",
+      "0.60",
+      "--duty",
+      "0.75",
+      "--foot-lift",
+      "0.020",
+      "--kernel",
+      "raibert-trot",
+      "--raibert-velocity-gain",
+      "0.05",
+      "--raibert-max-adjustment",
+      "0.010",
+      "--tau-limit",
+      "35",
+      "--controller-duration",
+      "7.5",
+      "--headless"
+    ],
+    "sensor_events_enabled": false,
+    "scene": "/home/che/dev/go2-mujoco-control/unitree_robots/go2/scene_leg_lift_demo.xml",
+    "scene_sha256": "12286418247d0e240ae131b5ae5c60f3a7a481d4754aefe4517476e937aa05b8",
+    "controller": "/home/che/dev/go2-mujoco-control/example/cpp/build/real_trot_go2",
+    "controller_sha256": "195a60441c5c3b64fcc06f85e2d4c892bba9b37d9d476c0e40cf6cc1b17669f1",
+    "reference_rate_limits": {
+      "vx_mps_per_s": 2.5,
+      "vy_mps_per_s": 1.5,
+      "yaw_rate_radps_per_s": 2.0
+    },
+    "acceptance_limits": {
+      "max_abs_roll_rad": 0.25,
+      "max_abs_pitch_rad": 0.25,
+      "max_actual_velocity_jump_mps": 0.08,
+      "min_contact_count": 1,
+      "max_solver_residual": 0.001
+    },
+    "terminal_policy": "emergency_stop is absorbing: any event may transition into it, but no transition out is required; WBC stance hold ends the run.",
+    "max_attempts": 2,
+    "retry_delay_s": 5.0,
+    "domain_base": 100,
+    "domain_stride": 49,
+    "selected_start_index": 1,
+    "selected_count": 49,
+    "pair_specs": [
+      {
+        "index": 1,
+        "source": "obstacle_left",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 2,
+        "source": "obstacle_left",
+        "target": "obstacle_right"
+      },
+      {
+        "index": 3,
+        "source": "obstacle_left",
+        "target": "turn_left"
+      },
+      {
+        "index": 4,
+        "source": "obstacle_left",
+        "target": "turn_right"
+      },
+      {
+        "index": 5,
+        "source": "obstacle_left",
+        "target": "slip"
+      },
+      {
+        "index": 6,
+        "source": "obstacle_left",
+        "target": "low_friction"
+      },
+      {
+        "index": 7,
+        "source": "obstacle_left",
+        "target": "impact"
+      },
+      {
+        "index": 8,
+        "source": "obstacle_right",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 9,
+        "source": "obstacle_right",
+        "target": "obstacle_left"
+      },
+      {
+        "index": 10,
+        "source": "obstacle_right",
+        "target": "turn_left"
+      },
+      {
+        "index": 11,
+        "source": "obstacle_right",
+        "target": "turn_right"
+      },
+      {
+        "index": 12,
+        "source": "obstacle_right",
+        "target": "slip"
+      },
+      {
+        "index": 13,
+        "source": "obstacle_right",
+        "target": "low_friction"
+      },
+      {
+        "index": 14,
+        "source": "obstacle_right",
+        "target": "impact"
+      },
+      {
+        "index": 15,
+        "source": "turn_left",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 16,
+        "source": "turn_left",
+        "target": "obstacle_left"
+      },
+      {
+        "index": 17,
+        "source": "turn_left",
+        "target": "obstacle_right"
+      },
+      {
+        "index": 18,
+        "source": "turn_left",
+        "target": "turn_right"
+      },
+      {
+        "index": 19,
+        "source": "turn_left",
+        "target": "slip"
+      },
+      {
+        "index": 20,
+        "source": "turn_left",
+        "target": "low_friction"
+      },
+      {
+        "index": 21,
+        "source": "turn_left",
+        "target": "impact"
+      },
+      {
+        "index": 22,
+        "source": "turn_right",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 23,
+        "source": "turn_right",
+        "target": "obstacle_left"
+      },
+      {
+        "index": 24,
+        "source": "turn_right",
+        "target": "obstacle_right"
+      },
+      {
+        "index": 25,
+        "source": "turn_right",
+        "target": "turn_left"
+      },
+      {
+        "index": 26,
+        "source": "turn_right",
+        "target": "slip"
+      },
+      {
+        "index": 27,
+        "source": "turn_right",
+        "target": "low_friction"
+      },
+      {
+        "index": 28,
+        "source": "turn_right",
+        "target": "impact"
+      },
+      {
+        "index": 29,
+        "source": "slip",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 30,
+        "source": "slip",
+        "target": "obstacle_left"
+      },
+      {
+        "index": 31,
+        "source": "slip",
+        "target": "obstacle_right"
+      },
+      {
+        "index": 32,
+        "source": "slip",
+        "target": "turn_left"
+      },
+      {
+        "index": 33,
+        "source": "slip",
+        "target": "turn_right"
+      },
+      {
+        "index": 34,
+        "source": "slip",
+        "target": "low_friction"
+      },
+      {
+        "index": 35,
+        "source": "slip",
+        "target": "impact"
+      },
+      {
+        "index": 36,
+        "source": "low_friction",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 37,
+        "source": "low_friction",
+        "target": "obstacle_left"
+      },
+      {
+        "index": 38,
+        "source": "low_friction",
+        "target": "obstacle_right"
+      },
+      {
+        "index": 39,
+        "source": "low_friction",
+        "target": "turn_left"
+      },
+      {
+        "index": 40,
+        "source": "low_friction",
+        "target": "turn_right"
+      },
+      {
+        "index": 41,
+        "source": "low_friction",
+        "target": "slip"
+      },
+      {
+        "index": 42,
+        "source": "low_friction",
+        "target": "impact"
+      },
+      {
+        "index": 43,
+        "source": "impact",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 44,
+        "source": "impact",
+        "target": "obstacle_left"
+      },
+      {
+        "index": 45,
+        "source": "impact",
+        "target": "obstacle_right"
+      },
+      {
+        "index": 46,
+        "source": "impact",
+        "target": "turn_left"
+      },
+      {
+        "index": 47,
+        "source": "impact",
+        "target": "turn_right"
+      },
+      {
+        "index": 48,
+        "source": "impact",
+        "target": "slip"
+      },
+      {
+        "index": 49,
+        "source": "impact",
+        "target": "low_friction"
+      }
+    ],
+    "git_head": "ed63e23ba9e9eba233313838b7296eaa4076d96a",
+    "repo": "/home/che/dev/go2-mujoco-control",
+    "run_command": "/home/che/dev/go2-mujoco-control/example/cpp/tools/run_reactive_transition_matrix.py",
+    "selected_pairs": [
+      {
+        "index": 1,
+        "source": "obstacle_left",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 2,
+        "source": "obstacle_left",
+        "target": "obstacle_right"
+      },
+      {
+        "index": 3,
+        "source": "obstacle_left",
+        "target": "turn_left"
+      },
+      {
+        "index": 4,
+        "source": "obstacle_left",
+        "target": "turn_right"
+      },
+      {
+        "index": 5,
+        "source": "obstacle_left",
+        "target": "slip"
+      },
+      {
+        "index": 6,
+        "source": "obstacle_left",
+        "target": "low_friction"
+      },
+      {
+        "index": 7,
+        "source": "obstacle_left",
+        "target": "impact"
+      },
+      {
+        "index": 8,
+        "source": "obstacle_right",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 9,
+        "source": "obstacle_right",
+        "target": "obstacle_left"
+      },
+      {
+        "index": 10,
+        "source": "obstacle_right",
+        "target": "turn_left"
+      },
+      {
+        "index": 11,
+        "source": "obstacle_right",
+        "target": "turn_right"
+      },
+      {
+        "index": 12,
+        "source": "obstacle_right",
+        "target": "slip"
+      },
+      {
+        "index": 13,
+        "source": "obstacle_right",
+        "target": "low_friction"
+      },
+      {
+        "index": 14,
+        "source": "obstacle_right",
+        "target": "impact"
+      },
+      {
+        "index": 15,
+        "source": "turn_left",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 16,
+        "source": "turn_left",
+        "target": "obstacle_left"
+      },
+      {
+        "index": 17,
+        "source": "turn_left",
+        "target": "obstacle_right"
+      },
+      {
+        "index": 18,
+        "source": "turn_left",
+        "target": "turn_right"
+      },
+      {
+        "index": 19,
+        "source": "turn_left",
+        "target": "slip"
+      },
+      {
+        "index": 20,
+        "source": "turn_left",
+        "target": "low_friction"
+      },
+      {
+        "index": 21,
+        "source": "turn_left",
+        "target": "impact"
+      },
+      {
+        "index": 22,
+        "source": "turn_right",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 23,
+        "source": "turn_right",
+        "target": "obstacle_left"
+      },
+      {
+        "index": 24,
+        "source": "turn_right",
+        "target": "obstacle_right"
+      },
+      {
+        "index": 25,
+        "source": "turn_right",
+        "target": "turn_left"
+      },
+      {
+        "index": 26,
+        "source": "turn_right",
+        "target": "slip"
+      },
+      {
+        "index": 27,
+        "source": "turn_right",
+        "target": "low_friction"
+      },
+      {
+        "index": 28,
+        "source": "turn_right",
+        "target": "impact"
+      },
+      {
+        "index": 29,
+        "source": "slip",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 30,
+        "source": "slip",
+        "target": "obstacle_left"
+      },
+      {
+        "index": 31,
+        "source": "slip",
+        "target": "obstacle_right"
+      },
+      {
+        "index": 32,
+        "source": "slip",
+        "target": "turn_left"
+      },
+      {
+        "index": 33,
+        "source": "slip",
+        "target": "turn_right"
+      },
+      {
+        "index": 34,
+        "source": "slip",
+        "target": "low_friction"
+      },
+      {
+        "index": 35,
+        "source": "slip",
+        "target": "impact"
+      },
+      {
+        "index": 36,
+        "source": "low_friction",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 37,
+        "source": "low_friction",
+        "target": "obstacle_left"
+      },
+      {
+        "index": 38,
+        "source": "low_friction",
+        "target": "obstacle_right"
+      },
+      {
+        "index": 39,
+        "source": "low_friction",
+        "target": "turn_left"
+      },
+      {
+        "index": 40,
+        "source": "low_friction",
+        "target": "turn_right"
+      },
+      {
+        "index": 41,
+        "source": "low_friction",
+        "target": "slip"
+      },
+      {
+        "index": 42,
+        "source": "low_friction",
+        "target": "impact"
+      },
+      {
+        "index": 43,
+        "source": "impact",
+        "target": "emergency_stop"
+      },
+      {
+        "index": 44,
+        "source": "impact",
+        "target": "obstacle_left"
+      },
+      {
+        "index": 45,
+        "source": "impact",
+        "target": "obstacle_right"
+      },
+      {
+        "index": 46,
+        "source": "impact",
+        "target": "turn_left"
+      },
+      {
+        "index": 47,
+        "source": "impact",
+        "target": "turn_right"
+      },
+      {
+        "index": 48,
+        "source": "impact",
+        "target": "slip"
+      },
+      {
+        "index": 49,
+        "source": "impact",
+        "target": "low_friction"
+      }
+    ]
+  },
+  "expected_pairs": 49,
+  "analyzed_pairs": 49,
+  "passed_pairs": 49,
+  "failed_pairs": 0,
+  "coverage_fraction": 1.0,
+  "unique_controller_config_fingerprints": [
+    "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff"
+  ],
+  "pair_specific_tuning_detected": false,
+  "overall_strict_pass": true,
+  "results": [
+    {
+      "pair_index": 1,
+      "run_id": "001_obstacle-left__to__emergency-stop",
+      "source_event": "obstacle_left",
+      "target_event": "emergency_stop",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/001_obstacle-left__to__emergency-stop",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 5252,
+      "max_time_s": 10.502,
+      "duplicate_time_rows": 765,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "obstacle_left",
+        "emergency_stop"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 7.002,
+          "type": "emergency_stop",
+          "priority": 100
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 1.5000000000001665,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.033634235139384815,
+      "max_abs_roll_rad": 0.064035647,
+      "max_abs_pitch_rad": 0.026706116,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 21.0144111283,
+      "min_positive_ground_truth_contact_grf_z_N": 21.0144111283,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 2.924e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 2,
+      "run_id": "002_obstacle-left__to__obstacle-right",
+      "source_event": "obstacle_left",
+      "target_event": "obstacle_right",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/002_obstacle-left__to__obstacle-right",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6903,
+      "max_time_s": 13.806,
+      "duplicate_time_rows": 1682,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "obstacle_left",
+        "obstacle_right",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 7.002,
+          "type": "obstacle_right",
+          "priority": 80
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.7500000000004163,
+        "yaw_rate_radps_per_s": 1.5000000000008327
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.03214149122558721,
+      "max_abs_roll_rad": 0.076605134,
+      "max_abs_pitch_rad": 0.030866452,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 23.2882438307,
+      "min_positive_ground_truth_contact_grf_z_N": 23.2882438307,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.083e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1000,
+      "second_event_rows": 1000,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 3,
+      "run_id": "003_obstacle-left__to__turn-left",
+      "source_event": "obstacle_left",
+      "target_event": "turn_left",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/003_obstacle-left__to__turn-left",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6903,
+      "max_time_s": 13.804,
+      "duplicate_time_rows": 445,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "obstacle_left",
+        "turn_left",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 7.004,
+          "type": "turn_left",
+          "priority": 40
+        },
+        {
+          "time_s": 9.004,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 1.5000000000001665,
+        "yaw_rate_radps_per_s": 2.0000000000011102
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.0344955958864389,
+      "max_abs_roll_rad": 0.067808896,
+      "max_abs_pitch_rad": 0.028049141,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 29.0959740335,
+      "min_positive_ground_truth_contact_grf_z_N": 29.0959740335,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.202e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1000,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 4,
+      "run_id": "004_obstacle-left__to__turn-right",
+      "source_event": "obstacle_left",
+      "target_event": "turn_right",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/004_obstacle-left__to__turn-right",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 671,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "obstacle_left",
+        "turn_right",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 7.002,
+          "type": "turn_right",
+          "priority": 40
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 1.5000000000001665,
+        "yaw_rate_radps_per_s": 2.0000000000011102
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.03310660502676914,
+      "max_abs_roll_rad": 0.068872295,
+      "max_abs_pitch_rad": 0.026318453,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 7.10985771829,
+      "min_positive_ground_truth_contact_grf_z_N": 7.10985771829,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.23e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 5,
+      "run_id": "005_obstacle-left__to__slip",
+      "source_event": "obstacle_left",
+      "target_event": "slip",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/005_obstacle-left__to__slip",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.804,
+      "duplicate_time_rows": 1942,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "obstacle_left",
+        "slip",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.004,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 7.004,
+          "type": "slip",
+          "priority": 60
+        },
+        {
+          "time_s": 9.004,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 1.5000000000001665,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.03272488807328783,
+      "max_abs_roll_rad": 0.061638027,
+      "max_abs_pitch_rad": 0.032130018,
+      "min_contact_count": 0,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 5.43237602872,
+      "min_positive_ground_truth_contact_grf_z_N": 5.43237602872,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.576e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1000,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 6,
+      "run_id": "006_obstacle-left__to__low-friction",
+      "source_event": "obstacle_left",
+      "target_event": "low_friction",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/006_obstacle-left__to__low-friction",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 952,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "obstacle_left",
+        "low_friction",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 7.002,
+          "type": "low_friction",
+          "priority": 60
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 1.5000000000001665,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.06565501858443669,
+      "max_abs_roll_rad": 0.066423632,
+      "max_abs_pitch_rad": 0.027303465,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 16.230653064,
+      "min_positive_ground_truth_contact_grf_z_N": 16.230653064,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.801e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 7,
+      "run_id": "007_obstacle-left__to__impact",
+      "source_event": "obstacle_left",
+      "target_event": "impact",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/007_obstacle-left__to__impact",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.8,
+      "duplicate_time_rows": 1650,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "obstacle_left",
+        "impact",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 7.0,
+          "type": "impact",
+          "priority": 100
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 1.5000000000001665,
+        "yaw_rate_radps_per_s": 2.0000000000002203
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.035780868534168286,
+      "max_abs_roll_rad": 0.058995742,
+      "max_abs_pitch_rad": 0.031595845,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 11.3842391864,
+      "min_positive_ground_truth_contact_grf_z_N": 11.3842391864,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.108e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 8,
+      "run_id": "008_obstacle-right__to__emergency-stop",
+      "source_event": "obstacle_right",
+      "target_event": "emergency_stop",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/008_obstacle-right__to__emergency-stop",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 5252,
+      "max_time_s": 10.502,
+      "duplicate_time_rows": 1124,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "obstacle_right",
+        "emergency_stop"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "obstacle_right",
+          "priority": 80
+        },
+        {
+          "time_s": 7.002,
+          "type": "emergency_stop",
+          "priority": 100
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 1.5000000000001665,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.02819131981883217,
+      "max_abs_roll_rad": 0.06715364,
+      "max_abs_pitch_rad": 0.026507698,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 33.9343032912,
+      "min_positive_ground_truth_contact_grf_z_N": 33.9343032912,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.554e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1002,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 9,
+      "run_id": "009_obstacle-right__to__obstacle-left",
+      "source_event": "obstacle_right",
+      "target_event": "obstacle_left",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/009_obstacle-right__to__obstacle-left",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6901,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 1622,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "obstacle_right",
+        "obstacle_left",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "obstacle_right",
+          "priority": 80
+        },
+        {
+          "time_s": 7.0,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.7500000000004163,
+        "yaw_rate_radps_per_s": 1.5000000000008327
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.03271759815907117,
+      "max_abs_roll_rad": 0.076060407,
+      "max_abs_pitch_rad": 0.026671084,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 8.84170605924,
+      "min_positive_ground_truth_contact_grf_z_N": 8.84170605924,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.079e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 10,
+      "run_id": "010_obstacle-right__to__turn-left",
+      "source_event": "obstacle_right",
+      "target_event": "turn_left",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/010_obstacle-right__to__turn-left",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6901,
+      "max_time_s": 13.8,
+      "duplicate_time_rows": 705,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "obstacle_right",
+        "turn_left",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "obstacle_right",
+          "priority": 80
+        },
+        {
+          "time_s": 7.002,
+          "type": "turn_left",
+          "priority": 40
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 1.5000000000001665,
+        "yaw_rate_radps_per_s": 2.0000000000011102
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.029594871279370622,
+      "max_abs_roll_rad": 0.078220978,
+      "max_abs_pitch_rad": 0.026455259,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 5.11940039759,
+      "min_positive_ground_truth_contact_grf_z_N": 5.11940039759,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.28e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1000,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 11,
+      "run_id": "011_obstacle-right__to__turn-right",
+      "source_event": "obstacle_right",
+      "target_event": "turn_right",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/011_obstacle-right__to__turn-right",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6900,
+      "max_time_s": 13.8,
+      "duplicate_time_rows": 815,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "obstacle_right",
+        "turn_right",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "obstacle_right",
+          "priority": 80
+        },
+        {
+          "time_s": 7.002,
+          "type": "turn_right",
+          "priority": 40
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 1.5000000000001665,
+        "yaw_rate_radps_per_s": 2.0000000000011102
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.03194293739699881,
+      "max_abs_roll_rad": 0.075089179,
+      "max_abs_pitch_rad": 0.022657743,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 8.07103519417,
+      "min_positive_ground_truth_contact_grf_z_N": 8.07103519417,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.884e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1000,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 12,
+      "run_id": "012_obstacle-right__to__slip",
+      "source_event": "obstacle_right",
+      "target_event": "slip",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/012_obstacle-right__to__slip",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6901,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 196,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "obstacle_right",
+        "slip",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "obstacle_right",
+          "priority": 80
+        },
+        {
+          "time_s": 7.002,
+          "type": "slip",
+          "priority": 60
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 1.5000000000001665,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.020224996241434635,
+      "max_abs_roll_rad": 0.074961282,
+      "max_abs_pitch_rad": 0.027198546,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 19.1723430024,
+      "min_positive_ground_truth_contact_grf_z_N": 19.1723430024,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.37e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1002,
+      "second_event_rows": 1000,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 13,
+      "run_id": "013_obstacle-right__to__low-friction",
+      "source_event": "obstacle_right",
+      "target_event": "low_friction",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/013_obstacle-right__to__low-friction",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6903,
+      "max_time_s": 13.804,
+      "duplicate_time_rows": 579,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "obstacle_right",
+        "low_friction",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.004,
+          "type": "obstacle_right",
+          "priority": 80
+        },
+        {
+          "time_s": 7.002,
+          "type": "low_friction",
+          "priority": 60
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 1.5000000000001665,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.03422487534069817,
+      "max_abs_roll_rad": 0.075895205,
+      "max_abs_pitch_rad": 0.028889136,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 6.73697208073,
+      "min_positive_ground_truth_contact_grf_z_N": 6.73697208073,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.423e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1000,
+      "second_event_rows": 1000,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 14,
+      "run_id": "014_obstacle-right__to__impact",
+      "source_event": "obstacle_right",
+      "target_event": "impact",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/014_obstacle-right__to__impact",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6904,
+      "max_time_s": 13.806,
+      "duplicate_time_rows": 1814,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "obstacle_right",
+        "impact",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.004,
+          "type": "obstacle_right",
+          "priority": 80
+        },
+        {
+          "time_s": 7.002,
+          "type": "impact",
+          "priority": 100
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 1.5000000000001665,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.03412910531764585,
+      "max_abs_roll_rad": 0.0673806,
+      "max_abs_pitch_rad": 0.028524755,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 14.4271951906,
+      "min_positive_ground_truth_contact_grf_z_N": 14.4271951906,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.489e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 15,
+      "run_id": "015_turn-left__to__emergency-stop",
+      "source_event": "turn_left",
+      "target_event": "emergency_stop",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/015_turn-left__to__emergency-stop",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 5252,
+      "max_time_s": 10.502,
+      "duplicate_time_rows": 1421,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "turn_left",
+        "emergency_stop"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "turn_left",
+          "priority": 40
+        },
+        {
+          "time_s": 7.0,
+          "type": "emergency_stop",
+          "priority": 100
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.022200368524970256,
+      "max_abs_roll_rad": 0.014950094,
+      "max_abs_pitch_rad": 0.015815783,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 19.3869421561,
+      "min_positive_ground_truth_contact_grf_z_N": 19.3869421561,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.287e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1002,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 16,
+      "run_id": "016_turn-left__to__obstacle-left",
+      "source_event": "turn_left",
+      "target_event": "obstacle_left",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/016_turn-left__to__obstacle-left",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.804,
+      "duplicate_time_rows": 1533,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "turn_left",
+        "obstacle_left",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "turn_left",
+          "priority": 40
+        },
+        {
+          "time_s": 7.002,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.7500000000004163,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.05025734452919514,
+      "max_abs_roll_rad": 0.06147958,
+      "max_abs_pitch_rad": 0.035910349,
+      "min_contact_count": 0,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 9.60451237873,
+      "min_positive_ground_truth_contact_grf_z_N": 9.60451237873,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 6.098e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1002,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 17,
+      "run_id": "017_turn-left__to__obstacle-right",
+      "source_event": "turn_left",
+      "target_event": "obstacle_right",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/017_turn-left__to__obstacle-right",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6901,
+      "max_time_s": 13.8,
+      "duplicate_time_rows": 1188,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "turn_left",
+        "obstacle_right",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "turn_left",
+          "priority": 40
+        },
+        {
+          "time_s": 7.0,
+          "type": "obstacle_right",
+          "priority": 80
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.7500000000004163,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.03491180693712811,
+      "max_abs_roll_rad": 0.079814367,
+      "max_abs_pitch_rad": 0.025998928,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 19.6589277833,
+      "min_positive_ground_truth_contact_grf_z_N": 19.6589277833,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.222e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1002,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 18,
+      "run_id": "018_turn-left__to__turn-right",
+      "source_event": "turn_left",
+      "target_event": "turn_right",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/018_turn-left__to__turn-right",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 297,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "turn_left",
+        "turn_right",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "turn_left",
+          "priority": 40
+        },
+        {
+          "time_s": 7.002,
+          "type": "turn_right",
+          "priority": 40
+        },
+        {
+          "time_s": 9.004,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.0000000000011102
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.016257570696254872,
+      "max_abs_roll_rad": 0.020262815,
+      "max_abs_pitch_rad": 0.01334277,
+      "min_contact_count": 2,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 52.5161913402,
+      "min_positive_ground_truth_contact_grf_z_N": 52.5161913402,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.236e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 19,
+      "run_id": "019_turn-left__to__slip",
+      "source_event": "turn_left",
+      "target_event": "slip",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/019_turn-left__to__slip",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6901,
+      "max_time_s": 13.8,
+      "duplicate_time_rows": 207,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "turn_left",
+        "slip",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "turn_left",
+          "priority": 40
+        },
+        {
+          "time_s": 7.002,
+          "type": "slip",
+          "priority": 60
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.027456320321123606,
+      "max_abs_roll_rad": 0.019845121,
+      "max_abs_pitch_rad": 0.018191684,
+      "min_contact_count": 0,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 0.0,
+      "min_positive_ground_truth_contact_grf_z_N": 19.1071471683,
+      "max_ground_truth_zero_run": 1,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.074e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 20,
+      "run_id": "020_turn-left__to__low-friction",
+      "source_event": "turn_left",
+      "target_event": "low_friction",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/020_turn-left__to__low-friction",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 393,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "turn_left",
+        "low_friction",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "turn_left",
+          "priority": 40
+        },
+        {
+          "time_s": 7.0,
+          "type": "low_friction",
+          "priority": 60
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.020210482467598247,
+      "max_abs_roll_rad": 0.021723704,
+      "max_abs_pitch_rad": 0.01202579,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 18.9747802782,
+      "min_positive_ground_truth_contact_grf_z_N": 18.9747802782,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.071e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 21,
+      "run_id": "021_turn-left__to__impact",
+      "source_event": "turn_left",
+      "target_event": "impact",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/021_turn-left__to__impact",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6904,
+      "max_time_s": 13.808,
+      "duplicate_time_rows": 1477,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "turn_left",
+        "impact",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.006,
+          "type": "turn_left",
+          "priority": 40
+        },
+        {
+          "time_s": 7.004,
+          "type": "impact",
+          "priority": 100
+        },
+        {
+          "time_s": 9.006,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.022613500590035016,
+      "max_abs_roll_rad": 0.022765584,
+      "max_abs_pitch_rad": 0.01615297,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 20.0194322933,
+      "min_positive_ground_truth_contact_grf_z_N": 20.0194322933,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.068e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1000,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 22,
+      "run_id": "022_turn-right__to__emergency-stop",
+      "source_event": "turn_right",
+      "target_event": "emergency_stop",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/022_turn-right__to__emergency-stop",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 5254,
+      "max_time_s": 10.504,
+      "duplicate_time_rows": 1030,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "turn_right",
+        "emergency_stop"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.004,
+          "type": "turn_right",
+          "priority": 40
+        },
+        {
+          "time_s": 7.004,
+          "type": "emergency_stop",
+          "priority": 100
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.019529286843297577,
+      "max_abs_roll_rad": 0.01339979,
+      "max_abs_pitch_rad": 0.018476222,
+      "min_contact_count": 2,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 44.37143665,
+      "min_positive_ground_truth_contact_grf_z_N": 44.37143665,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.044e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1000,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 23,
+      "run_id": "023_turn-right__to__obstacle-left",
+      "source_event": "turn_right",
+      "target_event": "obstacle_left",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/023_turn-right__to__obstacle-left",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.804,
+      "duplicate_time_rows": 1249,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "turn_right",
+        "obstacle_left",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "turn_right",
+          "priority": 40
+        },
+        {
+          "time_s": 7.0,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.7500000000004163,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.0315588780952865,
+      "max_abs_roll_rad": 0.074509755,
+      "max_abs_pitch_rad": 0.023468805,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 14.059764355,
+      "min_positive_ground_truth_contact_grf_z_N": 14.059764355,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.695e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 24,
+      "run_id": "024_turn-right__to__obstacle-right",
+      "source_event": "turn_right",
+      "target_event": "obstacle_right",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/024_turn-right__to__obstacle-right",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 539,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "turn_right",
+        "obstacle_right",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "turn_right",
+          "priority": 40
+        },
+        {
+          "time_s": 7.002,
+          "type": "obstacle_right",
+          "priority": 80
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.7500000000004163,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.04982413951024139,
+      "max_abs_roll_rad": 0.067904636,
+      "max_abs_pitch_rad": 0.031073665,
+      "min_contact_count": 0,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 0.0,
+      "min_positive_ground_truth_contact_grf_z_N": 13.6475060983,
+      "max_ground_truth_zero_run": 3,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 5.285e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1000,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 25,
+      "run_id": "025_turn-right__to__turn-left",
+      "source_event": "turn_right",
+      "target_event": "turn_left",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/025_turn-right__to__turn-left",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 434,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "turn_right",
+        "turn_left",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.004,
+          "type": "turn_right",
+          "priority": 40
+        },
+        {
+          "time_s": 7.002,
+          "type": "turn_left",
+          "priority": 40
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.0000000000011102
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.015739111967195248,
+      "max_abs_roll_rad": 0.016001837,
+      "max_abs_pitch_rad": 0.018763099,
+      "min_contact_count": 2,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 48.7309207973,
+      "min_positive_ground_truth_contact_grf_z_N": 48.7309207973,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.923e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1000,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 26,
+      "run_id": "026_turn-right__to__slip",
+      "source_event": "turn_right",
+      "target_event": "slip",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/026_turn-right__to__slip",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.804,
+      "duplicate_time_rows": 349,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "turn_right",
+        "slip",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "turn_right",
+          "priority": 40
+        },
+        {
+          "time_s": 7.002,
+          "type": "slip",
+          "priority": 60
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.01683406902659048,
+      "max_abs_roll_rad": 0.018134093,
+      "max_abs_pitch_rad": 0.015585562,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 15.7041793334,
+      "min_positive_ground_truth_contact_grf_z_N": 15.7041793334,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.973e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 27,
+      "run_id": "027_turn-right__to__low-friction",
+      "source_event": "turn_right",
+      "target_event": "low_friction",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/027_turn-right__to__low-friction",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 441,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "turn_right",
+        "low_friction",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "turn_right",
+          "priority": 40
+        },
+        {
+          "time_s": 7.0,
+          "type": "low_friction",
+          "priority": 60
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.020543785130236247,
+      "max_abs_roll_rad": 0.021668084,
+      "max_abs_pitch_rad": 0.016729958,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 19.0861837117,
+      "min_positive_ground_truth_contact_grf_z_N": 19.0861837117,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.127e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1002,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 28,
+      "run_id": "028_turn-right__to__impact",
+      "source_event": "turn_right",
+      "target_event": "impact",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/028_turn-right__to__impact",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 447,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "turn_right",
+        "impact",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "turn_right",
+          "priority": 40
+        },
+        {
+          "time_s": 7.002,
+          "type": "impact",
+          "priority": 100
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.000000000000222
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.014219876732724587,
+      "max_abs_roll_rad": 0.019169925,
+      "max_abs_pitch_rad": 0.014841636,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 20.2782124581,
+      "min_positive_ground_truth_contact_grf_z_N": 20.2782124581,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.245e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 29,
+      "run_id": "029_slip__to__emergency-stop",
+      "source_event": "slip",
+      "target_event": "emergency_stop",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/029_slip__to__emergency-stop",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 5250,
+      "max_time_s": 10.5,
+      "duplicate_time_rows": 449,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "slip",
+        "emergency_stop"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "slip",
+          "priority": 60
+        },
+        {
+          "time_s": 7.0,
+          "type": "emergency_stop",
+          "priority": 100
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 0.0
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.015007091142525924,
+      "max_abs_roll_rad": 0.017365333,
+      "max_abs_pitch_rad": 0.018443342,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 9.81630580953,
+      "min_positive_ground_truth_contact_grf_z_N": 9.81630580953,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 2.303e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 30,
+      "run_id": "030_slip__to__obstacle-left",
+      "source_event": "slip",
+      "target_event": "obstacle_left",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/030_slip__to__obstacle-left",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 432,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "slip",
+        "obstacle_left",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "slip",
+          "priority": 60
+        },
+        {
+          "time_s": 7.002,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.7500000000004163,
+        "yaw_rate_radps_per_s": 1.5000000000008327
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.033497933122827034,
+      "max_abs_roll_rad": 0.078450449,
+      "max_abs_pitch_rad": 0.024310298,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 14.1221349247,
+      "min_positive_ground_truth_contact_grf_z_N": 14.1221349247,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.684e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1002,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 31,
+      "run_id": "031_slip__to__obstacle-right",
+      "source_event": "slip",
+      "target_event": "obstacle_right",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/031_slip__to__obstacle-right",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6904,
+      "max_time_s": 13.806,
+      "duplicate_time_rows": 1488,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "slip",
+        "obstacle_right",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "slip",
+          "priority": 60
+        },
+        {
+          "time_s": 7.002,
+          "type": "obstacle_right",
+          "priority": 80
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.7500000000004163,
+        "yaw_rate_radps_per_s": 1.5000000000008327
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.04628744365670692,
+      "max_abs_roll_rad": 0.067695752,
+      "max_abs_pitch_rad": 0.025720384,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 12.9590864273,
+      "min_positive_ground_truth_contact_grf_z_N": 12.9590864273,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.573e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1000,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 32,
+      "run_id": "032_slip__to__turn-left",
+      "source_event": "slip",
+      "target_event": "turn_left",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/032_slip__to__turn-left",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6901,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 1506,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "slip",
+        "turn_left",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "slip",
+          "priority": 60
+        },
+        {
+          "time_s": 7.002,
+          "type": "turn_left",
+          "priority": 40
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.0000000000011102
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.02731645319941455,
+      "max_abs_roll_rad": 0.016483285,
+      "max_abs_pitch_rad": 0.017937379,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 8.03901480576,
+      "min_positive_ground_truth_contact_grf_z_N": 8.03901480576,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.39e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 33,
+      "run_id": "033_slip__to__turn-right",
+      "source_event": "slip",
+      "target_event": "turn_right",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/033_slip__to__turn-right",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6907,
+      "max_time_s": 13.81,
+      "duplicate_time_rows": 1045,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.504,
+      "expected_sequence": [
+        "none",
+        "slip",
+        "turn_right",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.004,
+          "type": "slip",
+          "priority": 60
+        },
+        {
+          "time_s": 7.006,
+          "type": "turn_right",
+          "priority": 40
+        },
+        {
+          "time_s": 9.004,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.0000000000011102
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.021052630622688657,
+      "max_abs_roll_rad": 0.036814798,
+      "max_abs_pitch_rad": 0.021094928,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 7.29808858684,
+      "min_positive_ground_truth_contact_grf_z_N": 7.29808858684,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.675e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1000,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 34,
+      "run_id": "034_slip__to__low-friction",
+      "source_event": "slip",
+      "target_event": "low_friction",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/034_slip__to__low-friction",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6901,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 1778,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "slip",
+        "low_friction",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "slip",
+          "priority": 60
+        },
+        {
+          "time_s": 7.002,
+          "type": "low_friction",
+          "priority": 60
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 0.0
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.022640447936029286,
+      "max_abs_roll_rad": 0.01628123,
+      "max_abs_pitch_rad": 0.016562402,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 5.80851585478,
+      "min_positive_ground_truth_contact_grf_z_N": 5.80851585478,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 2.321e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1002,
+      "second_event_rows": 1002,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 35,
+      "run_id": "035_slip__to__impact",
+      "source_event": "slip",
+      "target_event": "impact",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/035_slip__to__impact",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6901,
+      "max_time_s": 13.8,
+      "duplicate_time_rows": 1011,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "slip",
+        "impact",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "slip",
+          "priority": 60
+        },
+        {
+          "time_s": 7.0,
+          "type": "impact",
+          "priority": 100
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 0.0
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.024348069643248926,
+      "max_abs_roll_rad": 0.020141155,
+      "max_abs_pitch_rad": 0.020619301,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 11.9231083208,
+      "min_positive_ground_truth_contact_grf_z_N": 11.9231083208,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 2.224e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1002,
+      "second_event_rows": 1000,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 36,
+      "run_id": "036_low-friction__to__emergency-stop",
+      "source_event": "low_friction",
+      "target_event": "emergency_stop",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/036_low-friction__to__emergency-stop",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 5256,
+      "max_time_s": 10.502,
+      "duplicate_time_rows": 1337,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.502,
+      "expected_sequence": [
+        "none",
+        "low_friction",
+        "emergency_stop"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.004,
+          "type": "low_friction",
+          "priority": 60
+        },
+        {
+          "time_s": 7.004,
+          "type": "emergency_stop",
+          "priority": 100
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 0.0
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.027057022323537835,
+      "max_abs_roll_rad": 0.01820631,
+      "max_abs_pitch_rad": 0.016488897,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2750,
+      "min_ground_truth_contact_grf_z_N": 10.7383501151,
+      "min_positive_ground_truth_contact_grf_z_N": 10.7383501151,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 1.81e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1000,
+      "second_event_rows": 999,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 37,
+      "run_id": "037_low-friction__to__obstacle-left",
+      "source_event": "low_friction",
+      "target_event": "obstacle_left",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/037_low-friction__to__obstacle-left",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 1105,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "low_friction",
+        "obstacle_left",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "low_friction",
+          "priority": 60
+        },
+        {
+          "time_s": 7.002,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.7500000000004163,
+        "yaw_rate_radps_per_s": 1.5000000000008327
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.04550235317906564,
+      "max_abs_roll_rad": 0.07608033,
+      "max_abs_pitch_rad": 0.028730335,
+      "min_contact_count": 0,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 6.46991329238,
+      "min_positive_ground_truth_contact_grf_z_N": 6.46991329238,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.595e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 38,
+      "run_id": "038_low-friction__to__obstacle-right",
+      "source_event": "low_friction",
+      "target_event": "obstacle_right",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/038_low-friction__to__obstacle-right",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 804,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "low_friction",
+        "obstacle_right",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "low_friction",
+          "priority": 60
+        },
+        {
+          "time_s": 7.0,
+          "type": "obstacle_right",
+          "priority": 80
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.7500000000004163,
+        "yaw_rate_radps_per_s": 1.5000000000008327
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.05123347504497922,
+      "max_abs_roll_rad": 0.078678265,
+      "max_abs_pitch_rad": 0.025737649,
+      "min_contact_count": 0,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 0.0,
+      "min_positive_ground_truth_contact_grf_z_N": 16.3001869322,
+      "max_ground_truth_zero_run": 2,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 2.778e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 39,
+      "run_id": "039_low-friction__to__turn-left",
+      "source_event": "low_friction",
+      "target_event": "turn_left",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/039_low-friction__to__turn-left",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6901,
+      "max_time_s": 13.8,
+      "duplicate_time_rows": 390,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "low_friction",
+        "turn_left",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "low_friction",
+          "priority": 60
+        },
+        {
+          "time_s": 7.002,
+          "type": "turn_left",
+          "priority": 40
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.0000000000011102
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.020389323532062197,
+      "max_abs_roll_rad": 0.018826427,
+      "max_abs_pitch_rad": 0.020115998,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 13.8797640412,
+      "min_positive_ground_truth_contact_grf_z_N": 13.8797640412,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.174e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 40,
+      "run_id": "040_low-friction__to__turn-right",
+      "source_event": "low_friction",
+      "target_event": "turn_right",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/040_low-friction__to__turn-right",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 1759,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "low_friction",
+        "turn_right",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "low_friction",
+          "priority": 60
+        },
+        {
+          "time_s": 7.002,
+          "type": "turn_right",
+          "priority": 40
+        },
+        {
+          "time_s": 9.004,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.0000000000011102
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.024483813333169204,
+      "max_abs_roll_rad": 0.019076558,
+      "max_abs_pitch_rad": 0.016832914,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 13.7777020684,
+      "min_positive_ground_truth_contact_grf_z_N": 13.7777020684,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.589e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1002,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 41,
+      "run_id": "041_low-friction__to__slip",
+      "source_event": "low_friction",
+      "target_event": "slip",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/041_low-friction__to__slip",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 363,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "low_friction",
+        "slip",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.002,
+          "type": "low_friction",
+          "priority": 60
+        },
+        {
+          "time_s": 7.002,
+          "type": "slip",
+          "priority": 60
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 0.0
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.026752394640311806,
+      "max_abs_roll_rad": 0.018701673,
+      "max_abs_pitch_rad": 0.019919693,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 15.2950135902,
+      "min_positive_ground_truth_contact_grf_z_N": 15.2950135902,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 2.065e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 42,
+      "run_id": "042_low-friction__to__impact",
+      "source_event": "low_friction",
+      "target_event": "impact",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/042_low-friction__to__impact",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.804,
+      "duplicate_time_rows": 1823,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "low_friction",
+        "impact",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "low_friction",
+          "priority": 60
+        },
+        {
+          "time_s": 7.0,
+          "type": "impact",
+          "priority": 100
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 0.0
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.024928318963965825,
+      "max_abs_roll_rad": 0.015818646,
+      "max_abs_pitch_rad": 0.015408895,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 14.2049654448,
+      "min_positive_ground_truth_contact_grf_z_N": 14.2049654448,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 2.178e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1002,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 43,
+      "run_id": "043_impact__to__emergency-stop",
+      "source_event": "impact",
+      "target_event": "emergency_stop",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/043_impact__to__emergency-stop",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 5250,
+      "max_time_s": 10.5,
+      "duplicate_time_rows": 980,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "impact",
+        "emergency_stop"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "impact",
+          "priority": 100
+        },
+        {
+          "time_s": 7.0,
+          "type": "emergency_stop",
+          "priority": 100
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 0.0
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.016378113443888516,
+      "max_abs_roll_rad": 0.014457776,
+      "max_abs_pitch_rad": 0.017495451,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 6.15972768413,
+      "min_positive_ground_truth_contact_grf_z_N": 6.15972768413,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 2.574e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1002,
+      "second_event_rows": 1000,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 44,
+      "run_id": "044_impact__to__obstacle-left",
+      "source_event": "impact",
+      "target_event": "obstacle_left",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/044_impact__to__obstacle-left",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6904,
+      "max_time_s": 13.806,
+      "duplicate_time_rows": 1657,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.504,
+      "expected_sequence": [
+        "none",
+        "impact",
+        "obstacle_left",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.004,
+          "type": "impact",
+          "priority": 100
+        },
+        {
+          "time_s": 7.006,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 9.004,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.7500000000004163,
+        "yaw_rate_radps_per_s": 1.5000000000008327
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.039528459162113776,
+      "max_abs_roll_rad": 0.067520477,
+      "max_abs_pitch_rad": 0.031833023,
+      "min_contact_count": 0,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 9.48819098171,
+      "min_positive_ground_truth_contact_grf_z_N": 9.48819098171,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.029e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 45,
+      "run_id": "045_impact__to__obstacle-right",
+      "source_event": "impact",
+      "target_event": "obstacle_right",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/045_impact__to__obstacle-right",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6901,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 853,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "impact",
+        "obstacle_right",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "impact",
+          "priority": 100
+        },
+        {
+          "time_s": 7.0,
+          "type": "obstacle_right",
+          "priority": 80
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.7500000000004163,
+        "yaw_rate_radps_per_s": 1.5000000000008327
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.03415616948934743,
+      "max_abs_roll_rad": 0.079204217,
+      "max_abs_pitch_rad": 0.024938112,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 6.15617541791,
+      "min_positive_ground_truth_contact_grf_z_N": 6.15617541791,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.105e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 46,
+      "run_id": "046_impact__to__turn-left",
+      "source_event": "impact",
+      "target_event": "turn_left",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/046_impact__to__turn-left",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6903,
+      "max_time_s": 13.804,
+      "duplicate_time_rows": 1093,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.504,
+      "expected_sequence": [
+        "none",
+        "impact",
+        "turn_left",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.004,
+          "type": "impact",
+          "priority": 100
+        },
+        {
+          "time_s": 7.004,
+          "type": "turn_left",
+          "priority": 40
+        },
+        {
+          "time_s": 9.004,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.0000000000011102
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.029275307722494398,
+      "max_abs_roll_rad": 0.017079534,
+      "max_abs_pitch_rad": 0.020576673,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 13.5094037013,
+      "min_positive_ground_truth_contact_grf_z_N": 13.5094037013,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 4.615e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1002,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 47,
+      "run_id": "047_impact__to__turn-right",
+      "source_event": "impact",
+      "target_event": "turn_right",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/047_impact__to__turn-right",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 605,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "impact",
+        "turn_right",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "impact",
+          "priority": 100
+        },
+        {
+          "time_s": 7.0,
+          "type": "turn_right",
+          "priority": 40
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 2.0000000000011102
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.021758654865924067,
+      "max_abs_roll_rad": 0.019142322,
+      "max_abs_pitch_rad": 0.022788474,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 5.96495617355,
+      "min_positive_ground_truth_contact_grf_z_N": 5.96495617355,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 3.268e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 48,
+      "run_id": "048_impact__to__slip",
+      "source_event": "impact",
+      "target_event": "slip",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/048_impact__to__slip",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6901,
+      "max_time_s": 13.8,
+      "duplicate_time_rows": 1556,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "impact",
+        "slip",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "impact",
+          "priority": 100
+        },
+        {
+          "time_s": 7.0,
+          "type": "slip",
+          "priority": 60
+        },
+        {
+          "time_s": 9.002,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 0.0
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.018063972083207636,
+      "max_abs_roll_rad": 0.017269425,
+      "max_abs_pitch_rad": 0.017573932,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 15.0586528456,
+      "min_positive_ground_truth_contact_grf_z_N": 15.0586528456,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 2.926e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1002,
+      "second_event_rows": 1000,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    },
+    {
+      "pair_index": 49,
+      "run_id": "049_impact__to__low-friction",
+      "source_event": "impact",
+      "target_event": "low_friction",
+      "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_transition_matrix_2026-08-20/runs/049_impact__to__low-friction",
+      "controller_config_fingerprint": "7a5e491b93466ddbcddaad4cfc270fd6be918decc167a7c972b5e5c9aca28aff",
+      "rows": 6902,
+      "max_time_s": 13.802,
+      "duplicate_time_rows": 1560,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "gait_start_s": 3.5,
+      "expected_sequence": [
+        "none",
+        "impact",
+        "low_friction",
+        "none"
+      ],
+      "observed_sequence": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.0,
+          "type": "impact",
+          "priority": 100
+        },
+        {
+          "time_s": 7.0,
+          "type": "low_friction",
+          "priority": 60
+        },
+        {
+          "time_s": 9.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "expected_sequence_ok": true,
+      "stage_stable": true,
+      "terminal_hold_ok": true,
+      "reference_rates": {
+        "vx_mps_per_s": 2.5000000000002776,
+        "vy_mps_per_s": 0.0,
+        "yaw_rate_radps_per_s": 0.0
+      },
+      "reference_rate_limits": {
+        "vx_mps_per_s": 2.5,
+        "vy_mps_per_s": 1.5,
+        "yaw_rate_radps_per_s": 2.0
+      },
+      "reference_rate_ok": true,
+      "max_actual_velocity_jump_mps": 0.027332538956772855,
+      "max_abs_roll_rad": 0.012980879,
+      "max_abs_pitch_rad": 0.022167547,
+      "min_contact_count": 1,
+      "ground_truth_support_rows": 2751,
+      "min_ground_truth_contact_grf_z_N": 14.3825746337,
+      "min_positive_ground_truth_contact_grf_z_N": 14.3825746337,
+      "max_ground_truth_zero_run": 0,
+      "ground_truth_support_ok": true,
+      "max_wbc_full_eq_residual": 2.665e-06,
+      "finite_required_columns": true,
+      "first_event_rows": 1001,
+      "second_event_rows": 1001,
+      "first_target_ok": true,
+      "second_target_ok": true,
+      "first_response_ok": true,
+      "second_response_ok": true,
+      "status_ok": true,
+      "csv_ok": true,
+      "posture_ok": true,
+      "dynamic_ok": true,
+      "strict_pass": true
+    }
+  ]
+}
