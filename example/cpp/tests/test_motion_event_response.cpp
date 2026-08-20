@@ -116,12 +116,40 @@ int main()
 
     detector.Reset();
     sensor.support_foot_speed_mps = 0.20;
-    for (int i = 0; i < 140; ++i)
+    for (int i = 0; i < 260; ++i)
         automatic = detector.Observe(
             1.6 + i * 0.002, 0.002, sensor, nominal);
     passed &= Check(
         automatic.type == MotionEventType::kLowFriction,
         "Moderate support-foot motion did not trigger low friction.");
+    const double first_low_friction_start = automatic.start_time_s;
+    bool repeated_low_friction = false;
+    for (int i = 260; i < 1400; ++i)
+    {
+        const auto next = detector.Observe(
+            1.6 + i * 0.002, 0.002, sensor, nominal);
+        if (next.type == MotionEventType::kLowFriction &&
+            next.start_time_s > first_low_friction_start + 1.0e-6)
+            repeated_low_friction = true;
+    }
+    passed &= Check(
+        !repeated_low_friction,
+        "Low-friction latch retriggered while evidence stayed active.");
+
+    detector.Reset();
+    sensor.support_foot_speed_mps = 0.0;
+    for (int i = 0; i < 500; ++i)
+    {
+        sensor.have_support_foot_kinematics = (i % 5) != 0;
+        sensor.support_foot_speed_mps =
+            sensor.have_support_foot_kinematics ? 0.20 : 0.0;
+        automatic = detector.Observe(
+            2.0 + i * 0.002, (i % 5) == 0 ? 0.0 : 0.002,
+            sensor, nominal);
+    }
+    passed &= Check(
+        automatic.type == MotionEventType::kLowFriction,
+        "Intermittent support-foot evidence did not trigger low friction.");
 
     detector.Reset();
     sensor = {};

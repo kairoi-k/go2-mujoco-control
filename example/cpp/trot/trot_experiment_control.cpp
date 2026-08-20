@@ -429,6 +429,11 @@ void TrotExperiment::UpdateMotionEventResponse(
     {
         auto_motion_event_ = motion_event_detector_.Observe(
             gait_elapsed_s, motion_dt_s, sensor, nominal);
+        sensor.support_low_friction_evidence =
+            motion_event_detector_.SupportLowFrictionEvidence();
+        sensor.low_friction_accumulation =
+            motion_event_detector_.LowFrictionAccumulation();
+        latest_motion_sensor_ = sensor;
     }
     if (auto_motion_event_.type == go2_control::MotionEventType::kImpact &&
         params_.impact_to_emergency_stop_delay_s >= 0.0 &&

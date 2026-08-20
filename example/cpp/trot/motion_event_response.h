@@ -255,6 +255,8 @@ struct MotionSensorSample
     bool have_support_foot_kinematics = false;
     int support_foot_count = 0;
     double support_foot_speed_mps = 0.0;
+    double support_low_friction_evidence = 0.0;
+    double low_friction_accumulation = 0.0;
 };
 
 struct MotionEventDetectorConfig
@@ -276,6 +278,15 @@ struct MotionEventDetectorConfig
     double slip_support_foot_speed_mps = 0.45;
     double low_friction_support_foot_speed_mps = 0.12;
     int min_support_foot_count = 2;
+    // Support-foot samples can be intermittent because high-state and low-
+    // state DDS updates are not phase locked.  Use a leaky recent-evidence
+    // ratio instead of requiring every sample in one contiguous interval.
+    double support_foot_evidence_window_s = 0.80;
+    double low_friction_support_evidence_ratio = 0.08;
+    double low_friction_support_evidence_release_ratio = 0.05;
+    double low_friction_release_s = 0.40;
+    double low_friction_rearm_delay_s = 1.00;
+    double low_friction_trigger_support_speed_mps = 0.05;
     double impact_extreme_vertical_excess_mps2 = 40.0;
     double impact_velocity_jump_mps = 0.35;
     double impact_release_s = 0.50;
@@ -296,6 +307,10 @@ public:
     {
         active_event_ = {};
         low_friction_accum_s_ = 0.0;
+        support_low_friction_score_ = 0.0;
+        low_friction_clear_accum_s_ = 0.0;
+        low_friction_latched_ = false;
+        low_friction_suppressed_until_s_ = -1.0e9;
         obstacle_accum_s_ = 0.0;
         obstacle_clear_accum_s_ = 0.0;
         obstacle_first_seen_time_s_ = -1.0;
@@ -309,6 +324,16 @@ public:
         have_previous_velocity_error_ = false;
         obstacle_latched_ = false;
         last_trigger_time_s_ = -1.0e9;
+    }
+
+    double SupportLowFrictionEvidence() const noexcept
+    {
+        return support_low_friction_score_;
+    }
+
+    double LowFrictionAccumulation() const noexcept
+    {
+        return low_friction_accum_s_;
     }
 
     MotionEvent Observe(
@@ -399,7 +424,6 @@ public:
         const bool duplicate_tick_impact = impact && dt_s == 0.0;
         if (!std::isfinite(time_s) || time_s < config_.warmup_s ||
             dt_s < 0.0 ||
-            (dt_s == 0.0 && !duplicate_tick_impact) ||
             time_s - last_trigger_time_s_ < config_.cooldown_s)
         {
             low_friction_accum_s_ = 0.0;
@@ -407,6 +431,10 @@ public:
             slip_candidate_age_s_ = 0.0;
             return {};
         }
+        // DDS can publish duplicate state ticks.  They carry no elapsed
+        // time, but must not erase evidence accumulated from real samples.
+        if (dt_s == 0.0 && !duplicate_tick_impact)
+            return {};
 
         if (impact && !impact_latched_)
             return Trigger(MotionEventType::kImpact, time_s);
@@ -415,12 +443,22 @@ public:
         if (obstacle.type != MotionEventType::kNone)
             return Trigger(obstacle.type, time_s, obstacle.magnitude);
 
+        const bool low_friction_sensing_allowed =
+            time_s >= low_friction_suppressed_until_s_;
+        if (!low_friction_sensing_allowed)
+        {
+            support_low_friction_score_ = 0.0;
+            low_friction_accum_s_ = 0.0;
+            low_friction_clear_accum_s_ = 0.0;
+            low_friction_latched_ = false;
+        }
+
         const bool have_support_kinematics =
             sample.have_support_foot_kinematics &&
             sample.support_foot_count >= config_.min_support_foot_count &&
             std::isfinite(sample.support_foot_speed_mps);
         const bool support_slip_level =
-            have_support_kinematics &&
+            low_friction_sensing_allowed && have_support_kinematics &&
             sample.support_foot_speed_mps >=
                 config_.slip_support_foot_speed_mps;
         const bool support_low_friction_level =
@@ -428,7 +466,20 @@ public:
             sample.support_foot_speed_mps >=
                 config_.low_friction_support_foot_speed_mps &&
             !support_slip_level;
+        if (dt_s > 0.0 && std::isfinite(dt_s))
+        {
+            const double window_s = std::max(
+                config_.support_foot_evidence_window_s, 1.0e-3);
+            const double decay = std::exp(-std::min(dt_s, 0.050) / window_s);
+            support_low_friction_score_ =
+                decay * support_low_friction_score_ +
+                (1.0 - decay) * (support_low_friction_level ? 1.0 : 0.0);
+        }
+        const bool support_low_friction_sustained =
+            support_low_friction_score_ >=
+                config_.low_friction_support_evidence_ratio;
 
+        bool velocity_low_friction = false;
         if (sample.have_velocity)
         {
             const double velocity_error =
@@ -454,22 +505,22 @@ public:
                 slip_candidate_age_s_ += std::min(dt_s, 0.050);
             else
                 slip_candidate_age_s_ = 0.0;
-            const bool velocity_low_friction =
-                have_contacts &&
+            velocity_low_friction =
+                low_friction_sensing_allowed && have_contacts &&
                 velocity_error >= config_.low_friction_velocity_error_mps &&
                 velocity_error < config_.slip_velocity_error_mps &&
                 (!have_previous_velocity_error_ ||
                  error_rise_mpsps < config_.slip_velocity_error_rise_mpsps);
-            if (velocity_low_friction || support_low_friction_level)
+            if (velocity_low_friction || support_low_friction_sustained)
                 low_friction_accum_s_ += std::min(dt_s, 0.050);
-            else
+            else if (support_low_friction_score_ <
+                     config_.low_friction_support_evidence_release_ratio)
                 low_friction_accum_s_ = 0.0;
+            else
+                low_friction_accum_s_ = std::max(
+                    0.0, low_friction_accum_s_ - 0.5 * std::min(dt_s, 0.050));
             previous_velocity_error_mps_ = velocity_error;
             have_previous_velocity_error_ = true;
-            if (slip_candidate_age_s_ >= config_.slip_confirm_s)
-                return Trigger(MotionEventType::kSlip, time_s);
-            if (low_friction_accum_s_ >= config_.low_friction_confirm_s)
-                return Trigger(MotionEventType::kLowFriction, time_s);
         }
         else
         {
@@ -477,16 +528,38 @@ public:
                 slip_candidate_age_s_ += std::min(dt_s, 0.050);
             else
                 slip_candidate_age_s_ = 0.0;
-            if (support_low_friction_level)
+            if (support_low_friction_sustained)
                 low_friction_accum_s_ += std::min(dt_s, 0.050);
-            else
+            else if (support_low_friction_score_ <
+                     config_.low_friction_support_evidence_release_ratio)
                 low_friction_accum_s_ = 0.0;
+            else
+                low_friction_accum_s_ = std::max(
+                    0.0, low_friction_accum_s_ - 0.5 * std::min(dt_s, 0.050));
             have_previous_velocity_error_ = false;
-            if (slip_candidate_age_s_ >= config_.slip_confirm_s)
-                return Trigger(MotionEventType::kSlip, time_s);
-            if (low_friction_accum_s_ >= config_.low_friction_confirm_s)
-                return Trigger(MotionEventType::kLowFriction, time_s);
         }
+        const bool low_friction_evidence_present =
+            velocity_low_friction ||
+            support_low_friction_score_ >=
+                config_.low_friction_support_evidence_release_ratio;
+        if (low_friction_evidence_present)
+            low_friction_clear_accum_s_ = 0.0;
+        else
+            low_friction_clear_accum_s_ += std::min(dt_s, 0.050);
+        if (low_friction_clear_accum_s_ >= config_.low_friction_release_s)
+            low_friction_latched_ = false;
+        const bool support_low_friction_trigger_ready =
+            sample.have_support_foot_kinematics &&
+            sample.support_foot_count >= config_.min_support_foot_count &&
+            std::isfinite(sample.support_foot_speed_mps) &&
+            sample.support_foot_speed_mps >=
+                config_.low_friction_trigger_support_speed_mps;
+        if (slip_candidate_age_s_ >= config_.slip_confirm_s)
+            return Trigger(MotionEventType::kSlip, time_s);
+        if (!low_friction_latched_ &&
+            low_friction_accum_s_ >= config_.low_friction_confirm_s &&
+            (velocity_low_friction || support_low_friction_trigger_ready))
+            return Trigger(MotionEventType::kLowFriction, time_s);
         return {};
     }
 
@@ -580,6 +653,20 @@ private:
         last_trigger_time_s_ = time_s;
         slip_candidate_age_s_ = 0.0;
         low_friction_accum_s_ = 0.0;
+        if (type == MotionEventType::kLowFriction)
+        {
+            low_friction_latched_ = true;
+            low_friction_clear_accum_s_ = 0.0;
+        }
+        else
+        {
+            support_low_friction_score_ = 0.0;
+            low_friction_accum_s_ = 0.0;
+            low_friction_clear_accum_s_ = 0.0;
+            low_friction_latched_ = false;
+            low_friction_suppressed_until_s_ =
+                time_s + duration + config_.low_friction_rearm_delay_s;
+        }
         if (type == MotionEventType::kImpact)
         {
             impact_latched_ = true;
@@ -591,6 +678,8 @@ private:
     MotionEventDetectorConfig config_;
     MotionEvent active_event_{};
     double low_friction_accum_s_ = 0.0;
+    double support_low_friction_score_ = 0.0;
+    double low_friction_clear_accum_s_ = 0.0;
     double obstacle_accum_s_ = 0.0;
     double obstacle_first_seen_time_s_ = -1.0;
     double obstacle_clear_accum_s_ = 0.0;
@@ -598,6 +687,8 @@ private:
     double previous_velocity_error_mps_ = 0.0;
     double impact_clear_accum_s_ = 0.0;
     bool impact_latched_ = false;
+    bool low_friction_latched_ = false;
+    double low_friction_suppressed_until_s_ = -1.0e9;
     bool obstacle_latched_ = false;
     bool have_previous_velocity_error_ = false;
     double last_trigger_time_s_ = -1.0e9;
