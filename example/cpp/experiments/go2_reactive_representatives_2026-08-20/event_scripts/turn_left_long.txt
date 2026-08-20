@@ -1,0 +1,2 @@
+# Relative to the walking controller clock: yaw-only turn, long enough to inspect.
+2.5 4.0 turn_left 0.80

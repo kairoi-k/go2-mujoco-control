@@ -1,0 +1,2 @@
+# Relative to the walking controller clock: 3 s pre-roll, 4 s visible response.
+2.5 4.0 slip 0.0
