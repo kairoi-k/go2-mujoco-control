@@ -57,3 +57,8 @@ example/cpp/experiments/go2_reactive_*/run_metadata.txt
 
 # Retained local audit iteration; curated final protocol/report remain tracked.
 example/cpp/experiments/go2_reactive_transition_matrix_*_iter1_sensor_events/
+
+# Final transition-matrix raw runs are retained locally/with the evidence bundle;
+# keep the reproducible protocol, manifests, scripts, and reports trackable.
+example/cpp/experiments/go2_reactive_transition_matrix_final_2026-08-20/runs/
+example/cpp/experiments/go2_reactive_transition_matrix_final_2026-08-20/runner_logs/
