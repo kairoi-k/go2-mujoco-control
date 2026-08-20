@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <unitree/common/thread/thread.hpp>
+#include <unitree/idl/go2/HeightMap_.hpp>
 #include <unitree/idl/go2/LowCmd_.hpp>
 #include <unitree/idl/go2/LowState_.hpp>
 #include <unitree/idl/go2/SportModeState_.hpp>
@@ -37,6 +38,9 @@ using unitree::robot::ChannelSubscriberPtr;
 #define GO2_TROT_TOPIC_LOWCMD "rt/lowcmd"
 #define GO2_TROT_TOPIC_LOWSTATE "rt/lowstate"
 #define GO2_TROT_TOPIC_HIGHSTATE "rt/sportmodestate"
+#endif
+#ifndef GO2_TROT_TOPIC_ENVIRONMENT_MAP
+#define GO2_TROT_TOPIC_ENVIRONMENT_MAP "rt/go2/environment_heightmap"
 #endif
 
 class TrotExperiment
@@ -63,7 +67,8 @@ public:
     {
         task_.Configure(task_mode, goal);
         motion_event_response_enabled_ =
-            params_.reactive_events || !params_.event_schedule.empty() ||
+            params_.reactive_events || params_.auto_environment ||
+            !params_.event_schedule.empty() ||
             params_.impact_to_emergency_stop_delay_s >= 0.0;
     }
 
@@ -74,6 +79,7 @@ public:
     void Shutdown();
 
 private:
+    void EnvironmentHeightMapMessageHandler(const void *message);
     void InitLowCmd();
     void WriteCsvHeader();
     bool WaitForNaturalSettle(double timeout_s);
@@ -182,6 +188,7 @@ private:
     const int max_cycles_;
     const bool continuous_mode_;
     const std::string stop_file_path_;
+    go2_control::MotionSensorSample latest_motion_sensor_{};
     std::unique_ptr<go2_control::LocomotionKernel> locomotion_kernel_;
     go2_control::MotionEventResponseLayer motion_event_layer_;
     go2_control::MotionEventDetector motion_event_detector_;
@@ -303,12 +310,16 @@ private:
     unitree_go::msg::dds_::LowCmd_ low_cmd_{};
     unitree_go::msg::dds_::LowState_ low_state_{};
     unitree_go::msg::dds_::SportModeState_ high_state_{};
+    unitree_go::msg::dds_::HeightMap_ environment_heightmap_{};
     bool have_low_state_ = false;
     bool have_high_state_ = false;
+    bool have_environment_heightmap_ = false;
 
     std::mutex state_mutex_;
     std::ofstream csv_;
     std::atomic<bool> finished_{false};
+    ChannelSubscriberPtr<unitree_go::msg::dds_::HeightMap_>
+        environment_heightmap_subscriber_;
     std::atomic<bool> external_stop_requested_{false};
 
     ChannelPublisherPtr<unitree_go::msg::dds_::LowCmd_> lowcmd_publisher_;

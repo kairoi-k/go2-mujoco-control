@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cmath>
 #include <fstream>
+#include <limits>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -18,6 +19,60 @@
 
 using namespace unitree::common;
 using namespace unitree::robot;
+
+namespace
+{
+void FillObstacleScan(
+    const unitree_go::msg::dds_::HeightMap_ &map,
+    double now_s,
+    go2_control::MotionSensorSample &sensor)
+{
+    sensor.have_obstacle_scan = false;
+    sensor.obstacle_scan_age_s = std::numeric_limits<double>::infinity();
+    if (map.width() == 0 || map.height() == 0 ||
+        map.resolution() <= 0.0f ||
+        (map.frame_id() != "" && map.frame_id() != "base_link"))
+        return;
+    const std::size_t expected =
+        static_cast<std::size_t>(map.width()) * map.height();
+    if (map.data().size() < expected || !std::isfinite(now_s) ||
+        !std::isfinite(map.stamp()))
+        return;
+    sensor.obstacle_scan_age_s = std::max(0.0, now_s - map.stamp());
+    sensor.have_obstacle_scan = true;
+    for (std::size_t iy = 0; iy < map.height(); ++iy)
+    {
+        for (std::size_t ix = 0; ix < map.width(); ++ix)
+        {
+            const float height = map.data()[iy * map.width() + ix];
+            if (!std::isfinite(height) || height <= 0.0f)
+                continue;
+            const double x = map.origin()[0] +
+                (static_cast<double>(ix) + 0.5) * map.resolution();
+            const double y = map.origin()[1] +
+                (static_cast<double>(iy) + 0.5) * map.resolution();
+            if (!(x > 0.10))
+                continue;
+            const double distance = std::hypot(x, y);
+            auto update = [&](double &distance_out, double &height_out) {
+                if (distance < distance_out)
+                    distance_out = distance;
+                height_out = std::max(height_out, static_cast<double>(height));
+            };
+            if (std::abs(y) <= 0.20)
+                update(sensor.obstacle_center_distance_m,
+                       sensor.obstacle_center_height_m);
+            if (y >= 0.16)
+                update(sensor.obstacle_left_distance_m,
+                       sensor.obstacle_left_height_m);
+            if (y <= -0.16)
+                update(sensor.obstacle_right_distance_m,
+                       sensor.obstacle_right_height_m);
+        }
+    }
+}
+} // namespace
+
 using namespace go2_trot;
 
 static_assert(TrotTask::kStandUpDuration == kStandUpDuration);
@@ -290,8 +345,25 @@ void TrotExperiment::UpdateMotionEventResponse(
         if (state_snapshot.foot_force()[leg] >= kContactForceThreshold)
             ++sensor.contact_count;
     }
+    if (params_.auto_environment)
+    {
+        unitree_go::msg::dds_::HeightMap_ height_map;
+        bool have_height_map = false;
+        {
+            std::lock_guard<std::mutex> lock(state_mutex_);
+            height_map = environment_heightmap_;
+            have_height_map = have_environment_heightmap_;
+        }
+        if (have_height_map)
+        {
+            const double now_s =
+                static_cast<double>(state_snapshot.tick()) * 1.0e-3;
+            FillObstacleScan(height_map, now_s, sensor);
+        }
+    }
+    latest_motion_sensor_ = sensor;
     auto_motion_event_ = {};
-    if (params_.reactive_events ||
+    if (params_.reactive_events || params_.auto_environment ||
         params_.impact_to_emergency_stop_delay_s >= 0.0)
     {
         auto_motion_event_ = motion_event_detector_.Observe(
@@ -313,7 +385,7 @@ void TrotExperiment::UpdateMotionEventResponse(
                   << auto_emergency_stop_event_.start_time_s << " s\n";
     }
     const go2_control::MotionEvent *sensor_event =
-        (params_.reactive_events ||
+        (params_.reactive_events || params_.auto_environment ||
          params_.impact_to_emergency_stop_delay_s >= 0.0) &&
                 auto_motion_event_.IsActive(gait_elapsed_s)
             ? &auto_motion_event_

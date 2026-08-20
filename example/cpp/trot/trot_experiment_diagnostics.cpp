@@ -30,6 +30,9 @@ void TrotExperiment::WriteCsvHeader()
          << ",motion_clock_paused,motion_clock_pause_count"
          << ",motion_stage,cycle_index,phase"
          << ",event_active,event_priority,event_type,event_hold_stance,event_ref_vx_mps,event_ref_vy_mps,event_ref_yaw_rate_radps,event_target_vx_mps,event_target_vy_mps,event_target_yaw_rate_radps"
+         << ",environment_map_valid,environment_map_age_s"
+         << ",obstacle_center_distance_m,obstacle_left_distance_m,obstacle_right_distance_m"
+         << ",obstacle_center_height_m,obstacle_left_height_m,obstacle_right_height_m"
          << ",world_base_x_m,world_base_y_m,world_base_z_m,world_yaw_error_rad"
          << ",world_feedback_x_m,world_feedback_y_m"
          << ",body_velocity_x_mps,body_velocity_y_mps,body_velocity_z_mps"
@@ -535,6 +538,18 @@ void TrotExperiment::LogSample(
          << "," << motion_event_state_.target.vx_mps
          << "," << motion_event_state_.target.vy_mps
          << "," << motion_event_state_.target.yaw_rate_radps
+         << "," << (latest_motion_sensor_.have_obstacle_scan ? 1 : 0)
+         << "," << (std::isfinite(latest_motion_sensor_.obstacle_scan_age_s)
+                        ? latest_motion_sensor_.obstacle_scan_age_s : -1.0)
+         << "," << (std::isfinite(latest_motion_sensor_.obstacle_center_distance_m)
+                        ? latest_motion_sensor_.obstacle_center_distance_m : -1.0)
+         << "," << (std::isfinite(latest_motion_sensor_.obstacle_left_distance_m)
+                        ? latest_motion_sensor_.obstacle_left_distance_m : -1.0)
+         << "," << (std::isfinite(latest_motion_sensor_.obstacle_right_distance_m)
+                        ? latest_motion_sensor_.obstacle_right_distance_m : -1.0)
+         << "," << latest_motion_sensor_.obstacle_center_height_m
+         << "," << latest_motion_sensor_.obstacle_left_height_m
+         << "," << latest_motion_sensor_.obstacle_right_height_m
          << "," << pose.base.x << "," << pose.base.y << "," << pose.base.z << ","
          << world_yaw_error_rad_
          << "," << world_feedback_x_m_ << "," << world_feedback_y_m_

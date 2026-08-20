@@ -29,6 +29,7 @@ void PrintTrotCliUsage()
            " [--direction +/-1] [--support-anchor-feedback]"
            " [--support-anchor-gain g] [--event-script path]"
            " [--forever] [--stop-file path]"
+           " [--auto-environment]"
            " [--impact-to-emergency-stop-delay s]"
            " [--task stand-walk-lie]"
            " [--goal-x m] [--goal-y m] [--goal-tol m]\n";
@@ -101,6 +102,11 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.max_cycles = std::stoi(require_value("--max-cycles"));
             else if (option == "--reactive-events")
                 cfg.params.reactive_events = true;
+            else if (option == "--auto-environment")
+            {
+                cfg.params.auto_environment = true;
+                cfg.params.reactive_events = true;
+            }
             else if (option == "--impact-to-emergency-stop-delay")
             {
                 cfg.params.impact_to_emergency_stop_delay_s =
@@ -390,11 +396,12 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << "  wbc_primary=" << (params.wbc_primary ? "on" : "off") << "\n"
               << "  wbc_full=" << (params.wbc_full ? "on" : "off") << "\n"
               << "  cartesian_world="
+              << (params.cartesian_world ? "on" : "off") << "\n"
+              << "  auto_environment=" << (params.auto_environment ? "on" : "off") << "\n"
               << "  reactive_events="
-              << ((params.reactive_events || !params.event_schedule.empty()) ? "on" : "off") << "\n"
+              << ((params.reactive_events || params.auto_environment || !params.event_schedule.empty()) ? "on" : "off") << "\n"
               << "  impact_to_emergency_stop_delay="
               << params.impact_to_emergency_stop_delay_s << " s\n"
-              << (params.cartesian_world ? "on" : "off") << "\n"
               << "  preview_horizon=" << params.preview_horizon_steps << "\n"
               << "  impulse=" << (params.impulse ? "on" : "off") << "\n"
               << "  event_script="

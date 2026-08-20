@@ -53,6 +53,24 @@ void TrotExperiment::HighStateMessageHandler(const void *message)
     have_high_state_ = true;
 }
 
+void TrotExperiment::EnvironmentHeightMapMessageHandler(const void *message)
+{
+    if (message == nullptr)
+        return;
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    const bool first_message = !have_environment_heightmap_;
+    environment_heightmap_ =
+        *static_cast<const unitree_go::msg::dds_::HeightMap_ *>(message);
+    have_environment_heightmap_ = true;
+    if (first_message)
+    {
+        std::cerr << "Environment map received: stamp="
+                  << environment_heightmap_.stamp()
+                  << " cells=" << environment_heightmap_.data().size()
+                  << " frame=" << environment_heightmap_.frame_id() << "\n";
+    }
+}
+
 // --- TrotExperiment::WaitForNaturalSettle ---
 bool TrotExperiment::WaitForNaturalSettle(double timeout_s)
 {
@@ -192,6 +210,21 @@ bool TrotExperiment::Init()
             this,
             std::placeholders::_1),
         1);
+
+    if (params_.auto_environment)
+    {
+        environment_heightmap_subscriber_.reset(
+            new ChannelSubscriber<unitree_go::msg::dds_::HeightMap_>(
+                GO2_TROT_TOPIC_ENVIRONMENT_MAP));
+        environment_heightmap_subscriber_->InitChannel(
+            std::bind(
+                &TrotExperiment::EnvironmentHeightMapMessageHandler,
+                this,
+                std::placeholders::_1),
+            1);
+        std::cout << "Automatic environment map: "
+                  << GO2_TROT_TOPIC_ENVIRONMENT_MAP << "\n";
+    }
 
     std::cout << "Waiting for natural settle...\n";
     if (!WaitForNaturalSettle(8.0))

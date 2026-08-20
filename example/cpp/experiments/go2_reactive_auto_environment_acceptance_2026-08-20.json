@@ -1,0 +1,114 @@
+{
+  "protocol": "automatic environment sensing acceptance v1.0",
+  "reports": [
+    {
+      "experiment": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_auto_environment_baseline_2026-08-20",
+      "expect_obstacle": false,
+      "strict_pass": true,
+      "rows": 9052,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "observed_transitions": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "gait_start_s": 3.5,
+      "first_map_s": 3.5,
+      "map_valid_rows": 7302,
+      "map_valid_rate_after_first": 1.0,
+      "max_map_age_s": 0.02,
+      "obstacle_event": null,
+      "detection_latency_after_warmup_s": NaN,
+      "lateral_shift_m": NaN,
+      "obstacle_contact": {
+        "rows": 9904,
+        "max_count": 0.0,
+        "max_force_N": 0.0
+      },
+      "map_ok": true,
+      "event_ok": true,
+      "detection_ok": true,
+      "response_ok": false,
+      "contact_ok": true,
+      "finite_required_columns": true,
+      "max_abs_roll_rad": 0.024126358,
+      "max_abs_pitch_rad": 0.16173248,
+      "posture_ok": true,
+      "max_wbc_full_eq_residual": 1.6962e-05,
+      "solver_ok": true,
+      "status_ok": true
+    },
+    {
+      "experiment": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/go2_reactive_auto_environment_obstacle_2026-08-20",
+      "expect_obstacle": true,
+      "strict_pass": true,
+      "rows": 11052,
+      "statuses": {
+        "controller_status": 0,
+        "safety_status": 0,
+        "quality_status": 0,
+        "analysis_status": 0,
+        "ground_truth_status": 0,
+        "dynamics_status": 0,
+        "completion_status": 0
+      },
+      "observed_transitions": [
+        {
+          "time_s": 0.0,
+          "type": "none",
+          "priority": 0
+        },
+        {
+          "time_s": 5.09,
+          "type": "obstacle_left",
+          "priority": 80
+        },
+        {
+          "time_s": 13.092,
+          "type": "none",
+          "priority": 0
+        }
+      ],
+      "gait_start_s": 3.5,
+      "first_map_s": 3.5,
+      "map_valid_rows": 9302,
+      "map_valid_rate_after_first": 1.0,
+      "max_map_age_s": 0.02,
+      "obstacle_event": {
+        "time_s": 5.09,
+        "type": "obstacle_left",
+        "priority": 80
+      },
+      "detection_latency_after_warmup_s": 0.08999999999999986,
+      "lateral_shift_m": 0.45314522999999995,
+      "obstacle_contact": {
+        "rows": 11709,
+        "max_count": 0.0,
+        "max_force_N": 0.0
+      },
+      "map_ok": true,
+      "event_ok": true,
+      "detection_ok": true,
+      "response_ok": true,
+      "contact_ok": true,
+      "finite_required_columns": true,
+      "max_abs_roll_rad": 0.070980974,
+      "max_abs_pitch_rad": 0.161980689,
+      "posture_ok": true,
+      "max_wbc_full_eq_residual": 1.6964e-05,
+      "solver_ok": true,
+      "status_ok": true
+    }
+  ],
+  "strict_pass": true
+}

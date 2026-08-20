@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -213,11 +214,31 @@ struct MotionSensorSample
     bool have_raw_velocity = false;
     double angular_velocity_z_radps = 0.0;
     bool have_angular_velocity_z = false;
+    // Forward obstacle scan in the robot base frame. Distances are measured
+    // from the base toward the three forward sectors.
+    bool have_obstacle_scan = false;
+    double obstacle_scan_age_s = std::numeric_limits<double>::infinity();
+    double obstacle_center_distance_m = std::numeric_limits<double>::infinity();
+    double obstacle_left_distance_m = std::numeric_limits<double>::infinity();
+    double obstacle_right_distance_m = std::numeric_limits<double>::infinity();
+    double obstacle_center_height_m = 0.0;
+    double obstacle_left_height_m = 0.0;
+    double obstacle_right_height_m = 0.0;
 };
 
 struct MotionEventDetectorConfig
 {
+    double obstacle_event_duration_s = 8.00;
+    double low_friction_event_duration_s = 1.20;
     double warmup_s = 1.50;
+    double slip_velocity_error_rise_mpsps = 1.50;
+    double low_friction_velocity_error_mps = 0.30;
+    double low_friction_confirm_s = 0.25;
+    double obstacle_min_distance_m = 0.20;
+    double obstacle_max_distance_m = 1.30;
+    double obstacle_min_height_m = 0.10;
+    double obstacle_confirm_s = 0.04;
+    double max_sensor_age_s = 0.15;
     double slip_velocity_error_mps = 0.45;
     double slip_confirm_s = 0.06;
     double impact_horizontal_accel_mps2 = 8.5;
@@ -241,12 +262,17 @@ public:
     void Reset() noexcept
     {
         active_event_ = {};
-        slip_accum_s_ = 0.0;
+        low_friction_accum_s_ = 0.0;
+        obstacle_accum_s_ = 0.0;
+        slip_candidate_age_s_ = 0.0;
         impact_clear_accum_s_ = 0.0;
         previous_velocity_x_mps_ = 0.0;
         previous_velocity_y_mps_ = 0.0;
+        previous_velocity_error_mps_ = 0.0;
         impact_latched_ = false;
         have_previous_velocity_ = false;
+        have_previous_velocity_error_ = false;
+        obstacle_latched_ = false;
         last_trigger_time_s_ = -1.0e9;
     }
 
@@ -303,29 +329,62 @@ public:
             !(dt_s > 0.0) ||
             time_s - last_trigger_time_s_ < config_.cooldown_s)
         {
-            slip_accum_s_ = 0.0;
+            low_friction_accum_s_ = 0.0;
+            obstacle_accum_s_ = 0.0;
+            slip_candidate_age_s_ = 0.0;
             return {};
         }
 
         if (impact && !impact_latched_)
             return Trigger(MotionEventType::kImpact, time_s);
 
+        const MotionEvent obstacle = DetectObstacle(time_s, dt_s, sample);
+        if (obstacle.type != MotionEventType::kNone)
+            return Trigger(obstacle.type, time_s, obstacle.magnitude);
+
         if (sample.have_velocity)
         {
             const double velocity_error =
                 std::hypot(sample.velocity_x_mps - nominal.vx_mps,
                            sample.velocity_y_mps - nominal.vy_mps);
-            if (velocity_error >= config_.slip_velocity_error_mps &&
-                sample.contact_count >= 2)
-                slip_accum_s_ += std::min(dt_s, 0.050);
+            const double error_rise_mpsps =
+                have_previous_velocity_error_ && dt_s > 0.0
+                    ? (velocity_error - previous_velocity_error_mps_) / dt_s
+                    : 0.0;
+            const bool have_contacts = sample.contact_count >= 2;
+            const bool sharp_error_rise =
+                !have_previous_velocity_error_ ||
+                error_rise_mpsps >= config_.slip_velocity_error_rise_mpsps;
+            const bool slip_level =
+                velocity_error >= config_.slip_velocity_error_mps;
+            const bool sustained_slip_level =
+                have_previous_velocity_error_ &&
+                previous_velocity_error_mps_ >= config_.slip_velocity_error_mps;
+            if (have_contacts && slip_level &&
+                (sharp_error_rise || sustained_slip_level))
+                slip_candidate_age_s_ += std::min(dt_s, 0.050);
             else
-                slip_accum_s_ = 0.0;
-            if (slip_accum_s_ >= config_.slip_confirm_s)
+                slip_candidate_age_s_ = 0.0;
+            if (have_contacts &&
+                velocity_error >= config_.low_friction_velocity_error_mps &&
+                velocity_error < config_.slip_velocity_error_mps &&
+                (!have_previous_velocity_error_ ||
+                 error_rise_mpsps < config_.slip_velocity_error_rise_mpsps))
+                low_friction_accum_s_ += std::min(dt_s, 0.050);
+            else
+                low_friction_accum_s_ = 0.0;
+            previous_velocity_error_mps_ = velocity_error;
+            have_previous_velocity_error_ = true;
+            if (slip_candidate_age_s_ >= config_.slip_confirm_s)
                 return Trigger(MotionEventType::kSlip, time_s);
+            if (low_friction_accum_s_ >= config_.low_friction_confirm_s)
+                return Trigger(MotionEventType::kLowFriction, time_s);
         }
         else
         {
-            slip_accum_s_ = 0.0;
+            slip_candidate_age_s_ = 0.0;
+            low_friction_accum_s_ = 0.0;
+            have_previous_velocity_error_ = false;
         }
         return {};
     }
@@ -334,12 +393,76 @@ public:
     double previous_velocity_y_mps_ = 0.0;
     bool have_previous_velocity_ = false;
 private:
-    MotionEvent Trigger(MotionEventType type, double time_s)
+    MotionEvent DetectObstacle(
+        double time_s, double dt_s, const MotionSensorSample &sample)
     {
+        if (!sample.have_obstacle_scan ||
+            !std::isfinite(sample.obstacle_scan_age_s) ||
+            sample.obstacle_scan_age_s > config_.max_sensor_age_s)
+        {
+            obstacle_accum_s_ = 0.0;
+            obstacle_latched_ = false;
+            return {};
+        }
+        const auto blocked = [&](double distance_m, double height_m) {
+            return std::isfinite(distance_m) && std::isfinite(height_m) &&
+                   distance_m >= config_.obstacle_min_distance_m &&
+                   distance_m <= config_.obstacle_max_distance_m &&
+                   height_m >= config_.obstacle_min_height_m;
+        };
+        const bool center = blocked(
+            sample.obstacle_center_distance_m, sample.obstacle_center_height_m);
+        const bool left = blocked(
+            sample.obstacle_left_distance_m, sample.obstacle_left_height_m);
+        const bool right = blocked(
+            sample.obstacle_right_distance_m, sample.obstacle_right_height_m);
+        if (!center && !left && !right)
+        {
+            obstacle_accum_s_ = 0.0;
+            obstacle_latched_ = false;
+            return {};
+        }
+        if (obstacle_latched_)
+            return {};
+        obstacle_accum_s_ += std::min(std::max(dt_s, 0.0), 0.050);
+        if (obstacle_accum_s_ < config_.obstacle_confirm_s)
+            return {};
+        bool avoid_left = false;
+        if (right && !left && !center)
+            avoid_left = true;
+        else if (left && !right && !center)
+            avoid_left = false;
+        else
+        {
+            const double left_clear = left
+                ? sample.obstacle_left_distance_m
+                : std::numeric_limits<double>::infinity();
+            const double right_clear = right
+                ? sample.obstacle_right_distance_m
+                : std::numeric_limits<double>::infinity();
+            avoid_left = left_clear >= right_clear;
+        }
+        obstacle_latched_ = true;
+        return {avoid_left ? MotionEventType::kObstacleLeft
+                           : MotionEventType::kObstacleRight,
+                time_s, 0.0, 0.0};
+    }
+
+    MotionEvent Trigger(
+        MotionEventType type, double time_s, double magnitude = 0.0)
+    {
+        const double duration =
+            type == MotionEventType::kObstacleLeft ||
+                    type == MotionEventType::kObstacleRight
+                ? config_.obstacle_event_duration_s
+                : type == MotionEventType::kLowFriction
+                ? config_.low_friction_event_duration_s
+                : config_.event_duration_s;
         active_event_ = {
-            type, time_s, config_.event_duration_s, 0.0};
+            type, time_s, duration, magnitude};
         last_trigger_time_s_ = time_s;
-        slip_accum_s_ = 0.0;
+        slip_candidate_age_s_ = 0.0;
+        low_friction_accum_s_ = 0.0;
         if (type == MotionEventType::kImpact)
         {
             impact_latched_ = true;
@@ -350,9 +473,14 @@ private:
 
     MotionEventDetectorConfig config_;
     MotionEvent active_event_{};
-    double slip_accum_s_ = 0.0;
+    double low_friction_accum_s_ = 0.0;
+    double obstacle_accum_s_ = 0.0;
+    double slip_candidate_age_s_ = 0.0;
+    double previous_velocity_error_mps_ = 0.0;
     double impact_clear_accum_s_ = 0.0;
     bool impact_latched_ = false;
+    bool obstacle_latched_ = false;
+    bool have_previous_velocity_error_ = false;
     double last_trigger_time_s_ = -1.0e9;
 };
 
@@ -388,6 +516,9 @@ struct MotionEventResponseConfig
     double obstacle_lateral_speed_mps = 0.45;
     double slip_speed_scale = 0.45;
     double low_friction_speed_scale = 0.45;
+    double low_friction_step_scale = 0.50;
+    double low_friction_duty_factor = 0.86;
+    double low_friction_foot_lift_m = 0.026;
     double emergency_step_scale = 0.45;
     double protective_duty_factor = 0.82;
     double protective_foot_lift_m = 0.024;
@@ -695,9 +826,12 @@ private:
             break;
         case MotionEventType::kLowFriction:
             target.vx_mps *= config_.low_friction_speed_scale;
-            target.step_scale = std::min(target.step_scale, 0.60);
+            target.step_scale = std::min(
+                target.step_scale, config_.low_friction_step_scale);
             target.duty_factor = std::max(
-                target.duty_factor, config_.protective_duty_factor);
+                target.duty_factor, config_.low_friction_duty_factor);
+            target.foot_lift_m = std::max(
+                target.foot_lift_m, config_.low_friction_foot_lift_m);
             break;
         case MotionEventType::kNone:
             break;

@@ -6,6 +6,7 @@
 #include <unitree/robot/channel/channel_subscriber.hpp>
 #include <unitree/dds_wrapper/robots/go2/go2.h>
 #include <unitree/dds_wrapper/robots/g1/g1.h>
+#include <unitree/idl/go2/HeightMap_.hpp>
 #include <unitree/idl/hg/BmsState_.hpp>
 #include <unitree/idl/hg/IMUState_.hpp>
 
@@ -13,6 +14,7 @@
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <vector>
 #include <limits>
 #include <mutex>
 #include <type_traits>
@@ -195,6 +197,9 @@ public:
         lowstate = std::make_unique<LowState_t>();
         lowstate->joystick = joystick;
         highstate = std::make_unique<HighState_t>();
+        environment_heightmap = unitree::robot::ChannelFactory::Instance()
+            ->CreateSendChannel<unitree_go::msg::dds_::HeightMap_>(
+                "rt/go2/environment_heightmap");
         wireless_controller = std::make_unique<WirelessController_t>();
         wireless_controller->joystick = joystick;
     }
@@ -203,6 +208,101 @@ public:
     {
         thread_ = std::make_shared<unitree::common::RecurrentThread>(
             "unitree_bridge", UT_CPU_ID_NONE, 1000, [this]() { this->run(); });
+    }
+
+    void PublishEnvironmentHeightMap()
+    {
+        constexpr float kResolution = 0.10f;
+        constexpr uint32_t kWidth = 16;
+        constexpr uint32_t kHeight = 16;
+        constexpr float kOriginX = -0.20f;
+        constexpr float kOriginY = -0.80f;
+        const double sim_time = mj_data_->time;
+        if (!environment_heightmap ||
+            sim_time - last_environment_map_publish_s_ < 0.020)
+            return;
+        const int base_body_id = mj_name2id(
+            mj_model_, mjOBJ_BODY, "base_link");
+        if (base_body_id < 0)
+            return;
+        unitree_go::msg::dds_::HeightMap_ map;
+        map.stamp(sim_time);
+        map.frame_id("base_link");
+        map.resolution(kResolution);
+        map.width(kWidth);
+        map.height(kHeight);
+        map.origin() = {kOriginX, kOriginY};
+        map.data().assign(
+            static_cast<std::size_t>(kWidth) * kHeight, 0.0f);
+        const mjtNum *base_pos = mj_data_->xpos + 3 * base_body_id;
+        const mjtNum *base_mat = mj_data_->xmat + 9 * base_body_id;
+        for (int geom_id = 0; geom_id < mj_model_->ngeom; ++geom_id)
+        {
+            if (mj_model_->geom_bodyid[geom_id] != 0 ||
+                mj_model_->geom_type[geom_id] == mjGEOM_PLANE ||
+                (mj_model_->geom_contype[geom_id] == 0 &&
+                 mj_model_->geom_conaffinity[geom_id] == 0))
+                continue;
+            double footprint_radius = 0.0;
+            double half_height = 0.0;
+            const int type = mj_model_->geom_type[geom_id];
+            const mjtNum *size = mj_model_->geom_size + 3 * geom_id;
+            if (type == mjGEOM_BOX)
+            {
+                footprint_radius = std::hypot(size[0], size[1]);
+                half_height = size[2];
+            }
+            else if (type == mjGEOM_CYLINDER)
+            {
+                footprint_radius = size[0];
+                half_height = size[1];
+            }
+            else if (type == mjGEOM_CAPSULE)
+            {
+                footprint_radius = size[0];
+                half_height = size[1] + size[0];
+            }
+            else if (type == mjGEOM_SPHERE)
+            {
+                footprint_radius = size[0];
+                half_height = size[0];
+            }
+            else
+            {
+                footprint_radius = std::max(size[0], size[1]);
+                half_height = std::max(size[0], size[2]);
+            }
+            if (!(footprint_radius > 0.0) || !(half_height > 0.0))
+                continue;
+            const mjtNum *geom_pos = mj_data_->geom_xpos + 3 * geom_id;
+            const mjtNum *geom_delta = geom_pos;
+            mjtNum world_delta[3] = {
+                geom_delta[0] - base_pos[0],
+                geom_delta[1] - base_pos[1],
+                geom_delta[2] - base_pos[2]};
+            mjtNum local[3] = {0.0, 0.0, 0.0};
+            mju_mulMatTVec(local, base_mat, world_delta, 3, 3);
+            const double top = geom_pos[2] + half_height;
+            for (uint32_t iy = 0; iy < kHeight; ++iy)
+            {
+                const double y = kOriginY +
+                    (static_cast<double>(iy) + 0.5) * kResolution;
+                for (uint32_t ix = 0; ix < kWidth; ++ix)
+                {
+                    const double x = kOriginX +
+                        (static_cast<double>(ix) + 0.5) * kResolution;
+                    if (std::hypot(x - local[0], y - local[1]) >
+                        footprint_radius + 0.5 * kResolution)
+                        continue;
+                    const std::size_t index =
+                        static_cast<std::size_t>(iy) * kWidth + ix;
+                    map.data()[index] = std::max(
+                        map.data()[index], static_cast<float>(top));
+                }
+            }
+        }
+        (void)environment_heightmap->Write(map, 0);
+        last_environment_map_publish_s_ = sim_time;
     }
 
     virtual void run()
@@ -220,6 +320,8 @@ public:
                                     m.kd() * (m.dq() - mj_data_->sensordata[i + num_motor_]);
             }
         }
+
+        PublishEnvironmentHeightMap();
 
         // lowstate
         if(lowstate->trylock()) {
@@ -332,11 +434,13 @@ public:
     }
 
     std::unique_ptr<HighState_t> highstate;
+    unitree::robot::ChannelPtr<unitree_go::msg::dds_::HeightMap_> environment_heightmap;
     std::unique_ptr<WirelessController_t> wireless_controller;
     std::shared_ptr<LowCmd_t> lowcmd;
     std::unique_ptr<LowState_t> lowstate;
     
 private:
+    double last_environment_map_publish_s_ = -1.0e9;
     unitree::common::RecurrentThreadPtr thread_;
 };
 

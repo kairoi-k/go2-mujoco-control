@@ -81,6 +81,46 @@ int main()
         automatic.type == MotionEventType::kSlip,
         "Slip detector did not trigger.");
 
+    detector.Reset();
+    sensor = {};
+    sensor.contact_count = 4;
+    sensor.have_obstacle_scan = true;
+    sensor.obstacle_scan_age_s = 0.0;
+    sensor.obstacle_center_distance_m = 0.75;
+    sensor.obstacle_center_height_m = 0.25;
+    for (int i = 0; i < 4; ++i)
+        automatic = detector.Observe(
+            1.6 + i * 0.02, 0.02, sensor, nominal);
+    passed &= Check(
+        automatic.type == MotionEventType::kObstacleLeft,
+        "Centered obstacle did not select a clear-side response.");
+
+    detector.Reset();
+    sensor = {};
+    sensor.contact_count = 4;
+    sensor.have_obstacle_scan = true;
+    sensor.obstacle_scan_age_s = 0.0;
+    sensor.obstacle_right_distance_m = 0.70;
+    sensor.obstacle_right_height_m = 0.25;
+    for (int i = 0; i < 4; ++i)
+        automatic = detector.Observe(
+            1.6 + i * 0.02, 0.02, sensor, nominal);
+    passed &= Check(
+        automatic.type == MotionEventType::kObstacleLeft,
+        "Right-side obstacle did not select a left response.");
+
+    detector.Reset();
+    sensor = {};
+    sensor.contact_count = 4;
+    sensor.have_velocity = true;
+    sensor.velocity_x_mps = 0.0;
+    for (int i = 0; i < 20; ++i)
+        automatic = detector.Observe(
+            1.6 + i * 0.02, 0.02, sensor, nominal);
+    passed &= Check(
+        automatic.type == MotionEventType::kLowFriction,
+        "Sustained moderate velocity mismatch did not trigger low friction.");
+
     std::vector<MotionEvent> events = {
         {MotionEventType::kTurnLeft, 0.0, 2.0, 0.18},
         {MotionEventType::kEmergencyStop, 0.2, 1.0, 0.0},
