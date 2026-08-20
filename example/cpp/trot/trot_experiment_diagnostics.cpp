@@ -33,6 +33,7 @@ void TrotExperiment::WriteCsvHeader()
          << ",environment_map_valid,environment_map_age_s"
          << ",obstacle_center_distance_m,obstacle_left_distance_m,obstacle_right_distance_m"
          << ",obstacle_center_height_m,obstacle_left_height_m,obstacle_right_height_m"
+         << ",support_foot_kinematics_valid,support_foot_count,support_foot_speed_mps"
          << ",world_base_x_m,world_base_y_m,world_base_z_m,world_yaw_error_rad"
          << ",world_feedback_x_m,world_feedback_y_m"
          << ",body_velocity_x_mps,body_velocity_y_mps,body_velocity_z_mps"
@@ -551,6 +552,9 @@ void TrotExperiment::LogSample(
          << "," << latest_motion_sensor_.obstacle_center_height_m
          << "," << latest_motion_sensor_.obstacle_left_height_m
          << "," << latest_motion_sensor_.obstacle_right_height_m
+         << "," << (latest_motion_sensor_.have_support_foot_kinematics ? 1 : 0)
+         << "," << latest_motion_sensor_.support_foot_count
+         << "," << latest_motion_sensor_.support_foot_speed_mps
          << "," << pose.base.x << "," << pose.base.y << "," << pose.base.z << ","
          << world_yaw_error_rad_
          << "," << world_feedback_x_m_ << "," << world_feedback_y_m_

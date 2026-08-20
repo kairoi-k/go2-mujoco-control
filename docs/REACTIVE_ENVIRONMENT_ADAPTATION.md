@@ -11,6 +11,8 @@
 模拟器通过 rt/go2/environment_heightmap 发布 base_link 坐标系高度图；控制器订阅后在每个控制周期检查地图新鲜度，并把前方中心、左、右三个扇区压缩成障碍扫描。检测到连续 40 ms 的有效障碍后，自动生成 obstacle_left/right token，送入同一个 MotionEventResponseLayer。这里没有拼接关节动作，也没有切换 WBC/MPC 植物。
 障碍扫描短暂丢帧不会立即重置已确认障碍；只有连续清空达到 250 ms 才重新允许同一检测器触发，避免同一实体的瞬时丢帧造成重复动作。
 
+支撑脚运动学也作为独立的滑移证据：控制器用高状态和腿端运动学计算处于接触/支撑相的脚在世界系的速度，至少两个支撑脚同时达到阈值并持续确认后才生成 `slip` 或 `low_friction`。它补上了“机身速度尚未明显偏离、但支撑脚已经移动”的检测通道；单元测试覆盖了这条路径。当前实物摩擦仅下降而未形成可观测滑移的试验仍不宣称触发成功。
+
 障碍场景使用带碰撞的 reactive_obstacle 实体；验收同时要求：地图有效率不低于 95%、地图年龄不超过 150 ms、检测延迟（预热结束后）不超过 0.50 s、目标方向正确、机身发生同向横移、WBC 残差不超过 1e-3、姿态不超过 0.25 rad、障碍物真实接触力和接触次数均为 0。无障碍基线必须全程不产生 obstacle 事件。
 
 可复现实验：先运行 baseline 与 scene_reactive_obstacle 两组，再用 example/cpp/tools/analyze_auto_environment.py 生成 JSON/Markdown 严格报告。原始 CSV、接触真值和 simulator/controller 日志只作为验收证据，不作为源码提交内容。
@@ -87,7 +89,7 @@ python3 example/cpp/tools/analyze_reactive_events.py \
 
 - 2026-08-21 自动高度图验收（最终提交复核）：无障碍基线与真实碰撞障碍两组严格通过；地图有效率 100%、最大年龄 20 ms；障碍检测延迟 40 ms，自动选择 obstacle_left，机身横移 0.449 m，障碍物接触次数/法向力均为 0。
 - 2026-08-21 物理冲击自动验收（最终提交复核）：0.8 m/s 仿真冲击在 state_tick=8.002 s 被识别，2 ms 后进入 impact，0.5 s 后进入 emergency_stop；最大速度突变 0.800 m/s，最大 roll 0.1245 rad、pitch 0.1863 rad，WBC 残差 1.6964e-5，全部状态码为 0。
-- 低摩擦负向验收保持无误报：仅降低地面摩擦但未产生可观测滑移时不生成事件；低摩擦 token 的响应和滑移确认由单元测试覆盖，不能把“潜在摩擦变化”冒充成已检测事件。
+- 低摩擦负向验收保持无误报：仅降低地面摩擦但未产生可观测滑移时不生成事件；支撑脚运动学检测通道及低摩擦 token 的响应由单元测试覆盖，但当前摩擦-only 工况尚未形成严格的自动 `sensor` 事件，不把“潜在摩擦变化”冒充成已检测事件。
 
 
 - `go2_reactive_baseline_final_2026-08-19`：12 周期，controller/safety/quality = `0/0/0`，最大 roll 1.27°、pitch 9.27°。

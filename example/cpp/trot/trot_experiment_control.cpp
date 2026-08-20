@@ -262,6 +262,7 @@ bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &j
     previous_leg_swing_.fill(false);
     touchdown_recorded_.fill(false);
     touchdown_waiting_contact_.fill(false);
+    previous_support_foot_valid_.fill(false);
     have_leg_phase_history_ = false;
     std::cout << "Starting diagonal trot: period="
               << params_.period_s
@@ -307,7 +308,9 @@ bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &j
 }
 void TrotExperiment::UpdateMotionEventResponse(
     double gait_elapsed_s, double motion_dt_s,
-    const unitree_go::msg::dds_::LowState_ &state_snapshot)
+    const unitree_go::msg::dds_::LowState_ &state_snapshot,
+    const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
+    bool have_high_state)
 {
     if (!motion_event_response_enabled_)
         return;
@@ -344,6 +347,64 @@ void TrotExperiment::UpdateMotionEventResponse(
     {
         if (state_snapshot.foot_force()[leg] >= kContactForceThreshold)
             ++sensor.contact_count;
+    }
+    // Estimate support-foot motion in the world frame.  A scheduled stance
+    // foot should remain nearly fixed on the ground; sustained motion of at
+    // least two support feet is a direct kinematic slip/low-friction signal.
+    if (have_high_state && motion_dt_s > 1.0e-6 &&
+        std::isfinite(motion_dt_s))
+    {
+        const WorldPose pose =
+            ComputeWorldPose(state_snapshot, high_state_snapshot);
+        const auto world_feet = ComputeWorldFeet(state_snapshot, pose);
+        const double period = std::max(params_.period_s, 1.0e-3);
+        const double phase = std::fmod(
+            std::max(0.0, gait_elapsed_s) / period, 1.0);
+        const double duty = std::clamp(
+            params_.duty_factor, 0.45, 0.90);
+        std::array<double, go2::kLegCount> support_speeds{};
+        int support_speed_count = 0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            const bool pair_b =
+                leg == static_cast<std::size_t>(go2::Leg::FL) ||
+                leg == static_cast<std::size_t>(go2::Leg::RR);
+            const double leg_phase = std::fmod(
+                phase + (pair_b ? 0.5 : 0.0), 1.0);
+            const bool scheduled_stance = leg_phase < duty;
+            if (!scheduled_stance)
+            {
+                previous_support_foot_valid_[leg] = false;
+                continue;
+            }
+            if (previous_support_foot_valid_[leg] &&
+                state_snapshot.foot_force()[leg] >= kContactForceThreshold)
+            {
+                const go2::Vec3 delta = {
+                    world_feet[leg].x - previous_support_foot_world_[leg].x,
+                    world_feet[leg].y - previous_support_foot_world_[leg].y,
+                    world_feet[leg].z - previous_support_foot_world_[leg].z};
+                const double speed =
+                    std::hypot(delta.x, delta.y) / motion_dt_s;
+                if (std::isfinite(speed))
+                    support_speeds[support_speed_count++] = speed;
+            }
+            previous_support_foot_world_[leg] = world_feet[leg];
+            previous_support_foot_valid_[leg] = true;
+        }
+        if (support_speed_count >= 2)
+        {
+            std::sort(
+                support_speeds.begin(),
+                support_speeds.begin() + support_speed_count);
+            sensor.have_support_foot_kinematics = true;
+            sensor.support_foot_count = support_speed_count;
+            sensor.support_foot_speed_mps =
+                support_speed_count % 2 == 0
+                    ? 0.5 * (support_speeds[support_speed_count / 2 - 1] +
+                             support_speeds[support_speed_count / 2])
+                    : support_speeds[support_speed_count / 2];
+        }
     }
     if (params_.auto_environment)
     {
@@ -602,7 +663,8 @@ bool TrotExperiment::PhaseRunGait(
     }
     if (motion_event_response_enabled_)
         UpdateMotionEventResponse(
-            gait_time_s, last_motion_dt_s_, state_snapshot);
+            gait_time_s, last_motion_dt_s_, state_snapshot,
+            high_state_snapshot, have_high_state);
     // SECTION: gait-targets
     if (!BuildGaitTargets(
             gait_time_s,

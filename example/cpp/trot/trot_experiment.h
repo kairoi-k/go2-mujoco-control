@@ -127,7 +127,9 @@ private:
     bool PhaseStartGait(std::array<double, go2_trot::kMotorCount> &joint_targets);
     void UpdateMotionEventResponse(
         double gait_elapsed_s, double motion_dt_s,
-        const unitree_go::msg::dds_::LowState_ &state_snapshot);
+        const unitree_go::msg::dds_::LowState_ &state_snapshot,
+        const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
+        bool have_high_state);
     bool PhaseStopToStand(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseLieDown(std::array<double, go2_trot::kMotorCount> &joint_targets);
     double UpdateCartesianForceBlend();
@@ -218,6 +220,8 @@ private:
     bool have_commanded_body_feet_ = false;
     std::array<go2::Vec3, go2::kLegCount> commanded_world_feet_{};
     bool have_commanded_world_feet_ = false;
+    std::array<go2::Vec3, go2::kLegCount> previous_support_foot_world_{};
+    std::array<bool, go2::kLegCount> previous_support_foot_valid_{};
     go2_control::CartesianWorldState cartesian_state_{};
     std::array<bool, go2::kLegCount> previous_leg_swing_{};
     std::array<bool, go2::kLegCount> touchdown_recorded_{};

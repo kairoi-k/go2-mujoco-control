@@ -249,6 +249,12 @@ struct MotionSensorSample
     double obstacle_center_height_m = 0.0;
     double obstacle_left_height_m = 0.0;
     double obstacle_right_height_m = 0.0;
+    // Kinematic slip evidence from feet that are scheduled to be in stance.
+    // This is deliberately separate from body velocity error: a low-friction
+    // surface can first move the support feet before the base velocity diverges.
+    bool have_support_foot_kinematics = false;
+    int support_foot_count = 0;
+    double support_foot_speed_mps = 0.0;
 };
 
 struct MotionEventDetectorConfig
@@ -267,6 +273,9 @@ struct MotionEventDetectorConfig
     double max_sensor_age_s = 0.15;
     double slip_velocity_error_mps = 0.45;
     double slip_confirm_s = 0.06;
+    double slip_support_foot_speed_mps = 0.45;
+    double low_friction_support_foot_speed_mps = 0.12;
+    int min_support_foot_count = 2;
     double impact_extreme_vertical_excess_mps2 = 40.0;
     double impact_velocity_jump_mps = 0.35;
     double impact_release_s = 0.50;
@@ -406,6 +415,20 @@ public:
         if (obstacle.type != MotionEventType::kNone)
             return Trigger(obstacle.type, time_s, obstacle.magnitude);
 
+        const bool have_support_kinematics =
+            sample.have_support_foot_kinematics &&
+            sample.support_foot_count >= config_.min_support_foot_count &&
+            std::isfinite(sample.support_foot_speed_mps);
+        const bool support_slip_level =
+            have_support_kinematics &&
+            sample.support_foot_speed_mps >=
+                config_.slip_support_foot_speed_mps;
+        const bool support_low_friction_level =
+            have_support_kinematics &&
+            sample.support_foot_speed_mps >=
+                config_.low_friction_support_foot_speed_mps &&
+            !support_slip_level;
+
         if (sample.have_velocity)
         {
             const double velocity_error =
@@ -424,16 +447,20 @@ public:
             const bool sustained_slip_level =
                 have_previous_velocity_error_ &&
                 previous_velocity_error_mps_ >= config_.slip_velocity_error_mps;
-            if (have_contacts && slip_level &&
-                (sharp_error_rise || sustained_slip_level))
+            if (have_contacts &&
+                (support_slip_level ||
+                 (slip_level &&
+                  (sharp_error_rise || sustained_slip_level))))
                 slip_candidate_age_s_ += std::min(dt_s, 0.050);
             else
                 slip_candidate_age_s_ = 0.0;
-            if (have_contacts &&
+            const bool velocity_low_friction =
+                have_contacts &&
                 velocity_error >= config_.low_friction_velocity_error_mps &&
                 velocity_error < config_.slip_velocity_error_mps &&
                 (!have_previous_velocity_error_ ||
-                 error_rise_mpsps < config_.slip_velocity_error_rise_mpsps))
+                 error_rise_mpsps < config_.slip_velocity_error_rise_mpsps);
+            if (velocity_low_friction || support_low_friction_level)
                 low_friction_accum_s_ += std::min(dt_s, 0.050);
             else
                 low_friction_accum_s_ = 0.0;
@@ -446,9 +473,19 @@ public:
         }
         else
         {
-            slip_candidate_age_s_ = 0.0;
-            low_friction_accum_s_ = 0.0;
+            if (support_slip_level)
+                slip_candidate_age_s_ += std::min(dt_s, 0.050);
+            else
+                slip_candidate_age_s_ = 0.0;
+            if (support_low_friction_level)
+                low_friction_accum_s_ += std::min(dt_s, 0.050);
+            else
+                low_friction_accum_s_ = 0.0;
             have_previous_velocity_error_ = false;
+            if (slip_candidate_age_s_ >= config_.slip_confirm_s)
+                return Trigger(MotionEventType::kSlip, time_s);
+            if (low_friction_accum_s_ >= config_.low_friction_confirm_s)
+                return Trigger(MotionEventType::kLowFriction, time_s);
         }
         return {};
     }

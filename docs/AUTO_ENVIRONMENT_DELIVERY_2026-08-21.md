@@ -19,7 +19,7 @@ The 49 directed transitions in `go2_reactive_transition_matrix_final_2026-08-20`
 
 ## Explicit capability boundary
 
-The automatic path currently consumes the simulator height-map and state topics. A friction-only change to `mu=0.01` did not create measurable slip in the tested WBC gait, so no low-friction event is claimed; this is retained as a negative acceptance result rather than a fabricated success. Real-robot deployment still needs sensor-driver integration and threshold calibration.
+The automatic path currently consumes the simulator height-map and state topics. The detector now also computes world-frame support-foot kinematics from the high-state/leg model: sustained motion of at least two contacting support feet can produce `slip` or `low_friction`, and the path is unit-tested. A friction-only change to `mu=0.01` still did not create a strict sensor event in the tested WBC gait, so no low-friction event is claimed; this is retained as a negative acceptance result rather than a fabricated success. Real-robot deployment still needs sensor-driver integration and threshold calibration.
 
 ## Reproduction and evidence
 

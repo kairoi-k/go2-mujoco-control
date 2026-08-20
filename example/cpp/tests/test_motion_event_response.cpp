@@ -104,6 +104,28 @@ int main()
     detector.Reset();
     sensor = {};
     sensor.contact_count = 4;
+    sensor.have_support_foot_kinematics = true;
+    sensor.support_foot_count = 2;
+    sensor.support_foot_speed_mps = 0.55;
+    for (int i = 0; i < 40; ++i)
+        automatic = detector.Observe(
+            1.6 + i * 0.002, 0.002, sensor, nominal);
+    passed &= Check(
+        automatic.type == MotionEventType::kSlip,
+        "Support-foot kinematics did not trigger slip.");
+
+    detector.Reset();
+    sensor.support_foot_speed_mps = 0.20;
+    for (int i = 0; i < 140; ++i)
+        automatic = detector.Observe(
+            1.6 + i * 0.002, 0.002, sensor, nominal);
+    passed &= Check(
+        automatic.type == MotionEventType::kLowFriction,
+        "Moderate support-foot motion did not trigger low friction.");
+
+    detector.Reset();
+    sensor = {};
+    sensor.contact_count = 4;
     sensor.have_obstacle_scan = true;
     sensor.obstacle_scan_age_s = 0.0;
     sensor.obstacle_center_distance_m = 0.75;
