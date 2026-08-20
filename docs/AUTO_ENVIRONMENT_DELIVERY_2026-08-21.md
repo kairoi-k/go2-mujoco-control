@@ -1,6 +1,6 @@
 # Automatic environment sensing delivery
 
-This note records the reproducible source-aware acceptance package for the Go2 WBC-full controller at commit `be2fa38`.
+This note records the reproducible source-aware acceptance package for the Go2 WBC-full controller at code commit `dd0a606` (documentation may be committed separately).
 
 ## Verified automatic sensing
 
@@ -13,6 +13,12 @@ All final runs have controller, safety, quality, analysis, ground-truth, dynamic
 
 The CSV `event_source` field makes the evidence auditable: automatic obstacle and impact transitions are required to be `sensor`; the follow-up emergency stop is `scheduled` and the absorbing hold is `safety_latch`.
 
+## Physical low-friction acceptance
+
+The former global-friction-only trial is intentionally retained as a negative boundary: changing the whole floor coefficient without producing measurable support-foot motion did not justify a sensor event. The positive acceptance is now a physical patch scene, `unitree_robots/go2/scene_low_friction_patch.xml`: the robot walks from a normal plane onto a collidable patch with `mu=0.005`, while no `--friction-time` script is used. Support-foot world kinematics feed a leaky evidence window; duplicate DDS state ticks do not erase elapsed evidence, and low-friction detection has hysteresis, re-arm suppression after other events, and a minimum current support-foot speed gate.
+
+The strict patch run `go2_auto_environment_low_friction_patch_sensor_v9_2026-08-21` passes: `none -> low_friction(sensor) -> none`, detection occurs after the gait enters the patch, support evidence reaches `0.1945` (threshold `0.08`), target `vx` drops from `0.1517` to `0.06825 m/s`, and posture/solver/quality statuses remain zero. Re-run it with `example/cpp/tools/analyze_auto_low_friction.py`; the analyzer rejects scripted friction changes, missing physical patch geometry, wrong event source, out-of-patch detections, insufficient support evidence, and unsafe numerical/posture results.
+
 ## Unified-transition evidence
 
 The 49 directed transitions in `go2_reactive_transition_matrix_final_2026-08-20` use one `MotionEventResponseLayer` and one gait/WBC/MPC plant. They are scripted transition coverage, not a claim of autonomous perception for every token. The priority-preemption run adds the sensor-driven safety ordering that the matrix alone cannot prove.
@@ -23,4 +29,4 @@ The automatic path currently consumes the simulator height-map and state topics.
 
 ## Reproduction and evidence
 
-Use `example/cpp/tools/analyze_auto_environment.py`, `analyze_auto_impact.py`, and `analyze_auto_priority.py` to regenerate the strict reports from the raw experiment directories. Curated JSON/Markdown reports, source analyzers, controller documentation, and GUI MP4 demos are in the OneDrive delivery folder. Raw experiment CSV/log directories remain local evidence and are intentionally ignored by Git.
+Use `example/cpp/tools/analyze_auto_environment.py`, `analyze_auto_impact.py`, `analyze_auto_priority.py`, and `analyze_auto_low_friction.py` to regenerate the strict reports from the raw experiment directories. Curated JSON/Markdown reports, source analyzers, controller documentation, and GUI MP4 demos are in the OneDrive delivery folder. Raw experiment CSV/log directories remain local evidence and are intentionally ignored by Git.
