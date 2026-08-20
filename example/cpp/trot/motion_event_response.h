@@ -276,12 +276,15 @@ struct MotionEventDetectorConfig
     double slip_velocity_error_mps = 0.45;
     double slip_confirm_s = 0.06;
     double slip_support_foot_speed_mps = 0.45;
-    double low_friction_support_foot_speed_mps = 0.12;
+    double low_friction_support_foot_speed_mps = 0.15;
     int min_support_foot_count = 2;
     // Support-foot samples can be intermittent because high-state and low-
     // state DDS updates are not phase locked.  Use a leaky recent-evidence
     // ratio instead of requiring every sample in one contiguous interval.
     double support_foot_evidence_window_s = 0.80;
+    // Normal gait can briefly move scheduled support feet.  Use a higher
+    // per-foot speed gate, while retaining a short recent-evidence ratio so
+    // an actual patch can be confirmed before the next gait phase.
     double low_friction_support_evidence_ratio = 0.08;
     double low_friction_support_evidence_release_ratio = 0.05;
     double low_friction_release_s = 0.40;
