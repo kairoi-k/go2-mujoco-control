@@ -11,4 +11,5 @@ Start here when reading the repository as a research artifact or contributing to
 | [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md) | environment, build, smoke checks, and evidence-reproduction rules |
 | [`WBC_MPC.md`](WBC_MPC.md) | 18-DoF ID-WBC + SRBD MPC (`--wbc-full`) |
 | [`SPEED_1MPS_ACCEPTANCE_2026-08-21.md`](SPEED_1MPS_ACCEPTANCE_2026-08-21.md) | Branch-scoped 1 m/s acceptance protocol and evidence |
+| [`NATURAL_GAIT_1MPS_ACCEPTANCE_2026-08-21.md`](NATURAL_GAIT_1MPS_ACCEPTANCE_2026-08-21.md) | 1 m/s natural-trot profile, metrics, and repeatability evidence |
 | [`upstream/`](upstream/) | preserved upstream Unitree MuJoCo README files |
