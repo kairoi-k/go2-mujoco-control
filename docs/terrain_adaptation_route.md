@@ -43,7 +43,7 @@ Perceptive Locomotion 的路线是高度图、几何落脚约束、SDF/碰撞约
 - `unitree_robots/go2/scene_barrier_acceptance.xml`：0.15 m 高、0.28 m 深、0.75 m 宽实体隔离带。
 - `unitree_robots/go2/scene_stair_acceptance.xml`：四级实体楼梯，踏深 0.24 m、每级 0.10 m、宽 0.75 m。
 
-主线基线也已在两场景运行并留存于 `example/cpp/experiments/_runs/terrain_baseline_*`。结果不能冒充成功：当前主线未启用地形模式，运行中没有地形落脚点或机身姿态规划；部分基线在到达场景前就因平地步态稳定性/行程限制结束。因此，下一阶段必须先把“真正遇到实体地形”作为验收前置条件，不能只看控制器正常退出。
+主线基线也已在两场景运行并留存于 `example/cpp/experiments/_runs/terrain_baseline_*`。结果不能冒充成功：当前主线未启用地形模式，运行中没有地形落脚点或机身姿态规划；普通参数的近场基线最大相对前进量只有约 0.24 m（隔离带）和 0.10 m（楼梯），加速探针在地形前即触发约 -45° 俯仰硬安全停机。因此，下一阶段必须先把“真正遇到实体地形”作为验收前置条件，不能只看控制器正常退出。
 
 ## 下一步实现顺序
 
