@@ -366,11 +366,8 @@ void TrotExperiment::UpdateMotionEventResponse(
         int support_speed_count = 0;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const bool pair_b =
-                leg == static_cast<std::size_t>(go2::Leg::FL) ||
-                leg == static_cast<std::size_t>(go2::Leg::RR);
-            const double leg_phase = std::fmod(
-                phase + (pair_b ? 0.5 : 0.0), 1.0);
+            const double leg_phase = go2_control::GaitLegPhase(
+                leg, phase, params_.gait_pattern);
             const bool scheduled_stance = leg_phase < duty;
             if (!scheduled_stance)
             {

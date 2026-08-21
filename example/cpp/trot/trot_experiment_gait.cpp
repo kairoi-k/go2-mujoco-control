@@ -133,6 +133,23 @@ bool TrotExperiment::BuildGaitTargets(
             latest_filtered_body_velocity_[2];
         gait_request.have_body_velocity = true;
     }
+    if (params_.wbc_full &&
+        params_.gait_pattern != go2_control::GaitPattern::kDiagonalTrot &&
+        wbc_speed_cmd_mps_ < 0.0)
+    {
+        const double target_period = params_.period_s;
+        const double target_speed = std::abs(
+            params_.direction_sign * params_.step_length_m /
+            std::max(1.0e-3, target_period));
+        wbc_speed_cmd_mps_ = std::min(target_speed, 0.50);
+        locomotion_kernel_->SetGaitPeriod(0.40);
+        locomotion_kernel_->SetGaitDuty(0.60);
+        locomotion_kernel_->SetGaitStepLength(
+            wbc_speed_cmd_mps_ * 0.40);
+        locomotion_kernel_->SetGaitFootLift(
+            std::max(params_.foot_lift_m, 0.08));
+        locomotion_kernel_->SetGaitSlewLimits(0.012, 0.020, 0.020);
+    }
     if (!locomotion_kernel_->Compute(gait_request, gait_result))
     {
         std::cerr << "Locomotion kernel failed at gait_time="
@@ -417,6 +434,71 @@ bool TrotExperiment::BuildGaitTargets(
                       << " motor_kp=" << low_cmd_.motor_cmd()[1].kp()
                       << "\n";
         }
+        else if (params_.wbc_full &&
+                 params_.gait_pattern !=
+                     go2_control::GaitPattern::kDiagonalTrot)
+        {
+            // High-speed bound/gallop uses a deliberately slow curriculum.
+            // Starting directly at the terminal step length asks the first
+            // swing to move faster than the leg and makes the MPC plant fall
+            // forward before the body has acquired momentum.
+            const double target_period = params_.period_s;
+            const double target_duty = params_.duty_factor;
+            const double target_speed = std::abs(
+                params_.direction_sign * params_.step_length_m /
+                std::max(1.0e-3, target_period));
+            constexpr double kStartPeriod = 0.40;
+            constexpr double kStartDuty = 0.60;
+            constexpr double kStartSpeed = 0.50;
+            if (wbc_speed_cmd_mps_ < 0.0)
+            {
+                wbc_speed_cmd_mps_ = std::min(target_speed, kStartSpeed);
+                locomotion_kernel_->SetGaitSlewLimits(0.012, 0.020, 0.020);
+            }
+            const double v_meas_abs = have_filtered_body_velocity_
+                ? std::max(0.0, params_.direction_sign *
+                                   latest_filtered_body_velocity_[0])
+                : 0.0;
+            const double ramp_step =
+                target_speed > 2.0 ? 0.045 : 0.035;
+            wbc_speed_cmd_mps_ = std::min(
+                target_speed, wbc_speed_cmd_mps_ + ramp_step);
+            // Do not put the reference more than 0.25 m/s ahead of the
+            // measured body speed while the new gait is acquiring support.
+            if (cycle_index < 10)
+                wbc_speed_cmd_mps_ = std::max(
+                    kStartSpeed,
+                    std::min(wbc_speed_cmd_mps_, v_meas_abs + 0.25));
+            const double alpha = target_speed > kStartSpeed
+                ? std::clamp(
+                      (wbc_speed_cmd_mps_ - kStartSpeed) /
+                          (target_speed - kStartSpeed),
+                      0.0, 1.0)
+                : 1.0;
+            const double period_alpha = std::clamp(
+                (wbc_speed_cmd_mps_ - kStartSpeed) / 1.0, 0.0, 1.0);
+            const double duty_alpha = std::clamp(
+                (wbc_speed_cmd_mps_ - kStartSpeed) / 0.80, 0.0, 1.0);
+            const double period = kStartPeriod +
+                period_alpha * (target_period - kStartPeriod);
+            const double duty = kStartDuty +
+                duty_alpha * (target_duty - kStartDuty);
+            const double step = wbc_speed_cmd_mps_ * period;
+            const double target_lift = std::max(params_.foot_lift_m, 0.08);
+            const double lift = 0.08 + alpha * (target_lift - 0.08);
+            locomotion_kernel_->SetGaitPeriod(period);
+            locomotion_kernel_->SetGaitDuty(duty);
+            locomotion_kernel_->SetGaitStepLength(step);
+            locomotion_kernel_->SetGaitFootLift(lift);
+            std::cout << "HIGH-SPEED-GOV pattern="
+                      << go2_control::GaitPatternName(params_.gait_pattern)
+                      << " cycle=" << cycle_index
+                      << " v_cmd=" << wbc_speed_cmd_mps_
+                      << " v_meas=" << v_meas_abs
+                      << " period=" << period
+                      << " duty=" << duty
+                      << " step=" << step << "\n";
+        }
         else if (params_.wbc_full && !params_.step_plan.empty())
         {
             if (wbc_speed_cmd_mps_ < 0.0)
@@ -555,6 +637,7 @@ bool TrotExperiment::BuildGaitTargets(
         cart.ypos_gain = Full2EnvDouble("FULL2_YPOS", 0.0);
         cart.world_heading = Full2EnvDouble("FULL2_WORLD_HEADING", 0.0) > 0.5;
         cart.yaw_gain = Full2EnvDouble("FULL2_YAW_GAIN", 0.0);
+        cart.pattern = params_.gait_pattern;
         cart.foot_lift_m =
             gait_result.duty_factor > 0.0
                 ? std::max(params_.foot_lift_m, 0.022)
@@ -679,11 +762,8 @@ bool TrotExperiment::BuildGaitTargets(
             -pose.quaternion[3]};
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const bool diagonal_pair_b =
-                leg == static_cast<std::size_t>(go2::Leg::FL) ||
-                leg == static_cast<std::size_t>(go2::Leg::RR);
-            const double leg_phase = std::fmod(
-                phase + (diagonal_pair_b ? 0.5 : 0.0), 1.0);
+            const double leg_phase = go2_control::GaitLegPhase(
+                leg, phase, params_.gait_pattern);
             const bool support = leg_phase < stance_duration;
             if (!support)
             {

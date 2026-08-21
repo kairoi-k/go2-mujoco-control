@@ -177,6 +177,8 @@ struct TrotParams
     double raibert_max_adjustment_m = 0.025;
     double velocity_filter_cutoff_hz = 4.0;
     bool velocity_feedforward = true;
+    go2_control::GaitPattern gait_pattern =
+        go2_control::GaitPattern::kDiagonalTrot;
     bool wall_clock_motion = false;
     bool reactive_events = false;
     bool auto_environment = false;
@@ -193,7 +195,7 @@ inline std::unique_ptr<go2_control::LocomotionKernel> CreateLocomotionKernel(
     const go2_control::GaitKernelParams gait_params{
         params.period_s, params.duty_factor,
         params.step_length_m, params.direction_sign,
-        params.foot_lift_m, kGaitBlendDuration};
+        params.foot_lift_m, kGaitBlendDuration, params.gait_pattern};
     if (params.kernel_name == "raibert-trot")
     {
         return std::make_unique<go2_control::RaibertTrotKernel>(

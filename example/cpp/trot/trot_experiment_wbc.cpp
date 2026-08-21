@@ -159,7 +159,8 @@ void TrotExperiment::UpdateWbcFull(
             std::array<std::array<bool, go2::kLegCount>, go2_control::kSrbdMaxHorizon>
                 scheduled{};
             go2_control::FillTrotContactSchedulePhase(
-                current_phase_, gait_period, gait_duty, 1, 0.0, scheduled);
+                current_phase_, gait_period, gait_duty, 1, 0.0, scheduled,
+                params_.gait_pattern);
             qp_contact = scheduled[0];
         }
     }
@@ -325,7 +326,8 @@ void TrotExperiment::UpdateWbcFull(
             else
                 go2_control::FillTrotContactSchedulePhase(
                 current_phase_, gait_period, gait_duty,
-                mpc_params.horizon, mpc_params.dt_s, mpc_in.contact);
+                mpc_params.horizon, mpc_params.dt_s, mpc_in.contact,
+                params_.gait_pattern);
         }
         else
         {

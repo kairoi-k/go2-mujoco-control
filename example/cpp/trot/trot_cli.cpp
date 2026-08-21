@@ -13,6 +13,7 @@ void PrintTrotCliUsage()
         << "Usage: real_trot_go2 <interface> <duration_s> <csv_path>"
            " [--period s] [--duty d] [--step-length m]"
            " [--kernel hand-coded-trot|raibert-trot]"
+           " [--gait-pattern diagonal-trot|bound|gallop]"
            " [--raibert-velocity-gain s] [--raibert-max-adjustment m]"
            " [--velocity-filter-cutoff-hz f]"
            " [--wall-clock-motion]"
@@ -87,6 +88,14 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.params.kd = std::stod(require_value("--kd"));
             else if (option == "--kernel")
                 cfg.params.kernel_name = require_value("--kernel");
+            else if (option == "--gait-pattern")
+            {
+                const std::string value = require_value("--gait-pattern");
+                if (!go2_control::ParseGaitPattern(
+                        value.c_str(), cfg.params.gait_pattern))
+                    throw std::invalid_argument(
+                        "unsupported gait pattern '" + value + "'");
+            }
             else if (option == "--raibert-velocity-gain")
                 cfg.params.raibert_velocity_gain_s =
                     std::stod(require_value("--raibert-velocity-gain"));
@@ -351,7 +360,7 @@ if (!(cfg.params.period_s >= (cfg.params.wbc_full ? 0.18 : 0.35) &&
               (cfg.params.wbc_full ? 0.85 : 0.80)) ||
         !(cfg.params.step_length_m > 0.0 &&
           cfg.params.step_length_m <=
-              (cfg.params.wbc_full ? 0.60 : 0.30)) ||
+              (cfg.params.wbc_full ? 1.20 : 0.30)) ||
         !(cfg.params.foot_lift_m >= 0.02 && cfg.params.foot_lift_m <= 0.12) ||
         !(cfg.params.kp > 0.0 && cfg.params.kp <= 150.0) ||
         !(cfg.params.kd > 0.0 && cfg.params.kd <= 15.0) ||
@@ -393,6 +402,8 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << "  foot lift=" << params.foot_lift_m << " m\n"
               << "  kp/kd=" << params.kp << "/" << params.kd << "\n"
               << "  kernel=" << params.kernel_name << "\n"
+              << "  gait_pattern="
+              << go2_control::GaitPatternName(params.gait_pattern) << "\n"
               << "  wbc_primary=" << (params.wbc_primary ? "on" : "off") << "\n"
               << "  wbc_full=" << (params.wbc_full ? "on" : "off") << "\n"
               << "  cartesian_world="

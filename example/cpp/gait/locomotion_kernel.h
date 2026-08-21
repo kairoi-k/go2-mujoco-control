@@ -5,11 +5,90 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <string>
 
 #include "go2_forward_kinematics.h"
 
 namespace go2_control
 {
+
+enum class GaitPattern
+{
+    kDiagonalTrot,
+    kBound,
+    kGallop,
+};
+
+inline const char *GaitPatternName(GaitPattern pattern) noexcept
+{
+    switch (pattern)
+    {
+    case GaitPattern::kBound:
+        return "bound";
+    case GaitPattern::kGallop:
+        return "gallop";
+    case GaitPattern::kDiagonalTrot:
+    default:
+        return "diagonal-trot";
+    }
+}
+
+inline bool ParseGaitPattern(
+    const char *name,
+    GaitPattern &pattern) noexcept
+{
+    if (name == nullptr)
+        return false;
+    const std::string value(name);
+    if (value == "diagonal-trot" || value == "trot")
+    {
+        pattern = GaitPattern::kDiagonalTrot;
+        return true;
+    }
+    if (value == "bound")
+    {
+        pattern = GaitPattern::kBound;
+        return true;
+    }
+    if (value == "gallop")
+    {
+        pattern = GaitPattern::kGallop;
+        return true;
+    }
+    return false;
+}
+
+inline double WrapUnitPhase(double phase) noexcept
+{
+    double wrapped = phase - std::floor(phase);
+    if (wrapped < 0.0)
+        wrapped += 1.0;
+    return wrapped;
+}
+
+inline double GaitLegPhase(
+    std::size_t leg,
+    double phase,
+    GaitPattern pattern = GaitPattern::kDiagonalTrot) noexcept
+{
+    static constexpr std::array<double, 4> kDiagonal = {0.0, 0.5, 0.5, 0.0};
+    static constexpr std::array<double, 4> kBound = {0.0, 0.0, 0.5, 0.5};
+    static constexpr std::array<double, 4> kGallop = {0.25, 0.25, 0.0, 0.0};
+    const auto &offsets =
+        pattern == GaitPattern::kBound
+            ? kBound
+            : (pattern == GaitPattern::kGallop ? kGallop : kDiagonal);
+    return WrapUnitPhase(phase + offsets[leg % offsets.size()]);
+}
+
+inline bool GaitLegScheduledStance(
+    std::size_t leg,
+    double phase,
+    double duty,
+    GaitPattern pattern = GaitPattern::kDiagonalTrot) noexcept
+{
+    return GaitLegPhase(leg, phase, pattern) < duty;
+}
 
 struct GaitKernelParams
 {
@@ -19,6 +98,7 @@ struct GaitKernelParams
     double direction_sign = 1.0;
     double foot_lift_m = 0.05;
     double blend_duration_s = 0.8;
+    GaitPattern pattern = GaitPattern::kDiagonalTrot;
 };
 
 struct GaitKernelRequest
@@ -161,11 +241,8 @@ public:
 
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const bool diagonal_pair_b =
-                leg == static_cast<std::size_t>(go2::Leg::FL) ||
-                leg == static_cast<std::size_t>(go2::Leg::RR);
-            const double leg_phase = std::fmod(
-                result.phase + (diagonal_pair_b ? 0.5 : 0.0), 1.0);
+            const double leg_phase = GaitLegPhase(
+                leg, result.phase, params_.pattern);
             double x_offset = 0.0;
             double z_offset = 0.0;
             if (leg_phase < stance_duration)

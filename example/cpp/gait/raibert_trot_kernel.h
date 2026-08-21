@@ -56,22 +56,42 @@ public:
     void SetGaitStepLength(double step_m) override
     {
         if (step_m >= 0.0 && std::isfinite(step_m))
-            target_step_length_m_ = step_m;
+        {
+            if (!have_last_gait_time_)
+                params_.gait.step_length_m = step_m;
+            else
+                target_step_length_m_ = step_m;
+        }
     }
     void SetGaitPeriod(double period_s) override
     {
         if (period_s > 0.0 && std::isfinite(period_s))
-            target_period_s_ = period_s;
+        {
+            if (!have_last_gait_time_)
+                params_.gait.period_s = period_s;
+            else
+                target_period_s_ = period_s;
+        }
     }
     void SetGaitDuty(double duty) override
     {
         if (duty > 0.0 && duty < 1.0 && std::isfinite(duty))
-            target_duty_factor_ = duty;
+        {
+            if (!have_last_gait_time_)
+                params_.gait.duty_factor = duty;
+            else
+                target_duty_factor_ = duty;
+        }
     }
     void SetGaitFootLift(double lift_m) override
     {
         if (lift_m >= 0.0 && std::isfinite(lift_m))
-            target_foot_lift_m_ = lift_m;
+        {
+            if (!have_last_gait_time_)
+                params_.gait.foot_lift_m = lift_m;
+            else
+                target_foot_lift_m_ = lift_m;
+        }
     }
     void SetStanceHold(bool hold, double gait_time_s) override
     {
@@ -255,11 +275,9 @@ public:
 
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const bool diagonal_pair_b =
-                leg == static_cast<std::size_t>(go2::Leg::FL) ||
-                leg == static_cast<std::size_t>(go2::Leg::RR);
             const double leg_cycle_position =
-                cycle_position + (diagonal_pair_b ? 0.5 : 0.0);
+                cycle_position + GaitLegPhase(
+                    leg, 0.0, params_.gait.pattern);
             const int leg_cycle_index =
                 static_cast<int>(std::floor(leg_cycle_position));
             const double leg_phase =
