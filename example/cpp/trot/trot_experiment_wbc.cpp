@@ -152,7 +152,7 @@ void TrotExperiment::UpdateWbcFull(
     {
         if (WbcStopHoldActive())
             qp_contact.fill(true);
-        else if (motion_event_response_enabled_ && motion_reference_.hold_stance)
+        else if (motion_event_response_enabled_ && EmergencyStopHoldReady())
             qp_contact.fill(true);
         else
         {
@@ -301,7 +301,7 @@ void TrotExperiment::UpdateWbcFull(
             if (WbcStopHoldActive())
                 for (int k = 0; k < mpc_params.horizon; ++k)
                     mpc_in.contact[k].fill(true);
-            else if (motion_event_response_enabled_ && motion_reference_.hold_stance)
+            else if (motion_event_response_enabled_ && EmergencyStopHoldReady())
                 for (int k = 0; k < mpc_params.horizon; ++k)
                     mpc_in.contact[k].fill(true);
             else
@@ -336,7 +336,7 @@ void TrotExperiment::UpdateWbcFull(
             quat.normalized().toRotationMatrix().transpose() *
             last_srbd_.first_angular_acc;
         const bool stop_balance =
-            (emergency_stop_latched_ && motion_reference_.hold_stance) ||
+            EmergencyStopHoldReady() ||
             WbcStopHoldActive();
         if (stop_balance)
         {

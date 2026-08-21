@@ -471,6 +471,7 @@ void TrotExperiment::UpdateMotionEventResponse(
     {
         emergency_stop_latched_ = true;
         motion_event_layer_.SetEmergencyStopLatched(true);
+        emergency_stop_latch_gait_time_s_ = gait_elapsed_s;
         emergency_stop_finish_time_s_ =
             motion_event_state_.active_event_end_time_s +
             kEmergencyStopPostHoldDurationS;
@@ -486,7 +487,10 @@ void TrotExperiment::UpdateMotionEventResponse(
         motion_event_state_.target.vy_mps = 0.0;
         motion_event_state_.target.yaw_rate_radps = 0.0;
         motion_event_state_.target.hold_stance = true;
-        motion_reference_.hold_stance = true;
+        // Keep the running contact phase alive while the velocity reference
+        // brakes.  Enter stance blending only after this support exchange has
+        // had time to settle.
+        motion_reference_.hold_stance = EmergencyStopStanceBlendActive();
         motion_reference_.step_scale =
             std::min(motion_reference_.step_scale, 0.45);
         motion_reference_.duty_factor =
@@ -615,6 +619,25 @@ bool TrotExperiment::WbcStopHoldActive() const
     return params_.wbc_full && params_.wbc_primary &&
            task_.gait_started_ && task_.motion_stage_ == 3 &&
            task_.stop_requested_ && !emergency_stop_latched_;
+}
+
+bool TrotExperiment::EmergencyStopStanceBlendActive() const
+{
+    if (!emergency_stop_latched_ || !task_.gait_started_)
+        return false;
+    const double gait_elapsed_s = running_time_ - task_.gait_start_time_s_;
+    return gait_elapsed_s >= emergency_stop_latch_gait_time_s_ + 0.45;
+}
+
+bool TrotExperiment::EmergencyStopHoldReady() const
+{
+    if (!emergency_stop_latched_ || !task_.gait_started_)
+        return false;
+    const double gait_elapsed_s = running_time_ - task_.gait_start_time_s_;
+    // RaibertTrotKernel blends stance hold over about 0.25 s.  The extra
+    // margin lets the running trot finish that blend before changing the MPC
+    // contact horizon to four-foot support.
+    return gait_elapsed_s >= emergency_stop_latch_gait_time_s_ + 0.95;
 }
 bool TrotExperiment::ComputeWbcPrimaryActive(double &gait_elapsed_s)
 {

@@ -123,6 +123,8 @@ private:
         bool &motion_clock_paused);
     bool ComputeWbcPrimaryActive(double &gait_elapsed_s);
     bool WbcStopHoldActive() const;
+    bool EmergencyStopStanceBlendActive() const;
+    bool EmergencyStopHoldReady() const;
     bool PhaseStandUp(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseStandSettle(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseStartGait(std::array<double, go2_trot::kMotorCount> &joint_targets);
@@ -209,6 +211,9 @@ private:
     go2_control::MotionEventType last_motion_event_type_ =
         go2_control::MotionEventType::kNone;
     bool emergency_stop_latched_ = false;
+    // Let a running trot finish its support exchange before switching the
+    // MPC/WBC contact horizon to four-foot stance.
+    double emergency_stop_latch_gait_time_s_ = 0.0;
     double emergency_stop_finish_time_s_ = 0.0;
     go2_control::FirstOrderVelocityFilter velocity_filter_;
     go2_control::Vector3 latest_world_velocity_{};
