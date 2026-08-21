@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Reproducible natural-trot profile.  The optional arguments are forwarded so
-# that --view, --camera-follow, --domain-id and the run duration can be chosen
-# without changing the checked-in gait defaults.
+# Reproducible straight natural-trot baseline.  The optional arguments are
+# forwarded so --view, --camera-follow and --domain-id can vary without
+# changing the checked-in gait defaults.
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TROT_STRAIGHT_YAW_GAIN="${TROT_STRAIGHT_YAW_GAIN:-1.0}"
 wall_timeout="${1:-100}"
 experiment_name="${2:-natural_trot_$(date +%Y%m%d_%H%M%S)}"
 shift $(( $# >= 2 ? 2 : $# ))
@@ -23,15 +24,15 @@ defaults=(
   --wbc-full
   --wbc-velocity-gain 8
   --tau-limit 35
-  --period 0.28
+  --period 0.34
   --duty 0.50
-  --step-length 0.320
+  --step-length 0.340
   --foot-lift 0.120
   --kernel raibert-trot
   --raibert-velocity-gain 0.015
   --raibert-max-adjustment 0.060
-  --max-cycles 42
-  --controller-duration 40
+  --max-cycles 30
+  --controller-duration 30
   --domain-id 231
 )
 

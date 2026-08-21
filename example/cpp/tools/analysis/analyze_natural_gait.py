@@ -67,6 +67,18 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("run_dir", type=pathlib.Path)
     parser.add_argument("--min-cruise-speed", type=float, default=1.0)
+    parser.add_argument(
+        "--min-speed-p05",
+        type=float,
+        default=0.85,
+        help="minimum 5th-percentile forward speed in the cruise window",
+    )
+    parser.add_argument(
+        "--min-cycle-count",
+        type=int,
+        default=40,
+        help="minimum number of controller cycle-health records",
+    )
     parser.add_argument("--cruise-trim-start-s", type=float, default=1.0)
     parser.add_argument("--cruise-trim-end-s", type=float, default=1.5)
     args = parser.parse_args()
@@ -102,8 +114,10 @@ def main() -> int:
 
     log_text = controller_log_path.read_text(errors="replace")
     cycle_count = len(re.findall(r"Trot cycle .* health:", log_text))
-    if cycle_count < 40:
-        failures.append(f"cycle_health_count={cycle_count}<40")
+    if cycle_count < args.min_cycle_count:
+        failures.append(
+            f"cycle_health_count={cycle_count}<{args.min_cycle_count}"
+        )
     if "Trot pre-stop brake: reducing gait reference" not in log_text:
         failures.append("pre_stop_brake_not_recorded")
     if "Trot stopping; returning to stand" not in log_text:
@@ -206,8 +220,10 @@ def main() -> int:
 
     if not math.isfinite(speed_p50) or speed_p50 < args.min_cruise_speed:
         failures.append(f"speed_median={speed_p50:.4f}<{args.min_cruise_speed:.4f}")
-    if not math.isfinite(speed_p05) or speed_p05 < 0.85:
-        failures.append(f"speed_p05={speed_p05:.4f}<0.8500")
+    if not math.isfinite(speed_p05) or speed_p05 < args.min_speed_p05:
+        failures.append(
+            f"speed_p05={speed_p05:.4f}<{args.min_speed_p05:.4f}"
+        )
     if not math.isfinite(speed_p95) or speed_p95 > 1.35:
         failures.append(f"speed_p95={speed_p95:.4f}>1.3500")
     if not (0.33 <= base_z_p01 and base_z_p99 <= 0.40):

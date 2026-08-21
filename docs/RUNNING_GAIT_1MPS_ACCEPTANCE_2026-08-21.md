@@ -1,4 +1,8 @@
-# Go2 1 m/s 跑态验收（2026-08-21）
+# 历史：Go2 1 m/s 跑态验收（2026-08-21）
+
+> 当前交付跑态为 `period=0.26`、`duty=0.45`、`step=0.320`，并启用
+> WSL CPU 隔离与 MPC 航向参考。完整配置、直线指标和失败边界见
+> [`TROT_STRAIGHT_RUNNING_RELEASE_2026-08-21.md`](TROT_STRAIGHT_RUNNING_RELEASE_2026-08-21.md)。
 
 ## 结论
 

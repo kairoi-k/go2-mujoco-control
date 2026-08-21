@@ -374,10 +374,15 @@ bool TrotExperiment::ValidateCycle(int cycle_index)
 
     // 冲量模式(dynamic trot): 允许更大的腾空/对角支撑相,
     // 放宽支撑分数与低支撑容忍(动态步态天然有腾空)。
+    const double effective_duty =
+        kernel_duty_factor_ > 0.05
+            ? kernel_duty_factor_
+            : params_.duty_factor;
     const double min_support_fraction =
         params_.cartesian_world ? 0.28
-        : (params_.wbc_full ? 0.35
-                            : (params_.impulse ? 0.78 : kSafetyMinSupportFraction));
+        : (params_.wbc_full
+               ? (effective_duty < 0.48 ? 0.25 : 0.35)
+               : (params_.impulse ? 0.78 : kSafetyMinSupportFraction));
     const int max_consecutive_low_support =
         params_.wbc_full ? 250
                          : (params_.impulse ? 40 : kSafetyMaxConsecutiveLowSupport);

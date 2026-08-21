@@ -23,7 +23,16 @@ sim_headless=false
 sim_camera_follow=false
 sim_push_args=()
 sim_affinity="${TROT_CPU_AFFINITY_SIM:-}"
-ctrl_affinity="${TROT_CPU_AFFINITY_CTRL:-}" 
+ctrl_affinity="${TROT_CPU_AFFINITY_CTRL:-}"
+if [[ "${TROT_CPU_AUTOPIN:-1}" != "0" &&
+      -z "$sim_affinity" && -z "$ctrl_affinity" ]]; then
+  cpu_count="$(nproc 2>/dev/null || echo 0)"
+  if [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 4 )); then
+    # MuJoCo and the DDS controller must not compete for the same WSL core.
+    sim_affinity=2
+    ctrl_affinity=3
+  fi
+fi
 filtered_controller_args=()
 for ((i = 0; i < ${#controller_args[@]}; ++i)); do
   arg="${controller_args[$i]}"
@@ -169,6 +178,8 @@ metadata_file="$experiment_dir/run_metadata.txt"
   printf "runtime_dir=%s\n" "$runtime_dir"
   printf "headless=%s\n" "$([[ "$sim_headless" == true ]] && echo true || echo false)"
   printf "camera_follow=%s\n" "$([[ "$sim_camera_follow" == true ]] && echo true || echo false)"
+  printf "sim_cpu_affinity=%s\n" "${sim_affinity:-auto}"
+  printf "controller_cpu_affinity=%s\n" "${ctrl_affinity:-auto}"
   printf "argv=%s\n" "$*"
   printf "controller_duration_s=%s\n" "$controller_duration_s"
   printf "max_cycles_requested=%s\n" "$max_cycles_requested"

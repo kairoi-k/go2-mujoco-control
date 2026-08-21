@@ -1,4 +1,9 @@
-# 1 m/s 自然小跑验收
+# 历史：1 m/s 自然小跑验收
+
+> 当前交付入口已更新为直线稳定基线：`period=0.34`、`duty=0.50`、
+> `step=0.340`，并启用 WSL CPU 隔离与 MPC 航向参考。请以
+> [`TROT_STRAIGHT_RUNNING_RELEASE_2026-08-21.md`](TROT_STRAIGHT_RUNNING_RELEASE_2026-08-21.md)
+> 和 `analyze_straightness.py` 的结果为准；本页保留旧 0.28 s 探索证据。
 
 这条线固定在 `gait/natural-trot-1mps-2026-08-21`，不修改已经验证的
 `speed/1mps-2026-08-21` 发布基线。目标是让 1 m/s 级别的 `--wbc-full`

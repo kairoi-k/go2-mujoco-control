@@ -199,6 +199,12 @@ void TrotExperiment::UpdateWbcFull(
         mpc_params.w_vel_xy = 80.0;
         mpc_params.w_pos_xy = 20.0;
     }
+    const bool straight_line_reference =
+        params_.world_feedback && have_world_reference_ &&
+        !task_.goal_enabled_ &&
+        std::abs(params_.turn_rate_radps) < 1.0e-4 &&
+        (!motion_event_response_enabled_ ||
+         std::abs(motion_reference_.yaw_rate_radps) < 1.0e-4);
     const bool run_mpc =
         (wbc_full_ticks_ % (params_.cartesian_world ? 10 : 25)) == 0 ||
         !last_srbd_.ok;
@@ -268,6 +274,18 @@ void TrotExperiment::UpdateWbcFull(
         }
         else
         {
+            if (straight_line_reference)
+            {
+                const double yaw_error = WrapAngle(
+                    yaw - world_reference_yaw_rad_);
+                mpc_in.reference[2] = world_reference_yaw_rad_;
+                mpc_in.reference[4] = world_reference_y_m_;
+                const double straight_yaw_gain = std::clamp(
+                    Full2EnvDouble("TROT_STRAIGHT_YAW_GAIN", 2.0),
+                    0.0, 5.0);
+                mpc_in.reference[8] = Clamp(
+                    -straight_yaw_gain * yaw_error, -0.30, 0.30);
+            }
             double v_ref = v_cmd;
             if (task_.goal_enabled_ && !task_.reached_goal_)
             {
