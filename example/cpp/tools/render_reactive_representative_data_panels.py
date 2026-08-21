@@ -53,7 +53,10 @@ def bounds(*series: np.ndarray, minimum_span: float) -> tuple[float, float]:
         return -minimum_span, minimum_span
     low, high = float(values.min()), float(values.max())
     center = (low + high) / 2.0
-    span = max((high - low) * 0.20, minimum_span)
+    # `span` is measured from the center, so 20% of the full range was too
+    # small for sprint traces and clipped the actual peak above the axes.
+    # Keep a 20% margin around the complete data range instead.
+    span = max((high - low) * 0.60, minimum_span)
     return center - span, center + span
 
 

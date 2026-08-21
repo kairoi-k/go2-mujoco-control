@@ -16,6 +16,7 @@ enum class GaitPattern
 {
     kDiagonalTrot,
     kBound,
+    kPace,
     kGallop,
 };
 
@@ -27,6 +28,8 @@ inline const char *GaitPatternName(GaitPattern pattern) noexcept
         return "bound";
     case GaitPattern::kGallop:
         return "gallop";
+    case GaitPattern::kPace:
+        return "pace";
     case GaitPattern::kDiagonalTrot:
     default:
         return "diagonal-trot";
@@ -48,6 +51,11 @@ inline bool ParseGaitPattern(
     if (value == "bound")
     {
         pattern = GaitPattern::kBound;
+        return true;
+    }
+    if (value == "pace")
+    {
+        pattern = GaitPattern::kPace;
         return true;
     }
     if (value == "gallop")
@@ -72,12 +80,20 @@ inline double GaitLegPhase(
     GaitPattern pattern = GaitPattern::kDiagonalTrot) noexcept
 {
     static constexpr std::array<double, 4> kDiagonal = {0.0, 0.5, 0.5, 0.0};
-    static constexpr std::array<double, 4> kBound = {0.0, 0.0, 0.5, 0.5};
-    static constexpr std::array<double, 4> kGallop = {0.25, 0.25, 0.0, 0.0};
+    // Slight overlap between front and rear support pairs prevents a
+    // low-duty bound from losing all vertical support at the hand-off.
+    static constexpr std::array<double, 4> kBound = {0.0, 0.0, 0.42, 0.42};
+    static constexpr std::array<double, 4> kPace = {0.0, 0.5, 0.0, 0.5};
+    // True four-beat rotary gallop: right hind -> left hind -> right
+    // fore -> left fore.  Leg order is FR, FL, RR, RL, so the rear pair
+    // leads the fore pair by half a cycle while each side is staggered.
+    static constexpr std::array<double, 4> kGallop = {0.50, 0.62, 0.0, 0.12};
     const auto &offsets =
         pattern == GaitPattern::kBound
             ? kBound
-            : (pattern == GaitPattern::kGallop ? kGallop : kDiagonal);
+            : (pattern == GaitPattern::kPace
+                   ? kPace
+                   : (pattern == GaitPattern::kGallop ? kGallop : kDiagonal));
     return WrapUnitPhase(phase + offsets[leg % offsets.size()]);
 }
 
@@ -98,6 +114,9 @@ struct GaitKernelParams
     double direction_sign = 1.0;
     double foot_lift_m = 0.05;
     double blend_duration_s = 0.8;
+    // Negative keeps the pattern default. Near one spreads swing motion over
+    // the full flight window for low-duty running.
+    double swing_reach_phase = -1.0;
     GaitPattern pattern = GaitPattern::kDiagonalTrot;
 };
 
@@ -144,6 +163,8 @@ public:
     virtual void SetGaitPeriod(double) {}
     virtual void SetGaitDuty(double) {}
     virtual void SetGaitFootLift(double) {}
+    virtual void SetGaitSwingReachPhase(double) {}
+    virtual void SetGaitEffectiveSpeedConvention(bool) {}
     virtual void SetGaitSlewLimits(double, double, double) {}
     virtual void SetStanceHold(bool, double) {}
 };
@@ -180,6 +201,12 @@ public:
     {
         if (lift_m >= 0.0 && std::isfinite(lift_m))
             params_.foot_lift_m = lift_m;
+    }
+
+    void SetGaitSwingReachPhase(double phase) override
+    {
+        if (phase >= 0.5 && phase <= 1.0 && std::isfinite(phase))
+            params_.swing_reach_phase = phase;
     }
     void SetStanceHold(bool hold, double gait_time_s) override
     {

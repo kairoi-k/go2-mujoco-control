@@ -122,6 +122,7 @@ private:
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
         bool &motion_clock_paused);
     bool ComputeWbcPrimaryActive(double &gait_elapsed_s);
+    bool HighSpeedStopBrakeEnabled() const;
     bool WbcStopHoldActive() const;
     bool EmergencyStopStanceBlendActive() const;
     bool EmergencyStopHoldReady() const;
@@ -188,6 +189,23 @@ private:
     double stop_brake_start_time_s_ = 0.0;
     double stop_brake_base_step_m_ = 0.0;
     static constexpr double kStopBrakeDurationS = 0.80;
+    // Keep a high-speed stop inside the locomotion/WBC plant before the
+    // legacy joint-target return-to-stand interpolation is allowed to run.
+    bool high_speed_stop_brake_active_ = false;
+    double high_speed_stop_brake_start_time_s_ = 0.0;
+    double high_speed_stop_brake_base_speed_mps_ = 0.0;
+    double high_speed_stop_brake_base_period_s_ = 0.22;
+    double high_speed_stop_brake_base_duty_ = 0.44;
+    bool high_speed_stop_hold_active_ = false;
+    double high_speed_stop_hold_start_time_s_ = 0.0;
+    std::array<double, go2_trot::kMotorCount>
+        high_speed_stop_hold_targets_{};
+    bool have_high_speed_stop_hold_targets_ = false;
+    double high_speed_stop_speed_candidate_start_s_ = -1.0;
+    static constexpr double kHighSpeedStopBrakeDurationS = 2.00;
+    // Keep the ID-WBC four-contact hold alive long enough for the body and
+    // contact forces to settle before ending the bounded sprint process.
+    static constexpr double kHighSpeedStopHoldDurationS = 2.00;
     bool have_previous_joint_targets_ = false;
 
     const double dt_ = go2_trot::kDt;
@@ -227,7 +245,9 @@ private:
     bool have_body_acceleration_ = false;
     double velocity_filter_alpha_ = 0.0;
     std::array<go2::Vec3, go2::kLegCount> commanded_body_feet_{};
+    std::array<go2::Vec3, go2::kLegCount> commanded_body_feet_velocity_{};
     bool have_commanded_body_feet_ = false;
+    bool have_commanded_body_feet_velocity_ = false;
     std::array<go2::Vec3, go2::kLegCount> commanded_world_feet_{};
     bool have_commanded_world_feet_ = false;
     std::array<go2::Vec3, go2::kLegCount> previous_support_foot_world_{};

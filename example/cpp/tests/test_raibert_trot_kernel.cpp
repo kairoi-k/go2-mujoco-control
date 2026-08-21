@@ -4,6 +4,7 @@
 #include <limits>
 
 #include "raibert_trot_kernel.h"
+#include "locomotion_kernel.h"
 
 namespace
 {
@@ -11,6 +12,21 @@ namespace
 bool Near(double actual, double expected, double tolerance = 1e-10)
 {
     return std::abs(actual - expected) <= tolerance;
+}
+
+bool CheckPacePattern()
+{
+    go2_control::GaitPattern pattern =
+        go2_control::GaitPattern::kDiagonalTrot;
+    if (!go2_control::ParseGaitPattern("pace", pattern) ||
+        pattern != go2_control::GaitPattern::kPace)
+    {
+        return false;
+    }
+    return Near(go2_control::GaitLegPhase(0.0, 0.0, pattern), 0.0) &&
+           Near(go2_control::GaitLegPhase(2.0, 0.0, pattern), 0.0) &&
+           Near(go2_control::GaitLegPhase(1.0, 0.0, pattern), 0.5) &&
+           Near(go2_control::GaitLegPhase(3.0, 0.0, pattern), 0.5);
 }
 go2_control::GaitKernelRequest Request(
     double time_s,
@@ -214,6 +230,7 @@ bool CheckSpeedAdaptiveStanceUsesMeasuredTravel()
 int main()
 {
     if (!CheckTargetIsFrozenWithinLegCycle() ||
+        !CheckPacePattern() ||
         !CheckCycleBoundaryIsContinuous() ||
         !CheckGearShiftPhaseContinuity() ||
         !CheckResetAndInvalidInput() ||

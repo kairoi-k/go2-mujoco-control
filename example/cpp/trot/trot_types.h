@@ -195,7 +195,8 @@ inline std::unique_ptr<go2_control::LocomotionKernel> CreateLocomotionKernel(
     const go2_control::GaitKernelParams gait_params{
         params.period_s, params.duty_factor,
         params.step_length_m, params.direction_sign,
-        params.foot_lift_m, kGaitBlendDuration, params.gait_pattern};
+        params.foot_lift_m, kGaitBlendDuration, -1.0,
+        params.gait_pattern};
     if (params.kernel_name == "raibert-trot")
     {
         return std::make_unique<go2_control::RaibertTrotKernel>(
@@ -263,6 +264,11 @@ struct WbcShadowDiagnostics
     bool within_budget = true;
     double max_abs_tau = 0.0;
     bool srbd_ok = false;
+    double full_velocity_target_x_mps = 0.0;
+    double full_requested_acc_x_mps2 = 0.0;
+    double full_srbd_acc_x_mps2 = 0.0;
+    double full_id_qdd_x_mps2 = 0.0;
+    double full_id_contact_force_x_n = 0.0;
     bool id_wbc_ok = false;
     double id_eq_residual = 0.0;
     int feedforward_gate_code =

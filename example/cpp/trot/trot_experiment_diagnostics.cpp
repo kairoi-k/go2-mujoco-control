@@ -11,6 +11,7 @@
 
 #include "contact_wrench_projected_allocator.h"
 #include "contact_state_filter.h"
+#include "full2_campaign_env.h"
 #include "go2_contact_torque_mapping.h"
 #include "go2_inverse_kinematics.h"
 #include "motion_frame_utils.h"
@@ -72,7 +73,10 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_shadow_feedforward_gate_code"
          << ",wbc_shadow_feedforward_gate_reason"
          << ",wbc_shadow_feedforward_max_abs_tau"
-         << ",wbc_full_srbd_ok,wbc_full_id_ok,wbc_full_eq_residual";
+         << ",wbc_full_srbd_ok,wbc_full_id_ok,wbc_full_eq_residual"
+         << ",wbc_full_velocity_target_x_mps,wbc_full_requested_acc_x_mps2"
+         << ",wbc_full_srbd_acc_x_mps2,wbc_full_id_qdd_x_mps2"
+         << ",wbc_full_id_contact_force_x_n";
     for (int i = 0; i < kMotorCount; ++i)
     {
         csv_ << "," << kMotorNames[i] << "_q_target"
@@ -401,6 +405,12 @@ bool TrotExperiment::ValidateCycle(int cycle_index)
         support_fraction >= min_support_fraction &&
         cycle_diagnostics_.max_consecutive_low_support_samples <=
             max_consecutive_low_support;
+    if (!safe && Full2EnvDouble("TROT_EXPLORATORY_CONTINUE", 0.0) > 0.5)
+    {
+        std::cerr << "Trot exploratory continuation: cycle quality rejected "
+                  << cycle_index << " (hard limits remain active)\n";
+        return true;
+    }
     if (!safe)
     {
         std::cerr << "Trot cycle quality guard rejected cycle "
@@ -634,7 +644,12 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.feedforward_max_abs_tau
          << "," << (wbc_shadow_diagnostics_.srbd_ok ? 1 : 0)
          << "," << (wbc_shadow_diagnostics_.id_wbc_ok ? 1 : 0)
-         << "," << wbc_shadow_diagnostics_.id_eq_residual;
+         << "," << wbc_shadow_diagnostics_.id_eq_residual
+         << "," << wbc_shadow_diagnostics_.full_velocity_target_x_mps
+         << "," << wbc_shadow_diagnostics_.full_requested_acc_x_mps2
+         << "," << wbc_shadow_diagnostics_.full_srbd_acc_x_mps2
+         << "," << wbc_shadow_diagnostics_.full_id_qdd_x_mps2
+         << "," << wbc_shadow_diagnostics_.full_id_contact_force_x_n;
 
     // SECTION: log-joint-cmds (cmd vs state per joint)
     for (int i = 0; i < kMotorCount; ++i)

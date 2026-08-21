@@ -62,6 +62,37 @@ Eigen::Vector3d ClampVec3(const Eigen::Vector3d &v, double lim)
     return out;
 }
 
+// The nominal gait phase is only a prediction.  At sprint cadence a foot can
+// touch down a few milliseconds early/late, so a QP contact set made solely
+// from the phase can ask ID-WBC to support a leg that is in flight, or to swing
+// a leg that is already carrying load.  Keep this opt-in for experiments: use
+// the hysteretic force state when it is trustworthy, but retain scheduled
+// contacts until at least a diagonal pair is available so a noisy force sample
+// cannot make the floating-base problem underconstrained.
+std::array<bool, go2::kLegCount> MergeHighSpeedContact(
+    const std::array<bool, go2::kLegCount> &scheduled,
+    const std::array<bool, go2::kLegCount> &measured,
+    bool enabled)
+{
+    if (!enabled)
+        return scheduled;
+    std::array<bool, go2::kLegCount> merged = measured;
+    int active = 0;
+    for (bool contact : merged)
+        active += contact ? 1 : 0;
+    if (active < 2)
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount && active < 2; ++leg)
+        {
+            if (!scheduled[leg] || merged[leg])
+                continue;
+            merged[leg] = true;
+            ++active;
+        }
+    }
+    return merged;
+}
+
 }  // namespace
 
 void TrotExperiment::UpdateWbcFull(
@@ -81,6 +112,11 @@ void TrotExperiment::UpdateWbcFull(
     const double v_body = have_filtered_body_velocity_
         ? std::abs(latest_filtered_body_velocity_[0])
         : 0.0;
+    const bool high_speed_curriculum =
+        Full2EnvDouble("TROT_HS_DISABLE", 0.0) <= 0.5 &&
+        (params_.gait_pattern != go2_control::GaitPattern::kDiagonalTrot ||
+         std::abs(wbc_speed_cmd_mps_) > 1.25 ||
+         std::abs(kernel_nominal_velocity_x_mps_) > 1.25);
     const double cycle_lock = params_.cartesian_world
         ? Smoothstep((static_cast<double>(completed_cycles_) - 8.0) / 8.0)
         : Smoothstep((static_cast<double>(completed_cycles_) - 24.0) / 20.0);
@@ -140,17 +176,27 @@ void TrotExperiment::UpdateWbcFull(
         wbc_shadow_contact_state_[leg] = next_contact;
         measured_contact[leg] = next_contact;
     }
-    // During trot the force sensors stay high through lift-off, so measured
-    // 3/4-contact at a scheduled diagonal. The QP uses the gait schedule.
+    const bool high_speed_contact_merge =
+        high_speed_curriculum &&
+        Full2EnvDouble("TROT_HS_HYBRID_CONTACT", 0.0) > 0.5;
+    // During ordinary trot the force sensors stay high through lift-off, so
+    // the validated path uses the gait schedule.  Sprint experiments may opt
+    // into a measured/scheduled merge to absorb early or late touchdown.
     std::array<bool, go2::kLegCount> qp_contact = measured_contact;
     const double gait_period =
         kernel_period_s_ > 0.05 ? kernel_period_s_ : params_.period_s;
     const double gait_duty =
         kernel_duty_factor_ > 0.05 ? kernel_duty_factor_ : params_.duty_factor;
+    // During the brake, keep the scheduled running contacts.  The body is
+    // still carrying sprint momentum, so declaring all four feet fixed after
+    // an arbitrary 0.40 s creates the same hidden plant switch we are trying
+    // to avoid.  The brake-complete gate promotes this to a four-contact WBC
+    // hold only once measured speed and attitude are both safe.
+    const bool high_speed_stop_support = high_speed_stop_hold_active_;
     if (task_.gait_started_ &&
         (task_.motion_stage_ == 2 || WbcStopHoldActive()))
     {
-        if (WbcStopHoldActive())
+        if (WbcStopHoldActive() || high_speed_stop_support)
             qp_contact.fill(true);
         else if (motion_event_response_enabled_ && EmergencyStopHoldReady())
             qp_contact.fill(true);
@@ -161,7 +207,8 @@ void TrotExperiment::UpdateWbcFull(
             go2_control::FillTrotContactSchedulePhase(
                 current_phase_, gait_period, gait_duty, 1, 0.0, scheduled,
                 params_.gait_pattern);
-            qp_contact = scheduled[0];
+            qp_contact = MergeHighSpeedContact(
+                scheduled[0], measured_contact, high_speed_contact_merge);
         }
     }
     int contact_mask = 0;
@@ -200,15 +247,41 @@ void TrotExperiment::UpdateWbcFull(
         mpc_params.w_vel_xy = 80.0;
         mpc_params.w_pos_xy = 20.0;
     }
+    if (high_speed_curriculum)
+    {
+        // The ordinary trot weights are intentionally conservative.  Keep
+        // the release defaults unchanged, but allow a sprint campaign to
+        // make the preview layer value velocity tracking enough to request
+        // the reaction force needed for a real acceleration, rather than
+        // leaving the whole burden to the one-step ID-WBC task.
+        const double hs_mpc_w_vel = Full2EnvDouble(
+            "TROT_HS_MPC_W_VEL", -1.0);
+        const double hs_mpc_w_force_xy = Full2EnvDouble(
+            "TROT_HS_MPC_W_FORCE_XY", -1.0);
+        const double hs_mpc_w_ori = Full2EnvDouble(
+            "TROT_HS_MPC_W_ORI", -1.0);
+        if (hs_mpc_w_vel > 0.0)
+            mpc_params.w_vel_xy = hs_mpc_w_vel;
+        if (hs_mpc_w_force_xy >= 0.0)
+            mpc_params.w_force_trot_xy = hs_mpc_w_force_xy;
+        if (hs_mpc_w_ori > 0.0)
+            mpc_params.w_ori = hs_mpc_w_ori;
+    }
     const bool straight_line_reference =
         params_.world_feedback && have_world_reference_ &&
         !task_.goal_enabled_ &&
         std::abs(params_.turn_rate_radps) < 1.0e-4 &&
         (!motion_event_response_enabled_ ||
          std::abs(motion_reference_.yaw_rate_radps) < 1.0e-4);
+    // At the validated trot cadence, 20 Hz MPC is sufficient.  A sprint
+    // cycle can be shorter than that 50 ms hold, so reuse of the old SRBD
+    // force plan becomes a visible phase lag.  Refresh at 100 Hz for the
+    // high-speed plant while keeping the established rates elsewhere.
+    const int mpc_period_ticks = high_speed_curriculum
+        ? 5
+        : (params_.cartesian_world ? 10 : 25);
     const bool run_mpc =
-        (wbc_full_ticks_ % (params_.cartesian_world ? 10 : 25)) == 0 ||
-        !last_srbd_.ok;
+        (wbc_full_ticks_ % mpc_period_ticks) == 0 || !last_srbd_.ok;
     if (run_mpc)
     {
         go2_control::SrbdMpcInput mpc_in;
@@ -228,7 +301,14 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.reference[0] = 0.0;
         mpc_in.reference[1] = 0.0;
         mpc_in.reference[4] = 0.0;
-        mpc_in.reference[5] = kWbcPrimaryBaseHeightM;
+        const double base_height_ref =
+            (high_speed_curriculum &&
+             Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0) > 0.0)
+                ? std::clamp(
+                      Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0),
+                      0.32, 0.48)
+                : kWbcPrimaryBaseHeightM;
+        mpc_in.reference[5] = base_height_ref;
         mpc_in.reference[6] = 0.0;
         mpc_in.reference[7] = 0.0;
         mpc_in.reference[8] = motion_event_response_enabled_
@@ -317,17 +397,21 @@ void TrotExperiment::UpdateWbcFull(
         if (task_.gait_started_ &&
             (task_.motion_stage_ == 2 || WbcStopHoldActive()))
         {
-            if (WbcStopHoldActive())
+            if (WbcStopHoldActive() || high_speed_stop_support)
                 for (int k = 0; k < mpc_params.horizon; ++k)
                     mpc_in.contact[k].fill(true);
             else if (motion_event_response_enabled_ && EmergencyStopHoldReady())
                 for (int k = 0; k < mpc_params.horizon; ++k)
                     mpc_in.contact[k].fill(true);
             else
+            {
                 go2_control::FillTrotContactSchedulePhase(
-                current_phase_, gait_period, gait_duty,
-                mpc_params.horizon, mpc_params.dt_s, mpc_in.contact,
-                params_.gait_pattern);
+                    current_phase_, gait_period, gait_duty,
+                    mpc_params.horizon, mpc_params.dt_s, mpc_in.contact,
+                    params_.gait_pattern);
+                if (high_speed_contact_merge && mpc_params.horizon > 0)
+                    mpc_in.contact[0] = qp_contact;
+            }
         }
         else
         {
@@ -347,6 +431,8 @@ void TrotExperiment::UpdateWbcFull(
     if (last_srbd_.ok)
     {
         wbc_in.desired_linear_acc_world = last_srbd_.first_linear_acc;
+        wbc_shadow_diagnostics_.full_srbd_acc_x_mps2 =
+            last_srbd_.first_linear_acc.x();
         const Eigen::Quaterniond quat(
             state_snapshot.imu_state().quaternion()[0],
             state_snapshot.imu_state().quaternion()[1],
@@ -355,9 +441,93 @@ void TrotExperiment::UpdateWbcFull(
         wbc_in.desired_angular_acc_body =
             quat.normalized().toRotationMatrix().transpose() *
             last_srbd_.first_angular_acc;
+        if (high_speed_curriculum &&
+            Full2EnvDouble("TROT_HS_USE_LEAN", 1.0) > 0.5 &&
+            task_.motion_stage_ == 2 && task_.gait_started_ &&
+            !task_.stop_requested_ && !motion_event_response_enabled_)
+        {
+            // ID-WBC returns before the legacy wrench path below, so the
+            // sprint lean must be expressed directly in its angular-
+            // acceleration task. A small forward pitch lets the contact
+            // forces create propulsion without an unbounded torque overlay.
+            double pitch_ref = Clamp(
+                0.035 + 0.040 * std::max(
+                    0.0, std::abs(wbc_speed_cmd_mps_) - 0.50),
+                0.035, 0.14);
+            const double pitch_ref_override = Full2EnvDouble(
+                "TROT_HS_PITCH_REF", -1.0);
+            if (pitch_ref_override >= 0.0)
+                pitch_ref = Clamp(pitch_ref_override, 0.0, 0.35);
+            const double pitch = static_cast<double>(
+                state_snapshot.imu_state().rpy()[1]);
+            const double gyro_y = static_cast<double>(
+                state_snapshot.imu_state().gyroscope()[1]);
+            const double pitch_gain = std::max(
+                0.0, Full2EnvDouble("TROT_HS_PITCH_GAIN", 12.0));
+            const double pitch_damp = std::max(
+                0.0, Full2EnvDouble("TROT_HS_PITCH_DAMP", 2.0));
+            const double pitch_acc_limit = std::clamp(
+                Full2EnvDouble("TROT_HS_PITCH_ACC_LIMIT", 4.0),
+                0.5, 8.0);
+            wbc_in.desired_angular_acc_body.y() = Clamp(
+                pitch_gain * (pitch_ref - pitch) - pitch_damp * gyro_y,
+                -pitch_acc_limit, pitch_acc_limit);
+            const double roll_gain = std::max(
+                0.0, Full2EnvDouble("TROT_HS_ROLL_GAIN", 0.0));
+            const double roll_damp = std::max(
+                0.0, Full2EnvDouble("TROT_HS_ROLL_DAMP", 6.0));
+            const double roll_acc_limit = std::clamp(
+                Full2EnvDouble("TROT_HS_ROLL_ACC_LIMIT", 8.0),
+                1.0, 12.0);
+            const double roll = static_cast<double>(
+                state_snapshot.imu_state().rpy()[0]);
+            const double gyro_x = static_cast<double>(
+                state_snapshot.imu_state().gyroscope()[0]);
+            wbc_in.desired_angular_acc_body.x() = Clamp(
+                -roll_gain * roll - roll_damp * gyro_x,
+                -roll_acc_limit, roll_acc_limit);
+        }
+        // At sprint speed the acceleration task alone can be satisfied by
+        // redistributing qdd into the floating base while the contact-force
+        // solution quietly loses its forward component. Keep the MPC GRF as
+        // an optional, explicitly weighted reference for this experiment.
+        if (high_speed_curriculum &&
+            Full2EnvDouble("TROT_HS_FORCE_TRACK", 0.0) > 0.0 &&
+            task_.motion_stage_ == 2 && task_.gait_started_ &&
+            !task_.stop_requested_ && !motion_event_response_enabled_)
+        {
+            wbc_in.have_force_ref = true;
+            wbc_in.force_ref = last_srbd_.first_force;
+        }
+        if (high_speed_curriculum &&
+            Full2EnvDouble("TROT_HS_USE_VEL_TASK", 1.0) > 0.5 &&
+            task_.motion_stage_ == 2 &&
+            task_.gait_started_ &&
+            !task_.stop_requested_ &&
+            !motion_event_response_enabled_ &&
+            have_filtered_body_velocity_)
+        {
+            // The preview MPC remains the posture/contact planner, but at
+            // sprint speeds the ID-WBC needs an explicit velocity task in
+            // the same acceleration space to actually generate propulsion.
+            const double target_vx =
+                std::isfinite(kernel_nominal_velocity_x_mps_)
+                    ? kernel_nominal_velocity_x_mps_
+                    : params_.direction_sign * params_.step_length_m /
+                          params_.period_s;
+            const double velocity_error =
+                target_vx - latest_filtered_body_velocity_[0];
+            const double speed_acc = Clamp(
+                Full2EnvDouble("TROT_HS_ACC_GAIN", 8.0) * velocity_error,
+                -Full2EnvDouble("TROT_HS_ACC_LIMIT", 3.0),
+                Full2EnvDouble("TROT_HS_ACC_LIMIT", 3.0));
+            wbc_shadow_diagnostics_.full_velocity_target_x_mps = target_vx;
+            wbc_in.desired_linear_acc_world.x() = speed_acc;
+        }
         const bool stop_balance =
             EmergencyStopHoldReady() ||
-            WbcStopHoldActive();
+            WbcStopHoldActive() ||
+            high_speed_stop_brake_active_;
         if (stop_balance)
         {
             // The short emergency-stop window is a four-contact balance
@@ -522,6 +692,29 @@ void TrotExperiment::UpdateWbcFull(
                         commanded_body_feet_[leg].y,
                         commanded_body_feet_[leg].z);
             Eigen::Vector3d v_des = Eigen::Vector3d::Zero();
+            if (have_commanded_body_feet_velocity_ &&
+                !params_.cartesian_world)
+            {
+                const Eigen::Vector3d omega_body(
+                    state_snapshot.imu_state().gyroscope()[0],
+                    state_snapshot.imu_state().gyroscope()[1],
+                    state_snapshot.imu_state().gyroscope()[2]);
+                const Eigen::Vector3d r_body(
+                    commanded_body_feet_[leg].x,
+                    commanded_body_feet_[leg].y,
+                    commanded_body_feet_[leg].z);
+                const Eigen::Vector3d rel_v_body(
+                    commanded_body_feet_velocity_[leg].x,
+                    commanded_body_feet_velocity_[leg].y,
+                    commanded_body_feet_velocity_[leg].z);
+                // Swing tracking must carry the reference velocity.  A
+                // zero v_des makes the WBC fight a fast foot trajectory with
+                // pure damping, which is the dominant error at sprint speed.
+                v_des = ClampVec3(
+                    linear_vel_world + R *
+                        (omega_body.cross(r_body) + rel_v_body),
+                    12.0);
+            }
             if (params_.cartesian_world && have_commanded_world_feet_)
             {
                 p_des = Eigen::Vector3d(
@@ -548,12 +741,18 @@ void TrotExperiment::UpdateWbcFull(
     const int n_contact =
         (qp_contact[0] ? 1 : 0) + (qp_contact[1] ? 1 : 0) +
         (qp_contact[2] ? 1 : 0) + (qp_contact[3] ? 1 : 0);
-        id_params.w_stance_no_slip =
-            params_.cartesian_world ? (50.0 + 90.0 * cart_lock) : 8.0;
+    id_params.w_stance_no_slip =
+        params_.cartesian_world ? (50.0 + 90.0 * cart_lock) : 8.0;
+    const double w_no_slip_x_ov = Full2EnvDouble("FULL2_WX_X", -1.0);
+    if (w_no_slip_x_ov >= 0.0)
+        id_params.w_stance_no_slip_x = w_no_slip_x_ov;
     id_params.w_base_lin = params_.cartesian_world ? 80.0 : 80.0;
     const double w_lin_ov = Full2EnvDouble("FULL2_W_LIN", -1.0);
     if (w_lin_ov > 0.0)
         id_params.w_base_lin = w_lin_ov;
+    const double w_lin_x_ov = Full2EnvDouble("FULL2_W_LIN_X", -1.0);
+    if (w_lin_x_ov >= 0.0)
+        id_params.w_base_lin_x = w_lin_x_ov;
     id_params.w_base_ang = params_.cartesian_world
         ? (80.0 + 30.0 * cart_lock)
         : 40.0;
@@ -564,6 +763,13 @@ void TrotExperiment::UpdateWbcFull(
     const double w_sw_ov = Full2EnvDouble("FULL2_W_SWING", -1.0);
     if (w_sw_ov > 0.0)
         id_params.w_swing = w_sw_ov;
+    const double w_sw_x_ov = Full2EnvDouble("FULL2_W_SWING_X", -1.0);
+    if (w_sw_x_ov >= 0.0)
+        id_params.w_swing_x = w_sw_x_ov;
+    const double force_track_ov = Full2EnvDouble(
+        "TROT_HS_FORCE_TRACK", 0.0);
+    if (high_speed_curriculum && force_track_ov > 0.0)
+        id_params.w_force_track = std::clamp(force_track_ov, 0.0, 1.0);
     id_params.tau_limit_nm = 35.0;
     const double tau_ov = Full2EnvDouble("FULL2_TAU", -1.0);
     if (tau_ov > 0.0)
@@ -574,9 +780,6 @@ void TrotExperiment::UpdateWbcFull(
         // and freeze wx-open both produced either a 0.33 sit or a
         // one-cycle 0.40 then roll (152821/161952).
         id_params.hard_stance_no_slip = false;
-        const double wx_x = Full2EnvDouble("FULL2_WX_X", -1.0);
-        if (wx_x >= 0.0)
-            id_params.w_stance_no_slip_x = wx_x;
         id_params.w_force = 1.0e-6;
         id_params.w_force_track = cart_lock * 0.008;
         if (last_srbd_.ok)
@@ -607,6 +810,139 @@ void TrotExperiment::UpdateWbcFull(
     else
     {
         return;
+    }
+
+    // Sprint-only pitch moment trim.  The ID-WBC task can lose the small
+    // front/rear normal-force split needed to hold the torso while the
+    // diagonal pair is accelerating.  Redistribute a bounded amount of
+    // normal force between the active front and rear feet; total support
+    // force is unchanged, and the QP torque limits remain the final gate.
+    if (high_speed_curriculum && task_.motion_stage_ == 2 &&
+        task_.gait_started_ && !task_.stop_requested_)
+    {
+        const double force_diff_max = std::clamp(
+            Full2EnvDouble("TROT_HS_PITCH_FORCE_DIFF_MAX", 0.0),
+            0.0, 30.0);
+        if (force_diff_max > 0.0)
+        {
+            const double pitch_ref = std::clamp(
+                Full2EnvDouble("TROT_HS_PITCH_REF", 0.0), -0.30, 0.30);
+            const double pitch = static_cast<double>(
+                state_snapshot.imu_state().rpy()[1]);
+            const double gyro_y = static_cast<double>(
+                state_snapshot.imu_state().gyroscope()[1]);
+            const double gain = std::max(
+                0.0, Full2EnvDouble("TROT_HS_PITCH_FORCE_DIFF_GAIN", 24.0));
+            const double damp = std::max(
+                0.0, Full2EnvDouble("TROT_HS_PITCH_FORCE_DIFF_DAMP", 2.0));
+            double diff = std::clamp(
+                gain * (pitch - pitch_ref) + damp * gyro_y,
+                -force_diff_max, force_diff_max);
+            std::array<int, 2> front{};
+            std::array<int, 2> rear{};
+            int n_front = 0;
+            int n_rear = 0;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                if (!qp_contact[leg])
+                    continue;
+                if (leg < 2)
+                    front[n_front++] = static_cast<int>(leg);
+                else
+                    rear[n_rear++] = static_cast<int>(leg);
+            }
+            if (n_front > 0 && n_rear > 0 && std::abs(diff) > 1.0e-9)
+            {
+                const double front_share = diff / n_front;
+                const double rear_share = -diff / n_rear;
+                double scale = 1.0;
+                for (int i = 0; i < n_front; ++i)
+                {
+                    const int leg = front[i];
+                    const double fz = wbc_out.force[3 * leg + 2];
+                    if (front_share > 0.0)
+                        scale = std::min(scale, (180.0 - fz) /
+                                                     std::max(front_share, 1.0e-9));
+                    else
+                        scale = std::min(scale, (fz - 2.0) /
+                                                     std::max(-front_share, 1.0e-9));
+                }
+                for (int i = 0; i < n_rear; ++i)
+                {
+                    const int leg = rear[i];
+                    const double fz = wbc_out.force[3 * leg + 2];
+                    if (rear_share > 0.0)
+                        scale = std::min(scale, (180.0 - fz) /
+                                                     std::max(rear_share, 1.0e-9));
+                    else
+                        scale = std::min(scale, (fz - 2.0) /
+                                                     std::max(-rear_share, 1.0e-9));
+                }
+                scale = std::clamp(scale, 0.0, 1.0);
+                for (int i = 0; i < n_front; ++i)
+                {
+                    const int leg = front[i];
+                    Eigen::Vector3d delta = Eigen::Vector3d::Zero();
+                    delta.z() = scale * front_share;
+                    wbc_out.tau -=
+                        dyn.foot_jac_world[leg].rightCols<12>().transpose() * delta;
+                    wbc_out.force.segment<3>(3 * leg) += delta;
+                }
+                for (int i = 0; i < n_rear; ++i)
+                {
+                    const int leg = rear[i];
+                    Eigen::Vector3d delta = Eigen::Vector3d::Zero();
+                    delta.z() = scale * rear_share;
+                    wbc_out.tau -=
+                        dyn.foot_jac_world[leg].rightCols<12>().transpose() * delta;
+                    wbc_out.force.segment<3>(3 * leg) += delta;
+                }
+            }
+        }
+    }
+
+    // Optional sprint-only propulsion bias.  The regular ID-WBC solution
+    // can spend its horizontal wrench budget on the swing-foot task when the
+    // commanded speed is high.  Keep this disabled by default; when enabled
+    // it adds a bounded, contact-distributed J^T f term so experiments can
+    // distinguish a propulsion bottleneck from a foot-placement bottleneck.
+    if (!params_.impulse && high_speed_curriculum &&
+        have_filtered_body_velocity_ && task_.gait_started_ &&
+        task_.motion_stage_ == 2 && !task_.stop_requested_)
+    {
+        const double force_max = Full2EnvDouble(
+            "TROT_HS_DIRECT_FORCE_MAX", 0.0);
+        if (force_max > 0.0)
+        {
+            const double target_v =
+                std::isfinite(kernel_nominal_velocity_x_mps_)
+                    ? kernel_nominal_velocity_x_mps_
+                    : params_.direction_sign * params_.step_length_m /
+                          params_.period_s;
+            const double gain = std::max(
+                0.0, Full2EnvDouble("TROT_HS_DIRECT_FORCE_GAIN", 0.0));
+            const double push = std::clamp(
+                gain * (target_v - latest_filtered_body_velocity_[0]),
+                -force_max, force_max);
+            if (std::abs(push) > 1.0e-9 && active > 0)
+            {
+                const double per_contact = push / static_cast<double>(active);
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                {
+                    if (!qp_contact[leg])
+                        continue;
+                    Eigen::Vector3d f = Eigen::Vector3d::Zero();
+                    f.x() = per_contact;
+                    // In the inverse-dynamics convention used above,
+                    // tau = Mj*qdd + h_j - J_j^T*f.  A forward ground-force
+                    // overlay therefore enters with the same minus sign;
+                    // adding J^T*f would command a backward push.
+                    wbc_out.tau -=
+                        dyn.foot_jac_world[leg].rightCols<12>().transpose() * f;
+                    wbc_out.force.segment<3>(3 * static_cast<int>(leg)) += f;
+                }
+            }
+        }
     }
 
     if (params_.cartesian_world && have_commanded_world_feet_ &&
@@ -642,6 +978,13 @@ void TrotExperiment::UpdateWbcFull(
     }
 
     wbc_shadow_diagnostics_.solver_ok = true;
+    wbc_shadow_diagnostics_.full_requested_acc_x_mps2 =
+        wbc_in.desired_linear_acc_world.x();
+    wbc_shadow_diagnostics_.full_id_qdd_x_mps2 = wbc_out.qdd[0];
+    wbc_shadow_diagnostics_.full_id_contact_force_x_n = 0.0;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        wbc_shadow_diagnostics_.full_id_contact_force_x_n +=
+            wbc_out.force[3 * static_cast<int>(leg)];
     wbc_shadow_diagnostics_.mapping_ok = true;
     wbc_shadow_diagnostics_.id_wbc_ok = solved;
     wbc_shadow_diagnostics_.wrench_satisfied = wbc_out.eq_residual < 1.0;
@@ -685,6 +1028,11 @@ void TrotExperiment::UpdateWbcShadow(
     bool have_high_state)
 {
     wbc_shadow_diagnostics_ = WbcShadowDiagnostics{};
+    const bool high_speed_curriculum =
+        Full2EnvDouble("TROT_HS_DISABLE", 0.0) <= 0.5 &&
+        (params_.gait_pattern != go2_control::GaitPattern::kDiagonalTrot ||
+         std::abs(wbc_speed_cmd_mps_) > 1.25 ||
+         std::abs(kernel_nominal_velocity_x_mps_) > 1.25);
     const auto shadow_start = std::chrono::steady_clock::now();
     const auto finish_shadow_timing = [&]() {
         wbc_shadow_diagnostics_.elapsed_us =
@@ -924,6 +1272,7 @@ void TrotExperiment::UpdateWbcShadow(
                         kShadowWbcMassKg,
                     -2.0, 2.0);
                 if (params_.wbc_full && !motion_event_response_enabled_ &&
+                    !high_speed_curriculum &&
                     have_preview_terminal_velocity_ &&
                     !WbcStopHoldActive())
                 {
@@ -965,8 +1314,24 @@ void TrotExperiment::UpdateWbcShadow(
             // [impulse] pitch 前倾参考 3°: 动态 trot 自然前倾,
             // 推力产生的前倾不被姿态任务强行拉回(减少对抗),
             // 但限幅防过度前倾。
-            const double pitch_ref_rad =
+            double pitch_ref_rad =
                 params_.impulse ? 3.0 * kPi / 180.0 : 0.0;
+            if (!params_.impulse && high_speed_curriculum &&
+                Full2EnvDouble("TROT_HS_USE_LEAN", 1.0) > 0.5)
+            {
+                // A bound/gallop needs a small forward lean to turn the
+                // horizontal centroidal force into a stable ground reaction.
+                const double speed_cmd =
+                    std::abs(wbc_speed_cmd_mps_ >= 0.0
+                                 ? wbc_speed_cmd_mps_
+                                 : kernel_nominal_velocity_x_mps_);
+                pitch_ref_rad = Clamp(
+                    0.035 + 0.040 * std::max(0.0, speed_cmd - 0.50),
+                    0.035, 0.14);
+                const double pitch_ref_override = Full2EnvDouble("TROT_HS_PITCH_REF", -1.0);
+                if (pitch_ref_override >= 0.0)
+                    pitch_ref_rad = Clamp(pitch_ref_override, 0.0, 0.35);
+            }
             a_desired[3] = Clamp(
                 -kWbcPrimaryRollAccKp * roll_rad -
                     kWbcPrimaryRollAccKd * gyro_x_radps,
