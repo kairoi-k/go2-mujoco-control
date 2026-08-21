@@ -1,0 +1,28 @@
+<mujoco model="go2 stair acceptance">
+  <include file="go2.xml"/>
+
+  <statistic center="0.8 0 0.35" extent="2.0"/>
+  <visual>
+    <headlight diffuse="0.7 0.7 0.7" ambient="0.35 0.35 0.35" specular="0 0 0"/>
+    <rgba haze="0.12 0.20 0.28 1"/>
+    <global azimuth="125" elevation="-18"/>
+  </visual>
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.32 0.52 0.72" rgb2="0.02 0.02 0.04" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.22 0.30 0.38" rgb2="0.10 0.14 0.18" markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.12"/>
+    <material name="stair_step" rgba="0.10 0.45 0.80 1"/>
+    <material name="stair_edge" rgba="0.95 0.65 0.08 1"/>
+  </asset>
+  <worldbody>
+    <light pos="0 0 2" dir="0 0 -1" directional="true" castshadow="false"/>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+    <!-- Four physical collision steps: 0.24 m tread, 0.10 m riser, 0.75 m wide. -->
+    <geom name="terrain_step_1" pos="0.42 0 0.05" type="box" size="0.12 0.375 0.05" material="stair_step" contype="1" conaffinity="1"/>
+    <geom name="terrain_step_2" pos="0.66 0 0.15" type="box" size="0.12 0.375 0.15" material="stair_step" contype="1" conaffinity="1"/>
+    <geom name="terrain_step_3" pos="0.90 0 0.25" type="box" size="0.12 0.375 0.25" material="stair_step" contype="1" conaffinity="1"/>
+    <geom name="terrain_step_4" pos="1.14 0 0.35" type="box" size="0.12 0.375 0.35" material="stair_step" contype="1" conaffinity="1"/>
+    <!-- A non-colliding top edge marker makes the risers easy to inspect. -->
+    <geom name="stair_finish_marker" pos="1.26 0 0.405" type="box" size="0.03 0.39 0.005" material="stair_edge" contype="0" conaffinity="0"/>
+  </worldbody>
+</mujoco>

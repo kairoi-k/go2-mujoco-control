@@ -16,6 +16,7 @@ set(GO2_CPP_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/wbc
     ${CMAKE_CURRENT_SOURCE_DIR}/util
     ${CMAKE_CURRENT_SOURCE_DIR}/leg_lift
+    ${CMAKE_CURRENT_SOURCE_DIR}/terrain
 )
 include_directories(${GO2_CPP_INCLUDE_DIRS})
 
@@ -136,6 +137,8 @@ add_executable(test_centroidal_wbc tests/test_centroidal_wbc.cpp)
 add_executable(test_preview_footstep_horizon tests/test_preview_footstep_horizon.cpp)
 target_link_libraries(test_preview_footstep_horizon Eigen3::Eigen)
 
+add_executable(test_terrain_adaptation tests/test_terrain_adaptation.cpp)
+
 add_executable(test_dense_qp tests/test_dense_qp.cpp)
 target_link_libraries(test_dense_qp Eigen3::Eigen)
 
@@ -143,6 +146,20 @@ add_executable(test_contact_wrench_qp tests/test_contact_wrench_qp.cpp)
 target_link_libraries(test_contact_wrench_qp Eigen3::Eigen)
 
 if(EXISTS "${_go2_mujoco_lib}")
+    add_executable(test_terrain_scene_geometry tests/test_terrain_scene_geometry.cpp)
+    target_include_directories(
+        test_terrain_scene_geometry PRIVATE "${_go2_mujoco_inc}")
+    target_link_libraries(
+        test_terrain_scene_geometry "${_go2_mujoco_lib}")
+    target_compile_definitions(
+        test_terrain_scene_geometry PRIVATE
+        TERRAIN_BARRIER_SCENE="${CMAKE_CURRENT_SOURCE_DIR}/../../unitree_robots/go2/scene_barrier_acceptance.xml"
+        TERRAIN_STAIR_SCENE="${CMAKE_CURRENT_SOURCE_DIR}/../../unitree_robots/go2/scene_stair_acceptance.xml")
+    set_target_properties(
+        test_terrain_scene_geometry PROPERTIES
+        BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
+    go2_add_ctest(test_terrain_scene_geometry)
+
     add_executable(test_go2_rigid_body tests/test_go2_rigid_body.cpp)
     target_include_directories(test_go2_rigid_body PRIVATE "${_go2_mujoco_inc}")
     target_link_libraries(test_go2_rigid_body "${_go2_mujoco_lib}" Eigen3::Eigen)
@@ -192,5 +209,6 @@ go2_add_ctest(test_motion_event_response)
 go2_add_ctest(test_wbc_runtime_gate)
 go2_add_ctest(test_centroidal_wbc)
 go2_add_ctest(test_preview_footstep_horizon)
+go2_add_ctest(test_terrain_adaptation)
 go2_add_ctest(test_dense_qp)
 go2_add_ctest(test_contact_wrench_qp)
