@@ -189,11 +189,17 @@ bool TrotExperiment::BuildGaitTargets(
         if (!ValidateCycle(active_cycle_index_))
             task_.stop_requested_ = true;
         ++completed_cycles_;
-        if (max_cycles_ > 0 && completed_cycles_ >= max_cycles_)
+        if (max_cycles_ > 0 && completed_cycles_ >= max_cycles_ &&
+            !emergency_stop_latched_)
         {
-            task_.stop_requested_ = true;
-            if (task_.task_mode_)
-                task_.task_completion_requested_ = true;
+            if (!stop_brake_active_)
+            {
+                stop_brake_active_ = true;
+                stop_brake_start_time_s_ = running_time_;
+                stop_brake_base_step_m_ =
+                    std::abs(gait_result.step_length_m);
+                std::cout << "Trot pre-stop brake: reducing gait reference\n";
+            }
         }
         const double v_meas =
             cycle_vx_count_ > 0

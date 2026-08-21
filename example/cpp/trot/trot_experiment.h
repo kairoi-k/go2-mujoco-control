@@ -122,6 +122,7 @@ private:
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
         bool &motion_clock_paused);
     bool ComputeWbcPrimaryActive(double &gait_elapsed_s);
+    bool WbcStopHoldActive() const;
     bool PhaseStandUp(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseStandSettle(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseStartGait(std::array<double, go2_trot::kMotorCount> &joint_targets);
@@ -181,6 +182,10 @@ private:
 
     TrotTask task_;
     std::array<double, go2_trot::kMotorCount> previous_joint_targets_{};
+    bool stop_brake_active_ = false;
+    double stop_brake_start_time_s_ = 0.0;
+    double stop_brake_base_step_m_ = 0.0;
+    static constexpr double kStopBrakeDurationS = 0.80;
     bool have_previous_joint_targets_ = false;
 
     const double dt_ = go2_trot::kDt;

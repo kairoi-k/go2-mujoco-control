@@ -610,16 +610,25 @@ double TrotExperiment::MotionClockStep(
     running_time_ += motion_dt;
     return motion_dt;
 }
+bool TrotExperiment::WbcStopHoldActive() const
+{
+    return params_.wbc_full && params_.wbc_primary &&
+           task_.gait_started_ && task_.motion_stage_ == 3 &&
+           task_.stop_requested_ && !emergency_stop_latched_;
+}
 bool TrotExperiment::ComputeWbcPrimaryActive(double &gait_elapsed_s)
 {
     bool wbc_primary_active = false;
     gait_elapsed_s = task_.gait_started_ ? running_time_ - task_.gait_start_time_s_ : 0.0;
     task_.gait_started_ ? running_time_ - task_.gait_start_time_s_ : 0.0;
-    if (params_.wbc_primary &&
-    task_.motion_stage_ == 2 && task_.gait_started_ && !task_.stop_requested_ &&
-    gait_elapsed_s >= (params_.wbc_full ? 0.0 : kWbcPrimaryEnterDelayS) &&
-    wbc_shadow_diagnostics_.solver_ok &&
-    wbc_shadow_diagnostics_.mapping_ok)
+    const bool regular_wbc =
+        task_.motion_stage_ == 2 && task_.gait_started_ &&
+        !task_.stop_requested_ &&
+        gait_elapsed_s >= (params_.wbc_full ? 0.0 : kWbcPrimaryEnterDelayS);
+    const bool wbc_active = regular_wbc || WbcStopHoldActive();
+    if (params_.wbc_primary && wbc_active &&
+        wbc_shadow_diagnostics_.solver_ok &&
+        wbc_shadow_diagnostics_.mapping_ok)
     {
     wbc_primary_active = true;
     // [impulse] 大步长时 wrench 力矩需求大, 放宽 primary 力矩上限,
@@ -698,10 +707,38 @@ bool TrotExperiment::PhaseRunGait(
         gait_time_s >= duration_s_ &&
         std::isfinite(duration_s_))
     {
-        task_.stop_requested_ = true;
-        if (task_.task_mode_)
+        if (!stop_brake_active_)
         {
-            task_.task_completion_requested_ = true;
+            stop_brake_active_ = true;
+            stop_brake_start_time_s_ = running_time_;
+            stop_brake_base_step_m_ =
+                std::abs(kernel_nominal_velocity_x_mps_) *
+                std::max(kernel_period_s_, params_.period_s);
+            if (!(stop_brake_base_step_m_ > 1.0e-6))
+                stop_brake_base_step_m_ = std::abs(params_.step_length_m);
+            std::cout << "Trot pre-stop brake: reducing gait reference\n";
+        }
+    }
+    if (stop_brake_active_ && !task_.stop_requested_ &&
+        !emergency_stop_latched_)
+    {
+        const double brake_u = Smoothstep(
+            (running_time_ - stop_brake_start_time_s_) /
+            kStopBrakeDurationS);
+        // Keep the same gait plant while reducing momentum; do not jump
+        // directly from a full-speed swing target into four-foot stance.
+        const double step_scale = 1.0 - 0.55 * brake_u;
+        const double base_step = stop_brake_base_step_m_ > 1.0e-6
+            ? stop_brake_base_step_m_
+            : std::abs(params_.step_length_m);
+        locomotion_kernel_->SetGaitStepLength(
+            base_step * step_scale);
+        if (running_time_ - stop_brake_start_time_s_ >=
+            kStopBrakeDurationS)
+        {
+            task_.stop_requested_ = true;
+            if (task_.task_mode_)
+                task_.task_completion_requested_ = true;
             std::cout << "Task transition: LOCOMOTION -> RETURN_TO_STAND\n";
         }
     }

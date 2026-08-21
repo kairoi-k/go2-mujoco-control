@@ -147,9 +147,12 @@ void TrotExperiment::UpdateWbcFull(
         kernel_period_s_ > 0.05 ? kernel_period_s_ : params_.period_s;
     const double gait_duty =
         kernel_duty_factor_ > 0.05 ? kernel_duty_factor_ : params_.duty_factor;
-    if (task_.gait_started_ && task_.motion_stage_ == 2)
+    if (task_.gait_started_ &&
+        (task_.motion_stage_ == 2 || WbcStopHoldActive()))
     {
-        if (motion_event_response_enabled_ && motion_reference_.hold_stance)
+        if (WbcStopHoldActive())
+            qp_contact.fill(true);
+        else if (motion_event_response_enabled_ && motion_reference_.hold_stance)
             qp_contact.fill(true);
         else
         {
@@ -292,12 +295,16 @@ void TrotExperiment::UpdateWbcFull(
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             mpc_in.foot_from_com_world[leg] =
                 dyn.foot_pos_world[leg] - dyn.com_world;
-        if (task_.gait_started_ && task_.motion_stage_ == 2)
+        if (task_.gait_started_ &&
+            (task_.motion_stage_ == 2 || WbcStopHoldActive()))
         {
-            if (motion_event_response_enabled_ && motion_reference_.hold_stance)
+            if (WbcStopHoldActive())
                 for (int k = 0; k < mpc_params.horizon; ++k)
                     mpc_in.contact[k].fill(true);
-            if (!(motion_event_response_enabled_ && motion_reference_.hold_stance))
+            else if (motion_event_response_enabled_ && motion_reference_.hold_stance)
+                for (int k = 0; k < mpc_params.horizon; ++k)
+                    mpc_in.contact[k].fill(true);
+            else
                 go2_control::FillTrotContactSchedulePhase(
                 current_phase_, gait_period, gait_duty,
                 mpc_params.horizon, mpc_params.dt_s, mpc_in.contact);
@@ -328,17 +335,27 @@ void TrotExperiment::UpdateWbcFull(
         wbc_in.desired_angular_acc_body =
             quat.normalized().toRotationMatrix().transpose() *
             last_srbd_.first_angular_acc;
-        if (emergency_stop_latched_ && motion_reference_.hold_stance)
+        const bool stop_balance =
+            (emergency_stop_latched_ && motion_reference_.hold_stance) ||
+            WbcStopHoldActive();
+        if (stop_balance)
         {
             // The short emergency-stop window is a four-contact balance
             // problem, not another gait step.  Keep a bounded measured-
             // velocity damper in the WBC task so a stale MPC force cannot
             // push the body forward while the feet are being frozen.
-            constexpr double kEmergencyVelocityKp = 6.0;
+            const double kStopVelocityKp =
+                WbcStopHoldActive() ? 5.0 : 6.0;
+            const double kStopAxLimit =
+                WbcStopHoldActive() ? 4.0 : 2.5;
+            const double kStopAyLimit =
+                WbcStopHoldActive() ? 3.0 : 2.0;
             wbc_in.desired_linear_acc_world.x() = Clamp(
-                -kEmergencyVelocityKp * linear_vel_world.x(), -2.5, 2.5);
+                -kStopVelocityKp * linear_vel_world.x(),
+                -kStopAxLimit, kStopAxLimit);
             wbc_in.desired_linear_acc_world.y() = Clamp(
-                -kEmergencyVelocityKp * linear_vel_world.y(), -2.0, 2.0);
+                -kStopVelocityKp * linear_vel_world.y(),
+                -kStopAyLimit, kStopAyLimit);
             const double roll = static_cast<double>(
                 state_snapshot.imu_state().rpy()[0]);
             const double pitch = static_cast<double>(
@@ -753,8 +770,11 @@ void TrotExperiment::UpdateWbcShadow(
         const double target_velocity_x_mps =
             motion_event_response_enabled_
                 ? motion_reference_.vx_mps
-                : params_.direction_sign * params_.step_length_m /
-                      params_.period_s;
+                : (std::isfinite(kernel_nominal_velocity_x_mps_) &&
+                           std::abs(kernel_nominal_velocity_x_mps_) > 1.0e-6
+                       ? kernel_nominal_velocity_x_mps_
+                       : params_.direction_sign * params_.step_length_m /
+                             params_.period_s);
         const double velocity_error_x_mps =
             target_velocity_x_mps - latest_filtered_body_velocity_[0];
         desired_force_x_n = Clamp(
@@ -884,7 +904,8 @@ void TrotExperiment::UpdateWbcShadow(
                         kShadowWbcMassKg,
                     -2.0, 2.0);
                 if (params_.wbc_full && !motion_event_response_enabled_ &&
-                    have_preview_terminal_velocity_)
+                    have_preview_terminal_velocity_ &&
+                    !WbcStopHoldActive())
                 {
                     if (std::isfinite(preview_planned_acc_x_mps2_))
                         a_desired[0] = Clamp(
@@ -909,8 +930,9 @@ void TrotExperiment::UpdateWbcShadow(
             const double bounce_phase =
                 2.0 * kPi * 2.0 / params_.period_s *
                 (running_time_ - task_.gait_start_time_s_);
-            const double bounce_acc =
-                params_.bounce_acc_amp * std::sin(bounce_phase);
+            const double bounce_acc = WbcStopHoldActive()
+                ? 0.0
+                : params_.bounce_acc_amp * std::sin(bounce_phase);
             a_desired[2] = params_.impulse
                 ? 0.0  // [wrench-fix] 高度完全交给位置环, wrench z=纯重力
                 : Clamp(
@@ -1090,7 +1112,8 @@ bool TrotExperiment::PrepareWbcTorqueFeedforward(
     gate_input.shadow_enabled =
         params_.wbc_shadow && wbc_shadow_diagnostics_.enabled;
     gate_input.locomotion_active =
-        task_.motion_stage_ == 2 && task_.gait_started_ && !task_.stop_requested_;
+        (task_.motion_stage_ == 2 && task_.gait_started_ &&
+         !task_.stop_requested_) || WbcStopHoldActive();
     gate_input.solver_ok = wbc_shadow_diagnostics_.solver_ok;
     gate_input.mapping_ok = wbc_shadow_diagnostics_.mapping_ok;
     gate_input.wrench_satisfied =
