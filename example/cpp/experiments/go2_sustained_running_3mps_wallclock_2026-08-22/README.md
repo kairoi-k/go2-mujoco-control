@@ -41,7 +41,9 @@ P95 below 0.10 m/s.
 | `natural_run_wallclock_p14d44s50_r3` | 3.732 / 3.238 | 61.476 | 2.901 / 2.468 | 0.291 | 0.810 | 0.004 |
 
 All three runs passed the analyzer with all status fields zero, complete
-braking, and final speed below `0.0021 m/s`. The first visual replay was
+braking, and final speed below `0.0021 m/s`. The final visual replay was
 checked at stand-up, acceleration, sustained running, and stopped stages; it
 shows long-stride aerial running rather than the previous low-duty small-step
-appearance.
+appearance. OneDrive delivery:
+`收件箱/Go2_Sustained_Running_3mps_WBC_Full_2026-08-22/go2_running_stand_accel_sustain_stop_final.mp4`;
+SHA256 `4468D7375118ACE389F21CD6CA110D31E9E635546DD2DFCF32457198C2860B6F`.

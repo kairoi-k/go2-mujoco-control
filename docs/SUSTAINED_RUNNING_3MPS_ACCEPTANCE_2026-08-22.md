@@ -37,5 +37,7 @@ contact, quality, and safety status fields must all be zero.
 
 All three runs passed the gait-specific analyzer with zero status failures and
 final speeds below 0.0021 m/s. Raw `_runs/` data are disposable and ignored;
-the protocol and summary are retained here. The replay/demo is delivered
-separately through OneDrive after the final visual QA pass.
+the protocol and summary are retained here. The final visual replay is in
+OneDrive at
+`收件箱/Go2_Sustained_Running_3mps_WBC_Full_2026-08-22/go2_running_stand_accel_sustain_stop_final.mp4`;
+SHA256 `4468D7375118ACE389F21CD6CA110D31E9E635546DD2DFCF32457198C2860B6F`.
