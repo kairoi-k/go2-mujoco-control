@@ -17,6 +17,7 @@
 #include "locomotion_kernel.h"
 #include "motion_event_response.h"
 #include "raibert_trot_kernel.h"
+#include "crawl_kernel.h"
 #include "wbc_runtime_gate.h"
 
 namespace go2_trot {
@@ -205,6 +206,10 @@ inline std::unique_ptr<go2_control::LocomotionKernel> CreateLocomotionKernel(
                 params.raibert_max_adjustment_m,
                 params.preview_horizon_steps,
                 params.wbc_full && !params.step_plan.empty()});
+    }
+    if (params.kernel_name == "crawl")
+    {
+        return std::make_unique<go2_control::CrawlKernel>(gait_params);
     }
     return std::make_unique<go2_control::HandCodedTrotKernel>(
         gait_params);

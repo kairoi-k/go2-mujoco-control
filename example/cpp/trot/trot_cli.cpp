@@ -12,7 +12,7 @@ void PrintTrotCliUsage()
     std::cerr
         << "Usage: real_trot_go2 <interface> <duration_s> <csv_path>"
            " [--period s] [--duty d] [--step-length m]"
-           " [--kernel hand-coded-trot|raibert-trot]"
+           " [--kernel hand-coded-trot|raibert-trot|crawl]"
            " [--raibert-velocity-gain s] [--raibert-max-adjustment m]"
            " [--velocity-filter-cutoff-hz f]"
            " [--wall-clock-motion]"
@@ -316,7 +316,8 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
 if (!(cfg.params.period_s >= (cfg.params.wbc_full ? 0.18 : 0.35) &&
           cfg.params.period_s <= 3.0) ||
         (cfg.params.kernel_name != "hand-coded-trot" &&
-         cfg.params.kernel_name != "raibert-trot") ||
+         cfg.params.kernel_name != "raibert-trot" &&
+         cfg.params.kernel_name != "crawl") ||
         !std::isfinite(cfg.params.raibert_velocity_gain_s) ||
         !(cfg.params.raibert_velocity_gain_s >= 0.0 &&
           cfg.params.raibert_velocity_gain_s <= 1.0) ||
