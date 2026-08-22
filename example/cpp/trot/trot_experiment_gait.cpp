@@ -1,5 +1,7 @@
 #include "trot_experiment.h"
 
+#include "terrain/terrain_adaptation.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -140,6 +142,8 @@ bool TrotExperiment::BuildGaitTargets(
         return false;
     }
     kernel_footstep_plan_valid_ = gait_result.footstep_plan_valid;
+    kernel_swing_schedule_ = gait_result.scheduled_swing;
+    kernel_has_swing_schedule_ = gait_result.has_swing_schedule;
     kernel_velocity_error_x_mps_ = gait_result.velocity_error_x_mps;
     kernel_nominal_velocity_x_mps_ = gait_result.nominal_velocity_x_mps;
     kernel_touchdown_target_x_m_ = gait_result.touchdown_target_x_m;
@@ -485,6 +489,11 @@ bool TrotExperiment::BuildGaitTargets(
     }
 
     feet = gait_result.feet;
+    if (params_.terrain_act && have_high_state)
+    {
+        ApplyTerrainSwingOffsets(
+            gait_result, state_snapshot, high_state_snapshot, feet);
+    }
     const double stance_duration =
         gait_result.duty_factor > 0.05 ? gait_result.duty_factor
                                        : params_.duty_factor;
@@ -769,4 +778,103 @@ bool TrotExperiment::BuildGaitTargets(
         return false;
     }
     return true;
+}
+
+void TrotExperiment::ApplyTerrainSwingOffsets(
+    const go2_control::GaitKernelResult &gait_result,
+    const unitree_go::msg::dds_::LowState_ &low_state,
+    const unitree_go::msg::dds_::SportModeState_ &high_state,
+    std::array<go2::Vec3, go2::kLegCount> &feet)
+{
+    // Terrain acting v1: while a leg swings, query the foothold planner at
+    // the commanded touchdown point.  If an elevated support patch is
+    // feasible there, raise the swing target onto the patch with a slewed
+    // vertical offset.  Stance targets are left untouched in v1.
+    constexpr double kMaxDzM = 0.12;
+    constexpr double kMinElevatedZM = 0.015;
+
+    unitree_go::msg::dds_::HeightMap_ height_map;
+    bool have_map = false;
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        height_map = environment_heightmap_;
+        have_map = have_environment_heightmap_;
+    }
+    if (!have_map || height_map.width() == 0 || height_map.resolution() <= 0.0f)
+    {
+        terrain_swing_dz_m_.fill(0.0);
+        return;
+    }
+
+    static thread_local go2_control::terrain::HeightMap terrain_map;
+    terrain_map = go2_control::terrain::HeightMap(
+        height_map.origin()[0], height_map.origin()[1],
+        height_map.resolution(), height_map.width(), height_map.height());
+    for (std::size_t iy = 0; iy < height_map.height(); ++iy)
+        for (std::size_t ix = 0; ix < height_map.width(); ++ix)
+            terrain_map.SetCell(
+                ix, iy, height_map.data()[iy * height_map.width() + ix],
+                true);
+
+    const WorldPose pose = ComputeWorldPose(low_state, high_state);
+    go2_control::terrain::TerrainFootholdPlannerParams planner_params{};
+    const double now_s =
+        static_cast<double>(low_state.tick()) * 1.0e-3;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const bool swinging =
+            gait_result.touchdown_target_x_m[leg] != 0.0;
+        if (!swinging)
+        {
+            // Stance references stay on the flat-ground schedule in v1;
+            // mounting/dismounting shows up as brief attitude transients.
+            if (terrain_swing_dz_m_[leg] != 0.0)
+            {
+                feet[leg].z += terrain_swing_dz_m_[leg];
+            }
+            continue;
+        }
+        const auto rotated =
+            RotateByQuaternion(pose.quaternion, feet[leg]);
+        const double foot_world_z = pose.base.z + rotated.z;
+        go2_control::terrain::TerrainFootholdRequest request{};
+        request.leg = static_cast<go2::Leg>(leg);
+        request.base_world_x_m = pose.base.x;
+        request.base_world_y_m = pose.base.y;
+        request.base_world_z_m = pose.base.z;
+        request.nominal_body_x_m = feet[leg].x;
+        request.nominal_body_y_m = feet[leg].y;
+        request.nominal_body_z_m = feet[leg].z;
+        request.reference_foot_world_z_m = foot_world_z;
+        go2_control::terrain::TerrainFootholdOutput output{};
+        go2_control::terrain::PlanTerrainFoothold(
+            planner_params, terrain_map, request, output);
+        double target_dz = 0.0;
+        if (output.status ==
+                go2_control::terrain::TerrainPlanStatus::kValid &&
+            output.world_z_m > foot_world_z + kMinElevatedZM)
+        {
+            target_dz = std::clamp(
+                output.world_z_m - foot_world_z, 0.0, kMaxDzM);
+        }
+        // Hold the previous offset through late swing if the patch query
+        // lost the edge mid-swing; otherwise apply the fresh full offset.
+        if (target_dz > 0.0 || terrain_swing_dz_m_[leg] > 0.0)
+        {
+            if (target_dz > 0.0)
+                terrain_swing_dz_m_[leg] = target_dz;
+            feet[leg].z += terrain_swing_dz_m_[leg];
+        }
+        if (now_s - last_act_debug_log_s_ >= 1.0)
+        {
+            std::cout << "Terrain act t=" << now_s << " leg" << leg
+                      << " swing=1 status=" << static_cast<int>(output.status)
+                      << " world_z=" << output.world_z_m
+                      << " foot_z=" << foot_world_z
+                      << " swing=" << swinging
+                      << " applied_dz=" << terrain_swing_dz_m_[leg]
+                      << "\n";
+            last_act_debug_log_s_ = now_s;
+        }
+    }
 }

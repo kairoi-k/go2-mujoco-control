@@ -80,6 +80,11 @@ public:
 
 private:
     void EnvironmentHeightMapMessageHandler(const void *message);
+    void ApplyTerrainSwingOffsets(
+        const go2_control::GaitKernelResult &gait_result,
+        const unitree_go::msg::dds_::LowState_ &low_state,
+        const unitree_go::msg::dds_::SportModeState_ &high_state,
+        std::array<go2::Vec3, go2::kLegCount> &feet);
     void ObserveTerrainFootholds(
         const unitree_go::msg::dds_::HeightMap_ &map,
         const unitree_go::msg::dds_::LowState_ &low_state,
@@ -324,6 +329,10 @@ private:
     bool have_high_state_ = false;
     bool have_environment_heightmap_ = false;
     double last_terrain_observe_log_s_ = -100.0;
+    double last_act_debug_log_s_ = -100.0;
+    std::array<double, go2::kLegCount> terrain_swing_dz_m_{};
+    std::array<bool, go2::kLegCount> kernel_swing_schedule_{};
+    bool kernel_has_swing_schedule_ = false;
 
     std::mutex state_mutex_;
     std::ofstream csv_;

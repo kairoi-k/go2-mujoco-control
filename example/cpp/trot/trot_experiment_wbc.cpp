@@ -151,6 +151,13 @@ void TrotExperiment::UpdateWbcFull(
     {
         if (motion_event_response_enabled_ && motion_reference_.hold_stance)
             qp_contact.fill(true);
+        else if (kernel_has_swing_schedule_)
+        {
+            // Kernel-provided topology (crawl singles, trot pairs): contact
+            // is simply the complement of the current swing window.
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                qp_contact[leg] = !kernel_swing_schedule_[leg];
+        }
         else
         {
             std::array<std::array<bool, go2::kLegCount>, go2_control::kSrbdMaxHorizon>

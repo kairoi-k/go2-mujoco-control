@@ -93,6 +93,7 @@ public:
         result.period_s = params_.period_s;
         result.duty_factor = 1.0 - kSwingFraction;
         result.step_length_m = params_.step_length_m;
+        result.has_swing_schedule = true;
 
         const double blend =
             Smoothstep(effective_gait_time / params_.blend_duration_s);
@@ -109,6 +110,7 @@ public:
             const double leg_phase =
                 (result.phase - swing_start + 1.0) -
                 std::floor(result.phase - swing_start + 1.0);
+            result.scheduled_swing[leg] = leg_phase < kSwingFraction;
             if (leg_phase < kSwingFraction)
             {
                 // Swing: foot travels -half -> +half step while lifting on

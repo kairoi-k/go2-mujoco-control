@@ -31,6 +31,7 @@ void PrintTrotCliUsage()
            " [--forever] [--stop-file path]"
            " [--auto-environment]"
    " [--terrain-observe]"
+           " [--terrain-act]"
            " [--impact-to-emergency-stop-delay s]"
            " [--task stand-walk-lie]"
            " [--goal-x m] [--goal-y m] [--goal-tol m]\n";
@@ -108,6 +109,8 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.params.auto_environment = true;
                 cfg.params.reactive_events = true;
             }
+            else if (option == "--terrain-act")
+                cfg.params.terrain_act = true;
             else if (option == "--terrain-observe")
                 cfg.params.terrain_observe = true;
             else if (option == "--impact-to-emergency-stop-delay")

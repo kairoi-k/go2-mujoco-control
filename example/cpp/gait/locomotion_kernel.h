@@ -50,6 +50,12 @@ struct GaitKernelResult
     double period_s = 0.0;
     double duty_factor = 0.0;
     double step_length_m = 0.0;
+    // Per-leg swing window for the CURRENT tick.  Kernels that fill
+    // has_swing_schedule let the WBC contact mask follow any gait topology
+    // (trot pairs, crawl singles); otherwise the caller falls back to the
+    // legacy diagonal-trot phase table.
+    std::array<bool, go2::kLegCount> scheduled_swing{};
+    bool has_swing_schedule = false;
 };
 
 class LocomotionKernel
@@ -189,6 +195,17 @@ public:
             result.feet[leg].x += gait_blend * x_offset;
             result.feet[leg].z += gait_blend * z_offset;
         }
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            const bool pair_b =
+                leg == static_cast<std::size_t>(go2::Leg::FL) ||
+                leg == static_cast<std::size_t>(go2::Leg::RR);
+            const double leg_phase =
+                std::fmod(result.phase + (pair_b ? 0.5 : 0.0), 1.0);
+            result.scheduled_swing[leg] =
+                leg_phase >= params_.duty_factor;
+        }
+        result.has_swing_schedule = true;
         last_gait_time_ = effective_gait_time;
         return true;
     }
