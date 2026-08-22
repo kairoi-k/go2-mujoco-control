@@ -699,7 +699,10 @@ private:
 
 struct MotionEventResponseConfig
 {
-    double max_abs_vx_mps = 0.60;
+    // The response layer must preserve the WBC/MPC plant's commanded cruise
+    // speed.  The old 0.60 m/s ceiling was a walking-demo limit and silently
+    // clipped the 1 m/s natural-trot and running profiles.
+    double max_abs_vx_mps = 1.50;
     double max_abs_vy_mps = 0.65;
     double max_abs_yaw_rate_radps = 0.90;
     double accel_mps2 = 0.80;
@@ -977,8 +980,8 @@ private:
             reference.yaw_rate_radps, -config_.max_abs_yaw_rate_radps,
             config_.max_abs_yaw_rate_radps);
         reference.step_scale = std::clamp(reference.step_scale, 0.25, 1.25);
-        reference.duty_factor = std::clamp(reference.duty_factor, 0.45, 0.90);
-        reference.foot_lift_m = std::clamp(reference.foot_lift_m, 0.015, 0.080);
+        reference.duty_factor = std::clamp(reference.duty_factor, 0.35, 0.90);
+        reference.foot_lift_m = std::clamp(reference.foot_lift_m, 0.015, 0.120);
         return reference;
     }
 

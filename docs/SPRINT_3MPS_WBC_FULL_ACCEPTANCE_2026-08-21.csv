@@ -1,0 +1,4 @@
+run,max_speed_mps,good_window_s,window_angle_p95_deg,stage3_rows,final_speed_mps,final_angle_deg,dynamics_status,controlled_stop,safe,pass
+hs27_height34_speedstop_03,3.312,0.964,2.685,1001,0.002,0.316,0,1,1,1
+hs27_height34_speedstop_04,3.511,0.960,2.233,1001,0.002,0.089,0,1,1,1
+hs27_height34_speedstop_06,3.560,1.018,2.432,1006,0.002,0.220,0,1,1,1

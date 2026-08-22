@@ -1,0 +1,42 @@
+Go2 straight-trot and high-speed running acceptance metrics
+Date: 2026-08-21
+Branch: gait/natural-trot-1mps-2026-08-21
+
+Published natural trot
+Profile: period=0.340 s, duty=0.50, step=0.340 m, foot_lift=0.120 m,
+WBC velocity gain=8, tau limit=35, TROT_STRAIGHT_YAW_GAIN=1.0,
+CPU affinity: simulator=2, controller=3.
+The natural-gait acceptance uses min-cruise-speed=0.80 m/s,
+min-speed-p05=0.60 m/s and min-cycle-count=30 because this is a
+stable natural-trot baseline, not the faster low-duty running profile.
+
+run                         speed median   cross p95   heading p95   result
+natural_mpc_yaw_d34_v1      0.902 m/s      0.0826 m   5.79 deg      PASS
+natural_mpc_yaw_d34_v2      0.835 m/s      0.0853 m   7.24 deg      PASS
+natural_mpc_yaw_d34_v3      0.829 m/s      0.0383 m   3.83 deg      PASS
+natural_release_wrapper_v2  0.911 m/s      0.0742 m   5.68 deg      PASS
+
+Published high-speed running trot
+Profile: period=0.260 s, duty=0.45, step=0.320 m, foot_lift=0.120 m,
+WBC velocity gain=8, tau limit=35, TROT_STRAIGHT_YAW_GAIN=2.0.
+All three runs passed speed, body posture, true aerial phase, diagonal
+contact synchronization, controlled emergency stop, and straightness.
+
+run                         speed p05      speed median  cross p95   heading p95
+running_mpcyaw2_d45_s320_v1 0.963 m/s      1.159 m/s     0.0504 m    4.21 deg
+running_mpcyaw2_d45_s320_v2 0.990 m/s      1.180 m/s     0.0633 m    5.99 deg
+running_mpcyaw2_d45_s320_v3 0.953 m/s      1.154 m/s     0.0511 m    4.48 deg
+
+Speed-boundary probes (not published)
+period=0.260, duty=0.45, step=0.324, yaw gain=2.2: three gait and
+straightness repeats passed, but median speed was 1.119--1.153 m/s,
+not a reproducible improvement over the published 0.320 m profile.
+period=0.255, duty=0.45, step=0.324, yaw gain=2.2: v1 passed,
+v2 missed diagonal synchronization by 0.0002, v3 triggered the cycle
+quality guard. period=0.250 triggered the hard posture guard during stop.
+These probes are retained as failure-boundary evidence, not release data.
+
+Visual evidence
+The final GUI videos are 24 s / 480 frames with camera-follow and were
+frame-checked before delivery:
+go2_natural_trot_straight_release.mp4

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "sprint_3mps_wbc_full_attempt2",
+    "title": "Go2 WBC/MPC bounded sprint",
+    "subtitle": "Measured world vx; red marker = video time; event window = controlled brake and four-contact WBC hold",
+    "video": "/home/che/dev/go2-mujoco-control/docs/media/sprint_3mps_wbc_full_raw_2026-08-21.mp4",
+    "run_directory": "/home/che/dev/go2-mujoco-control/example/cpp/experiments/_runs/sprint_3mps_wbc_full_attempt2",
+    "clip_start_s": 3.5,
+    "clip_duration_s": 8.0,
+    "event_spans": [
+      {"start_s": 5.2, "end_s": 6.4, "label": "BRAKE / WBC HOLD", "color": "orange"}
+    ]
+  }
+]

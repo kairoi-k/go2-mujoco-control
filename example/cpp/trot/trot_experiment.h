@@ -132,6 +132,10 @@ private:
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
         bool &motion_clock_paused);
     bool ComputeWbcPrimaryActive(double &gait_elapsed_s);
+    bool HighSpeedStopBrakeEnabled() const;
+    bool WbcStopHoldActive() const;
+    bool EmergencyStopStanceBlendActive() const;
+    bool EmergencyStopHoldReady() const;
     bool PhaseStandUp(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseStandSettle(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseStartGait(std::array<double, go2_trot::kMotorCount> &joint_targets);
@@ -191,6 +195,27 @@ private:
 
     TrotTask task_;
     std::array<double, go2_trot::kMotorCount> previous_joint_targets_{};
+    bool stop_brake_active_ = false;
+    double stop_brake_start_time_s_ = 0.0;
+    double stop_brake_base_step_m_ = 0.0;
+    static constexpr double kStopBrakeDurationS = 0.80;
+    // Keep a high-speed stop inside the locomotion/WBC plant before the
+    // legacy joint-target return-to-stand interpolation is allowed to run.
+    bool high_speed_stop_brake_active_ = false;
+    double high_speed_stop_brake_start_time_s_ = 0.0;
+    double high_speed_stop_brake_base_speed_mps_ = 0.0;
+    double high_speed_stop_brake_base_period_s_ = 0.22;
+    double high_speed_stop_brake_base_duty_ = 0.44;
+    bool high_speed_stop_hold_active_ = false;
+    double high_speed_stop_hold_start_time_s_ = 0.0;
+    std::array<double, go2_trot::kMotorCount>
+        high_speed_stop_hold_targets_{};
+    bool have_high_speed_stop_hold_targets_ = false;
+    double high_speed_stop_speed_candidate_start_s_ = -1.0;
+    static constexpr double kHighSpeedStopBrakeDurationS = 2.00;
+    // Keep the ID-WBC four-contact hold alive long enough for the body and
+    // contact forces to settle before ending the bounded sprint process.
+    static constexpr double kHighSpeedStopHoldDurationS = 2.00;
     bool have_previous_joint_targets_ = false;
 
     const double dt_ = go2_trot::kDt;
@@ -214,6 +239,9 @@ private:
     go2_control::MotionEventType last_motion_event_type_ =
         go2_control::MotionEventType::kNone;
     bool emergency_stop_latched_ = false;
+    // Let a running trot finish its support exchange before switching the
+    // MPC/WBC contact horizon to four-foot stance.
+    double emergency_stop_latch_gait_time_s_ = 0.0;
     double emergency_stop_finish_time_s_ = 0.0;
     go2_control::FirstOrderVelocityFilter velocity_filter_;
     go2_control::Vector3 latest_world_velocity_{};
@@ -227,7 +255,9 @@ private:
     bool have_body_acceleration_ = false;
     double velocity_filter_alpha_ = 0.0;
     std::array<go2::Vec3, go2::kLegCount> commanded_body_feet_{};
+    std::array<go2::Vec3, go2::kLegCount> commanded_body_feet_velocity_{};
     bool have_commanded_body_feet_ = false;
+    bool have_commanded_body_feet_velocity_ = false;
     std::array<go2::Vec3, go2::kLegCount> commanded_world_feet_{};
     bool have_commanded_world_feet_ = false;
     std::array<go2::Vec3, go2::kLegCount> previous_support_foot_world_{};
