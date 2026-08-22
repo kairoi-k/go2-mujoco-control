@@ -14,6 +14,7 @@
 | `record_periodic_leg_lift.sh` | 周期抬腿录制（需显式配置捕获工具目录） |
 | `run_natural_trot.sh` | 固定参数、直线约束的自然小跑基线入口 |
 | `run_running_trot.sh` | 固定参数、直线约束的低占空比高速跑态入口 |
+| `run_sustained_running.sh` | 墙钟相位、3 m/s 级持续 running-trot 入口 |
 
 自动环境感知验收：`../tools/analyze_auto_environment.py` 会检查高度图新鲜度、自动事件、参考方向、姿态、WBC 残差和真实障碍物接触。
 物理冲击→急停验收：`../tools/analyze_auto_impact.py`；它将 simulator.log 的施力时刻与 data.csv 的 state_tick_s 对齐并输出严格报告。
@@ -51,6 +52,17 @@ python3 example/cpp/tools/analysis/analyze_running_gait.py \
 
 该入口使用 `period=0.26 s`、`duty=0.45`、`step=0.320 m`，形成短暂腾空相；
 末端急停用于验证跑态到四足 WBC 支撑的安全交接。
+
+3 m/s 持续跑态验收：
+
+```bash
+bash example/cpp/scripts/run_sustained_running.sh --headless
+python3 example/cpp/tools/analysis/analyze_sustained_running.py \
+  example/cpp/experiments/_runs/<run-name>
+```
+
+该入口单独使用 `running-trot` 参考，不是对角小跑的改名；验收器还检查
+腾空比例、对角同步、摆腿高度和支撑分布。
 
 两个入口在 WSL 中默认把 MuJoCo 和控制器分别固定到 CPU 2、3；可用
 `TROT_CPU_AFFINITY_SIM`、`TROT_CPU_AFFINITY_CTRL` 覆盖，或设

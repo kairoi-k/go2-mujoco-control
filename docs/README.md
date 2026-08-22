@@ -14,6 +14,7 @@ Start here when reading the repository as a research artifact or contributing to
 | [`NATURAL_GAIT_1MPS_ACCEPTANCE_2026-08-21.md`](NATURAL_GAIT_1MPS_ACCEPTANCE_2026-08-21.md) | 1 m/s natural-trot profile, metrics, and repeatability evidence |
 | [`RUNNING_GAIT_1MPS_ACCEPTANCE_2026-08-21.md`](RUNNING_GAIT_1MPS_ACCEPTANCE_2026-08-21.md) | 1 m/s low-duty running-trot profile, stop handoff, and repeatability evidence |
 | [`TROT_STRAIGHT_RUNNING_RELEASE_2026-08-21.md`](TROT_STRAIGHT_RUNNING_RELEASE_2026-08-21.md) | 当前直线稳定基线、高速跑态发布配置、验收口径与失败边界 |
+| [`SUSTAINED_RUNNING_3MPS_ACCEPTANCE_2026-08-22.md`](SUSTAINED_RUNNING_3MPS_ACCEPTANCE_2026-08-22.md) | branch-scoped 3 m/s running-trot profile, gait-specific acceptance, and three-repeat evidence |
 | [`upstream/`](upstream/) | preserved upstream Unitree MuJoCo README files |
 | [TROT_RELEASE_METRICS_2026-08-21.txt](TROT_RELEASE_METRICS_2026-08-21.txt) | 发布重复实验的简表、边界探针和视频文件名 |
 | [TROT_RELEASE_DELIVERY_README_2026-08-21.txt](TROT_RELEASE_DELIVERY_README_2026-08-21.txt) | OneDrive 最小交付包说明 |

@@ -23,6 +23,7 @@ Depending on the experiment, a directory may contain configuration snapshots, CS
 ## Current sustained-speed validation
 
 - [`go2_sustained_sprint_3mps_wallclock_2026-08-22/`](go2_sustained_sprint_3mps_wallclock_2026-08-22/README.md) — four independent 40 s wall-clock phase runs plus a release-default smoke run. All passed the strict speed, attitude, safety, dynamics, contact, and controlled-stop checks; the report records the exact acceptance semantics and OneDrive demo.
+- [`go2_sustained_running_3mps_wallclock_2026-08-22/`](go2_sustained_running_3mps_wallclock_2026-08-22/README.md) — independent `running-trot` gait, three wall-clock repeats, and a gait-specific strict analyzer covering aerial fraction, diagonal synchrony, clearance, speed, attitude, and stop hold.
 
 ## Adding a new experiment
 
