@@ -360,6 +360,7 @@ private:
     bool have_environment_heightmap_ = false;
     double last_terrain_observe_log_s_ = -100.0;
     double last_act_debug_log_s_ = -100.0;
+    double body_terrain_lift_m_ = 0.0;
     std::array<double, go2::kLegCount> terrain_swing_dz_m_{};
     std::array<bool, go2::kLegCount> kernel_swing_schedule_{};
     bool kernel_has_swing_schedule_ = false;

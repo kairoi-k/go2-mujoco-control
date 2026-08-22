@@ -358,6 +358,12 @@ inline go2::Vec3 RotateByQuaternion(
             (1.0 - 2.0 * (x * x + y * y)) * vector.z};
 }
 
+inline std::array<double, 4> InvertQuaternion(
+    const std::array<double, 4> &q) noexcept
+{
+    return {q[0], -q[1], -q[2], -q[3]};
+}
+
 inline WorldPose ComputeWorldPose(
     const unitree_go::msg::dds_::LowState_ &low_state,
     const unitree_go::msg::dds_::SportModeState_ &high_state)

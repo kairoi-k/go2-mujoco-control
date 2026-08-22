@@ -1098,23 +1098,23 @@ void TrotExperiment::ApplyTerrainSwingOffsets(
     go2_control::terrain::TerrainFootholdPlannerParams planner_params{};
     const double now_s =
         static_cast<double>(low_state.tick()) * 1.0e-3;
+    // Terrain body-lift reference: the mean planned support elevation under
+    // the currently planted feet, slewed like a physical base heave.  All
+    // foot targets share the same lift so the stance references follow the
+    // surface the feet actually stand on; body pitch is left to emerge.
+    double elevation_sum = 0.0;
+    int elevated_feet = 0;
+    int stance_feet = 0;
+    std::array<double, go2::kLegCount> planned_support_dz{};
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         const bool swinging =
             gait_result.touchdown_target_x_m[leg] != 0.0;
-        if (!swinging)
-        {
-            // Stance references stay on the flat-ground schedule in v1;
-            // mounting/dismounting shows up as brief attitude transients.
-            if (terrain_swing_dz_m_[leg] != 0.0)
-            {
-                feet[leg].z += terrain_swing_dz_m_[leg];
-            }
-            continue;
-        }
         const auto rotated =
             RotateByQuaternion(pose.quaternion, feet[leg]);
         const double foot_world_z = pose.base.z + rotated.z;
+        if (!swinging)
+            ++stance_feet;
         go2_control::terrain::TerrainFootholdRequest request{};
         request.leg = static_cast<go2::Leg>(leg);
         request.base_world_x_m = pose.base.x;
@@ -1127,32 +1127,69 @@ void TrotExperiment::ApplyTerrainSwingOffsets(
         go2_control::terrain::TerrainFootholdOutput output{};
         go2_control::terrain::PlanTerrainFoothold(
             planner_params, terrain_map, request, output);
-        double target_dz = 0.0;
-        if (output.status ==
+        const bool valid_elevated =
+            output.status ==
                 go2_control::terrain::TerrainPlanStatus::kValid &&
-            output.world_z_m > foot_world_z + kMinElevatedZM)
+            output.world_z_m > foot_world_z + kMinElevatedZM;
+        if (!swinging)
         {
-            target_dz = std::clamp(
+            // Planted feet vote for the shared body lift.
+            if (valid_elevated)
+            {
+                planned_support_dz[leg] = std::clamp(
+                    output.world_z_m - foot_world_z, 0.0, kMaxDzM);
+                ++elevated_feet;
+                elevation_sum += planned_support_dz[leg];
+            }
+        }
+        else if (valid_elevated)
+        {
+            // A swinging foot mounts onto its own planned patch directly;
+            // this is what makes the first leading-edge capture possible.
+            planned_support_dz[leg] = std::clamp(
                 output.world_z_m - foot_world_z, 0.0, kMaxDzM);
         }
-        // Hold the previous offset through late swing if the patch query
-        // lost the edge mid-swing; otherwise apply the fresh full offset.
-        if (target_dz > 0.0 || terrain_swing_dz_m_[leg] > 0.0)
+    }
+    double target_lift = 0.0;
+    if (elevated_feet >= 2)
+    {
+        // Only trust the lift once at least two planted feet confirm the
+        // same elevated surface; single-foot readings stay noise-gated.
+        target_lift = std::clamp(
+            elevation_sum / static_cast<double>(elevated_feet),
+            0.0, kMaxDzM);
+    }
+    const double dt_s = 0.002;
+    const double lift_rate = 0.10 * dt_s;
+    const double drop_rate = 0.06 * dt_s;
+    const double delta_lift = target_lift - body_terrain_lift_m_;
+    body_terrain_lift_m_ += std::clamp(
+        delta_lift,
+        -drop_rate, lift_rate);
+    if (body_terrain_lift_m_ < 0.001)
+        body_terrain_lift_m_ = 0.0;
+    if (body_terrain_lift_m_ > 0.0)
+    {
+        // Convert the shared world-frame lift back into body-frame foot
+        // targets using the measured orientation.
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            if (target_dz > 0.0)
-                terrain_swing_dz_m_[leg] = target_dz;
-            feet[leg].z += terrain_swing_dz_m_[leg];
-        }
-        if (now_s - last_act_debug_log_s_ >= 1.0)
-        {
-            std::cout << "Terrain act t=" << now_s << " leg" << leg
-                      << " swing=1 status=" << static_cast<int>(output.status)
-                      << " world_z=" << output.world_z_m
-                      << " foot_z=" << foot_world_z
-                      << " swing=" << swinging
-                      << " applied_dz=" << terrain_swing_dz_m_[leg]
-                      << "\n";
-            last_act_debug_log_s_ = now_s;
+            const auto rotated =
+                RotateByQuaternion(pose.quaternion, feet[leg]);
+            const go2::Vec3 world{
+                pose.base.x + rotated.x,
+                pose.base.y + rotated.y,
+                pose.base.z + rotated.z + body_terrain_lift_m_ +
+                    planned_support_dz[leg]};
+            const auto inv = RotateByQuaternion(
+                InvertQuaternion(pose.quaternion),
+                {world.x - pose.base.x,
+                 world.y - pose.base.y,
+                 world.z - pose.base.z});
+            feet[leg].x = inv.x;
+            feet[leg].y = inv.y;
+            feet[leg].z = inv.z;
         }
     }
+
 }
