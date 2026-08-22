@@ -1489,6 +1489,17 @@ int main(int argc, char **argv)
       : std::make_unique<mj::GlfwAdapter>(),
     &cam, &opt, &pert, /* is_passive = */ true);
 
+  // WSLg rendering can consume most of a 60 Hz refresh slice, starving the
+  // physics thread.  Keep the normal viewer unchanged, but allow recording
+  // runs to reserve a larger physics budget without changing simulation time.
+  if (const char *refresh_env = std::getenv("UNITREE_MUJOCO_REFRESH_RATE"))
+  {
+    char *end = nullptr;
+    const long refresh = std::strtol(refresh_env, &end, 10);
+    if (end != refresh_env && *end == '\0' && refresh >= 10 && refresh <= 240)
+      sim->refresh_rate = static_cast<int>(refresh);
+  }
+
   if (!param::config.headless) {
     auto* glfw_adapter = static_cast<mj::GlfwAdapter*>(sim->platform_ui.get());
     glfwSetWindowPos(glfw_adapter->window_, 80, 80);

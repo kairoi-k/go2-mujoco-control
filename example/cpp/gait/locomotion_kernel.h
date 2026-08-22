@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <limits>
 #include <string>
 
@@ -15,6 +16,11 @@ namespace go2_control
 enum class GaitPattern
 {
     kDiagonalTrot,
+    // Running trot keeps the diagonal pairing but advances the opposite
+    // pair slightly before the first pair leaves support.  It is the
+    // high-speed, overlap-support variant; unlike the ordinary trot it does
+    // not rely on an exact half-cycle hand-off at the WBC contact boundary.
+    kRunningTrot,
     kBound,
     kPace,
     kGallop,
@@ -31,6 +37,9 @@ inline const char *GaitPatternName(GaitPattern pattern) noexcept
     case GaitPattern::kPace:
         return "pace";
     case GaitPattern::kDiagonalTrot:
+        return "diagonal-trot";
+    case GaitPattern::kRunningTrot:
+        return "running-trot";
     default:
         return "diagonal-trot";
     }
@@ -46,6 +55,11 @@ inline bool ParseGaitPattern(
     if (value == "diagonal-trot" || value == "trot")
     {
         pattern = GaitPattern::kDiagonalTrot;
+        return true;
+    }
+    if (value == "running-trot" || value == "running")
+    {
+        pattern = GaitPattern::kRunningTrot;
         return true;
     }
     if (value == "bound")
@@ -74,12 +88,27 @@ inline double WrapUnitPhase(double phase) noexcept
     return wrapped;
 }
 
+inline double RunningTrotPhaseOffset() noexcept
+{
+    const char *value = std::getenv("TROT_RUNNING_TROT_OFFSET");
+    if (value == nullptr || *value == '\0')
+        return 0.46;
+    char *end = nullptr;
+    const double parsed = std::strtod(value, &end);
+    if (end == value || !std::isfinite(parsed))
+        return 0.46;
+    return std::clamp(parsed, 0.25, 0.50);
+}
+
 inline double GaitLegPhase(
     std::size_t leg,
     double phase,
     GaitPattern pattern = GaitPattern::kDiagonalTrot) noexcept
 {
     static constexpr std::array<double, 4> kDiagonal = {0.0, 0.5, 0.5, 0.0};
+    // A tunable phase offset lets experiments compare a near-flight running
+    // trot with a small overlap-support variant without changing the normal
+    // diagonal-trot convention.
     // Slight overlap between front and rear support pairs prevents a
     // low-duty bound from losing all vertical support at the hand-off.
     static constexpr std::array<double, 4> kBound = {0.0, 0.0, 0.42, 0.42};
@@ -88,6 +117,12 @@ inline double GaitLegPhase(
     // fore -> left fore.  Leg order is FR, FL, RR, RL, so the rear pair
     // leads the fore pair by half a cycle while each side is staggered.
     static constexpr std::array<double, 4> kGallop = {0.50, 0.62, 0.0, 0.12};
+    if (pattern == GaitPattern::kRunningTrot)
+    {
+        const double offset = RunningTrotPhaseOffset();
+        return WrapUnitPhase(
+            phase + ((leg == 0 || leg == 3) ? 0.0 : offset));
+    }
     const auto &offsets =
         pattern == GaitPattern::kBound
             ? kBound

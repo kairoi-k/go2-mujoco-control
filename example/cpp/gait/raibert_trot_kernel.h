@@ -468,7 +468,8 @@ private:
     {
         const double reach_phase = reach_phase_override >= 0.5
             ? std::clamp(reach_phase_override, 0.5, 1.0)
-            : (pattern == GaitPattern::kDiagonalTrot ? 0.60 : 0.72);
+            : ((pattern == GaitPattern::kDiagonalTrot ||
+                pattern == GaitPattern::kRunningTrot) ? 0.60 : 0.72);
         const double t = std::min(1.0, x / reach_phase);
         return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
     }

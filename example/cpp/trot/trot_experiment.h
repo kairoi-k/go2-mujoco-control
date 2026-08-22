@@ -128,7 +128,9 @@ private:
     bool EmergencyStopHoldReady() const;
     bool PhaseStandUp(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseStandSettle(std::array<double, go2_trot::kMotorCount> &joint_targets);
-    bool PhaseStartGait(std::array<double, go2_trot::kMotorCount> &joint_targets);
+    bool PhaseStartGait(
+        const unitree_go::msg::dds_::LowState_ &state_snapshot,
+        std::array<double, go2_trot::kMotorCount> &joint_targets);
     void UpdateMotionEventResponse(
         double gait_elapsed_s, double motion_dt_s,
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
@@ -196,6 +198,12 @@ private:
     double high_speed_stop_brake_base_speed_mps_ = 0.0;
     double high_speed_stop_brake_base_period_s_ = 0.22;
     double high_speed_stop_brake_base_duty_ = 0.44;
+    // Health-triggered braking must be shorter than the normal timed stop:
+    // once posture/foothold quality is degrading, waiting two seconds keeps
+    // the robot in the failing aerial plant for too long.  The default stays
+    // at the validated timed-stop value; sprint profiles may request a
+    // bounded faster guard brake.
+    double high_speed_stop_brake_duration_s_ = 2.00;
     bool high_speed_stop_hold_active_ = false;
     double high_speed_stop_hold_start_time_s_ = 0.0;
     std::array<double, go2_trot::kMotorCount>
@@ -298,6 +306,23 @@ private:
     std::size_t step_plan_index_ = 0;
     std::size_t period_plan_index_ = 0;
     double wbc_speed_cmd_mps_ = -1.0;
+    // Optional health-aware cap for the sprint curriculum. It is disabled
+    // unless TROT_HS_STABILITY_GOV is set, so legacy profiles keep their
+    // exact command trajectory.
+    double high_speed_health_cap_mps_ = -1.0;
+    int high_speed_health_hold_cycles_ = 0;
+    // Temporary support-rich shape hold used by the health governor.  It
+    // keeps the commanded speed reference intact while buying contact time
+    // after a measurable touchdown-quality degradation.
+    int high_speed_health_severe_streak_ = 0;
+    // Once a sprint has reached its high-speed regime, keep the per-tick
+    // safety guard armed while the health governor is already reducing the
+    // reference.  Using only the instantaneous (now falling) speed can make
+    // the guard miss the short transition from a bad touchdown to a hard
+    // posture excursion.
+    bool high_speed_guard_armed_ = false;
+    int high_speed_guard_bad_ticks_ = 0;
+    int high_speed_preflight_stable_cycles_ = 0;
     double cartesian_last_v_meas_ = -1.0;
     double cartesian_last_foot_error_m_ = 0.0;
     bool cartesian_cruise_latched_ = false;

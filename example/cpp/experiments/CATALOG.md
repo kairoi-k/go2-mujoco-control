@@ -20,6 +20,10 @@ Depending on the experiment, a directory may contain configuration snapshots, CS
 
 - [`go2_wbc_full_mainline_repeat_2026-08-18/`](go2_wbc_full_mainline_repeat_2026-08-18/README.md) — 2026-08-18 `2b82dae` headless repeat. `full` n=5: 0.130 ± 0.011 m/s (0.116–0.147); `task` n=3: 0.139 ± 0.004 m/s. This is the number in `docs/RESEARCH_INDEX.md`. The 2026-08-15 single-run 0.149 m/s in `docs/WBC_MPC.md` is historical. Raw CSVs stay in `_runs/`.
 
+## Current sustained-speed validation
+
+- [`go2_sustained_sprint_3mps_wallclock_2026-08-22/`](go2_sustained_sprint_3mps_wallclock_2026-08-22/README.md) — four independent 40 s wall-clock phase runs plus a release-default smoke run. All passed the strict speed, attitude, safety, dynamics, contact, and controlled-stop checks; the report records the exact acceptance semantics and OneDrive demo.
+
 ## Adding a new experiment
 
 Use [`../../../docs/EXPERIMENT_TEMPLATE.md`](../../../docs/EXPERIMENT_TEMPLATE.md). Record the question, exact intervention, held-fixed conditions, configuration, seed, protocol/metric semantics, artifact paths, result, and bounded interpretation.

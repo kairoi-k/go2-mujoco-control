@@ -13,7 +13,7 @@ void PrintTrotCliUsage()
         << "Usage: real_trot_go2 <interface> <duration_s> <csv_path>"
            " [--period s] [--duty d] [--step-length m]"
            " [--kernel hand-coded-trot|raibert-trot]"
-           " [--gait-pattern diagonal-trot|bound|pace|gallop]"
+           " [--gait-pattern diagonal-trot|running-trot|bound|pace|gallop]"
            " [--raibert-velocity-gain s] [--raibert-max-adjustment m]"
            " [--velocity-filter-cutoff-hz f]"
            " [--wall-clock-motion]"
@@ -366,7 +366,8 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
         !(cfg.params.step_length_m > 0.0 &&
           cfg.params.step_length_m <=
               (cfg.params.wbc_full ? 1.20 : 0.30)) ||
-        !(cfg.params.foot_lift_m >= 0.02 && cfg.params.foot_lift_m <= 0.20) ||
+        !(cfg.params.foot_lift_m >= 0.02 &&
+          cfg.params.foot_lift_m <= (cfg.params.wbc_full ? 0.35 : 0.20)) ||
         !(cfg.params.kp > 0.0 && cfg.params.kp <= 150.0) ||
         !(cfg.params.kd > 0.0 && cfg.params.kd <= 15.0) ||
         cfg.max_cycles < 0 || cfg.domain_id < 0 || cfg.domain_id > 232 ||

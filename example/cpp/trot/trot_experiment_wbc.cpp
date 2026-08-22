@@ -72,10 +72,23 @@ Eigen::Vector3d ClampVec3(const Eigen::Vector3d &v, double lim)
 std::array<bool, go2::kLegCount> MergeHighSpeedContact(
     const std::array<bool, go2::kLegCount> &scheduled,
     const std::array<bool, go2::kLegCount> &measured,
-    bool enabled)
+    int mode)
 {
-    if (!enabled)
+    if (mode <= 0)
         return scheduled;
+    // Mode 2 is a conservative union: never remove a scheduled stance foot
+    // merely because its force sensor is late, but allow an early measured
+    // touchdown to enter the QP immediately.  This keeps the contact plant
+    // compatible with the planned swing trajectory while absorbing early
+    // touchdown, unlike the old measured-only merge which could replace a
+    // valid diagonal pair with a transient one-leg sample.
+    if (mode >= 2)
+    {
+        std::array<bool, go2::kLegCount> merged = scheduled;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            merged[leg] = merged[leg] || measured[leg];
+        return merged;
+    }
     std::array<bool, go2::kLegCount> merged = measured;
     int active = 0;
     for (bool contact : merged)
@@ -176,9 +189,10 @@ void TrotExperiment::UpdateWbcFull(
         wbc_shadow_contact_state_[leg] = next_contact;
         measured_contact[leg] = next_contact;
     }
-    const bool high_speed_contact_merge =
-        high_speed_curriculum &&
-        Full2EnvDouble("TROT_HS_HYBRID_CONTACT", 0.0) > 0.5;
+    const int high_speed_contact_merge_mode = high_speed_curriculum
+        ? std::clamp(static_cast<int>(std::llround(Full2EnvDouble(
+              "TROT_HS_HYBRID_CONTACT", 0.0))), 0, 2)
+        : 0;
     // During ordinary trot the force sensors stay high through lift-off, so
     // the validated path uses the gait schedule.  Sprint experiments may opt
     // into a measured/scheduled merge to absorb early or late touchdown.
@@ -208,7 +222,8 @@ void TrotExperiment::UpdateWbcFull(
                 current_phase_, gait_period, gait_duty, 1, 0.0, scheduled,
                 params_.gait_pattern);
             qp_contact = MergeHighSpeedContact(
-                scheduled[0], measured_contact, high_speed_contact_merge);
+                scheduled[0], measured_contact,
+                high_speed_contact_merge_mode);
         }
     }
     int contact_mask = 0;
@@ -409,7 +424,8 @@ void TrotExperiment::UpdateWbcFull(
                     current_phase_, gait_period, gait_duty,
                     mpc_params.horizon, mpc_params.dt_s, mpc_in.contact,
                     params_.gait_pattern);
-                if (high_speed_contact_merge && mpc_params.horizon > 0)
+                if (high_speed_contact_merge_mode > 0 &&
+                    mpc_params.horizon > 0)
                     mpc_in.contact[0] = qp_contact;
             }
         }
@@ -535,11 +551,26 @@ void TrotExperiment::UpdateWbcFull(
             // velocity damper in the WBC task so a stale MPC force cannot
             // push the body forward while the feet are being frozen.
             const double kStopVelocityKp =
-                WbcStopHoldActive() ? 5.0 : 6.0;
+                WbcStopHoldActive()
+                    ? 5.0
+                    : (high_speed_stop_brake_active_
+                           ? std::max(6.0, Full2EnvDouble(
+                                 "TROT_HS_BRAKE_VEL_KP", 8.0))
+                           : 6.0);
             const double kStopAxLimit =
-                WbcStopHoldActive() ? 4.0 : 2.5;
+                WbcStopHoldActive()
+                    ? 4.0
+                    : (high_speed_stop_brake_active_
+                           ? std::clamp(Full2EnvDouble(
+                                 "TROT_HS_BRAKE_AX_LIMIT", 5.0), 2.5, 8.0)
+                           : 2.5);
             const double kStopAyLimit =
-                WbcStopHoldActive() ? 3.0 : 2.0;
+                WbcStopHoldActive()
+                    ? 3.0
+                    : (high_speed_stop_brake_active_
+                           ? std::clamp(Full2EnvDouble(
+                                 "TROT_HS_BRAKE_AY_LIMIT", 4.0), 2.0, 6.0)
+                           : 2.0);
             wbc_in.desired_linear_acc_world.x() = Clamp(
                 -kStopVelocityKp * linear_vel_world.x(),
                 -kStopAxLimit, kStopAxLimit);
@@ -1129,7 +1160,11 @@ void TrotExperiment::UpdateWbcShadow(
 
     double desired_force_x_n = 0.0;
     double desired_force_y_n = 0.0;
+    const bool disable_high_speed_velocity_wrench =
+        high_speed_curriculum &&
+        Full2EnvDouble("TROT_HS_DISABLE_VELOCITY_WRENCH", 0.0) > 0.5;
     if (params_.wbc_velocity_wrench &&
+        !disable_high_speed_velocity_wrench &&
         task_.motion_stage_ == 2 &&
         task_.gait_started_ &&
         !task_.stop_requested_ &&

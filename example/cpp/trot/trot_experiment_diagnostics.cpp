@@ -405,6 +405,15 @@ bool TrotExperiment::ValidateCycle(int cycle_index)
         support_fraction >= min_support_fraction &&
         cycle_diagnostics_.max_consecutive_low_support_samples <=
             max_consecutive_low_support;
+    const bool high_speed_health_governor =
+        params_.wbc_full && !params_.cartesian_world &&
+        Full2EnvDouble("TROT_HS_STABILITY_GOV", 0.0) > 0.5;
+    if (!safe && high_speed_health_governor)
+    {
+        std::cerr << "Trot health governor: degraded cycle "
+                  << cycle_index << "; speed cap remains active\n";
+        return true;
+    }
     if (!safe && Full2EnvDouble("TROT_EXPLORATORY_CONTINUE", 0.0) > 0.5)
     {
         std::cerr << "Trot exploratory continuation: cycle quality rejected "
