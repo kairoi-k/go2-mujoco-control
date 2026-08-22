@@ -80,6 +80,11 @@ public:
 
 private:
     void EnvironmentHeightMapMessageHandler(const void *message);
+    void ObserveTerrainFootholds(
+        const unitree_go::msg::dds_::HeightMap_ &map,
+        const unitree_go::msg::dds_::LowState_ &low_state,
+        const unitree_go::msg::dds_::SportModeState_ &high_state,
+        double now_s);
     void InitLowCmd();
     void WriteCsvHeader();
     bool WaitForNaturalSettle(double timeout_s);
@@ -318,6 +323,7 @@ private:
     bool have_low_state_ = false;
     bool have_high_state_ = false;
     bool have_environment_heightmap_ = false;
+    double last_terrain_observe_log_s_ = -100.0;
 
     std::mutex state_mutex_;
     std::ofstream csv_;

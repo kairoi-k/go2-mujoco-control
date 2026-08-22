@@ -211,7 +211,7 @@ bool TrotExperiment::Init()
             std::placeholders::_1),
         1);
 
-    if (params_.auto_environment)
+    if (params_.auto_environment || params_.terrain_observe)
     {
         environment_heightmap_subscriber_.reset(
             new ChannelSubscriber<unitree_go::msg::dds_::HeightMap_>(

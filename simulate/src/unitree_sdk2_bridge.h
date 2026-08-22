@@ -212,11 +212,13 @@ public:
 
     void PublishEnvironmentHeightMap()
     {
-        constexpr float kResolution = 0.10f;
-        constexpr uint32_t kWidth = 16;
+        // 5 cm grid, 320 cells: 1.0 m forward x 0.8 m lateral gives each
+        // 24 cm stair tread interior support cells.
+        constexpr float kResolution = 0.05f;
+        constexpr uint32_t kWidth = 20;
         constexpr uint32_t kHeight = 16;
-        constexpr float kOriginX = -0.20f;
-        constexpr float kOriginY = -0.80f;
+        constexpr float kOriginX = -0.10f;
+        constexpr float kOriginY = -0.40f;
         const double sim_time = mj_data_->time;
         if (!environment_heightmap ||
             sim_time - last_environment_map_publish_s_ < 0.020)
@@ -243,13 +245,18 @@ public:
                 (mj_model_->geom_contype[geom_id] == 0 &&
                  mj_model_->geom_conaffinity[geom_id] == 0))
                 continue;
+            // Use per-axis half extents for boxes: the diagonal radius makes
+            // a wide barrier appear decimeters before its real front edge.
             double footprint_radius = 0.0;
+            double footprint_half_x = 0.0;
+            double footprint_half_y = 0.0;
             double half_height = 0.0;
             const int type = mj_model_->geom_type[geom_id];
             const mjtNum *size = mj_model_->geom_size + 3 * geom_id;
             if (type == mjGEOM_BOX)
             {
-                footprint_radius = std::hypot(size[0], size[1]);
+                footprint_half_x = size[0];
+                footprint_half_y = size[1];
                 half_height = size[2];
             }
             else if (type == mjGEOM_CYLINDER)
@@ -272,7 +279,13 @@ public:
                 footprint_radius = std::max(size[0], size[1]);
                 half_height = std::max(size[0], size[2]);
             }
-            if (!(footprint_radius > 0.0) || !(half_height > 0.0))
+            if (footprint_radius > 0.0)
+            {
+                footprint_half_x = footprint_radius;
+                footprint_half_y = footprint_radius;
+            }
+            if (!(footprint_half_x > 0.0) || !(footprint_half_y > 0.0) ||
+                !(half_height > 0.0))
                 continue;
             const mjtNum *geom_pos = mj_data_->geom_xpos + 3 * geom_id;
             const mjtNum *geom_delta = geom_pos;
@@ -291,8 +304,10 @@ public:
                 {
                     const double x = kOriginX +
                         (static_cast<double>(ix) + 0.5) * kResolution;
-                    if (std::hypot(x - local[0], y - local[1]) >
-                        footprint_radius + 0.5 * kResolution)
+                    if (std::abs(x - local[0]) >
+                            footprint_half_x + 0.5 * kResolution ||
+                        std::abs(y - local[1]) >
+                            footprint_half_y + 0.5 * kResolution)
                         continue;
                     const std::size_t index =
                         static_cast<std::size_t>(iy) * kWidth + ix;

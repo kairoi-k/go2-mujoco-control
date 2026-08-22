@@ -16,6 +16,7 @@
 #include "go2_inverse_kinematics.h"
 #include "motion_frame_utils.h"
 #include "full2_campaign_env.h"
+#include "terrain/terrain_adaptation.h"
 
 using namespace unitree::common;
 using namespace unitree::robot;
@@ -925,6 +926,24 @@ void TrotExperiment::UpdateGaitWorldDiagnostics(
         have_world_feet = true;
     }
 
+    if (params_.terrain_observe && have_high_state && have_state)
+    {
+        unitree_go::msg::dds_::HeightMap_ height_map;
+        bool have_height_map = false;
+        {
+            std::lock_guard<std::mutex> lock(state_mutex_);
+            height_map = environment_heightmap_;
+            have_height_map = have_environment_heightmap_;
+        }
+        if (have_height_map)
+        {
+            ObserveTerrainFootholds(
+                height_map,
+                state_snapshot,
+                high_state_snapshot,
+                static_cast<double>(state_snapshot.tick()) * 1.0e-3);
+        }
+    }
     touchdown_event_count_ = 0;
     last_touchdown_leg_ = -1;
     last_touchdown_command_x_m_ = 0.0;
@@ -942,4 +961,65 @@ void TrotExperiment::UpdateGaitWorldDiagnostics(
             world_feet,
             world_pose);
     }
+}
+
+void TrotExperiment::ObserveTerrainFootholds(
+    const unitree_go::msg::dds_::HeightMap_ &map,
+    const unitree_go::msg::dds_::LowState_ &low_state,
+    const unitree_go::msg::dds_::SportModeState_ &high_state,
+    double now_s)
+{
+    // Observe-only: plan one foothold per leg against the live map and log
+    // the outcome at 1 Hz.  Nothing here feeds back into any command.
+    if (now_s - last_terrain_observe_log_s_ < 1.0)
+        return;
+    if (map.width() == 0 || map.height() == 0 || map.resolution() <= 0.0f)
+        return;
+    const std::size_t expected =
+        static_cast<std::size_t>(map.width()) * map.height();
+    if (map.data().size() < expected)
+        return;
+
+    go2_control::terrain::HeightMap terrain_map(
+        map.origin()[0], map.origin()[1], map.resolution(),
+        map.width(), map.height());
+    for (std::size_t iy = 0; iy < map.height(); ++iy)
+        for (std::size_t ix = 0; ix < map.width(); ++ix)
+            terrain_map.SetCell(
+                ix, iy, map.data()[iy * map.width() + ix], true);
+
+    const WorldPose pose = ComputeWorldPose(low_state, high_state);
+    const auto world_feet = ComputeWorldFeet(low_state, pose);
+    go2_control::terrain::TerrainFootholdPlannerParams planner_params{};
+    std::ostringstream line;
+    line << "Terrain observe t=" << now_s << " age="
+         << (now_s - map.stamp());
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        go2_control::terrain::TerrainFootholdRequest request{};
+        request.leg = static_cast<go2::Leg>(leg);
+        request.base_world_x_m = pose.base.x;
+        request.base_world_y_m = pose.base.y;
+        request.base_world_z_m = pose.base.z;
+        // Nominal target: where this foot currently is.  On flat ground the
+        // planner should confirm it; near terrain it reports the rejection
+        // reason we would have hit.
+        request.nominal_body_x_m = world_feet[leg].x - pose.base.x;
+        request.nominal_body_y_m = world_feet[leg].y - pose.base.y;
+        request.nominal_body_z_m = world_feet[leg].z - pose.base.z;
+        request.reference_foot_world_z_m = 0.0;
+        go2_control::terrain::TerrainFootholdOutput output{};
+        go2_control::terrain::PlanTerrainFoothold(
+            planner_params, terrain_map, request, output);
+        line << " leg" << leg << "="
+             << static_cast<int>(output.status);
+        if (output.status ==
+            go2_control::terrain::TerrainPlanStatus::kValid)
+        {
+            line << "(" << output.world_x_m << "," << output.world_y_m
+                 << "," << output.world_z_m << ")";
+        }
+    }
+    std::cout << line.str() << "\n";
+    last_terrain_observe_log_s_ = now_s;
 }

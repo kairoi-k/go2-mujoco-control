@@ -180,6 +180,9 @@ struct TrotParams
     bool wall_clock_motion = false;
     bool reactive_events = false;
     bool auto_environment = false;
+    // Observe-only terrain pipeline: runs the foothold planner on the live
+    // height map and logs status, never alters any command.
+    bool terrain_observe = false;
     // >= 0 enables a detector-driven emergency stop after a physical impact.
     // A negative value keeps the legacy detector-only behavior.
     double impact_to_emergency_stop_delay_s = -1.0;
