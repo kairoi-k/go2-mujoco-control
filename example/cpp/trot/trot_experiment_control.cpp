@@ -1378,6 +1378,21 @@ void TrotExperiment::UpdateGaitWorldDiagnostics(
         have_world_feet = true;
     }
 
+
+    if (params_.auto_environment && params_.sensor_map &&
+        have_high_state && have_state)
+    {
+        unitree_go::msg::dds_::HeightMap_ height_map;
+        bool have_height_map = false;
+        {
+            std::lock_guard<std::mutex> lock(state_mutex_);
+            height_map = environment_heightmap_;
+            have_height_map = have_environment_heightmap_;
+        }
+        if (have_height_map)
+            ObserveTerrainFootholds(
+                height_map, state_snapshot, high_state_snapshot,
+                static_cast<double>(state_snapshot.tick()) * 1.0e-3);
     touchdown_event_count_ = 0;
     last_touchdown_leg_ = -1;
     last_touchdown_command_x_m_ = 0.0;
@@ -1395,4 +1410,131 @@ void TrotExperiment::UpdateGaitWorldDiagnostics(
             world_feet,
             world_pose);
     }
+}
+
+void TrotExperiment::ObserveTerrainFootholds(
+    const unitree_go::msg::dds_::HeightMap_ &map,
+    const unitree_go::msg::dds_::LowState_ &low_state,
+    const unitree_go::msg::dds_::SportModeState_ &high_state,
+    double now_s)
+{
+    // Observe-only: plan in the map's native base_link xy (z is world).
+    // Front legs also query a 0.10 m forward lookahead so approach sequences
+    // are visible before the foot itself is on the patch.  Nothing here
+    // feeds back into any command.
+    terrain_observe_status_.fill(-1);
+    terrain_observe_z_m_.fill(0.0);
+    terrain_observe_look_status_.fill(-1);
+    terrain_observe_look_z_m_.fill(0.0);
+    terrain_fwd_z_m_.fill(-1.0);
+    if (map.width() == 0 || map.height() == 0 || map.resolution() <= 0.0f)
+        return;
+    const std::size_t expected =
+        static_cast<std::size_t>(map.width()) * map.height();
+    if (map.data().size() < expected)
+        return;
+
+    go2_control::terrain::HeightMap terrain_map(
+        map.origin()[0], map.origin()[1], map.resolution(),
+        map.width(), map.height());
+    for (std::size_t iy = 0; iy < map.height(); ++iy)
+        for (std::size_t ix = 0; ix < map.width(); ++ix)
+        {
+            const float v = map.data()[iy * map.width() + ix];
+            terrain_map.SetCell(
+                ix, iy, std::isnan(v) ? 0.0 : v, !std::isnan(v));
+        }
+
+    const WorldPose pose = ComputeWorldPose(low_state, high_state);
+    const auto world_feet = ComputeWorldFeet(low_state, pose);
+    const auto inv_q = InvertQuaternion(pose.quaternion);
+    go2_control::terrain::TerrainFootholdPlannerParams planner_params{};
+    auto plan_at = [&](go2::Leg leg,
+                       double body_x,
+                       double body_y,
+                       double ref_z,
+                       go2_control::terrain::TerrainFootholdOutput &output) {
+        go2_control::terrain::TerrainFootholdRequest request{};
+        request.leg = leg;
+        request.base_world_x_m = 0.0;
+        request.base_world_y_m = 0.0;
+        request.base_world_z_m = pose.base.z;
+        request.nominal_body_x_m = body_x;
+        request.nominal_body_y_m = body_y;
+        request.nominal_body_z_m = ref_z - pose.base.z;
+        request.reference_foot_world_z_m = ref_z;
+        go2_control::terrain::PlanTerrainFoothold(
+            planner_params, terrain_map, request, output);
+    };
+
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const go2::Vec3 delta{
+            world_feet[leg].x - pose.base.x,
+            world_feet[leg].y - pose.base.y,
+            world_feet[leg].z - pose.base.z};
+        const go2::Vec3 body = RotateByQuaternion(inv_q, delta);
+        go2_control::terrain::TerrainFootholdOutput output{};
+        plan_at(static_cast<go2::Leg>(leg), body.x, body.y,
+                world_feet[leg].z, output);
+        terrain_observe_status_[leg] = static_cast<int>(output.status);
+        if (output.status == go2_control::terrain::TerrainPlanStatus::kValid)
+            terrain_observe_z_m_[leg] = output.world_z_m;
+        else
+        {
+            double sampled = 0.0;
+            bool known = false;
+            if (terrain_map.SampleHeight(body.x, body.y, sampled, known) &&
+                known)
+                terrain_observe_z_m_[leg] = sampled;
+        }
+        if (leg > 1)
+            continue;
+        go2_control::terrain::TerrainFootholdOutput look{};
+        const double look_x = body.x + 0.10;
+        plan_at(static_cast<go2::Leg>(leg), look_x, body.y,
+                world_feet[leg].z, look);
+        terrain_observe_look_status_[leg] = static_cast<int>(look.status);
+        if (look.status == go2_control::terrain::TerrainPlanStatus::kValid)
+            terrain_observe_look_z_m_[leg] = look.world_z_m;
+        else
+        {
+            double sampled = 0.0;
+            bool known = false;
+            if (terrain_map.SampleHeight(look_x, body.y, sampled, known) &&
+                known)
+                terrain_observe_look_z_m_[leg] = sampled;
+        }
+    }
+
+    static constexpr double kFwdX[4] = {0.20, 0.40, 0.60, 0.80};
+    for (int i = 0; i < 4; ++i)
+    {
+        double sampled = 0.0;
+        bool known = false;
+        if (terrain_map.SampleHeight(kFwdX[i], 0.0, sampled, known) && known)
+            terrain_fwd_z_m_[static_cast<std::size_t>(i)] = sampled;
+    }
+
+    if (now_s - last_terrain_observe_log_s_ < 1.0)
+        return;
+    std::ostringstream line;
+    line << "Terrain observe t=" << now_s
+         << " base_x=" << pose.base.x
+         << " age=" << (now_s - map.stamp());
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        line << " leg" << leg << "=" << terrain_observe_status_[leg]
+             << "(" << terrain_observe_z_m_[leg] << ")";
+    }
+    line << " lookFR=" << terrain_observe_look_status_[0]
+         << "(" << terrain_observe_look_z_m_[0] << ")"
+         << " lookFL=" << terrain_observe_look_status_[1]
+         << "(" << terrain_observe_look_z_m_[1] << ")"
+         << " fwd=" << terrain_fwd_z_m_[0]
+         << "," << terrain_fwd_z_m_[1]
+         << "," << terrain_fwd_z_m_[2]
+         << "," << terrain_fwd_z_m_[3];
+    std::cout << line.str() << "\n";
+    last_terrain_observe_log_s_ = now_s;
 }

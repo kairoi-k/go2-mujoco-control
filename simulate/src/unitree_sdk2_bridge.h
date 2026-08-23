@@ -637,10 +637,10 @@ private:
     double last_environment_map_publish_s_ = -1.0e9;
     double last_lidar_map_publish_s_ = -1.0e9;
     static constexpr double kLidarRes = 0.05;
-    static constexpr int kLidarWorldNx = 200;  // x in [-1.0, 9.0]
-    static constexpr int kLidarWorldNy = 60;   // y in [-1.5, 1.5]
-    static constexpr double kLidarWorldOx = -1.0;
-    static constexpr double kLidarWorldOy = -1.5;
+    static constexpr int kLidarWorldNx = 440;  // x in [-2.0, 20.0]
+    static constexpr int kLidarWorldNy = 80;   // y in [-2.0, 2.0]
+    static constexpr double kLidarWorldOx = -2.0;
+    static constexpr double kLidarWorldOy = -2.0;
     static constexpr uint32_t kLidarWinNx = 20;
     static constexpr uint32_t kLidarWinNy = 16;
     static constexpr float kLidarWinOx = -0.10f;

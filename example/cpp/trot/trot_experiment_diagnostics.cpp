@@ -95,6 +95,14 @@ void TrotExperiment::WriteCsvHeader()
              << "," << kMotorNames[i] << "_tau_est"
              << "," << kMotorNames[i] << "_q_error";
     }
+    csv_ << ",terrain_plan_status_fr,terrain_plan_status_fl"
+         << ",terrain_plan_status_rr,terrain_plan_status_rl"
+         << ",terrain_plan_z_fr_m,terrain_plan_z_fl_m"
+         << ",terrain_plan_z_rr_m,terrain_plan_z_rl_m"
+         << ",terrain_look_status_fr,terrain_look_status_fl"
+         << ",terrain_look_z_fr_m,terrain_look_z_fl_m"
+         << ",terrain_fwd_z_20_m,terrain_fwd_z_40_m"
+         << ",terrain_fwd_z_60_m,terrain_fwd_z_80_m";
     csv_ << "\n";
 }
 
@@ -711,5 +719,21 @@ void TrotExperiment::LogSample(
              << "," << tau_state
              << "," << (motor_cmd.q() - q_state);
     }
+    csv_ << "," << terrain_observe_status_[0]
+         << "," << terrain_observe_status_[1]
+         << "," << terrain_observe_status_[2]
+         << "," << terrain_observe_status_[3]
+         << "," << terrain_observe_z_m_[0]
+         << "," << terrain_observe_z_m_[1]
+         << "," << terrain_observe_z_m_[2]
+         << "," << terrain_observe_z_m_[3]
+         << "," << terrain_observe_look_status_[0]
+         << "," << terrain_observe_look_status_[1]
+         << "," << terrain_observe_look_z_m_[0]
+         << "," << terrain_observe_look_z_m_[1]
+         << "," << terrain_fwd_z_m_[0]
+         << "," << terrain_fwd_z_m_[1]
+         << "," << terrain_fwd_z_m_[2]
+         << "," << terrain_fwd_z_m_[3];
     csv_ << "\n";
 }
