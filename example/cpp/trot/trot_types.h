@@ -188,6 +188,7 @@ struct TrotParams
     bool terrain_observe = false;
     // Acting terrain mode: planner overrides swing touchdown heights.
     bool terrain_act = false;
+    bool sensor_map = false;
     // >= 0 enables a detector-driven emergency stop after a physical impact.
     // A negative value keeps the legacy detector-only behavior.
     double impact_to_emergency_stop_delay_s = -1.0;

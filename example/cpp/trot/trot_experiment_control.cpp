@@ -1260,8 +1260,11 @@ void TrotExperiment::ObserveTerrainFootholds(
         map.width(), map.height());
     for (std::size_t iy = 0; iy < map.height(); ++iy)
         for (std::size_t ix = 0; ix < map.width(); ++ix)
+        {
+            const float v = map.data()[iy * map.width() + ix];
             terrain_map.SetCell(
-                ix, iy, map.data()[iy * map.width() + ix], true);
+                ix, iy, std::isnan(v) ? 0.0 : v, !std::isnan(v));
+        }
 
     const WorldPose pose = ComputeWorldPose(low_state, high_state);
     const auto world_feet = ComputeWorldFeet(low_state, pose);

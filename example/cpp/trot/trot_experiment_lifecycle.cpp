@@ -216,7 +216,8 @@ bool TrotExperiment::Init()
     {
         environment_heightmap_subscriber_.reset(
             new ChannelSubscriber<unitree_go::msg::dds_::HeightMap_>(
-                GO2_TROT_TOPIC_ENVIRONMENT_MAP));
+                params_.sensor_map ? GO2_TROT_TOPIC_LIDAR_MAP
+                                   : GO2_TROT_TOPIC_ENVIRONMENT_MAP));
         environment_heightmap_subscriber_->InitChannel(
             std::bind(
                 &TrotExperiment::EnvironmentHeightMapMessageHandler,

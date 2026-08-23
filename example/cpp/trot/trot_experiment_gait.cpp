@@ -1090,9 +1090,12 @@ void TrotExperiment::ApplyTerrainSwingOffsets(
         height_map.resolution(), height_map.width(), height_map.height());
     for (std::size_t iy = 0; iy < height_map.height(); ++iy)
         for (std::size_t ix = 0; ix < height_map.width(); ++ix)
+        {
+            const float v =
+                height_map.data()[iy * height_map.width() + ix];
             terrain_map.SetCell(
-                ix, iy, height_map.data()[iy * height_map.width() + ix],
-                true);
+                ix, iy, std::isnan(v) ? 0.0 : v, !std::isnan(v));
+        }
 
     const WorldPose pose = ComputeWorldPose(low_state, high_state);
     go2_control::terrain::TerrainFootholdPlannerParams planner_params{};

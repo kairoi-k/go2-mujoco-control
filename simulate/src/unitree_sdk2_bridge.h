@@ -7,6 +7,9 @@
 #include <unitree/dds_wrapper/robots/go2/go2.h>
 #include <unitree/dds_wrapper/robots/g1/g1.h>
 #include <unitree/idl/go2/HeightMap_.hpp>
+#include <cmath>
+#include <limits>
+#include <vector>
 #include <unitree/idl/hg/BmsState_.hpp>
 #include <unitree/idl/hg/IMUState_.hpp>
 
@@ -200,6 +203,12 @@ public:
         environment_heightmap = unitree::robot::ChannelFactory::Instance()
             ->CreateSendChannel<unitree_go::msg::dds_::HeightMap_>(
                 "rt/go2/environment_heightmap");
+        lidar_heightmap = unitree::robot::ChannelFactory::Instance()
+            ->CreateSendChannel<unitree_go::msg::dds_::HeightMap_>(
+                "rt/go2/lidar_heightmap");
+        lidar_world_z_.assign(kLidarWorldNx * kLidarWorldNy,
+                              std::numeric_limits<double>::quiet_NaN());
+        lidar_world_t_.assign(kLidarWorldNx * kLidarWorldNy, -1.0e9);
         wireless_controller = std::make_unique<WirelessController_t>();
         wireless_controller->joystick = joystick;
     }
@@ -208,6 +217,174 @@ public:
     {
         thread_ = std::make_shared<unitree::common::RecurrentThread>(
             "unitree_bridge", UT_CPU_ID_NONE, 1000, [this]() { this->run(); });
+    }
+
+    // Simulated onboard lidar elevation map.  Rays are cast from the
+    // robot head pose into the world (occlusion is real), hits are fused
+    // in a world-anchored 5 cm grid with a 1.5 s memory, and the published
+    // base-relative window matches the oracle map geometry.  Cells never
+    // observed (or stale) publish NaN: downstream must treat them as
+    // unknown, exactly like a real sensor.
+    void PublishLidarHeightMap()
+    {
+        if (!lidar_heightmap)
+            return;
+        const double sim_time = mj_data_->time;
+        if (sim_time - last_lidar_map_publish_s_ < 0.020)
+            return;
+        last_lidar_map_publish_s_ = sim_time;
+        const int base_body_id = mj_name2id(
+            mj_model_, mjOBJ_BODY, "base_link");
+        if (base_body_id < 0)
+            return;
+        const mjtNum *base_pos = mj_data_->xpos + 3 * base_body_id;
+        const mjtNum *base_mat = mj_data_->xmat + 9 * base_body_id;
+        const mjtNum *base_quat_ptr = nullptr;
+        (void)base_quat_ptr;
+
+        // Ray pattern: downward rings for terrain surface, plus shallow
+        // forward rays so vertical risers are seen before contact.
+        struct Ring { double el_deg; int n; };
+        static const Ring rings[] = {
+            {-15, 48}, {-25, 48}, {-35, 36}, {-45, 36},
+            {-55, 24}, {-65, 24}, {-75, 16},
+            {-5, 16}, {5, 16},
+        };
+        const double origin[3] = {
+            base_pos[0] + 0.15 * base_mat[0],
+            base_pos[1] + 0.15 * base_mat[3],
+            base_pos[2] + 0.05};
+        int geom_id_out[1] = {-1};
+        for (const Ring &ring : rings)
+        {
+            const double el = ring.el_deg * M_PI / 180.0;
+            const bool forward_only = std::abs(ring.el_deg) < 10.0;
+            for (int ia = 0; ia < ring.n; ++ia)
+            {
+                const double az = forward_only
+                    ? (-40.0 + 80.0 * ia / std::max(1, ring.n - 1)) *
+                          M_PI / 180.0
+                    : 2.0 * M_PI * ia / ring.n;
+                const mjtNum dir_body[3] = {
+                    std::cos(el) * std::cos(az),
+                    std::cos(el) * std::sin(az),
+                    std::sin(el)};
+                mjtNum dir_world[3];
+                mju_mulMatVec(dir_world, base_mat, dir_body, 3, 3);
+                // Skip-through casting: rays that first hit the robot or a
+                // decorative (non-contact) geom are re-cast from just past
+                // the hit so occluding markers and own legs do not erase
+                // the surface behind them.
+                mjtNum ray_origin[3] = {origin[0], origin[1], origin[2]};
+                mjtNum dist = -1.0;
+                double travelled = 0.0;
+                bool accepted = false;
+                for (int bounce = 0; bounce < 3; ++bounce)
+                {
+                    dist = mj_ray(
+                        mj_model_, mj_data_, ray_origin, dir_world, nullptr,
+                        /*flg_static=*/1, /*bodyexclude=*/base_body_id,
+                        geom_id_out);
+                    if (dist < 0.0)
+                        break;
+                    const int gid = geom_id_out[0];
+                    if (gid < 0)
+                        break;
+                    const bool skip =
+                        mj_model_->geom_bodyid[gid] != 0 ||
+                        (mj_model_->geom_contype[gid] == 0 &&
+                         mj_model_->geom_conaffinity[gid] == 0);
+                    travelled += dist;
+                    if (!skip)
+                    {
+                        accepted = true;
+                        break;
+                    }
+                    ray_origin[0] += dir_world[0] * (dist + 0.01);
+                    ray_origin[1] += dir_world[1] * (dist + 0.01);
+                    ray_origin[2] += dir_world[2] * (dist + 0.01);
+                }
+                if (!accepted)
+                    continue;
+                const double hx = ray_origin[0] + dist * dir_world[0];
+                const double hy = ray_origin[1] + dist * dir_world[1];
+                const double hz = ray_origin[2] + dist * dir_world[2];
+                const int ix = static_cast<int>(
+                    std::floor((hx - kLidarWorldOx) / kLidarRes));
+                const int iy = static_cast<int>(
+                    std::floor((hy - kLidarWorldOy) / kLidarRes));
+                if (ix < 0 || ix >= kLidarWorldNx ||
+                    iy < 0 || iy >= kLidarWorldNy)
+                    continue;
+                const std::size_t cell =
+                    static_cast<std::size_t>(iy) * kLidarWorldNx + ix;
+                ++lidar_hits_last_;
+                double &slot = lidar_world_z_[cell];
+                if (!(slot > hz))
+                    slot = hz;
+                lidar_world_t_[cell] = sim_time;
+            }
+        }
+
+        // Extract the base-relative window expected by the controller.
+        unitree_go::msg::dds_::HeightMap_ map;
+        map.stamp(sim_time);
+        map.frame_id("base_link");
+        map.resolution(kLidarRes);
+        map.width(kLidarWinNx);
+        map.height(kLidarWinNy);
+        map.origin() = {kLidarWinOx, kLidarWinOy};
+        map.data().assign(
+            static_cast<std::size_t>(kLidarWinNx) * kLidarWinNy,
+            std::numeric_limits<float>::quiet_NaN());
+        // Base yaw for rotating the window into the base frame.
+        const mjtNum yaw = std::atan2(base_mat[3], base_mat[0]);
+        const mjtNum cy = std::cos(-yaw), sy = std::sin(-yaw);
+        for (uint32_t iy = 0; iy < kLidarWinNy; ++iy)
+        {
+            for (uint32_t ix = 0; ix < kLidarWinNx; ++ix)
+            {
+                const double lx = kLidarWinOx +
+                    (static_cast<double>(ix) + 0.5) * kLidarRes;
+                const double ly = kLidarWinOy +
+                    (static_cast<double>(iy) + 0.5) * kLidarRes;
+                // base-frame (lx,ly) -> world
+                const double wx = base_pos[0] + cy * lx - sy * ly;
+                const double wy = base_pos[1] + sy * lx + cy * ly;
+                const int gx = static_cast<int>(
+                    std::floor((wx - kLidarWorldOx) / kLidarRes));
+                const int gy = static_cast<int>(
+                    std::floor((wy - kLidarWorldOy) / kLidarRes));
+                if (gx < 0 || gx >= kLidarWorldNx ||
+                    gy < 0 || gy >= kLidarWorldNy)
+                    continue;
+                const std::size_t cell =
+                    static_cast<std::size_t>(gy) * kLidarWorldNx + gx;
+                if (sim_time - lidar_world_t_[cell] > 1.5)
+                    continue;
+                const double v = lidar_world_z_[cell];
+                if (std::isnan(v))
+                    continue;
+                float &out = map.data()[
+                    static_cast<std::size_t>(iy) * kLidarWinNx + ix];
+                if (std::isnan(out) || v > out)
+                    out = static_cast<float>(v);
+            }
+        }
+        (void)lidar_heightmap->Write(map, 0);
+        if (sim_time - last_lidar_debug_s_ >= 1.0)
+        {
+            last_lidar_debug_s_ = sim_time;
+            int known = 0;
+            for (const float v : map.data())
+                if (!std::isnan(v))
+                    ++known;
+            fprintf(stderr,
+                    "LidarMap t=%.2f hits=%d known_cells=%d ox=%.2f oz=%.2f\n",
+                    sim_time, lidar_hits_last_, known,
+                    origin[0], origin[2]);
+            lidar_hits_last_ = 0;
+        }
     }
 
     void PublishEnvironmentHeightMap()
@@ -337,6 +514,7 @@ public:
         }
 
         PublishEnvironmentHeightMap();
+        PublishLidarHeightMap();
 
         // lowstate
         if(lowstate->trylock()) {
@@ -450,12 +628,27 @@ public:
 
     std::unique_ptr<HighState_t> highstate;
     unitree::robot::ChannelPtr<unitree_go::msg::dds_::HeightMap_> environment_heightmap;
+    unitree::robot::ChannelPtr<unitree_go::msg::dds_::HeightMap_> lidar_heightmap;
     std::unique_ptr<WirelessController_t> wireless_controller;
     std::shared_ptr<LowCmd_t> lowcmd;
     std::unique_ptr<LowState_t> lowstate;
     
 private:
     double last_environment_map_publish_s_ = -1.0e9;
+    double last_lidar_map_publish_s_ = -1.0e9;
+    static constexpr double kLidarRes = 0.05;
+    static constexpr int kLidarWorldNx = 80;   // x in [-1.0, 3.0]
+    static constexpr int kLidarWorldNy = 60;   // y in [-1.5, 1.5]
+    static constexpr double kLidarWorldOx = -1.0;
+    static constexpr double kLidarWorldOy = -1.5;
+    static constexpr uint32_t kLidarWinNx = 20;
+    static constexpr uint32_t kLidarWinNy = 16;
+    static constexpr float kLidarWinOx = -0.10f;
+    static constexpr float kLidarWinOy = -0.40f;
+    std::vector<double> lidar_world_z_;
+    std::vector<double> lidar_world_t_;
+    double last_lidar_debug_s_ = -1.0e9;
+    int lidar_hits_last_ = 0;
     unitree::common::RecurrentThreadPtr thread_;
 };
 
