@@ -29,6 +29,7 @@
 #include "srbd_mpc.h"
 #include "inverse_dynamics_wbc.h"
 #include "cartesian_world_trot.h"
+#include "terrain/terrain_adaptation.h"
 
 using unitree::robot::ChannelPublisherPtr;
 using unitree::robot::ChannelSubscriberPtr;
@@ -367,6 +368,10 @@ private:
     std::array<double, 4> terrain_fwd_z_m_{{-1.0, -1.0, -1.0, -1.0}};
     double last_act_debug_log_s_ = -100.0;
     double body_terrain_lift_m_ = 0.0;
+    go2_control::terrain::TerrainApproachFsm terrain_fsm_{};
+    double terrain_step_scale_ = 1.0;
+    double terrain_pitch_ref_rad_ = 0.0;
+    int terrain_fsm_phase_ = 0;
     std::array<double, go2::kLegCount> terrain_swing_dz_m_{};
     std::array<bool, go2::kLegCount> kernel_swing_schedule_{};
     bool kernel_has_swing_schedule_ = false;

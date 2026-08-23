@@ -593,4 +593,93 @@ inline bool SlewTerrainMotionReference(
            std::isfinite(output.foot_lift_m);
 }
 
+enum class TerrainApproachPhase
+{
+    kCruise = 0,
+    kCreep = 1,
+    kMount = 2,
+    kTraverse = 3,
+};
+
+struct TerrainApproachFsm
+{
+    TerrainApproachPhase phase = TerrainApproachPhase::kCruise;
+    double pitch_ref_rad = 0.0;
+
+    void Reset() noexcept
+    {
+        phase = TerrainApproachPhase::kCruise;
+        pitch_ref_rad = 0.0;
+    }
+
+    bool Step(
+        bool front_look_elevated,
+        bool front_support_elevated,
+        bool rear_support_elevated,
+        double front_support_z_m,
+        double rear_support_z_m,
+        double dt_s,
+        double &step_scale,
+        double &pitch_out,
+        double creep_scale = 0.35) noexcept
+    {
+        switch (phase)
+        {
+        case TerrainApproachPhase::kCruise:
+            if (front_look_elevated && !front_support_elevated)
+                phase = TerrainApproachPhase::kCreep;
+            break;
+        case TerrainApproachPhase::kCreep:
+            if (front_support_elevated)
+                phase = TerrainApproachPhase::kMount;
+            else if (!front_look_elevated)
+                phase = TerrainApproachPhase::kCruise;
+            break;
+        case TerrainApproachPhase::kMount:
+            if (rear_support_elevated)
+                phase = TerrainApproachPhase::kTraverse;
+            break;
+        case TerrainApproachPhase::kTraverse:
+            if (!front_look_elevated && !front_support_elevated &&
+                !rear_support_elevated)
+                phase = TerrainApproachPhase::kCruise;
+            break;
+        }
+        const bool slow =
+            phase == TerrainApproachPhase::kCreep ||
+            phase == TerrainApproachPhase::kMount;
+        step_scale = slow ? creep_scale : 1.0;
+        double pitch_target = 0.0;
+        if (std::isfinite(front_support_z_m) &&
+            std::isfinite(rear_support_z_m))
+        {
+            pitch_target = std::atan2(
+                front_support_z_m - rear_support_z_m, 0.40);
+        }
+        pitch_target = std::clamp(pitch_target, -0.20, 0.20);
+        const double max_delta = 0.60 * std::max(dt_s, 0.0);
+        pitch_ref_rad += std::clamp(
+            pitch_target - pitch_ref_rad, -max_delta, max_delta);
+        pitch_out = pitch_ref_rad;
+        return true;
+    }
+};
+
+inline bool LegScheduledSwinging(
+    bool has_schedule,
+    const std::array<bool, 4> &schedule,
+    std::size_t leg,
+    double phase,
+    double duty) noexcept
+{
+    if (has_schedule)
+        return schedule[leg];
+    const bool pair_b =
+        leg == static_cast<std::size_t>(go2::Leg::FL) ||
+        leg == static_cast<std::size_t>(go2::Leg::RR);
+    const double wrapped =
+        std::fmod(phase + (pair_b ? 0.5 : 0.0) + 1.0, 1.0);
+    return wrapped >= duty;
+}
+
 }  // namespace go2_control::terrain

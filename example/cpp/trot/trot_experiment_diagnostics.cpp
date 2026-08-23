@@ -96,7 +96,8 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_look_status_fr,terrain_look_status_fl"
          << ",terrain_look_z_fr_m,terrain_look_z_fl_m"
          << ",terrain_fwd_z_20_m,terrain_fwd_z_40_m"
-         << ",terrain_fwd_z_60_m,terrain_fwd_z_80_m";
+         << ",terrain_fwd_z_60_m,terrain_fwd_z_80_m"
+         << ",terrain_fsm_phase,terrain_step_scale,terrain_pitch_ref_rad";
     csv_ << "\n";
 }
 
@@ -697,6 +698,9 @@ void TrotExperiment::LogSample(
          << "," << terrain_fwd_z_m_[0]
          << "," << terrain_fwd_z_m_[1]
          << "," << terrain_fwd_z_m_[2]
-         << "," << terrain_fwd_z_m_[3];
+         << "," << terrain_fwd_z_m_[3]
+         << "," << terrain_fsm_phase_
+         << "," << terrain_step_scale_
+         << "," << terrain_pitch_ref_rad_;
     csv_ << "\n";
 }

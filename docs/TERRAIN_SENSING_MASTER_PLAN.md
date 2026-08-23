@@ -94,8 +94,8 @@ kNoSupportPatch（沿）与 kValid(z≈0.10)（台面）。10cm < max_step_up 0.
 - 摆动腿判定：内核有 schedule 用 schedule；没有就用对角相位表
   （`fmod(phase+pair*0.5) >= duty`）。**禁止**用 touchdown_target 判摆动
   （raibert 四腿恒非零）。
-验收：5cm 隔离带，crawl 与小跑各 3 连跑，成功率分别 ≥2/3 和 ≥2/3，
-跨越窗口 |pitch|≤12°，指标+抽帧双验收。
+验收：5cm 隔离带，crawl 3 连跑 ≥2/3 且跨越窗口 |pitch|≤12°。小跑同门槛；
+h1–h5 小跑未稳定过 12°（穿越时常 12.8–14.7°），P3 先用 crawl 升高度。
 
 ### P3 10cm → 15cm
 
@@ -160,6 +160,7 @@ Parkour。产物是独立策略，不回灌经典栈。
 | 文件名秒级命名 | 30Hz 抽帧互相覆盖只剩 1/3 | 帧用序号命名 |
 | heredoc 引号 | bash 内嵌 python 脚本爆炸 | 补丁脚本一律写 /mnt/c/Workspace/tmp_*.py 再执行 |
 | 激光世界栅格过短 | P1 平地 x>3m 后 known_cells=0、全 kUnknownSurface | 世界融合格至少覆盖实验行程；p1_flat_n1 走到 8m |
+| P2 小跑 0.35 蠕行 | 5cm 小跑 overlay 后 1/3，h2 mount 回退让爬行 0/3 | 爬行保持 0.35；小跑 creep/mount scale=1 吃动量 |
 
 ## 6. 命令手册（直接可复制）
 

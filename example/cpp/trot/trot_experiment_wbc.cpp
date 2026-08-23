@@ -448,6 +448,17 @@ void TrotExperiment::UpdateWbcFull(
         wbc_in.desired_angular_acc_body =
             quat.normalized().toRotationMatrix().transpose() *
             last_srbd_.first_angular_acc;
+        if (params_.terrain_act && task_.motion_stage_ == 2 &&
+            task_.gait_started_ && !task_.stop_requested_)
+        {
+            const double pitch = static_cast<double>(
+                state_snapshot.imu_state().rpy()[1]);
+            const double gyro_y = static_cast<double>(
+                state_snapshot.imu_state().gyroscope()[1]);
+            wbc_in.desired_angular_acc_body.y() = Clamp(
+                12.0 * (terrain_pitch_ref_rad_ - pitch) - 2.0 * gyro_y,
+                -4.0, 4.0);
+        }
         if (high_speed_curriculum &&
             Full2EnvDouble("TROT_HS_USE_LEAN", 1.0) > 0.5 &&
             task_.motion_stage_ == 2 && task_.gait_started_ &&

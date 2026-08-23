@@ -241,6 +241,34 @@ bool CheckParameterSweepAndSafetyRejection()
            high_output.status == TerrainPlanStatus::kStepTooHigh;
 }
 
+bool CheckApproachFsmSequence()
+{
+    using namespace go2_control::terrain;
+    TerrainApproachFsm fsm;
+    double scale = 1.0;
+    double pitch = 0.0;
+    if (!fsm.Step(false, false, false, 0.0, 0.0, 0.002, scale, pitch) ||
+        fsm.phase != TerrainApproachPhase::kCruise || scale != 1.0)
+        return false;
+    if (!fsm.Step(true, false, false, 0.0, 0.0, 0.002, scale, pitch) ||
+        fsm.phase != TerrainApproachPhase::kCreep ||
+        std::abs(scale - 0.35) > 1e-12)
+        return false;
+    if (!fsm.Step(true, true, false, 0.05, 0.0, 0.002, scale, pitch) ||
+        fsm.phase != TerrainApproachPhase::kMount)
+        return false;
+    if (!fsm.Step(true, true, true, 0.05, 0.05, 0.002, scale, pitch) ||
+        fsm.phase != TerrainApproachPhase::kTraverse || scale != 1.0)
+        return false;
+    if (!fsm.Step(false, false, false, 0.0, 0.0, 0.002, scale, pitch) ||
+        fsm.phase != TerrainApproachPhase::kCruise)
+        return false;
+    TerrainApproachFsm slew;
+    slew.Step(false, true, true, 0.08, 0.0, 0.10, scale, pitch);
+    const double expected = std::min(0.06, std::atan2(0.08, 0.40));
+    return std::abs(pitch - expected) < 1e-9;
+}
+
 }  // namespace
 
 int main()
@@ -250,7 +278,8 @@ int main()
         !CheckUnknownSurfaceIsRejected() ||
         !CheckStaircaseSequenceIsReachable() ||
         !CheckStaircaseReferencePhasesAndSlew() ||
-        !CheckParameterSweepAndSafetyRejection())
+        !CheckParameterSweepAndSafetyRejection() ||
+        !CheckApproachFsmSequence())
     {
         std::cerr << "terrain adaptation checks failed\n";
         return 1;
