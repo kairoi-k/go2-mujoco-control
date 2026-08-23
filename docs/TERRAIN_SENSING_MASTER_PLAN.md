@@ -74,8 +74,11 @@ bodyexclude=base_body_id, geomid_out)`，返回命中距离（负值=未命中�
 ### P1 三场景观测校验
 
 `--terrain-observe` + `--sensor-map` 跑平地/10cm 隔离带/4 级楼梯三个场景，
-前腿规划状态序列人工核对：平地恒 kValid(z≈0)，隔离带接近时前腿出
-kStepTooHigh→kValid(z≈0.10)，楼梯逐级出现。任一场景误报即修 P0。
+前腿规划状态序列人工核对：平地恒 kValid(z≈0)；隔离带接近时前视出现
+kNoSupportPatch（沿）与 kValid(z≈0.10)（台面）。10cm < max_step_up 0.14，
+不会出 kStepTooHigh（h2/h3 证据：p1_b10_*）。楼梯在前向 0.20/0.40/0.60m
+采样上逐级出现 0.10→0.30→0.50（锁定场景实际级高，第四级常被遮挡为 unk）。
+任一场景误报即修 P0。
 
 ### P2 接近控制器（干净版，一次性成型）
 
@@ -156,6 +159,7 @@ Parkour。产物是独立策略，不回灌经典栈。
 | 机器时序方差 | 同参数结果 0.9m 与 0.2m 并存 | 验收看多次，时钟暂停期间别下结论 |
 | 文件名秒级命名 | 30Hz 抽帧互相覆盖只剩 1/3 | 帧用序号命名 |
 | heredoc 引号 | bash 内嵌 python 脚本爆炸 | 补丁脚本一律写 /mnt/c/Workspace/tmp_*.py 再执行 |
+| 激光世界栅格过短 | P1 平地 x>3m 后 known_cells=0、全 kUnknownSurface | 世界融合格至少覆盖实验行程；p1_flat_n1 走到 8m |
 
 ## 6. 命令手册（直接可复制）
 

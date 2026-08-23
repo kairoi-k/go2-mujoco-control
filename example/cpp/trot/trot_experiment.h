@@ -360,6 +360,11 @@ private:
     bool have_high_state_ = false;
     bool have_environment_heightmap_ = false;
     double last_terrain_observe_log_s_ = -100.0;
+    std::array<int, go2::kLegCount> terrain_observe_status_{{-1, -1, -1, -1}};
+    std::array<double, go2::kLegCount> terrain_observe_z_m_{};
+    std::array<int, 2> terrain_observe_look_status_{{-1, -1}};
+    std::array<double, 2> terrain_observe_look_z_m_{};
+    std::array<double, 4> terrain_fwd_z_m_{{-1.0, -1.0, -1.0, -1.0}};
     double last_act_debug_log_s_ = -100.0;
     double body_terrain_lift_m_ = 0.0;
     std::array<double, go2::kLegCount> terrain_swing_dz_m_{};

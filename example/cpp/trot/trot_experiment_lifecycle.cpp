@@ -225,7 +225,9 @@ bool TrotExperiment::Init()
                 std::placeholders::_1),
             1);
         std::cout << "Automatic environment map: "
-                  << GO2_TROT_TOPIC_ENVIRONMENT_MAP << "\n";
+                  << (params_.sensor_map ? GO2_TROT_TOPIC_LIDAR_MAP
+                                         : GO2_TROT_TOPIC_ENVIRONMENT_MAP)
+                  << "\n";
     }
 
     std::cout << "Waiting for natural settle...\n";
