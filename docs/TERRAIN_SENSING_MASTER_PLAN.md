@@ -53,7 +53,14 @@
 
 ### P0 激光高度图（传感真源）
 
-改动点（都在 `simulate/src/unitree_sdk2_bridge.h`，加新函数不改旧函数）：
+改动点（都在 `simulate/src/unitree_sdk2_bridge.h`，加新函数不改旧函数；
+插入位置参照 `PublishEnvironmentHeightMap`：成员变量声明区在文件尾部
+`environment_heightmap` 成员旁，发布调用点与现有地图同一发布周期。
+`mj_ray` 签名：`(model, data, origin3, dir3, geomgroup=nullptr, flg_static=1,
+bodyexclude=base_body_id, geomid_out)`，返回命中距离（负值=未命中），调用前
+确认仿真循环里已 mj_forward。伪码顺序：取 base xpos/xmat → 环组逐射线 →
+命中点减 base 转局部坐标 → (ix,iy) 落栅 → 每格 max 融合进 1.5s 滑动窗 →
+填 HeightMap_ 写新 topic）：
 - 新增 `PublishLidarHeightMap()`：从 base_link 位姿发射线（环组见 §2.1），
   `mj_ray(..., flg_static=1, bodyexclude=base_body_id, ...)`；geomgroup 排除
   contype==0&&conaffinity==0 的装饰 geom（现桥的 marker 板会被误读）。
@@ -148,6 +155,8 @@ Parkour。产物是独立策略，不回灌经典栈。
 ```bash
 # 构建+测试（controller）
 cd ~/dev/go2-mujoco-control-terrain/example/cpp/build && cmake --build . -j$(nproc) && ctest
+# 模拟器重建（P0 改了 bridge 后必须执行；否则跑的还是旧传感）
+cd ~/dev/go2-mujoco-control-terrain/simulate/build-terrain && cmake --build . -j$(nproc)
 # 跑批（参数按阶段替换；域 212）
 cd ~/dev/go2-mujoco-control-terrain && bash example/cpp/scripts/run_trot.sh 90 <run名> \
   --headless --kernel crawl --wbc-full --terrain-act --task stand-walk-lie \
