@@ -41,6 +41,7 @@ using unitree::robot::ChannelSubscriberPtr;
 #endif
 #ifndef GO2_TROT_TOPIC_ENVIRONMENT_MAP
 #define GO2_TROT_TOPIC_ENVIRONMENT_MAP "rt/go2/environment_heightmap"
+#define GO2_TROT_TOPIC_LIDAR_MAP "rt/go2/lidar_heightmap"
 #endif
 
 class TrotExperiment

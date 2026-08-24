@@ -33,6 +33,7 @@ void PrintTrotCliUsage()
            " [--velocity-max-decel a] [--velocity-max-jerk j]"
            " [--forever] [--stop-file path]"
            " [--auto-environment]"
+           " [--sensor-map]"
            " [--impact-to-emergency-stop-delay s]"
            " [--task stand-walk-lie]"
            " [--goal-x m] [--goal-y m] [--goal-tol m]\n";
@@ -118,6 +119,8 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.params.auto_environment = true;
                 cfg.params.reactive_events = true;
             }
+            else if (option == "--sensor-map")
+                cfg.params.sensor_map = true;
             else if (option == "--impact-to-emergency-stop-delay")
             {
                 cfg.params.impact_to_emergency_stop_delay_s =
@@ -460,6 +463,7 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << "  cartesian_world="
               << (params.cartesian_world ? "on" : "off") << "\n"
               << "  auto_environment=" << (params.auto_environment ? "on" : "off") << "\n"
+              << "  sensor_map=" << (params.sensor_map ? "lidar" : "oracle") << "\n"
               << "  reactive_events="
               << ((params.reactive_events || params.auto_environment || !params.event_schedule.empty()) ? "on" : "off") << "\n"
               << "  impact_to_emergency_stop_delay="
