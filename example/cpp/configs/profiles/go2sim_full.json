@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "name": "go2sim-full",
+  "description": "The historical go2sim full profile, expressed as an explicit versioned configuration.",
+  "controller_args": [
+    "--step-length", "0.091", "--wbc-full", "--tau-limit", "35", "--max-cycles", "64"
+  ],
+  "semantic_env": {},
+  "runner": {
+    "wall_timeout_s": 220,
+    "controller_duration_s": 100
+  }
+}
