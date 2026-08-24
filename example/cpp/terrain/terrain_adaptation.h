@@ -127,6 +127,57 @@ public:
         return std::isfinite(height_m);
     }
 
+    // Conservative local height for swept-volume checks. Sparse lidar cells
+    // are sampled at arbitrary controller coordinates, so use the maximum
+    // nearby known return instead of treating a single cell gap as terrain.
+    bool SampleClearanceHeight(
+        double x_m,
+        double y_m,
+        double radius_m,
+        double &height_m,
+        bool &known) const noexcept
+    {
+        known = false;
+        height_m = 0.0;
+        if (!IsValid() || !std::isfinite(radius_m) || radius_m < 0.0)
+            return false;
+        std::size_t centre_x = 0;
+        std::size_t centre_y = 0;
+        if (!WorldToCell(x_m, y_m, centre_x, centre_y))
+            return false;
+        const int radius_cells = static_cast<int>(
+            std::ceil(radius_m / resolution_m_));
+        double maximum = -std::numeric_limits<double>::infinity();
+        int known_count = 0;
+        for (int dy = -radius_cells; dy <= radius_cells; ++dy)
+            for (int dx = -radius_cells; dx <= radius_cells; ++dx)
+            {
+                const double dx_m = static_cast<double>(dx) * resolution_m_;
+                const double dy_m = static_cast<double>(dy) * resolution_m_;
+                if (dx_m * dx_m + dy_m * dy_m >
+                    radius_m * radius_m + 1.0e-12)
+                    continue;
+                const int ix = static_cast<int>(centre_x) + dx;
+                const int iy = static_cast<int>(centre_y) + dy;
+                if (ix < 0 || iy < 0 || ix >= static_cast<int>(nx_) ||
+                    iy >= static_cast<int>(ny_))
+                    continue;
+                TerrainCell cell{};
+                if (CellAt(static_cast<std::size_t>(ix),
+                           static_cast<std::size_t>(iy), cell) &&
+                    cell.known && std::isfinite(cell.height_m))
+                {
+                    maximum = std::max(maximum, cell.height_m);
+                    ++known_count;
+                }
+            }
+        if (known_count == 0)
+            return false;
+        height_m = maximum;
+        known = true;
+        return true;
+    }
+
     // Check a circular support patch. A foot must land on a known, nearly
     // planar patch rather than on a cell edge, riser, or unknown region.
     bool SampleSupportPatch(

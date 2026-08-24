@@ -88,6 +88,12 @@ private:
         const unitree_go::msg::dds_::LowState_ &low_state,
         const unitree_go::msg::dds_::SportModeState_ &high_state,
         double now_s);
+    void UpdateTerrainPlanner(
+        const go2_control::GaitKernelResult &gait_result,
+        const unitree_go::msg::dds_::LowState_ &low_state,
+        const unitree_go::msg::dds_::SportModeState_ &high_state,
+        bool have_high_state,
+        std::array<go2::Vec3, go2::kLegCount> &feet);
     void InitLowCmd();
     void WriteCsvHeader();
     bool WaitForNaturalSettle(double timeout_s);
@@ -402,6 +408,19 @@ private:
 
     std::mutex state_mutex_;
     std::ofstream csv_;
+    double last_terrain_plan_s_ = -1.0e9;
+    int terrain_plan_status_[go2::kLegCount] = {-1, -1, -1, -1};
+    double terrain_plan_z_m_[go2::kLegCount] = {};
+    double terrain_plan_clearance_m_[go2::kLegCount] = {};
+    std::array<go2::Vec3, go2::kLegCount> terrain_plan_body_feet_{};
+    std::array<go2::Vec3, go2::kLegCount> terrain_mpc_foot_world_{};
+    std::array<bool, go2::kLegCount> terrain_plan_valid_{};
+    double terrain_plan_latency_us_ = 0.0;
+    int terrain_plan_iterations_ = 0;
+    bool terrain_plan_solver_ok_ = false;
+    bool terrain_plan_safe_stop_ = false;
+    double terrain_support_margin_m_ = -1.0;
+    double terrain_body_height_ref_m_ = go2_trot::kWbcPrimaryBaseHeightM;
     std::atomic<bool> finished_{false};
     ChannelSubscriberPtr<unitree_go::msg::dds_::HeightMap_>
         environment_heightmap_subscriber_;

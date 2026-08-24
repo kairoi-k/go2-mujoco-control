@@ -292,9 +292,10 @@ void TrotExperiment::UpdateWbcFull(
     // cycle can be shorter than that 50 ms hold, so reuse of the old SRBD
     // force plan becomes a visible phase lag.  Refresh at 100 Hz for the
     // high-speed plant while keeping the established rates elsewhere.
-    const int mpc_period_ticks = high_speed_curriculum
-        ? 5
-        : (params_.cartesian_world ? 10 : 25);
+    const int mpc_period_ticks = params_.terrain_planner
+        ? 10
+        : (high_speed_curriculum ? 5
+           : (params_.cartesian_world ? 10 : 25));
     const bool run_mpc =
         (wbc_full_ticks_ % mpc_period_ticks) == 0 || !last_srbd_.ok;
     if (run_mpc)
@@ -316,13 +317,16 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.reference[0] = 0.0;
         mpc_in.reference[1] = 0.0;
         mpc_in.reference[4] = 0.0;
-        const double base_height_ref =
+        double base_height_ref =
             (high_speed_curriculum &&
              Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0) > 0.0)
                 ? std::clamp(
                       Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0),
                       0.32, 0.48)
                 : kWbcPrimaryBaseHeightM;
+        if (params_.terrain_planner && terrain_plan_solver_ok_)
+            base_height_ref = std::clamp(
+                terrain_body_height_ref_m_, 0.32, 0.50);
         mpc_in.reference[5] = base_height_ref;
         mpc_in.reference[6] = 0.0;
         mpc_in.reference[7] = 0.0;
@@ -407,8 +411,18 @@ void TrotExperiment::UpdateWbcFull(
         }
         mpc_in.reference[11] = 0.0;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            mpc_in.foot_from_com_world[leg] =
-                dyn.foot_pos_world[leg] - dyn.com_world;
+        {
+            if (params_.terrain_planner && terrain_plan_valid_[leg])
+            {
+                const auto &target = terrain_mpc_foot_world_[leg];
+                mpc_in.foot_from_com_world[leg] =
+                    Eigen::Vector3d(target.x, target.y, target.z) -
+                    dyn.com_world;
+            }
+            else
+                mpc_in.foot_from_com_world[leg] =
+                    dyn.foot_pos_world[leg] - dyn.com_world;
+        }
         if (task_.gait_started_ &&
             (task_.motion_stage_ == 2 || WbcStopHoldActive()))
         {

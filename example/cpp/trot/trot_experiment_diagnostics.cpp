@@ -102,7 +102,12 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_look_status_fr,terrain_look_status_fl"
          << ",terrain_look_z_fr_m,terrain_look_z_fl_m"
          << ",terrain_fwd_z_20_m,terrain_fwd_z_40_m"
-         << ",terrain_fwd_z_60_m,terrain_fwd_z_80_m";
+         << ",terrain_fwd_z_60_m,terrain_fwd_z_80_m"
+         << ",terrain_planner_solver_ok,terrain_planner_safe_stop"
+         << ",terrain_planner_latency_us,terrain_planner_iterations"
+         << ",terrain_support_margin_m,terrain_body_height_ref_m"
+         << ",terrain_clearance_fr_m,terrain_clearance_fl_m"
+         << ",terrain_clearance_rr_m,terrain_clearance_rl_m";
     csv_ << "\n";
 }
 
@@ -734,6 +739,16 @@ void TrotExperiment::LogSample(
          << "," << terrain_fwd_z_m_[0]
          << "," << terrain_fwd_z_m_[1]
          << "," << terrain_fwd_z_m_[2]
-         << "," << terrain_fwd_z_m_[3];
+         << "," << terrain_fwd_z_m_[3]
+         << "," << (terrain_plan_solver_ok_ ? 1 : 0)
+         << "," << (terrain_plan_safe_stop_ ? 1 : 0)
+         << "," << terrain_plan_latency_us_
+         << "," << terrain_plan_iterations_
+         << "," << terrain_support_margin_m_
+         << "," << terrain_body_height_ref_m_
+         << "," << terrain_plan_clearance_m_[0]
+         << "," << terrain_plan_clearance_m_[1]
+         << "," << terrain_plan_clearance_m_[2]
+         << "," << terrain_plan_clearance_m_[3];
     csv_ << "\n";
 }

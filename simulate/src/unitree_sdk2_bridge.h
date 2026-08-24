@@ -323,6 +323,20 @@ public:
                 if (!(slot > hz))
                     slot = hz;
                 lidar_world_t_[cell] = sim_time;
+                for (int dy = -1; dy <= 1; ++dy)
+                    for (int dx = -1; dx <= 1; ++dx)
+                    {
+                        const int nx = ix + dx;
+                        const int ny = iy + dy;
+                        if (nx < 0 || nx >= kLidarWorldNx ||
+                            ny < 0 || ny >= kLidarWorldNy)
+                            continue;
+                        const std::size_t neighbour =
+                            static_cast<std::size_t>(ny) * kLidarWorldNx + nx;
+                        if (!(lidar_world_z_[neighbour] > hz))
+                            lidar_world_z_[neighbour] = hz;
+                        lidar_world_t_[neighbour] = sim_time;
+                    }
             }
         }
 

@@ -121,6 +121,13 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
             }
             else if (option == "--sensor-map")
                 cfg.params.sensor_map = true;
+            else if (option == "--terrain-planner")
+            {
+                cfg.params.terrain_planner = true;
+                cfg.params.auto_environment = true;
+                cfg.params.sensor_map = true;
+                cfg.params.reactive_events = true;
+            }
             else if (option == "--impact-to-emergency-stop-delay")
             {
                 cfg.params.impact_to_emergency_stop_delay_s =
@@ -458,6 +465,7 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << "  kernel=" << params.kernel_name << "\n"
               << "  gait_pattern="
               << go2_control::GaitPatternName(params.gait_pattern) << "\n"
+              << "  terrain_planner=" << (params.terrain_planner ? "on" : "off") << "\n"
               << "  wbc_primary=" << (params.wbc_primary ? "on" : "off") << "\n"
               << "  wbc_full=" << (params.wbc_full ? "on" : "off") << "\n"
               << "  cartesian_world="
