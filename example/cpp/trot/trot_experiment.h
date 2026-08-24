@@ -63,7 +63,8 @@ public:
           stop_file_path_(stop_file_path),
           locomotion_kernel_(go2_trot::CreateLocomotionKernel(params_)),
           runtime_event_schedule_(params_.event_schedule),
-          velocity_filter_({params_.velocity_filter_cutoff_hz})
+          velocity_filter_({params_.velocity_filter_cutoff_hz}),
+          velocity_command_shaper_(params_.velocity_command_shaper)
     {
         task_.Configure(task_mode, goal);
         motion_event_response_enabled_ =
@@ -136,6 +137,7 @@ private:
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
         const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
         bool have_high_state);
+    void UpdateRuntimeVelocityCommand(double gait_time_s);
     bool PhaseStopToStand(std::array<double, go2_trot::kMotorCount> &joint_targets);
     bool PhaseLieDown(std::array<double, go2_trot::kMotorCount> &joint_targets);
     double UpdateCartesianForceBlend();
@@ -242,6 +244,7 @@ private:
     double emergency_stop_latch_gait_time_s_ = 0.0;
     double emergency_stop_finish_time_s_ = 0.0;
     go2_control::FirstOrderVelocityFilter velocity_filter_;
+    go2_trot::VelocityCommandShaper velocity_command_shaper_;
     go2_control::Vector3 latest_world_velocity_{};
     go2_control::Vector3 latest_raw_body_velocity_{};
     go2_control::Vector3 latest_filtered_body_velocity_{};
@@ -304,6 +307,11 @@ private:
     double kernel_period_s_ = 0.0;
     double kernel_duty_factor_ = 0.0;
     std::size_t step_plan_index_ = 0;
+    go2_trot::VelocityCommandState velocity_command_state_{};
+    bool velocity_command_initialized_ = false;
+    double runtime_gait_step_length_m_ = 0.0;
+    double runtime_gait_foot_lift_m_ = 0.0;
+    std::string runtime_gait_regime_ = "inactive";
     std::size_t period_plan_index_ = 0;
     double wbc_speed_cmd_mps_ = -1.0;
     // Optional health-aware cap for the sprint curriculum. It is disabled

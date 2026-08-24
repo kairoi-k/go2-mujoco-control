@@ -29,6 +29,8 @@ void PrintTrotCliUsage()
            " [--wbc-task-torque-feedforward]"
            " [--direction +/-1] [--support-anchor-feedback]"
            " [--support-anchor-gain g] [--event-script path]"
+           " [--velocity-command-script path] [--velocity-max-accel a]"
+           " [--velocity-max-decel a] [--velocity-max-jerk j]"
            " [--forever] [--stop-file path]"
            " [--auto-environment]"
            " [--impact-to-emergency-stop-delay s]"
@@ -126,6 +128,24 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.continuous_mode = true;
             else if (option == "--stop-file")
                 cfg.stop_file_path = require_value("--stop-file");
+            else if (option == "--velocity-command-script")
+            {
+                cfg.params.velocity_command_script_path =
+                    require_value("--velocity-command-script");
+                cfg.params.runtime_velocity_command = true;
+            }
+            else if (option == "--velocity-max-accel")
+                cfg.params.velocity_command_shaper.max_accel_mps2 =
+                    std::stod(require_value("--velocity-max-accel"));
+            else if (option == "--velocity-max-decel")
+                cfg.params.velocity_command_shaper.max_decel_mps2 =
+                    std::stod(require_value("--velocity-max-decel"));
+            else if (option == "--velocity-max-jerk")
+                cfg.params.velocity_command_shaper.max_jerk_mps3 =
+                    std::stod(require_value("--velocity-max-jerk"));
+            else if (option == "--velocity-max-tracking-lead")
+                cfg.params.velocity_command_shaper.max_tracking_lead_mps =
+                    std::stod(require_value("--velocity-max-tracking-lead"));
             else if (option == "--event-script")
                 cfg.params.event_script_path = require_value("--event-script");
             else if (option == "--task")
@@ -308,6 +328,24 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
             return false;
         }
     }
+    if (cfg.params.runtime_velocity_command &&
+        (cfg.params.cartesian_world || !cfg.params.wbc_full ||
+         cfg.params.reactive_events || cfg.params.auto_environment ||
+         !cfg.params.event_script_path.empty() ||
+         cfg.params.gait_pattern != go2_control::GaitPattern::kRunningTrot ||
+         !std::isfinite(cfg.params.velocity_command_shaper.max_accel_mps2) ||
+         cfg.params.velocity_command_shaper.max_accel_mps2 <= 0.0 ||
+         !std::isfinite(cfg.params.velocity_command_shaper.max_decel_mps2) ||
+         cfg.params.velocity_command_shaper.max_decel_mps2 <= 0.0 ||
+         !std::isfinite(cfg.params.velocity_command_shaper.max_jerk_mps3) ||
+         cfg.params.velocity_command_shaper.max_jerk_mps3 <= 0.0 ||
+         !std::isfinite(cfg.params.velocity_command_shaper.max_tracking_lead_mps) ||
+         cfg.params.velocity_command_shaper.max_tracking_lead_mps < 0.0))
+    {
+        if (error_out)
+            *error_out = "runtime velocity command requires running-trot + wbc-full and positive shaper limits";
+        return false;
+    }
 
     if (!cfg.params.event_script_path.empty() &&
         !go2_control::LoadMotionEventScript(
@@ -316,6 +354,13 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
     {
         if (error_out && error_out->empty())
             *error_out = "invalid event script";
+        return false;
+    }
+    if (cfg.params.runtime_velocity_command &&
+        !LoadVelocityCommandProfile(
+            cfg.params.velocity_command_script_path,
+            cfg.params.velocity_command_profile, error_out))
+    {
         return false;
     }
 
@@ -427,6 +472,12 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
                       : (params.event_script_path + " (" +
                          std::to_string(params.event_schedule.size()) +
                          " events)"))
+              << "\n"
+              << "  runtime_velocity_command="
+              << (params.runtime_velocity_command ? "on" : "off")
+              << (params.runtime_velocity_command
+                      ? (" (" + params.velocity_command_script_path + ")")
+                      : "")
               << "\n"
               << "  task="
               << (cfg.task_mode ? "stand-walk-lie" : "trot-only") << "\n"

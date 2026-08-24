@@ -379,6 +379,11 @@ bool TrotExperiment::PhaseStartGait(
     }
     if (!task_.BeginGait(running_time_))
         return false;
+    velocity_command_initialized_ = false;
+    velocity_command_state_ = {};
+    runtime_gait_regime_ = params_.runtime_velocity_command
+        ? "continuous-trot"
+        : "inactive";
     if (motion_event_response_enabled_)
     {
         motion_event_layer_.Reset();

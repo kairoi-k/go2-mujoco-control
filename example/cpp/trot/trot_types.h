@@ -18,6 +18,7 @@
 #include "motion_event_response.h"
 #include "raibert_trot_kernel.h"
 #include "wbc_runtime_gate.h"
+#include "velocity_command.h"
 
 namespace go2_trot {
 
@@ -182,6 +183,10 @@ struct TrotParams
     bool wall_clock_motion = false;
     bool reactive_events = false;
     bool auto_environment = false;
+    bool runtime_velocity_command = false;
+    std::string velocity_command_script_path;
+    VelocityCommandProfile velocity_command_profile;
+    VelocityCommandShaperParams velocity_command_shaper{};
     // >= 0 enables a detector-driven emergency stop after a physical impact.
     // A negative value keeps the legacy detector-only behavior.
     double impact_to_emergency_stop_delay_s = -1.0;

@@ -127,9 +127,9 @@ void TrotExperiment::UpdateWbcFull(
         : 0.0;
     const bool high_speed_curriculum =
         Full2EnvDouble("TROT_HS_DISABLE", 0.0) <= 0.5 &&
-        (params_.gait_pattern != go2_control::GaitPattern::kDiagonalTrot ||
+        ((!params_.runtime_velocity_command &&
          std::abs(wbc_speed_cmd_mps_) > 1.25 ||
-         std::abs(kernel_nominal_velocity_x_mps_) > 1.25);
+         std::abs(kernel_nominal_velocity_x_mps_) > 1.25));
     const double cycle_lock = params_.cartesian_world
         ? Smoothstep((static_cast<double>(completed_cycles_) - 8.0) / 8.0)
         : Smoothstep((static_cast<double>(completed_cycles_) - 24.0) / 20.0);
