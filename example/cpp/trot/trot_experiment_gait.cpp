@@ -1606,7 +1606,18 @@ void TrotExperiment::UpdateTerrainPlanner(
     terrain_support_margin_m_ = -1.0;
     terrain_support_contact_count_ = 0;
     terrain_support_area_m2_ = 0.0;
+    terrain_scheduled_contact_mask_ = 0;
+    terrain_measured_contact_mask_ = 0;
     terrain_com_ref_valid_ = false;
+
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (ActiveGaitLegPhase(leg, gait_result.phase) <
+            gait_result.duty_factor)
+            terrain_scheduled_contact_mask_ |= 1 << static_cast<int>(leg);
+        if (low_state.foot_force()[leg] >= kContactForceThreshold)
+            terrain_measured_contact_mask_ |= 1 << static_cast<int>(leg);
+    }
 
     unitree_go::msg::dds_::HeightMap_ height_map;
     {
