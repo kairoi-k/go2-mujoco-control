@@ -168,6 +168,21 @@ public:
         previous_accel_mps2_ = accel_mps2_;
         return {requested_mps, shaped_mps_, accel_mps2_, jerk, true};
     }
+    VelocityCommandState StepWithSpeedLimit(
+        double requested_mps,
+        double dt_s,
+        double speed_limit_mps) noexcept
+    {
+        const double requested = std::clamp(
+            std::isfinite(requested_mps) ? requested_mps : 0.0,
+            0.0, params_.max_speed_mps);
+        const double limited = std::isfinite(speed_limit_mps)
+            ? std::min(requested, std::max(0.0, speed_limit_mps))
+            : requested;
+        VelocityCommandState state = Step(limited, dt_s);
+        state.requested_mps = requested;
+        return state;
+    }
 private:
     VelocityCommandShaperParams params_;
     double shaped_mps_ = 0.0;

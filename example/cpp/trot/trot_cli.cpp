@@ -340,8 +340,9 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
     }
     if (cfg.params.runtime_velocity_command &&
         (cfg.params.cartesian_world || !cfg.params.wbc_full ||
-         cfg.params.reactive_events || cfg.params.auto_environment ||
-         !cfg.params.event_script_path.empty() ||
+         ((!cfg.params.terrain_planner) &&
+          (cfg.params.reactive_events || cfg.params.auto_environment ||
+           !cfg.params.event_script_path.empty())) ||
          cfg.params.gait_pattern != go2_control::GaitPattern::kRunningTrot ||
          !std::isfinite(cfg.params.velocity_command_shaper.max_accel_mps2) ||
          cfg.params.velocity_command_shaper.max_accel_mps2 <= 0.0 ||

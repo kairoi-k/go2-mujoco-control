@@ -355,7 +355,9 @@ struct TerrainFootholdPlannerParams
     double height_weight = 0.25;
     double slope_weight = 0.10;
     double height_reference_m = 0.0;
-    std::array<double, 5> candidate_dx_m{{-0.12, -0.06, 0.0, 0.06, 0.12}};
+    double swing_lift_m = 0.30;
+    double swept_clearance_m = 0.025;
+    std::array<double, 7> candidate_dx_m{{-0.12, -0.06, 0.0, 0.06, 0.12, 0.18, 0.24}};
     std::array<double, 3> candidate_dy_m{{-0.06, 0.0, 0.06}};
 };
 
@@ -411,6 +413,22 @@ inline bool PlanTerrainFoothold(
     bool saw_bad_patch = false;
     bool saw_bad_step = false;
     bool saw_unreachable = false;
+    double map_min_height = std::numeric_limits<double>::infinity();
+    double map_max_height = -std::numeric_limits<double>::infinity();
+    for (std::size_t iy = 0; iy < map.ny(); ++iy)
+        for (std::size_t ix = 0; ix < map.nx(); ++ix)
+        {
+            TerrainCell cell{};
+            if (map.CellAt(ix, iy, cell) && cell.known &&
+                std::isfinite(cell.height_m))
+            {
+                map_min_height = std::min(map_min_height, cell.height_m);
+                map_max_height = std::max(map_max_height, cell.height_m);
+            }
+        }
+    const bool map_has_height_change =
+        std::isfinite(map_min_height) && std::isfinite(map_max_height) &&
+        map_max_height - map_min_height > 0.02;
     for (const double dx : params.candidate_dx_m)
     {
         for (const double dy : params.candidate_dy_m)
@@ -460,6 +478,54 @@ inline bool PlanTerrainFoothold(
             if (!go2::LegInverseKinematics(request.leg, body_foot, joints))
             {
                 saw_unreachable = true;
+                continue;
+            }
+            const bool elevated =
+                support_z > request.reference_foot_world_z_m + 0.01;
+            const double target_z = elevated
+                ? support_z + 0.008 : request.reference_foot_world_z_m;
+            const double swing_lift = std::max(
+                params.swing_lift_m, 0.045);
+            bool swept_clear = true;
+            for (int sample = map_has_height_change ? 1 : 8;
+                 sample <= 8; ++sample)
+            {
+                const double u = static_cast<double>(sample) / 8.0;
+                const double sx = request.base_world_x_m +
+                    request.nominal_body_x_m + u * dx;
+                const double sy = request.base_world_y_m +
+                    request.nominal_body_y_m + u * dy;
+                double swept_surface = 0.0;
+                bool swept_known = false;
+                if (!map.SampleHeight(
+                        sx, sy, swept_surface, swept_known) ||
+                    !swept_known)
+                {
+                    if (!map.SampleClearanceHeight(
+                            sx, sy, 0.05, swept_surface, swept_known) ||
+                        !swept_known)
+                    {
+                        swept_clear = false;
+                        break;
+                    }
+                }
+                const double swing_phase = elevated
+                    ? std::clamp((u + 0.08) / 1.08, 0.0, 1.0) : u;
+                const double path_z = request.reference_foot_world_z_m +
+                    u * (target_z - request.reference_foot_world_z_m) +
+                    swing_lift * std::sin(3.14159265358979323846 * swing_phase);
+                const double clearance = u > 0.95
+                    ? (elevated ? 0.004 : 0.0)
+                    : params.swept_clearance_m;
+                if (path_z + 1.0e-6 < swept_surface + clearance)
+                {
+                    swept_clear = false;
+                    break;
+                }
+            }
+            if (!swept_clear)
+            {
+                saw_bad_patch = true;
                 continue;
             }
             const double xy_error = dx * dx + dy * dy;

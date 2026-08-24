@@ -315,7 +315,8 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.state[11] = linear_vel_world.z();
         mpc_in.reference = mpc_in.state;
         mpc_in.reference[0] = 0.0;
-        mpc_in.reference[1] = 0.0;
+        mpc_in.reference[1] = params_.terrain_planner && terrain_plan_solver_ok_
+            ? terrain_body_pitch_ref_rad_ : 0.0;
         mpc_in.reference[4] = 0.0;
         double base_height_ref =
             (high_speed_curriculum &&
@@ -412,7 +413,8 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.reference[11] = 0.0;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            if (params_.terrain_planner && terrain_plan_valid_[leg])
+            if (params_.terrain_planner && terrain_contact_plan_active_ &&
+                terrain_plan_valid_[leg])
             {
                 const auto &target = terrain_mpc_foot_world_[leg];
                 mpc_in.foot_from_com_world[leg] =

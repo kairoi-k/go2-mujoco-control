@@ -142,8 +142,9 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
                        last_motion_dt_s_ > 1.0e-4)
         ? last_motion_dt_s_
         : dt_;
-    velocity_command_state_ = velocity_command_shaper_.Step(
-        params_.velocity_command_profile.Sample(gait_time_s), dt);
+    velocity_command_state_ = velocity_command_shaper_.StepWithSpeedLimit(
+        params_.velocity_command_profile.Sample(gait_time_s), dt,
+        terrain_speed_limit_mps_);
     const bool zero_command_profile_finished =
         !params_.velocity_command_profile.points.empty() &&
         params_.velocity_command_profile.points.back().velocity_mps <= 1.0e-6 &&
@@ -197,7 +198,21 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         applied_mps = high_speed_health_cap_mps_;
     }
     velocity_command_state_.applied_mps = applied_mps;
-    const auto schedule = ScheduleContinuousVelocityGait(applied_mps);
+    auto schedule = ScheduleContinuousVelocityGait(applied_mps);
+    if (params_.terrain_planner &&
+        std::isfinite(terrain_speed_limit_mps_) &&
+        terrain_speed_limit_mps_ <= 0.22)
+    {
+        // Terrain risk selects a slower, higher-duty regime through the
+        // existing runtime command path; step length still comes from the
+        // shaped speed, not from a scene-specific offset.
+        schedule.period_s = 0.45;
+        schedule.duty_factor = 0.75;
+        schedule.step_length_m = applied_mps * schedule.period_s /
+            std::max(0.20, 2.0 * schedule.duty_factor);
+        schedule.foot_lift_m = std::max(schedule.foot_lift_m, 0.10);
+        schedule.regime = "terrain-walk";
+    }
     locomotion_kernel_->SetGaitEffectiveSpeedConvention(true);
     locomotion_kernel_->SetGaitSlewLimits(0.060, 0.020, 0.020);
     locomotion_kernel_->SetGaitPeriod(schedule.period_s);
@@ -1599,6 +1614,7 @@ void TrotExperiment::UpdateTerrainPlanner(
                 ix, iy, std::isfinite(value) ? value : 0.0,
                 std::isfinite(value));
         }
+    terrain_contact_plan_active_ = false;
 
     const WorldPose pose = ComputeWorldPose(low_state, high_state);
     go2_control::terrain::TerrainFootholdPlannerParams planner_params{};
@@ -1606,6 +1622,7 @@ void TrotExperiment::UpdateTerrainPlanner(
     planner_params.max_slope_rad = 0.35;
     planner_params.max_step_up_m = 0.12;
     planner_params.max_step_down_m = 0.12;
+    planner_params.swing_lift_m = std::max(params_.foot_lift_m, 0.08);
     terrain_plan_iterations_ = static_cast<int>(
         planner_params.candidate_dx_m.size() *
         planner_params.candidate_dy_m.size());
@@ -1619,6 +1636,21 @@ void TrotExperiment::UpdateTerrainPlanner(
     double support_height_sum = 0.0;
     int support_height_count = 0;
     bool failed_swing = false;
+    bool elevated_plan = false;
+    int elevated_forward_samples = 0;
+    for (const double forward_z : terrain_fwd_z_m_)
+        if (std::isfinite(forward_z) && forward_z > 0.02)
+            ++elevated_forward_samples;
+    // Use the same live sensing path as terrain observation. This avoids
+    // treating sparse-map interpolation artifacts as an obstacle while
+    // retaining a two-sample persistence requirement for a riser.
+    elevated_plan = elevated_forward_samples >= 2;
+    // Sparse flat-map samples may not provide a valid foothold for every
+    // nominal leg. They are diagnostic evidence, not an obstacle. Only a
+    // sensed local height change is allowed to make planner failure blocking.
+    const bool terrain_obstacle_detected = elevated_plan;
+    if (elevated_plan)
+        terrain_speed_limit_mps_ = 0.20;
 
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
@@ -1641,6 +1673,7 @@ void TrotExperiment::UpdateTerrainPlanner(
         const bool valid = go2_control::terrain::PlanTerrainFoothold(
             planner_params, terrain_map, request, output);
         terrain_plan_status_[leg] = static_cast<int>(output.status);
+        terrain_plan_z_m_[leg] = valid ? output.world_z_m : 0.0;
         if (!valid)
         {
             if (!swinging)
@@ -1655,21 +1688,28 @@ void TrotExperiment::UpdateTerrainPlanner(
                 support_height_sum += foot_world_z;
                 ++support_height_count;
             }
-            if (swinging && feet[leg].x > 0.0)
+            if (terrain_obstacle_detected && swinging && feet[leg].x > 0.0)
                 failed_swing = true;
             continue;
         }
 
         const bool elevated = output.world_z_m > foot_world_z + 0.01;
-        const go2::Vec3 target_body_foot = elevated
-            ? output.body_foot : feet[leg];
+        elevated_plan = elevated_plan || elevated;
+        terrain_contact_plan_active_ = terrain_contact_plan_active_ || elevated;
+        if (elevated)
+            terrain_speed_limit_mps_ = 0.20;
+        go2::Vec3 target_body_foot = elevated ? output.body_foot : feet[leg];
+        if (!elevated)
+            target_body_foot.z = feet[leg].z;
         const double target_z = elevated
             ? output.world_z_m + 0.008 : foot_world_z;
         bool swept_clear = true;
         double failed_u = -1.0;
         double failed_surface = 0.0;
         double failed_path = 0.0;
-        for (int sample = 0; sample <= 8; ++sample)
+        const bool terrain_sweep_required = elevated_plan || elevated;
+        for (int sample = terrain_sweep_required ? 0 : 9;
+             sample <= 8; ++sample)
         {
             const double u = static_cast<double>(sample) / 8.0;
             const double x = feet[leg].x +
@@ -1698,7 +1738,8 @@ void TrotExperiment::UpdateTerrainPlanner(
             const double swing_phase = elevated
                 ? std::clamp((u + 0.08) / 1.08, 0.0, 1.0) : u;
             const double required_clearance =
-                (u < 0.05) ? 0.0 : ((u > 0.95) ? 0.004 : 0.025);
+                (u < 0.05) ? 0.0 :
+                ((u > 0.95) ? (elevated ? 0.004 : 0.0) : 0.025);
             const double linear_z = foot_world_z +
                 u * (target_z - foot_world_z);
             const double sine =
@@ -1710,7 +1751,7 @@ void TrotExperiment::UpdateTerrainPlanner(
                     swing_lift,
                     (surface + required_clearance - linear_z) / sine);
             }
-            if (swing_lift > 0.18)
+            if (elevated && swing_lift > 0.25)
             {
                 swept_clear = false;
                 failed_u = u;
@@ -1719,7 +1760,10 @@ void TrotExperiment::UpdateTerrainPlanner(
                 break;
             }
             const double path_z = linear_z + swing_lift * sine;
-            if (path_z + 1.0e-6 < surface + required_clearance)
+            const bool surface_is_obstacle =
+                elevated || surface > foot_world_z + 0.02;
+            if (surface_is_obstacle &&
+                path_z + 1.0e-6 < surface + required_clearance)
             {
                 swept_clear = false;
                 failed_u = u;
@@ -1739,7 +1783,7 @@ void TrotExperiment::UpdateTerrainPlanner(
                       << " elevated=" << elevated << "\n";
             terrain_plan_status_[leg] = static_cast<int>(
                 go2_control::terrain::TerrainPlanStatus::kNoSupportPatch);
-            if (swinging && feet[leg].x > 0.0)
+            if (terrain_obstacle_detected && swinging && feet[leg].x > 0.0)
                 failed_swing = true;
             continue;
         }
@@ -1802,7 +1846,43 @@ void TrotExperiment::UpdateTerrainPlanner(
                 terrain_body_height_ref_m_, 0.32, 0.50);
         }
     }
+    double front_height_sum = 0.0;
+    double rear_height_sum = 0.0;
+    int front_height_count = 0;
+    int rear_height_count = 0;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (terrain_plan_status_[leg] < 0)
+            continue;
+        if (leg < 2)
+        {
+            front_height_sum += terrain_plan_z_m_[leg];
+            ++front_height_count;
+        }
+        else
+        {
+            rear_height_sum += terrain_plan_z_m_[leg];
+            ++rear_height_count;
+        }
+    }
+    if (front_height_count > 0 && rear_height_count > 0)
+    {
+        const double front_height = front_height_sum /
+            static_cast<double>(front_height_count);
+        const double rear_height = rear_height_sum /
+            static_cast<double>(rear_height_count);
+        const double target_pitch = std::clamp(
+            std::atan2(front_height - rear_height, 0.45), -0.20, 0.20);
+        terrain_body_pitch_ref_rad_ += std::clamp(
+            target_pitch - terrain_body_pitch_ref_rad_, -0.02, 0.02);
+    }
+    else
+        terrain_body_pitch_ref_rad_ += std::clamp(
+            -terrain_body_pitch_ref_rad_, -0.02, 0.02);
     terrain_plan_solver_ok_ = !failed_swing;
+    if (terrain_plan_solver_ok_)
+        terrain_speed_limit_mps_ = elevated_plan ? 0.20 :
+            std::numeric_limits<double>::infinity();
     if (failed_swing && task_.motion_stage_ == 2)
     {
         terrain_plan_safe_stop_ = true;

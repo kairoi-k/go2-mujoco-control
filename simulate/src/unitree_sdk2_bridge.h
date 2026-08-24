@@ -323,8 +323,12 @@ public:
                 if (!(slot > hz))
                     slot = hz;
                 lidar_world_t_[cell] = sim_time;
-                for (int dy = -1; dy <= 1; ++dy)
-                    for (int dx = -1; dx <= 1; ++dx)
+                const int interpolation_radius =
+                    std::abs(hz) <= 0.015 ? 3 : 1;
+                for (int dy = -interpolation_radius;
+                     dy <= interpolation_radius; ++dy)
+                    for (int dx = -interpolation_radius;
+                         dx <= interpolation_radius; ++dx)
                     {
                         const int nx = ix + dx;
                         const int ny = iy + dy;

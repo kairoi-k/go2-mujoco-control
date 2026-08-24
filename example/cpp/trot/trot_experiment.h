@@ -421,6 +421,9 @@ private:
     bool terrain_plan_safe_stop_ = false;
     double terrain_support_margin_m_ = -1.0;
     double terrain_body_height_ref_m_ = go2_trot::kWbcPrimaryBaseHeightM;
+    double terrain_body_pitch_ref_rad_ = 0.0;
+    double terrain_speed_limit_mps_ = std::numeric_limits<double>::infinity();
+    bool terrain_contact_plan_active_ = false;
     std::atomic<bool> finished_{false};
     ChannelSubscriberPtr<unitree_go::msg::dds_::HeightMap_>
         environment_heightmap_subscriber_;

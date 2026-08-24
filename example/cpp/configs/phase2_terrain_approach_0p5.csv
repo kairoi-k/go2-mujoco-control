@@ -1,0 +1,7 @@
+# Terrain planner approach: settle, approach at 0.5 m/s, then stop.
+0.0,0.0
+4.0,0.0
+6.0,0.5
+16.0,0.5
+20.0,0.0
+28.0,0.0
