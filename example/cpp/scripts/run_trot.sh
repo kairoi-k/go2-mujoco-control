@@ -34,6 +34,7 @@ if [[ "${TROT_CPU_AUTOPIN:-1}" != "0" &&
   fi
 fi
 filtered_controller_args=()
+profile_path="${GO2_PROFILE_PATH:-}"
 for ((i = 0; i < ${#controller_args[@]}; ++i)); do
   arg="${controller_args[$i]}"
   if [[ "$arg" == "--controller-duration" ]]; then
@@ -174,6 +175,8 @@ env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_)" >"$environment
 {
   printf "started_at=%s\n" "$(date --iso-8601=seconds)"
   printf "git_head=%s\n" "$(git -C "$repo_dir" rev-parse HEAD)"
+  printf "git_branch=%s\n" "$(git -C "$repo_dir" symbolic-ref --short -q HEAD || echo detached)"
+  printf "git_dirty=%s\n" "$([[ -n "$(git -C "$repo_dir" status --porcelain)" ]] && echo true || echo false)"
   printf "simulator_sha256=%s\n" "$(sha256sum "$simulator" | cut -d" " -f1)"
   printf "controller_sha256=%s\n" "$(sha256sum "$controller" | cut -d" " -f1)"
   printf "scene_sha256=%s\n" "$(sha256sum "$scene_file" | cut -d" " -f1)"
@@ -184,6 +187,17 @@ env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_)" >"$environment
   printf "sim_cpu_affinity=%s\n" "${sim_affinity:-auto}"
   printf "controller_cpu_affinity=%s\n" "${ctrl_affinity:-auto}"
   printf "argv=%s\n" "$*"
+  printf "controller_argv_shell="
+  printf "%q " "${controller_args[@]}"
+  printf "\n"
+  printf "profile_path=%s\n" "$profile_path"
+  if [[ -n "$profile_path" && -f "$profile_path" ]]; then
+    printf "profile_sha256=%s\n" "$(sha256sum "$profile_path" | cut -d" " -f1)"
+  else
+    printf "profile_sha256=\n"
+  fi
+  printf "seed=%s\n" "${TROT_SEED:-${RUN_SEED:-}}"
+  printf "event_script_hash=%s\n" "${TROT_EVENT_SCRIPT_SHA256:-}"
   printf "controller_duration_s=%s\n" "$controller_duration_s"
   printf "max_cycles_requested=%s\n" "$max_cycles_requested"
   printf "domain_id=%s\n" "$domain_id"
@@ -411,7 +425,15 @@ fi
   printf "finished_at=%s\n" "$(date --iso-8601=seconds)"
 } >>"$metadata_file"
 
+manifest_status=0
+if ! python3 "$cpp_dir/tools/write_run_manifest.py" "$experiment_dir" \
+    --repo "$repo_dir" --cpp-dir "$cpp_dir"; then
+  echo "Run manifest generation failed; see $experiment_dir/run_metadata.txt" >&2
+  manifest_status=1
+fi
+
 if (( controller_status != 0 || safety_status != 0 || quality_status != 0 ||
-      analysis_status != 0 || ground_truth_status != 0 || dynamics_status != 0 || completion_status != 0 )); then
+      analysis_status != 0 || ground_truth_status != 0 || dynamics_status != 0 ||
+      completion_status != 0 || manifest_status != 0 )); then
   exit 1
 fi

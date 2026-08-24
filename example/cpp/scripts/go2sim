@@ -14,13 +14,56 @@
 #   go2sim plan               # staged speed plan
 #   go2sim walk --view        # enable viewer
 # Additional arguments are forwarded to the controller (for example --foot-lift 0.030).
+# A profile replaces the preset defaults; explicit arguments still win because
+# they are appended after the profile arguments.
+#   go2sim --profile example/cpp/configs/profiles/go2sim_full.json --headless
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 RUN="$SCRIPT_DIR/run_trot.sh"
+PROFILE_TOOL="$REPO/example/cpp/tools/profile_cli.py"
 
-SCENE="${1:-walk}"
-[ $# -gt 0 ] && shift
+profile_path="${GO2_PROFILE_PATH:-}"
+profile_args=()
+without_profile=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --profile)
+      [ $# -ge 2 ] || { echo "--profile requires a JSON file" >&2; exit 2; }
+      profile_path="$2"
+      shift 2
+      ;;
+    --profile=*)
+      profile_path="${1#*=}"
+      shift
+      ;;
+    *)
+      without_profile+=("$1")
+      shift
+      ;;
+  esac
+done
+set -- "${without_profile[@]}"
+
+if [[ -n "$profile_path" ]]; then
+  if [[ "$profile_path" != /* ]]; then
+    profile_path="$REPO/$profile_path"
+  fi
+  mapfile -t profile_args < <(python3 "$PROFILE_TOOL" "$profile_path" --args)
+  while IFS=$'\t' read -r key value; do
+    [[ -n "$key" ]] || continue
+    if ! declare -p "$key" &>/dev/null; then
+      export "$key=$value"
+    fi
+  done < <(python3 "$PROFILE_TOOL" "$profile_path" --env)
+  export GO2_PROFILE_PATH="$profile_path"
+fi
+
+SCENE="walk"
+if [ $# -gt 0 ] && [[ "$1" != --* ]]; then
+  SCENE="$1"
+  shift
+fi
 
 BASE=(--period 0.60 --duty 0.75 --foot-lift 0.020 --kp 63 --kd 2.8 \
       --kernel raibert-trot --raibert-velocity-gain 0.05 --raibert-max-adjustment 0.010 \
@@ -58,6 +101,14 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+
+if [[ -n "$profile_path" ]]; then
+  profile_timeout="$(python3 "$PROFILE_TOOL" "$profile_path" --runner wall_timeout_s)"
+  profile_duration="$(python3 "$PROFILE_TOOL" "$profile_path" --runner controller_duration_s)"
+  [[ -n "$profile_timeout" ]] && TIMEOUT="$profile_timeout"
+  [[ -n "$profile_duration" ]] && CTRL_DUR="$profile_duration"
+  ARGS=("${profile_args[@]}")
+fi
 
 NAME="${SCENE}_$(date +%H%M%S)"
 cd "$REPO"
