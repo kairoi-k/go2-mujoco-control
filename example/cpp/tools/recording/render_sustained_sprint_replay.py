@@ -13,6 +13,7 @@ import bisect
 import csv
 import math
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -83,7 +84,7 @@ def main() -> int:
     parser.add_argument("--camera-azimuth", type=float, default=90.0)
     parser.add_argument("--camera-elevation", type=float, default=-18.0)
     parser.add_argument("--ffmpeg", type=Path,
-                        default=Path("/home/che/.local/share/unitree_mujoco_capture_tools/tools/ffmpeg-static/bin/ffmpeg"))
+                        default=Path(os.environ.get("FFMPEG_BIN") or shutil.which("ffmpeg") or "ffmpeg"))
     args = parser.parse_args()
 
     data_times, data_rows = load_rows(args.run_dir / "data.csv", "cmd_time_s")

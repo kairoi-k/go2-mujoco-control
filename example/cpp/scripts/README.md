@@ -1,5 +1,16 @@
 # 控制脚本
 
+## Script lifecycle categories
+
+| Category | Scripts | Policy |
+|---|---|---|
+| Canonical entrypoint | `go2sim` | User-facing task/stand-walk-lie and controller launcher; changes require review. |
+| Maintained reproducibility wrappers | `run_trot.sh`, `run_natural_trot.sh`, `run_running_trot.sh`, `run_sustained_running.sh`, `run_sustained_sprint.sh` | Safe for new protocol work when paired with the documented analyzer and run manifest. |
+| Experiment helpers | `run_leg_lift_repeats.sh`, `run_leg_sequence.sh`, `run_periodic_leg_lift.sh`, `run_single_step.sh`, `run_two_step.sh`, `run_weight_shift_scan.sh`, `record_sustained_sprint.sh` | Maintained helpers; each new experiment must record its exact configuration and evidence class. |
+| Historical compatibility / capture helpers | `record_periodic_leg_lift.sh`, `record_reactive_acceptance.sh` | Retained for provenance or capture workflows; do not treat them as canonical acceptance entrypoints without a current protocol record. |
+
+Do not mass-move or rename legacy scripts in a governance PR. New maintained wrappers must document their owner, effective arguments, semantic environment, output directory, and analyzer.
+
 ## 维护入口
 
 | 脚本 | 用途 |

@@ -1,0 +1,32 @@
+name: Repository hygiene
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  portable-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check shell syntax
+        run: |
+          find example/cpp/scripts scripts -type f \( -name '*.sh' -o -name 'go2sim' \) -print0 |
+            xargs -0 -r -n1 bash -n
+      - name: Check Python syntax
+        run: |
+          find . -type f -name '*.py' -not -path './.git/*' -print0 |
+            xargs -0 -r -n1 python3 -m py_compile
+      - name: Run repository hygiene checker
+        run: python3 example/cpp/tools/check_repo_hygiene.py
+      - name: Check internal references
+        run: |
+          test -f docs/REPOSITORY_GOVERNANCE.md
+          test -f example/cpp/tools/analysis/INDEX.md
+          test -f docs/RESEARCH_INDEX.md
+
+# Hosted CI intentionally does not claim MuJoCo, Unitree SDK, simulator, or
+# sim-to-real integration. Those require the documented WSL environment.
