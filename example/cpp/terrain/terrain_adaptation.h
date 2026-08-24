@@ -383,6 +383,12 @@ struct TerrainFootholdOutput
     double surface_height_range_m = 0.0;
     double slope_rad = 0.0;
     double cost = std::numeric_limits<double>::infinity();
+    int candidate_count = 0;
+    int unknown_surface_count = 0;
+    int bad_patch_count = 0;
+    int bad_step_count = 0;
+    int unreachable_count = 0;
+    int swept_clearance_count = 0;
 };
 
 inline bool PlanTerrainFoothold(
@@ -433,6 +439,7 @@ inline bool PlanTerrainFoothold(
     {
         for (const double dy : params.candidate_dy_m)
         {
+            ++output.candidate_count;
             const double body_x = request.nominal_body_x_m + dx;
             const double body_y = request.nominal_body_y_m + dy;
             const double world_x = request.base_world_x_m + body_x;
@@ -449,16 +456,19 @@ inline bool PlanTerrainFoothold(
                     slope))
             {
                 saw_unknown = true;
+                ++output.unknown_surface_count;
                 continue;
             }
             if (height_range > params.max_surface_height_range_m)
             {
                 saw_bad_patch = true;
+                ++output.bad_patch_count;
                 continue;
             }
             if (slope > params.max_slope_rad)
             {
                 saw_bad_patch = true;
+                ++output.bad_patch_count;
                 continue;
             }
             const double step_delta =
@@ -467,6 +477,7 @@ inline bool PlanTerrainFoothold(
                 step_delta < -params.max_step_down_m)
             {
                 saw_bad_step = true;
+                ++output.bad_step_count;
                 continue;
             }
 
@@ -478,6 +489,7 @@ inline bool PlanTerrainFoothold(
             if (!go2::LegInverseKinematics(request.leg, body_foot, joints))
             {
                 saw_unreachable = true;
+                ++output.unreachable_count;
                 continue;
             }
             const bool elevated =
@@ -526,6 +538,7 @@ inline bool PlanTerrainFoothold(
             if (!swept_clear)
             {
                 saw_bad_patch = true;
+                ++output.swept_clearance_count;
                 continue;
             }
             const double xy_error = dx * dx + dy * dy;

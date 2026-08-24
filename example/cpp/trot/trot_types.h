@@ -199,11 +199,13 @@ struct TrotParams
 inline std::unique_ptr<go2_control::LocomotionKernel> CreateLocomotionKernel(
     const TrotParams &params)
 {
-    const go2_control::GaitKernelParams gait_params{
+    go2_control::GaitKernelParams gait_params{
         params.period_s, params.duty_factor,
         params.step_length_m, params.direction_sign,
         params.foot_lift_m, kGaitBlendDuration, -1.0,
         params.gait_pattern};
+    gait_params.phase_offsets =
+        go2_control::GaitPatternPhaseOffsets(params.gait_pattern);
     if (params.kernel_name == "raibert-trot")
     {
         return std::make_unique<go2_control::RaibertTrotKernel>(

@@ -211,7 +211,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         schedule.step_length_m = applied_mps * schedule.period_s /
             std::max(0.20, 2.0 * schedule.duty_factor);
         schedule.foot_lift_m = std::max(schedule.foot_lift_m, 0.10);
-        schedule.regime = "terrain-walk";
+        schedule.regime = "terrain-crawl";
     }
     locomotion_kernel_->SetGaitEffectiveSpeedConvention(true);
     locomotion_kernel_->SetGaitSlewLimits(0.060, 0.020, 0.020);
@@ -250,6 +250,26 @@ bool TrotExperiment::BuildGaitTargets(
     const bool runtime_velocity_command = params_.runtime_velocity_command;
     if (runtime_velocity_command)
         UpdateRuntimeVelocityCommand(gait_time_s);
+    const auto base_phase_offsets =
+        go2_control::GaitPatternPhaseOffsets(params_.gait_pattern);
+    const auto crawl_phase_offsets =
+        go2_control::GaitPatternPhaseOffsets(
+            go2_control::GaitPattern::kCrawl);
+    // The current terrain milestone keeps the validated contact offsets. A
+    // future contact-plan activation gate must prove the elevated target is
+    // executable before enabling phase blending.
+    const double target_pattern_blend = 0.0;
+    const double phase_blend_dt =
+        std::isfinite(last_motion_dt_s_) && last_motion_dt_s_ > 1.0e-4
+            ? last_motion_dt_s_ : dt_;
+    terrain_pattern_blend_ +=
+        (target_pattern_blend - terrain_pattern_blend_) * std::clamp(
+            phase_blend_dt / 0.80, 0.0, 1.0);
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        gait_phase_offsets_[leg] =
+            base_phase_offsets[leg] + terrain_pattern_blend_ *
+                (crawl_phase_offsets[leg] - base_phase_offsets[leg]);
+    locomotion_kernel_->SetGaitPhaseOffsets(gait_phase_offsets_);
     const double requested_speed = runtime_velocity_command
         ? velocity_command_state_.shaped_mps
         : std::abs(
@@ -1047,7 +1067,7 @@ bool TrotExperiment::BuildGaitTargets(
             locomotion_kernel_->SetGaitStepLength(step);
             locomotion_kernel_->SetGaitFootLift(lift);
             std::cout << "HIGH-SPEED-GOV pattern="
-                      << go2_control::GaitPatternName(params_.gait_pattern)
+                      << go2_control::GaitPatternName(active_gait_pattern_)
                       << " cycle=" << cycle_index
                       << " v_cmd=" << wbc_speed_cmd_mps_
                       << " v_meas=" << v_meas_abs
@@ -1262,7 +1282,7 @@ bool TrotExperiment::BuildGaitTargets(
         cart.ypos_gain = Full2EnvDouble("FULL2_YPOS", 0.0);
         cart.world_heading = Full2EnvDouble("FULL2_WORLD_HEADING", 0.0) > 0.5;
         cart.yaw_gain = Full2EnvDouble("FULL2_YAW_GAIN", 0.0);
-        cart.pattern = params_.gait_pattern;
+        cart.pattern = active_gait_pattern_;
         cart.foot_lift_m =
             gait_result.duty_factor > 0.0
                 ? std::max(params_.foot_lift_m, 0.022)
@@ -1387,8 +1407,7 @@ bool TrotExperiment::BuildGaitTargets(
             -pose.quaternion[3]};
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const double leg_phase = go2_control::GaitLegPhase(
-                leg, phase, params_.gait_pattern);
+            const double leg_phase = ActiveGaitLegPhase(leg, phase);
             const bool support = leg_phase < stance_duration;
             if (!support)
             {
@@ -1536,6 +1555,12 @@ bool TrotExperiment::BuildGaitTargets(
     }
     return true;
 }
+
+double TrotExperiment::ActiveGaitLegPhase(
+    std::size_t leg, double phase) const noexcept
+{
+    return go2_control::GaitLegPhase(leg, phase, gait_phase_offsets_);
+}
 void TrotExperiment::UpdateTerrainPlanner(
     const go2_control::GaitKernelResult &gait_result,
     const unitree_go::msg::dds_::LowState_ &low_state,
@@ -1551,8 +1576,8 @@ void TrotExperiment::UpdateTerrainPlanner(
     {
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const double leg_phase = go2_control::GaitLegPhase(
-                leg, gait_result.phase, params_.gait_pattern);
+            const double leg_phase =
+                ActiveGaitLegPhase(leg, gait_result.phase);
             const bool swing = leg_phase >= gait_result.duty_factor;
             if (!swing || !terrain_plan_valid_[leg])
                 continue;
@@ -1618,6 +1643,10 @@ void TrotExperiment::UpdateTerrainPlanner(
 
     const WorldPose pose = ComputeWorldPose(low_state, high_state);
     go2_control::terrain::TerrainFootholdPlannerParams planner_params{};
+    // A 5 cm map cannot represent a 3.5 cm circular foot patch without
+    // pulling a neighboring riser cell into the candidate. Keep the local
+    // patch conservative while retaining the explicit slope/edge checks.
+    planner_params.support_radius_m = 0.025;
     planner_params.max_surface_height_range_m = 0.025;
     planner_params.max_slope_rad = 0.35;
     planner_params.max_step_up_m = 0.12;
@@ -1638,6 +1667,8 @@ void TrotExperiment::UpdateTerrainPlanner(
     bool failed_swing = false;
     bool elevated_plan = false;
     int elevated_forward_samples = 0;
+    // Use a short local preview window to start the regime transition early
+    // enough for the period/duty slew to settle before contact planning.
     for (const double forward_x : {0.20, 0.40, 0.60, 0.80})
     {
         double forward_z = 0.0;
@@ -1656,12 +1687,14 @@ void TrotExperiment::UpdateTerrainPlanner(
     // sensed local height change is allowed to make planner failure blocking.
     const bool terrain_obstacle_detected = elevated_plan;
     if (elevated_plan)
+    {
         terrain_speed_limit_mps_ = 0.20;
+        terrain_risk_clear_since_s_ = -1.0;
+    }
 
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
-        const double leg_phase = go2_control::GaitLegPhase(
-            leg, gait_result.phase, params_.gait_pattern);
+        const double leg_phase = ActiveGaitLegPhase(leg, gait_result.phase);
         const bool swinging = leg_phase >= gait_result.duty_factor;
         const auto rotated = RotateByQuaternion(pose.quaternion, feet[leg]);
         const double foot_world_z = pose.base.z + rotated.z;
@@ -1680,9 +1713,36 @@ void TrotExperiment::UpdateTerrainPlanner(
             planner_params, terrain_map, request, output);
         terrain_plan_status_[leg] = static_cast<int>(output.status);
         terrain_plan_z_m_[leg] = valid ? output.world_z_m : 0.0;
-        if (!valid)
+        if (!valid && terrain_obstacle_detected && swinging)
+            std::cerr << "Terrain foothold rejected leg=" << leg
+                      << " status=" << static_cast<int>(output.status)
+                      << " candidates=" << output.candidate_count
+                      << " unknown=" << output.unknown_surface_count
+                      << " patch=" << output.bad_patch_count
+                      << " step=" << output.bad_step_count
+                      << " ik=" << output.unreachable_count
+                      << " swept=" << output.swept_clearance_count
+                      << " nominal=" << feet[leg].x << "," << feet[leg].y
+                      << " ref_z=" << foot_world_z << "\n";
+        if (!swinging)
         {
-            if (!swinging)
+            // A stance foot is an active measured contact, not a future
+            // touchdown candidate. Keep its current anchor in MPC/WBC and
+            // defer foothold/swept-volume validation until this leg swings.
+            terrain_plan_valid_[leg] = true;
+            terrain_plan_z_m_[leg] = foot_world_z;
+            terrain_plan_body_feet_[leg] = feet[leg];
+            terrain_plan_clearance_m_[leg] = 0.0;
+            const auto world_current = RotateByQuaternion(
+                pose.quaternion, feet[leg]);
+            terrain_mpc_foot_world_[leg] = {
+                pose.base.x + world_current.x,
+                pose.base.y + world_current.y,
+                pose.base.z + world_current.z};
+            // A scheduled stance is only a support estimate. Use measured
+            // foot force for stability and body-height references; otherwise
+            // a leg that lost contact can lift the body reference.
+            if (low_state.foot_force()[leg] >= kContactForceThreshold)
             {
                 ++support_count;
                 support_min_x = std::min(support_min_x, feet[leg].x);
@@ -1694,6 +1754,10 @@ void TrotExperiment::UpdateTerrainPlanner(
                 support_height_sum += foot_world_z;
                 ++support_height_count;
             }
+            continue;
+        }
+        if (!valid)
+        {
             if (terrain_obstacle_detected && swinging && feet[leg].x > 0.0)
                 failed_swing = true;
             continue;
@@ -1804,19 +1868,6 @@ void TrotExperiment::UpdateTerrainPlanner(
             pose.base.y + world_target.y,
             pose.base.z + world_target.z};
 
-        if (!swinging)
-        {
-            ++support_count;
-            support_min_x = std::min(support_min_x, output.body_foot.x);
-            support_max_x = std::max(support_max_x, output.body_foot.x);
-            support_min_y = std::min(support_min_y, output.body_foot.y);
-            support_max_y = std::max(support_max_y, output.body_foot.y);
-            support_min_z = std::min(support_min_z, output.world_z_m);
-            support_max_z = std::max(support_max_z, output.world_z_m);
-            support_height_sum += output.world_z_m;
-            ++support_height_count;
-        }
-
         if (swinging)
         {
             const double swing_u = std::clamp(
@@ -1840,7 +1891,9 @@ void TrotExperiment::UpdateTerrainPlanner(
         terrain_support_margin_m_ = std::min({
             -support_min_x, support_max_x,
             -support_min_y, support_max_y});
-        if (support_height_count > 0 &&
+        // Three confirmed contacts provide the minimum redundancy needed for
+        // a terrain-level estimate during a crawl transition.
+        if (support_count >= 3 && support_height_count > 0 &&
             support_max_z - support_min_z > 0.01)
         {
             const double delta = support_height_sum /
@@ -1887,8 +1940,27 @@ void TrotExperiment::UpdateTerrainPlanner(
             -terrain_body_pitch_ref_rad_, -0.02, 0.02);
     terrain_plan_solver_ok_ = !failed_swing;
     if (terrain_plan_solver_ok_)
-        terrain_speed_limit_mps_ = elevated_plan ? 0.20 :
-            std::numeric_limits<double>::infinity();
+    {
+        if (elevated_plan)
+        {
+            terrain_speed_limit_mps_ = 0.20;
+            terrain_risk_clear_since_s_ = -1.0;
+        }
+        else if (std::isfinite(terrain_speed_limit_mps_))
+        {
+            if (terrain_risk_clear_since_s_ < 0.0)
+                terrain_risk_clear_since_s_ = now_s;
+            // Keep the reduced-speed regime through intermittent map gaps
+            // and contact transition; restore cruise only after a clear
+            // near-field observation window.
+            if (now_s - terrain_risk_clear_since_s_ >= 0.75)
+            {
+                terrain_speed_limit_mps_ =
+                    std::numeric_limits<double>::infinity();
+                terrain_risk_clear_since_s_ = -1.0;
+            }
+        }
+    }
     if (failed_swing && task_.motion_stage_ == 2)
     {
         terrain_plan_safe_stop_ = true;

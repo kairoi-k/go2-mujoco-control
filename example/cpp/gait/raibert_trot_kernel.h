@@ -90,8 +90,19 @@ public:
             if (!have_last_gait_time_)
                 params_.gait.foot_lift_m = lift_m;
             else
-                target_foot_lift_m_ = lift_m;
+            target_foot_lift_m_ = lift_m;
         }
+    }
+    void SetGaitPattern(GaitPattern pattern) override
+    {
+        params_.gait.pattern = pattern;
+        params_.gait.phase_offsets = GaitPatternPhaseOffsets(pattern);
+    }
+
+    void SetGaitPhaseOffsets(
+        const std::array<double, go2::kLegCount> &offsets) override
+    {
+        params_.gait.phase_offsets = offsets;
     }
     void SetGaitSwingReachPhase(double phase) override
     {
@@ -289,7 +300,7 @@ public:
         {
             const double leg_cycle_position =
                 cycle_position + GaitLegPhase(
-                    leg, 0.0, params_.gait.pattern);
+                    leg, 0.0, params_.gait.phase_offsets);
             const int leg_cycle_index =
                 static_cast<int>(std::floor(leg_cycle_position));
             const double leg_phase =

@@ -60,6 +60,9 @@ public:
         : duration_s_(duration_s),
           csv_path_(csv_path),
           params_(std::move(params)),
+          active_gait_pattern_(params_.gait_pattern),
+          gait_phase_offsets_(go2_control::GaitPatternPhaseOffsets(
+              params_.gait_pattern)),
           max_cycles_(max_cycles),
           continuous_mode_(continuous_mode),
           stop_file_path_(stop_file_path),
@@ -166,6 +169,7 @@ private:
         const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
         bool have_high_state,
         std::array<double, go2_trot::kMotorCount> &joint_targets);
+    double ActiveGaitLegPhase(std::size_t leg, double phase) const noexcept;
     void UpdateWbcShadow(
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
         bool have_state,
@@ -235,6 +239,11 @@ private:
     const double duration_s_;
     const std::string csv_path_;
     const go2_trot::TrotParams params_;
+    go2_control::GaitPattern active_gait_pattern_;
+    std::array<double, go2::kLegCount> gait_phase_offsets_ =
+        go2_control::GaitPatternPhaseOffsets(
+            go2_control::GaitPattern::kRunningTrot);
+    double terrain_pattern_blend_ = 0.0;
     const int max_cycles_;
     const bool continuous_mode_;
     const std::string stop_file_path_;
@@ -423,6 +432,7 @@ private:
     double terrain_body_height_ref_m_ = go2_trot::kWbcPrimaryBaseHeightM;
     double terrain_body_pitch_ref_rad_ = 0.0;
     double terrain_speed_limit_mps_ = std::numeric_limits<double>::infinity();
+    double terrain_risk_clear_since_s_ = -1.0;
     bool terrain_contact_plan_active_ = false;
     std::atomic<bool> finished_{false};
     ChannelSubscriberPtr<unitree_go::msg::dds_::HeightMap_>

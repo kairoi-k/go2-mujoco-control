@@ -220,7 +220,7 @@ void TrotExperiment::UpdateWbcFull(
                 scheduled{};
             go2_control::FillTrotContactSchedulePhase(
                 current_phase_, gait_period, gait_duty, 1, 0.0, scheduled,
-                params_.gait_pattern);
+                gait_phase_offsets_);
             qp_contact = MergeHighSpeedContact(
                 scheduled[0], measured_contact,
                 high_speed_contact_merge_mode);
@@ -439,7 +439,7 @@ void TrotExperiment::UpdateWbcFull(
                 go2_control::FillTrotContactSchedulePhase(
                     current_phase_, gait_period, gait_duty,
                     mpc_params.horizon, mpc_params.dt_s, mpc_in.contact,
-                    params_.gait_pattern);
+                    gait_phase_offsets_);
                 if (high_speed_contact_merge_mode > 0 &&
                     mpc_params.horizon > 0)
                     mpc_in.contact[0] = qp_contact;

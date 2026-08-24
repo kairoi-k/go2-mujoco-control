@@ -28,6 +28,28 @@ bool CheckPacePattern()
            Near(go2_control::GaitLegPhase(1.0, 0.0, pattern), 0.5) &&
            Near(go2_control::GaitLegPhase(3.0, 0.0, pattern), 0.5);
 }
+
+bool CheckCrawlPattern()
+{
+    go2_control::GaitPattern pattern =
+        go2_control::GaitPattern::kDiagonalTrot;
+    if (!go2_control::ParseGaitPattern("crawl", pattern) ||
+        pattern != go2_control::GaitPattern::kCrawl)
+    {
+        return false;
+    }
+    for (const double phase : {0.0, 0.25, 0.50, 0.75})
+    {
+        int stance_count = 0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            if (go2_control::GaitLegScheduledStance(
+                    leg, phase, 0.75, pattern))
+                ++stance_count;
+        if (stance_count != 3)
+            return false;
+    }
+    return true;
+}
 go2_control::GaitKernelRequest Request(
     double time_s,
     double velocity_x_mps)
@@ -231,6 +253,7 @@ int main()
 {
     if (!CheckTargetIsFrozenWithinLegCycle() ||
         !CheckPacePattern() ||
+        !CheckCrawlPattern() ||
         !CheckCycleBoundaryIsContinuous() ||
         !CheckGearShiftPhaseContinuity() ||
         !CheckResetAndInvalidInput() ||

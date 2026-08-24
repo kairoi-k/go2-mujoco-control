@@ -296,7 +296,30 @@ inline void FillTrotContactSchedulePhase(
     int horizon,
     double dt_s,
     std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon> &contact,
+    const std::array<double, go2::kLegCount> &offsets);
+
+inline void FillTrotContactSchedulePhase(
+    double phase,
+    double period_s,
+    double duty,
+    int horizon,
+    double dt_s,
+    std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon> &contact,
     GaitPattern pattern = GaitPattern::kDiagonalTrot)
+{
+    FillTrotContactSchedulePhase(
+        phase, period_s, duty, horizon, dt_s, contact,
+        GaitPatternPhaseOffsets(pattern));
+}
+
+inline void FillTrotContactSchedulePhase(
+    double phase,
+    double period_s,
+    double duty,
+    int horizon,
+    double dt_s,
+    std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon> &contact,
+    const std::array<double, go2::kLegCount> &offsets)
 {
     contact = {};
     if (!(period_s > 0.0))
@@ -308,8 +331,7 @@ inline void FillTrotContactSchedulePhase(
         if (a < 0.0)
             a += 1.0;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            contact[k][leg] = GaitLegScheduledStance(
-                leg, a, duty, pattern);
+            contact[k][leg] = GaitLegPhase(leg, a, offsets) < duty;
     }
 }
 
