@@ -320,6 +320,19 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.reference[1] = params_.terrain_planner && terrain_plan_solver_ok_
             ? terrain_body_pitch_ref_rad_ : 0.0;
         mpc_in.reference[4] = 0.0;
+        if (params_.terrain_planner && terrain_plan_solver_ok_ &&
+            terrain_com_ref_valid_)
+        {
+            const WorldPose body_pose = ComputeWorldPose(
+                state_snapshot, high_state_snapshot);
+            const auto support_offset_world = RotateByQuaternion(
+                body_pose.quaternion,
+                {terrain_com_ref_body_x_m_, terrain_com_ref_body_y_m_, 0.0});
+            mpc_in.reference[3] = body_pose.base.x +
+                support_offset_world.x;
+            mpc_in.reference[4] = body_pose.base.y +
+                support_offset_world.y;
+        }
         double base_height_ref =
             (high_speed_curriculum &&
              Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0) > 0.0)

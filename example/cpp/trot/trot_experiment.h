@@ -431,6 +431,9 @@ private:
     bool terrain_plan_solver_ok_ = false;
     bool terrain_plan_safe_stop_ = false;
     double terrain_support_margin_m_ = -1.0;
+    double terrain_com_ref_body_x_m_ = 0.0;
+    double terrain_com_ref_body_y_m_ = 0.0;
+    bool terrain_com_ref_valid_ = false;
     double terrain_body_height_ref_m_ = go2_trot::kWbcPrimaryBaseHeightM;
     double terrain_body_pitch_ref_rad_ = 0.0;
     double terrain_speed_limit_mps_ = std::numeric_limits<double>::infinity();

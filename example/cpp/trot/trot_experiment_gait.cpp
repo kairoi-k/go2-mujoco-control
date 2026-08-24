@@ -1604,6 +1604,7 @@ void TrotExperiment::UpdateTerrainPlanner(
     terrain_plan_safe_stop_ = false;
     terrain_plan_iterations_ = 0;
     terrain_support_margin_m_ = -1.0;
+    terrain_com_ref_valid_ = false;
 
     unitree_go::msg::dds_::HeightMap_ height_map;
     {
@@ -1676,6 +1677,8 @@ void TrotExperiment::UpdateTerrainPlanner(
     double support_max_x = -std::numeric_limits<double>::infinity();
     double support_min_y = std::numeric_limits<double>::infinity();
     double support_max_y = -std::numeric_limits<double>::infinity();
+    double support_sum_x = 0.0;
+    double support_sum_y = 0.0;
     double support_min_z = std::numeric_limits<double>::infinity();
     double support_max_z = -std::numeric_limits<double>::infinity();
     double support_height_sum = 0.0;
@@ -1692,6 +1695,8 @@ void TrotExperiment::UpdateTerrainPlanner(
         support_max_x = std::max(support_max_x, actual_body_feet[leg].x);
         support_min_y = std::min(support_min_y, actual_body_feet[leg].y);
         support_max_y = std::max(support_max_y, actual_body_feet[leg].y);
+        support_sum_x += actual_body_feet[leg].x;
+        support_sum_y += actual_body_feet[leg].y;
         support_min_z = std::min(
             support_min_z, actual_world_feet[leg].z);
         support_max_z = std::max(
@@ -1958,6 +1963,14 @@ void TrotExperiment::UpdateTerrainPlanner(
                 target - terrain_body_height_ref_m_, -0.01, 0.01);
             terrain_body_height_ref_m_ = std::clamp(
                 terrain_body_height_ref_m_, 0.32, 0.50);
+        }
+        if (support_count >= 3)
+        {
+            terrain_com_ref_body_x_m_ = support_sum_x /
+                static_cast<double>(support_count);
+            terrain_com_ref_body_y_m_ = support_sum_y /
+                static_cast<double>(support_count);
+            terrain_com_ref_valid_ = true;
         }
     }
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
