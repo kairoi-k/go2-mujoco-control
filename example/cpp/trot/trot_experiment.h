@@ -148,6 +148,7 @@ private:
     bool PhaseStartGait(
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
         std::array<double, go2_trot::kMotorCount> &joint_targets);
+    void MaybeLatchTerrainStartRegime();
     void UpdateMotionEventResponse(
         double gait_elapsed_s, double motion_dt_s,
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
@@ -244,6 +245,7 @@ private:
         go2_control::GaitPatternPhaseOffsets(
             go2_control::GaitPattern::kRunningTrot);
     double terrain_pattern_blend_ = 0.0;
+    bool terrain_pattern_start_latched_ = false;
     const int max_cycles_;
     const bool continuous_mode_;
     const std::string stop_file_path_;

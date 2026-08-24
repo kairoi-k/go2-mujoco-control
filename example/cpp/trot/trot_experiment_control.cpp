@@ -321,12 +321,66 @@ bool TrotExperiment::HighSpeedStopBrakeEnabled() const
     return requested_speed >= 2.0;
 }
 
+void TrotExperiment::MaybeLatchTerrainStartRegime()
+{
+    if (!params_.terrain_planner || terrain_pattern_start_latched_)
+        return;
+    unitree_go::msg::dds_::HeightMap_ map_message;
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        if (!have_environment_heightmap_)
+            return;
+        map_message = environment_heightmap_;
+    }
+    if (map_message.width() == 0 || map_message.height() == 0 ||
+        map_message.resolution() <= 0.0f || map_message.data().empty())
+        return;
+    go2_control::terrain::HeightMap map(
+        map_message.origin()[0], map_message.origin()[1],
+        map_message.resolution(), map_message.width(), map_message.height());
+    const std::size_t expected = static_cast<std::size_t>(
+        map_message.width()) * map_message.height();
+    if (map_message.data().size() < expected)
+        return;
+    for (std::size_t iy = 0; iy < map_message.height(); ++iy)
+        for (std::size_t ix = 0; ix < map_message.width(); ++ix)
+        {
+            const float value = map_message.data()[
+                iy * map_message.width() + ix];
+            map.SetCell(ix, iy, std::isfinite(value) ? value : 0.0,
+                        std::isfinite(value));
+        }
+    int elevated_samples = 0;
+    for (const double x : {0.35, 0.50, 0.65})
+    {
+        double height = 0.0;
+        bool known = false;
+        if (map.SampleHeight(x, 0.0, height, known) && known &&
+            std::isfinite(height) && height > 0.02)
+            ++elevated_samples;
+    }
+    if (elevated_samples < 2)
+        return;
+
+    terrain_pattern_start_latched_ = true;
+    terrain_pattern_blend_ = 1.0;
+    active_gait_pattern_ = go2_control::GaitPattern::kCrawl;
+    gait_phase_offsets_ = go2_control::GaitPatternPhaseOffsets(
+        go2_control::GaitPattern::kCrawl);
+    locomotion_kernel_->SetGaitPhaseOffsets(gait_phase_offsets_);
+    terrain_speed_limit_mps_ = 0.20;
+    terrain_risk_clear_since_s_ = -1.0;
+    std::cout << "Terrain start regime latched: crawl, elevated_samples="
+              << elevated_samples << "\n";
+}
+
 bool TrotExperiment::PhaseStartGait(
     const unitree_go::msg::dds_::LowState_ &state_snapshot,
     std::array<double, go2_trot::kMotorCount> &joint_targets)
 {
     if (params_.wbc_full && !task_.gait_started_ && !task_.stop_requested_)
     {
+        MaybeLatchTerrainStartRegime();
         const double extra_settle_s = std::clamp(
             Full2EnvDouble("TROT_HS_EXTRA_SETTLE_S", 0.8), 0.0, 3.0);
         const double nominal_gait_start_s =

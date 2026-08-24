@@ -659,9 +659,13 @@ private:
     static constexpr int kLidarWorldNy = 80;   // y in [-2.0, 2.0]
     static constexpr double kLidarWorldOx = -2.0;
     static constexpr double kLidarWorldOy = -2.0;
+    // Keep enough rear coverage for the current support feet and the next
+    // rear-leg touchdown candidate.  The previous [-0.10, 0.90] m window
+    // made every rear swing planner query unknown even on flat ground.
+    // Keep the 20-cell payload size used by the existing DDS path.
     static constexpr uint32_t kLidarWinNx = 20;
     static constexpr uint32_t kLidarWinNy = 16;
-    static constexpr float kLidarWinOx = -0.10f;
+    static constexpr float kLidarWinOx = -0.30f;
     static constexpr float kLidarWinOy = -0.40f;
     std::vector<double> lidar_world_z_;
     std::vector<double> lidar_world_t_;

@@ -255,10 +255,10 @@ bool TrotExperiment::BuildGaitTargets(
     const auto crawl_phase_offsets =
         go2_control::GaitPatternPhaseOffsets(
             go2_control::GaitPattern::kCrawl);
-    // The current terrain milestone keeps the validated contact offsets. A
-    // future contact-plan activation gate must prove the elevated target is
-    // executable before enabling phase blending.
-    const double target_pattern_blend = 0.0;
+    // A terrain scene can select crawl before gait start from the sensed
+    // local map; during motion, risk alone cannot cause a phase jump.
+    const double target_pattern_blend =
+        terrain_pattern_start_latched_ ? 1.0 : 0.0;
     const double phase_blend_dt =
         std::isfinite(last_motion_dt_s_) && last_motion_dt_s_ > 1.0e-4
             ? last_motion_dt_s_ : dt_;
@@ -1664,12 +1664,16 @@ void TrotExperiment::UpdateTerrainPlanner(
     double support_max_z = -std::numeric_limits<double>::infinity();
     double support_height_sum = 0.0;
     int support_height_count = 0;
+    double support_front_height_sum = 0.0;
+    double support_rear_height_sum = 0.0;
+    int support_front_height_count = 0;
+    int support_rear_height_count = 0;
     bool failed_swing = false;
     bool elevated_plan = false;
     int elevated_forward_samples = 0;
     // Use a short local preview window to start the regime transition early
     // enough for the period/duty slew to settle before contact planning.
-    for (const double forward_x : {0.20, 0.40, 0.60, 0.80})
+    for (const double forward_x : {0.20, 0.40, 0.55, 0.65})
     {
         double forward_z = 0.0;
         bool known = false;
@@ -1698,6 +1702,24 @@ void TrotExperiment::UpdateTerrainPlanner(
         const bool swinging = leg_phase >= gait_result.duty_factor;
         const auto rotated = RotateByQuaternion(pose.quaternion, feet[leg]);
         const double foot_world_z = pose.base.z + rotated.z;
+        double reference_foot_world_z = foot_world_z;
+        double nominal_surface_z = 0.0;
+        double nominal_surface_range = 0.0;
+        double nominal_surface_slope = 0.0;
+        if (terrain_map.SampleSupportPatch(
+                feet[leg].x,
+                feet[leg].y,
+                planner_params.support_radius_m,
+                nominal_surface_z,
+                nominal_surface_range,
+                nominal_surface_slope))
+        {
+            // A swinging foot's instantaneous kinematic height is not its
+            // contact height.  Use the sensed nominal surface as the
+            // touchdown reference; otherwise the flat-ground return from a
+            // lifted foot is misclassified as an excessive step down.
+            reference_foot_world_z = nominal_surface_z;
+        }
         go2_control::terrain::TerrainFootholdRequest request{};
         request.leg = static_cast<go2::Leg>(leg);
         // The subscribed lidar map is explicitly base_link-relative.
@@ -1707,7 +1729,7 @@ void TrotExperiment::UpdateTerrainPlanner(
         request.nominal_body_x_m = feet[leg].x;
         request.nominal_body_y_m = feet[leg].y;
         request.nominal_body_z_m = feet[leg].z;
-        request.reference_foot_world_z_m = foot_world_z;
+        request.reference_foot_world_z_m = reference_foot_world_z;
         go2_control::terrain::TerrainFootholdOutput output{};
         const bool valid = go2_control::terrain::PlanTerrainFoothold(
             planner_params, terrain_map, request, output);
@@ -1753,12 +1775,22 @@ void TrotExperiment::UpdateTerrainPlanner(
                 support_max_z = std::max(support_max_z, foot_world_z);
                 support_height_sum += foot_world_z;
                 ++support_height_count;
+                if (leg < 2)
+                {
+                    support_front_height_sum += foot_world_z;
+                    ++support_front_height_count;
+                }
+                else
+                {
+                    support_rear_height_sum += foot_world_z;
+                    ++support_rear_height_count;
+                }
             }
             continue;
         }
         if (!valid)
         {
-            if (terrain_obstacle_detected && swinging && feet[leg].x > 0.0)
+            if (terrain_obstacle_detected && swinging)
                 failed_swing = true;
             continue;
         }
@@ -1853,7 +1885,7 @@ void TrotExperiment::UpdateTerrainPlanner(
                       << " elevated=" << elevated << "\n";
             terrain_plan_status_[leg] = static_cast<int>(
                 go2_control::terrain::TerrainPlanStatus::kNoSupportPatch);
-            if (terrain_obstacle_detected && swinging && feet[leg].x > 0.0)
+            if (terrain_obstacle_detected && swinging)
                 failed_swing = true;
             continue;
         }
@@ -1905,31 +1937,15 @@ void TrotExperiment::UpdateTerrainPlanner(
                 terrain_body_height_ref_m_, 0.32, 0.50);
         }
     }
-    double front_height_sum = 0.0;
-    double rear_height_sum = 0.0;
-    int front_height_count = 0;
-    int rear_height_count = 0;
-    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    // Body pitch must follow confirmed support contacts.  A future foothold
+    // candidate may be geometrically valid but not yet load-bearing; using it
+    // here can command the body in the opposite direction during transfer.
+    if (support_front_height_count > 0 && support_rear_height_count > 0)
     {
-        if (terrain_plan_status_[leg] < 0)
-            continue;
-        if (leg < 2)
-        {
-            front_height_sum += terrain_plan_z_m_[leg];
-            ++front_height_count;
-        }
-        else
-        {
-            rear_height_sum += terrain_plan_z_m_[leg];
-            ++rear_height_count;
-        }
-    }
-    if (front_height_count > 0 && rear_height_count > 0)
-    {
-        const double front_height = front_height_sum /
-            static_cast<double>(front_height_count);
-        const double rear_height = rear_height_sum /
-            static_cast<double>(rear_height_count);
+        const double front_height = support_front_height_sum /
+            static_cast<double>(support_front_height_count);
+        const double rear_height = support_rear_height_sum /
+            static_cast<double>(support_rear_height_count);
         const double target_pitch = std::clamp(
             std::atan2(front_height - rear_height, 0.45), -0.20, 0.20);
         terrain_body_pitch_ref_rad_ += std::clamp(
