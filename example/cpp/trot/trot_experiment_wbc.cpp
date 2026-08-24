@@ -225,6 +225,8 @@ void TrotExperiment::UpdateWbcFull(
                 scheduled[0], measured_contact,
                 high_speed_contact_merge_mode);
         }
+        if (params_.terrain_planner && terrain_contact_plan_active_)
+            qp_contact = measured_contact;
     }
     int contact_mask = 0;
     int active = 0;
@@ -441,6 +443,9 @@ void TrotExperiment::UpdateWbcFull(
                     mpc_params.horizon, mpc_params.dt_s, mpc_in.contact,
                     gait_phase_offsets_);
                 if (high_speed_contact_merge_mode > 0 &&
+                    mpc_params.horizon > 0)
+                    mpc_in.contact[0] = qp_contact;
+                if (params_.terrain_planner && terrain_contact_plan_active_ &&
                     mpc_params.horizon > 0)
                     mpc_in.contact[0] = qp_contact;
             }

@@ -1628,6 +1628,23 @@ void TrotExperiment::UpdateTerrainPlanner(
     }
 
     const auto start = std::chrono::steady_clock::now();
+    const WorldPose pose = ComputeWorldPose(low_state, high_state);
+    const auto actual_world_feet = ComputeWorldFeet(low_state, pose);
+    const std::array<double, 4> inverse_quaternion = {
+        pose.quaternion[0],
+        -pose.quaternion[1],
+        -pose.quaternion[2],
+        -pose.quaternion[3]};
+    std::array<go2::Vec3, go2::kLegCount> actual_body_feet{};
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const auto &world_foot = actual_world_feet[leg];
+        actual_body_feet[leg] = RotateByQuaternion(
+            inverse_quaternion,
+            {world_foot.x - pose.base.x,
+             world_foot.y - pose.base.y,
+             world_foot.z - pose.base.z});
+    }
     go2_control::terrain::HeightMap terrain_map(
         height_map.origin()[0], height_map.origin()[1],
         height_map.resolution(), height_map.width(), height_map.height());
@@ -1641,7 +1658,6 @@ void TrotExperiment::UpdateTerrainPlanner(
         }
     terrain_contact_plan_active_ = false;
 
-    const WorldPose pose = ComputeWorldPose(low_state, high_state);
     go2_control::terrain::TerrainFootholdPlannerParams planner_params{};
     // A 5 cm map cannot represent a 3.5 cm circular foot patch without
     // pulling a neighboring riser cell into the candidate. Keep the local
@@ -1668,6 +1684,29 @@ void TrotExperiment::UpdateTerrainPlanner(
     double support_rear_height_sum = 0.0;
     int support_front_height_count = 0;
     int support_rear_height_count = 0;
+    auto record_measured_support = [&](std::size_t leg) {
+        ++support_count;
+        support_min_x = std::min(support_min_x, actual_body_feet[leg].x);
+        support_max_x = std::max(support_max_x, actual_body_feet[leg].x);
+        support_min_y = std::min(support_min_y, actual_body_feet[leg].y);
+        support_max_y = std::max(support_max_y, actual_body_feet[leg].y);
+        support_min_z = std::min(
+            support_min_z, actual_world_feet[leg].z);
+        support_max_z = std::max(
+            support_max_z, actual_world_feet[leg].z);
+        support_height_sum += actual_world_feet[leg].z;
+        ++support_height_count;
+        if (leg < 2)
+        {
+            support_front_height_sum += actual_world_feet[leg].z;
+            ++support_front_height_count;
+        }
+        else
+        {
+            support_rear_height_sum += actual_world_feet[leg].z;
+            ++support_rear_height_count;
+        }
+    };
     bool failed_swing = false;
     bool elevated_plan = false;
     int elevated_forward_samples = 0;
@@ -1765,29 +1804,11 @@ void TrotExperiment::UpdateTerrainPlanner(
             // foot force for stability and body-height references; otherwise
             // a leg that lost contact can lift the body reference.
             if (low_state.foot_force()[leg] >= kContactForceThreshold)
-            {
-                ++support_count;
-                support_min_x = std::min(support_min_x, feet[leg].x);
-                support_max_x = std::max(support_max_x, feet[leg].x);
-                support_min_y = std::min(support_min_y, feet[leg].y);
-                support_max_y = std::max(support_max_y, feet[leg].y);
-                support_min_z = std::min(support_min_z, foot_world_z);
-                support_max_z = std::max(support_max_z, foot_world_z);
-                support_height_sum += foot_world_z;
-                ++support_height_count;
-                if (leg < 2)
-                {
-                    support_front_height_sum += foot_world_z;
-                    ++support_front_height_count;
-                }
-                else
-                {
-                    support_rear_height_sum += foot_world_z;
-                    ++support_rear_height_count;
-                }
-            }
+                record_measured_support(leg);
             continue;
         }
+        if (low_state.foot_force()[leg] >= kContactForceThreshold)
+            record_measured_support(leg);
         if (!valid)
         {
             if (terrain_obstacle_detected && swinging)
@@ -1936,6 +1957,13 @@ void TrotExperiment::UpdateTerrainPlanner(
             terrain_body_height_ref_m_ = std::clamp(
                 terrain_body_height_ref_m_, 0.32, 0.50);
         }
+    }
+    if (terrain_contact_plan_active_ &&
+        (support_count < 2 || terrain_support_margin_m_ <= 0.0))
+    {
+        terrain_plan_safe_stop_ = true;
+        task_.stop_requested_ = true;
+        std::cerr << "Terrain contact support margin lost; requesting safe stop\n";
     }
     // Body pitch must follow confirmed support contacts.  A future foothold
     // candidate may be geometrically valid but not yet load-bearing; using it
