@@ -1393,6 +1393,7 @@ void TrotExperiment::UpdateGaitWorldDiagnostics(
             ObserveTerrainFootholds(
                 height_map, state_snapshot, high_state_snapshot,
                 static_cast<double>(state_snapshot.tick()) * 1.0e-3);
+    }
     touchdown_event_count_ = 0;
     last_touchdown_leg_ = -1;
     last_touchdown_command_x_m_ = 0.0;
@@ -1447,7 +1448,11 @@ void TrotExperiment::ObserveTerrainFootholds(
 
     const WorldPose pose = ComputeWorldPose(low_state, high_state);
     const auto world_feet = ComputeWorldFeet(low_state, pose);
-    const auto inv_q = InvertQuaternion(pose.quaternion);
+    const std::array<double, 4> inv_q = {
+        pose.quaternion[0],
+        -pose.quaternion[1],
+        -pose.quaternion[2],
+        -pose.quaternion[3]};
     go2_control::terrain::TerrainFootholdPlannerParams planner_params{};
     auto plan_at = [&](go2::Leg leg,
                        double body_x,

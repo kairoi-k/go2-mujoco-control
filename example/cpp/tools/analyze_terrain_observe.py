@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize --terrain-observe CSV plan sequences for P1 dual acceptance."""
+"""Summarize sensor-map foothold observations for P1 dual acceptance."""
 from __future__ import annotations
 
 import csv
