@@ -25,6 +25,8 @@ Depending on the experiment, a directory may contain configuration snapshots, CS
 - [`go2_sustained_sprint_3mps_wallclock_2026-08-22/`](go2_sustained_sprint_3mps_wallclock_2026-08-22/README.md) — four independent 40 s wall-clock phase runs plus a release-default smoke run. All passed the strict speed, attitude, safety, dynamics, contact, and controlled-stop checks; the report records the exact acceptance semantics and OneDrive demo.
 - [`go2_sustained_running_3mps_wallclock_2026-08-22/`](go2_sustained_running_3mps_wallclock_2026-08-22/README.md) — independent `running-trot` gait, three wall-clock repeats, and a gait-specific strict analyzer covering aerial fraction, diagonal synchrony, clearance, speed, attitude, and stop hold.
 
+The exact `66dc3e8` head was independently revalidated on 2026-08-24 with three additional passes. The compact manifest is [`../../../docs/validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md`](../../../docs/validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md); raw `_runs/` output remains disposable and ignored.
+
 ## Adding a new experiment
 
 Use [`../../../docs/EXPERIMENT_TEMPLATE.md`](../../../docs/EXPERIMENT_TEMPLATE.md). Record the question, exact intervention, held-fixed conditions, configuration, seed, protocol/metric semantics, artifact paths, result, and bounded interpretation.

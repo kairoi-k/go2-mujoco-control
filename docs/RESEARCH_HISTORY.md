@@ -39,3 +39,13 @@ and checkpoint record.
 ## 4. Motion imitation moved to a companion repository
 
 Kine2Go / Genesis imitation, the seam JSON record, and the conditional-AMP negative baseline are in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
+
+## 5. Exact-head high-speed running-trot validation
+
+**Question.** Does the sustained high-speed reference remain reproducible at the exact integration head without weakening its acceptance semantics?
+
+**Work.** Commit `66dc3e810dcf8766e4e2fd838e14fb772805c76d` was checked in an isolated clean checkout. The simulator and C++ example stack built, all 25 registered C++ tests passed, and the documented `run_sustained_running.sh --headless` entry was run three independent times with the unchanged strict analyzer.
+
+**Result.** All three repeats passed. Median speeds were 3.2257–3.2353 m/s, continuous accepted windows were 61.342–61.630 s, roll/pitch P95 stayed below 3.081/2.563°, and stop-tail speed P95 was 0.003713–0.003905 m/s. This is a simulation-only `running-trot` result; it does not upgrade the historical slow-trot number into a hardware or natural-gait claim.
+
+**Evidence.** [`docs/validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md`](validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md) and the retained protocol/acceptance document [`docs/SUSTAINED_RUNNING_3MPS_ACCEPTANCE_2026-08-22.md`](SUSTAINED_RUNNING_3MPS_ACCEPTANCE_2026-08-22.md). Raw `_runs/` are ignored and were not committed.
