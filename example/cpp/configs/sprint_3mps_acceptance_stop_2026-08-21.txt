@@ -1,0 +1,3 @@
+# High-speed acceptance: hold the sprint plant long enough to cross 3 m/s,
+# then latch the common zero-velocity response and finish in WBC stance.
+10.80 0.80 emergency_stop

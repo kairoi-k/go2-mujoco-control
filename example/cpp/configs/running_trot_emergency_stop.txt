@@ -1,0 +1,3 @@
+# Terminal safety acceptance: run at cruise, then latch a zero-velocity
+# reference after eight gait seconds and hold WBC stance.
+8.0 0.20 emergency_stop

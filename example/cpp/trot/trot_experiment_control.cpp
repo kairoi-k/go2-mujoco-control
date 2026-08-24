@@ -128,7 +128,7 @@ void TrotExperiment::LowCmdWrite()
     {
         // SECTION: stand-settle
     }
-    else if (PhaseStartGait(joint_targets))
+    else if (PhaseStartGait(state_snapshot, joint_targets))
     {
         // SECTION: start-gait
     }
@@ -143,6 +143,36 @@ void TrotExperiment::LowCmdWrite()
     {
         if (emergency_stop_latched_)
             task_.sequence_finished_ = true;
+        else if (HighSpeedStopBrakeEnabled() && task_.InLocomotion())
+        {
+            if (!high_speed_stop_brake_active_)
+            {
+                high_speed_stop_brake_active_ = true;
+                high_speed_stop_brake_duration_s_ = std::clamp(
+                    Full2EnvDouble("TROT_HS_GOV_BRAKE_DURATION_S", 2.00),
+                    0.25, 2.00);
+                high_speed_stop_brake_start_time_s_ = running_time_;
+                high_speed_stop_brake_base_speed_mps_ =
+                    wbc_speed_cmd_mps_ > 0.0
+                        ? std::abs(wbc_speed_cmd_mps_)
+                        : std::abs(kernel_nominal_velocity_x_mps_);
+                if (!(high_speed_stop_brake_base_speed_mps_ > 0.05))
+                    high_speed_stop_brake_base_speed_mps_ =
+                        std::abs(params_.direction_sign * params_.step_length_m /
+                                 std::max(0.08, params_.period_s));
+                high_speed_stop_brake_base_period_s_ =
+                    kernel_period_s_ > 0.05
+                        ? kernel_period_s_ : params_.period_s;
+                high_speed_stop_brake_base_duty_ =
+                    kernel_duty_factor_ > 0.25
+                        ? kernel_duty_factor_ : params_.duty_factor;
+                std::cout << "High-speed stop: braking in locomotion plant"
+                          << " v0=" << high_speed_stop_brake_base_speed_mps_
+                          << " period=" << high_speed_stop_brake_base_period_s_
+                          << " duty=" << high_speed_stop_brake_base_duty_
+                          << "\n";
+            }
+        }
         else
             task_.stop_requested_ = true;
     }
@@ -228,6 +258,40 @@ bool TrotExperiment::PhaseStandSettle(std::array<double, go2_trot::kMotorCount> 
 
 bool TrotExperiment::PhaseStopToStand(std::array<double, go2_trot::kMotorCount> &joint_targets)
 {
+    if (high_speed_stop_hold_active_ && task_.stop_requested_)
+    {
+        const double hold_elapsed =
+            running_time_ - high_speed_stop_hold_start_time_s_;
+        const double hold_u = Smoothstep(std::clamp(
+            hold_elapsed / kHighSpeedStopHoldDurationS, 0.0, 1.0));
+        if (have_high_speed_stop_hold_targets_)
+        {
+            // Keep the transition inside the four-contact WBC plant: first
+            // preserve the touchdown posture, then continuously settle the
+            // joint target toward the validated stand configuration.  A
+            // direct jump to either target would recreate a hidden mode
+            // switch at the exact moment the brake has just finished.
+            for (std::size_t i = 0; i < kMotorCount; ++i)
+                joint_targets[i] =
+                    (1.0 - hold_u) * high_speed_stop_hold_targets_[i] +
+                    hold_u * task_.stand_up_joint_pos_[i];
+        }
+        if (hold_elapsed < kHighSpeedStopHoldDurationS)
+            return true;
+        high_speed_stop_hold_active_ = false;
+        std::cout << "High-speed stop: WBC four-contact hold complete;"
+                  << " finished in WBC stance\n";
+        // A sprint acceptance is already in the same full-WBC plant after
+        // braking.  Handing the body to the old joint interpolation here
+        // would create a second, unrelated plant switch and can reintroduce
+        // the very fall the controlled stop just prevented.  Finish while
+        // the four-contact WBC hold is valid; a separate task may explicitly
+        // request the low-speed stand-down transition.
+        task_.motion_stage_ = 3;
+        task_.sequence_finished_ = true;
+        task_.task_completion_requested_ = false;
+        return true;
+    }
     const bool active = task_.PhaseStopToStand(running_time_, joint_targets);
     if (task_.lie_down_started_ &&
         task_.lie_down_start_time_s_ == running_time_)
@@ -238,8 +302,81 @@ bool TrotExperiment::PhaseStopToStand(std::array<double, go2_trot::kMotorCount> 
     return active;
 }
 
-bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &joint_targets)
+bool TrotExperiment::HighSpeedStopBrakeEnabled() const
 {
+    if (!params_.wbc_full ||
+        Full2EnvDouble("TROT_HS_DISABLE", 0.0) > 0.5)
+        return false;
+    const double requested_speed = std::abs(
+        2.0 * params_.duty_factor * params_.direction_sign *
+        params_.step_length_m / std::max(1.0e-3, params_.period_s));
+    const bool high_speed_curriculum =
+        params_.gait_pattern != go2_control::GaitPattern::kDiagonalTrot ||
+        requested_speed > 1.25;
+    if (!high_speed_curriculum)
+        return false;
+    const double override = Full2EnvDouble("TROT_HS_STOP_BRAKE", -1.0);
+    if (override >= 0.0)
+        return override > 0.5;
+    return requested_speed >= 2.0;
+}
+
+bool TrotExperiment::PhaseStartGait(
+    const unitree_go::msg::dds_::LowState_ &state_snapshot,
+    std::array<double, go2_trot::kMotorCount> &joint_targets)
+{
+    if (params_.wbc_full && !task_.gait_started_ && !task_.stop_requested_)
+    {
+        const double extra_settle_s = std::clamp(
+            Full2EnvDouble("TROT_HS_EXTRA_SETTLE_S", 0.8), 0.0, 3.0);
+        const double nominal_gait_start_s =
+            TrotTask::kStandUpDuration + TrotTask::kStandSettleDuration;
+        const double requested_speed = std::abs(
+            2.0 * params_.duty_factor * params_.direction_sign *
+            params_.step_length_m /
+            std::max(1.0e-3, params_.period_s));
+        const bool high_speed_curriculum =
+            !params_.cartesian_world &&
+            (params_.gait_pattern != go2_control::GaitPattern::kDiagonalTrot ||
+             requested_speed > 1.25);
+        const double preflight_s = std::clamp(
+            Full2EnvDouble("TROT_HS_PREFLIGHT_STABLE_S", 0.30),
+            0.0, 2.0);
+        const double preflight_angle = std::clamp(
+            Full2EnvDouble("TROT_HS_PREFLIGHT_ANGLE_RAD", 0.08),
+            0.03, 0.25);
+        const int min_contacts = static_cast<int>(std::clamp(
+            Full2EnvDouble("TROT_HS_PREFLIGHT_MIN_CONTACTS", 3.0),
+            2.0, 4.0));
+        int contact_count = 0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (state_snapshot.foot_force()[leg] >= kContactForceThreshold)
+                ++contact_count;
+        }
+        const double roll = std::abs(static_cast<double>(
+            state_snapshot.imu_state().rpy()[0]));
+        const double pitch = std::abs(static_cast<double>(
+            state_snapshot.imu_state().rpy()[1]));
+        const bool preflight_stable =
+            !high_speed_curriculum ||
+            (std::max(roll, pitch) <= preflight_angle &&
+             contact_count >= min_contacts);
+        if (preflight_stable)
+            ++high_speed_preflight_stable_cycles_;
+        else
+            high_speed_preflight_stable_cycles_ = 0;
+        const int required_preflight_cycles = static_cast<int>(std::ceil(
+            preflight_s / 0.002));
+        if (running_time_ < nominal_gait_start_s + extra_settle_s ||
+            (high_speed_curriculum &&
+             high_speed_preflight_stable_cycles_ < required_preflight_cycles))
+        {
+            task_.motion_stage_ = 1;
+            joint_targets = task_.stand_up_joint_pos_;
+            return true;
+        }
+    }
     if (!task_.BeginGait(running_time_))
         return false;
     if (motion_event_response_enabled_)
@@ -257,7 +394,10 @@ bool TrotExperiment::PhaseStartGait(std::array<double, go2_trot::kMotorCount> &j
         emergency_stop_finish_time_s_ = 0.0;
     }
     support_anchor_valid_.fill(false);
+    high_speed_stop_speed_candidate_start_s_ = -1.0;
     cartesian_state_ = {};
+    have_commanded_body_feet_ = false;
+    have_commanded_body_feet_velocity_ = false;
     have_commanded_world_feet_ = false;
     previous_leg_swing_.fill(false);
     touchdown_recorded_.fill(false);
@@ -366,11 +506,8 @@ void TrotExperiment::UpdateMotionEventResponse(
         int support_speed_count = 0;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const bool pair_b =
-                leg == static_cast<std::size_t>(go2::Leg::FL) ||
-                leg == static_cast<std::size_t>(go2::Leg::RR);
-            const double leg_phase = std::fmod(
-                phase + (pair_b ? 0.5 : 0.0), 1.0);
+            const double leg_phase = go2_control::GaitLegPhase(
+                leg, phase, params_.gait_pattern);
             const bool scheduled_stance = leg_phase < duty;
             if (!scheduled_stance)
             {
@@ -471,6 +608,7 @@ void TrotExperiment::UpdateMotionEventResponse(
     {
         emergency_stop_latched_ = true;
         motion_event_layer_.SetEmergencyStopLatched(true);
+        emergency_stop_latch_gait_time_s_ = gait_elapsed_s;
         emergency_stop_finish_time_s_ =
             motion_event_state_.active_event_end_time_s +
             kEmergencyStopPostHoldDurationS;
@@ -486,7 +624,10 @@ void TrotExperiment::UpdateMotionEventResponse(
         motion_event_state_.target.vy_mps = 0.0;
         motion_event_state_.target.yaw_rate_radps = 0.0;
         motion_event_state_.target.hold_stance = true;
-        motion_reference_.hold_stance = true;
+        // Keep the running contact phase alive while the velocity reference
+        // brakes.  Enter stance blending only after this support exchange has
+        // had time to settle.
+        motion_reference_.hold_stance = EmergencyStopStanceBlendActive();
         motion_reference_.step_scale =
             std::min(motion_reference_.step_scale, 0.45);
         motion_reference_.duty_factor =
@@ -610,23 +751,58 @@ double TrotExperiment::MotionClockStep(
     running_time_ += motion_dt;
     return motion_dt;
 }
+bool TrotExperiment::WbcStopHoldActive() const
+{
+    return params_.wbc_full && params_.wbc_primary &&
+           task_.gait_started_ && task_.motion_stage_ == 3 &&
+           task_.stop_requested_ && !emergency_stop_latched_;
+}
+
+bool TrotExperiment::EmergencyStopStanceBlendActive() const
+{
+    if (!emergency_stop_latched_ || !task_.gait_started_)
+        return false;
+    const double gait_elapsed_s = running_time_ - task_.gait_start_time_s_;
+    return gait_elapsed_s >= emergency_stop_latch_gait_time_s_ + 0.45;
+}
+
+bool TrotExperiment::EmergencyStopHoldReady() const
+{
+    if (!emergency_stop_latched_ || !task_.gait_started_)
+        return false;
+    const double gait_elapsed_s = running_time_ - task_.gait_start_time_s_;
+    // RaibertTrotKernel blends stance hold over about 0.25 s.  The extra
+    // margin lets the running trot finish that blend before changing the MPC
+    // contact horizon to four-foot support.
+    return gait_elapsed_s >= emergency_stop_latch_gait_time_s_ + 0.95;
+}
 bool TrotExperiment::ComputeWbcPrimaryActive(double &gait_elapsed_s)
 {
     bool wbc_primary_active = false;
     gait_elapsed_s = task_.gait_started_ ? running_time_ - task_.gait_start_time_s_ : 0.0;
+    // Explicit diagnostic escape hatch for comparing the high-speed
+    // kinematic/PD plant against ID-WBC. It is opt-in and never changes the
+    // normal --wbc-full path.
+    if (Full2EnvDouble("TROT_PD_ONLY", 0.0) > 0.5)
+        return false;
     task_.gait_started_ ? running_time_ - task_.gait_start_time_s_ : 0.0;
-    if (params_.wbc_primary &&
-    task_.motion_stage_ == 2 && task_.gait_started_ && !task_.stop_requested_ &&
-    gait_elapsed_s >= (params_.wbc_full ? 0.0 : kWbcPrimaryEnterDelayS) &&
-    wbc_shadow_diagnostics_.solver_ok &&
-    wbc_shadow_diagnostics_.mapping_ok)
+    const bool regular_wbc =
+        task_.motion_stage_ == 2 && task_.gait_started_ &&
+        !task_.stop_requested_ &&
+        gait_elapsed_s >= (params_.wbc_full ? 0.0 : kWbcPrimaryEnterDelayS);
+    const bool wbc_active = regular_wbc || WbcStopHoldActive();
+    if (params_.wbc_primary && wbc_active &&
+        wbc_shadow_diagnostics_.solver_ok &&
+        wbc_shadow_diagnostics_.mapping_ok)
     {
     wbc_primary_active = true;
     // [impulse] 大步长时 wrench 力矩需求大, 放宽 primary 力矩上限,
     // 避免退回位置控制后 q_error 硬限误杀。
             const double max_abs_torque_nm =
         params_.impulse ? 40.0
-                        : (params_.wbc_full ? 35.0 : kWbcPrimaryMaxAbsTorqueNm);
+                        : (params_.wbc_full
+                               ? std::min(params_.tau_limit_nm, 45.0)
+                               : kWbcPrimaryMaxAbsTorqueNm);
     for (int i = 0; i < kMotorCount; ++i)
     {
         const double candidate =
@@ -651,6 +827,121 @@ bool TrotExperiment::PhaseRunGait(
     {
     task_.motion_stage_ = 2;
     const double gait_time_s = running_time_ - task_.gait_start_time_s_;
+    auto start_high_speed_brake = [&](const char *reason) {
+        if (high_speed_stop_brake_active_)
+            return;
+        const bool health_guard = std::string(reason) == "health guard";
+        const double brake_duration = std::clamp(
+            Full2EnvDouble(
+                health_guard ? "TROT_HS_GOV_HEALTH_BRAKE_DURATION_S"
+                             : "TROT_HS_GOV_BRAKE_DURATION_S",
+                health_guard ? 0.80 : 2.00),
+            0.25, 2.00);
+        const double immediate_u = health_guard
+            ? std::clamp(
+                  Full2EnvDouble("TROT_HS_GOV_HEALTH_BRAKE_U", 0.35),
+                  0.0, 0.90)
+            : 0.0;
+        high_speed_stop_brake_active_ = true;
+        high_speed_stop_brake_duration_s_ = brake_duration;
+        high_speed_stop_brake_start_time_s_ =
+            running_time_ - immediate_u * brake_duration;
+        high_speed_stop_brake_base_speed_mps_ =
+            wbc_speed_cmd_mps_ > 0.0
+                ? std::abs(wbc_speed_cmd_mps_)
+                : std::abs(kernel_nominal_velocity_x_mps_);
+        if (!(high_speed_stop_brake_base_speed_mps_ > 0.05) &&
+            have_world_velocity_)
+            high_speed_stop_brake_base_speed_mps_ =
+                std::abs(params_.direction_sign * latest_world_velocity_[0]);
+        if (!(high_speed_stop_brake_base_speed_mps_ > 0.05))
+            high_speed_stop_brake_base_speed_mps_ =
+                std::abs(params_.direction_sign * params_.step_length_m /
+                         std::max(0.08, params_.period_s));
+        high_speed_stop_brake_base_period_s_ =
+            kernel_period_s_ > 0.05 ? kernel_period_s_ : params_.period_s;
+        high_speed_stop_brake_base_duty_ =
+            kernel_duty_factor_ > 0.25 ? kernel_duty_factor_ : params_.duty_factor;
+        std::cout << "High-speed " << reason
+                  << ": braking in locomotion plant"
+                  << " gait_t=" << gait_time_s
+                  << " v0=" << high_speed_stop_brake_base_speed_mps_
+                  << "\n";
+    };
+    // Check the sprint guard every control tick, not only at a completed
+    // gait cycle.  A pitch/roll excursion can grow from safe to unrecoverable
+    // inside one 0.14 s cycle; waiting for cycle diagnostics would be late.
+    if (Full2EnvDouble("TROT_HS_GOV_AUTO_BRAKE", 0.0) > 0.5 &&
+        !high_speed_stop_brake_active_ && !high_speed_stop_hold_active_ &&
+        !task_.stop_requested_ &&
+        !motion_event_response_enabled_)
+    {
+        const double speed = have_world_velocity_
+            ? std::abs(params_.direction_sign * latest_world_velocity_[0])
+            : 0.0;
+        const double roll = std::abs(static_cast<double>(
+            state_snapshot.imu_state().rpy()[0]));
+        const double pitch = std::abs(static_cast<double>(
+            state_snapshot.imu_state().rpy()[1]));
+        const double guard_min_speed = std::clamp(
+            Full2EnvDouble("TROT_HS_GOV_AUTO_BRAKE_MIN_SPEED", 1.80),
+            1.20, 3.50);
+        const bool high_speed_observed = speed >= guard_min_speed ||
+            std::abs(wbc_speed_cmd_mps_) >= guard_min_speed;
+        if (high_speed_observed)
+            high_speed_guard_armed_ = true;
+        const bool high_speed = high_speed_guard_armed_;
+        const double max_angle = std::max(roll, pitch);
+        const double guard_angle_limit = std::clamp(
+            Full2EnvDouble("TROT_HS_GOV_GUARD_ANGLE_RAD", 0.14),
+            0.08, 0.40);
+        const double guard_gyro_limit = std::clamp(
+            Full2EnvDouble("TROT_HS_GOV_GUARD_GYRO_RADPS", 2.50),
+            0.50, 8.0);
+        const double gyro_x = std::abs(static_cast<double>(
+            state_snapshot.imu_state().gyroscope()[0]));
+        const double gyro_y = std::abs(static_cast<double>(
+            state_snapshot.imu_state().gyroscope()[1]));
+        const double max_gyro = std::max(gyro_x, gyro_y);
+        const bool posture_danger = max_angle > guard_angle_limit;
+        const bool dynamic_danger = max_angle > 0.08 &&
+            max_gyro > guard_gyro_limit &&
+            wbc_shadow_diagnostics_.active_contacts <= 1;
+        const double guard_min_gait_s = std::clamp(
+            Full2EnvDouble("TROT_HS_GOV_GUARD_MIN_GAIT_S", 4.0),
+            0.0, 60.0);
+        const int guard_hold_ticks = static_cast<int>(std::clamp(
+            Full2EnvDouble("TROT_HS_GOV_GUARD_HOLD_TICKS", 2.0),
+            1.0, 20.0));
+        // The cycle governor already handles slow tracking/contact quality
+        // degradation.  This fast path only handles a clearly unsafe
+        // instantaneous posture, or a rapidly growing excursion while the
+        // measured support set has collapsed.
+        // A posture excursion is safety-critical even before the filtered
+        // velocity/command has reached the sprint threshold.  Keep this
+        // direct path armed for every high-speed campaign after the initial
+        // two-second gait hand-off; otherwise a run can roll during ramp-up
+        // while the speed latch is still false.
+        const bool direct_posture_guard = HighSpeedStopBrakeEnabled() &&
+            gait_time_s >= 2.0 && posture_danger;
+        const bool tick_degraded = direct_posture_guard ||
+            (high_speed && gait_time_s >= guard_min_gait_s &&
+             (posture_danger || dynamic_danger));
+        if (tick_degraded)
+            ++high_speed_guard_bad_ticks_;
+        else
+            high_speed_guard_bad_ticks_ = 0;
+        if (high_speed_guard_bad_ticks_ >= guard_hold_ticks)
+        {
+            high_speed_guard_bad_ticks_ = 0;
+            start_high_speed_brake("health guard");
+        }
+    }
+    else
+    {
+        high_speed_guard_armed_ = false;
+        high_speed_guard_bad_ticks_ = 0;
+    }
     if (have_high_state)
     {
         const WorldPose pose =
@@ -670,6 +961,74 @@ bool TrotExperiment::PhaseRunGait(
         UpdateMotionEventResponse(
             gait_time_s, last_motion_dt_s_, state_snapshot,
             high_state_snapshot, have_high_state);
+    const double stop_at_speed_mps = Full2EnvDouble(
+        "TROT_HS_STOP_AT_SPEED_MPS", -1.0);
+    const double stop_speed_hold_s = std::clamp(
+        Full2EnvDouble("TROT_HS_STOP_SPEED_HOLD_S", 0.35),
+        0.05, 2.0);
+    if (HighSpeedStopBrakeEnabled() &&
+        !motion_event_response_enabled_ &&
+        std::isfinite(stop_at_speed_mps) && stop_at_speed_mps > 0.0 &&
+        !task_.stop_requested_ && !emergency_stop_latched_ &&
+        !high_speed_stop_brake_active_)
+    {
+        const double speed = have_world_velocity_
+            ? std::abs(params_.direction_sign * latest_world_velocity_[0])
+            : 0.0;
+        const double roll = std::abs(static_cast<double>(
+            state_snapshot.imu_state().rpy()[0]));
+        const double pitch = std::abs(static_cast<double>(
+            state_snapshot.imu_state().rpy()[1]));
+        if (speed >= stop_at_speed_mps &&
+            std::max(roll, pitch) <= 10.0 * kPi / 180.0)
+        {
+            if (high_speed_stop_speed_candidate_start_s_ < 0.0)
+                high_speed_stop_speed_candidate_start_s_ = running_time_;
+            if (running_time_ - high_speed_stop_speed_candidate_start_s_ >=
+                stop_speed_hold_s)
+                start_high_speed_brake("speed-threshold stop");
+        }
+        else
+            high_speed_stop_speed_candidate_start_s_ = -1.0;
+    }
+    else if (!high_speed_stop_brake_active_)
+        high_speed_stop_speed_candidate_start_s_ = -1.0;
+    // A high-speed acceptance run may request its stop from the controller
+    // clock rather than from the wall-clock wrapper or the motion-event
+    // layer.  This keeps the sprint reference untouched until the measured
+    // gait has reached the requested plateau, then uses the same locomotion
+    // plant brake as an external stop.
+    const double scheduled_high_speed_stop_s = Full2EnvDouble(
+        "TROT_HS_STOP_AFTER_GAIT_S", -1.0);
+    if (HighSpeedStopBrakeEnabled() &&
+        std::isfinite(scheduled_high_speed_stop_s) &&
+        scheduled_high_speed_stop_s >= 0.0 &&
+        gait_time_s >= scheduled_high_speed_stop_s &&
+        !high_speed_stop_brake_active_ &&
+        !task_.stop_requested_ && !emergency_stop_latched_)
+    {
+        high_speed_stop_brake_active_ = true;
+        high_speed_stop_brake_duration_s_ = std::clamp(
+            Full2EnvDouble("TROT_HS_GOV_BRAKE_DURATION_S", 2.00),
+            0.25, 2.00);
+        high_speed_stop_brake_start_time_s_ = running_time_;
+        high_speed_stop_brake_base_speed_mps_ =
+            wbc_speed_cmd_mps_ > 0.0
+                ? std::abs(wbc_speed_cmd_mps_)
+                : std::abs(kernel_nominal_velocity_x_mps_);
+        if (!(high_speed_stop_brake_base_speed_mps_ > 0.05))
+            high_speed_stop_brake_base_speed_mps_ =
+                std::abs(params_.direction_sign * params_.step_length_m /
+                         std::max(0.08, params_.period_s));
+        high_speed_stop_brake_base_period_s_ =
+            kernel_period_s_ > 0.05 ? kernel_period_s_ : params_.period_s;
+        high_speed_stop_brake_base_duty_ =
+            kernel_duty_factor_ > 0.25 ? kernel_duty_factor_ : params_.duty_factor;
+        std::cout << "High-speed scheduled stop: braking in locomotion plant"
+                  << " at gait_t=" << gait_time_s
+                  << " v0=" << high_speed_stop_brake_base_speed_mps_
+                  << "\n";
+    }
     // SECTION: gait-targets
     if (!BuildGaitTargets(
             gait_time_s,
@@ -698,10 +1057,66 @@ bool TrotExperiment::PhaseRunGait(
         gait_time_s >= duration_s_ &&
         std::isfinite(duration_s_))
     {
-        task_.stop_requested_ = true;
-        if (task_.task_mode_)
+        if (HighSpeedStopBrakeEnabled())
         {
-            task_.task_completion_requested_ = true;
+            if (!high_speed_stop_brake_active_)
+            {
+                high_speed_stop_brake_active_ = true;
+                high_speed_stop_brake_duration_s_ = std::clamp(
+                    Full2EnvDouble("TROT_HS_GOV_BRAKE_DURATION_S", 2.00),
+                    0.25, 2.00);
+                high_speed_stop_brake_start_time_s_ = running_time_;
+                high_speed_stop_brake_base_speed_mps_ =
+                    wbc_speed_cmd_mps_ > 0.0
+                        ? std::abs(wbc_speed_cmd_mps_)
+                        : std::abs(kernel_nominal_velocity_x_mps_);
+                if (!(high_speed_stop_brake_base_speed_mps_ > 0.05))
+                    high_speed_stop_brake_base_speed_mps_ =
+                        std::abs(params_.direction_sign * params_.step_length_m /
+                                 std::max(0.08, params_.period_s));
+                high_speed_stop_brake_base_period_s_ =
+                    kernel_period_s_ > 0.05
+                        ? kernel_period_s_ : params_.period_s;
+                high_speed_stop_brake_base_duty_ =
+                    kernel_duty_factor_ > 0.25
+                        ? kernel_duty_factor_ : params_.duty_factor;
+                std::cout << "High-speed timed stop: braking in"
+                          << " locomotion plant\n";
+            }
+        }
+        else if (!stop_brake_active_)
+        {
+            stop_brake_active_ = true;
+            stop_brake_start_time_s_ = running_time_;
+            stop_brake_base_step_m_ =
+                std::abs(kernel_nominal_velocity_x_mps_) *
+                std::max(kernel_period_s_, params_.period_s);
+            if (!(stop_brake_base_step_m_ > 1.0e-6))
+                stop_brake_base_step_m_ = std::abs(params_.step_length_m);
+            std::cout << "Trot pre-stop brake: reducing gait reference\n";
+        }
+    }
+    if (stop_brake_active_ && !HighSpeedStopBrakeEnabled() &&
+        !task_.stop_requested_ &&
+        !emergency_stop_latched_)
+    {
+        const double brake_u = Smoothstep(
+            (running_time_ - stop_brake_start_time_s_) /
+            kStopBrakeDurationS);
+        // Keep the same gait plant while reducing momentum; do not jump
+        // directly from a full-speed swing target into four-foot stance.
+        const double step_scale = 1.0 - 0.55 * brake_u;
+        const double base_step = stop_brake_base_step_m_ > 1.0e-6
+            ? stop_brake_base_step_m_
+            : std::abs(params_.step_length_m);
+        locomotion_kernel_->SetGaitStepLength(
+            base_step * step_scale);
+        if (running_time_ - stop_brake_start_time_s_ >=
+            kStopBrakeDurationS)
+        {
+            task_.stop_requested_ = true;
+            if (task_.task_mode_)
+                task_.task_completion_requested_ = true;
             std::cout << "Task transition: LOCOMOTION -> RETURN_TO_STAND\n";
         }
     }
@@ -747,8 +1162,15 @@ void TrotExperiment::WriteMotorCommands(
     if (wbc_primary_active)
     {
     // 扭矩渐变注入:激活后 0.5s 内从 0 线性升到 1,避免跳变冲击
+    const bool high_speed_wbc = params_.wbc_full &&
+        HighSpeedStopBrakeEnabled();
+    const double high_speed_ramp_s = std::clamp(
+        Full2EnvDouble("TROT_HS_PRIMARY_RAMP_S", 0.05),
+        0.05, 1.50);
     const double primary_ramp = params_.wbc_full
-        ? 1.0
+        ? (high_speed_wbc
+               ? Smoothstep(gait_elapsed_s / high_speed_ramp_s)
+               : 1.0)
         : Clamp(
             (gait_elapsed_s - kWbcPrimaryEnterDelayS) /
                 kWbcPrimaryRampS,
@@ -761,9 +1183,12 @@ void TrotExperiment::WriteMotorCommands(
             (wbc_shadow_diagnostics_.contact_mask &
              (1 << leg)) != 0;
         const double target_blend = leg_in_stance ? 1.0 : 0.0;
+        const double blend_tau = std::clamp(
+            Full2EnvDouble("FULL2_BLEND_TAU", kWbcPrimaryBlendTauS),
+            0.010, 0.50);
         wbc_stance_blend_[leg] +=
             (target_blend - wbc_stance_blend_[leg]) *
-            (dt_ / kWbcPrimaryBlendTauS);
+            std::clamp(dt_ / blend_tau, 0.0, 1.0);
         if (wbc_stance_blend_[leg] < 0.0)
             wbc_stance_blend_[leg] = 0.0;
         if (wbc_stance_blend_[leg] > 1.0)
@@ -805,10 +1230,14 @@ void TrotExperiment::WriteMotorCommands(
             const double hip_floor =
                 cartesian_stance_s_ <= 0.36 ? 48.0 : 36.0;
             const double hip_kp = std::max(high_kp, hip_floor);
+            const double full_stance_kp = std::max(
+                0.0, Full2EnvDouble("FULL2_STANCE_KP", kWbcFullStanceKp));
+            const double full_stance_kd = std::max(
+                0.0, Full2EnvDouble("FULL2_STANCE_KD", kWbcFullStanceKd));
             const double stance_kp = params_.cartesian_world
                 ? (joint == 0 ? hip_kp : sagittal_kp)
                 : (params_.wbc_full
-                    ? kWbcFullStanceKp
+                    ? full_stance_kp
                     : (params_.impulse ? kImpulseStanceKp : kWbcPrimaryCommandKp));
             const double kd_cheetah =
                 cartesian_kp_frozen_
@@ -818,16 +1247,20 @@ void TrotExperiment::WriteMotorCommands(
                 ? (joint == 0 ? 2.6
                    : (2.5 * (1.0 - kd_cheetah) + 0.3 * kd_cheetah))
                 : (params_.wbc_full
-                    ? kWbcFullStanceKd
+                    ? full_stance_kd
                     : kWbcPrimaryCommandKd);
             // 142128: CART-GOV printed kp=3 but FR_thigh motor kp
             // median was 33 because swing mixed params_.kp=63 through
             // wbc_stance_blend. Cheetah uses 3/0.3 on all sagittal
             // joints once latched. Do not mix 63 after freeze.
+            const double swing_motor_kp = std::max(
+                0.0, Full2EnvDouble("FULL2_SWING_MOTOR_KP", params_.kp));
+            const double swing_motor_kd = std::max(
+                0.0, Full2EnvDouble("FULL2_SWING_MOTOR_KD", params_.kd));
             double cmd_kp = stance_kp * wbc_stance_blend_[leg] +
-                params_.kp * (1.0 - wbc_stance_blend_[leg]);
+                swing_motor_kp * (1.0 - wbc_stance_blend_[leg]);
             double cmd_kd = stance_kd * wbc_stance_blend_[leg] +
-                params_.kd * (1.0 - wbc_stance_blend_[leg]);
+                swing_motor_kd * (1.0 - wbc_stance_blend_[leg]);
             if (params_.cartesian_world && cartesian_kp_frozen_)
             {
                 cmd_kp = (joint == 0 ? hip_kp : sagittal_kp);
@@ -840,10 +1273,25 @@ void TrotExperiment::WriteMotorCommands(
             const double contact_scale = params_.wbc_full
                 ? 1.0
                 : (wbc_shadow_diagnostics_.active_contacts < 3 ? 0.5 : 1.0);
+            double swing_tau_scale = 1.0;
+            if (params_.wbc_full &&
+                Full2EnvDouble("TROT_HS_SWING_TAU_SCALE", -1.0) >= 0.0)
+            {
+                const bool high_speed_curriculum =
+                    Full2EnvDouble("TROT_HS_DISABLE", 0.0) <= 0.5 &&
+                    (params_.gait_pattern !=
+                         go2_control::GaitPattern::kDiagonalTrot ||
+                     std::abs(wbc_speed_cmd_mps_) > 1.25 ||
+                     std::abs(kernel_nominal_velocity_x_mps_) > 1.25);
+                if (high_speed_curriculum && !leg_in_stance)
+                    swing_tau_scale = std::clamp(
+                        Full2EnvDouble("TROT_HS_SWING_TAU_SCALE", 1.0),
+                        0.0, 1.0);
+            }
             low_cmd_.motor_cmd()[i].tau() =
                 primary_ramp * contact_scale *
                 (params_.wbc_full ? 1.0 : wbc_stance_blend_[leg]) *
-                wbc_shadow_candidate_torques_[leg][joint];
+                swing_tau_scale * wbc_shadow_candidate_torques_[leg][joint];
         }
     }
     wbc_shadow_diagnostics_.feedforward_applied = true;

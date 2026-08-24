@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <thread>
 
@@ -133,6 +134,72 @@ bool TrotExperiment::BuildGaitTargets(
             latest_filtered_body_velocity_[2];
         gait_request.have_body_velocity = true;
     }
+    const double requested_speed = std::abs(
+        2.0 * params_.duty_factor * params_.direction_sign *
+        params_.step_length_m /
+        std::max(1.0e-3, params_.period_s));
+    const bool high_speed_curriculum =
+        Full2EnvDouble("TROT_HS_DISABLE", 0.0) <= 0.5 &&
+        (params_.gait_pattern != go2_control::GaitPattern::kDiagonalTrot ||
+         requested_speed > 1.25);
+    locomotion_kernel_->SetGaitEffectiveSpeedConvention(
+        params_.wbc_full && high_speed_curriculum);
+    const double swing_reach_override = Full2EnvDouble(
+        "TROT_HS_SWING_REACH", -1.0);
+    if (swing_reach_override >= 0.5)
+        locomotion_kernel_->SetGaitSwingReachPhase(
+            std::clamp(swing_reach_override, 0.5, 1.0));
+    if (params_.wbc_full && high_speed_curriculum &&
+        wbc_speed_cmd_mps_ < 0.0)
+    {
+        const double target_period = params_.period_s;
+        const double requested_target_speed = std::abs(
+            2.0 * params_.duty_factor * params_.direction_sign *
+            params_.step_length_m /
+            std::max(1.0e-3, target_period));
+        const double target_speed_override = Full2EnvDouble(
+            "TROT_HS_TARGET_SPEED", -1.0);
+        const double target_speed = target_speed_override >= 0.0
+            ? std::clamp(target_speed_override, 0.20, 3.50)
+            : requested_target_speed;
+        const double seed_speed = high_speed_curriculum
+            ? std::min(target_speed, 0.90)
+            : std::min(target_speed, 0.50);
+        wbc_speed_cmd_mps_ = seed_speed;
+        // Use the running plant as the seed for low-duty patterns.  The old
+        // universal 0.40 s seed was a walk-like transition that changed the
+        // contact timing again one tick later, exactly when a bound/gallop
+        // is trying to build forward momentum.
+        const double start_period = std::clamp(
+            Full2EnvDouble(
+                "TROT_HS_START_PERIOD",
+                high_speed_curriculum ? 0.26 : 0.40),
+            0.08, 1.0);
+        const double start_duty = std::clamp(
+            Full2EnvDouble(
+                "TROT_HS_START_DUTY",
+                high_speed_curriculum ? 0.45 : 0.60),
+            0.25, 0.90);
+        locomotion_kernel_->SetGaitPeriod(start_period);
+        locomotion_kernel_->SetGaitDuty(start_duty);
+        locomotion_kernel_->SetGaitStepLength(
+            wbc_speed_cmd_mps_ * start_period / (2.0 * start_duty));
+        locomotion_kernel_->SetGaitFootLift(
+            std::max(params_.foot_lift_m, 0.08));
+        const double hs_step_slew = std::clamp(Full2EnvDouble("TROT_HS_STEP_SLEW", 0.012), 0.008, 0.10);
+        locomotion_kernel_->SetGaitSlewLimits(hs_step_slew, 0.020, 0.020);
+    }
+    // A high-speed brake is still the same locomotion plant, but its foot
+    // offsets must converge to the neutral four-foot support before WBC is
+    // asked to hold. Keep the kernel's stance-hold blend latched through
+    // both the brake and the post-brake WBC hold.
+    // Keep the running contact exchange alive while braking.  Freezing the
+    // feet at the brake trigger would turn a still-fast two-contact gait into
+    // an inconsistent four-contact plant before the body's momentum is gone.
+    // Enter stance hold only after the measured-speed/attitude gate below
+    // has accepted the brake completion.
+    if (high_speed_stop_hold_active_)
+        locomotion_kernel_->SetStanceHold(true, gait_time_s);
     if (!locomotion_kernel_->Compute(gait_request, gait_result))
     {
         std::cerr << "Locomotion kernel failed at gait_time="
@@ -144,6 +211,10 @@ bool TrotExperiment::BuildGaitTargets(
     kernel_nominal_velocity_x_mps_ = gait_result.nominal_velocity_x_mps;
     kernel_touchdown_target_x_m_ = gait_result.touchdown_target_x_m;
     if (params_.cartesian_world && wbc_speed_cmd_mps_ > 0.0)
+        kernel_nominal_velocity_x_mps_ =
+            params_.direction_sign * wbc_speed_cmd_mps_;
+    if (params_.wbc_full && high_speed_curriculum &&
+        wbc_speed_cmd_mps_ > 0.0)
         kernel_nominal_velocity_x_mps_ =
             params_.direction_sign * wbc_speed_cmd_mps_;
     if (motion_event_response_enabled_)
@@ -186,15 +257,6 @@ bool TrotExperiment::BuildGaitTargets(
                       cycle_diagnostics_.support_contact_good_samples) /
                       static_cast<double>(
                           cycle_diagnostics_.support_contact_samples);
-        if (!ValidateCycle(active_cycle_index_))
-            task_.stop_requested_ = true;
-        ++completed_cycles_;
-        if (max_cycles_ > 0 && completed_cycles_ >= max_cycles_)
-        {
-            task_.stop_requested_ = true;
-            if (task_.task_mode_)
-                task_.task_completion_requested_ = true;
-        }
         const double v_meas =
             cycle_vx_count_ > 0
                 ? params_.direction_sign * cycle_vx_sum_ /
@@ -204,6 +266,340 @@ bool TrotExperiment::BuildGaitTargets(
                              latest_filtered_body_velocity_[0]
                        : 0.0);
         const double cycle_foot = cycle_diagnostics_.max_foot_error_m;
+        const bool high_speed_health_governor =
+            params_.wbc_full && !params_.cartesian_world &&
+            Full2EnvDouble("TROT_HS_STABILITY_GOV", 0.0) > 0.5;
+        const bool cycle_valid = ValidateCycle(active_cycle_index_);
+        if (!cycle_valid && !high_speed_health_governor)
+        {
+            // A high-speed cycle rejection is still a locomotion-plant
+            // failure, not permission to jump directly to the old
+            // stand-return phase.  Latching the bounded brake here keeps the
+            // same gait/WBC plant in charge until measured speed and attitude
+            // are safe.  Previously this path set stop_requested_ directly;
+            // the next tick then skipped the health guard and a rare late
+            // touchdown could roll the body before the stand phase began.
+            if (HighSpeedStopBrakeEnabled() &&
+                !high_speed_stop_brake_active_ &&
+                !high_speed_stop_hold_active_ &&
+                !task_.stop_requested_ &&
+                !external_stop_requested_.load())
+            {
+                high_speed_stop_brake_active_ = true;
+                high_speed_stop_brake_duration_s_ = std::clamp(
+                    Full2EnvDouble(
+                        "TROT_HS_GOV_HEALTH_BRAKE_DURATION_S", 1.20),
+                    0.25, 2.00);
+                const double health_brake_u = std::clamp(
+                    Full2EnvDouble("TROT_HS_GOV_HEALTH_BRAKE_U", 0.35),
+                    0.0, 0.90);
+                high_speed_stop_brake_start_time_s_ =
+                    running_time_ -
+                    health_brake_u * high_speed_stop_brake_duration_s_;
+                high_speed_stop_brake_base_speed_mps_ = std::max(
+                    std::abs(v_meas), std::abs(wbc_speed_cmd_mps_));
+                if (!(high_speed_stop_brake_base_speed_mps_ > 0.05) &&
+                    have_world_velocity_)
+                    high_speed_stop_brake_base_speed_mps_ = std::abs(
+                        params_.direction_sign * latest_world_velocity_[0]);
+                if (!(high_speed_stop_brake_base_speed_mps_ > 0.05))
+                    high_speed_stop_brake_base_speed_mps_ = std::abs(
+                        params_.direction_sign * params_.step_length_m /
+                        std::max(0.08, params_.period_s));
+                high_speed_stop_brake_base_period_s_ =
+                    kernel_period_s_ > 0.05 ? kernel_period_s_ : params_.period_s;
+                high_speed_stop_brake_base_duty_ =
+                    kernel_duty_factor_ > 0.25 ? kernel_duty_factor_ : params_.duty_factor;
+                std::cout << "High-speed cycle rejection: braking"
+                          << " cycle=" << active_cycle_index_
+                          << " v=" << high_speed_stop_brake_base_speed_mps_
+                          << " roll=" << cycle_roll
+                          << " pitch=" << cycle_pitch
+                          << " foot=" << cycle_foot << "\n";
+            }
+            else if (!HighSpeedStopBrakeEnabled())
+                task_.stop_requested_ = true;
+        }
+        ++completed_cycles_;
+        if (max_cycles_ > 0 && completed_cycles_ >= max_cycles_ &&
+            !emergency_stop_latched_)
+        {
+            if (!stop_brake_active_)
+            {
+                stop_brake_active_ = true;
+                stop_brake_start_time_s_ = running_time_;
+                stop_brake_base_step_m_ =
+                    std::abs(gait_result.step_length_m);
+                std::cout << "Trot pre-stop brake: reducing gait reference\n";
+            }
+        }
+        if (high_speed_health_governor)
+        {
+            const double target_speed_override =
+                Full2EnvDouble("TROT_HS_TARGET_SPEED", -1.0);
+            const double requested_speed = std::abs(
+                2.0 * params_.duty_factor * params_.step_length_m /
+                std::max(1.0e-3, params_.period_s));
+            const double target_speed = target_speed_override >= 0.0
+                ? std::clamp(target_speed_override, 0.20, 3.50)
+                : requested_speed;
+            if (high_speed_health_cap_mps_ < 0.0)
+                high_speed_health_cap_mps_ = target_speed;
+            const double gov_joint_limit = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_JOINT_ERROR", 0.72),
+                0.30, 1.20);
+            const double gov_foot_limit = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_FOOT_ERROR", 0.16),
+                0.05, 0.40);
+            const double gov_drift_limit = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_DRIFT", 0.075),
+                0.010, 0.20);
+            const double gov_angle_limit = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_ANGLE_RAD", 0.16),
+                0.04, 0.40);
+            const double gov_contact_limit = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_CONTACT", 0.28),
+                0.05, 0.80);
+            const double gov_min_speed = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_MIN_SPEED", 1.80),
+                0.80, 3.20);
+            const double gov_min_gait_s = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_MIN_GAIT_S", 10.0),
+                0.0, 60.0);
+            // The cycle-average measured speed can already be falling when a
+            // bad touchdown is first visible.  Keep the governor armed while
+            // the commanded sprint reference is still high; otherwise the
+            // very cycle that needs the brake is classified as low-speed and
+            // the guard arrives one cycle too late.
+            // Once a run has genuinely entered the sprint regime, keep the
+            // health gate armed even if an earlier degraded cycle has already
+            // pulled the reference below gov_min_speed.  Requiring the speed
+            // threshold on every cycle created a blind spot exactly when the
+            // bad touchdown was slowing the body and posture was worsening.
+            const bool health_eval = gait_time_s >= gov_min_gait_s &&
+                (high_speed_guard_armed_ ||
+                 std::max(std::abs(v_meas), std::abs(wbc_speed_cmd_mps_)) >=
+                     gov_min_speed);
+            // A single large tracking residual is common during a healthy
+            // aerial stride: the swing leg is intentionally far from its
+            // touchdown target while the stance pair carries the body.  Do
+            // not throttle a good 3 m/s run for that alone.  Declare a
+            // degraded cycle only when tracking, foothold drift, attitude,
+            // or support loss agree that recovery is actually needed.
+            const bool tracking_degraded =
+                cycle_diagnostics_.max_abs_joint_error_rad > gov_joint_limit &&
+                cycle_foot > gov_foot_limit &&
+                cycle_drift > 0.50 * gov_drift_limit;
+            const bool attitude_degraded =
+                std::max(cycle_roll, cycle_pitch) > gov_angle_limit;
+            // A low contact fraction is expected near an aerial hand-off.
+            // Treat it as a fault only when the same cycle also shows
+            // attitude or foothold drift, rather than using contact count as
+            // a standalone speed limiter.
+            const bool support_degraded =
+                cycle_contact < gov_contact_limit &&
+                (std::max(cycle_roll, cycle_pitch) > gov_angle_limit ||
+                 cycle_drift > gov_drift_limit);
+            // A sprint can lose a touchdown without immediately tilting. A
+            // very low contact fraction plus a long low-support gap is the
+            // measurable precursor to the late posture failures seen in
+            // the 3 m/s runs. Treat it as a soft reference degradation so
+            // the same WBC plant gets more support time before braking.
+            const double support_gap_fraction = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_SUPPORT_GAP_FRACTION", 0.18),
+                0.05, 0.50);
+            const double support_gap_samples = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_SUPPORT_GAP_SAMPLES", 45.0),
+                5.0, 200.0);
+            const double support_gap_drift = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_SUPPORT_GAP_DRIFT", 0.040),
+                0.010, 0.20);
+            const bool support_gap_degraded =
+                cycle_contact < support_gap_fraction &&
+                cycle_diagnostics_.max_consecutive_low_support_samples >=
+                    support_gap_samples &&
+                cycle_drift >= support_gap_drift;
+            const bool degraded = health_eval &&
+                (tracking_degraded || attitude_degraded || support_degraded ||
+                 support_gap_degraded);
+            const double gov_brake_joint = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_BRAKE_JOINT_ERROR", 1.00),
+                0.70, 1.40);
+            const double gov_brake_foot = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_BRAKE_FOOT_ERROR", 0.20),
+                0.10, 0.40);
+            const double gov_brake_contact = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_BRAKE_CONTACT", 0.12),
+                0.05, 0.80);
+            const int gov_brake_streak = static_cast<int>(std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_BRAKE_STREAK", 0.0),
+                0.0, 100.0));
+            const bool severe_degradation = health_eval &&
+                ((cycle_diagnostics_.max_abs_joint_error_rad >
+                      gov_brake_joint &&
+                  cycle_foot > gov_brake_foot) ||
+                 (cycle_diagnostics_.max_abs_joint_error_rad >
+                      0.95 * gov_brake_joint &&
+                  cycle_contact < gov_brake_contact));
+            if (gov_brake_streak > 0 && severe_degradation)
+                ++high_speed_health_severe_streak_;
+            else
+                high_speed_health_severe_streak_ = 0;
+            if (gov_brake_streak > 0 &&
+                high_speed_health_severe_streak_ >= gov_brake_streak &&
+                !high_speed_stop_brake_active_ &&
+                !high_speed_stop_hold_active_ && !task_.stop_requested_)
+            {
+                high_speed_stop_brake_active_ = true;
+                high_speed_stop_brake_duration_s_ = std::clamp(
+                    Full2EnvDouble(
+                        "TROT_HS_GOV_HEALTH_BRAKE_DURATION_S", 1.20),
+                    0.25, 2.00);
+                const double health_brake_u = std::clamp(
+                    Full2EnvDouble("TROT_HS_GOV_HEALTH_BRAKE_U", 0.35),
+                    0.0, 0.90);
+                high_speed_stop_brake_start_time_s_ =
+                    running_time_ -
+                    health_brake_u * high_speed_stop_brake_duration_s_;
+                high_speed_stop_brake_base_speed_mps_ = std::max(
+                    std::abs(v_meas), std::abs(wbc_speed_cmd_mps_));
+                if (!(high_speed_stop_brake_base_speed_mps_ > 0.05))
+                    high_speed_stop_brake_base_speed_mps_ =
+                        std::abs(kernel_nominal_velocity_x_mps_);
+                high_speed_stop_brake_base_period_s_ =
+                    kernel_period_s_ > 0.05 ? kernel_period_s_ : params_.period_s;
+                high_speed_stop_brake_base_duty_ =
+                    kernel_duty_factor_ > 0.25 ? kernel_duty_factor_ : params_.duty_factor;
+                std::cout << "HIGH-SPEED-HEALTH-GOV brake"
+                          << " cycle=" << active_cycle_index_
+                          << " v=" << v_meas
+                          << " q=" << cycle_diagnostics_.max_abs_joint_error_rad
+                          << " foot=" << cycle_foot
+                          << " contact=" << cycle_contact << "\n";
+            }
+            const double gov_stop_angle = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_STOP_ANGLE_RAD", 0.12),
+                0.05, 0.60);
+            const double gov_stop_joint = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_STOP_JOINT_ERROR", 1.00),
+                0.60, 1.80);
+            const double gov_stop_foot = std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_STOP_FOOT_ERROR", 0.22),
+                0.12, 0.60);
+            const bool auto_brake =
+                Full2EnvDouble("TROT_HS_GOV_AUTO_BRAKE", 0.0) > 0.5;
+            const bool auto_brake_condition = health_eval &&
+                (std::max(cycle_roll, cycle_pitch) > gov_stop_angle ||
+                 cycle_diagnostics_.max_abs_joint_error_rad > gov_stop_joint ||
+                 cycle_foot > gov_stop_foot ||
+                 (cycle_contact < gov_brake_contact &&
+                  cycle_drift > 0.70 * gov_drift_limit));
+            if (auto_brake && auto_brake_condition &&
+                !high_speed_stop_brake_active_ &&
+                !high_speed_stop_hold_active_ && !task_.stop_requested_)
+            {
+                high_speed_stop_brake_active_ = true;
+                high_speed_stop_brake_duration_s_ = std::clamp(
+                    Full2EnvDouble("TROT_HS_GOV_BRAKE_DURATION_S", 2.00),
+                    0.25, 2.00);
+                high_speed_stop_brake_start_time_s_ = running_time_;
+                high_speed_stop_brake_base_speed_mps_ = std::max(
+                    std::abs(v_meas), std::abs(wbc_speed_cmd_mps_));
+                if (!(high_speed_stop_brake_base_speed_mps_ > 0.05))
+                    high_speed_stop_brake_base_speed_mps_ =
+                        std::abs(kernel_nominal_velocity_x_mps_);
+                high_speed_stop_brake_base_period_s_ =
+                    kernel_period_s_ > 0.05 ? kernel_period_s_ : params_.period_s;
+                high_speed_stop_brake_base_duty_ =
+                    kernel_duty_factor_ > 0.25 ? kernel_duty_factor_ : params_.duty_factor;
+                std::cout << "HIGH-SPEED-HEALTH-GOV auto-brake"
+                          << " cycle=" << active_cycle_index_
+                          << " angle=" << std::max(cycle_roll, cycle_pitch)
+                          << " q=" << cycle_diagnostics_.max_abs_joint_error_rad
+                          << " foot=" << cycle_foot
+                          << " contact=" << cycle_contact << "\n";
+            }
+            const bool critical_degradation =
+                Full2EnvDouble("TROT_HS_GOV_CRITICAL", 0.0) > 0.5 &&
+                (std::max(cycle_roll, cycle_pitch) > gov_stop_angle ||
+                 cycle_diagnostics_.max_abs_joint_error_rad > gov_stop_joint ||
+                 cycle_foot > gov_stop_foot);
+            if (critical_degradation)
+            {
+                task_.stop_requested_ = true;
+                task_.motion_stage_ = 3;
+                task_.task_completion_requested_ = false;
+                high_speed_stop_hold_active_ = true;
+                high_speed_stop_hold_start_time_s_ = running_time_;
+                high_speed_stop_hold_targets_ = joint_targets;
+                have_high_speed_stop_hold_targets_ = true;
+                std::cout << "HIGH-SPEED-HEALTH-GOV critical; WBC hold"
+                          << " cycle=" << active_cycle_index_
+                          << " angle=" << std::max(cycle_roll, cycle_pitch)
+                          << " q=" << cycle_diagnostics_.max_abs_joint_error_rad
+                          << " foot=" << cycle_foot << "\n";
+            }
+            const double gov_min_cap = std::min(
+                target_speed,
+                std::clamp(Full2EnvDouble("TROT_HS_GOV_MIN_CAP", 2.50),
+                           1.20, 3.50));
+            const int gov_hold_cycles = static_cast<int>(std::clamp(
+                Full2EnvDouble("TROT_HS_GOV_HOLD_CYCLES", 10.0),
+                1.0, 100.0));
+            // A low-support cycle with a clearly diverging attitude is no
+            // longer a soft quality fluctuation: waiting for another 0.2 m/s
+            // cap step leaves the body enough momentum to cross the hard
+            // posture limit before the gait shape changes.  Drop directly to
+            // the configured safe cap, but keep the same WBC/MPC plant.
+            const bool emergency_support_degraded =
+                health_eval &&
+                ((attitude_degraded && cycle_contact < gov_contact_limit) ||
+                 support_gap_degraded);
+            if (high_speed_health_hold_cycles_ > 0)
+                --high_speed_health_hold_cycles_;
+            if (degraded && high_speed_health_hold_cycles_ == 0)
+            {
+                const double degrade_step = std::clamp(
+                    Full2EnvDouble("TROT_HS_GOV_DEGRADE_STEP", 0.20),
+                    0.020, 0.50);
+                if (emergency_support_degraded)
+                {
+                    high_speed_health_cap_mps_ = gov_min_cap;
+                    high_speed_health_hold_cycles_ = std::max(
+                        gov_hold_cycles,
+                        static_cast<int>(std::clamp(
+                            Full2EnvDouble(
+                                "TROT_HS_GOV_EMERGENCY_HOLD_CYCLES", 25.0),
+                            5.0, 100.0)));
+                    std::cout << "HIGH-SPEED-HEALTH-GOV emergency support cap"
+                              << " cycle=" << active_cycle_index_
+                              << " cap=" << high_speed_health_cap_mps_
+                              << " angle="
+                              << std::max(cycle_roll, cycle_pitch)
+                              << " contact=" << cycle_contact << "\n";
+                }
+                else
+                {
+                    high_speed_health_cap_mps_ = std::max(
+                        gov_min_cap, high_speed_health_cap_mps_ - degrade_step);
+                    high_speed_health_hold_cycles_ = gov_hold_cycles;
+                }
+                std::cout << "HIGH-SPEED-HEALTH-GOV degraded cycle="
+                          << active_cycle_index_
+                          << " cap=" << high_speed_health_cap_mps_
+                          << " q=" << cycle_diagnostics_.max_abs_joint_error_rad
+                          << " foot=" << cycle_foot
+                          << " drift=" << cycle_drift << "\n";
+            }
+            if (!degraded && high_speed_health_hold_cycles_ == 0)
+            {
+                const double recover_step = std::clamp(
+                    Full2EnvDouble("TROT_HS_GOV_RECOVER_STEP", 0.008),
+                    0.0, 0.10);
+                high_speed_health_cap_mps_ = std::min(
+                    target_speed, high_speed_health_cap_mps_ + recover_step);
+            }
+        }
         cartesian_last_foot_error_m_ = cycle_foot;
         active_cycle_index_ = cycle_index;
         ResetCycleDiagnostics();
@@ -411,6 +807,132 @@ bool TrotExperiment::BuildGaitTargets(
                       << " motor_kp=" << low_cmd_.motor_cmd()[1].kp()
                       << "\n";
         }
+        else if (params_.wbc_full && high_speed_curriculum)
+        {
+            // High-speed bound/gallop uses a deliberately slow curriculum.
+            // Starting directly at the terminal step length asks the first
+            // swing to move faster than the leg and makes the MPC plant fall
+            // forward before the body has acquired momentum.
+            double target_period = params_.period_s;
+            double target_duty = params_.duty_factor;
+            const double requested_target_speed = std::abs(
+                2.0 * target_duty * params_.direction_sign *
+                params_.step_length_m /
+                std::max(1.0e-3, target_period));
+            const double target_speed_override = Full2EnvDouble(
+                "TROT_HS_TARGET_SPEED", -1.0);
+            const double target_speed = target_speed_override >= 0.0
+                ? std::clamp(target_speed_override, 0.20, 3.50)
+                : requested_target_speed;
+            // Start from the already-validated running-trot plant.  The
+            // previous 0.40 s / 0.60 duty seed was a walk-like gait and
+            // injected a second, unvalidated transition before acceleration.
+            const double kStartPeriod = std::clamp(
+                Full2EnvDouble("TROT_HS_START_PERIOD", 0.26),
+                0.08, 1.0);
+            const double kStartDuty = std::clamp(
+                Full2EnvDouble("TROT_HS_START_DUTY", 0.45),
+                0.25, 0.90);
+            constexpr double kStartSpeed = 0.90;
+            if (wbc_speed_cmd_mps_ < 0.0)
+            {
+                wbc_speed_cmd_mps_ = std::min(target_speed, kStartSpeed);
+                const double hs_step_slew = std::clamp(Full2EnvDouble("TROT_HS_STEP_SLEW", 0.012), 0.008, 0.10);
+                locomotion_kernel_->SetGaitSlewLimits(hs_step_slew, 0.020, 0.020);
+            }
+            const double v_meas_abs = have_filtered_body_velocity_
+                ? std::max(0.0, params_.direction_sign *
+                                   latest_filtered_body_velocity_[0])
+                : 0.0;
+            const double ramp_step_override = Full2EnvDouble("TROT_HS_RAMP_STEP", -1.0);
+            const double ramp_step = ramp_step_override >= 0.0 ? std::clamp(ramp_step_override, 0.010, 0.250) : (target_speed > 2.0 ? 0.060 : 0.045);
+            wbc_speed_cmd_mps_ = std::min(
+                target_speed, wbc_speed_cmd_mps_ + ramp_step);
+            // Keep the commanded reference close to the realized speed for
+            // the entire curriculum.  Letting it outrun the body after the
+            // first ten cycles creates a force/foothold demand the two-leg
+            // support pair cannot sustain.
+            const double speed_lead_override = Full2EnvDouble("TROT_HS_SPEED_LEAD", -1.0);
+            const double speed_lead = speed_lead_override >= 0.0 ? std::clamp(speed_lead_override, 0.0, 3.0) : (target_speed > 2.0 ? 0.38 : 0.30);
+            wbc_speed_cmd_mps_ = std::max(
+                kStartSpeed,
+                std::min(wbc_speed_cmd_mps_, v_meas_abs + speed_lead));
+            if (high_speed_health_governor &&
+                high_speed_health_cap_mps_ > 0.0)
+                wbc_speed_cmd_mps_ = std::min(
+                    wbc_speed_cmd_mps_, high_speed_health_cap_mps_);
+            // When health feedback lowers the speed cap, change the gait
+            // shape at the same time. Keeping the terminal low-duty pattern
+            // while asking for a much lower speed leaves too little support
+            // time to recover from a degraded cycle. This remains the same
+            // WBC/MPC plant; only its continuous reference is changed.
+            if (high_speed_health_governor &&
+                high_speed_health_cap_mps_ > 0.0 &&
+                high_speed_health_cap_mps_ < target_speed)
+            {
+                const double guard_start = std::clamp(
+                    Full2EnvDouble("TROT_HS_GUARD_START_SPEED", 3.0),
+                    1.20, 3.50);
+                const double guard_period = std::clamp(
+                    Full2EnvDouble("TROT_HS_GUARD_PERIOD", 0.24),
+                    0.12, 0.60);
+                const double guard_duty = std::clamp(
+                    Full2EnvDouble("TROT_HS_GUARD_DUTY", 0.52),
+                    0.35, 0.85);
+                const double guard_alpha = std::clamp(
+                    (high_speed_health_cap_mps_ - kStartSpeed) /
+                        std::max(0.10, guard_start - kStartSpeed),
+                    0.0, 1.0);
+                target_period = guard_period + guard_alpha *
+                    (target_period - guard_period);
+                target_duty = guard_duty + guard_alpha *
+                    (target_duty - guard_duty);
+                std::cout << "HIGH-SPEED-HEALTH-GOV shape cap="
+                          << high_speed_health_cap_mps_
+                          << " period_target=" << target_period
+                          << " duty_target=" << target_duty << "\n";
+            }
+            const double alpha = target_speed > kStartSpeed
+                ? std::clamp(
+                      (wbc_speed_cmd_mps_ - kStartSpeed) /
+                          (target_speed - kStartSpeed),
+                      0.0, 1.0)
+                : 1.0;
+            const double period_alpha = std::clamp(
+                (wbc_speed_cmd_mps_ - kStartSpeed) / 1.0, 0.0, 1.0);
+            const double duty_alpha = std::clamp(
+                (wbc_speed_cmd_mps_ - kStartSpeed) / 0.80, 0.0, 1.0);
+            const double period = kStartPeriod +
+                period_alpha * (target_period - kStartPeriod);
+            const double duty = kStartDuty +
+                duty_alpha * (target_duty - kStartDuty);
+            // The kernel advances the body twice per gait period (one
+            // support pair at each half-cycle).  Treat the CLI step as a
+            // per-leg stance stroke, so v = 2*duty*step/period.  The old
+            // step=v*period made the MPC velocity reference outrun the
+            // actual foot stroke by 1/(2*duty), which is fatal in sprint
+            // mode and also mislabeled the requested speed.
+            double step = wbc_speed_cmd_mps_ * period /
+                std::max(0.20, 2.0 * duty);
+            const double step_cap = Full2EnvDouble(
+                "TROT_HS_STEP_CAP", -1.0);
+            if (step_cap > 0.0)
+                step = std::min(step, std::clamp(step_cap, 0.08, 1.20));
+            const double target_lift = std::max(params_.foot_lift_m, 0.08);
+            const double lift = 0.08 + alpha * (target_lift - 0.08);
+            locomotion_kernel_->SetGaitPeriod(period);
+            locomotion_kernel_->SetGaitDuty(duty);
+            locomotion_kernel_->SetGaitStepLength(step);
+            locomotion_kernel_->SetGaitFootLift(lift);
+            std::cout << "HIGH-SPEED-GOV pattern="
+                      << go2_control::GaitPatternName(params_.gait_pattern)
+                      << " cycle=" << cycle_index
+                      << " v_cmd=" << wbc_speed_cmd_mps_
+                      << " v_meas=" << v_meas_abs
+                      << " period=" << period
+                      << " duty=" << duty
+                      << " step=" << step << "\n";
+        }
         else if (params_.wbc_full && !params_.step_plan.empty())
         {
             if (wbc_speed_cmd_mps_ < 0.0)
@@ -461,6 +983,75 @@ bool TrotExperiment::BuildGaitTargets(
                     std::cout << "PERIOD-PLAN cycle=" << cycle_index
                               << " period=" << plan.second << "\n";
                 }
+            }
+        }
+        if (high_speed_stop_brake_active_)
+        {
+            const double brake_elapsed =
+                running_time_ - high_speed_stop_brake_start_time_s_;
+            const double brake_duration = std::clamp(
+                high_speed_stop_brake_duration_s_, 0.25, 2.00);
+            const double brake_u = std::clamp(
+                brake_elapsed / brake_duration, 0.0, 1.0);
+            const double smooth_u = Smoothstep(brake_u);
+            const double speed =
+                high_speed_stop_brake_base_speed_mps_ * (1.0 - smooth_u);
+            const double period = std::clamp(
+                high_speed_stop_brake_base_period_s_, 0.16, 0.60);
+            const double duty = std::clamp(
+                high_speed_stop_brake_base_duty_ +
+                    smooth_u * (0.90 - high_speed_stop_brake_base_duty_),
+                0.40, 0.90);
+            const double step = std::max(
+                0.004, speed * period / std::max(0.20, 2.0 * duty));
+            wbc_speed_cmd_mps_ = speed;
+            kernel_nominal_velocity_x_mps_ =
+                params_.direction_sign * speed;
+            kernel_period_s_ = period;
+            kernel_duty_factor_ = duty;
+            // The normal curriculum slew (0.02 duty per cycle) is meant for
+            // gentle gait morphing.  During a sprint brake it would leave
+            // the controller on a two-contact schedule for most of the
+            // 2-second brake, so raise the bounded slew just for this
+            // deceleration phase.  This is still continuous, but reaches a
+            // support-rich duty before the body loses its speed.
+            locomotion_kernel_->SetGaitSlewLimits(
+                std::clamp(Full2EnvDouble("TROT_HS_BRAKE_STEP_SLEW", 0.20),
+                           0.08, 0.40),
+                std::clamp(Full2EnvDouble("TROT_HS_BRAKE_PERIOD_SLEW", 0.10),
+                           0.04, 0.30),
+                std::clamp(Full2EnvDouble("TROT_HS_BRAKE_DUTY_SLEW", 0.20),
+                           0.08, 0.40));
+            locomotion_kernel_->SetGaitPeriod(period);
+            locomotion_kernel_->SetGaitDuty(duty);
+            locomotion_kernel_->SetGaitStepLength(step);
+            locomotion_kernel_->SetGaitFootLift(
+                std::max(params_.foot_lift_m, 0.08));
+            const double measured_speed = have_world_velocity_
+                ? std::abs(params_.direction_sign * latest_world_velocity_[0])
+                : std::numeric_limits<double>::infinity();
+            constexpr double kBrakeReadyAngleRad = 10.0 * kPi / 180.0;
+            const double measured_roll = std::abs(static_cast<double>(
+                state_snapshot.imu_state().rpy()[0]));
+            const double measured_pitch = std::abs(static_cast<double>(
+                state_snapshot.imu_state().rpy()[1]));
+            const bool brake_ready =
+                brake_elapsed >= brake_duration &&
+                measured_speed <= 0.55 &&
+                measured_roll <= kBrakeReadyAngleRad &&
+                measured_pitch <= kBrakeReadyAngleRad;
+            if (brake_ready)
+            {
+                high_speed_stop_brake_active_ = false;
+                high_speed_stop_hold_active_ = true;
+                high_speed_stop_hold_start_time_s_ = running_time_;
+                high_speed_stop_hold_targets_ = joint_targets;
+                have_high_speed_stop_hold_targets_ = true;
+                task_.stop_requested_ = true;
+                task_.motion_stage_ = 3;
+                task_.task_completion_requested_ = false;
+                std::cout << "High-speed stop: brake complete;"
+                          << " entering WBC four-contact hold\n";
             }
         }
         std::cout << "Trot cycle " << cycle_index << " started"
@@ -549,6 +1140,7 @@ bool TrotExperiment::BuildGaitTargets(
         cart.ypos_gain = Full2EnvDouble("FULL2_YPOS", 0.0);
         cart.world_heading = Full2EnvDouble("FULL2_WORLD_HEADING", 0.0) > 0.5;
         cart.yaw_gain = Full2EnvDouble("FULL2_YAW_GAIN", 0.0);
+        cart.pattern = params_.gait_pattern;
         cart.foot_lift_m =
             gait_result.duty_factor > 0.0
                 ? std::max(params_.foot_lift_m, 0.022)
@@ -673,11 +1265,8 @@ bool TrotExperiment::BuildGaitTargets(
             -pose.quaternion[3]};
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const bool diagonal_pair_b =
-                leg == static_cast<std::size_t>(go2::Leg::FL) ||
-                leg == static_cast<std::size_t>(go2::Leg::RR);
-            const double leg_phase = std::fmod(
-                phase + (diagonal_pair_b ? 0.5 : 0.0), 1.0);
+            const double leg_phase = go2_control::GaitLegPhase(
+                leg, phase, params_.gait_pattern);
             const bool support = leg_phase < stance_duration;
             if (!support)
             {
@@ -724,6 +1313,23 @@ bool TrotExperiment::BuildGaitTargets(
             kAttitudeFeedbackGainMPerRad * attitude_roll_rad_,
             -kAttitudeFeedbackMaxM,
             kAttitudeFeedbackMaxM);
+        if (params_.wbc_full && high_speed_curriculum)
+        {
+            const double y_gain = Full2EnvDouble(
+                "TROT_HS_ATTITUDE_Y_GAIN", -1.0);
+            const double y_max = Full2EnvDouble(
+                "TROT_HS_ATTITUDE_Y_MAX", -1.0);
+            if (y_gain > 0.0 && y_max > 0.0)
+                attitude_feedback_y_m_ = Clamp(
+                    y_gain * attitude_roll_rad_, -y_max, y_max);
+            const double x_gain = Full2EnvDouble(
+                "TROT_HS_ATTITUDE_X_GAIN", -1.0);
+            const double x_max = Full2EnvDouble(
+                "TROT_HS_ATTITUDE_X_MAX", -1.0);
+            if (x_gain > 0.0 && x_max > 0.0)
+                attitude_feedback_x_m_ = Clamp(
+                    -x_gain * attitude_pitch_rad_, -x_max, x_max);
+        }
         for (auto &foot : feet)
         {
             foot.x -= attitude_feedback_x_m_;
@@ -752,6 +1358,40 @@ bool TrotExperiment::BuildGaitTargets(
             const bool left = feet[leg].y > 0.0;
             feet[leg].y += (left ? -delta : delta);
         }
+    }
+    const double sprint_foot_slope = std::clamp(
+        Full2EnvDouble("TROT_HS_FOOT_SLOPE", 0.0), -0.40, 0.40);
+    if (params_.wbc_full && high_speed_curriculum &&
+        std::abs(sprint_foot_slope) > 1.0e-9)
+    {
+        // Match the body-frame foot-height slope used by the validated
+        // open-loop sprint probe.  It gives the stance pair a bounded
+        // pitch moment through the normal joint targets, while the WBC
+        // still enforces contact dynamics and torque limits.
+        for (auto &foot : feet)
+            foot.z -= sprint_foot_slope * foot.x;
+    }
+    if (have_commanded_body_feet_ && last_motion_dt_s_ > 1.0e-5)
+    {
+        const double inv_dt = 1.0 / last_motion_dt_s_;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            commanded_body_feet_velocity_[leg].x =
+                std::clamp((feet[leg].x - commanded_body_feet_[leg].x) * inv_dt,
+                           -12.0, 12.0);
+            commanded_body_feet_velocity_[leg].y =
+                std::clamp((feet[leg].y - commanded_body_feet_[leg].y) * inv_dt,
+                           -12.0, 12.0);
+            commanded_body_feet_velocity_[leg].z =
+                std::clamp((feet[leg].z - commanded_body_feet_[leg].z) * inv_dt,
+                           -12.0, 12.0);
+        }
+        have_commanded_body_feet_velocity_ = true;
+    }
+    else
+    {
+        commanded_body_feet_velocity_.fill({0.0, 0.0, 0.0});
+        have_commanded_body_feet_velocity_ = false;
     }
     commanded_body_feet_ = feet;
     have_commanded_body_feet_ = true;

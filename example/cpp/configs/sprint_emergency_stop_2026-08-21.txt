@@ -1,0 +1,4 @@
+# High-speed sprint acceptance: reach the running plateau, then latch the
+# unified zero-velocity emergency-stop reference while the same WBC/MPC plant
+# brakes and settles into four-foot support.
+14.0 0.80 emergency_stop

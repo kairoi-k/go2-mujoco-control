@@ -25,8 +25,12 @@ struct IdWbcParams
     double max_normal_n = 180.0;
     double tau_limit_nm = 35.0;
     double w_base_lin = 80.0;
+    // Optional anisotropic sprint weights.  A negative value keeps the
+    // isotropic w_base_lin/w_swing setting used by the validated trot.
+    double w_base_lin_x = -1.0;
     double w_base_ang = 40.0;
     double w_swing = 80.0;
+    double w_swing_x = -1.0;
     double w_stance_no_slip = 8.0;
     // <0 means use w_stance_no_slip on that axis (isotropic).
     double w_stance_no_slip_x = -1.0;
@@ -99,7 +103,9 @@ inline bool SolveInverseDynamicsWbc(
     Eigen::Matrix<double, 6, 1> a_des;
     a_des << input.desired_linear_acc_world, input.desired_angular_acc_body;
     Eigen::Matrix<double, 6, 6> Wb = Eigen::Matrix<double, 6, 6>::Zero();
-    Wb.diagonal() << params.w_base_lin, params.w_base_lin, params.w_base_lin,
+    const double w_base_x = params.w_base_lin_x >= 0.0
+        ? params.w_base_lin_x : params.w_base_lin;
+    Wb.diagonal() << w_base_x, params.w_base_lin, params.w_base_lin,
         params.w_base_ang, params.w_base_ang, params.w_base_ang;
     H.topLeftCorner<6, 6>() += 2.0 * Wb;
     g.head<6>() += -2.0 * Wb * a_des;
@@ -137,10 +143,13 @@ inline bool SolveInverseDynamicsWbc(
         }
         else
         {
+            Eigen::Matrix3d Wswing = Eigen::Matrix3d::Identity() * params.w_swing;
+            if (params.w_swing_x >= 0.0)
+                Wswing(0, 0) = params.w_swing_x;
             H.topLeftCorner(nqdd, nqdd) +=
-                2.0 * params.w_swing * Jl.transpose() * Jl;
+                2.0 * Jl.transpose() * Wswing * Jl;
             g.head(nqdd) +=
-                -2.0 * params.w_swing * Jl.transpose() * input.swing_acc_world[leg];
+                -2.0 * Jl.transpose() * Wswing * input.swing_acc_world[leg];
         }
         H(col_f, col_f) += 2.0 * params.w_force;
         H(col_f + 1, col_f + 1) += 2.0 * params.w_force;

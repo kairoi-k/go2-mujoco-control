@@ -12,6 +12,7 @@
 
 #include "dense_qp.h"
 #include "go2_forward_kinematics.h"
+#include "locomotion_kernel.h"
 
 namespace go2_control
 {
@@ -294,7 +295,8 @@ inline void FillTrotContactSchedulePhase(
     double duty,
     int horizon,
     double dt_s,
-    std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon> &contact)
+    std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon> &contact,
+    GaitPattern pattern = GaitPattern::kDiagonalTrot)
 {
     contact = {};
     if (!(period_s > 0.0))
@@ -305,14 +307,9 @@ inline void FillTrotContactSchedulePhase(
         a -= std::floor(a);
         if (a < 0.0)
             a += 1.0;
-        double b = a + 0.5;
-        b -= std::floor(b);
-        const bool pair_a = a < duty;  // FR, RL
-        const bool pair_b = b < duty;  // FL, RR
-        contact[k][static_cast<std::size_t>(go2::Leg::FR)] = pair_a;
-        contact[k][static_cast<std::size_t>(go2::Leg::RL)] = pair_a;
-        contact[k][static_cast<std::size_t>(go2::Leg::FL)] = pair_b;
-        contact[k][static_cast<std::size_t>(go2::Leg::RR)] = pair_b;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            contact[k][leg] = GaitLegScheduledStance(
+                leg, a, duty, pattern);
     }
 }
 
@@ -323,11 +320,13 @@ inline void FillTrotContactSchedule(
     double duty,
     int horizon,
     double dt_s,
-    std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon> &contact)
+    std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon> &contact,
+    GaitPattern pattern = GaitPattern::kDiagonalTrot)
 {
     const double cycle = (period_s > 0.0) ? (gait_time_s / period_s) : 0.0;
     FillTrotContactSchedulePhase(
-        cycle - std::floor(cycle), period_s, duty, horizon, dt_s, contact);
+        cycle - std::floor(cycle), period_s, duty, horizon, dt_s, contact,
+        pattern);
 }
 
 }  // namespace go2_control

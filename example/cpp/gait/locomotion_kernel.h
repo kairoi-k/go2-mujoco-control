@@ -4,12 +4,142 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <limits>
+#include <string>
 
 #include "go2_forward_kinematics.h"
 
 namespace go2_control
 {
+
+enum class GaitPattern
+{
+    kDiagonalTrot,
+    // Running trot keeps the diagonal pairing but advances the opposite
+    // pair slightly before the first pair leaves support.  It is the
+    // high-speed, overlap-support variant; unlike the ordinary trot it does
+    // not rely on an exact half-cycle hand-off at the WBC contact boundary.
+    kRunningTrot,
+    kBound,
+    kPace,
+    kGallop,
+};
+
+inline const char *GaitPatternName(GaitPattern pattern) noexcept
+{
+    switch (pattern)
+    {
+    case GaitPattern::kBound:
+        return "bound";
+    case GaitPattern::kGallop:
+        return "gallop";
+    case GaitPattern::kPace:
+        return "pace";
+    case GaitPattern::kDiagonalTrot:
+        return "diagonal-trot";
+    case GaitPattern::kRunningTrot:
+        return "running-trot";
+    default:
+        return "diagonal-trot";
+    }
+}
+
+inline bool ParseGaitPattern(
+    const char *name,
+    GaitPattern &pattern) noexcept
+{
+    if (name == nullptr)
+        return false;
+    const std::string value(name);
+    if (value == "diagonal-trot" || value == "trot")
+    {
+        pattern = GaitPattern::kDiagonalTrot;
+        return true;
+    }
+    if (value == "running-trot" || value == "running")
+    {
+        pattern = GaitPattern::kRunningTrot;
+        return true;
+    }
+    if (value == "bound")
+    {
+        pattern = GaitPattern::kBound;
+        return true;
+    }
+    if (value == "pace")
+    {
+        pattern = GaitPattern::kPace;
+        return true;
+    }
+    if (value == "gallop")
+    {
+        pattern = GaitPattern::kGallop;
+        return true;
+    }
+    return false;
+}
+
+inline double WrapUnitPhase(double phase) noexcept
+{
+    double wrapped = phase - std::floor(phase);
+    if (wrapped < 0.0)
+        wrapped += 1.0;
+    return wrapped;
+}
+
+inline double RunningTrotPhaseOffset() noexcept
+{
+    const char *value = std::getenv("TROT_RUNNING_TROT_OFFSET");
+    if (value == nullptr || *value == '\0')
+        return 0.46;
+    char *end = nullptr;
+    const double parsed = std::strtod(value, &end);
+    if (end == value || !std::isfinite(parsed))
+        return 0.46;
+    return std::clamp(parsed, 0.25, 0.50);
+}
+
+inline double GaitLegPhase(
+    std::size_t leg,
+    double phase,
+    GaitPattern pattern = GaitPattern::kDiagonalTrot) noexcept
+{
+    static constexpr std::array<double, 4> kDiagonal = {0.0, 0.5, 0.5, 0.0};
+    // A tunable phase offset lets experiments compare a near-flight running
+    // trot with a small overlap-support variant without changing the normal
+    // diagonal-trot convention.
+    // Slight overlap between front and rear support pairs prevents a
+    // low-duty bound from losing all vertical support at the hand-off.
+    static constexpr std::array<double, 4> kBound = {0.0, 0.0, 0.42, 0.42};
+    static constexpr std::array<double, 4> kPace = {0.0, 0.5, 0.0, 0.5};
+    // True four-beat rotary gallop: right hind -> left hind -> right
+    // fore -> left fore.  Leg order is FR, FL, RR, RL, so the rear pair
+    // leads the fore pair by half a cycle while each side is staggered.
+    static constexpr std::array<double, 4> kGallop = {0.50, 0.62, 0.0, 0.12};
+    if (pattern == GaitPattern::kRunningTrot)
+    {
+        const double offset = RunningTrotPhaseOffset();
+        return WrapUnitPhase(
+            phase + ((leg == 0 || leg == 3) ? 0.0 : offset));
+    }
+    const auto &offsets =
+        pattern == GaitPattern::kBound
+            ? kBound
+            : (pattern == GaitPattern::kPace
+                   ? kPace
+                   : (pattern == GaitPattern::kGallop ? kGallop : kDiagonal));
+    return WrapUnitPhase(phase + offsets[leg % offsets.size()]);
+}
+
+inline bool GaitLegScheduledStance(
+    std::size_t leg,
+    double phase,
+    double duty,
+    GaitPattern pattern = GaitPattern::kDiagonalTrot) noexcept
+{
+    return GaitLegPhase(leg, phase, pattern) < duty;
+}
 
 struct GaitKernelParams
 {
@@ -19,6 +149,10 @@ struct GaitKernelParams
     double direction_sign = 1.0;
     double foot_lift_m = 0.05;
     double blend_duration_s = 0.8;
+    // Negative keeps the pattern default. Near one spreads swing motion over
+    // the full flight window for low-duty running.
+    double swing_reach_phase = -1.0;
+    GaitPattern pattern = GaitPattern::kDiagonalTrot;
 };
 
 struct GaitKernelRequest
@@ -64,6 +198,8 @@ public:
     virtual void SetGaitPeriod(double) {}
     virtual void SetGaitDuty(double) {}
     virtual void SetGaitFootLift(double) {}
+    virtual void SetGaitSwingReachPhase(double) {}
+    virtual void SetGaitEffectiveSpeedConvention(bool) {}
     virtual void SetGaitSlewLimits(double, double, double) {}
     virtual void SetStanceHold(bool, double) {}
 };
@@ -100,6 +236,12 @@ public:
     {
         if (lift_m >= 0.0 && std::isfinite(lift_m))
             params_.foot_lift_m = lift_m;
+    }
+
+    void SetGaitSwingReachPhase(double phase) override
+    {
+        if (phase >= 0.5 && phase <= 1.0 && std::isfinite(phase))
+            params_.swing_reach_phase = phase;
     }
     void SetStanceHold(bool hold, double gait_time_s) override
     {
@@ -161,11 +303,8 @@ public:
 
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const bool diagonal_pair_b =
-                leg == static_cast<std::size_t>(go2::Leg::FL) ||
-                leg == static_cast<std::size_t>(go2::Leg::RR);
-            const double leg_phase = std::fmod(
-                result.phase + (diagonal_pair_b ? 0.5 : 0.0), 1.0);
+            const double leg_phase = GaitLegPhase(
+                leg, result.phase, params_.pattern);
             double x_offset = 0.0;
             double z_offset = 0.0;
             if (leg_phase < stance_duration)

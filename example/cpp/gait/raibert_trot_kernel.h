@@ -56,22 +56,51 @@ public:
     void SetGaitStepLength(double step_m) override
     {
         if (step_m >= 0.0 && std::isfinite(step_m))
-            target_step_length_m_ = step_m;
+        {
+            if (!have_last_gait_time_)
+                params_.gait.step_length_m = step_m;
+            else
+                target_step_length_m_ = step_m;
+        }
     }
     void SetGaitPeriod(double period_s) override
     {
         if (period_s > 0.0 && std::isfinite(period_s))
-            target_period_s_ = period_s;
+        {
+            if (!have_last_gait_time_)
+                params_.gait.period_s = period_s;
+            else
+                target_period_s_ = period_s;
+        }
     }
     void SetGaitDuty(double duty) override
     {
         if (duty > 0.0 && duty < 1.0 && std::isfinite(duty))
-            target_duty_factor_ = duty;
+        {
+            if (!have_last_gait_time_)
+                params_.gait.duty_factor = duty;
+            else
+                target_duty_factor_ = duty;
+        }
     }
     void SetGaitFootLift(double lift_m) override
     {
         if (lift_m >= 0.0 && std::isfinite(lift_m))
-            target_foot_lift_m_ = lift_m;
+        {
+            if (!have_last_gait_time_)
+                params_.gait.foot_lift_m = lift_m;
+            else
+                target_foot_lift_m_ = lift_m;
+        }
+    }
+    void SetGaitSwingReachPhase(double phase) override
+    {
+        if (phase >= 0.5 && phase <= 1.0 && std::isfinite(phase))
+            params_.gait.swing_reach_phase = phase;
+    }
+    void SetGaitEffectiveSpeedConvention(bool enabled) override
+    {
+        use_effective_speed_for_planner_ = enabled;
     }
     void SetStanceHold(bool hold, double gait_time_s) override
     {
@@ -210,9 +239,11 @@ public:
                     lift_des - params_.gait.foot_lift_m, -0.004, 0.004);
             }
         }
-        const double nominal_velocity =
-            params_.gait.direction_sign * params_.gait.step_length_m /
-            params_.gait.period_s;
+        const double nominal_velocity = use_effective_speed_for_planner_
+            ? params_.gait.direction_sign * params_.gait.step_length_m *
+                  (2.0 * params_.gait.duty_factor) / params_.gait.period_s
+            : params_.gait.direction_sign * params_.gait.step_length_m /
+                  params_.gait.period_s;
         const double measured_velocity = request.have_body_velocity
             ? request.body_velocity_x_mps
             : nominal_velocity;
@@ -241,7 +272,8 @@ public:
             params_.gait.direction_sign,
             params_.velocity_gain_s,
             params_.max_adjustment_m,
-            params_.gait.duty_factor};
+            params_.gait.duty_factor,
+            nominal_velocity};
         const double blend = Smoothstep(
             request.gait_time_s / params_.gait.blend_duration_s);
         const double hold_target = stance_hold_ ? 1.0 : 0.0;
@@ -255,11 +287,9 @@ public:
 
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const bool diagonal_pair_b =
-                leg == static_cast<std::size_t>(go2::Leg::FL) ||
-                leg == static_cast<std::size_t>(go2::Leg::RR);
             const double leg_cycle_position =
-                cycle_position + (diagonal_pair_b ? 0.5 : 0.0);
+                cycle_position + GaitLegPhase(
+                    leg, 0.0, params_.gait.pattern);
             const int leg_cycle_index =
                 static_cast<int>(std::floor(leg_cycle_position));
             const double leg_phase =
@@ -366,18 +396,26 @@ public:
                     state.stance_start_x_m -
                     params_.gait.direction_sign *
                         state.stance_travel_m;
-                const double swing_x_phase =
-                    std::min(1.0, swing_phase / 0.75);
+                const double swing_progress_end =
+                    params_.gait.swing_reach_phase >= 0.5 ? 1.0 : 0.75;
+                const double swing_x_phase = std::min(
+                    1.0, swing_phase / swing_progress_end);
                 x_offset =
                     swing_start_x +
                     (state.next_touchdown_x_m - swing_start_x) *
-                        SwingFast(swing_x_phase);
+                        SwingFast(
+                            swing_x_phase,
+                            params_.gait.pattern,
+                            params_.gait.swing_reach_phase);
                 y_offset =
                     state.stance_start_y_m +
                     (state.next_touchdown_y_m - state.stance_start_y_m) *
-                        SwingFast(swing_x_phase);
-                const double swing_z_phase =
-                    std::min(1.0, swing_phase / 0.75);
+                        SwingFast(
+                            swing_x_phase,
+                            params_.gait.pattern,
+                            params_.gait.swing_reach_phase);
+                const double swing_z_phase = std::min(
+                    1.0, swing_phase / swing_progress_end);
                 z_offset =
                     params_.gait.foot_lift_m *
                     std::sin(kPi * swing_z_phase) *
@@ -420,11 +458,19 @@ private:
         return x * x * (3.0 - 2.0 * x);
     }
 
-    // [impulse] 摆动快速到位: quintic 缓动, 相位 0.6 到达目标
-    // (比 Smoothstep 更早到位), 给大步长摆动更多悬停余量。
-    static double SwingFast(double x)
+    // [impulse] 摆动快速到位: quintic 缓动。低占空比跑态把目标
+    // 略晚落到，避免在极短摆动窗内先猛冲到 touchdown 再长时间悬停；
+    // 传统对角小跑保留原来的 0.60 相位。
+    static double SwingFast(
+        double x,
+        GaitPattern pattern,
+        double reach_phase_override)
     {
-        const double t = std::min(1.0, x / 0.60);
+        const double reach_phase = reach_phase_override >= 0.5
+            ? std::clamp(reach_phase_override, 0.5, 1.0)
+            : ((pattern == GaitPattern::kDiagonalTrot ||
+                pattern == GaitPattern::kRunningTrot) ? 0.60 : 0.72);
+        const double t = std::min(1.0, x / reach_phase);
         return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
     }
 
@@ -474,6 +520,7 @@ private:
     double last_preview_planned_acc_x_mps2_ = 0.0;
     double base_duty_factor_ = -1.0;
     double base_foot_lift_m_ = -1.0;
+    bool use_effective_speed_for_planner_ = false;
 };
 
 } // namespace go2_control

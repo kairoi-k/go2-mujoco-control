@@ -23,7 +23,16 @@ sim_headless=false
 sim_camera_follow=false
 sim_push_args=()
 sim_affinity="${TROT_CPU_AFFINITY_SIM:-}"
-ctrl_affinity="${TROT_CPU_AFFINITY_CTRL:-}" 
+ctrl_affinity="${TROT_CPU_AFFINITY_CTRL:-}"
+if [[ "${TROT_CPU_AUTOPIN:-1}" != "0" &&
+      -z "$sim_affinity" && -z "$ctrl_affinity" ]]; then
+  cpu_count="$(nproc 2>/dev/null || echo 0)"
+  if [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 4 )); then
+    # MuJoCo and the DDS controller must not compete for the same WSL core.
+    sim_affinity=2
+    ctrl_affinity=3
+  fi
+fi
 filtered_controller_args=()
 for ((i = 0; i < ${#controller_args[@]}; ++i)); do
   arg="${controller_args[$i]}"
@@ -151,6 +160,7 @@ if ! flock -n 9; then
   echo "Another trot experiment is already running in DDS domain $domain_id; use a different --domain-id for parallel runs." >&2
   exit 2
 fi
+dynamics_tolerance_n="${TROT_DYNAMICS_TOLERANCE_N:-10}"
 
 existing_sim_pids="$(pgrep -f -x "$simulator -i $domain_id -r go2 -s $scene_arg" || true)"
 if [[ -n "$existing_sim_pids" ]]; then
@@ -159,6 +169,8 @@ if [[ -n "$existing_sim_pids" ]]; then
 fi
 
 metadata_file="$experiment_dir/run_metadata.txt"
+environment_file="$experiment_dir/environment.txt"
+env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_)" >"$environment_file" || true
 {
   printf "started_at=%s\n" "$(date --iso-8601=seconds)"
   printf "git_head=%s\n" "$(git -C "$repo_dir" rev-parse HEAD)"
@@ -169,6 +181,8 @@ metadata_file="$experiment_dir/run_metadata.txt"
   printf "runtime_dir=%s\n" "$runtime_dir"
   printf "headless=%s\n" "$([[ "$sim_headless" == true ]] && echo true || echo false)"
   printf "camera_follow=%s\n" "$([[ "$sim_camera_follow" == true ]] && echo true || echo false)"
+  printf "sim_cpu_affinity=%s\n" "${sim_affinity:-auto}"
+  printf "controller_cpu_affinity=%s\n" "${ctrl_affinity:-auto}"
   printf "argv=%s\n" "$*"
   printf "controller_duration_s=%s\n" "$controller_duration_s"
   printf "max_cycles_requested=%s\n" "$max_cycles_requested"
@@ -179,6 +193,7 @@ metadata_file="$experiment_dir/run_metadata.txt"
   printf "stop_file=%s\n" "$stop_file"
   printf "contact_ground_truth_file=%s\n" "$ground_truth_file"
   printf "contact_ground_truth_dynamics_analysis_file=%s\n" "$ground_truth_dynamics_analysis_file"
+  printf "environment_file=%s\n" "$environment_file"
 } >"$metadata_file"
 
 sim_pid=""
@@ -351,7 +366,7 @@ if (( ground_truth_status == 0 )); then
 fi
 dynamics_status=0
 if (( ground_truth_status == 0 )); then
-  if ! python3 "$cpp_dir/tools/analysis/analyze_contact_dynamics.py" "$ground_truth_file" >"$ground_truth_dynamics_analysis_file" 2>&1; then
+  if ! python3 "$cpp_dir/tools/analysis/analyze_contact_dynamics.py" "$ground_truth_file" --balance-tolerance-n "$dynamics_tolerance_n" >"$ground_truth_dynamics_analysis_file" 2>&1; then
     echo "Ground-truth dynamics analysis failed; see $ground_truth_dynamics_analysis_file" >&2
     dynamics_status=1
   fi
@@ -374,6 +389,9 @@ elif [[ -n "$max_cycles_requested" ]]; then
 elif grep -q "Emergency stop hold complete; ending in WBC stance" \
     "$experiment_dir/controller.log"; then
   :
+elif grep -q "High-speed stop: WBC four-contact hold complete; finished in WBC stance" \
+    "$experiment_dir/controller.log"; then
+  :
 elif ! grep -q "Trot stopping; returning to stand" "$experiment_dir/controller.log"; then
   echo "Trot experiment did not reach a controlled stop; see $experiment_dir/controller.log" >&2
   completion_status=1
@@ -388,6 +406,7 @@ fi
   printf "contact_ground_truth_analysis_file=%s\n" "$ground_truth_analysis_file"
   printf "dynamics_status=%s\n" "$dynamics_status"
   printf "contact_ground_truth_dynamics_analysis_file=%s\n" "$ground_truth_dynamics_analysis_file"
+  printf "dynamics_tolerance_n=%s\n" "$dynamics_tolerance_n"
   printf "completion_status=%s\n" "$completion_status"
   printf "finished_at=%s\n" "$(date --iso-8601=seconds)"
 } >>"$metadata_file"

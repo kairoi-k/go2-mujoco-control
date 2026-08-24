@@ -9,6 +9,7 @@
 #include <cmath>
 
 #include "go2_forward_kinematics.h"
+#include "locomotion_kernel.h"
 
 namespace go2_control
 {
@@ -257,29 +258,25 @@ struct CartesianWorldInput
     bool world_heading = false;
     // Front/rear differential Y from yaw. 0 = off. W1 left yaw at -27 deg.
     double yaw_gain = 0.0;
+    GaitPattern pattern = GaitPattern::kDiagonalTrot;
 };
 
-inline bool LegScheduledStance(std::size_t leg, double phase, double duty)
+inline bool LegScheduledStance(
+    std::size_t leg,
+    double phase,
+    double duty,
+    GaitPattern pattern = GaitPattern::kDiagonalTrot)
 {
-    const bool pair_b =
-        leg == static_cast<std::size_t>(go2::Leg::FL) ||
-        leg == static_cast<std::size_t>(go2::Leg::RR);
-    double leg_phase = phase + (pair_b ? 0.5 : 0.0);
-    leg_phase -= std::floor(leg_phase);
-    if (leg_phase < 0.0)
-        leg_phase += 1.0;
-    return leg_phase < duty;
+    return GaitLegScheduledStance(leg, phase, duty, pattern);
 }
 
-inline double LegSwingPhase(std::size_t leg, double phase, double duty)
+inline double LegSwingPhase(
+    std::size_t leg,
+    double phase,
+    double duty,
+    GaitPattern pattern = GaitPattern::kDiagonalTrot)
 {
-    const bool pair_b =
-        leg == static_cast<std::size_t>(go2::Leg::FL) ||
-        leg == static_cast<std::size_t>(go2::Leg::RR);
-    double leg_phase = phase + (pair_b ? 0.5 : 0.0);
-    leg_phase -= std::floor(leg_phase);
-    if (leg_phase < 0.0)
-        leg_phase += 1.0;
+    const double leg_phase = GaitLegPhase(leg, phase, pattern);
     const double swing = 1.0 - duty;
     if (swing <= 1.0e-6 || leg_phase < duty)
         return 0.0;
@@ -386,7 +383,8 @@ inline void ApplyCartesianWorldTrot(
 
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
-        const bool stance = LegScheduledStance(leg, in.phase, in.duty_factor);
+        const bool stance = LegScheduledStance(
+            leg, in.phase, in.duty_factor, in.pattern);
         const bool entering_stance = stance && (!state.have_prev || !state.prev_stance[leg]);
         const bool entering_swing = !stance && (!state.have_prev || state.prev_stance[leg]);
 
@@ -420,7 +418,8 @@ inline void ApplyCartesianWorldTrot(
                 const double t_sw = std::max(
                     0.05, (1.0 - in.duty_factor) * in.period_s);
                 td.swing_remaining_s =
-                    (1.0 - LegSwingPhase(leg, in.phase, in.duty_factor)) *
+                    (1.0 - LegSwingPhase(
+                        leg, in.phase, in.duty_factor, in.pattern)) *
                     t_sw;
             }
             // Capture-point: step into a roll so GRF rights the body.
@@ -454,7 +453,8 @@ inline void ApplyCartesianWorldTrot(
                 const double t_sw = std::max(
                     0.05, (1.0 - in.duty_factor) * in.period_s);
                 td.swing_remaining_s =
-                    (1.0 - LegSwingPhase(leg, in.phase, in.duty_factor)) *
+                    (1.0 - LegSwingPhase(
+                        leg, in.phase, in.duty_factor, in.pattern)) *
                     t_sw;
             }
             state.swing_target_world[leg] = PlanWorldTouchdown(td);
@@ -470,7 +470,8 @@ inline void ApplyCartesianWorldTrot(
         else if (!stance)
         {
             const double swing_phase =
-                LegSwingPhase(leg, in.phase, in.duty_factor);
+                LegSwingPhase(
+                    leg, in.phase, in.duty_factor, in.pattern);
             p_world = SwingWorldTarget(
                 state.swing_start_world[leg],
                 state.swing_target_world[leg],

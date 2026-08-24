@@ -4,7 +4,7 @@ Research fork of [`unitreerobotics/unitree_mujoco`](https://github.com/unitreero
 
 ![stand-walk-lie](docs/media/stand_walk_lie_wbcfull.gif)
 
-The C++ result is a 500 Hz LowCmd state machine: stand-up, settle, `--wbc-full` trot, blend back to stand, lie-down. On this tree the sequenced / 64-cycle plant is **18-DoF ID-WBC + SRBD MPC**. Repeated `--wbc-full` cruise is about **0.12–0.15 m/s** (`go2sim full` n=5: 0.130 ± 0.011). Watch [`docs/media/stand_walk_lie_wbcfull.mp4`](docs/media/stand_walk_lie_wbcfull.mp4). The independent Isaac Lab velocity-RL track is maintained in [`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl); imitation work is in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
+The C++ result is a 500 Hz LowCmd state machine: stand-up, settle, `--wbc-full` trot, blend back to stand, lie-down. On this tree the sequenced / 64-cycle plant is **18-DoF ID-WBC + SRBD MPC**. The earlier `go2sim full` slow-trot result remains a historical **0.130 ± 0.011 m/s** baseline. The exact `66dc3e8` head has now passed three independent strict revalidations of the separate wall-clock **3 m/s-class running-trot** profile in MuJoCo; this is a simulation-only claim and does not imply sim-to-real or natural-animal gait. Watch [`docs/media/stand_walk_lie_wbcfull.mp4`](docs/media/stand_walk_lie_wbcfull.mp4). The independent Isaac Lab velocity-RL track is maintained in [`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl); imitation work is in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
 
 ## Contents
 
@@ -34,6 +34,8 @@ Stand-walk-lie (after the simulator is up): see [`example/cpp/README.md`](exampl
 
 ## Related track
 
+The validated high-speed simulation entry is `bash example/cpp/scripts/run_sustained_running.sh --headless`, followed by `analyze_sustained_running.py`. It is a distinct `running-trot` reference, not a relabeling of the diagonal-trot or slow stand-walk-lie result.
+
 Isaac Lab / RSL-RL velocity curricula for Go2 are maintained in the separate
 [`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl)
 repository. This control repository does not vendor or install that package.
@@ -42,7 +44,7 @@ repository. This control repository does not vendor or install that package.
 
 | Track | Where |
 |---|---|
-| Model-based C++ stand-walk-lie + slow trot | `example/cpp/` |
+| Model-based C++ stand-walk-lie + validated running-trot simulation | `example/cpp/` |
 | Isaac Lab velocity RL (fast, short-stride) | [`go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl) |
 | Kine2Go imitation, AMP, seam JSON | [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research) |
 
@@ -67,6 +69,7 @@ docs/              architecture, reproducibility, research history
 - [`docs/CODE_GUIDE.md`](docs/CODE_GUIDE.md) — source map
 - [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) — build notes
 - [`example/cpp/experiments/CATALOG.md`](example/cpp/experiments/CATALOG.md) — experiment artifacts
+- [`docs/validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md`](docs/validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md) — exact-head revalidation manifest
 - [`UPSTREAM_AND_CONTRIBUTIONS.md`](UPSTREAM_AND_CONTRIBUTIONS.md) — upstream boundary
 
 ## License

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace go2_control
 {
@@ -16,6 +17,10 @@ struct RaibertFootstepPlannerParams
     double velocity_gain_s = 0.20;
     double max_adjustment_m = 0.025;
     double duty_factor = 1.0;
+    // Optional multi-support gait speed convention. NaN keeps the legacy
+    // step/period convention used by standalone planner callers.
+    double nominal_velocity_override_mps =
+        std::numeric_limits<double>::quiet_NaN();
 };
 
 inline double RaibertStanceTravelM(const RaibertFootstepPlannerParams &params)
@@ -64,14 +69,18 @@ inline bool PlanRaibertTouchdown(
         !std::isfinite(params.velocity_gain_s) ||
         !std::isfinite(params.max_adjustment_m) ||
         !std::isfinite(params.duty_factor) ||
+        (!std::isnan(params.nominal_velocity_override_mps) &&
+         !std::isfinite(params.nominal_velocity_override_mps)) ||
         (input.measured_velocity_valid &&
          !std::isfinite(input.measured_velocity_x_mps)))
     {
         return false;
     }
 
-    const double nominal_velocity =
-        params.direction_sign * params.step_length_m / params.period_s;
+    const double nominal_velocity = std::isnan(
+        params.nominal_velocity_override_mps)
+        ? params.direction_sign * params.step_length_m / params.period_s
+        : params.nominal_velocity_override_mps;
     const double measured_velocity = input.measured_velocity_valid
         ? input.measured_velocity_x_mps
         : nominal_velocity;
