@@ -99,6 +99,14 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_plan_status_rr,terrain_plan_status_rl"
          << ",terrain_plan_z_fr_m,terrain_plan_z_fl_m"
          << ",terrain_plan_z_rr_m,terrain_plan_z_rl_m"
+         << ",terrain_plan_body_x_fr_m,terrain_plan_body_x_fl_m"
+         << ",terrain_plan_body_x_rr_m,terrain_plan_body_x_rl_m"
+         << ",terrain_plan_body_y_fr_m,terrain_plan_body_y_fl_m"
+         << ",terrain_plan_body_y_rr_m,terrain_plan_body_y_rl_m"
+         << ",terrain_observe_status_fr,terrain_observe_status_fl"
+         << ",terrain_observe_status_rr,terrain_observe_status_rl"
+         << ",terrain_observe_z_fr_m,terrain_observe_z_fl_m"
+         << ",terrain_observe_z_rr_m,terrain_observe_z_rl_m"
          << ",terrain_look_status_fr,terrain_look_status_fl"
          << ",terrain_look_z_fr_m,terrain_look_z_fl_m"
          << ",terrain_fwd_z_20_m,terrain_fwd_z_40_m"
@@ -726,7 +734,23 @@ void TrotExperiment::LogSample(
              << "," << tau_state
              << "," << (motor_cmd.q() - q_state);
     }
-    csv_ << "," << terrain_observe_status_[0]
+    csv_ << "," << terrain_plan_status_[0]
+         << "," << terrain_plan_status_[1]
+         << "," << terrain_plan_status_[2]
+         << "," << terrain_plan_status_[3]
+         << "," << terrain_plan_z_m_[0]
+         << "," << terrain_plan_z_m_[1]
+         << "," << terrain_plan_z_m_[2]
+         << "," << terrain_plan_z_m_[3]
+         << "," << terrain_plan_body_feet_[0].x
+         << "," << terrain_plan_body_feet_[1].x
+         << "," << terrain_plan_body_feet_[2].x
+         << "," << terrain_plan_body_feet_[3].x
+         << "," << terrain_plan_body_feet_[0].y
+         << "," << terrain_plan_body_feet_[1].y
+         << "," << terrain_plan_body_feet_[2].y
+         << "," << terrain_plan_body_feet_[3].y
+         << "," << terrain_observe_status_[0]
          << "," << terrain_observe_status_[1]
          << "," << terrain_observe_status_[2]
          << "," << terrain_observe_status_[3]

@@ -1638,9 +1638,15 @@ void TrotExperiment::UpdateTerrainPlanner(
     bool failed_swing = false;
     bool elevated_plan = false;
     int elevated_forward_samples = 0;
-    for (const double forward_z : terrain_fwd_z_m_)
-        if (std::isfinite(forward_z) && forward_z > 0.02)
+    for (const double forward_x : {0.20, 0.40, 0.60, 0.80})
+    {
+        double forward_z = 0.0;
+        bool known = false;
+        if (terrain_map.SampleHeight(
+                forward_x, 0.0, forward_z, known) && known &&
+            std::isfinite(forward_z) && forward_z > 0.02)
             ++elevated_forward_samples;
+    }
     // Use the same live sensing path as terrain observation. This avoids
     // treating sparse-map interpolation artifacts as an obstacle while
     // retaining a two-sample persistence requirement for a riser.
