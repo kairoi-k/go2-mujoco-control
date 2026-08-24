@@ -1684,7 +1684,9 @@ void TrotExperiment::UpdateTerrainPlanner(
     double support_rear_height_sum = 0.0;
     int support_front_height_count = 0;
     int support_rear_height_count = 0;
+    std::array<bool, go2::kLegCount> measured_support{};
     auto record_measured_support = [&](std::size_t leg) {
+        measured_support[leg] = true;
         ++support_count;
         support_min_x = std::min(support_min_x, actual_body_feet[leg].x);
         support_max_x = std::max(support_max_x, actual_body_feet[leg].x);
@@ -1958,12 +1960,25 @@ void TrotExperiment::UpdateTerrainPlanner(
                 terrain_body_height_ref_m_, 0.32, 0.50);
         }
     }
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (measured_support[leg])
+        {
+            const auto &world_foot = actual_world_feet[leg];
+            terrain_mpc_foot_world_[leg] = world_foot;
+        }
+    }
     if (terrain_contact_plan_active_ &&
         (support_count < 2 || terrain_support_margin_m_ <= 0.0))
     {
         terrain_plan_safe_stop_ = true;
         task_.stop_requested_ = true;
-        std::cerr << "Terrain contact support margin lost; requesting safe stop\n";
+        std::cerr << "Terrain contact support margin lost; requesting safe stop"
+                  << " count=" << support_count
+                  << " margin=" << terrain_support_margin_m_
+                  << " x=" << support_min_x << "," << support_max_x
+                  << " y=" << support_min_y << "," << support_max_y
+                  << "\n";
     }
     // Body pitch must follow confirmed support contacts.  A future foothold
     // candidate may be geometrically valid but not yet load-bearing; using it
