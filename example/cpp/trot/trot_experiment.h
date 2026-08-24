@@ -435,6 +435,8 @@ private:
     double terrain_support_area_m2_ = 0.0;
     int terrain_scheduled_contact_mask_ = 0;
     int terrain_measured_contact_mask_ = 0;
+    bool terrain_contact_recovery_requested_ = false;
+    double terrain_contact_recovery_start_s_ = -1.0;
     double terrain_com_ref_body_x_m_ = 0.0;
     double terrain_com_ref_body_y_m_ = 0.0;
     bool terrain_com_ref_valid_ = false;

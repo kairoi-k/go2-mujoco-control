@@ -337,8 +337,9 @@ bool TrotExperiment::BuildGaitTargets(
     // an inconsistent four-contact plant before the body's momentum is gone.
     // Enter stance hold only after the measured-speed/attitude gate below
     // has accepted the brake completion.
-    if (high_speed_stop_hold_active_)
-        locomotion_kernel_->SetStanceHold(true, gait_time_s);
+    locomotion_kernel_->SetStanceHold(
+        high_speed_stop_hold_active_ ||
+            terrain_contact_recovery_requested_, gait_time_s);
     if (!locomotion_kernel_->Compute(gait_request, gait_result))
     {
         std::cerr << "Locomotion kernel failed at gait_time="
@@ -2016,18 +2017,52 @@ void TrotExperiment::UpdateTerrainPlanner(
                 }
         terrain_support_area_m2_ = max_triangle_area;
     }
-    if (terrain_contact_plan_active_ &&
-        (support_count < 3 || terrain_support_area_m2_ < 0.005))
+    const bool support_topology_invalid =
+        support_count < 3 || terrain_support_area_m2_ < 0.005;
+    if ((terrain_contact_plan_active_ ||
+         terrain_contact_recovery_requested_) && support_count < 2)
     {
         terrain_plan_safe_stop_ = true;
         task_.stop_requested_ = true;
-        std::cerr << "Terrain contact support margin lost; requesting safe stop"
-                  << " count=" << support_count
-                  << " area=" << terrain_support_area_m2_
-                  << " margin=" << terrain_support_margin_m_
-                  << " x=" << support_min_x << "," << support_max_x
-                  << " y=" << support_min_y << "," << support_max_y
-                  << "\n";
+        std::cerr << "Terrain contact recovery lost all support;"
+                  << " requesting safe stop count=" << support_count << "\n";
+    }
+    else if ((terrain_contact_plan_active_ ||
+              terrain_contact_recovery_requested_) &&
+             support_topology_invalid)
+    {
+        // Recovery is a command-layer stop request: let the Phase1 shaper
+        // bring the applied velocity to zero instead of carrying terrain
+        // cruise momentum into the stance hold.
+        terrain_speed_limit_mps_ = 0.0;
+        terrain_risk_clear_since_s_ = -1.0;
+        if (terrain_contact_recovery_start_s_ < 0.0)
+        {
+            terrain_contact_recovery_start_s_ = now_s;
+            terrain_contact_recovery_requested_ = true;
+            std::cerr << "Terrain contact recovery requested"
+                      << " count=" << support_count
+                      << " area=" << terrain_support_area_m2_ << "\n";
+        }
+        else if (now_s - terrain_contact_recovery_start_s_ >=
+                 std::max(0.30, gait_result.period_s))
+        {
+            terrain_plan_safe_stop_ = true;
+            task_.stop_requested_ = true;
+            std::cerr << "Terrain contact recovery failed; requesting safe stop"
+                      << " count=" << support_count
+                      << " area=" << terrain_support_area_m2_
+                      << " margin=" << terrain_support_margin_m_ << "\n";
+        }
+    }
+    else if (terrain_contact_recovery_requested_ &&
+             !support_topology_invalid &&
+             now_s - terrain_contact_recovery_start_s_ >=
+                 std::max(0.30, gait_result.period_s))
+    {
+        terrain_contact_recovery_requested_ = false;
+        terrain_contact_recovery_start_s_ = -1.0;
+        std::cerr << "Terrain contact recovery completed\n";
     }
     // Body pitch must follow confirmed support contacts.  A future foothold
     // candidate may be geometrically valid but not yet load-bearing; using it

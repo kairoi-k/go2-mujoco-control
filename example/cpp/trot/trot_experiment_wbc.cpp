@@ -227,6 +227,8 @@ void TrotExperiment::UpdateWbcFull(
         }
         if (params_.terrain_planner && terrain_contact_plan_active_)
             qp_contact = measured_contact;
+        if (params_.terrain_planner && terrain_contact_recovery_requested_)
+            qp_contact.fill(true);
     }
     int contact_mask = 0;
     int active = 0;
@@ -429,6 +431,7 @@ void TrotExperiment::UpdateWbcFull(
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             if (params_.terrain_planner && terrain_contact_plan_active_ &&
+                !terrain_contact_recovery_requested_ &&
                 terrain_plan_valid_[leg])
             {
                 const auto &target = terrain_mpc_foot_world_[leg];
@@ -443,7 +446,10 @@ void TrotExperiment::UpdateWbcFull(
         if (task_.gait_started_ &&
             (task_.motion_stage_ == 2 || WbcStopHoldActive()))
         {
-            if (WbcStopHoldActive() || high_speed_stop_support)
+            if (terrain_contact_recovery_requested_)
+                for (int k = 0; k < mpc_params.horizon; ++k)
+                    mpc_in.contact[k].fill(true);
+            else if (WbcStopHoldActive() || high_speed_stop_support)
                 for (int k = 0; k < mpc_params.horizon; ++k)
                     mpc_in.contact[k].fill(true);
             else if (motion_event_response_enabled_ && EmergencyStopHoldReady())
