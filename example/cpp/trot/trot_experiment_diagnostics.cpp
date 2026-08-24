@@ -114,6 +114,7 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_planner_solver_ok,terrain_planner_safe_stop"
          << ",terrain_planner_latency_us,terrain_planner_iterations"
          << ",terrain_support_margin_m,terrain_body_height_ref_m"
+         << ",terrain_support_contact_count,terrain_support_area_m2"
          << ",terrain_body_pitch_ref_rad"
          << ",terrain_com_ref_body_x_m,terrain_com_ref_body_y_m"
          << ",terrain_contact_plan_active,terrain_pattern_blend"
@@ -773,6 +774,8 @@ void TrotExperiment::LogSample(
          << "," << terrain_plan_iterations_
          << "," << terrain_support_margin_m_
          << "," << terrain_body_height_ref_m_
+         << "," << terrain_support_contact_count_
+         << "," << terrain_support_area_m2_
          << "," << terrain_body_pitch_ref_rad_
          << "," << terrain_com_ref_body_x_m_
          << "," << terrain_com_ref_body_y_m_

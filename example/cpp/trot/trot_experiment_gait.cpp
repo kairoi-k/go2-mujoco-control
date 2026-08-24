@@ -1604,6 +1604,8 @@ void TrotExperiment::UpdateTerrainPlanner(
     terrain_plan_safe_stop_ = false;
     terrain_plan_iterations_ = 0;
     terrain_support_margin_m_ = -1.0;
+    terrain_support_contact_count_ = 0;
+    terrain_support_area_m2_ = 0.0;
     terrain_com_ref_valid_ = false;
 
     unitree_go::msg::dds_::HeightMap_ height_map;
@@ -1981,13 +1983,36 @@ void TrotExperiment::UpdateTerrainPlanner(
             terrain_mpc_foot_world_[leg] = world_foot;
         }
     }
+    terrain_support_contact_count_ = support_count;
+    if (support_count >= 3)
+    {
+        double max_triangle_area = 0.0;
+        for (std::size_t i = 0; i < go2::kLegCount; ++i)
+            for (std::size_t j = i + 1; j < go2::kLegCount; ++j)
+                for (std::size_t k = j + 1; k < go2::kLegCount; ++k)
+                {
+                    if (!measured_support[i] || !measured_support[j] ||
+                        !measured_support[k])
+                        continue;
+                    const auto &a = actual_body_feet[i];
+                    const auto &b = actual_body_feet[j];
+                    const auto &c = actual_body_feet[k];
+                    const double twice_area =
+                        (b.x - a.x) * (c.y - a.y) -
+                        (b.y - a.y) * (c.x - a.x);
+                    max_triangle_area = std::max(
+                        max_triangle_area, 0.5 * std::abs(twice_area));
+                }
+        terrain_support_area_m2_ = max_triangle_area;
+    }
     if (terrain_contact_plan_active_ &&
-        (support_count < 2 || terrain_support_margin_m_ <= 0.0))
+        (support_count < 3 || terrain_support_area_m2_ < 0.005))
     {
         terrain_plan_safe_stop_ = true;
         task_.stop_requested_ = true;
         std::cerr << "Terrain contact support margin lost; requesting safe stop"
                   << " count=" << support_count
+                  << " area=" << terrain_support_area_m2_
                   << " margin=" << terrain_support_margin_m_
                   << " x=" << support_min_x << "," << support_max_x
                   << " y=" << support_min_y << "," << support_max_y

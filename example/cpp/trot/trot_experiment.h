@@ -431,6 +431,8 @@ private:
     bool terrain_plan_solver_ok_ = false;
     bool terrain_plan_safe_stop_ = false;
     double terrain_support_margin_m_ = -1.0;
+    int terrain_support_contact_count_ = 0;
+    double terrain_support_area_m2_ = 0.0;
     double terrain_com_ref_body_x_m_ = 0.0;
     double terrain_com_ref_body_y_m_ = 0.0;
     bool terrain_com_ref_valid_ = false;
