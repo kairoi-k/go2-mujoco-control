@@ -591,7 +591,9 @@ void TrotExperiment::UpdateMotionEventResponse(
     const double scaled_nominal_step =
         std::abs(params_.step_length_m) * motion_reference_.step_scale;
     const double event_step = std::min(velocity_step, scaled_nominal_step);
-    locomotion_kernel_->SetStanceHold(motion_reference_.hold_stance, gait_elapsed_s);
+    locomotion_kernel_->SetStanceHold(
+        motion_reference_.hold_stance || terrain_step_hold_ ||
+            terrain_step_blocked_, gait_elapsed_s);
     locomotion_kernel_->SetGaitStepLength(event_step);
     locomotion_kernel_->SetGaitDuty(motion_reference_.duty_factor);
     locomotion_kernel_->SetGaitFootLift(motion_reference_.foot_lift_m);

@@ -75,6 +75,16 @@ public:
         constexpr double kSlotFraction = 0.25;
         constexpr double kSwingFraction = kSlotFraction * 0.70;
 
+        if (stance_hold_)
+            phase_origin_gait_time_s_ = request.gait_time_s;
+        const double gait_dt = last_gait_time_s_ >= 0.0
+            ? std::max(0.0, request.gait_time_s - last_gait_time_s_)
+            : 0.0;
+        last_gait_time_s_ = request.gait_time_s;
+        const double hold_step = std::clamp(gait_dt / 0.25, 0.0, 1.0);
+        const double hold_target = stance_hold_ ? 1.0 : 0.0;
+        stance_hold_blend_ +=
+            (hold_target - stance_hold_blend_) * hold_step;
         const double effective_gait_time = std::max(
             0.0, request.gait_time_s - phase_origin_gait_time_s_);
         const double cycle_position = effective_gait_time / params_.period_s;
@@ -110,7 +120,9 @@ public:
             const double leg_phase =
                 (result.phase - swing_start + 1.0) -
                 std::floor(result.phase - swing_start + 1.0);
-            result.scheduled_swing[leg] = leg_phase < kSwingFraction;
+            result.scheduled_swing[leg] =
+                !(stance_hold_ && stance_hold_blend_ > 0.98) &&
+                leg_phase < kSwingFraction;
             if (leg_phase < kSwingFraction)
             {
                 // Swing: foot travels -half -> +half step while lifting on
@@ -132,8 +144,9 @@ public:
                            params_.step_length_m * Smoothstep(s);
             }
             x_offset *= params_.direction_sign;
-            result.feet[leg].x += blend * x_offset;
-            result.feet[leg].z += blend * z_offset;
+            const double gait_blend = blend * (1.0 - stance_hold_blend_);
+            result.feet[leg].x += gait_blend * x_offset;
+            result.feet[leg].z += gait_blend * z_offset;
         }
         return true;
     }
@@ -153,6 +166,8 @@ private:
     GaitKernelParams params_;
     bool stance_hold_ = false;
     double phase_origin_gait_time_s_ = 0.0;
+    double last_gait_time_s_ = -1.0;
+    double stance_hold_blend_ = 0.0;
 };
 
 }  // namespace go2_control

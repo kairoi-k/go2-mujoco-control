@@ -1081,6 +1081,23 @@ void TrotExperiment::ApplyTerrainSwingOffsets(
     if (!have_map || height_map.width() == 0 || height_map.resolution() <= 0.0f)
     {
         terrain_swing_dz_m_.fill(0.0);
+        terrain_step_target_valid_.fill(false);
+        terrain_step_target_armed_.fill(false);
+        terrain_step_progress_.fill(0.0);
+        terrain_step_apex_z_.fill(0.0);
+        terrain_previous_swing_.fill(false);
+        terrain_step_hold_ = false;
+        terrain_step_blocked_ = false;
+        terrain_step_hold_time_s_ = 0.0;
+        terrain_step_motion_hold_ = false;
+        terrain_step_active_leg_ = -1;
+        terrain_step_landing_dwell_s_ = 0.0;
+        terrain_step_body_shift_x_m_ = 0.0;
+        terrain_step_body_shift_y_m_ = 0.0;
+        terrain_step_body_shift_target_x_m_ = 0.0;
+        terrain_step_body_shift_target_y_m_ = 0.0;
+        terrain_step_weight_shift_ready_ = false;
+        terrain_step_body_returning_ = false;
         return;
     }
 
@@ -1098,6 +1115,33 @@ void TrotExperiment::ApplyTerrainSwingOffsets(
 
     const WorldPose pose = ComputeWorldPose(low_state, high_state);
     const auto inv_q = InvertQuaternion(pose.quaternion);
+    const auto world_feet = ComputeWorldFeet(low_state, pose);
+    if (terrain_step_motion_hold_ &&
+        (std::abs(static_cast<double>(high_state.imu_state().rpy()[0])) >
+             0.14 ||
+         std::abs(static_cast<double>(high_state.imu_state().rpy()[1])) >
+             0.14))
+    {
+        terrain_step_target_valid_.fill(false);
+        terrain_step_target_armed_.fill(false);
+        terrain_step_progress_.fill(0.0);
+        terrain_step_motion_hold_ = false;
+        terrain_step_hold_ = false;
+        terrain_step_active_leg_ = -1;
+        terrain_step_landing_dwell_s_ = 0.0;
+        terrain_step_body_shift_x_m_ = 0.0;
+        terrain_step_body_shift_y_m_ = 0.0;
+        terrain_step_body_shift_target_x_m_ = 0.0;
+        terrain_step_body_shift_target_y_m_ = 0.0;
+        terrain_step_weight_shift_ready_ = false;
+        terrain_step_body_returning_ = false;
+        terrain_step_blocked_ = true;
+        terrain_step_scale_ = 0.0;
+        motion_reference_.vx_mps = 0.0;
+        motion_reference_.vy_mps = 0.0;
+        motion_reference_.yaw_rate_radps = 0.0;
+        std::cerr << "Terrain step aborted: support posture left safe margin\n";
+    }
     go2_control::terrain::TerrainFootholdPlannerParams planner_params{};
     auto plan_at = [&](go2::Leg leg, double body_x, double body_y,
                        double ref_z,
@@ -1115,6 +1159,102 @@ void TrotExperiment::ApplyTerrainSwingOffsets(
             planner_params, terrain_map, request, output);
     };
 
+    // Reserve a foothold only when the complete swing is reachable and stays
+    // above the previewed terrain. A valid landing patch alone is not enough
+    // to justify an open-loop foot jump.
+    auto preview_step = [&](go2::Leg leg,
+                            const go2::Vec3 &start,
+                            const go2::Vec3 &target,
+                            double &apex_z_out) {
+        apex_z_out = 0.0;
+        constexpr int kSamples = 20;
+        const double min_apex_z = std::max(start.z, target.z) + 0.060;
+        for (double apex_z = min_apex_z; apex_z <= min_apex_z + 0.120;
+             apex_z += 0.010)
+        {
+            bool valid = true;
+            for (int i = 0; i <= kSamples; ++i)
+            {
+                const double alpha = static_cast<double>(i) /
+                    static_cast<double>(kSamples);
+                const double s = alpha * alpha * alpha *
+                    (alpha * (alpha * 6.0 - 15.0) + 10.0);
+                const double linear_z = start.z + (target.z - start.z) * s;
+                const double lift = std::max(0.0, apex_z - linear_z) *
+                    16.0 * s * s * (1.0 - s) * (1.0 - s);
+                go2::Vec3 world{
+                    start.x + (target.x - start.x) * s,
+                    start.y + (target.y - start.y) * s,
+                    linear_z + lift};
+                const go2::Vec3 body = RotateByQuaternion(
+                    inv_q, {world.x - pose.base.x,
+                            world.y - pose.base.y,
+                            world.z - pose.base.z});
+                double terrain_z = 0.0;
+                bool known = false;
+                if (!terrain_map.SampleHeight(
+                        body.x, body.y, terrain_z, known) || !known)
+                {
+                    valid = false;
+                    break;
+                }
+                const double clearance =
+                    i == kSamples ? 0.006 : kSwingClearanceM;
+                if (i < kSamples)
+                    world.z = std::max(world.z, terrain_z + clearance);
+                go2::LegJointPositions joints{};
+                const go2::Vec3 adjusted_body = RotateByQuaternion(
+                    inv_q, {world.x - pose.base.x,
+                            world.y - pose.base.y,
+                            world.z - pose.base.z});
+                if (!go2::LegInverseKinematics(leg, adjusted_body, joints))
+                {
+                    valid = false;
+                    break;
+                }
+            }
+            if (valid)
+            {
+                apex_z_out = apex_z;
+                return true;
+            }
+        }
+        return false;
+    };
+
+    auto support_polygon_ok = [&](std::size_t lifted_leg) {
+        std::array<go2::Vec3, 3> support{};
+        std::size_t n = 0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            if (leg != lifted_leg)
+                support[n++] = world_feet[leg];
+        const go2::Vec3 centroid{
+            (support[0].x + support[1].x + support[2].x) / 3.0,
+            (support[0].y + support[1].y + support[2].y) / 3.0, 0.0};
+        std::sort(support.begin(), support.end(), [&](const go2::Vec3 &a,
+                                                      const go2::Vec3 &b) {
+            return std::atan2(a.y - centroid.y, a.x - centroid.x) <
+                std::atan2(b.y - centroid.y, b.x - centroid.x);
+        });
+        bool positive = false;
+        bool negative = false;
+        double min_margin = std::numeric_limits<double>::infinity();
+        for (std::size_t i = 0; i < support.size(); ++i)
+        {
+            const auto &a = support[i];
+            const auto &b = support[(i + 1) % support.size()];
+            const double ex = b.x - a.x;
+            const double ey = b.y - a.y;
+            const double cross = ex * (pose.base.y - a.y) -
+                ey * (pose.base.x - a.x);
+            positive = positive || cross > 0.0;
+            negative = negative || cross < 0.0;
+            min_margin = std::min(
+                min_margin, std::abs(cross) / std::hypot(ex, ey));
+        }
+        return !(positive && negative) && min_margin >= 0.080;
+    };
+
     const double duty =
         gait_result.duty_factor > 0.05 ? gait_result.duty_factor
                                        : params_.duty_factor;
@@ -1129,6 +1269,7 @@ void TrotExperiment::ApplyTerrainSwingOffsets(
     double elevation_sum = 0.0;
     std::array<double, go2::kLegCount> patch_z{};
     std::array<bool, go2::kLegCount> swinging{};
+    bool pair_planned_this_cycle = false;
     patch_z.fill(std::numeric_limits<double>::quiet_NaN());
 
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -1149,7 +1290,7 @@ void TrotExperiment::ApplyTerrainSwingOffsets(
             output.status ==
                 go2_control::terrain::TerrainPlanStatus::kValid &&
             output.world_z_m > foot_world_z + kMinElevatedZM;
-        if (valid_elevated)
+        if (valid_elevated && output.world_z_m < 0.08)
             patch_z[leg] = output.world_z_m;
         if (!swinging[leg] && valid_elevated)
         {
@@ -1182,12 +1323,352 @@ void TrotExperiment::ApplyTerrainSwingOffsets(
         }
     }
 
+    if (terrain_step_hold_ || terrain_step_landing_dwell_s_ > 0.0 ||
+        terrain_step_blocked_)
+        swinging.fill(false);
+    if (terrain_step_active_leg_ >= 0)
+    {
+        swinging.fill(false);
+        const auto active = static_cast<std::size_t>(terrain_step_active_leg_);
+        swinging[active] = terrain_step_target_armed_[active];
+    }
+    kernel_swing_schedule_ = swinging;
+
+    const double dt_s =
+        last_motion_dt_s_ > 1e-4 ? last_motion_dt_s_ : 0.002;
+    bool any_step_target = false;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const bool swing_started =
+            swinging[leg] && !terrain_previous_swing_[leg];
+        if (params_.kernel_name == "crawl" && leg == 0 &&
+            !terrain_step_target_valid_[0] &&
+            !terrain_step_target_valid_[1] &&
+            low_state.tick() % 25 == 0)
+        {
+            auto step_params = planner_params;
+            step_params.candidate_dx_m = {{0.48, 0.52, 0.56, 0.60, 0.64}};
+            step_params.candidate_dy_m = {{0.0}};
+            go2_control::terrain::TerrainFootholdRequest request{};
+            request.leg = static_cast<go2::Leg>(leg);
+            request.base_world_z_m = pose.base.z;
+            request.nominal_body_x_m = 0.0;
+            request.nominal_body_y_m = feet[leg].y;
+            request.nominal_body_z_m = 0.0;
+            request.reference_foot_world_z_m = pose.base.z +
+                RotateByQuaternion(pose.quaternion, feet[leg]).z;
+            go2_control::terrain::TerrainFootholdOutput step_output{};
+            go2_control::terrain::PlanTerrainFoothold(
+                step_params, terrain_map, request, step_output);
+            const bool target_surface_ok =
+                step_output.status ==
+                    go2_control::terrain::TerrainPlanStatus::kValid &&
+                step_output.world_z_m > 0.03;
+            auto centered_on_patch = [&](
+                const go2_control::terrain::TerrainFootholdOutput &output) {
+                if (output.status !=
+                        go2_control::terrain::TerrainPlanStatus::kValid)
+                    return false;
+                for (const double dx : {-0.06, 0.06})
+                {
+                    double h = 0.0;
+                    bool known = false;
+                    if (!terrain_map.SampleHeight(
+                            output.body_foot.x + dx,
+                            output.body_foot.y, h, known) || !known ||
+                        std::abs(h - output.world_z_m) > 0.020)
+                        return false;
+                }
+                return true;
+            };
+            if (target_surface_ok && centered_on_patch(step_output) &&
+                step_output.world_z_m >= -0.02)
+            {
+                const double target_delta =
+                    pose.base.x + step_output.body_foot.x - world_feet[leg].x;
+                go2_control::terrain::TerrainFootholdRequest other_request =
+                    request;
+                other_request.leg = go2::Leg::FL;
+                other_request.nominal_body_y_m = feet[1].y;
+                other_request.reference_foot_world_z_m = pose.base.z +
+                    RotateByQuaternion(pose.quaternion, feet[1]).z;
+                go2_control::terrain::TerrainFootholdOutput other_output{};
+                go2_control::terrain::PlanTerrainFoothold(
+                    step_params, terrain_map, other_request, other_output);
+                const double other_delta =
+                    pose.base.x + other_output.body_foot.x - world_feet[1].x;
+                const bool other_surface_ok =
+                    other_output.status ==
+                        go2_control::terrain::TerrainPlanStatus::kValid &&
+                    other_output.world_z_m > 0.03 &&
+                    centered_on_patch(other_output);
+                double fr_apex_z = 0.0;
+                double fl_apex_z = 0.0;
+                const bool fr_preview =
+                    preview_step(
+                        go2::Leg::FR, world_feet[0],
+                        {pose.base.x + step_output.body_foot.x,
+                         pose.base.y + step_output.body_foot.y,
+                         step_output.world_z_m}, fr_apex_z);
+                const bool fl_preview =
+                    preview_step(
+                        go2::Leg::FL, world_feet[1],
+                        {pose.base.x + other_output.body_foot.x,
+                         pose.base.y + other_output.body_foot.y,
+                         other_output.world_z_m}, fl_apex_z);
+                const bool pair_ready =
+                    other_surface_ok &&
+                    target_delta >= 0.25 && target_delta <= 0.65 &&
+                    other_delta >= 0.25 && other_delta <= 0.65 &&
+                    std::abs(step_output.body_foot.y - feet[0].y) <= 0.03 &&
+                    std::abs(other_output.body_foot.y - feet[1].y) <= 0.03 &&
+                    fr_preview && fl_preview &&
+                    support_polygon_ok(0) && support_polygon_ok(1);
+                if (pair_ready)
+                {
+                    terrain_step_target_world_[0] = {
+                        pose.base.x + step_output.body_foot.x,
+                        pose.base.y + step_output.body_foot.y,
+                        step_output.world_z_m};
+                    terrain_step_target_world_[1] = {
+                        pose.base.x + other_output.body_foot.x,
+                        pose.base.y + other_output.body_foot.y,
+                        other_output.world_z_m};
+                    terrain_step_apex_z_[0] = fr_apex_z;
+                    terrain_step_apex_z_[1] = fl_apex_z;
+                    terrain_step_target_valid_[0] = true;
+                    terrain_step_target_valid_[1] = true;
+                    terrain_step_target_armed_[0] = false;
+                    terrain_step_target_armed_[1] = false;
+                    terrain_step_progress_[0] = 0.0;
+                    terrain_step_progress_[1] = 0.0;
+                    terrain_step_hold_ = true;
+                    terrain_step_hold_time_s_ = 0.0;
+                    terrain_step_motion_hold_ = true;
+                    terrain_step_blocked_ = false;
+                    terrain_step_body_shift_x_m_ = 0.0;
+                    terrain_step_body_shift_y_m_ = 0.0;
+                    terrain_step_body_shift_target_x_m_ = -0.070;
+                    terrain_step_body_shift_target_y_m_ = 0.0;
+                    terrain_step_weight_shift_ready_ = false;
+                    terrain_step_body_returning_ = false;
+                    pair_planned_this_cycle = true;
+                    terrain_step_active_leg_ = -1;
+                    terrain_step_landing_dwell_s_ = 0.0;
+                    std::cout << "Terrain front pair target x="
+                              << terrain_step_target_world_[0].x << ","
+                              << terrain_step_target_world_[1].x << " z="
+                              << terrain_step_target_world_[0].z << ","
+                              << terrain_step_target_world_[1].z << " y="
+                              << terrain_step_target_world_[0].y << ","
+                              << terrain_step_target_world_[1].y << " apex="
+                              << terrain_step_apex_z_[0] << ","
+                              << terrain_step_apex_z_[1] << "\n";
+                }
+            }
+        }
+        if (!terrain_step_motion_hold_ && terrain_step_target_valid_[leg] &&
+            terrain_step_progress_[leg] >= 0.999 && swing_started)
+        {
+            terrain_step_target_valid_[leg] = false;
+            terrain_step_target_armed_[leg] = false;
+            terrain_step_progress_[leg] = 0.0;
+        }
+        if (terrain_step_target_valid_[leg] &&
+            !terrain_step_target_armed_[leg] && swinging[leg] &&
+            !terrain_step_hold_ &&
+            terrain_step_active_leg_ == -1 &&
+            terrain_step_landing_dwell_s_ <= 0.0 &&
+            terrain_step_weight_shift_ready_ &&
+            std::abs(static_cast<double>(high_state.velocity()[0])) < 0.05 &&
+            (!have_filtered_body_velocity_ ||
+             std::abs(latest_filtered_body_velocity_[0]) < 0.06) &&
+            std::abs(static_cast<double>(high_state.imu_state().rpy()[0])) <
+                0.12 &&
+            std::abs(static_cast<double>(high_state.imu_state().rpy()[1])) <
+                0.12)
+        {
+            terrain_step_start_world_[leg] = world_feet[leg];
+            terrain_step_target_armed_[leg] = false;
+            terrain_step_progress_[leg] = 0.0;
+            terrain_step_active_leg_ = static_cast<int>(leg);
+            terrain_step_body_shift_target_y_m_ = leg == 0 ? 0.060 : -0.060;
+            terrain_step_weight_shift_ready_ = false;
+        }
+        if (terrain_step_target_valid_[leg] &&
+            !terrain_step_target_armed_[leg] &&
+            terrain_step_active_leg_ == static_cast<int>(leg) &&
+            terrain_step_weight_shift_ready_)
+        {
+            terrain_step_start_world_[leg] = world_feet[leg];
+            terrain_step_target_armed_[leg] = true;
+            terrain_step_progress_[leg] = 0.0;
+        }
+        if (terrain_step_target_valid_[leg] &&
+            terrain_step_target_armed_[leg])
+        {
+            const auto &start = terrain_step_start_world_[leg];
+            const auto &target = terrain_step_target_world_[leg];
+            const double transfer_dt_s =
+                last_motion_dt_s_ > 1.0e-4 ? last_motion_dt_s_ : 0.002;
+            const double transfer_duration_s = 1.50;
+            terrain_step_progress_[leg] = std::min(
+                1.0, terrain_step_progress_[leg] +
+                    transfer_dt_s / transfer_duration_s);
+            const double alpha = terrain_step_progress_[leg];
+            const double s = alpha * alpha * alpha *
+                (alpha * (alpha * 6.0 - 15.0) + 10.0);
+            const double linear_z = start.z + (target.z - start.z) * s;
+            const double planned_apex_z = terrain_step_apex_z_[leg];
+            const double apex_z = planned_apex_z > 0.0
+                ? planned_apex_z
+                : std::max(start.z, target.z) + 0.060;
+            const double lift = std::max(0.0, apex_z - linear_z) *
+                16.0 * s * s * (1.0 - s) * (1.0 - s);
+            go2::Vec3 target_world{
+                start.x + (target.x - start.x) * s,
+                start.y + (target.y - start.y) * s,
+                linear_z + lift};
+            if (terrain_step_progress_[leg] < 0.999)
+            {
+                const go2::Vec3 body_xy = RotateByQuaternion(
+                    inv_q, {target_world.x - pose.base.x,
+                            target_world.y - pose.base.y, 0.0});
+                double terrain_z = 0.0;
+                bool known = false;
+                if (terrain_map.SampleHeight(
+                        body_xy.x, body_xy.y, terrain_z, known) && known)
+                {
+                    target_world.z = std::max(
+                        target_world.z, terrain_z + kSwingClearanceM);
+                }
+            }
+            feet[leg] = RotateByQuaternion(
+                inv_q, {target_world.x - pose.base.x,
+                        target_world.y - pose.base.y,
+                        target_world.z - pose.base.z});
+            patch_z[leg] = target.z;
+            if (terrain_step_progress_[leg] >= 0.999)
+            {
+                terrain_step_active_leg_ = -1;
+                terrain_step_landing_dwell_s_ = 0.20;
+            }
+        }
+        any_step_target = any_step_target ||
+            terrain_step_target_valid_[leg];
+    }
+    if (low_state.tick() % 500 == 0 && any_step_target)
+        std::cout << "Terrain transfer state valid="
+                  << terrain_step_target_valid_[0] << ","
+                  << terrain_step_target_valid_[1] << " armed="
+                  << terrain_step_target_armed_[0] << ","
+                  << terrain_step_target_armed_[1] << " progress="
+                  << terrain_step_progress_[0] << ","
+                  << terrain_step_progress_[1] << "\n";
+    if (front_look_elev && !any_step_target && !pair_planned_this_cycle &&
+        !terrain_step_hold_ && !terrain_step_motion_hold_ &&
+        !terrain_step_blocked_)
+    {
+        terrain_step_blocked_ = true;
+        terrain_step_scale_ = 0.0;
+        motion_reference_.vx_mps = 0.0;
+        motion_reference_.vy_mps = 0.0;
+        motion_reference_.yaw_rate_radps = 0.0;
+        std::cerr << "Terrain step blocked: no collision-free, support-safe "
+                     "front pair is currently reachable\n";
+    }
+    if (any_step_target)
+        terrain_step_blocked_ = false;
+    if (any_step_target && terrain_step_hold_)
+    {
+        terrain_step_hold_time_s_ += dt_s;
+        const bool stable =
+            std::abs(static_cast<double>(high_state.velocity()[0])) < 0.05 &&
+            (!have_filtered_body_velocity_ ||
+             std::abs(latest_filtered_body_velocity_[0]) < 0.03) &&
+            std::abs(static_cast<double>(high_state.imu_state().rpy()[0])) <
+                0.10 &&
+            std::abs(static_cast<double>(high_state.imu_state().rpy()[1])) <
+                0.10;
+        if (terrain_step_hold_time_s_ >= 0.80 && stable)
+        {
+            terrain_step_hold_ = false;
+            std::cout << "Terrain step prepare complete; releasing crawl\n";
+        }
+    }
+    if (terrain_step_landing_dwell_s_ > 0.0)
+        terrain_step_landing_dwell_s_ = std::max(
+            0.0, terrain_step_landing_dwell_s_ - dt_s);
+    bool front_pair_complete = true;
+    for (std::size_t leg = 0; leg < 2; ++leg)
+        front_pair_complete = front_pair_complete &&
+            terrain_step_target_valid_[leg] &&
+            terrain_step_progress_[leg] >= 0.999;
+    if (terrain_step_motion_hold_ && front_pair_complete &&
+        !terrain_step_hold_ && !terrain_step_body_returning_)
+    {
+        terrain_step_body_returning_ = true;
+        terrain_step_body_shift_target_x_m_ = 0.0;
+        terrain_step_body_shift_target_y_m_ = 0.0;
+        terrain_step_weight_shift_ready_ = false;
+        std::cout << "Terrain front pair landed; returning body to neutral\n";
+    }
+    if (terrain_step_motion_hold_)
+    {
+        motion_reference_.vx_mps = 0.0;
+        motion_reference_.vy_mps = 0.0;
+        motion_reference_.yaw_rate_radps = 0.0;
+    }
+
+    // Transfer the body over the three stance feet before releasing a front
+    // leg.  This is deliberately slower than the swing itself: the planner
+    // must create a stable support state, not merely a kinematically valid
+    // foot target.
+    if (terrain_step_motion_hold_ || terrain_step_active_leg_ >= 0)
+    {
+        const double shift_rate = 0.16 * dt_s;
+        terrain_step_body_shift_x_m_ += std::clamp(
+            terrain_step_body_shift_target_x_m_ -
+                terrain_step_body_shift_x_m_,
+            -shift_rate, shift_rate);
+        terrain_step_body_shift_y_m_ += std::clamp(
+            terrain_step_body_shift_target_y_m_ -
+                terrain_step_body_shift_y_m_,
+            -shift_rate, shift_rate);
+        terrain_step_weight_shift_ready_ =
+            std::abs(terrain_step_body_shift_x_m_ -
+                     terrain_step_body_shift_target_x_m_) < 0.006 &&
+            std::abs(terrain_step_body_shift_y_m_ -
+                     terrain_step_body_shift_target_y_m_) < 0.006;
+    }
+    if (terrain_step_motion_hold_ || terrain_step_active_leg_ >= 0)
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (terrain_step_active_leg_ >= 0 &&
+                static_cast<int>(leg) == terrain_step_active_leg_ &&
+                terrain_step_target_armed_[leg])
+                continue;
+            feet[leg].x -= terrain_step_body_shift_x_m_;
+            feet[leg].y -= terrain_step_body_shift_y_m_;
+        }
+    }
+    if (terrain_step_body_returning_ &&
+        std::abs(terrain_step_body_shift_x_m_) < 0.006 &&
+        std::abs(terrain_step_body_shift_y_m_) < 0.006)
+    {
+        terrain_step_body_shift_x_m_ = 0.0;
+        terrain_step_body_shift_y_m_ = 0.0;
+        terrain_step_body_returning_ = false;
+        terrain_step_motion_hold_ = false;
+        terrain_step_scale_ = 1.0;
+        std::cout << "Terrain body neutral; resuming nominal crawl\n";
+    }
+
     const double front_z =
         front_z_n > 0 ? front_z_sum / static_cast<double>(front_z_n) : 0.0;
     const double rear_z =
         rear_z_n > 0 ? rear_z_sum / static_cast<double>(rear_z_n) : 0.0;
-    const double dt_s =
-        last_motion_dt_s_ > 1e-4 ? last_motion_dt_s_ : 0.002;
     double pitch_out = 0.0;
     const double creep_scale =
         params_.kernel_name == "crawl" ? 0.35 : 1.0;
@@ -1195,7 +1676,38 @@ void TrotExperiment::ApplyTerrainSwingOffsets(
         front_look_elev, front_support_elev, rear_support_elev,
         front_z, rear_z, dt_s, terrain_step_scale_, pitch_out,
         creep_scale);
-    terrain_pitch_ref_rad_ = pitch_out;
+    if (terrain_step_blocked_)
+    {
+        terrain_step_scale_ = 0.0;
+        motion_reference_.vx_mps = 0.0;
+        motion_reference_.vy_mps = 0.0;
+        motion_reference_.yaw_rate_radps = 0.0;
+    }
+    double desired_step_pitch = 0.0;
+    double desired_height_offset = terrain_step_motion_hold_ ? 0.040 : 0.0;
+    for (std::size_t leg = 0; leg < 2; ++leg)
+    {
+        if (!terrain_step_motion_hold_ || terrain_step_active_leg_ < 0)
+            continue;
+        if (!terrain_step_target_valid_[leg])
+            continue;
+        const double step_height = std::max(
+            0.0, terrain_step_target_world_[leg].z - world_feet[leg].z);
+        desired_step_pitch = std::max(
+            desired_step_pitch, 0.50 * std::atan2(step_height, 0.35));
+    }
+    const double pitch_rate = 0.20 * dt_s;
+    terrain_pitch_ref_rad_ = std::clamp(
+        terrain_pitch_ref_rad_ + std::clamp(
+            desired_step_pitch - terrain_pitch_ref_rad_,
+            -pitch_rate, pitch_rate),
+        -0.12, 0.12);
+    const double height_rate = 0.08 * dt_s;
+    terrain_base_height_offset_m_ += std::clamp(
+        desired_height_offset - terrain_base_height_offset_m_,
+        -height_rate, height_rate);
+    if (terrain_step_motion_hold_)
+        terrain_step_scale_ = 0.0;
     terrain_fsm_phase_ = static_cast<int>(terrain_fsm_.phase);
 
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -1220,10 +1732,10 @@ void TrotExperiment::ApplyTerrainSwingOffsets(
     }
 
     double target_lift = 0.0;
-    if (elevated_stance >= 2)
+    if (!any_step_target && elevated_stance >= 2)
         target_lift = std::clamp(
             elevation_sum / static_cast<double>(elevated_stance),
-            0.0, kMaxDzM);
+            0.0, 0.06);
     const double lift_rate = 0.10 * dt_s;
     const double drop_rate = 0.06 * dt_s;
     body_terrain_lift_m_ += std::clamp(
@@ -1247,6 +1759,8 @@ void TrotExperiment::ApplyTerrainSwingOffsets(
             feet[leg] = inv;
         }
     }
+
+    terrain_previous_swing_ = swinging;
 
     const double now_s = static_cast<double>(low_state.tick()) * 1.0e-3;
     if (now_s - last_act_debug_log_s_ >= 1.0)

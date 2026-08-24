@@ -372,6 +372,29 @@ private:
     double terrain_step_scale_ = 1.0;
     double terrain_pitch_ref_rad_ = 0.0;
     int terrain_fsm_phase_ = 0;
+    std::array<bool, go2::kLegCount> terrain_step_target_valid_{};
+    std::array<bool, go2::kLegCount> terrain_step_target_armed_{};
+    std::array<double, go2::kLegCount> terrain_step_progress_{};
+    std::array<go2::Vec3, go2::kLegCount> terrain_step_start_world_{};
+    std::array<go2::Vec3, go2::kLegCount> terrain_step_target_world_{};
+    std::array<double, go2::kLegCount> terrain_step_apex_z_{};
+    std::array<bool, go2::kLegCount> terrain_previous_swing_{};
+    bool terrain_step_hold_ = false;
+    bool terrain_step_blocked_ = false;
+    double terrain_step_hold_time_s_ = 0.0;
+    bool terrain_step_motion_hold_ = false;
+    int terrain_step_active_leg_ = -1;
+    double terrain_step_landing_dwell_s_ = 0.0;
+    // Quasi-static weight transfer used before the first elevated foothold.
+    // Positive body shift is represented by the opposite displacement of the
+    // stance-foot references, following the validated leg-lift experiment.
+    double terrain_step_body_shift_x_m_ = 0.0;
+    double terrain_step_body_shift_y_m_ = 0.0;
+    double terrain_step_body_shift_target_x_m_ = 0.0;
+    double terrain_step_body_shift_target_y_m_ = 0.0;
+    bool terrain_step_weight_shift_ready_ = false;
+    bool terrain_step_body_returning_ = false;
+    double terrain_base_height_offset_m_ = 0.0;
     std::array<double, go2::kLegCount> terrain_swing_dz_m_{};
     std::array<bool, go2::kLegCount> kernel_swing_schedule_{};
     bool kernel_has_swing_schedule_ = false;

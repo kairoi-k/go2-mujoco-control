@@ -308,13 +308,17 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.reference[0] = 0.0;
         mpc_in.reference[1] = 0.0;
         mpc_in.reference[4] = 0.0;
+        const double terrain_height_offset =
+            params_.terrain_act ? terrain_base_height_offset_m_ : 0.0;
         const double base_height_ref =
             (high_speed_curriculum &&
              Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0) > 0.0)
                 ? std::clamp(
                       Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0),
                       0.32, 0.48)
-                : kWbcPrimaryBaseHeightM;
+                : std::clamp(
+                      kWbcPrimaryBaseHeightM + terrain_height_offset,
+                      0.32, 0.48);
         mpc_in.reference[5] = base_height_ref;
         mpc_in.reference[6] = 0.0;
         mpc_in.reference[7] = 0.0;
