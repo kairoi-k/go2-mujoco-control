@@ -21,6 +21,7 @@ controller_args=("$@")
 controller_duration_s="$timeout_s"
 sim_headless=false
 sim_camera_follow=false
+sim_terrain_lidar=false
 sim_push_args=()
 sim_affinity="${TROT_CPU_AFFINITY_SIM:-}"
 ctrl_affinity="${TROT_CPU_AFFINITY_CTRL:-}"
@@ -37,6 +38,9 @@ filtered_controller_args=()
 profile_path="${GO2_PROFILE_PATH:-}"
 for ((i = 0; i < ${#controller_args[@]}; ++i)); do
   arg="${controller_args[$i]}"
+  if [[ "$arg" == "--terrain-sensor-only" || "$arg" == "--terrain-planner" ]]; then
+    sim_terrain_lidar=true
+  fi
   if [[ "$arg" == "--controller-duration" ]]; then
     if (( i + 1 >= ${#controller_args[@]} )); then
       echo "--controller-duration requires a value" >&2
@@ -184,6 +188,7 @@ env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_)" >"$environment
   printf "runtime_dir=%s\n" "$runtime_dir"
   printf "headless=%s\n" "$([[ "$sim_headless" == true ]] && echo true || echo false)"
   printf "camera_follow=%s\n" "$([[ "$sim_camera_follow" == true ]] && echo true || echo false)"
+  printf "terrain_lidar=%s\n" "$([[ "$sim_terrain_lidar" == true ]] && echo true || echo false)"
   printf "sim_cpu_affinity=%s\n" "${sim_affinity:-auto}"
   printf "controller_cpu_affinity=%s\n" "${ctrl_affinity:-auto}"
   printf "argv=%s\n" "$*"
@@ -268,6 +273,7 @@ PULSE_SERVER="$pulse_server" \
   --ground-truth-log "$ground_truth_file" \
   $([[ "$sim_headless" == true ]] && printf %s --headless) \
   $([[ "$sim_camera_follow" == true ]] && printf %s --camera-follow) \
+  $([[ "$sim_terrain_lidar" == true ]] && printf %s --terrain-lidar) \
   "${sim_push_args[@]}" \
   >"$experiment_dir/simulator.log" 2>&1 &
 sim_pid=$!

@@ -218,6 +218,8 @@ public:
 
     void PublishEnvironmentHeightMap()
     {
+        if (!param::config.terrain_lidar)
+            return;
         constexpr float kResolution = 0.10f;
         constexpr uint32_t kWidth = 16;
         constexpr uint32_t kHeight = 16;
@@ -317,7 +319,7 @@ public:
     // base_link; unknown cells remain NaN and are never filled by the oracle.
     void PublishLidarHeightMap()
     {
-        if (!lidar_heightmap)
+        if (!param::config.terrain_lidar || !lidar_heightmap)
             return;
         const double sim_time = mj_data_->time;
         if (sim_time - last_lidar_map_publish_s_ < 0.020)
