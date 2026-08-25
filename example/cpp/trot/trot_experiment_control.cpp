@@ -211,6 +211,9 @@ void TrotExperiment::UpdateTerrainRuntime()
         terrain_planner_.config().knot_dt_s,
         input.contact_schedule.planned_contact,
         params_.gait_pattern);
+    // The gait helper fills contact bits only; validity is an explicit
+    // planned-vs-measured interface contract.
+    input.contact_schedule.planned_valid = true;
 
     {
         std::lock_guard<std::mutex> lock(terrain_map_mutex_);
