@@ -1,6 +1,6 @@
 # Phase 2 B0 Acceptance Contract
 
-Status: FROZEN before Phase 2 implementation tuning. Version: 'b0-contract-v1'.
+Status: FROZEN before Phase 2 implementation tuning. Version: 'b0-contract-v1.1'.
 
 This contract is a no-actuation flat-ground regression for the first Stage B
 milestone. It is not a terrain locomotion result and it does not authorize any
@@ -32,9 +32,12 @@ The holdout set is frozen before the first tuning run:
 
 * the five Phase 1 profiles: steps, accel_1_to_3, brake_3_to_0, ramp,
   and varying;
-* three fresh valid repeats per profile, with DDS domains 260, 261, and 262;
-* one fixed 3 m/s sustained-running regression repeat per domain 263, 264,
-  and 265;
+* three fresh valid repeats per profile, with DDS domains 200, 201, and 202;
+* one fixed 3 m/s sustained-running regression repeat per domain 203, 204,
+  and 205;
+* all listed domains are within the repository's enforced CycloneDDS range
+  [0, 232]; the earlier 260-265 proposal was invalid and was corrected before
+  any development or holdout run;
 * no terrain planner source/config change between repeats;
 * the analyzer and this contract are hashed before the first holdout run.
 
