@@ -571,6 +571,7 @@ void TrotExperiment::LogSample(
     std::uint64_t terrain_planner_deadline_misses = 0;
     bool terrain_latest_plan_valid = false;
     std::uint64_t terrain_plan_published = 0;
+    if (params_.terrain_enabled)
     {
         std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
         terrain_model = terrain_model_;
@@ -585,10 +586,11 @@ void TrotExperiment::LogSample(
         terrain_latest_plan_valid = terrain_latest_plan_valid_;
         terrain_plan_published = terrain_plan_published_count_;
     }
-    const bool terrain_safe_stop_requested =
+    const bool terrain_safe_stop_requested = params_.terrain_enabled &&
         terrain_safe_stop_requested_.load();
-    const double terrain_velocity_cap_mps =
-        terrain_velocity_cap_mps_.load();
+    const double terrain_velocity_cap_mps = params_.terrain_enabled
+        ? terrain_velocity_cap_mps_.load()
+        : std::numeric_limits<double>::infinity();
 
     // SECTION: log-state-summary (time, clock, pose, velocity, imu)
     csv_ << running_time_ << "," << state_tick_s << ","
