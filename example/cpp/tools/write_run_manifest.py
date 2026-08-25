@@ -47,6 +47,9 @@ def main() -> int:
     for name in analyzer_names:
         analyzer_path = options.cpp_dir / "tools" / "analysis" / name
         analyzers[name] = sha256(analyzer_path) if analyzer_path.is_file() else ""
+    phase2_contract_path = options.repo / "docs" / "research" / \
+        "PHASE2_B0_ACCEPTANCE_CONTRACT.md"
+    phase2_analyzer_path = options.cpp_dir / "tools" / "analyze_phase2_b0.py"
 
     manifest = {
         "schema_version": 1,
@@ -72,6 +75,10 @@ def main() -> int:
             "controller_sha256": metadata.get("controller_sha256", ""),
             "scenario_sha256": metadata.get("scene_sha256", ""),
             "event_script_sha256": metadata.get("event_script_sha256", ""),
+            "phase2_b0_contract_sha256": sha256(phase2_contract_path)
+            if phase2_contract_path.is_file() else "",
+            "phase2_b0_analyzer_sha256": sha256(phase2_analyzer_path)
+            if phase2_analyzer_path.is_file() else "",
         },
         "analyzers": analyzers,
         "statuses": {

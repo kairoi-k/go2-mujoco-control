@@ -86,47 +86,18 @@ void TrotExperiment::UpdateTerrainRuntime(
     if (!std::isfinite(now_s) || now_s - terrain_last_update_s_ < 0.050)
         return;
 
-    unitree_go::msg::dds_::HeightMap_ map;
-    bool have_map = false;
+    TerrainPlannerWork work;
+    work.map_epoch = ++terrain_map_epoch_;
+    work.plan_id = ++terrain_plan_id_;
+    work.input.state_stamp_s = now_s;
+
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
-        have_map = have_lidar_heightmap_;
-        if (have_map)
-            map = lidar_heightmap_;
+        work.have_map = have_lidar_heightmap_;
+        if (work.have_map)
+            work.map = lidar_heightmap_;
     }
     terrain_last_update_s_ = now_s;
-    if (!have_map)
-    {
-        terrain_latest_plan_valid_ = false;
-        if (params_.terrain_actuation && !params_.terrain_sensor_only)
-        {
-            terrain_velocity_cap_mps_ = 0.0;
-            terrain_safe_stop_requested_ = true;
-        }
-        ++terrain_planner_rejections_;
-        return;
-    }
-
-    const auto built = go2_terrain::BuildTerrainModel(
-        &map, now_s, ++terrain_map_epoch_, go2_terrain::TerrainSource::kLidar);
-    if (!built.ok())
-    {
-        terrain_latest_plan_valid_ = false;
-        if (params_.terrain_actuation && !params_.terrain_sensor_only)
-        {
-            terrain_velocity_cap_mps_ = 0.0;
-            terrain_safe_stop_requested_ = true;
-        }
-        ++terrain_planner_rejections_;
-        return;
-    }
-    terrain_model_ = std::make_shared<const go2_terrain::TerrainModel>(
-        built.model);
-    terrain_last_map_age_s_ = built.model.age_s;
-    terrain_known_cells_ = 0;
-    for (const auto &cell : built.model.cells)
-        if (cell.known)
-            ++terrain_known_cells_;
 
     std::array<double, kMotorCount> joint_positions{};
     for (std::size_t i = 0; i < kMotorCount; ++i)
@@ -138,9 +109,7 @@ void TrotExperiment::UpdateTerrainRuntime(
     const WorldPose pose = have_high_state
         ? ComputeWorldPose(state_snapshot, high_state_snapshot) : WorldPose{};
 
-    go2_terrain::TerrainPlannerInput input;
-    input.terrain = terrain_model_.get();
-    input.state_stamp_s = now_s;
+    auto &input = work.input;
     input.base_yaw_rad = have_high_state
         ? pose.yaw_rad : state_snapshot.imu_state().rpy()[2];
     input.base_position_world = pose.base;
@@ -168,37 +137,94 @@ void TrotExperiment::UpdateTerrainRuntime(
         terrain_planner_.config().knot_dt_s, input.planned_contact,
         params_.gait_pattern);
 
-    terrain_planner_result_ = terrain_planner_.Build(
-        input, ++terrain_plan_id_);
-    ++terrain_planner_updates_;
-    terrain_last_solver_us_ =
-        terrain_planner_result_.plan.solver.elapsed_us;
-    terrain_last_plan_status_ = static_cast<double>(
-        static_cast<int>(terrain_planner_result_.plan.status));
-    terrain_last_failure_ = static_cast<double>(
-        static_cast<int>(terrain_planner_result_.plan.failure));
-    terrain_feasible_regions_ = 0;
-    for (const auto &regions : terrain_planner_result_.regions)
-        terrain_feasible_regions_ += regions.size();
-    if (terrain_planner_result_.plan.solver.deadline_miss)
-        ++terrain_planner_deadline_misses_;
-    if (!terrain_planner_result_.publishable)
-        ++terrain_planner_rejections_;
-    terrain_latest_plan_valid_ = terrain_planner_result_.plan.valid();
-    if (terrain_planner_result_.publishable &&
-        params_.terrain_actuation && !params_.terrain_sensor_only)
     {
-        terrain_plan_store_.Publish(terrain_planner_result_.plan);
-        terrain_velocity_cap_mps_ = std::numeric_limits<double>::infinity();
-        terrain_safe_stop_requested_ = false;
+        std::lock_guard<std::mutex> lock(terrain_work_mutex_);
+        terrain_pending_work_ = std::move(work);
+        terrain_work_pending_ = true;
     }
-    else if (params_.terrain_actuation && !params_.terrain_sensor_only)
+    terrain_work_cv_.notify_one();
+}
+
+void TrotExperiment::TerrainPlannerWorker()
+{
+    for (;;)
     {
-        const auto previous = terrain_plan_store_.LoadUsable(now_s);
-        if (!previous)
+        TerrainPlannerWork work;
         {
-            terrain_velocity_cap_mps_ = 0.0;
-            terrain_safe_stop_requested_ = true;
+            std::unique_lock<std::mutex> lock(terrain_work_mutex_);
+            terrain_work_cv_.wait(lock, [this]() {
+                return terrain_worker_stop_.load() || terrain_work_pending_;
+            });
+            if (terrain_worker_stop_.load() && !terrain_work_pending_)
+                return;
+            work = std::move(terrain_pending_work_);
+            terrain_work_pending_ = false;
+        }
+
+        std::shared_ptr<const go2_terrain::TerrainModel> model;
+        if (work.have_map)
+        {
+            const auto built = go2_terrain::BuildTerrainModel(
+                &work.map, work.input.state_stamp_s, work.map_epoch,
+                go2_terrain::TerrainSource::kLidar);
+            if (built.ok())
+                model = std::make_shared<const go2_terrain::TerrainModel>(
+                    built.model);
+        }
+        work.input.terrain = model.get();
+        const auto result = terrain_planner_.Build(work.input, work.plan_id);
+
+        std::size_t known_cells = 0;
+        std::size_t feasible_regions = 0;
+        if (model)
+        {
+            for (const auto &cell : model->cells)
+                if (cell.known)
+                    ++known_cells;
+            for (const auto &regions : result.regions)
+                feasible_regions += regions.size();
+        }
+        {
+            std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
+            terrain_model_ = model;
+            terrain_last_map_age_s_ = model
+                ? model->age_s : std::numeric_limits<double>::infinity();
+            terrain_known_cells_ = known_cells;
+            terrain_feasible_regions_ = feasible_regions;
+            terrain_last_solver_us_ = result.plan.solver.elapsed_us;
+            terrain_last_plan_status_ = static_cast<double>(
+                static_cast<int>(result.plan.status));
+            terrain_last_failure_ = static_cast<double>(
+                static_cast<int>(result.plan.failure));
+            ++terrain_planner_updates_;
+            if (result.plan.solver.deadline_miss)
+                ++terrain_planner_deadline_misses_;
+            if (!result.publishable)
+                ++terrain_planner_rejections_;
+            terrain_latest_plan_valid_ = result.plan.valid();
+        }
+
+        if (result.publishable && params_.terrain_actuation &&
+            !params_.terrain_sensor_only)
+        {
+            terrain_plan_store_.Publish(result.plan);
+            {
+                std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
+                ++terrain_plan_published_count_;
+            }
+            terrain_velocity_cap_mps_.store(
+                std::numeric_limits<double>::infinity());
+            terrain_safe_stop_requested_.store(false);
+        }
+        else if (params_.terrain_actuation && !params_.terrain_sensor_only)
+        {
+            const auto previous = terrain_plan_store_.LoadUsable(
+                work.input.state_stamp_s);
+            if (!previous)
+            {
+                terrain_velocity_cap_mps_.store(0.0);
+                terrain_safe_stop_requested_.store(true);
+            }
         }
     }
 }

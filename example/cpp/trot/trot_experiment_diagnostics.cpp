@@ -47,6 +47,8 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_planner_updates,terrain_planner_rejections"
          << ",terrain_planner_deadline_misses,terrain_solver_elapsed_us"
          << ",terrain_safe_stop_requested,terrain_velocity_cap_mps"
+         << ",terrain_plan_published,terrain_plan_consumed"
+         << ",terrain_gait_target_overrides,terrain_mpc_plan_consumed"
          << ",support_foot_kinematics_valid,support_foot_count,support_foot_speed_mps"
          << ",support_low_friction_evidence"
          << ",low_friction_accumulation"
@@ -558,6 +560,36 @@ void TrotExperiment::LogSample(
         }
     }
 
+    std::shared_ptr<const go2_terrain::TerrainModel> terrain_model;
+    double terrain_last_map_age_s = std::numeric_limits<double>::infinity();
+    double terrain_last_solver_us = 0.0;
+    double terrain_last_plan_status = 0.0;
+    std::size_t terrain_known_cells = 0;
+    std::size_t terrain_feasible_regions = 0;
+    std::uint64_t terrain_planner_updates = 0;
+    std::uint64_t terrain_planner_rejections = 0;
+    std::uint64_t terrain_planner_deadline_misses = 0;
+    bool terrain_latest_plan_valid = false;
+    std::uint64_t terrain_plan_published = 0;
+    {
+        std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
+        terrain_model = terrain_model_;
+        terrain_last_map_age_s = terrain_last_map_age_s_;
+        terrain_last_solver_us = terrain_last_solver_us_;
+        terrain_last_plan_status = terrain_last_plan_status_;
+        terrain_known_cells = terrain_known_cells_;
+        terrain_feasible_regions = terrain_feasible_regions_;
+        terrain_planner_updates = terrain_planner_updates_;
+        terrain_planner_rejections = terrain_planner_rejections_;
+        terrain_planner_deadline_misses = terrain_planner_deadline_misses_;
+        terrain_latest_plan_valid = terrain_latest_plan_valid_;
+        terrain_plan_published = terrain_plan_published_count_;
+    }
+    const bool terrain_safe_stop_requested =
+        terrain_safe_stop_requested_.load();
+    const double terrain_velocity_cap_mps =
+        terrain_velocity_cap_mps_.load();
+
     // SECTION: log-state-summary (time, clock, pose, velocity, imu)
     csv_ << running_time_ << "," << state_tick_s << ","
          << (have_state ? 1 : 0) << "," << last_motion_dt_s_ << ","
@@ -613,24 +645,28 @@ void TrotExperiment::LogSample(
          << "," << (params_.terrain_enabled ? 1 : 0)
          << "," << (params_.terrain_sensor_only ? 1 : 0)
          << "," << (params_.terrain_actuation ? 1 : 0)
-         << "," << ((terrain_model_ && terrain_model_->valid()) ? 1 : 0)
-         << "," << (terrain_model_
+         << "," << ((terrain_model && terrain_model->valid()) ? 1 : 0)
+         << "," << (terrain_model
                            ? go2_terrain::TerrainSourceName(
-                                 terrain_model_->source)
+                                 terrain_model->source)
                            : "none")
-         << "," << (terrain_model_ ? terrain_model_->epoch : 0)
-         << "," << terrain_last_map_age_s_
-         << "," << terrain_known_cells_
-         << "," << terrain_feasible_regions_
-         << "," << static_cast<int>(terrain_last_plan_status_)
+         << "," << (terrain_model ? terrain_model->epoch : 0)
+         << "," << terrain_last_map_age_s
+         << "," << terrain_known_cells
+         << "," << terrain_feasible_regions
+         << "," << static_cast<int>(terrain_last_plan_status)
          << "," << terrain_plan_id_
-         << "," << (terrain_latest_plan_valid_ ? 1 : 0)
-         << "," << terrain_planner_updates_
-         << "," << terrain_planner_rejections_
-         << "," << terrain_planner_deadline_misses_
-         << "," << terrain_last_solver_us_
-         << "," << (terrain_safe_stop_requested_ ? 1 : 0)
-         << "," << terrain_velocity_cap_mps_
+         << "," << (terrain_latest_plan_valid ? 1 : 0)
+         << "," << terrain_planner_updates
+         << "," << terrain_planner_rejections
+         << "," << terrain_planner_deadline_misses
+         << "," << terrain_last_solver_us
+         << "," << (terrain_safe_stop_requested ? 1 : 0)
+         << "," << terrain_velocity_cap_mps
+         << "," << terrain_plan_published
+         << "," << terrain_plan_consumed_count_
+         << "," << terrain_gait_target_override_count_
+         << "," << terrain_mpc_plan_consumed_count_
          << "," << (latest_motion_sensor_.have_support_foot_kinematics ? 1 : 0)
          << "," << latest_motion_sensor_.support_foot_count
          << "," << latest_motion_sensor_.support_foot_speed_mps

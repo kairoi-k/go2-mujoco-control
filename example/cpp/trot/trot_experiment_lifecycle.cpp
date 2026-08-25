@@ -275,6 +275,12 @@ bool TrotExperiment::Init()
     }
     CaptureWorldReference();
 
+    if (params_.terrain_enabled)
+    {
+        terrain_worker_stop_.store(false);
+        terrain_planner_thread_ = std::thread(
+            &TrotExperiment::TerrainPlannerWorker, this);
+    }
     writer_stop_.store(false);
     low_cmd_write_thread_ = std::thread([this]() {
         const auto interval = std::chrono::microseconds(
@@ -298,6 +304,10 @@ void TrotExperiment::Shutdown()
     writer_stop_.store(true);
     if (low_cmd_write_thread_.joinable())
         low_cmd_write_thread_.join();
+    terrain_worker_stop_.store(true);
+    terrain_work_cv_.notify_all();
+    if (terrain_planner_thread_.joinable())
+        terrain_planner_thread_.join();
     csv_.close();
 }
 

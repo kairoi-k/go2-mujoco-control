@@ -144,13 +144,13 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         : dt_;
     double requested_mps = params_.velocity_command_profile.Sample(gait_time_s);
     if (params_.terrain_actuation && !params_.terrain_sensor_only &&
-        std::isfinite(terrain_velocity_cap_mps_))
+        std::isfinite(terrain_velocity_cap_mps_.load()))
     {
         // Terrain is an arbitration request only.  The Phase 1 shaper remains
         // the sole producer of shaped/applied v_cmd and gait parameters.
         requested_mps = std::min(
             std::max(0.0, requested_mps),
-            std::max(0.0, terrain_velocity_cap_mps_));
+            std::max(0.0, terrain_velocity_cap_mps_.load()));
     }
     velocity_command_state_ = velocity_command_shaper_.Step(
         requested_mps, dt);
@@ -1470,6 +1470,8 @@ bool TrotExperiment::BuildGaitTargets(
     // velocity remain owned by the Phase 1 kernel and its v_cmd shaper.
     if (active_terrain_plan && have_high_state)
     {
+        ++terrain_plan_consumed_count_;
+        bool terrain_target_overridden = false;
         const WorldPose terrain_pose = ComputeWorldPose(
             state_snapshot, high_state_snapshot);
         const double c = std::cos(terrain_pose.yaw_rad);
@@ -1511,7 +1513,10 @@ bool TrotExperiment::BuildGaitTargets(
                 blend * target_base.y;
             feet[leg].z = (1.0 - blend) * feet[leg].z +
                 blend * target_base.z;
+            terrain_target_overridden = true;
         }
+        if (terrain_target_overridden)
+            ++terrain_gait_target_override_count_;
     }
 
     // Inner/outer-leg y offset (Raibert turn). Goal heading uses the same

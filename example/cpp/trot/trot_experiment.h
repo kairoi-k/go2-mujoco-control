@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <condition_variable>
 #include <fstream>
 #include <limits>
 #include <memory>
@@ -180,6 +181,7 @@ private:
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
         const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
         bool have_high_state);
+    void TerrainPlannerWorker();
     void UpdateCycleDiagnostics(
         double phase,
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
@@ -197,6 +199,15 @@ private:
     void ResetCycleDiagnostics();
 
 private:
+    struct TerrainPlannerWork
+    {
+        bool have_map = false;
+        unitree_go::msg::dds_::HeightMap_ map{};
+        std::uint64_t map_epoch = 0;
+        std::uint64_t plan_id = 0;
+        go2_terrain::TerrainPlannerInput input{};
+    };
+
     static constexpr double kEmergencyStopPostHoldDurationS = 1.50;
 
     TrotTask task_;
@@ -398,7 +409,6 @@ private:
 
     go2_terrain::TerrainPlanner terrain_planner_{};
     go2_terrain::TerrainPlanStore terrain_plan_store_{};
-    go2_terrain::TerrainPlannerResult terrain_planner_result_{};
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model_;
     std::uint64_t terrain_map_epoch_ = 0;
     std::uint64_t terrain_plan_id_ = 0;
@@ -413,8 +423,21 @@ private:
     std::uint64_t terrain_planner_rejections_ = 0;
     std::uint64_t terrain_planner_deadline_misses_ = 0;
     bool terrain_latest_plan_valid_ = false;
-    bool terrain_safe_stop_requested_ = false;
-    double terrain_velocity_cap_mps_ = std::numeric_limits<double>::infinity();
+    std::atomic<bool> terrain_safe_stop_requested_{false};
+    std::atomic<double> terrain_velocity_cap_mps_{
+        std::numeric_limits<double>::infinity()};
+    std::uint64_t terrain_plan_published_count_ = 0;
+    std::uint64_t terrain_plan_consumed_count_ = 0;
+    std::uint64_t terrain_gait_target_override_count_ = 0;
+    std::uint64_t terrain_mpc_plan_consumed_count_ = 0;
+
+    std::mutex terrain_diagnostics_mutex_;
+    std::mutex terrain_work_mutex_;
+    std::condition_variable terrain_work_cv_;
+    TerrainPlannerWork terrain_pending_work_{};
+    bool terrain_work_pending_ = false;
+    std::atomic<bool> terrain_worker_stop_{false};
+    std::thread terrain_planner_thread_;
 
     std::mutex state_mutex_;
     std::ofstream csv_;

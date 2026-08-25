@@ -503,6 +503,7 @@ void TrotExperiment::UpdateWbcFull(
                 mpc_in.has_time_indexed_reference = true;
                 mpc_in.plan_id = terrain_plan->plan_id;
                 mpc_in.plan_epoch = terrain_plan->map_epoch;
+                ++terrain_mpc_plan_consumed_count_;
             }
         }
         go2_control::SrbdMpcOutput mpc_out;
