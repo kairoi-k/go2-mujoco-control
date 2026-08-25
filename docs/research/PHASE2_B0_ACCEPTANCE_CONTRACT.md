@@ -128,6 +128,20 @@ HeightMap callback and terrain-worker map snapshot behind terrain_map_mutex_,
 so the 500 Hz SnapshotState() path no longer shares the deep-copy mutex.
 This is an implementation-only hot-path isolation fix; controller limits,
 holdout membership, and all acceptance semantics remain unchanged. Epoch 10
+development passed, but holdout execution stopped at the repeat-2
+brake_3_to_0 terrain member. That member reached the existing hard posture
+safety stop with no terrain plan consumed and zero planner deadline misses;
+its complete evidence remains preserved and diagnostic only.
+
+Commit b825c1e528ba47a216830d03d4816b25ab385ada removes the terrain worker's
+full SnapshotState() read of the accepted control-state mutex. The compact
+TerrainPlannerInput is now constructed from the writer's already-local state
+snapshot and consumed asynchronously by the observer worker. This is an
+implementation-only isolation correction; it does not change thresholds,
+holdout membership, controller limits, or terrain actuation semantics. A
+targeted rerun of the prior failing brake member passed, but it is not an
+acceptance sample. Epoch 11 must rerun the complete frozen membership; no
+epoch-10 result may be mixed into its verdict.
 
 ## Development and holdout split
 
