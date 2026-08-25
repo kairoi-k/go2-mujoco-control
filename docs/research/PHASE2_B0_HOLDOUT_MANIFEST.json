@@ -1,9 +1,9 @@
 {
   "contract": "b0-contract-v1.2",
   "source_base": "71d0e9ba7ca1097e840fe878aa30207f6f63600d",
-  "acceptance_epoch": "b0-v1.2-epoch-13",
-  "implementation_head": "81beb914c45236cb14f3d42fb8113779b8d7962b",
-  "supersedes_epoch_evidence": "epoch-12 was invalidated by a terrain-only brake safety/quantitative failure; all epoch-12 evidence remains preserved and diagnostic only for this epoch; do not mix into this verdict",
+  "acceptance_epoch": "b0-v1.2-epoch-14",
+  "implementation_head": "9ef9b3b39b467b5c99f33778c4e15ae7955f9f60",
+  "supersedes_epoch_evidence": "epoch-13 was invalidated by a terrain-enabled brake undershoot failure caused by controller-side DDS affinity interference; all epoch-13 evidence remains preserved and diagnostic only for this epoch; do not mix into this verdict",
   "terrain_mode": "sensor_only",
   "scene": "unitree_robots/go2/scene_leg_lift_demo.xml",
   "profiles": [

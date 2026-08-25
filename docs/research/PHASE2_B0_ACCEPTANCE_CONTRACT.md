@@ -155,6 +155,20 @@ thread a private copied mjModel and mjData while preserving the qpos/qvel/time
 snapshot semantics. Epoch 13 must rerun the complete frozen membership; no
 epoch-12 result may be mixed into its verdict.
 
+Epoch 13 completed its fresh holdout execution with one terrain-member failure:
+holdout repeat-2 brake reached the inherited undershoot value -0.233820841 m/s
+against the unchanged -0.20 m/s lower bound. Its paired baseline measured
+-0.126927889 m/s and passed; terrain had zero plan consumers, zero actuation,
+and zero planner deadline misses. The failure was therefore retained as an
+observer-enabled timing/isolation defect, not a terrain-plan or safety-limit
+result. A development diagnostic with the controller process mask isolated to
+CPU 4, the accepted writer to CPU 3, and terrain work to CPU 4 passed the same
+brake profile at -0.171405142 m/s. Commit 9ef9b3b makes that CPU separation the
+automatic terrain-enabled runner default while preserving explicit affinity
+overrides. It changes no threshold, controller limit, or terrain consumer.
+Epoch 14 is a fresh complete rerun of the frozen membership; no epoch-13
+result may be mixed into its verdict.
+
 ## Development and holdout split
 
 The development set is for plumbing/debugging only. It may use one repeat of
