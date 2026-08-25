@@ -42,6 +42,14 @@ and safety limits are unchanged. The current acceptance epoch therefore
 starts at that commit and must rerun every listed holdout member; results from
 the earlier epoch cannot be silently reused or mixed into the verdict.
 
+Epoch 2 then showed a marginal inherited torque-saturation failure only in the
+terrain member while its paired baseline passed. Commit
+ce16735a10781fe9592a9df6ab4fbb4731aa3557 demotes the sensor-only observer
+worker to best-effort Linux scheduling so it cannot preempt the accepted
+500 Hz command writer. This is another implementation-only correction: the
+same frozen gates and holdout membership define epoch 3, which must again be
+run in full.
+
 ## Development and holdout split
 
 The development set is for plumbing/debugging only. It may use one repeat of
