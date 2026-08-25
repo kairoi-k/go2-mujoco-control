@@ -103,7 +103,10 @@ if [[ "$sim_terrain_lidar" == true && "$sim_affinity_auto" == true ]]; then
     # 500 Hz writer is explicitly pinned to writer_affinity below; leaving
     # the process-wide mask at "3,4" lets an unpinned lidar callback preempt
     # that writer and perturb the inherited Phase 1 wall-clock contract.
-    ctrl_affinity="${ctrl_affinity:-4}"
+    # Terrain DDS callbacks must not share the process-wide mask with the
+    # accepted 500 Hz writer. Explicit controller affinity is handled by the
+    # outer auto-pin guard; this path owns the terrain default.
+    ctrl_affinity=4
     writer_affinity="${writer_affinity:-3}"
     terrain_affinity="${terrain_affinity:-4}"
     if [[ -z "${TROT_CPU_AFFINITY_TERRAIN:-}" ]] &&
