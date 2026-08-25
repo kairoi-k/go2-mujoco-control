@@ -2,7 +2,7 @@
   "contract": "b0-contract-v1.2",
   "source_base": "71d0e9ba7ca1097e840fe878aa30207f6f63600d",
   "acceptance_epoch": "b0-v1.2-epoch-13",
-  "implementation_head": "TO_BE_FROZEN_BEFORE_EPOCH13_HOLDOUT",
+  "implementation_head": "81beb914c45236cb14f3d42fb8113779b8d7962b",
   "supersedes_epoch_evidence": "epoch-12 was invalidated by a terrain-only brake safety/quantitative failure; all epoch-12 evidence remains preserved and diagnostic only for this epoch; do not mix into this verdict",
   "terrain_mode": "sensor_only",
   "scene": "unitree_robots/go2/scene_leg_lift_demo.xml",
