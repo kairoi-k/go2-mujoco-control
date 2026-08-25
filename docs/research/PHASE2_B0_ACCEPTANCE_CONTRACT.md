@@ -78,6 +78,18 @@ and provenance while keeping the terrain quantitative gate authoritative.
 This is a contract-measurement correction, not a threshold or safety-envelope
 change; epoch 6 must rerun the complete frozen membership.
 
+Epoch 6 then produced a terrain-member inherited Phase 1 failure in the
+accel_1_to_3 repeat-2 run: the frozen overshoot limit is 0.50 m/s and the
+observed excursion was 0.512597306 m/s. All B0 interface gates, lifecycle
+statuses, and the paired baseline lifecycle passed. Diagnosis found that the
+terrain-enabled LowCmdWrite path still copied the DDS HeightMap and assembled
+planner work about every 50 ms, despite the planner itself being asynchronous.
+Commit 6244c81eedbfdb9f06aa8f482e3df667e229d000 moves map/work capture to the
+best-effort terrain worker and leaves only a bounded control snapshot on the
+500 Hz path. This is an implementation isolation fix; thresholds, holdout
+membership, and safety limits are unchanged. Epoch 7 must rerun the complete
+frozen membership, and epoch-6 evidence remains diagnostic only.
+
 ## Development and holdout split
 
 The development set is for plumbing/debugging only. It may use one repeat of
