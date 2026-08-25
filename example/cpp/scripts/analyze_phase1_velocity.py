@@ -196,11 +196,66 @@ def diagnostic_metrics(rows, evaluation_rows, metadata):
     return result
 
 
+QUANTITATIVE_LIMITS = {
+    "steps": {"tracking_p95": 0.40, "steady_state": 0.40,
+              "overshoot": 0.50, "undershoot": -0.25, "settling": 8.2},
+    "accel_1_to_3": {"tracking_p95": 0.42, "steady_state": 0.40,
+                     "overshoot": 0.50, "undershoot": -0.25, "settling": 10.0},
+    "brake_3_to_0": {"tracking_p95": 1.50, "steady_state": 0.55,
+                     "overshoot": 0.05, "undershoot": -0.20, "settling": 1.5},
+    "ramp": {"tracking_p95": 0.42, "steady_state": 0.18,
+             "overshoot": 0.60, "undershoot": -0.20, "settling": 2.0},
+    "varying": {"tracking_p95": 0.42, "steady_state": 0.45,
+                "overshoot": 0.50, "undershoot": -0.40, "settling": 8.2},
+}
+
+
+def quantitative_acceptance(result, scenario):
+    limits = dict(QUANTITATIVE_LIMITS[scenario])
+    checks = {}
+
+    def upper(name, key, limit):
+        actual = result.get(key, float("nan"))
+        checks[name] = math.isfinite(actual) and actual <= limit
+
+    def lower(name, key, limit):
+        actual = result.get(key, float("nan"))
+        checks[name] = math.isfinite(actual) and actual >= limit
+
+    upper("requested_profile_reproduction", "requested_profile_max_error_mps", 1.0e-6)
+    upper("shaped_to_measured_p95", "shaped_measured_error_abs_p95_mps", 0.45)
+    upper("shaper_accel", "accel_abs_max_mps2", 1.25)
+    upper("shaper_jerk", "jerk_abs_max_mps3", 4.20)
+    upper("shaper_accel_continuity", "accel_step_abs_max_mps3", 0.02)
+    upper("tracking_p95", "tracking_to_profile_error_abs_p95_mps", limits["tracking_p95"])
+    upper("steady_state_error", "steady_state_error_abs_max_mps", limits["steady_state"])
+    upper("overshoot", "overshoot_excursion_max_mps", limits["overshoot"])
+    lower("undershoot", "overshoot_excursion_min_mps", limits["undershoot"])
+    upper("settling", "settling_time_max_s", limits["settling"])
+    upper("roll_p95", "roll_abs_p95_deg", 4.0)
+    upper("pitch_p95", "pitch_abs_p95_deg", 4.0)
+    upper("contact_loss", "contact_loss_fraction", 0.25)
+    upper("single_contact", "single_contact_fraction", 0.45)
+    upper("touchdown_x", "touchdown_x_error_abs_max_m", 0.18)
+    upper("touchdown_y", "touchdown_y_error_abs_max_m", 0.07)
+    upper("torque_saturation", "torque_saturation_fraction", 0.003)
+    upper("slip_evidence", "slip_evidence_fraction", 0.0)
+    lower("solver_ok", "solver_ok_fraction", 1.0)
+    lower("srbd_ok", "srbd_ok_fraction", 1.0)
+    lower("id_wbc_ok", "id_wbc_ok_fraction", 1.0)
+    lower("footstep_plan_valid", "footstep_plan_valid_fraction", 1.0)
+    lower("solver_budget", "solver_budget_ok_fraction", 0.80)
+    lower("base_height", "base_height_min_m", 0.28)
+    if scenario != "accel_1_to_3":
+        upper("stop_tail", "stop_tail_speed_abs_p95_mps", 0.05)
+    return limits, checks
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("run_dir", type=Path)
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--json-out", type=Path)
+    parser.add_argument("--require-quantitative", action="store_true")
     args = parser.parse_args()
     with (args.run_dir / "data.csv").open(newline="") as stream:
         rows = list(csv.DictReader(stream))
@@ -212,9 +267,11 @@ def main():
     evaluation_rows = [row for row in rows if value(row, "velocity_command_active") > 0.5 and row["velocity_command_gait_regime"] == "continuous-trot"]
     if not evaluation_rows:
         raise SystemExit("no continuous-trot evaluation rows")
+    scenario = args.profile.stem.removeprefix("phase1_velocity_")
     profile = read_profile(args.profile)
     active_start = value(evaluation_rows[0], "cmd_time_s")
     profile_error = max(abs(value(row, "velocity_command_requested_mps") - profile_sample(profile, value(row, "cmd_time_s") - active_start)) for row in evaluation_rows)
+    requested_shaped = [abs(value(row, "velocity_command_requested_mps") - value(row, "velocity_command_shaped_mps")) for row in evaluation_rows]
     applied_gap = [abs(value(row, "velocity_command_shaped_mps") - value(row, "velocity_command_applied_mps")) for row in evaluation_rows]
     shaped_measured = [abs(value(row, "velocity_command_shaped_mps") - value(row, "velocity_command_measured_mps")) for row in evaluation_rows]
     metadata = metadata_for(args.run_dir)
@@ -222,6 +279,8 @@ def main():
         "rows": len(rows), "active_rows": len(evaluation_rows), "active_start_cmd_time_s": active_start,
         "duration_s": value(rows[-1], "cmd_time_s") - value(rows[0], "cmd_time_s"),
         "requested_profile_max_error_mps": profile_error,
+        "requested_shaped_error_abs_max_mps": max(requested_shaped),
+        "requested_shaped_error_abs_p95_mps": percentile(requested_shaped, 0.95),
         "shaped_measured_error_abs_max_mps": max(shaped_measured),
         "shaped_measured_error_abs_p95_mps": percentile(shaped_measured, 0.95),
         "applied_shaped_gap_max_mps": max(applied_gap),
@@ -237,17 +296,23 @@ def main():
         "roll_abs_max_deg": math.degrees(max(map(abs, finite(evaluation_rows, "imu_roll_rad")))),
         "pitch_abs_max_deg": math.degrees(max(map(abs, finite(evaluation_rows, "imu_pitch_rad")))),
         "regimes": sorted({row["velocity_command_gait_regime"] for row in rows}),
-        "acceptance_semantics": "legacy status gates unchanged; metrics are reported for Phase1 evidence",
+        "acceptance_semantics": "legacy status gate unchanged; quantitative gate is explicit and threshold-frozen",
     }
     result.update(command_quality(evaluation_rows, profile, active_start))
     result.update(diagnostic_metrics(rows, evaluation_rows, metadata))
     for key in ("controller_status", "safety_status", "quality_status", "completion_status", "analysis_status", "git_head"):
         result[key] = metadata.get(key, "")
     result["strict_pass"] = all(result[key] == "0" for key in ("controller_status", "safety_status", "quality_status", "completion_status", "analysis_status"))
+    limits, checks = quantitative_acceptance(result, scenario)
+    result["quantitative_scenario"] = scenario
+    result["quantitative_thresholds"] = limits
+    result["quantitative_checks"] = checks
+    result["quantitative_pass"] = all(checks.values())
+    result["acceptance_status"] = "PASS" if result["strict_pass"] and result["quantitative_pass"] else "FAIL"
     print(json.dumps(result, indent=2, sort_keys=True, allow_nan=True))
     if args.json_out:
         args.json_out.write_text(json.dumps(result, indent=2, sort_keys=True, allow_nan=True) + "\n")
-    raise SystemExit(0 if result["strict_pass"] else 1)
+    raise SystemExit(0 if result["strict_pass"] and (not args.require_quantitative or result["quantitative_pass"]) else 1)
 
 
 if __name__ == "__main__":
