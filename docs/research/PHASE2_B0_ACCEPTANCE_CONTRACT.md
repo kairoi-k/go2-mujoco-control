@@ -116,6 +116,19 @@ coupling. It does not change thresholds, holdout membership, controller
 limits, or terrain actuation semantics. Epoch 9 is a fresh complete B0
 acceptance epoch; no epoch-8 result may be mixed into its verdict.
 
+Epoch 9 development was stopped at the first failing member, the varying
+terrain-only run at domain 221. Its only quantitative failure was the
+inherited shaper_accel_continuity gate: 0.025371312 m/s3 versus the frozen
+0.02 m/s3 limit. The paired baseline passed that gate. Around the violating
+sample, the terrain member recorded a 6.342828 ms motion wall interval and an
+8 ms state-tick gap; planner deadline misses were zero, solver time was
+3.036 us, and no terrain plan was consumed. This is preserved as diagnostic
+evidence and is not a threshold exception. Commit e12367c isolates the lidar
+HeightMap callback and terrain-worker map snapshot behind terrain_map_mutex_,
+so the 500 Hz SnapshotState() path no longer shares the deep-copy mutex.
+This is an implementation-only hot-path isolation fix; controller limits,
+holdout membership, and all acceptance semantics remain unchanged. Epoch 10
+
 ## Development and holdout split
 
 The development set is for plumbing/debugging only. It may use one repeat of
