@@ -33,6 +33,15 @@ accepted through explicit no-consumer/no-arbitration telemetry, identical
 non-terrain effective configuration, and the exact inherited Phase 1 gates on
 both members of the pair.
 
+The first implementation epoch's holdout evidence is retained as diagnostic
+evidence. It exposed an avoidable terrain-diagnostics mutex/shared-pointer
+read on the no-terrain Phase 1 hot path; commit
+45bf4904d7e38029fa1d91e3f646d36866fc27af removes that work when terrain is
+disabled. The frozen gates, profile membership, repeats, analyzer semantics,
+and safety limits are unchanged. The current acceptance epoch therefore
+starts at that commit and must rerun every listed holdout member; results from
+the earlier epoch cannot be silently reused or mixed into the verdict.
+
 ## Development and holdout split
 
 The development set is for plumbing/debugging only. It may use one repeat of
