@@ -7,6 +7,9 @@
 #include <limits>
 #include <iomanip>
 #include <iostream>
+#if defined(__linux__)
+#include <sched.h>
+#endif
 #include <sstream>
 #include <thread>
 
@@ -147,6 +150,16 @@ void TrotExperiment::UpdateTerrainRuntime(
 
 void TrotExperiment::TerrainPlannerWorker()
 {
+#if defined(__linux__)
+    // Sensor-only terrain is an observer. Keep its best-effort work from
+    // preempting the accepted 500 Hz Phase 1 command writer when the runner
+    // pins the controller process to one CPU.
+    if (params_.terrain_sensor_only)
+    {
+        sched_param scheduler_params{};
+        (void)sched_setscheduler(0, SCHED_IDLE, &scheduler_params);
+    }
+#endif
     for (;;)
     {
         TerrainPlannerWork work;
