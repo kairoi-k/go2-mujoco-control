@@ -101,6 +101,13 @@ done
 if [[ "$sim_terrain_lidar" == true && "$sim_affinity_auto" == true ]]; then
   cpu_count="$(nproc 2>/dev/null || echo 0)"
   if [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 6 )); then
+    # Keep controller-side DDS callbacks on the terrain CPU. The accepted
+    # 500 Hz writer is explicitly pinned to writer_affinity below; leaving
+    # the process-wide mask at "3,4" lets an unpinned lidar callback preempt
+    # that writer and perturb the inherited Phase 1 wall-clock contract.
+    ctrl_affinity="${ctrl_affinity:-4}"
+    writer_affinity="${writer_affinity:-3}"
+    terrain_affinity="${terrain_affinity:-4}"
     sim_affinity=2,5
     sim_lidar_affinity="${sim_lidar_affinity:-5}"
     sim_physics_affinity="${sim_physics_affinity:-2}"
