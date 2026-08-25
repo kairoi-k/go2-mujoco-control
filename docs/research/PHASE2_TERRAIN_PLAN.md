@@ -39,6 +39,28 @@ Phase 1 tracking, settling, or high-speed gait. Terrain may request a bounded
 velocity change through the existing runtime v_cmd API; it must not silently
 rewrite gait parameters or create a second velocity authority.
 
+### Mandatory implementation checkout rule
+
+This planning branch is intentionally historical: the previous planning commit
+`a32e2c6cb276c380a43459200bbc1813d6f65dcd` has parent
+`8bbb366905d65b73c65b84564b6233a5e31eb8c2`, an old Phase 2 code line. This
+correction commit remains on that historical branch. A future implementation
+must not branch from either planning commit, from `8bbb366`, or from any old
+Phase 2/review/terrain branch and must not inherit their code history.
+
+At implementation time, fetch first and resolve the then-current accepted
+`origin/main` (currently `71d0e9ba7ca1097e840fe878aa30207f6f63600d`). Create a
+new clean branch/worktree directly from that commit, for example:
+
+    git fetch origin --prune --tags
+    git worktree add <new-worktree> -b <new-phase2-branch> origin/main
+
+Migrate only this planning document into that new worktree. Before adding any
+implementation, verify that the new branch has the accepted `origin/main` as
+its base and that `git diff --name-only origin/main...HEAD` contains only
+`docs/research/PHASE2_TERRAIN_PLAN.md`. Any inherited terrain source diff,
+old-WIP cherry-pick, merge, or ancestry from `8bbb366` is a stop condition.
+
 The accepted baseline evidence is recorded in the existing Phase 1 validation
 documents and analyzer outputs, including:
 
@@ -758,34 +780,84 @@ the experiment harness and scorer only. They must not be readable by the
 controller or planner process. Both source provenance and this separation are
 recorded in the manifest.
 
-### 11.2 Proposed pre-freeze gates
+### 11.2 Safety-envelope precedence and inherited contracts
+
+The terrain contract is the intersection of three pre-existing constraints:
+the active controller hard-safety envelope, the exact accepted Phase 1
+analyzer contract for the selected profile, and the physical/model feasibility
+contract. Terrain may make a gate stricter after a pre-registered rationale,
+but it may never make any of them wider or bypass them with an environment
+variable, governor, exploratory mode, or terrain-specific branch.
+
+The posture constants audited on `origin/main=71d0e9b` are important. In
+`trot_types.h`, the non-full-WBC cycle-quality envelope is 8 degrees for both
+roll and pitch, and the named instantaneous hard constants are 15 degrees.
+`CheckInstantaneousHardLimits` uses those 15-degree constants outside full
+WBC; its full-WBC branch currently contains a 22-degree instantaneous branch,
+while `ValidateCycle` uses a 16-degree full-WBC cycle-quality branch. The
+accepted Phase 1 runtime uses `--wbc-full`, but Phase 2 adopts a conservative,
+mode-independent terrain ceiling of 15 degrees, below both full-WBC branches.
+If a future execution mode has a lower active limit, that lower limit wins.
+No terrain milestone may change these code limits or use the 22-degree branch
+as permission to widen terrain acceptance.
+
+The Phase 1 arbitrary-velocity analyzer computes roll/pitch P95 as the 95th
+percentile of absolute IMU roll/pitch over active evaluation rows and freezes
+both gates at 4 degrees. The fixed 3 m/s analyzer has its own frozen 5-degree
+P95 gate over its cruise window. Phase 2 uses the stricter common P95 cap of
+4 degrees and reports the selected analyzer contract. P95 is a distributional
+quality gate; it does not legalize a hard-limit sample. The posture `max` gate
+is the maximum absolute sample over the complete evaluated run and is sourced
+from the hard-safety envelope, not fitted to a result. Therefore every B1-B3
+run must satisfy P95 <=4 degrees and max <=15 degrees, with the active lower
+limit taking precedence; non-full-WBC runs must additionally satisfy their
+8-degree cycle-quality gate.
+
+The following Phase 1 gates are inherited rather than re-tuned: the selected
+velocity profile's exact tracking/steady-state/overshoot/undershoot/settling
+row; shaped-to-measured P95 <=0.45 m/s; shaper acceleration <=1.25 m/s2;
+jerk <=4.20 m/s3; acceleration-step change <=0.02 m/s3; contact-loss
+fraction <=0.25; single-contact fraction <=0.45; touchdown x <=0.18 m and
+y <=0.07 m; torque-saturation fraction <=0.003 at the manifest's unchanged
+`--tau-limit` (45 Nm in the accepted runner); slip evidence ==0; solver,
+SRBD, ID-WBC, and footstep-plan validity ==1.0; solver-budget fraction >=0.80;
+minimum base height >=0.28 m; and stop-tail P95 <=0.05 m/s where the selected
+profile requires a stop. The fixed 3 m/s run retains its own exact analyzer
+contract, including the 0.33-0.40 m base-height percentile band and 0.08 m
+foot-clearance gate. These shared gates cannot be replaced by terrain-only
+numbers.
+
+### 11.3 Proposed pre-freeze gates
 
 The following are proposed starting values for a contract, not results. They
 must be frozen before any B0/B1 tuning and may not be moved toward an observed
-result. The exact Phase 1 B0 thresholds remain inherited from the accepted
-Phase 1 analyzer; current diagnostic output includes tracking P95 <=0.40 m/s,
-steady-state error <=0.40 m/s, overshoot <=0.50 m/s, undershoot >=-0.25 m/s,
-and settling <=8.2 s.
+result. The terrain-only geometry values intentionally use signed, uncertainty-
+aware contracts until map resolution, foot-patch geometry, state uncertainty,
+and contact-model semantics are measured and frozen; the old universal 0.02 m
+and 0.03 m numbers were not accepted-main limits and are removed.
 
 | Gate | B0 | B1 proposal | B2/B3 proposal |
 |---|---|---|---|
 | Completion/status | exact Phase 1 contract; zero unplanned status failure | 100% completion; zero unplanned safe stop | same across every holdout |
-| Roll/pitch | exact Phase 1 contract | P95 <=12 deg, max <=18 deg | P95 <=15 deg, max <=20 deg |
-| Base height | exact Phase 1 contract | P95 error <=0.04 m from plan/contract | same, with terrain plane documented |
-| Velocity | exact Phase 1 contract against shaped v_cmd | P95 <=0.40 m/s against effective approved v_cmd | same; all caps visible in manifest |
+| Roll/pitch | exact selected Phase 1 analyzer contract; common P95 <=4 deg and max <=15 deg | P95 <=4 deg; max <=15 deg; active lower limit wins | same; no terrain-specific widening |
+| Base height | exact selected Phase 1 contract | inherit the selected Phase 1 lower/percentile bounds; terrain reference error is telemetry until its frame and estimator contract are frozen | same, with terrain-plane reference documented |
+| Velocity | exact selected profile-specific Phase 1 contract against shaped v_cmd | the same exact profile gate against effective approved v_cmd; any terrain cap is manifest-visible | same; no universal 0.40 replacement |
 | Committed footholds | no terrain actuation; 100% flat baseline | 100% hard-feasible at commit | 100% hard-feasible at commit |
-| Edge margin | telemetry only in sensor-only mode | >=0.02 m or the frozen foot-specific margin | same |
+| Edge margin | telemetry only in sensor-only mode | signed margin >=0 and >= the pre-frozen uncertainty-inflated foot-patch inset; no unverified universal number | same across holdout geometry |
 | Slope/roughness | telemetry only | within frozen feasibility bounds | same, with holdout variation |
-| Swing clearance/collision | no new actuation; baseline collision gate | clearance >=0.02 m and zero collision | same |
-| Touchdown | baseline Phase 1 touch metrics | x/y <=0.05 m, z <=0.03 m unless a tighter sensor contract is frozen | same |
-| Support/stability | baseline Phase 1 contact gates | minimum predicted/confirmed margin >0.02 m; no unplanned support loss | same over every transfer |
-| Slip/contact loss | exact Phase 1 baseline limit | no unplanned slip/contact-loss gate failure | same |
-| Torque/model validity | exact Phase 1 limit; SRBD/ID-WBC valid | no new saturation gate failure; SRBD/ID-WBC valid on all active rows | same |
-| Planner success/deadline | planner telemetry only | 100% committed-plan success; zero hard deadline misses after warm-up | same |
+| Swing clearance/collision | no new actuation; baseline collision gate | signed swept-volume clearance >=0 after uncertainty inflation and zero collision; no unverified universal 0.02 m | same |
+| Touchdown | exact selected Phase 1 x/y gates; no accepted z gate yet | x <=0.18 m and y <=0.07 m inherited; z error must be defined against the sensed patch and frozen from resolution/uncertainty before B1 | same, with no wider x/y or z contract |
+| Support/stability | exact selected Phase 1 contact gates | predicted support margin must remain >=0 through every committed transfer, with a positive uncertainty buffer frozen from foot/contact geometry; no unverified universal 0.02 m | same over every transfer |
+| Slip/contact loss | contact loss <=0.25, single contact <=0.45, slip evidence ==0, plus the selected fixed-3 m/s contact contract when applicable | same or stricter; no planned transfer may be counted as unexplained loss | same |
+| Torque/model validity | exact selected Phase 1 torque, solver, SRBD, ID-WBC, and footstep-plan gates | unchanged torque limit and saturation gate; all active rows valid; terrain cannot relax any clamp or model-validity gate | same |
+| Planner success/deadline | planner telemetry only | every committed plan is complete, feasible, and deadline-valid; rejected updates are allowed only when latest-valid-plan/fallback remains safe; no required commit may miss its deadline | same, with stale/fallback statistics frozen |
 | Safe stop | zero in a successful B0 run; injected-failure test must stop | zero in successful holdout; failure-injection test must stop | same |
 
 The purpose of the B1/B2 numbers is to give the next agent a concrete
 pre-registration starting point. They are not claims that old WIP met them.
+The 4-degree P95 and 15-degree max are safety/quality ceilings derived above,
+not measurements from the failed WIP. Terrain-only margins are deliberately
+defined by a freeze procedure rather than by a convenient observed result.
 Before terrain tuning, create a versioned acceptance contract containing
 these values, the source analyzers, seed list, scene generator version, and
 the exact definition of each metric. Hash that contract into every
