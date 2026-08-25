@@ -203,11 +203,20 @@ def main():
         checks["fixed_analyzer_hash"] = True
     comparison = None
     paired_contract = {}
+    baseline_phase1 = {}
     if args.baseline:
         baseline = rows(args.baseline)
         comparison = paired_differences(active, baseline)
         active_manifest = manifest(args.run_dir)
         baseline_manifest = manifest(args.baseline)
+        baseline_metadata = metadata(args.baseline)
+        baseline_phase1_path = args.baseline / "phase1_quantitative.json"
+        if baseline_phase1_path.exists():
+            try:
+                baseline_phase1 = json.loads(
+                    baseline_phase1_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                baseline_phase1 = {}
         active_argv = normalized_argv(active_manifest.get("effective_argv"))
         baseline_argv = normalized_argv(baseline_manifest.get("effective_argv"))
         paired_contract = {
@@ -226,6 +235,10 @@ def main():
         }
         checks["paired_control_interface"] = bool(baseline_manifest) and all(
             paired_contract.values())
+        checks["paired_baseline_lifecycle"] = bool(baseline_metadata) and all(
+            baseline_metadata.get(key) == "0" for key in (
+                "controller_status", "safety_status", "quality_status",
+                "analysis_status", "completion_status", "dynamics_status"))
     else:
         checks["paired_control_interface"] = False
     result = {
@@ -248,6 +261,7 @@ def main():
         "checks": checks,
         "paired_contract": paired_contract,
         "paired_comparison": comparison,
+        "paired_baseline_phase1": baseline_phase1,
         "phase1_quantitative": phase1,
     }
     result["legacy_status_pass"] = all(result[key] == "0" for key in (

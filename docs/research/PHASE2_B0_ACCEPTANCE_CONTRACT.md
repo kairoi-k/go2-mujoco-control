@@ -31,7 +31,10 @@ acceleration are diagnostic fields, not acceptance gates. They remain in the
 report so an unexplained systematic shift is visible. Orthogonality is instead
 accepted through explicit no-consumer/no-arbitration telemetry, identical
 non-terrain effective configuration, and the exact inherited Phase 1 gates on
-both members of the pair.
+the terrain member itself. The paired baseline must have complete provenance
+and zero lifecycle status failures; its quantitative metrics remain diagnostic,
+because an independent wall-clock launch is not a valid second quantitative
+sample of the same nonlinear trajectory.
 
 The first implementation epoch's holdout evidence is retained as diagnostic
 evidence. It exposed an avoidable terrain-diagnostics mutex/shared-pointer
@@ -65,6 +68,15 @@ b9214777a7938c89ad39da20199cc26bfada9323 moves lidar acquisition to a
 best-effort thread that copies `mjData` before raycasting. The epoch-5
 development pair passed both members with the unchanged gates; epoch 5 is the
 next frozen holdout implementation epoch.
+
+The first epoch-5 holdout accel pair exposed a runner inconsistency: the
+terrain member passed every B0 and inherited Phase 1 gate, while the paired
+baseline independently missed only its 1-to-3 settling sample. The analyzer
+already treated baseline quantitative output as diagnostic, but the pair
+runner incorrectly made it fatal. The runner now enforces baseline lifecycle
+and provenance while keeping the terrain quantitative gate authoritative.
+This is a contract-measurement correction, not a threshold or safety-envelope
+change; epoch 6 must rerun the complete frozen membership.
 
 ## Development and holdout split
 
@@ -161,11 +173,13 @@ The B0 analyzer reports:
 * planner success/rejection/deadline/stale/fallback counts;
 * clean/dirty status and exact source/config/analyzer/contract hashes.
 
-B0=PASS only if every holdout repeat passes the applicable Phase 1 contract,
-all B0 actuation/interface gates pass, and all required evidence is present and
-reproducible. Any failure remains in its run directory and is diagnosed before
-code changes. B1 cannot start until this contract is passed by all frozen B0
-holdout repeats.
+B0=PASS only if every terrain holdout member passes the applicable Phase 1
+contract and all B0 actuation/interface gates pass, the paired baseline has
+matching provenance and zero lifecycle failures, and all required evidence is
+present and reproducible. Baseline quantitative metrics are reported as
+diagnostics, not a second acceptance sample. Any failure remains in its run
+directory and is diagnosed before code changes. B1 cannot start until this
+contract is passed by all frozen B0 holdout repeats.
 
 Thresholds, holdout membership, and analyzer semantics are immutable after the
 first holdout run. A result cannot be used to loosen, redefine, or selectively

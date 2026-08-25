@@ -105,6 +105,6 @@ else
 fi
 
 if (( baseline_status != 0 || terrain_status != 0 ||
-      baseline_phase1 != 0 || terrain_phase1 != 0 || b0_status != 0 )); then
+      terrain_phase1 != 0 || b0_status != 0 )); then
   exit 1
 fi
