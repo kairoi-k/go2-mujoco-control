@@ -143,6 +143,18 @@ targeted rerun of the prior failing brake member passed, but it is not an
 acceptance sample. Epoch 11 must rerun the complete frozen membership; no
 epoch-10 result may be mixed into its verdict.
 
+Epoch 12 development then exposed a terrain-only brake member failure: the
+first attempt missed the inherited brake undershoot gate at -0.201722661 m/s,
+and a repeated attempt reached the existing full-WBC hard posture limit at
+pitch 22.27 degrees. Both runs had zero terrain plan consumers, zero planner
+deadline misses, and no terrain actuation. The evidence remains preserved and
+diagnostic only. Diagnosis found the simulator lidar observer sharing the
+main MuJoCo model with physics, an observer/physics isolation defect rather
+than a threshold or safety-envelope issue. Commit 81beb91 gives the lidar
+thread a private copied mjModel and mjData while preserving the qpos/qvel/time
+snapshot semantics. Epoch 13 must rerun the complete frozen membership; no
+epoch-12 result may be mixed into its verdict.
+
 ## Development and holdout split
 
 The development set is for plumbing/debugging only. It may use one repeat of
