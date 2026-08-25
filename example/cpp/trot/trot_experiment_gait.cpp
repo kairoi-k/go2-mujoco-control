@@ -112,6 +112,104 @@ void TrotExperiment::UpdateVelocityEstimate(
 }
 
 // --- TrotExperiment::BuildGaitTargets ---
+void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
+{
+    if (!params_.runtime_velocity_command)
+    {
+        velocity_command_state_ = {};
+        runtime_gait_regime_ = "inactive";
+        return;
+    }
+    if (high_speed_stop_brake_active_ || high_speed_stop_hold_active_ ||
+        stop_brake_active_ || task_.stop_requested_)
+    {
+        velocity_command_state_.requested_mps = 0.0;
+        velocity_command_state_.shaped_mps = 0.0;
+        velocity_command_state_.applied_mps = 0.0;
+        velocity_command_state_.accel_mps2 = 0.0;
+        velocity_command_state_.jerk_mps3 = 0.0;
+        velocity_command_state_.active = true;
+        runtime_gait_regime_ = "stop-brake";
+        wbc_speed_cmd_mps_ = 0.0;
+        return;
+    }
+    if (!velocity_command_initialized_ || gait_time_s <= 1.0e-9)
+    {
+        velocity_command_shaper_.Reset(0.0);
+        velocity_command_initialized_ = true;
+    }
+    const double dt = (std::isfinite(last_motion_dt_s_) &&
+                       last_motion_dt_s_ > 1.0e-4)
+        ? last_motion_dt_s_
+        : dt_;
+    velocity_command_state_ = velocity_command_shaper_.Step(
+        params_.velocity_command_profile.Sample(gait_time_s), dt);
+    const bool zero_command_profile_finished =
+        !params_.velocity_command_profile.points.empty() &&
+        params_.velocity_command_profile.points.back().velocity_mps <= 1.0e-6 &&
+        gait_time_s >= params_.velocity_command_profile.points.back().time_s &&
+        velocity_command_state_.shaped_mps <= 0.05;
+    const double measured_command_speed = have_filtered_body_velocity_
+        ? std::max(0.0, params_.direction_sign * latest_filtered_body_velocity_[0])
+        : 0.0;
+    const bool command_stop_ready = zero_command_profile_finished &&
+        (!have_filtered_body_velocity_ || measured_command_speed <= 0.25);
+    if (command_stop_ready && !task_.stop_requested_)
+    {
+        task_.stop_requested_ = true;
+        task_.motion_stage_ = 3;
+        task_.task_completion_requested_ = false;
+        std::cout << "Runtime velocity profile reached zero; stopping in place\n";
+    }
+    double applied_mps = velocity_command_state_.shaped_mps;
+    if (have_filtered_body_velocity_ &&
+        velocity_command_state_.shaped_mps > 0.90)
+    {
+        const double measured_mps = std::max(
+            0.0, params_.direction_sign * latest_filtered_body_velocity_[0]);
+        applied_mps = std::min(
+            velocity_command_state_.shaped_mps,
+            measured_mps +
+                params_.velocity_command_shaper.max_tracking_lead_mps);
+        // If the measured body is already ahead of the shaped command by
+        // more than the allowed lead, lower the applied reference smoothly
+        // so the gait schedule and MPC see a meaningful braking demand.
+        // Merely capping at measured+lead leaves an overspeeding body at the
+        // original command and cannot recover the tracking error.
+        const double overspeed = measured_mps -
+            velocity_command_state_.shaped_mps;
+        if (overspeed >
+            params_.velocity_command_shaper.max_tracking_lead_mps)
+        {
+            applied_mps = std::max(
+                0.0,
+                velocity_command_state_.shaped_mps -
+                    (overspeed -
+                     params_.velocity_command_shaper.max_tracking_lead_mps));
+        }
+    }
+    const bool runtime_health_governor = params_.wbc_full &&
+        !params_.cartesian_world &&
+        Full2EnvDouble("TROT_HS_STABILITY_GOV", 0.0) > 0.5;
+    if (runtime_health_governor && high_speed_health_cap_mps_ > 0.0 &&
+        applied_mps > high_speed_health_cap_mps_)
+    {
+        applied_mps = high_speed_health_cap_mps_;
+    }
+    velocity_command_state_.applied_mps = applied_mps;
+    const auto schedule = ScheduleContinuousVelocityGait(applied_mps);
+    locomotion_kernel_->SetGaitEffectiveSpeedConvention(true);
+    locomotion_kernel_->SetGaitSlewLimits(0.060, 0.020, 0.020);
+    locomotion_kernel_->SetGaitPeriod(schedule.period_s);
+    locomotion_kernel_->SetGaitDuty(schedule.duty_factor);
+    locomotion_kernel_->SetGaitStepLength(schedule.step_length_m);
+    locomotion_kernel_->SetGaitFootLift(schedule.foot_lift_m);
+    wbc_speed_cmd_mps_ =
+        std::abs(params_.direction_sign) * applied_mps;
+    runtime_gait_step_length_m_ = schedule.step_length_m;
+    runtime_gait_foot_lift_m_ = schedule.foot_lift_m;
+    runtime_gait_regime_ = schedule.regime;
+}
 bool TrotExperiment::BuildGaitTargets(
     double gait_time_s,
     const unitree_go::msg::dds_::LowState_ &state_snapshot,
@@ -134,16 +232,22 @@ bool TrotExperiment::BuildGaitTargets(
             latest_filtered_body_velocity_[2];
         gait_request.have_body_velocity = true;
     }
-    const double requested_speed = std::abs(
-        2.0 * params_.duty_factor * params_.direction_sign *
-        params_.step_length_m /
-        std::max(1.0e-3, params_.period_s));
+    const bool runtime_velocity_command = params_.runtime_velocity_command;
+    if (runtime_velocity_command)
+        UpdateRuntimeVelocityCommand(gait_time_s);
+    const double requested_speed = runtime_velocity_command
+        ? velocity_command_state_.shaped_mps
+        : std::abs(
+              2.0 * params_.duty_factor * params_.direction_sign *
+              params_.step_length_m /
+              std::max(1.0e-3, params_.period_s));
     const bool high_speed_curriculum =
+        !runtime_velocity_command &&
         Full2EnvDouble("TROT_HS_DISABLE", 0.0) <= 0.5 &&
         (params_.gait_pattern != go2_control::GaitPattern::kDiagonalTrot ||
          requested_speed > 1.25);
     locomotion_kernel_->SetGaitEffectiveSpeedConvention(
-        params_.wbc_full && high_speed_curriculum);
+        params_.wbc_full && (high_speed_curriculum || runtime_velocity_command));
     const double swing_reach_override = Full2EnvDouble(
         "TROT_HS_SWING_REACH", -1.0);
     if (swing_reach_override >= 0.5)
@@ -210,7 +314,10 @@ bool TrotExperiment::BuildGaitTargets(
     kernel_velocity_error_x_mps_ = gait_result.velocity_error_x_mps;
     kernel_nominal_velocity_x_mps_ = gait_result.nominal_velocity_x_mps;
     kernel_touchdown_target_x_m_ = gait_result.touchdown_target_x_m;
-    if (params_.cartesian_world && wbc_speed_cmd_mps_ > 0.0)
+    if (params_.runtime_velocity_command)
+        kernel_nominal_velocity_x_mps_ =
+            params_.direction_sign * velocity_command_state_.applied_mps;
+    else if (params_.cartesian_world && wbc_speed_cmd_mps_ > 0.0)
         kernel_nominal_velocity_x_mps_ =
             params_.direction_sign * wbc_speed_cmd_mps_;
     if (params_.wbc_full && high_speed_curriculum &&
@@ -603,7 +710,7 @@ bool TrotExperiment::BuildGaitTargets(
         cartesian_last_foot_error_m_ = cycle_foot;
         active_cycle_index_ = cycle_index;
         ResetCycleDiagnostics();
-        if (params_.cartesian_world)
+        if (!params_.runtime_velocity_command && params_.cartesian_world)
         {
             if (wbc_speed_cmd_mps_ < 0.0)
             {
@@ -807,7 +914,7 @@ bool TrotExperiment::BuildGaitTargets(
                       << " motor_kp=" << low_cmd_.motor_cmd()[1].kp()
                       << "\n";
         }
-        else if (params_.wbc_full && high_speed_curriculum)
+        else if (!params_.runtime_velocity_command && params_.wbc_full && high_speed_curriculum)
         {
             // High-speed bound/gallop uses a deliberately slow curriculum.
             // Starting directly at the terminal step length asks the first

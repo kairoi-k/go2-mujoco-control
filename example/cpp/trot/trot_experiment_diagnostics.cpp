@@ -31,6 +31,12 @@ void TrotExperiment::WriteCsvHeader()
          << ",motion_clock_paused,motion_clock_pause_count"
          << ",motion_stage,cycle_index,phase"
          << ",event_active,event_priority,event_type,event_source,event_hold_stance,event_ref_vx_mps,event_ref_vy_mps,event_ref_yaw_rate_radps,event_target_vx_mps,event_target_vy_mps,event_target_yaw_rate_radps"
+         << ",velocity_command_requested_mps,velocity_command_shaped_mps,velocity_command_applied_mps"
+         << ",velocity_command_measured_mps,velocity_command_tracking_error_mps"
+         << ",velocity_command_accel_mps2,velocity_command_jerk_mps3"
+         << ",velocity_command_active,velocity_command_gait_period_s"
+         << ",velocity_command_gait_duty,velocity_command_gait_step_length_m"
+         << ",velocity_command_gait_foot_lift_m,velocity_command_gait_regime"
          << ",environment_map_valid,environment_map_age_s"
          << ",obstacle_center_distance_m,obstacle_left_distance_m,obstacle_right_distance_m"
          << ",obstacle_center_height_m,obstacle_left_height_m,obstacle_right_height_m"
@@ -128,11 +134,15 @@ void TrotExperiment::UpdateCycleDiagnostics(
     }
 
     int support_contacts = 0;
+    const double diagnostic_duty =
+        kernel_duty_factor_ > 0.05
+            ? kernel_duty_factor_
+            : params_.duty_factor;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         const double leg_phase = go2_control::GaitLegPhase(
             leg, phase, params_.gait_pattern);
-        const bool swing = leg_phase >= params_.duty_factor;
+        const bool swing = leg_phase >= diagnostic_duty;
         const double force = state_snapshot.foot_force()[leg];
         const bool contact = force >= kContactForceThreshold;
         if (!have_leg_phase_history_)
@@ -563,6 +573,24 @@ void TrotExperiment::LogSample(
          << "," << motion_event_state_.target.vx_mps
          << "," << motion_event_state_.target.vy_mps
          << "," << motion_event_state_.target.yaw_rate_radps
+         << "," << velocity_command_state_.requested_mps
+         << "," << velocity_command_state_.shaped_mps
+         << "," << velocity_command_state_.applied_mps
+         << "," << (have_filtered_body_velocity_
+                        ? latest_filtered_body_velocity_[0] : 0.0)
+         << "," << (velocity_command_state_.active
+                        ? velocity_command_state_.shaped_mps -
+                              (have_filtered_body_velocity_
+                                   ? latest_filtered_body_velocity_[0] : 0.0)
+                        : 0.0)
+         << "," << velocity_command_state_.accel_mps2
+         << "," << velocity_command_state_.jerk_mps3
+         << "," << (velocity_command_state_.active ? 1 : 0)
+         << "," << kernel_period_s_
+         << "," << kernel_duty_factor_
+         << "," << runtime_gait_step_length_m_
+         << "," << runtime_gait_foot_lift_m_
+         << "," << runtime_gait_regime_
          << "," << (latest_motion_sensor_.have_obstacle_scan ? 1 : 0)
          << "," << (std::isfinite(latest_motion_sensor_.obstacle_scan_age_s)
                         ? latest_motion_sensor_.obstacle_scan_age_s : -1.0)
