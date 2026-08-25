@@ -1,9 +1,9 @@
 {
   "contract": "b0-contract-v1.2",
   "source_base": "71d0e9ba7ca1097e840fe878aa30207f6f63600d",
-  "acceptance_epoch": "b0-v1.2-epoch-11",
-  "implementation_head": "b825c1e528ba47a216830d03d4816b25ab385ada",
-  "supersedes_epoch_evidence": "epoch-10 partial holdout evidence, epoch-9 development failure, and epoch-8 partial holdout evidence remain preserved and diagnostic only; do not mix into this verdict",
+  "acceptance_epoch": "b0-v1.2-epoch-12",
+  "implementation_head": "2aaa6772405240cf931534850715f75a6bada48f",
+  "supersedes_epoch_evidence": "epoch-11 passed before the B1 interface/scaffolding commit; all epoch-11 evidence remains preserved and diagnostic only for this epoch; do not mix into this verdict",
   "terrain_mode": "sensor_only",
   "scene": "unitree_robots/go2/scene_leg_lift_demo.xml",
   "profiles": [
