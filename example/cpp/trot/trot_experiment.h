@@ -183,6 +183,7 @@ private:
         bool have_high_state);
     void TerrainPlannerWorker();
     void PublishTerrainControlSnapshot();
+    void PinCurrentThreadToEnv(const char *env_name);
     void UpdateCycleDiagnostics(
         double phase,
         const unitree_go::msg::dds_::LowState_ &state_snapshot,

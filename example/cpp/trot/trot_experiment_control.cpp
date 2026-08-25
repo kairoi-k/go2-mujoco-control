@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <limits>
 #include <iomanip>
@@ -77,6 +78,27 @@ void FillObstacleScan(
 } // namespace
 
 using namespace go2_trot;
+
+void TrotExperiment::PinCurrentThreadToEnv(const char *env_name)
+{
+#if defined(__linux__)
+    const char *value = std::getenv(env_name);
+    if (value == nullptr || value[0] == 0)
+        return;
+    char *end = nullptr;
+    const long cpu = std::strtol(value, &end, 10);
+    if (end == value || *end != 0 || cpu < 0 || cpu >= CPU_SETSIZE)
+        return;
+    cpu_set_t cpu_set{};
+    CPU_ZERO(&cpu_set);
+    CPU_SET(static_cast<int>(cpu), &cpu_set);
+    if (sched_setaffinity(0, sizeof(cpu_set), &cpu_set) != 0)
+        std::cerr << "Unable to pin " << env_name << " to CPU "
+                  << cpu << "\n";
+#else
+    (void)env_name;
+#endif
+}
 
 void TrotExperiment::PublishTerrainControlSnapshot()
 {
@@ -192,6 +214,7 @@ void TrotExperiment::TerrainPlannerWorker()
         (void)sched_setscheduler(0, SCHED_IDLE, &scheduler_params);
     }
 #endif
+    PinCurrentThreadToEnv("TROT_TERRAIN_CPU");
     for (;;)
     {
         {

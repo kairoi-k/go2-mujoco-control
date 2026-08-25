@@ -283,6 +283,7 @@ bool TrotExperiment::Init()
     }
     writer_stop_.store(false);
     low_cmd_write_thread_ = std::thread([this]() {
+        PinCurrentThreadToEnv("TROT_WRITER_CPU");
         const auto interval = std::chrono::microseconds(
             static_cast<int64_t>(dt_ * 1000000.0));
         auto next = std::chrono::steady_clock::now();

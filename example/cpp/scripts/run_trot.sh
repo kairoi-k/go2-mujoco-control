@@ -25,15 +25,30 @@ sim_terrain_lidar=false
 sim_push_args=()
 sim_affinity="${TROT_CPU_AFFINITY_SIM:-}"
 ctrl_affinity="${TROT_CPU_AFFINITY_CTRL:-}"
+writer_affinity="${TROT_CPU_AFFINITY_WRITER:-}"
+terrain_affinity="${TROT_CPU_AFFINITY_TERRAIN:-}"
 if [[ "${TROT_CPU_AUTOPIN:-1}" != "0" &&
       -z "$sim_affinity" && -z "$ctrl_affinity" ]]; then
   cpu_count="$(nproc 2>/dev/null || echo 0)"
-  if [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 4 )); then
+  if [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 5 )); then
     # MuJoCo and the DDS controller must not compete for the same WSL core.
+    sim_affinity=2
+    ctrl_affinity=3,4
+    writer_affinity="${writer_affinity:-3}"
+    terrain_affinity="${terrain_affinity:-4}"
+  elif [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 4 )); then
     sim_affinity=2
     ctrl_affinity=3
   fi
 fi
+if [[ -z "$writer_affinity" && "$ctrl_affinity" =~ ^[0-9]+ ]]; then
+  writer_affinity="${ctrl_affinity%%,*}"
+fi
+if [[ -z "$terrain_affinity" && "$ctrl_affinity" == *,* ]]; then
+  terrain_affinity="${ctrl_affinity##*,}"
+fi
+export TROT_WRITER_CPU="$writer_affinity"
+export TROT_TERRAIN_CPU="$terrain_affinity"
 filtered_controller_args=()
 profile_path="${GO2_PROFILE_PATH:-}"
 for ((i = 0; i < ${#controller_args[@]}; ++i)); do
@@ -191,6 +206,8 @@ env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_)" >"$environment
   printf "terrain_lidar=%s\n" "$([[ "$sim_terrain_lidar" == true ]] && echo true || echo false)"
   printf "sim_cpu_affinity=%s\n" "${sim_affinity:-auto}"
   printf "controller_cpu_affinity=%s\n" "${ctrl_affinity:-auto}"
+  printf "controller_writer_cpu_affinity=%s\n" "${writer_affinity:-auto}"
+  printf "terrain_worker_cpu_affinity=%s\n" "${terrain_affinity:-auto}"
   printf "argv=%s\n" "$*"
   printf "controller_argv_shell="
   printf "%q " "${controller_args[@]}"
