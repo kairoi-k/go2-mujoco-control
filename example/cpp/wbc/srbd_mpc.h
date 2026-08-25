@@ -13,6 +13,7 @@
 
 #include "dense_qp.h"
 #include "go2_forward_kinematics.h"
+#include "terrain_control_interface.h"
 #include "locomotion_kernel.h"
 
 namespace go2_control
@@ -65,6 +66,10 @@ struct SrbdMpcInput
         foot_valid{};
     std::uint64_t plan_id = 0;
     std::uint64_t plan_epoch = 0;
+    bool has_terrain_plan = false;
+    go2_terrain::TerrainPlanIdentity terrain_plan{};
+    std::array<bool, go2::kLegCount> measured_contact{};
+    bool measured_contact_valid = false;
     std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon> contact{};
 };
 
@@ -75,6 +80,8 @@ struct SrbdMpcOutput
     double cost = 0.0;
     Eigen::Matrix<double, kSrbdForceSize, 1> first_force =
         Eigen::Matrix<double, kSrbdForceSize, 1>::Zero();
+    bool terrain_plan_consumed = false;
+    go2_terrain::TerrainPlanIdentity terrain_plan{};
     Eigen::Vector3d first_linear_acc = Eigen::Vector3d::Zero();
     Eigen::Vector3d first_angular_acc = Eigen::Vector3d::Zero();
     Eigen::Matrix<double, kSrbdStateSize, 1> predicted_state =
@@ -153,6 +160,13 @@ inline bool ValidateSrbdReferenceHorizon(const SrbdMpcParams &params,
     return true;
 }
 
+inline bool ValidateSrbdTerrainReference(const SrbdMpcInput &input)
+{
+    if (!input.has_terrain_plan)
+        return true;
+    return input.terrain_plan.valid() && input.measured_contact_valid;
+}
+
 inline Eigen::Matrix<double, kSrbdStateSize, 1> SrbdGravity(
     const SrbdMpcParams &params)
 {
@@ -198,7 +212,8 @@ inline bool SolveSrbdMpc(
         !input.reference.allFinite() ||
         !params.inertia_com_world.allFinite() ||
         !ValidateSrbdFootHorizon(params, input) ||
-        !ValidateSrbdReferenceHorizon(params, input))
+        !ValidateSrbdReferenceHorizon(params, input) ||
+        !ValidateSrbdTerrainReference(input))
     {
         return false;
     }
@@ -350,6 +365,11 @@ inline bool SolveSrbdMpc(
     }
     output.first_linear_acc = fsum / params.mass_kg +
         Eigen::Vector3d(0.0, 0.0, -params.gravity_mps2);
+    if (input.has_terrain_plan)
+    {
+        output.terrain_plan_consumed = true;
+        output.terrain_plan = input.terrain_plan;
+    }
     output.first_angular_acc = inertia_ldlt.solve(tau);
     return true;
 }

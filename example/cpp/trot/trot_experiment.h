@@ -419,6 +419,7 @@ private:
     go2_terrain::TerrainPlanStore terrain_plan_store_{};
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model_;
     std::atomic<std::uint64_t> terrain_map_epoch_{0};
+    std::atomic<std::uint64_t> terrain_plan_epoch_{0};
     std::atomic<std::uint64_t> terrain_plan_id_{0};
     double terrain_last_update_s_ = -1.0e9;
     double terrain_last_map_age_s_ = std::numeric_limits<double>::infinity();

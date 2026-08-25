@@ -101,7 +101,8 @@ int main()
     input.state_stamp_s = 10.04;
     input.base_position_world = {0.0, 0.0, 0.0};
     input.base_height_m = 0.42;
-    input.current_contact = {true, false, false, true};
+    input.contact_schedule.measured_contact = {true, false, false, true};
+    input.contact_schedule.measured_valid = true;
     input.current_feet_base = {
         go2::Vec3{0.20, -0.10, -0.25},
         go2::Vec3{0.20, 0.10, -0.25},
@@ -110,10 +111,11 @@ int main()
     input.nominal_feet_base = input.current_feet_base;
     for (std::size_t k = 0; k < 8; ++k)
     {
-        input.planned_contact[k] = {true, false, false, true};
+        input.contact_schedule.planned_contact[k] = {true, false, false, true};
         if (k >= 2)
-            input.planned_contact[k] = {true, true, true, true};
+            input.contact_schedule.planned_contact[k] = {true, true, true, true};
     }
+    input.contact_schedule.planned_valid = true;
     go2_terrain::TerrainPlannerConfig planner_config;
     planner_config.sensor_only = true;
     planner_config.allow_actuation = false;
@@ -145,6 +147,7 @@ int main()
 
     go2_terrain::TerrainMotionPlan atomic_plan;
     atomic_plan.plan_id = 1;
+    atomic_plan.plan_epoch = 1;
     atomic_plan.map_epoch = 1;
     atomic_plan.state_stamp_s = 1.0;
     atomic_plan.generated_at_s = 1.0;
@@ -153,9 +156,10 @@ int main()
     atomic_plan.status = go2_terrain::TerrainPlanStatus::kValid;
     atomic_plan.horizon_knots = 1;
     atomic_plan.body_reference[0].valid = true;
+    atomic_plan.contact_schedule = input.contact_schedule;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
-        atomic_plan.planned_contact[0][leg] = true;
+        atomic_plan.contact_schedule.planned_contact[0][leg] = true;
         atomic_plan.predicted_foothold[0][leg].valid = true;
         atomic_plan.predicted_foothold[0][leg].position_world =
             input.current_feet_base[leg];
@@ -165,6 +169,11 @@ int main()
     const auto loaded = store.LoadUsable(1.5);
     if (!Check(loaded && loaded->plan_id == 1 && loaded->map_epoch == 1,
                "terrain plan was not atomically published"))
+        return 1;
+    if (!Check(loaded->plan_epoch == 1 &&
+                   loaded->contact_schedule.measured_contact[0] &&
+                   !loaded->contact_schedule.measured_contact[1],
+               "planned and measured contact state was not preserved"))
         return 1;
 
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";

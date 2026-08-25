@@ -43,7 +43,7 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_enabled,terrain_sensor_only,terrain_actuation"
          << ",terrain_map_valid,terrain_map_source,terrain_map_epoch"
          << ",terrain_map_age_s,terrain_known_cells,terrain_feasible_regions"
-         << ",terrain_plan_status,terrain_plan_id,terrain_plan_valid"
+         << ",terrain_plan_status,terrain_plan_id,terrain_plan_epoch,terrain_plan_valid"
          << ",terrain_planner_updates,terrain_planner_rejections"
          << ",terrain_planner_deadline_misses,terrain_solver_elapsed_us"
          << ",terrain_safe_stop_requested,terrain_velocity_cap_mps"
@@ -688,6 +688,7 @@ void TrotExperiment::LogSample(
          << "," << terrain_feasible_regions
          << "," << static_cast<int>(terrain_last_plan_status)
          << "," << terrain_plan_id_.load()
+         << "," << terrain_plan_epoch_.load()
          << "," << (terrain_latest_plan_valid ? 1 : 0)
          << "," << terrain_planner_updates
          << "," << terrain_planner_rejections

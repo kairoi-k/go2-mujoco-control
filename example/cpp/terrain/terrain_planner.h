@@ -53,9 +53,7 @@ struct TerrainPlannerInput
     double commanded_vx_mps = 0.0;
     std::array<go2::Vec3, go2::kLegCount> current_feet_base{};
     std::array<go2::Vec3, go2::kLegCount> nominal_feet_base{};
-    std::array<bool, go2::kLegCount> current_contact{};
-    std::array<std::array<bool, go2::kLegCount>, kTerrainPlanMaxKnots>
-        planned_contact{};
+    TerrainContactSchedule contact_schedule{};
 };
 
 struct TerrainPlannerResult
@@ -195,6 +193,7 @@ public:
     {
         TerrainPlannerResult result;
         result.plan.plan_id = plan_id;
+        result.plan.plan_epoch = plan_id;
         result.plan.map_epoch = input.terrain != nullptr
             ? input.terrain->epoch : 0;
         result.plan.state_stamp_s = input.state_stamp_s;
@@ -207,6 +206,13 @@ public:
         result.plan.solver.attempted = true;
         result.plan.solver.deadline_us = config_.deadline_us;
         const auto start = std::chrono::steady_clock::now();
+        if (!input.contact_schedule.valid(config_.horizon_knots))
+        {
+            result.plan.failure = TerrainPlanFailure::kInvalidInput;
+            result.plan.status = TerrainPlanStatus::kRejected;
+            result.plan.solver.failure = TerrainPlanFailure::kInvalidInput;
+            return Finish(input, std::move(result), start);
+        }
         if (input.terrain == nullptr || !input.terrain->valid())
         {
             result.plan.failure = TerrainPlanFailure::kNoMap;
@@ -320,14 +326,14 @@ private:
             std::array<go2::Vec3, go2::kLegCount> feet{};
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {
-                if (!result.plan.planned_contact[k][leg] ||
+                if (!result.plan.contact_schedule.planned_contact[k][leg] ||
                     !result.plan.predicted_foothold[k][leg].valid)
                     continue;
                 feet[leg] = result.plan.predicted_foothold[k][leg].position_world;
             }
             const auto &body = result.plan.body_reference[k];
             std::array<bool, go2::kLegCount> contacts =
-                result.plan.planned_contact[k];
+                result.plan.contact_schedule.planned_contact[k];
             const double margin = SupportMargin2D(
                 feet, contacts, body.position, config_.min_support_margin_m,
                 config_.max_two_contact_line_error_m);
@@ -345,12 +351,12 @@ private:
     static int FirstTouchdownKnot(const TerrainPlannerInput &input,
                                   std::size_t leg)
     {
-        bool previous = input.current_contact[leg];
+        bool previous = input.contact_schedule.measured_contact[leg];
         for (std::size_t k = 0; k < kTerrainPlanMaxKnots; ++k)
         {
-            if (input.planned_contact[k][leg] && !previous)
+            if (input.contact_schedule.planned_contact[k][leg] && !previous)
                 return static_cast<int>(k);
-            previous = input.planned_contact[k][leg];
+            previous = input.contact_schedule.planned_contact[k][leg];
         }
         return -1;
     }
@@ -370,9 +376,16 @@ private:
             std::numeric_limits<double>::infinity();
         result.plan.committed_touchdowns = 0;
         result.plan.current_support_count = 0;
+        result.plan.contact_schedule.measured_contact =
+            input.contact_schedule.measured_contact;
+        result.plan.contact_schedule.measured_valid =
+            input.contact_schedule.measured_valid;
+        result.plan.contact_schedule.planned_valid =
+            input.contact_schedule.planned_valid;
         for (std::size_t k = 0; k < config_.horizon_knots; ++k)
         {
-            result.plan.planned_contact[k] = input.planned_contact[k];
+            result.plan.contact_schedule.planned_contact[k] =
+                input.contact_schedule.planned_contact[k];
             result.plan.body_reference[k].position = input.base_position_world;
             result.plan.body_reference[k].linear_velocity =
                 input.base_velocity_world;
@@ -431,7 +444,7 @@ private:
                             candidate.swing_clearance_m);
                     }
                 }
-                else if (input.planned_contact[k][leg])
+                else if (input.contact_schedule.planned_contact[k][leg])
                 {
                     foot.valid = true;
                     foot.position_world = RotateBaseToWorld(

@@ -9,11 +9,12 @@
 #include <string>
 
 #include "go2_forward_kinematics.h"
+#include "terrain_control_interface.h"
 
 namespace go2_terrain
 {
 
-constexpr std::size_t kTerrainPlanMaxKnots = 12;
+constexpr std::size_t kTerrainPlanMaxKnots = kTerrainContactMaxKnots;
 
 enum class TerrainPlanStatus : std::uint8_t
 {
@@ -112,6 +113,7 @@ struct TerrainSolverDiagnostics
 struct TerrainMotionPlan
 {
     std::uint64_t plan_id = 0;
+    std::uint64_t plan_epoch = 0;
     std::uint64_t map_epoch = 0;
     double state_stamp_s = 0.0;
     double generated_at_s = 0.0;
@@ -133,8 +135,7 @@ struct TerrainMotionPlan
     double min_uncertainty_inflated_support_margin_m = 0.0;
     std::size_t committed_touchdowns = 0;
     std::array<TerrainBodyReference, kTerrainPlanMaxKnots> body_reference{};
-    std::array<std::array<bool, go2::kLegCount>, kTerrainPlanMaxKnots>
-        planned_contact{};
+    TerrainContactSchedule contact_schedule{};
     std::array<std::array<TerrainFootholdPrediction, go2::kLegCount>,
                kTerrainPlanMaxKnots>
         predicted_foothold{};
@@ -149,7 +150,8 @@ struct TerrainMotionPlan
     {
         if ((status != TerrainPlanStatus::kValid &&
              status != TerrainPlanStatus::kDegraded) ||
-            plan_id == 0 || map_epoch == 0 || frame_id.empty() ||
+            plan_id == 0 || plan_epoch == 0 || map_epoch == 0 ||
+            !contact_schedule.valid(horizon_knots) || frame_id.empty() ||
             !std::isfinite(state_stamp_s) || !std::isfinite(generated_at_s) ||
             !std::isfinite(valid_until_s) || valid_until_s < generated_at_s ||
             horizon_knots == 0 || horizon_knots > kTerrainPlanMaxKnots)
@@ -160,7 +162,7 @@ struct TerrainMotionPlan
                 return false;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {
-                if (!planned_contact[k][leg])
+                if (!contact_schedule.planned_contact[k][leg])
                     continue;
                 const auto &foot = predicted_foothold[k][leg];
                 if (!foot.valid || !std::isfinite(foot.touchdown_time_s) ||

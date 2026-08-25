@@ -76,6 +76,8 @@ struct SafeFootholdRegion
     static constexpr std::size_t kMaxVertices = 4;
     go2::Leg leg = go2::Leg::FR;
     std::uint64_t map_epoch = 0;
+    double support_margin_m = std::numeric_limits<double>::infinity();
+    double collision_margin_m = std::numeric_limits<double>::infinity();
     std::uint32_t region_id = 0;
     std::array<go2::Vec3, kMaxVertices> vertices{};
     std::size_t vertex_count = 0;
@@ -330,6 +332,9 @@ inline std::vector<SafeFootholdRegion> BuildSafeFootholdRegions(
             region.edge_margin_m = candidate.edge_margin_m;
             region.reachability_margin_m = candidate.reachability_margin_m;
             region.uncertainty_m = candidate.uncertainty_m;
+            region.swing_clearance_m = candidate.swing_clearance_m;
+            region.support_margin_m = candidate.support_margin_m;
+            region.collision_margin_m = candidate.collision_margin_m;
             region.vertex_count = 4;
             region.vertices = {
                 go2::Vec3{x - half, y - half, candidate.foot_position.z},

@@ -145,12 +145,14 @@ void TrotExperiment::PublishTerrainControlSnapshot(
     input.nominal_feet_base = have_commanded_body_feet_
         ? commanded_body_feet_ : go2::AllFootPositions(task_.stand_up_joint_pos_);
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-        input.current_contact[leg] =
+        input.contact_schedule.measured_contact[leg] =
             state_snapshot.foot_force()[leg] >= kContactForceThreshold;
+    input.contact_schedule.measured_valid = true;
     go2_control::FillTrotContactSchedulePhase(
         input.gait_phase, input.gait_period_s, input.duty_factor,
         static_cast<int>(terrain_planner_.config().horizon_knots),
-        terrain_planner_.config().knot_dt_s, input.planned_contact,
+        terrain_planner_.config().knot_dt_s,
+        input.contact_schedule.planned_contact,
         params_.gait_pattern);
 
     {
@@ -256,6 +258,7 @@ void TrotExperiment::TerrainPlannerWorker()
         }
         {
             std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
+            terrain_plan_epoch_.store(result.plan.plan_epoch);
             terrain_model_ = model;
             terrain_last_map_age_s_ = model
                 ? model->age_s : std::numeric_limits<double>::infinity();

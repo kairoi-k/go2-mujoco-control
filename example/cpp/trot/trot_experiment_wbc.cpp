@@ -295,22 +295,22 @@ void TrotExperiment::UpdateWbcFull(
     const int mpc_period_ticks = high_speed_curriculum
         ? 5
         : (params_.cartesian_world ? 10 : 25);
+    const auto terrain_plan =
+        params_.terrain_actuation && !params_.terrain_sensor_only
+            ? terrain_plan_store_.LoadUsable(
+                  static_cast<double>(state_snapshot.tick()) * 1.0e-3)
+            : nullptr;
+    bool terrain_plan_contact_coherent = true;
     const bool run_mpc =
         (wbc_full_ticks_ % mpc_period_ticks) == 0 || !last_srbd_.ok;
     if (run_mpc)
     {
         go2_control::SrbdMpcInput mpc_in;
-        const auto terrain_plan =
-            params_.terrain_actuation && !params_.terrain_sensor_only
-                ? terrain_plan_store_.LoadUsable(
-                      static_cast<double>(state_snapshot.tick()) * 1.0e-3)
-                : nullptr;
-        bool terrain_plan_contact_coherent = true;
         if (terrain_plan && task_.gait_started_ && task_.motion_stage_ == 2)
         {
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {
-                if (terrain_plan->planned_contact[0][leg] != qp_contact[leg])
+                if (terrain_plan->contact_schedule.planned_contact[0][leg] != qp_contact[leg])
                     terrain_plan_contact_coherent = false;
             }
             if (!terrain_plan_contact_coherent)
@@ -463,7 +463,7 @@ void TrotExperiment::UpdateWbcFull(
                 state_snapshot, high_state_snapshot);
             for (int k = 0; k < mpc_params.horizon; ++k)
             {
-                mpc_in.contact[k] = terrain_plan->planned_contact[
+                mpc_in.contact[k] = terrain_plan->contact_schedule.planned_contact[
                     static_cast<std::size_t>(k)];
                 mpc_in.reference_horizon[static_cast<std::size_t>(k)] =
                     mpc_in.reference;
@@ -514,7 +514,17 @@ void TrotExperiment::UpdateWbcFull(
                 mpc_in.has_time_indexed_footholds = true;
                 mpc_in.has_time_indexed_reference = true;
                 mpc_in.plan_id = terrain_plan->plan_id;
-                mpc_in.plan_epoch = terrain_plan->map_epoch;
+                mpc_in.plan_epoch = terrain_plan->plan_epoch;
+                mpc_in.has_terrain_plan = true;
+                mpc_in.terrain_plan.plan_id = terrain_plan->plan_id;
+                mpc_in.terrain_plan.plan_epoch = terrain_plan->plan_epoch;
+                mpc_in.terrain_plan.map_epoch = terrain_plan->map_epoch;
+                mpc_in.terrain_plan.generated_at_s = terrain_plan->generated_at_s;
+                mpc_in.terrain_plan.valid_until_s = terrain_plan->valid_until_s;
+                mpc_in.measured_contact =
+                    terrain_plan->contact_schedule.measured_contact;
+                mpc_in.measured_contact_valid =
+                    terrain_plan->contact_schedule.measured_valid;
                 ++terrain_mpc_plan_consumed_count_;
             }
         }
@@ -528,6 +538,23 @@ void TrotExperiment::UpdateWbcFull(
     go2_control::IdWbcInput wbc_in;
     wbc_in.dynamics = dyn;
     wbc_in.contact = qp_contact;
+    if (terrain_plan)
+    {
+        wbc_in.has_terrain_plan = true;
+        wbc_in.terrain_plan.plan_id = terrain_plan->plan_id;
+        wbc_in.terrain_plan.plan_epoch = terrain_plan->plan_epoch;
+        wbc_in.terrain_plan.map_epoch = terrain_plan->map_epoch;
+        wbc_in.terrain_plan.generated_at_s = terrain_plan->generated_at_s;
+        wbc_in.terrain_plan.valid_until_s = terrain_plan->valid_until_s;
+        wbc_in.measured_contact =
+            terrain_plan->contact_schedule.measured_contact;
+        wbc_in.measured_contact_valid =
+            terrain_plan->contact_schedule.measured_valid;
+        wbc_in.planned_contact =
+            terrain_plan->contact_schedule.planned_contact[0];
+        wbc_in.planned_contact_valid =
+            terrain_plan->contact_schedule.planned_valid;
+    }
     if (last_srbd_.ok)
     {
         wbc_in.desired_linear_acc_world = last_srbd_.first_linear_acc;

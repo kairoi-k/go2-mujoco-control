@@ -54,6 +54,23 @@ int main()
         std::abs(fz - dyn.mass_kg * 9.81) < 40.0, "ID-WBC gravity");
     passed &= Check(out.tau.cwiseAbs().maxCoeff() < 35.0, "tau limit");
 
+    input.has_terrain_plan = true;
+    input.terrain_plan.plan_id = 5;
+    input.terrain_plan.plan_epoch = 6;
+    input.terrain_plan.map_epoch = 7;
+    input.terrain_plan.generated_at_s = 1.0;
+    input.terrain_plan.valid_until_s = 2.0;
+    input.measured_contact.fill(true);
+    input.measured_contact_valid = true;
+    input.planned_contact = input.contact;
+    input.planned_contact_valid = true;
+    go2_control::IdWbcOutput terrain;
+    passed &= Check(
+        go2_control::SolveInverseDynamicsWbc({}, input, terrain) &&
+            terrain.ok && terrain.terrain_plan_consumed &&
+            terrain.terrain_plan.plan_epoch == 6,
+        "terrain ID-WBC identity/contact interface failed");
+    input.has_terrain_plan = false;
     input.contact = {true, false, false, true};
     go2_control::IdWbcOutput two;
     passed &= Check(

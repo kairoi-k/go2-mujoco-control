@@ -79,6 +79,23 @@ int main()
             1.0e-7,
         "future foothold did not enter the MPC horizon");
 
+    go2_control::SrbdMpcInput terrain_indexed = indexed;
+    terrain_indexed.has_terrain_plan = true;
+    terrain_indexed.plan_id = 17;
+    terrain_indexed.plan_epoch = 23;
+    terrain_indexed.terrain_plan.plan_id = 17;
+    terrain_indexed.terrain_plan.plan_epoch = 23;
+    terrain_indexed.terrain_plan.map_epoch = 4;
+    terrain_indexed.terrain_plan.generated_at_s = 1.0;
+    terrain_indexed.terrain_plan.valid_until_s = 2.0;
+    terrain_indexed.measured_contact.fill(true);
+    terrain_indexed.measured_contact_valid = true;
+    go2_control::SrbdMpcOutput terrain_output;
+    passed &= Check(
+        go2_control::SolveSrbdMpc(params, terrain_indexed, terrain_output) &&
+            terrain_output.ok && terrain_output.terrain_plan_consumed &&
+            terrain_output.terrain_plan.plan_epoch == 23,
+        "terrain SRBD identity/contact interface failed");
     go2_control::FillTrotContactSchedule(
         0.24, 0.60, 0.75, params.horizon, params.dt_s, input.contact);
     go2_control::SrbdMpcOutput two;

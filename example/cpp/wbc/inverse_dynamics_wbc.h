@@ -13,6 +13,7 @@
 
 #include "dense_qp.h"
 #include "go2_forward_kinematics.h"
+#include "terrain_control_interface.h"
 #include "go2_rigid_body.h"
 
 namespace go2_control
@@ -48,6 +49,14 @@ struct IdWbcInput
     RigidBodyDynamics dynamics{};
     Eigen::Vector3d desired_linear_acc_world = Eigen::Vector3d::Zero();
     Eigen::Vector3d desired_angular_acc_body = Eigen::Vector3d::Zero();
+    // contact is the mask actually applied to this WBC solve.  The following
+    // fields carry terrain plan provenance without silently replacing it.
+    bool has_terrain_plan = false;
+    go2_terrain::TerrainPlanIdentity terrain_plan{};
+    std::array<bool, go2::kLegCount> measured_contact{};
+    bool measured_contact_valid = false;
+    std::array<bool, go2::kLegCount> planned_contact{};
+    bool planned_contact_valid = false;
     std::array<bool, go2::kLegCount> contact{};
     std::array<Eigen::Vector3d, go2::kLegCount> swing_acc_world{};
     std::array<Eigen::Vector3d, go2::kLegCount> stance_acc_world{};
@@ -60,6 +69,8 @@ struct IdWbcInput
 struct IdWbcOutput
 {
     bool ok = false;
+    bool terrain_plan_consumed = false;
+    go2_terrain::TerrainPlanIdentity terrain_plan{};
     int iterations = 0;
     double eq_residual = 0.0;
     double rne_residual = 0.0;
@@ -79,6 +90,14 @@ inline Eigen::Matrix<double, 12, kGo2Nv> StackFootJacobian(
         J.block<3, kGo2Nv>(static_cast<int>(3 * leg), 0) = dyn.foot_jac_world[leg];
     return J;
 }
+inline bool ValidateIdWbcTerrainReference(const IdWbcInput &input)
+{
+    if (!input.has_terrain_plan)
+        return true;
+    return input.terrain_plan.valid() && input.measured_contact_valid &&
+        input.planned_contact_valid;
+}
+
 
 inline bool SolveInverseDynamicsWbc(
     const IdWbcParams &params,
@@ -86,7 +105,7 @@ inline bool SolveInverseDynamicsWbc(
     IdWbcOutput &output)
 {
     output = IdWbcOutput{};
-    if (!input.dynamics.valid)
+    if (!input.dynamics.valid || !ValidateIdWbcTerrainReference(input))
         return false;
     const auto &M = input.dynamics.mass_matrix;
     const auto &h = input.dynamics.bias;
@@ -287,6 +306,11 @@ inline bool SolveInverseDynamicsWbc(
     if (output.eq_residual >= 5.0)
         return false;
     output.ok = qp_ok || output.eq_residual < 1.0e-2;
+    if (input.has_terrain_plan)
+    {
+        output.terrain_plan_consumed = true;
+        output.terrain_plan = input.terrain_plan;
+    }
     return output.ok;
 }
 
