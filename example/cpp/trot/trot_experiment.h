@@ -213,7 +213,23 @@ private:
     struct TerrainControlSnapshot
     {
         bool valid = false;
-        go2_terrain::TerrainPlannerInput input{};
+        double state_stamp_s = 0.0;
+        double base_yaw_rad = 0.0;
+        double base_roll_rad = 0.0;
+        double base_pitch_rad = 0.0;
+        std::array<double, 4> base_quaternion{};
+        go2::Vec3 imu_position_world{};
+        go2::Vec3 base_velocity_world{};
+        bool have_base_position_world = false;
+        double gait_phase = 0.0;
+        double gait_period_s = 0.0;
+        double duty_factor = 0.0;
+        double commanded_vx_mps = 0.0;
+        std::array<double, go2_trot::kMotorCount> joint_positions{};
+        std::array<go2::Vec3, go2::kLegCount> nominal_feet_base{};
+        std::array<bool, go2::kLegCount> measured_contact{};
+        bool have_commanded_body_feet = false;
+        bool measured_valid = false;
     };
 
     static constexpr double kEmergencyStopPostHoldDurationS = 1.50;

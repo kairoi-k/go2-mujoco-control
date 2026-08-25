@@ -116,44 +116,42 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         ? kernel_period_s_ : params_.period_s;
     const double duty_factor = kernel_duty_factor_ > 0.1
         ? kernel_duty_factor_ : params_.duty_factor;
-    auto &input = snapshot.input;
-    input.state_stamp_s =
+    snapshot.state_stamp_s =
         static_cast<double>(state_snapshot.tick()) * 1.0e-3;
-    if (!std::isfinite(input.state_stamp_s))
+    if (!std::isfinite(snapshot.state_stamp_s))
         return;
-    input.gait_phase = current_phase_;
-    input.gait_period_s = gait_period_s;
-    input.duty_factor = duty_factor;
-    input.commanded_vx_mps = kernel_nominal_velocity_x_mps_;
-    input.base_velocity_world = have_world_velocity_
+    snapshot.gait_phase = current_phase_;
+    snapshot.gait_period_s = gait_period_s;
+    snapshot.duty_factor = duty_factor;
+    snapshot.commanded_vx_mps = kernel_nominal_velocity_x_mps_;
+    snapshot.base_velocity_world = have_world_velocity_
         ? go2::Vec3{latest_world_velocity_[0], latest_world_velocity_[1],
                     latest_world_velocity_[2]}
         : go2::Vec3{};
-    input.base_roll_rad = state_snapshot.imu_state().rpy()[0];
-    input.base_pitch_rad = state_snapshot.imu_state().rpy()[1];
-    const WorldPose pose = have_high_state
-        ? ComputeWorldPose(state_snapshot, high_state_snapshot) : WorldPose{};
-    input.base_position_world = pose.base;
-    input.base_yaw_rad = have_high_state
-        ? pose.yaw_rad : state_snapshot.imu_state().rpy()[2];
-    input.base_height_m = pose.base.z;
+    snapshot.base_roll_rad = state_snapshot.imu_state().rpy()[0];
+    snapshot.base_pitch_rad = state_snapshot.imu_state().rpy()[1];
+    snapshot.base_yaw_rad = state_snapshot.imu_state().rpy()[2];
+    for (std::size_t axis = 0; axis < snapshot.base_quaternion.size(); ++axis)
+        snapshot.base_quaternion[axis] =
+            state_snapshot.imu_state().quaternion()[axis];
+    snapshot.have_base_position_world = have_high_state;
+    if (have_high_state)
+    {
+        snapshot.imu_position_world = {
+            high_state_snapshot.position()[0],
+            high_state_snapshot.position()[1],
+            high_state_snapshot.position()[2]};
+    }
 
-    std::array<double, kMotorCount> joint_positions{};
     for (std::size_t i = 0; i < kMotorCount; ++i)
-        joint_positions[i] = state_snapshot.motor_state()[i].q();
-    input.current_feet_base = go2::AllFootPositions(joint_positions);
-    input.nominal_feet_base = have_commanded_body_feet_
-        ? commanded_body_feet_ : go2::AllFootPositions(task_.stand_up_joint_pos_);
+        snapshot.joint_positions[i] = state_snapshot.motor_state()[i].q();
+    snapshot.have_commanded_body_feet = have_commanded_body_feet_;
+    if (snapshot.have_commanded_body_feet)
+        snapshot.nominal_feet_base = commanded_body_feet_;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-        input.contact_schedule.measured_contact[leg] =
+        snapshot.measured_contact[leg] =
             state_snapshot.foot_force()[leg] >= kContactForceThreshold;
-    input.contact_schedule.measured_valid = true;
-    go2_control::FillTrotContactSchedulePhase(
-        input.gait_phase, input.gait_period_s, input.duty_factor,
-        static_cast<int>(terrain_planner_.config().horizon_knots),
-        terrain_planner_.config().knot_dt_s,
-        input.contact_schedule.planned_contact,
-        params_.gait_pattern);
+    snapshot.measured_valid = true;
 
     {
         std::lock_guard<std::mutex> lock(terrain_control_mutex_);
@@ -174,14 +172,45 @@ void TrotExperiment::UpdateTerrainRuntime()
         std::lock_guard<std::mutex> lock(terrain_control_mutex_);
         control = terrain_control_snapshot_;
     }
-    if (!control.valid || !std::isfinite(control.input.state_stamp_s) ||
-        control.input.state_stamp_s - terrain_last_update_s_ < 0.050)
+    if (!control.valid || !std::isfinite(control.state_stamp_s) ||
+        control.state_stamp_s - terrain_last_update_s_ < 0.050)
         return;
 
     TerrainPlannerWork work;
     work.map_epoch = ++terrain_map_epoch_;
     work.plan_id = ++terrain_plan_id_;
-    work.input = control.input;
+    auto &input = work.input;
+    input.state_stamp_s = control.state_stamp_s;
+    input.base_yaw_rad = control.base_yaw_rad;
+    const go2::Vec3 imu_offset_world = RotateByQuaternion(
+        control.base_quaternion, {-0.02557, 0.0, 0.04232});
+    if (control.have_base_position_world)
+    {
+        input.base_position_world = {
+            control.imu_position_world.x - imu_offset_world.x,
+            control.imu_position_world.y - imu_offset_world.y,
+            control.imu_position_world.z - imu_offset_world.z};
+    }
+    input.base_velocity_world = control.base_velocity_world;
+    input.base_roll_rad = control.base_roll_rad;
+    input.base_pitch_rad = control.base_pitch_rad;
+    input.base_height_m = input.base_position_world.z;
+    input.gait_phase = control.gait_phase;
+    input.gait_period_s = control.gait_period_s;
+    input.duty_factor = control.duty_factor;
+    input.commanded_vx_mps = control.commanded_vx_mps;
+    input.current_feet_base = go2::AllFootPositions(control.joint_positions);
+    input.nominal_feet_base = control.have_commanded_body_feet
+        ? control.nominal_feet_base
+        : go2::AllFootPositions(task_.stand_up_joint_pos_);
+    input.contact_schedule.measured_contact = control.measured_contact;
+    input.contact_schedule.measured_valid = control.measured_valid;
+    go2_control::FillTrotContactSchedulePhase(
+        input.gait_phase, input.gait_period_s, input.duty_factor,
+        static_cast<int>(terrain_planner_.config().horizon_knots),
+        terrain_planner_.config().knot_dt_s,
+        input.contact_schedule.planned_contact,
+        params_.gait_pattern);
 
     {
         std::lock_guard<std::mutex> lock(terrain_map_mutex_);
@@ -189,7 +218,7 @@ void TrotExperiment::UpdateTerrainRuntime()
         if (work.have_map)
             work.map = lidar_heightmap_;
     }
-    terrain_last_update_s_ = control.input.state_stamp_s;
+    terrain_last_update_s_ = control.state_stamp_s;
 
     {
         std::lock_guard<std::mutex> lock(terrain_work_mutex_);
