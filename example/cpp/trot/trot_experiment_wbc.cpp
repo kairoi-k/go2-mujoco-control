@@ -300,6 +300,11 @@ void TrotExperiment::UpdateWbcFull(
     if (run_mpc)
     {
         go2_control::SrbdMpcInput mpc_in;
+        const auto terrain_plan =
+            params_.terrain_actuation && !params_.terrain_sensor_only
+                ? terrain_plan_store_.LoadUsable(
+                      static_cast<double>(state_snapshot.tick()) * 1.0e-3)
+                : nullptr;
         mpc_in.state[0] = state_snapshot.imu_state().rpy()[0];
         mpc_in.state[1] = state_snapshot.imu_state().rpy()[1];
         mpc_in.state[2] = state_snapshot.imu_state().rpy()[2];
@@ -433,6 +438,72 @@ void TrotExperiment::UpdateWbcFull(
         {
             for (int k = 0; k < mpc_params.horizon; ++k)
                 mpc_in.contact[k] = qp_contact;
+        }
+
+        if (terrain_plan && task_.gait_started_ &&
+            task_.motion_stage_ == 2 && !WbcStopHoldActive())
+        {
+            // The accepted planner snapshot is the sole source for future
+            // terrain contacts.  A partial snapshot is rejected rather than
+            // mixed with the legacy current-foot anchor.
+            bool complete_foot_horizon = true;
+            const WorldPose current_pose = ComputeWorldPose(
+                state_snapshot, high_state_snapshot);
+            for (int k = 0; k < mpc_params.horizon; ++k)
+            {
+                mpc_in.contact[k] = terrain_plan->planned_contact[
+                    static_cast<std::size_t>(k)];
+                mpc_in.reference_horizon[static_cast<std::size_t>(k)] =
+                    mpc_in.reference;
+                const auto &body = terrain_plan->body_reference[
+                    static_cast<std::size_t>(k)];
+                if (body.valid)
+                {
+                    mpc_in.reference_horizon[static_cast<std::size_t>(k)][3] =
+                        dyn.com_world.x() +
+                        body.position.x - current_pose.base.x;
+                    mpc_in.reference_horizon[static_cast<std::size_t>(k)][4] =
+                        dyn.com_world.y() +
+                        body.position.y - current_pose.base.y;
+                    mpc_in.reference_horizon[static_cast<std::size_t>(k)][5] =
+                        mpc_in.reference[5] +
+                        body.position.z - current_pose.base.z;
+                    mpc_in.reference_horizon[static_cast<std::size_t>(k)][9] =
+                        body.linear_velocity.x;
+                    mpc_in.reference_horizon[static_cast<std::size_t>(k)][10] =
+                        body.linear_velocity.y;
+                    mpc_in.reference_horizon[static_cast<std::size_t>(k)][11] =
+                        body.linear_velocity.z;
+                }
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                {
+                    const auto &foot = terrain_plan->predicted_foothold[
+                        static_cast<std::size_t>(k)][leg];
+                    if (mpc_in.contact[k][leg])
+                    {
+                        if (!foot.valid)
+                        {
+                            complete_foot_horizon = false;
+                            continue;
+                        }
+                        mpc_in.foot_from_com_world_horizon[
+                            static_cast<std::size_t>(k)][leg] =
+                            Eigen::Vector3d(
+                                foot.position_world.x - dyn.com_world.x(),
+                                foot.position_world.y - dyn.com_world.y(),
+                                foot.position_world.z - dyn.com_world.z());
+                        mpc_in.foot_valid[static_cast<std::size_t>(k)][leg] =
+                            true;
+                    }
+                }
+            }
+            if (complete_foot_horizon)
+            {
+                mpc_in.has_time_indexed_footholds = true;
+                mpc_in.has_time_indexed_reference = true;
+                mpc_in.plan_id = terrain_plan->plan_id;
+                mpc_in.plan_epoch = terrain_plan->map_epoch;
+            }
         }
         go2_control::SrbdMpcOutput mpc_out;
         if (go2_control::SolveSrbdMpc(mpc_params, mpc_in, mpc_out) && mpc_out.ok)

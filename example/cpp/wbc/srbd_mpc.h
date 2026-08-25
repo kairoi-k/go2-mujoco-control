@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstdint>
 
 #include <Eigen/Dense>
 
@@ -48,7 +49,22 @@ struct SrbdMpcInput
         Eigen::Matrix<double, kSrbdStateSize, 1>::Zero();
     Eigen::Matrix<double, kSrbdStateSize, 1> reference =
         Eigen::Matrix<double, kSrbdStateSize, 1>::Zero();
+    bool has_time_indexed_reference = false;
+    std::array<Eigen::Matrix<double, kSrbdStateSize, 1>,
+               kSrbdMaxHorizon>
+        reference_horizon{};
     std::array<Eigen::Vector3d, go2::kLegCount> foot_from_com_world{};
+    // Optional Stage-B contract.  When enabled, every scheduled contact knot
+    // must have a valid foot position; the solver never mixes this sequence
+    // with the legacy single-anchor field.
+    bool has_time_indexed_footholds = false;
+    std::array<std::array<Eigen::Vector3d, go2::kLegCount>,
+               kSrbdMaxHorizon>
+        foot_from_com_world_horizon{};
+    std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon>
+        foot_valid{};
+    std::uint64_t plan_id = 0;
+    std::uint64_t plan_epoch = 0;
     std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon> contact{};
 };
 
@@ -100,6 +116,43 @@ inline Eigen::Matrix<double, kSrbdStateSize, kSrbdForceSize> SrbdBd(
     return B;
 }
 
+inline const Eigen::Vector3d &SrbdFootAt(
+    const SrbdMpcInput &input, int knot, std::size_t leg)
+{
+    return input.has_time_indexed_footholds
+        ? input.foot_from_com_world_horizon[static_cast<std::size_t>(knot)][leg]
+        : input.foot_from_com_world[leg];
+}
+
+inline bool ValidateSrbdFootHorizon(const SrbdMpcParams &params,
+                                    const SrbdMpcInput &input)
+{
+    if (!input.has_time_indexed_footholds)
+        return true;
+    for (int k = 0; k < params.horizon; ++k)
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (input.contact[k][leg] && !input.foot_valid[k][leg])
+                return false;
+            if (!SrbdFootAt(input, k, leg).allFinite())
+                return false;
+        }
+    }
+    return true;
+}
+
+inline bool ValidateSrbdReferenceHorizon(const SrbdMpcParams &params,
+                                         const SrbdMpcInput &input)
+{
+    if (!input.has_time_indexed_reference)
+        return true;
+    for (int k = 0; k < params.horizon; ++k)
+        if (!input.reference_horizon[static_cast<std::size_t>(k)].allFinite())
+            return false;
+    return true;
+}
+
 inline Eigen::Matrix<double, kSrbdStateSize, 1> SrbdGravity(
     const SrbdMpcParams &params)
 {
@@ -143,7 +196,9 @@ inline bool SolveSrbdMpc(
         !(params.friction_mu >= 0.0) ||
         !input.state.allFinite() ||
         !input.reference.allFinite() ||
-        !params.inertia_com_world.allFinite())
+        !params.inertia_com_world.allFinite() ||
+        !ValidateSrbdFootHorizon(params, input) ||
+        !ValidateSrbdReferenceHorizon(params, input))
     {
         return false;
     }
@@ -160,15 +215,20 @@ inline bool SolveSrbdMpc(
     Eigen::Matrix<double, kSrbdStateSize, 1> x_pred = input.state;
     for (int k = 0; k < N; ++k)
     {
-        const auto B = SrbdBd(params, input.foot_from_com_world, input.contact[k]);
+        std::array<Eigen::Vector3d, go2::kLegCount> feet{};
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            feet[leg] = SrbdFootAt(input, k, leg);
+        const auto B = SrbdBd(params, feet, input.contact[k]);
         x_pred = A * x_pred + g;
         d.segment<kSrbdStateSize>(kSrbdStateSize * k) = x_pred;
         Eigen::Matrix<double, kSrbdStateSize, kSrbdStateSize> Ak =
             Eigen::Matrix<double, kSrbdStateSize, kSrbdStateSize>::Identity();
         for (int j = k; j >= 0; --j)
         {
-            const auto Bj = SrbdBd(
-                params, input.foot_from_com_world, input.contact[j]);
+            std::array<Eigen::Vector3d, go2::kLegCount> feet_j{};
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                feet_j[leg] = SrbdFootAt(input, j, leg);
+            const auto Bj = SrbdBd(params, feet_j, input.contact[j]);
             H_xu.block(
                 kSrbdStateSize * k, kSrbdForceSize * j,
                 kSrbdStateSize, kSrbdForceSize) = Ak * Bj;
@@ -185,11 +245,17 @@ inline bool SolveSrbdMpc(
     {
         Qblk.block<kSrbdStateSize, kSrbdStateSize>(
             kSrbdStateSize * k, kSrbdStateSize * k) = Q;
-        Eigen::Matrix<double, kSrbdStateSize, 1> knot_ref = input.reference;
-        knot_ref[3] = input.reference[3] +
-            static_cast<double>(k + 1) * params.dt_s * input.reference[9];
-        knot_ref[4] = input.reference[4] +
-            static_cast<double>(k + 1) * params.dt_s * input.reference[10];
+        Eigen::Matrix<double, kSrbdStateSize, 1> knot_ref =
+            input.has_time_indexed_reference
+                ? input.reference_horizon[static_cast<std::size_t>(k)]
+                : input.reference;
+        if (!input.has_time_indexed_reference)
+        {
+            knot_ref[3] = input.reference[3] +
+                static_cast<double>(k + 1) * params.dt_s * input.reference[9];
+            knot_ref[4] = input.reference[4] +
+                static_cast<double>(k + 1) * params.dt_s * input.reference[10];
+        }
         xref.segment<kSrbdStateSize>(kSrbdStateSize * k) = knot_ref;
     }
     Eigen::MatrixXd H = H_xu.transpose() * Qblk * H_xu;
@@ -280,7 +346,7 @@ inline bool SolveSrbdMpc(
             continue;
         const Eigen::Vector3d f = output.first_force.segment<3>(3 * leg);
         fsum += f;
-        tau += input.foot_from_com_world[leg].cross(f);
+        tau += SrbdFootAt(input, 0, leg).cross(f);
     }
     output.first_linear_acc = fsum / params.mass_kg +
         Eigen::Vector3d(0.0, 0.0, -params.gravity_mps2);

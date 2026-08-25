@@ -65,6 +65,14 @@ Any terrain-to-runtime coupling, hidden event activation, direct gait setter,
 motion-reference overwrite, contact-plan mutation, or unexplained numerical
 divergence is B0 FAIL even if the legacy analyzer happens to pass.
 
+For a paired no-terrain run using the same profile and controller arguments,
+the pre-registered comparison tolerances are: requested v_cmd 1e-6 m/s;
+shaped/applied v_cmd 0.010 m/s; period, duty, step length, and foot lift
+1e-5 in native units; event active/type 0.5; event target v_cmd 0.020 m/s;
+WBC velocity target 0.020 m/s; and requested acceleration 0.20 m/s2. The
+comparison is row-aligned after the active locomotion start and is reported
+alongside the exact terrain-mode flags. A missing paired baseline is FAIL.
+
 ## Inherited Phase 1 quantitative gates
 
 The selected profile uses the exact row below; no common replacement is

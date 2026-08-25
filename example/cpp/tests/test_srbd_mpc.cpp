@@ -48,6 +48,37 @@ int main()
         std::abs(four.first_linear_acc.z()) < 2.5,
         "4-contact az not near 0");
 
+    go2_control::SrbdMpcInput indexed = input;
+    indexed.has_time_indexed_footholds = true;
+    for (int k = 0; k < params.horizon; ++k)
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            indexed.foot_from_com_world_horizon[static_cast<std::size_t>(k)][leg] =
+                input.foot_from_com_world[leg];
+            indexed.foot_valid[static_cast<std::size_t>(k)][leg] = true;
+        }
+    }
+    go2_control::SrbdMpcOutput indexed_output;
+    passed &= Check(
+        go2_control::SolveSrbdMpc(params, indexed, indexed_output) &&
+            indexed_output.ok,
+        "time-indexed foothold MPC failed");
+    passed &= Check(
+        (indexed_output.first_linear_acc - four.first_linear_acc).norm() < 1e-6,
+        "time-indexed fallback changed the flat first acceleration");
+    indexed.foot_from_com_world_horizon[4][0].x() += 0.25;
+    indexed.foot_from_com_world_horizon[4][1].x() += 0.25;
+    go2_control::SrbdMpcOutput shifted_output;
+    passed &= Check(
+        go2_control::SolveSrbdMpc(params, indexed, shifted_output) &&
+            shifted_output.ok,
+        "future foothold MPC failed");
+    passed &= Check(
+        (shifted_output.predicted_state - indexed_output.predicted_state).norm() >
+            1.0e-7,
+        "future foothold did not enter the MPC horizon");
+
     go2_control::FillTrotContactSchedule(
         0.24, 0.60, 0.75, params.horizon, params.dt_s, input.contact);
     go2_control::SrbdMpcOutput two;

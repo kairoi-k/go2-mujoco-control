@@ -71,6 +71,24 @@ void TrotExperiment::EnvironmentHeightMapMessageHandler(const void *message)
     }
 }
 
+void TrotExperiment::LidarHeightMapMessageHandler(const void *message)
+{
+    if (message == nullptr)
+        return;
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    const bool first_message = !have_lidar_heightmap_;
+    lidar_heightmap_ =
+        *static_cast<const unitree_go::msg::dds_::HeightMap_ *>(message);
+    have_lidar_heightmap_ = true;
+    if (first_message)
+    {
+        std::cerr << "Lidar map received: stamp="
+                  << lidar_heightmap_.stamp()
+                  << " cells=" << lidar_heightmap_.data().size()
+                  << " frame=" << lidar_heightmap_.frame_id() << "\n";
+    }
+}
+
 // --- TrotExperiment::WaitForNaturalSettle ---
 bool TrotExperiment::WaitForNaturalSettle(double timeout_s)
 {
@@ -169,6 +187,11 @@ bool TrotExperiment::Init()
     WriteCsvHeader();
     InitLowCmd();
 
+    go2_terrain::TerrainPlannerConfig terrain_config;
+    terrain_config.sensor_only = params_.terrain_sensor_only;
+    terrain_config.allow_actuation = params_.terrain_actuation;
+    terrain_planner_ = go2_terrain::TerrainPlanner(terrain_config);
+
     if (params_.wbc_full)
     {
 #ifdef GO2_MODEL_PATH
@@ -224,6 +247,24 @@ bool TrotExperiment::Init()
             1);
         std::cout << "Automatic environment map: "
                   << GO2_TROT_TOPIC_ENVIRONMENT_MAP << "\n";
+    }
+
+    if (params_.terrain_enabled)
+    {
+        lidar_heightmap_subscriber_.reset(
+            new ChannelSubscriber<unitree_go::msg::dds_::HeightMap_>(
+                GO2_TROT_TOPIC_LIDAR_MAP));
+        lidar_heightmap_subscriber_->InitChannel(
+            std::bind(
+                &TrotExperiment::LidarHeightMapMessageHandler,
+                this,
+                std::placeholders::_1),
+            1);
+        std::cout << "Terrain lidar map: " << GO2_TROT_TOPIC_LIDAR_MAP
+                  << " sensor_only="
+                  << (params_.terrain_sensor_only ? "on" : "off")
+                  << " actuation="
+                  << (params_.terrain_actuation ? "on" : "off") << "\n";
     }
 
     std::cout << "Waiting for natural settle...\n";

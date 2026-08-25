@@ -142,8 +142,18 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
                        last_motion_dt_s_ > 1.0e-4)
         ? last_motion_dt_s_
         : dt_;
+    double requested_mps = params_.velocity_command_profile.Sample(gait_time_s);
+    if (params_.terrain_actuation && !params_.terrain_sensor_only &&
+        std::isfinite(terrain_velocity_cap_mps_))
+    {
+        // Terrain is an arbitration request only.  The Phase 1 shaper remains
+        // the sole producer of shaped/applied v_cmd and gait parameters.
+        requested_mps = std::min(
+            std::max(0.0, requested_mps),
+            std::max(0.0, terrain_velocity_cap_mps_));
+    }
     velocity_command_state_ = velocity_command_shaper_.Step(
-        params_.velocity_command_profile.Sample(gait_time_s), dt);
+        requested_mps, dt);
     const bool zero_command_profile_finished =
         !params_.velocity_command_profile.points.empty() &&
         params_.velocity_command_profile.points.back().velocity_mps <= 1.0e-6 &&
@@ -338,6 +348,12 @@ bool TrotExperiment::BuildGaitTargets(
     have_preview_terminal_velocity_ = preview_n_steps_ > 0;
     const double phase = gait_result.phase;
     current_phase_ = phase;
+    const double terrain_now_s = static_cast<double>(state_snapshot.tick()) *
+        1.0e-3;
+    const auto active_terrain_plan =
+        params_.terrain_actuation && !params_.terrain_sensor_only
+            ? terrain_plan_store_.LoadUsable(terrain_now_s)
+            : nullptr;
     const int cycle_index = gait_result.cycle_index;
     if (active_cycle_index_ < 0)
     {
@@ -1447,6 +1463,55 @@ bool TrotExperiment::BuildGaitTargets(
     {
         attitude_feedback_x_m_ = 0.0;
         attitude_feedback_y_m_ = 0.0;
+    }
+
+    // Consume only a complete, latest-valid planner snapshot.  This is a
+    // bounded swing-target adapter: gait topology, phase, duty, lift and
+    // velocity remain owned by the Phase 1 kernel and its v_cmd shaper.
+    if (active_terrain_plan && have_high_state)
+    {
+        const WorldPose terrain_pose = ComputeWorldPose(
+            state_snapshot, high_state_snapshot);
+        const double c = std::cos(terrain_pose.yaw_rad);
+        const double s = std::sin(terrain_pose.yaw_rad);
+        const double duty = std::clamp(
+            gait_result.duty_factor, 0.35, 0.90);
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            const double leg_phase = go2_control::GaitLegPhase(
+                leg, phase, params_.gait_pattern);
+            if (leg_phase < duty)
+                continue;
+            const double swing_phase = std::clamp(
+                (leg_phase - duty) / std::max(1.0e-6, 1.0 - duty),
+                0.0, 1.0);
+            const go2_terrain::TerrainFootholdPrediction *planned = nullptr;
+            for (std::size_t k = 0; k < active_terrain_plan->horizon_knots; ++k)
+            {
+                const auto &foot = active_terrain_plan->predicted_foothold[k][leg];
+                if (foot.valid && foot.touchdown)
+                {
+                    planned = &foot;
+                    break;
+                }
+            }
+            if (planned == nullptr)
+                continue;
+            const double dx = planned->position_world.x - terrain_pose.base.x;
+            const double dy = planned->position_world.y - terrain_pose.base.y;
+            const go2::Vec3 target_base{
+                c * dx + s * dy,
+                -s * dx + c * dy,
+                planned->position_world.z - terrain_pose.base.z};
+            const double blend = Smoothstep(
+                (swing_phase - 0.08) / 0.84);
+            feet[leg].x = (1.0 - blend) * feet[leg].x +
+                blend * target_base.x;
+            feet[leg].y = (1.0 - blend) * feet[leg].y +
+                blend * target_base.y;
+            feet[leg].z = (1.0 - blend) * feet[leg].z +
+                blend * target_base.z;
+        }
     }
 
     // Inner/outer-leg y offset (Raibert turn). Goal heading uses the same

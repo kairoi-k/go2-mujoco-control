@@ -200,6 +200,12 @@ public:
         environment_heightmap = unitree::robot::ChannelFactory::Instance()
             ->CreateSendChannel<unitree_go::msg::dds_::HeightMap_>(
                 "rt/go2/environment_heightmap");
+        lidar_heightmap = unitree::robot::ChannelFactory::Instance()
+            ->CreateSendChannel<unitree_go::msg::dds_::HeightMap_>(
+                "rt/go2/lidar_heightmap");
+        lidar_world_z_.assign(kLidarWorldCellCount,
+                              std::numeric_limits<double>::quiet_NaN());
+        lidar_world_t_.assign(kLidarWorldCellCount, -1.0e9);
         wireless_controller = std::make_unique<WirelessController_t>();
         wireless_controller->joystick = joystick;
     }
@@ -305,6 +311,140 @@ public:
         last_environment_map_publish_s_ = sim_time;
     }
 
+    // Sensor-only local elevation map.  Rays are cast through the MuJoCo
+    // scene so occlusion is real, but the controller receives only this
+    // lidar-derived observation.  Heights are expressed relative to
+    // base_link; unknown cells remain NaN and are never filled by the oracle.
+    void PublishLidarHeightMap()
+    {
+        if (!lidar_heightmap)
+            return;
+        const double sim_time = mj_data_->time;
+        if (sim_time - last_lidar_map_publish_s_ < 0.020)
+            return;
+        const int base_body_id = mj_name2id(
+            mj_model_, mjOBJ_BODY, "base_link");
+        if (base_body_id < 0)
+            return;
+        last_lidar_map_publish_s_ = sim_time;
+        const mjtNum *base_pos = mj_data_->xpos + 3 * base_body_id;
+        const mjtNum *base_mat = mj_data_->xmat + 9 * base_body_id;
+        struct Ring { double elevation_deg; int count; };
+        static constexpr Ring rings[] = {
+            {-15.0, 48}, {-25.0, 48}, {-35.0, 36}, {-45.0, 36},
+            {-55.0, 24}, {-65.0, 24}, {-75.0, 16}, {-5.0, 16},
+            {5.0, 16}};
+        const double origin[3] = {
+            base_pos[0] + 0.15 * base_mat[0],
+            base_pos[1] + 0.15 * base_mat[3],
+            base_pos[2] + 0.05};
+        int geom_id_out[1] = {-1};
+        for (const Ring &ring : rings)
+        {
+            const double elevation = ring.elevation_deg * M_PI / 180.0;
+            const bool forward_only = std::abs(ring.elevation_deg) < 10.0;
+            for (int i = 0; i < ring.count; ++i)
+            {
+                const double azimuth = forward_only
+                    ? (-40.0 + 80.0 * i /
+                       std::max(1, ring.count - 1)) * M_PI / 180.0
+                    : 2.0 * M_PI * i / ring.count;
+                const mjtNum direction_body[3] = {
+                    std::cos(elevation) * std::cos(azimuth),
+                    std::cos(elevation) * std::sin(azimuth),
+                    std::sin(elevation)};
+                mjtNum direction_world[3];
+                mju_mulMatVec(direction_world, base_mat, direction_body, 3, 3);
+                mjtNum ray_origin[3] = {origin[0], origin[1], origin[2]};
+                bool accepted = false;
+                mjtNum distance = -1.0;
+                for (int bounce = 0; bounce < 3; ++bounce)
+                {
+                    distance = mj_ray(
+                        mj_model_, mj_data_, ray_origin, direction_world,
+                        nullptr, 1, base_body_id, geom_id_out);
+                    if (distance < 0.0 || geom_id_out[0] < 0)
+                        break;
+                    const int geom_id = geom_id_out[0];
+                    const bool skip =
+                        mj_model_->geom_bodyid[geom_id] != 0 ||
+                        (mj_model_->geom_contype[geom_id] == 0 &&
+                         mj_model_->geom_conaffinity[geom_id] == 0);
+                    if (!skip)
+                    {
+                        accepted = true;
+                        break;
+                    }
+                    ray_origin[0] += direction_world[0] * (distance + 0.01);
+                    ray_origin[1] += direction_world[1] * (distance + 0.01);
+                    ray_origin[2] += direction_world[2] * (distance + 0.01);
+                }
+                if (!accepted)
+                    continue;
+                const double hit_x = ray_origin[0] +
+                    distance * direction_world[0];
+                const double hit_y = ray_origin[1] +
+                    distance * direction_world[1];
+                const double hit_z = ray_origin[2] +
+                    distance * direction_world[2];
+                const int ix = static_cast<int>(std::floor(
+                    (hit_x - kLidarWorldOriginX) / kLidarWorldResolution));
+                const int iy = static_cast<int>(std::floor(
+                    (hit_y - kLidarWorldOriginY) / kLidarWorldResolution));
+                if (ix < 0 || ix >= kLidarWorldWidth ||
+                    iy < 0 || iy >= kLidarWorldHeight)
+                    continue;
+                const std::size_t index = static_cast<std::size_t>(iy) *
+                    kLidarWorldWidth + static_cast<std::size_t>(ix);
+                if (!std::isfinite(lidar_world_z_[index]) ||
+                    hit_z < lidar_world_z_[index])
+                    lidar_world_z_[index] = hit_z;
+                lidar_world_t_[index] = sim_time;
+            }
+        }
+
+        unitree_go::msg::dds_::HeightMap_ map;
+        map.stamp(sim_time);
+        map.frame_id("base_link");
+        map.resolution(kLidarWindowResolution);
+        map.width(kLidarWindowWidth);
+        map.height(kLidarWindowHeight);
+        map.origin() = {kLidarWindowOriginX, kLidarWindowOriginY};
+        map.data().assign(kLidarWindowCellCount,
+                          std::numeric_limits<float>::quiet_NaN());
+        const double yaw = std::atan2(base_mat[3], base_mat[0]);
+        const double c = std::cos(yaw), s = std::sin(yaw);
+        for (uint32_t iy = 0; iy < kLidarWindowHeight; ++iy)
+        {
+            for (uint32_t ix = 0; ix < kLidarWindowWidth; ++ix)
+            {
+                const double local_x = kLidarWindowOriginX +
+                    (static_cast<double>(ix) + 0.5) * kLidarWindowResolution;
+                const double local_y = kLidarWindowOriginY +
+                    (static_cast<double>(iy) + 0.5) * kLidarWindowResolution;
+                const double world_x = base_pos[0] + c * local_x - s * local_y;
+                const double world_y = base_pos[1] + s * local_x + c * local_y;
+                const int gx = static_cast<int>(std::floor(
+                    (world_x - kLidarWorldOriginX) / kLidarWorldResolution));
+                const int gy = static_cast<int>(std::floor(
+                    (world_y - kLidarWorldOriginY) / kLidarWorldResolution));
+                if (gx < 0 || gx >= kLidarWorldWidth ||
+                    gy < 0 || gy >= kLidarWorldHeight)
+                    continue;
+                const std::size_t index = static_cast<std::size_t>(gy) *
+                    kLidarWorldWidth + static_cast<std::size_t>(gx);
+                if (sim_time - lidar_world_t_[index] > kLidarMemoryS)
+                    continue;
+                const double world_z = lidar_world_z_[index];
+                if (std::isfinite(world_z))
+                    map.data()[static_cast<std::size_t>(iy) *
+                               kLidarWindowWidth + ix] = static_cast<float>(
+                                   world_z - base_pos[2]);
+            }
+        }
+        (void)lidar_heightmap->Write(map, 0);
+    }
+
     virtual void run()
     {
         auto sim_lock = LockSimulation();
@@ -322,6 +462,7 @@ public:
         }
 
         PublishEnvironmentHeightMap();
+        PublishLidarHeightMap();
 
         // lowstate
         if(lowstate->trylock()) {
@@ -435,11 +576,30 @@ public:
 
     std::unique_ptr<HighState_t> highstate;
     unitree::robot::ChannelPtr<unitree_go::msg::dds_::HeightMap_> environment_heightmap;
+    unitree::robot::ChannelPtr<unitree_go::msg::dds_::HeightMap_> lidar_heightmap;
     std::unique_ptr<WirelessController_t> wireless_controller;
     std::shared_ptr<LowCmd_t> lowcmd;
     std::unique_ptr<LowState_t> lowstate;
     
 private:
+    static constexpr float kLidarWorldResolution = 0.05f;
+    static constexpr int kLidarWorldWidth = 440;
+    static constexpr int kLidarWorldHeight = 80;
+    static constexpr float kLidarWorldOriginX = -2.0f;
+    static constexpr float kLidarWorldOriginY = -2.0f;
+    static constexpr uint32_t kLidarWindowWidth = 20;
+    static constexpr uint32_t kLidarWindowHeight = 16;
+    static constexpr std::size_t kLidarWindowCellCount =
+        static_cast<std::size_t>(kLidarWindowWidth) * kLidarWindowHeight;
+    static constexpr float kLidarWindowResolution = 0.05f;
+    static constexpr float kLidarWindowOriginX = -0.10f;
+    static constexpr float kLidarWindowOriginY = -0.40f;
+    static constexpr double kLidarMemoryS = 1.5;
+    static constexpr std::size_t kLidarWorldCellCount =
+        static_cast<std::size_t>(kLidarWorldWidth) * kLidarWorldHeight;
+    std::vector<double> lidar_world_z_;
+    std::vector<double> lidar_world_t_;
+    double last_lidar_map_publish_s_ = -1.0e9;
     double last_environment_map_publish_s_ = -1.0e9;
     unitree::common::RecurrentThreadPtr thread_;
 };

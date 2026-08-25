@@ -183,6 +183,9 @@ struct TrotParams
     bool wall_clock_motion = false;
     bool reactive_events = false;
     bool auto_environment = false;
+    bool terrain_enabled = false;
+    bool terrain_sensor_only = false;
+    bool terrain_actuation = false;
     bool runtime_velocity_command = false;
     std::string velocity_command_script_path;
     VelocityCommandProfile velocity_command_profile;

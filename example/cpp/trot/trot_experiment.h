@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstddef>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -29,6 +30,9 @@
 #include "srbd_mpc.h"
 #include "inverse_dynamics_wbc.h"
 #include "cartesian_world_trot.h"
+#include "terrain_model.h"
+#include "terrain_motion_plan.h"
+#include "terrain_planner.h"
 
 using unitree::robot::ChannelPublisherPtr;
 using unitree::robot::ChannelSubscriberPtr;
@@ -41,6 +45,9 @@ using unitree::robot::ChannelSubscriberPtr;
 #endif
 #ifndef GO2_TROT_TOPIC_ENVIRONMENT_MAP
 #define GO2_TROT_TOPIC_ENVIRONMENT_MAP "rt/go2/environment_heightmap"
+#endif
+#ifndef GO2_TROT_TOPIC_LIDAR_MAP
+#define GO2_TROT_TOPIC_LIDAR_MAP "rt/go2/lidar_heightmap"
 #endif
 
 class TrotExperiment
@@ -81,6 +88,7 @@ public:
 
 private:
     void EnvironmentHeightMapMessageHandler(const void *message);
+    void LidarHeightMapMessageHandler(const void *message);
     void InitLowCmd();
     void WriteCsvHeader();
     bool WaitForNaturalSettle(double timeout_s);
@@ -168,6 +176,10 @@ private:
         const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
         bool have_high_state,
         double motion_dt);
+    void UpdateTerrainRuntime(
+        const unitree_go::msg::dds_::LowState_ &state_snapshot,
+        const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
+        bool have_high_state);
     void UpdateCycleDiagnostics(
         double phase,
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
@@ -378,15 +390,39 @@ private:
     unitree_go::msg::dds_::LowState_ low_state_{};
     unitree_go::msg::dds_::SportModeState_ high_state_{};
     unitree_go::msg::dds_::HeightMap_ environment_heightmap_{};
+    unitree_go::msg::dds_::HeightMap_ lidar_heightmap_{};
     bool have_low_state_ = false;
     bool have_high_state_ = false;
     bool have_environment_heightmap_ = false;
+    bool have_lidar_heightmap_ = false;
+
+    go2_terrain::TerrainPlanner terrain_planner_{};
+    go2_terrain::TerrainPlanStore terrain_plan_store_{};
+    go2_terrain::TerrainPlannerResult terrain_planner_result_{};
+    std::shared_ptr<const go2_terrain::TerrainModel> terrain_model_;
+    std::uint64_t terrain_map_epoch_ = 0;
+    std::uint64_t terrain_plan_id_ = 0;
+    double terrain_last_update_s_ = -1.0e9;
+    double terrain_last_map_age_s_ = std::numeric_limits<double>::infinity();
+    double terrain_last_solver_us_ = 0.0;
+    double terrain_last_plan_status_ = 0.0;
+    double terrain_last_failure_ = 0.0;
+    std::size_t terrain_known_cells_ = 0;
+    std::size_t terrain_feasible_regions_ = 0;
+    std::uint64_t terrain_planner_updates_ = 0;
+    std::uint64_t terrain_planner_rejections_ = 0;
+    std::uint64_t terrain_planner_deadline_misses_ = 0;
+    bool terrain_latest_plan_valid_ = false;
+    bool terrain_safe_stop_requested_ = false;
+    double terrain_velocity_cap_mps_ = std::numeric_limits<double>::infinity();
 
     std::mutex state_mutex_;
     std::ofstream csv_;
     std::atomic<bool> finished_{false};
     ChannelSubscriberPtr<unitree_go::msg::dds_::HeightMap_>
         environment_heightmap_subscriber_;
+    ChannelSubscriberPtr<unitree_go::msg::dds_::HeightMap_>
+        lidar_heightmap_subscriber_;
     std::atomic<bool> external_stop_requested_{false};
 
     ChannelPublisherPtr<unitree_go::msg::dds_::LowCmd_> lowcmd_publisher_;

@@ -40,6 +40,13 @@ void TrotExperiment::WriteCsvHeader()
          << ",environment_map_valid,environment_map_age_s"
          << ",obstacle_center_distance_m,obstacle_left_distance_m,obstacle_right_distance_m"
          << ",obstacle_center_height_m,obstacle_left_height_m,obstacle_right_height_m"
+         << ",terrain_enabled,terrain_sensor_only,terrain_actuation"
+         << ",terrain_map_valid,terrain_map_source,terrain_map_epoch"
+         << ",terrain_map_age_s,terrain_known_cells,terrain_feasible_regions"
+         << ",terrain_plan_status,terrain_plan_id,terrain_plan_valid"
+         << ",terrain_planner_updates,terrain_planner_rejections"
+         << ",terrain_planner_deadline_misses,terrain_solver_elapsed_us"
+         << ",terrain_safe_stop_requested,terrain_velocity_cap_mps"
          << ",support_foot_kinematics_valid,support_foot_count,support_foot_speed_mps"
          << ",support_low_friction_evidence"
          << ",low_friction_accumulation"
@@ -603,6 +610,27 @@ void TrotExperiment::LogSample(
          << "," << latest_motion_sensor_.obstacle_center_height_m
          << "," << latest_motion_sensor_.obstacle_left_height_m
          << "," << latest_motion_sensor_.obstacle_right_height_m
+         << "," << (params_.terrain_enabled ? 1 : 0)
+         << "," << (params_.terrain_sensor_only ? 1 : 0)
+         << "," << (params_.terrain_actuation ? 1 : 0)
+         << "," << ((terrain_model_ && terrain_model_->valid()) ? 1 : 0)
+         << "," << (terrain_model_
+                           ? go2_terrain::TerrainSourceName(
+                                 terrain_model_->source)
+                           : "none")
+         << "," << (terrain_model_ ? terrain_model_->epoch : 0)
+         << "," << terrain_last_map_age_s_
+         << "," << terrain_known_cells_
+         << "," << terrain_feasible_regions_
+         << "," << static_cast<int>(terrain_last_plan_status_)
+         << "," << terrain_plan_id_
+         << "," << (terrain_latest_plan_valid_ ? 1 : 0)
+         << "," << terrain_planner_updates_
+         << "," << terrain_planner_rejections_
+         << "," << terrain_planner_deadline_misses_
+         << "," << terrain_last_solver_us_
+         << "," << (terrain_safe_stop_requested_ ? 1 : 0)
+         << "," << terrain_velocity_cap_mps_
          << "," << (latest_motion_sensor_.have_support_foot_kinematics ? 1 : 0)
          << "," << latest_motion_sensor_.support_foot_count
          << "," << latest_motion_sensor_.support_foot_speed_mps

@@ -33,6 +33,7 @@ void PrintTrotCliUsage()
            " [--velocity-max-decel a] [--velocity-max-jerk j]"
            " [--forever] [--stop-file path]"
            " [--auto-environment]"
+           " [--terrain-sensor-only|--terrain-planner]"
            " [--impact-to-emergency-stop-delay s]"
            " [--task stand-walk-lie]"
            " [--goal-x m] [--goal-y m] [--goal-tol m]\n";
@@ -117,6 +118,18 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
             {
                 cfg.params.auto_environment = true;
                 cfg.params.reactive_events = true;
+            }
+            else if (option == "--terrain-sensor-only")
+            {
+                cfg.params.terrain_enabled = true;
+                cfg.params.terrain_sensor_only = true;
+                cfg.params.terrain_actuation = false;
+            }
+            else if (option == "--terrain-planner")
+            {
+                cfg.params.terrain_enabled = true;
+                cfg.params.terrain_sensor_only = false;
+                cfg.params.terrain_actuation = true;
             }
             else if (option == "--impact-to-emergency-stop-delay")
             {
@@ -347,6 +360,19 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
         return false;
     }
 
+    if (cfg.params.terrain_actuation && !cfg.params.runtime_velocity_command)
+    {
+        if (error_out)
+            *error_out = "terrain planner actuation requires the Phase 1 runtime v_cmd API";
+        return false;
+    }
+    if (cfg.params.terrain_sensor_only && cfg.params.terrain_actuation)
+    {
+        if (error_out)
+            *error_out = "terrain sensor-only and terrain actuation are mutually exclusive";
+        return false;
+    }
+
     if (!cfg.params.event_script_path.empty() &&
         !go2_control::LoadMotionEventScript(
             cfg.params.event_script_path, cfg.params.event_schedule,
@@ -460,6 +486,10 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << "  cartesian_world="
               << (params.cartesian_world ? "on" : "off") << "\n"
               << "  auto_environment=" << (params.auto_environment ? "on" : "off") << "\n"
+              << "  terrain_sensor_only="
+              << (params.terrain_sensor_only ? "on" : "off") << "\n"
+              << "  terrain_actuation="
+              << (params.terrain_actuation ? "on" : "off") << "\n"
               << "  reactive_events="
               << ((params.reactive_events || params.auto_environment || !params.event_schedule.empty()) ? "on" : "off") << "\n"
               << "  impact_to_emergency_stop_delay="
