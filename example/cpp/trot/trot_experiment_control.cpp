@@ -159,6 +159,7 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         std::lock_guard<std::mutex> lock(terrain_control_mutex_);
         terrain_control_snapshot_ = snapshot;
     }
+    terrain_control_generation_.fetch_add(1, std::memory_order_release);
     terrain_last_control_snapshot_s_ = running_time_;
     terrain_work_cv_.notify_one();
 }
@@ -210,16 +211,20 @@ void TrotExperiment::TerrainPlannerWorker()
     }
 #endif
     PinCurrentThreadToEnv("TROT_TERRAIN_CPU");
+    std::uint64_t consumed_generation = 0;
     for (;;)
     {
         {
             std::unique_lock<std::mutex> lock(terrain_work_mutex_);
-            terrain_work_cv_.wait_for(
-                lock, std::chrono::milliseconds(20), [this]() {
-                    return terrain_worker_stop_.load();
-                });
+            terrain_work_cv_.wait(lock, [this, &consumed_generation]() {
+                return terrain_worker_stop_.load() ||
+                    terrain_control_generation_.load(
+                        std::memory_order_acquire) > consumed_generation;
+            });
             if (terrain_worker_stop_.load())
                 return;
+            consumed_generation = terrain_control_generation_.load(
+                std::memory_order_acquire);
         }
 
         UpdateTerrainRuntime();

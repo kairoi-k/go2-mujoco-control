@@ -453,6 +453,7 @@ private:
     std::mutex terrain_diagnostics_mutex_;
     std::mutex terrain_control_mutex_;
     TerrainControlSnapshot terrain_control_snapshot_{};
+    std::atomic<std::uint64_t> terrain_control_generation_{0};
     double terrain_last_control_snapshot_s_ = -1.0e9;
     std::mutex terrain_work_mutex_;
     std::condition_variable terrain_work_cv_;
