@@ -50,6 +50,14 @@ worker to best-effort Linux scheduling so it cannot preempt the accepted
 same frozen gates and holdout membership define epoch 3, which must again be
 run in full.
 
+Epoch 3 still showed elevated state-tick gaps in both paired members. The
+simulator's terrain height-map raycasting had been enabled unconditionally,
+including for the no-terrain baseline. Commit
+4d5fee9f96f8b839e8716f5c7c2ac6ed7a399703 gates that publisher behind the
+explicit terrain-sensing simulator flag, restoring the accepted Phase 1
+simulator path for baseline runs. The unchanged contract is restarted as
+epoch 4; earlier epochs remain diagnostic only.
+
 ## Development and holdout split
 
 The development set is for plumbing/debugging only. It may use one repeat of
