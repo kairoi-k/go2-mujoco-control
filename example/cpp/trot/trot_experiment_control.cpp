@@ -78,6 +78,33 @@ void FillObstacleScan(
 
 using namespace go2_trot;
 
+void TrotExperiment::PublishTerrainControlSnapshot()
+{
+    if (!params_.terrain_enabled ||
+        !std::isfinite(running_time_) ||
+        running_time_ - terrain_last_control_snapshot_s_ < 0.050)
+        return;
+
+    TerrainControlSnapshot snapshot;
+    snapshot.valid = true;
+    snapshot.gait_phase = current_phase_;
+    snapshot.gait_period_s = kernel_period_s_ > 0.05
+        ? kernel_period_s_ : params_.period_s;
+    snapshot.duty_factor = kernel_duty_factor_ > 0.1
+        ? kernel_duty_factor_ : params_.duty_factor;
+    snapshot.commanded_vx_mps = kernel_nominal_velocity_x_mps_;
+    snapshot.have_world_velocity = have_world_velocity_;
+    snapshot.world_velocity = latest_world_velocity_;
+    snapshot.have_commanded_body_feet = have_commanded_body_feet_;
+    snapshot.commanded_body_feet = commanded_body_feet_;
+    {
+        std::lock_guard<std::mutex> lock(terrain_control_mutex_);
+        terrain_control_snapshot_ = snapshot;
+    }
+    terrain_last_control_snapshot_s_ = running_time_;
+    terrain_work_cv_.notify_one();
+}
+
 void TrotExperiment::UpdateTerrainRuntime(
     const unitree_go::msg::dds_::LowState_ &state_snapshot,
     const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
@@ -94,6 +121,14 @@ void TrotExperiment::UpdateTerrainRuntime(
     work.plan_id = ++terrain_plan_id_;
     work.input.state_stamp_s = now_s;
 
+    TerrainControlSnapshot control;
+    {
+        std::lock_guard<std::mutex> lock(terrain_control_mutex_);
+        control = terrain_control_snapshot_;
+    }
+    if (!control.valid)
+        return;
+
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
         work.have_map = have_lidar_heightmap_;
@@ -106,8 +141,8 @@ void TrotExperiment::UpdateTerrainRuntime(
     for (std::size_t i = 0; i < kMotorCount; ++i)
         joint_positions[i] = state_snapshot.motor_state()[i].q();
     const auto actual_body_feet = go2::AllFootPositions(joint_positions);
-    const auto nominal_body_feet = have_commanded_body_feet_
-        ? commanded_body_feet_
+    const auto nominal_body_feet = control.have_commanded_body_feet
+        ? control.commanded_body_feet
         : go2::AllFootPositions(task_.stand_up_joint_pos_);
     const WorldPose pose = have_high_state
         ? ComputeWorldPose(state_snapshot, high_state_snapshot) : WorldPose{};
@@ -116,26 +151,24 @@ void TrotExperiment::UpdateTerrainRuntime(
     input.base_yaw_rad = have_high_state
         ? pose.yaw_rad : state_snapshot.imu_state().rpy()[2];
     input.base_position_world = pose.base;
-    input.base_velocity_world = {
-        have_world_velocity_ ? latest_world_velocity_[0] : 0.0,
-        have_world_velocity_ ? latest_world_velocity_[1] : 0.0,
-        have_world_velocity_ ? latest_world_velocity_[2] : 0.0};
+    input.base_velocity_world = control.have_world_velocity
+        ? go2::Vec3{control.world_velocity[0], control.world_velocity[1],
+                    control.world_velocity[2]}
+        : go2::Vec3{};
     input.base_roll_rad = state_snapshot.imu_state().rpy()[0];
     input.base_pitch_rad = state_snapshot.imu_state().rpy()[1];
     input.base_height_m = pose.base.z;
-    input.gait_phase = current_phase_;
-    input.gait_period_s = kernel_period_s_ > 0.05
-        ? kernel_period_s_ : params_.period_s;
-    input.duty_factor = kernel_duty_factor_ > 0.1
-        ? kernel_duty_factor_ : params_.duty_factor;
-    input.commanded_vx_mps = kernel_nominal_velocity_x_mps_;
+    input.gait_phase = control.gait_phase;
+    input.gait_period_s = control.gait_period_s;
+    input.duty_factor = control.duty_factor;
+    input.commanded_vx_mps = control.commanded_vx_mps;
     input.current_feet_base = actual_body_feet;
     input.nominal_feet_base = nominal_body_feet;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         input.current_contact[leg] =
             state_snapshot.foot_force()[leg] >= kContactForceThreshold;
     go2_control::FillTrotContactSchedulePhase(
-        current_phase_, input.gait_period_s, input.duty_factor,
+        control.gait_phase, input.gait_period_s, input.duty_factor,
         static_cast<int>(terrain_planner_.config().horizon_knots),
         terrain_planner_.config().knot_dt_s, input.planned_contact,
         params_.gait_pattern);
@@ -145,7 +178,6 @@ void TrotExperiment::UpdateTerrainRuntime(
         terrain_pending_work_ = std::move(work);
         terrain_work_pending_ = true;
     }
-    terrain_work_cv_.notify_one();
 }
 
 void TrotExperiment::TerrainPlannerWorker()
@@ -162,14 +194,32 @@ void TrotExperiment::TerrainPlannerWorker()
 #endif
     for (;;)
     {
-        TerrainPlannerWork work;
         {
             std::unique_lock<std::mutex> lock(terrain_work_mutex_);
-            terrain_work_cv_.wait(lock, [this]() {
-                return terrain_worker_stop_.load() || terrain_work_pending_;
-            });
-            if (terrain_worker_stop_.load() && !terrain_work_pending_)
+            terrain_work_cv_.wait_for(
+                lock, std::chrono::milliseconds(20), [this]() {
+                    return terrain_worker_stop_.load();
+                });
+            if (terrain_worker_stop_.load())
                 return;
+        }
+
+        unitree_go::msg::dds_::LowState_ state_snapshot{};
+        unitree_go::msg::dds_::SportModeState_ high_state_snapshot{};
+        bool have_state = false;
+        bool have_high_state = false;
+        if (!SnapshotState(
+                state_snapshot, high_state_snapshot,
+                have_state, have_high_state))
+            continue;
+        UpdateTerrainRuntime(
+            state_snapshot, high_state_snapshot, have_high_state);
+
+        TerrainPlannerWork work;
+        {
+            std::lock_guard<std::mutex> lock(terrain_work_mutex_);
+            if (!terrain_work_pending_)
+                continue;
             work = std::move(terrain_pending_work_);
             terrain_work_pending_ = false;
         }
@@ -282,8 +332,6 @@ void TrotExperiment::LowCmdWrite()
 
     std::array<double, kMotorCount> joint_targets = task_.stand_up_joint_pos_;
     UpdateVelocityEstimate(state_snapshot, high_state_snapshot, have_high_state, motion_dt);
-    UpdateTerrainRuntime(
-        state_snapshot, high_state_snapshot, have_high_state);
     std::array<double, kMotorCount> joint_velocities{};
     if (PhaseLieDown(joint_targets))
     {
@@ -394,6 +442,7 @@ void TrotExperiment::LowCmdWrite()
         state_snapshot, have_state,
         high_state_snapshot, have_high_state,
         joint_targets);
+    PublishTerrainControlSnapshot();
 
     // SECTION: publish-lowcmd
     PublishLowCmdWithCrc();

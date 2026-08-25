@@ -182,6 +182,7 @@ private:
         const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
         bool have_high_state);
     void TerrainPlannerWorker();
+    void PublishTerrainControlSnapshot();
     void UpdateCycleDiagnostics(
         double phase,
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
@@ -206,6 +207,19 @@ private:
         std::uint64_t map_epoch = 0;
         std::uint64_t plan_id = 0;
         go2_terrain::TerrainPlannerInput input{};
+    };
+
+    struct TerrainControlSnapshot
+    {
+        bool valid = false;
+        double gait_phase = 0.0;
+        double gait_period_s = 0.0;
+        double duty_factor = 0.0;
+        double commanded_vx_mps = 0.0;
+        bool have_world_velocity = false;
+        go2_control::Vector3 world_velocity{};
+        bool have_commanded_body_feet = false;
+        std::array<go2::Vec3, go2::kLegCount> commanded_body_feet{};
     };
 
     static constexpr double kEmergencyStopPostHoldDurationS = 1.50;
@@ -432,6 +446,9 @@ private:
     std::uint64_t terrain_mpc_plan_consumed_count_ = 0;
 
     std::mutex terrain_diagnostics_mutex_;
+    std::mutex terrain_control_mutex_;
+    TerrainControlSnapshot terrain_control_snapshot_{};
+    double terrain_last_control_snapshot_s_ = -1.0e9;
     std::mutex terrain_work_mutex_;
     std::condition_variable terrain_work_cv_;
     TerrainPlannerWork terrain_pending_work_{};
