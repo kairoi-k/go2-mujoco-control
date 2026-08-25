@@ -425,6 +425,15 @@ private:
     double terrain_last_solver_us_ = 0.0;
     double terrain_last_plan_status_ = 0.0;
     double terrain_last_failure_ = 0.0;
+    double terrain_min_edge_margin_m_ = 0.0;
+    double terrain_min_uncertainty_edge_margin_m_ = 0.0;
+    double terrain_min_slope_rad_ = 0.0;
+    double terrain_max_roughness_m_ = 0.0;
+    double terrain_min_reachability_margin_m_ = 0.0;
+    double terrain_min_swing_clearance_m_ = 0.0;
+    double terrain_min_support_margin_m_ = 0.0;
+    double terrain_min_uncertainty_support_margin_m_ = 0.0;
+    std::uint64_t terrain_committed_touchdowns_ = 0;
     std::size_t terrain_known_cells_ = 0;
     std::size_t terrain_feasible_regions_ = 0;
     std::uint64_t terrain_planner_updates_ = 0;
@@ -438,6 +447,7 @@ private:
     std::uint64_t terrain_plan_consumed_count_ = 0;
     std::uint64_t terrain_gait_target_override_count_ = 0;
     std::uint64_t terrain_mpc_plan_consumed_count_ = 0;
+    std::atomic<std::uint64_t> terrain_plan_contact_rejections_{0};
 
     std::mutex terrain_diagnostics_mutex_;
     std::mutex terrain_control_mutex_;

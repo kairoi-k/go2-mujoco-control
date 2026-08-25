@@ -83,6 +83,12 @@ def main() -> int:
             if phase2_analyzer_path.is_file() else "",
             "phase2_fixed_3mps_analyzer_sha256": sha256(sustained_analyzer_path)
             if sustained_analyzer_path.is_file() else "",
+            "phase2_contract_sha256": sha256(pathlib.Path(environment["TROT_PHASE2_CONTRACT"]))
+            if environment.get("TROT_PHASE2_CONTRACT") and
+            pathlib.Path(environment["TROT_PHASE2_CONTRACT"]).is_file() else "",
+            "phase2_analyzer_sha256": sha256(pathlib.Path(environment["TROT_PHASE2_ANALYZER"]))
+            if environment.get("TROT_PHASE2_ANALYZER") and
+            pathlib.Path(environment["TROT_PHASE2_ANALYZER"]).is_file() else "",
         },
         "analyzers": analyzers,
         "statuses": {
@@ -103,6 +109,8 @@ def main() -> int:
             "wall_timeout_s": metadata.get("wall_timeout_s", ""),
             "run_mode": metadata.get("run_mode", ""),
             "headless": metadata.get("headless", ""),
+            "initial_x_m": environment.get("TROT_INITIAL_X_M", metadata.get("initial_x_m", "0.0")),
+            "initial_y_m": environment.get("TROT_INITIAL_Y_M", metadata.get("initial_y_m", "0.0")),
         },
     }
     output_path = options.experiment_dir / "run_manifest.json"

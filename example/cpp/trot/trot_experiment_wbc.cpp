@@ -305,6 +305,17 @@ void TrotExperiment::UpdateWbcFull(
                 ? terrain_plan_store_.LoadUsable(
                       static_cast<double>(state_snapshot.tick()) * 1.0e-3)
                 : nullptr;
+        bool terrain_plan_contact_coherent = true;
+        if (terrain_plan && task_.gait_started_ && task_.motion_stage_ == 2)
+        {
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                if (terrain_plan->planned_contact[0][leg] != qp_contact[leg])
+                    terrain_plan_contact_coherent = false;
+            }
+            if (!terrain_plan_contact_coherent)
+                ++terrain_plan_contact_rejections_;
+        }
         mpc_in.state[0] = state_snapshot.imu_state().rpy()[0];
         mpc_in.state[1] = state_snapshot.imu_state().rpy()[1];
         mpc_in.state[2] = state_snapshot.imu_state().rpy()[2];
@@ -440,7 +451,8 @@ void TrotExperiment::UpdateWbcFull(
                 mpc_in.contact[k] = qp_contact;
         }
 
-        if (terrain_plan && task_.gait_started_ &&
+        if (terrain_plan && terrain_plan_contact_coherent &&
+            task_.gait_started_ &&
             task_.motion_stage_ == 2 && !WbcStopHoldActive())
         {
             // The accepted planner snapshot is the sole source for future

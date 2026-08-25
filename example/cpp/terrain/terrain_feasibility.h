@@ -101,6 +101,8 @@ struct FootholdCandidate
     std::uint32_t region_id = 0;
     double height_min_m = std::numeric_limits<double>::quiet_NaN();
     double height_max_m = std::numeric_limits<double>::quiet_NaN();
+    double slope_rad = std::numeric_limits<double>::infinity();
+    double roughness_m = std::numeric_limits<double>::infinity();
     double edge_margin_m = 0.0;
     double reachability_margin_m = 0.0;
     double swing_clearance_m = std::numeric_limits<double>::infinity();
@@ -234,6 +236,8 @@ inline FootholdCandidate EvaluateFoothold(
     candidate.surface_normal = patch.normal;
     candidate.height_min_m = patch.min_height_m;
     candidate.height_max_m = patch.max_height_m;
+    candidate.slope_rad = patch.slope_rad;
+    candidate.roughness_m = patch.roughness_m;
     candidate.edge_margin_m = patch.map_edge_margin_m;
     candidate.uncertainty_m = std::sqrt(std::max(0.0, patch.variance_m2));
     candidate.reachability_margin_m = LegReachabilityMargin(

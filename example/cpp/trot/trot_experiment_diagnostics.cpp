@@ -49,6 +49,11 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_safe_stop_requested,terrain_velocity_cap_mps"
          << ",terrain_plan_published,terrain_plan_consumed"
          << ",terrain_gait_target_overrides,terrain_mpc_plan_consumed"
+         << ",terrain_plan_failure,terrain_committed_touchdowns"
+         << ",terrain_min_edge_margin_m,terrain_min_uncertainty_edge_margin_m"
+         << ",terrain_min_slope_rad,terrain_max_roughness_m,terrain_min_reachability_margin_m,terrain_min_swing_clearance_m"
+         << ",terrain_min_support_margin_m,terrain_min_uncertainty_support_margin_m"
+         << ",terrain_plan_contact_rejections"
          << ",support_foot_kinematics_valid,support_foot_count,support_foot_speed_mps"
          << ",support_low_friction_evidence"
          << ",low_friction_accumulation"
@@ -559,6 +564,17 @@ void TrotExperiment::LogSample(
             contact_count += contact_flags[leg];
         }
     }
+    double terrain_last_failure = 0.0;
+    double terrain_min_edge_margin_m = 0.0;
+    double terrain_min_uncertainty_edge_margin_m = 0.0;
+    double terrain_min_slope_rad = 0.0;
+    double terrain_max_roughness_m = 0.0;
+    double terrain_min_reachability_margin_m = 0.0;
+    double terrain_min_swing_clearance_m = 0.0;
+    double terrain_min_support_margin_m = 0.0;
+    double terrain_min_uncertainty_support_margin_m = 0.0;
+    std::uint64_t terrain_committed_touchdowns = 0;
+    std::uint64_t terrain_plan_contact_rejections = 0;
 
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model;
     double terrain_last_map_age_s = std::numeric_limits<double>::infinity();
@@ -577,7 +593,21 @@ void TrotExperiment::LogSample(
         terrain_model = terrain_model_;
         terrain_last_map_age_s = terrain_last_map_age_s_;
         terrain_last_solver_us = terrain_last_solver_us_;
+        terrain_last_failure = terrain_last_failure_;
+        terrain_min_edge_margin_m = terrain_min_edge_margin_m_;
+        terrain_min_uncertainty_edge_margin_m =
+            terrain_min_uncertainty_edge_margin_m_;
+        terrain_min_slope_rad = terrain_min_slope_rad_;
+        terrain_max_roughness_m = terrain_max_roughness_m_;
+        terrain_min_reachability_margin_m =
+            terrain_min_reachability_margin_m_;
+        terrain_min_swing_clearance_m = terrain_min_swing_clearance_m_;
+        terrain_min_support_margin_m = terrain_min_support_margin_m_;
+        terrain_min_uncertainty_support_margin_m =
+            terrain_min_uncertainty_support_margin_m_;
         terrain_last_plan_status = terrain_last_plan_status_;
+        terrain_committed_touchdowns = terrain_committed_touchdowns_;
+        terrain_plan_contact_rejections = terrain_plan_contact_rejections_.load();
         terrain_known_cells = terrain_known_cells_;
         terrain_feasible_regions = terrain_feasible_regions_;
         terrain_planner_updates = terrain_planner_updates_;
@@ -669,6 +699,17 @@ void TrotExperiment::LogSample(
          << "," << terrain_plan_consumed_count_
          << "," << terrain_gait_target_override_count_
          << "," << terrain_mpc_plan_consumed_count_
+         << "," << terrain_last_failure
+         << "," << terrain_committed_touchdowns
+         << "," << terrain_min_edge_margin_m
+         << "," << terrain_min_uncertainty_edge_margin_m
+         << "," << terrain_min_slope_rad
+         << "," << terrain_max_roughness_m
+         << "," << terrain_min_reachability_margin_m
+         << "," << terrain_min_swing_clearance_m
+         << "," << terrain_min_support_margin_m
+         << "," << terrain_min_uncertainty_support_margin_m
+         << "," << terrain_plan_contact_rejections
          << "," << (latest_motion_sensor_.have_support_foot_kinematics ? 1 : 0)
          << "," << latest_motion_sensor_.support_foot_count
          << "," << latest_motion_sensor_.support_foot_speed_mps

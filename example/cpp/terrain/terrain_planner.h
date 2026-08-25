@@ -20,7 +20,10 @@ struct TerrainPlannerConfig
 {
     TerrainFeasibilityConfig feasibility{};
     std::size_t horizon_knots = 8;
-    double knot_dt_s = 0.025;
+    // Match the Phase 1 running-trot MPC sample time at the default period.
+    // The planner remains configurable, but must not invent a second timing
+    // base for the contact/foothold horizon.
+    double knot_dt_s = 0.020;
     double plan_validity_s = 0.15;
     double deadline_us = 5000.0;
     double min_support_margin_m = 0.015;
@@ -306,8 +309,12 @@ public:
     }
 
 private:
-    bool SupportFeasible(const TerrainPlannerResult &result) const
+    bool SupportFeasible(TerrainPlannerResult &result) const
     {
+        result.plan.min_support_margin_m =
+            std::numeric_limits<double>::infinity();
+        result.plan.min_uncertainty_inflated_support_margin_m =
+            std::numeric_limits<double>::infinity();
         for (std::size_t k = 0; k < result.plan.horizon_knots; ++k)
         {
             std::array<go2::Vec3, go2::kLegCount> feet{};
@@ -324,6 +331,11 @@ private:
             const double margin = SupportMargin2D(
                 feet, contacts, body.position, config_.min_support_margin_m,
                 config_.max_two_contact_line_error_m);
+            result.plan.min_support_margin_m = std::min(
+                result.plan.min_support_margin_m, margin);
+            result.plan.min_uncertainty_inflated_support_margin_m = std::min(
+                result.plan.min_uncertainty_inflated_support_margin_m,
+                margin - result.plan.uncertainty_m);
             if (!std::isfinite(margin) || margin < config_.min_support_margin_m)
                 return false;
         }
@@ -346,6 +358,18 @@ private:
     void PopulatePlan(const TerrainPlannerInput &input,
                       TerrainPlannerResult &result) const
     {
+        result.plan.min_edge_margin_m =
+            std::numeric_limits<double>::infinity();
+        result.plan.min_uncertainty_inflated_edge_margin_m =
+            std::numeric_limits<double>::infinity();
+        result.plan.min_slope_rad = 0.0;
+        result.plan.max_roughness_m = 0.0;
+        result.plan.min_reachability_margin_m =
+            std::numeric_limits<double>::infinity();
+        result.plan.min_swing_clearance_m =
+            std::numeric_limits<double>::infinity();
+        result.plan.committed_touchdowns = 0;
+        result.plan.current_support_count = 0;
         for (std::size_t k = 0; k < config_.horizon_knots; ++k)
         {
             result.plan.planned_contact[k] = input.planned_contact[k];
@@ -356,6 +380,8 @@ private:
                 input.base_acceleration_world;
             result.plan.body_reference[k].roll_rad = input.base_roll_rad;
             result.plan.body_reference[k].pitch_rad = input.base_pitch_rad;
+            result.plan.body_reference[k].yaw_rad = input.base_yaw_rad;
+            result.plan.body_reference[k].yaw_rate_radps = 0.0;
             result.plan.body_reference[k].height_m = input.base_height_m;
             result.plan.body_reference[k].valid = true;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -382,6 +408,28 @@ private:
                     foot.support_margin_m = candidate.support_margin_m;
                     foot.collision_margin_m = candidate.collision_margin_m;
                     foot.uncertainty_m = candidate.uncertainty_m;
+                    result.plan.uncertainty_m = std::max(
+                        result.plan.uncertainty_m, candidate.uncertainty_m);
+                    if (static_cast<int>(k) == touchdown)
+                    {
+                        ++result.plan.committed_touchdowns;
+                        result.plan.min_edge_margin_m = std::min(
+                            result.plan.min_edge_margin_m,
+                            candidate.edge_margin_m);
+                        result.plan.min_uncertainty_inflated_edge_margin_m =
+                            std::min(result.plan.min_uncertainty_inflated_edge_margin_m,
+                                     candidate.edge_margin_m - candidate.uncertainty_m);
+                        result.plan.min_slope_rad = std::max(
+                            result.plan.min_slope_rad, candidate.slope_rad);
+                        result.plan.max_roughness_m = std::max(
+                            result.plan.max_roughness_m, candidate.roughness_m);
+                        result.plan.min_reachability_margin_m = std::min(
+                            result.plan.min_reachability_margin_m,
+                            candidate.reachability_margin_m);
+                        result.plan.min_swing_clearance_m = std::min(
+                            result.plan.min_swing_clearance_m,
+                            candidate.swing_clearance_m);
+                    }
                 }
                 else if (input.planned_contact[k][leg])
                 {
@@ -391,12 +439,25 @@ private:
                         input.current_feet_base[leg]);
                     foot.touchdown_time_s = input.state_stamp_s;
                     foot.surface_normal = {0.0, 0.0, 1.0};
+                    if (!result.plan.current_support_anchor[leg].valid)
+                    {
+                        result.plan.current_support_anchor[leg] = foot;
+                        ++result.plan.current_support_count;
+                    }
                 }
                 result.plan.predicted_foothold[k][leg] = foot;
             }
         }
         result.plan.velocity_request.valid = false;
-        result.plan.uncertainty_m = 0.0;
+        if (!std::isfinite(result.plan.min_edge_margin_m))
+            result.plan.min_edge_margin_m = 0.0;
+        if (!std::isfinite(result.plan.min_uncertainty_inflated_edge_margin_m))
+            result.plan.min_uncertainty_inflated_edge_margin_m = 0.0;
+        if (!std::isfinite(result.plan.min_reachability_margin_m))
+            result.plan.min_reachability_margin_m = 0.0;
+        if (!std::isfinite(result.plan.min_swing_clearance_m))
+            result.plan.min_swing_clearance_m = 0.0;
+        // Keep the conservative uncertainty bound for support diagnostics.
     }
 
     TerrainPlannerResult Finish(const TerrainPlannerInput &input,

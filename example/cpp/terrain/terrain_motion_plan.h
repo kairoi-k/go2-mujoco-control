@@ -123,6 +123,15 @@ struct TerrainMotionPlan
     double uncertainty_m = 0.0;
     std::size_t horizon_knots = 0;
     std::size_t current_support_count = 0;
+    double min_edge_margin_m = 0.0;
+    double min_uncertainty_inflated_edge_margin_m = 0.0;
+    double min_slope_rad = 0.0;
+    double max_roughness_m = 0.0;
+    double min_reachability_margin_m = 0.0;
+    double min_swing_clearance_m = 0.0;
+    double min_support_margin_m = 0.0;
+    double min_uncertainty_inflated_support_margin_m = 0.0;
+    std::size_t committed_touchdowns = 0;
     std::array<TerrainBodyReference, kTerrainPlanMaxKnots> body_reference{};
     std::array<std::array<bool, go2::kLegCount>, kTerrainPlanMaxKnots>
         planned_contact{};

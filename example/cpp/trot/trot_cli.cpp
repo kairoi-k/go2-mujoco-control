@@ -33,6 +33,7 @@ void PrintTrotCliUsage()
            " [--velocity-max-decel a] [--velocity-max-jerk j]"
            " [--forever] [--stop-file path]"
            " [--auto-environment]"
+           " [--gait-phase-offset fraction]"
            " [--terrain-sensor-only|--terrain-planner]"
            " [--impact-to-emergency-stop-delay s]"
            " [--task stand-walk-lie]"
@@ -57,15 +58,6 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
 
     for (int i = 4; i < argc; ++i)
     {
-        const std::string option = argv[i];
-        auto require_value = [&](const char *name) -> std::string {
-            if (i + 1 >= argc)
-                throw std::invalid_argument(std::string(name) + " requires a value");
-            return argv[++i];
-        };
-        try
-        {
-
         const std::string option = argv[i];
         auto require_value = [&](const char *name) -> std::string {
             if (i + 1 >= argc)
@@ -131,6 +123,9 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.params.terrain_sensor_only = false;
                 cfg.params.terrain_actuation = true;
             }
+            else if (option == "--gait-phase-offset")
+                cfg.params.gait_phase_offset =
+                    std::stod(require_value("--gait-phase-offset"));
             else if (option == "--impact-to-emergency-stop-delay")
             {
                 cfg.params.impact_to_emergency_stop_delay_s =
@@ -334,12 +329,6 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
             if (error_out) *error_out = error.what();
             return false;
         }
-        }
-        catch (const std::exception &error)
-        {
-            if (error_out) *error_out = error.what();
-            return false;
-        }
     }
     if (cfg.params.runtime_velocity_command &&
         (cfg.params.cartesian_world || !cfg.params.wbc_full ||
@@ -364,6 +353,13 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
     {
         if (error_out)
             *error_out = "terrain planner actuation requires the Phase 1 runtime v_cmd API";
+        return false;
+    }
+    if (!std::isfinite(cfg.params.gait_phase_offset) ||
+        cfg.params.gait_phase_offset < 0.0 ||
+        cfg.params.gait_phase_offset >= 1.0)
+    {
+        if (error_out) *error_out = "gait phase offset must be in [0,1)";
         return false;
     }
     if (cfg.params.terrain_sensor_only && cfg.params.terrain_actuation)

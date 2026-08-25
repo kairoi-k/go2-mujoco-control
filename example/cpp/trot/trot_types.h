@@ -187,6 +187,7 @@ struct TrotParams
     bool terrain_sensor_only = false;
     bool terrain_actuation = false;
     bool runtime_velocity_command = false;
+    double gait_phase_offset = 0.0;
     std::string velocity_command_script_path;
     VelocityCommandProfile velocity_command_profile;
     VelocityCommandShaperParams velocity_command_shaper{};

@@ -128,6 +128,21 @@ int main()
                "planner did not select a feasible touchdown candidate"))
         return 1;
 
+    planner_config.sensor_only = false;
+    planner_config.allow_actuation = true;
+    go2_terrain::TerrainPlanner actuation_planner(planner_config);
+    const auto actuation_plan = actuation_planner.Build(input, 8);
+    if (!Check(actuation_plan.publishable && actuation_plan.plan.valid(),
+               "actuation planner did not publish a valid plan") ||
+        !Check(actuation_plan.plan.committed_touchdowns > 0,
+               "valid planner did not commit a touchdown") ||
+        !Check(std::isfinite(actuation_plan.plan.min_edge_margin_m) &&
+                   std::isfinite(actuation_plan.plan.min_support_margin_m),
+               "planner validity metrics are not finite") ||
+        !Check(actuation_plan.plan.body_reference[0].yaw_rad == 0.0,
+               "planner did not preserve body yaw reference"))
+        return 1;
+
     go2_terrain::TerrainMotionPlan atomic_plan;
     atomic_plan.plan_id = 1;
     atomic_plan.map_epoch = 1;

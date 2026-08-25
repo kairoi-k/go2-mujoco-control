@@ -230,7 +230,10 @@ bool TrotExperiment::BuildGaitTargets(
     auto feet = go2::AllFootPositions(task_.stand_up_joint_pos_);
     go2_control::GaitKernelResult gait_result{};
     go2_control::GaitKernelRequest gait_request{};
-    gait_request.gait_time_s = gait_time_s;
+    const double phase_period_s = params_.period_s > 0.0
+        ? params_.period_s : kDefaultPeriodS;
+    gait_request.gait_time_s =
+        gait_time_s + params_.gait_phase_offset * phase_period_s;
     gait_request.neutral_feet = feet;
     if (have_filtered_body_velocity_)
     {

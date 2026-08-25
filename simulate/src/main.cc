@@ -1343,6 +1343,10 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
         sim->Load(m, d, filename);
       }
       ConfigureCamera(sim);
+      if (std::isfinite(param::config.initial_x_m) && m->nq >= 1)
+        d->qpos[0] = param::config.initial_x_m;
+      if (std::isfinite(param::config.initial_y_m) && m->nq >= 2)
+        d->qpos[1] = param::config.initial_y_m;
       mj_forward(m, d);
       ground_truth_logger.Configure(m);
 
@@ -1504,6 +1508,10 @@ int main(int argc, char **argv)
   std::filesystem::path proj_dir = std::filesystem::path(getExecutableDir()).parent_path();
   param::config.load_from_yaml(proj_dir / "config.yaml");
   param::helper(argc, argv);
+  if (const char *value = std::getenv("TROT_INITIAL_X_M"))
+    param::config.initial_x_m = std::strtod(value, nullptr);
+  if (const char *value = std::getenv("TROT_INITIAL_Y_M"))
+    param::config.initial_y_m = std::strtod(value, nullptr);
   if(param::config.robot_scene.is_relative()) {
     param::config.robot_scene = proj_dir.parent_path() / "unitree_robots" / param::config.robot / param::config.robot_scene;
   }

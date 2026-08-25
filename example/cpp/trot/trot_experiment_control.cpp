@@ -266,6 +266,19 @@ void TrotExperiment::TerrainPlannerWorker()
                 static_cast<int>(result.plan.status));
             terrain_last_failure_ = static_cast<double>(
                 static_cast<int>(result.plan.failure));
+            terrain_min_edge_margin_m_ = result.plan.min_edge_margin_m;
+            terrain_min_uncertainty_edge_margin_m_ =
+                result.plan.min_uncertainty_inflated_edge_margin_m;
+            terrain_min_slope_rad_ = result.plan.min_slope_rad;
+            terrain_max_roughness_m_ = result.plan.max_roughness_m;
+            terrain_min_reachability_margin_m_ =
+                result.plan.min_reachability_margin_m;
+            terrain_min_swing_clearance_m_ =
+                result.plan.min_swing_clearance_m;
+            terrain_min_support_margin_m_ = result.plan.min_support_margin_m;
+            terrain_min_uncertainty_support_margin_m_ =
+                result.plan.min_uncertainty_inflated_support_margin_m;
+            terrain_committed_touchdowns_ = result.plan.committed_touchdowns;
             ++terrain_planner_updates_;
             if (result.plan.solver.deadline_miss)
                 ++terrain_planner_deadline_misses_;
