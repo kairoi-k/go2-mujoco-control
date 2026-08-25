@@ -102,6 +102,20 @@ thresholds, holdout membership, and safety limits remain unchanged. Epoch 8
 must rerun the complete frozen membership, and epoch-7 evidence remains
 diagnostic only.
 
+Epoch 8 holdout execution was stopped at the first failing member, the
+repeat-3 brake_3_to_0 terrain run. That run reached the existing hard posture
+safety stop with no terrain plan consumed, zero planner deadline misses, and
+normal state-tick-gap diagnostics; its paired baseline completed without a
+lifecycle failure. The failed directory and all preceding epoch-8 evidence
+remain preserved and diagnostic only. Commit 5a946ac isolates the remaining
+simulator observation path: the lidar thread snapshots only qpos/qvel/time
+under the simulation mutex, performs position-only forward computation on its
+private mjData, and records separate physics, bridge, and lidar CPU
+affinities. This is an implementation-only correction for observer/physics
+coupling. It does not change thresholds, holdout membership, controller
+limits, or terrain actuation semantics. Epoch 9 is a fresh complete B0
+acceptance epoch; no epoch-8 result may be mixed into its verdict.
+
 ## Development and holdout split
 
 The development set is for plumbing/debugging only. It may use one repeat of
