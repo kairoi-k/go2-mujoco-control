@@ -657,7 +657,7 @@ void TrotExperiment::LogSample(
          << "," << terrain_known_cells
          << "," << terrain_feasible_regions
          << "," << static_cast<int>(terrain_last_plan_status)
-         << "," << terrain_plan_id_
+         << "," << terrain_plan_id_.load()
          << "," << (terrain_latest_plan_valid ? 1 : 0)
          << "," << terrain_planner_updates
          << "," << terrain_planner_rejections

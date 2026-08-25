@@ -177,12 +177,12 @@ private:
         const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
         bool have_high_state,
         double motion_dt);
-    void UpdateTerrainRuntime(
+    void UpdateTerrainRuntime();
+    void TerrainPlannerWorker();
+    void PublishTerrainControlSnapshot(
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
         const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
         bool have_high_state);
-    void TerrainPlannerWorker();
-    void PublishTerrainControlSnapshot();
     void PinCurrentThreadToEnv(const char *env_name);
     void UpdateCycleDiagnostics(
         double phase,
@@ -213,14 +213,7 @@ private:
     struct TerrainControlSnapshot
     {
         bool valid = false;
-        double gait_phase = 0.0;
-        double gait_period_s = 0.0;
-        double duty_factor = 0.0;
-        double commanded_vx_mps = 0.0;
-        bool have_world_velocity = false;
-        go2_control::Vector3 world_velocity{};
-        bool have_commanded_body_feet = false;
-        std::array<go2::Vec3, go2::kLegCount> commanded_body_feet{};
+        go2_terrain::TerrainPlannerInput input{};
     };
 
     static constexpr double kEmergencyStopPostHoldDurationS = 1.50;
@@ -425,8 +418,8 @@ private:
     go2_terrain::TerrainPlanner terrain_planner_{};
     go2_terrain::TerrainPlanStore terrain_plan_store_{};
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model_;
-    std::uint64_t terrain_map_epoch_ = 0;
-    std::uint64_t terrain_plan_id_ = 0;
+    std::atomic<std::uint64_t> terrain_map_epoch_{0};
+    std::atomic<std::uint64_t> terrain_plan_id_{0};
     double terrain_last_update_s_ = -1.0e9;
     double terrain_last_map_age_s_ = std::numeric_limits<double>::infinity();
     double terrain_last_solver_us_ = 0.0;
