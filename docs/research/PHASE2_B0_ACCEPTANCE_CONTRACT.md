@@ -58,6 +58,14 @@ explicit terrain-sensing simulator flag, restoring the accepted Phase 1
 simulator path for baseline runs. The unchanged contract is restarted as
 epoch 4; earlier epochs remain diagnostic only.
 
+The epoch-4 development pair then showed that enabling the lidar publisher in
+the bridge still perturbed simulator timing: the publisher held the simulator
+snapshot path while raycasting. Commit
+b9214777a7938c89ad39da20199cc26bfada9323 moves lidar acquisition to a
+best-effort thread that copies `mjData` before raycasting. The epoch-5
+development pair passed both members with the unchanged gates; epoch 5 is the
+next frozen holdout implementation epoch.
+
 ## Development and holdout split
 
 The development set is for plumbing/debugging only. It may use one repeat of
