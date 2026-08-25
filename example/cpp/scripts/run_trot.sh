@@ -53,8 +53,6 @@ fi
 if [[ -z "$terrain_affinity" && "$ctrl_affinity" == *,* ]]; then
   terrain_affinity="${ctrl_affinity##*,}"
 fi
-export TROT_WRITER_CPU="$writer_affinity"
-export TROT_TERRAIN_CPU="$terrain_affinity"
 filtered_controller_args=()
 profile_path="${GO2_PROFILE_PATH:-}"
 for ((i = 0; i < ${#controller_args[@]}; ++i)); do
@@ -108,12 +106,20 @@ if [[ "$sim_terrain_lidar" == true && "$sim_affinity_auto" == true ]]; then
     ctrl_affinity="${ctrl_affinity:-4}"
     writer_affinity="${writer_affinity:-3}"
     terrain_affinity="${terrain_affinity:-4}"
+    if [[ -z "${TROT_CPU_AFFINITY_TERRAIN:-}" ]] &&
+       [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 7 )); then
+      # Keep the planner worker off CPU4, which carries controller-side DDS
+      # callbacks. The accepted writer remains isolated on CPU3.
+      terrain_affinity=6
+    fi
     sim_affinity=2,5
     sim_lidar_affinity="${sim_lidar_affinity:-5}"
     sim_physics_affinity="${sim_physics_affinity:-2}"
     sim_bridge_affinity="${sim_bridge_affinity:-2}"
   fi
 fi
+export TROT_WRITER_CPU="$writer_affinity"
+export TROT_TERRAIN_CPU="$terrain_affinity"
 export TROT_SIM_LIDAR_CPU="$sim_lidar_affinity"
 export TROT_SIM_PHYSICS_CPU="$sim_physics_affinity"
 export TROT_SIM_BRIDGE_CPU="$sim_bridge_affinity"
