@@ -11,9 +11,15 @@
 #include <unitree/idl/hg/IMUState_.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <array>
 #include <cmath>
+#include <chrono>
 #include <iostream>
+#if defined(__linux__)
+#include <sched.h>
+#endif
+#include <thread>
 #include <vector>
 #include <limits>
 #include <mutex>
@@ -49,6 +55,8 @@ public:
         }
 
     }
+
+    virtual ~UnitreeSDK2BridgeBase() = default;
 
     virtual void start() {}
 
@@ -214,7 +222,51 @@ public:
     {
         thread_ = std::make_shared<unitree::common::RecurrentThread>(
             "unitree_bridge", UT_CPU_ID_NONE, 1000, [this]() { this->run(); });
+        if (param::config.terrain_lidar)
+        {
+            terrain_lidar_stop_.store(false);
+            terrain_lidar_thread_ = std::thread(
+                [this]() { TerrainLidarLoop(); });
+        }
     }
+
+    ~RobotBridge() override
+    {
+        terrain_lidar_stop_.store(true);
+        if (terrain_lidar_thread_.joinable())
+            terrain_lidar_thread_.join();
+    }
+
+private:
+    void TerrainLidarLoop()
+    {
+#if defined(__linux__)
+        sched_param scheduler_params{};
+        (void)sched_setscheduler(0, SCHED_IDLE, &scheduler_params);
+#endif
+        mjData *sensor_data = mj_makeData(mj_model_);
+        if (sensor_data == nullptr)
+            return;
+        auto next = std::chrono::steady_clock::now();
+        while (!terrain_lidar_stop_.load())
+        {
+            {
+                auto sim_lock = LockSimulation();
+                if (mj_data_ != nullptr)
+                    mj_copyData(sensor_data, mj_model_, mj_data_);
+            }
+            mj_forward(mj_model_, sensor_data);
+            PublishLidarHeightMap(sensor_data);
+            next += std::chrono::milliseconds(20);
+            std::this_thread::sleep_until(next);
+            if (std::chrono::steady_clock::now() > next +
+                    std::chrono::milliseconds(20))
+                next = std::chrono::steady_clock::now();
+        }
+        mj_deleteData(sensor_data);
+    }
+
+public:
 
     void PublishEnvironmentHeightMap()
     {
@@ -317,11 +369,13 @@ public:
     // scene so occlusion is real, but the controller receives only this
     // lidar-derived observation.  Heights are expressed relative to
     // base_link; unknown cells remain NaN and are never filled by the oracle.
-    void PublishLidarHeightMap()
+    void PublishLidarHeightMap(mjData *sensor_data)
     {
         if (!param::config.terrain_lidar || !lidar_heightmap)
             return;
-        const double sim_time = mj_data_->time;
+        if (sensor_data == nullptr)
+            return;
+        const double sim_time = sensor_data->time;
         if (sim_time - last_lidar_map_publish_s_ < 0.020)
             return;
         const int base_body_id = mj_name2id(
@@ -329,8 +383,8 @@ public:
         if (base_body_id < 0)
             return;
         last_lidar_map_publish_s_ = sim_time;
-        const mjtNum *base_pos = mj_data_->xpos + 3 * base_body_id;
-        const mjtNum *base_mat = mj_data_->xmat + 9 * base_body_id;
+        const mjtNum *base_pos = sensor_data->xpos + 3 * base_body_id;
+        const mjtNum *base_mat = sensor_data->xmat + 9 * base_body_id;
         struct Ring { double elevation_deg; int count; };
         static constexpr Ring rings[] = {
             {-15.0, 48}, {-25.0, 48}, {-35.0, 36}, {-45.0, 36},
@@ -363,7 +417,7 @@ public:
                 for (int bounce = 0; bounce < 3; ++bounce)
                 {
                     distance = mj_ray(
-                        mj_model_, mj_data_, ray_origin, direction_world,
+                        mj_model_, sensor_data, ray_origin, direction_world,
                         nullptr, 1, base_body_id, geom_id_out);
                     if (distance < 0.0 || geom_id_out[0] < 0)
                         break;
@@ -462,9 +516,6 @@ public:
                                     m.kd() * (m.dq() - mj_data_->sensordata[i + num_motor_]);
             }
         }
-
-        PublishEnvironmentHeightMap();
-        PublishLidarHeightMap();
 
         // lowstate
         if(lowstate->trylock()) {
@@ -604,6 +655,8 @@ private:
     double last_lidar_map_publish_s_ = -1.0e9;
     double last_environment_map_publish_s_ = -1.0e9;
     unitree::common::RecurrentThreadPtr thread_;
+    std::atomic<bool> terrain_lidar_stop_{false};
+    std::thread terrain_lidar_thread_;
 };
 
 using Go2Bridge = RobotBridge<unitree::robot::go2::subscription::LowCmd, unitree::robot::go2::publisher::LowState>;
