@@ -265,9 +265,15 @@ private:
         (void)sched_setscheduler(0, SCHED_IDLE, &scheduler_params);
 #endif
         PinCurrentThreadToEnv("TROT_SIM_LIDAR_CPU");
-        mjData *sensor_data = mj_makeData(mj_model_);
-        if (sensor_data == nullptr)
+        mjModel *sensor_model = mj_copyModel(nullptr, mj_model_);
+        if (sensor_model == nullptr)
             return;
+        mjData *sensor_data = mj_makeData(sensor_model);
+        if (sensor_data == nullptr)
+        {
+            mj_deleteModel(sensor_model);
+            return;
+        }
         auto next = std::chrono::steady_clock::now();
         while (!terrain_lidar_stop_.load())
         {
@@ -275,13 +281,13 @@ private:
                 auto sim_lock = LockSimulation();
                 if (mj_data_ != nullptr)
                 {
-                    mju_copy(sensor_data->qpos, mj_data_->qpos, mj_model_->nq);
-                    mju_copy(sensor_data->qvel, mj_data_->qvel, mj_model_->nv);
+                    mju_copy(sensor_data->qpos, mj_data_->qpos, sensor_model->nq);
+                    mju_copy(sensor_data->qvel, mj_data_->qvel, sensor_model->nv);
                     sensor_data->time = mj_data_->time;
                 }
             }
-            mj_fwdPosition(mj_model_, sensor_data);
-            PublishLidarHeightMap(sensor_data);
+            mj_fwdPosition(sensor_model, sensor_data);
+            PublishLidarHeightMap(sensor_model, sensor_data);
             next += std::chrono::milliseconds(20);
             std::this_thread::sleep_until(next);
             if (std::chrono::steady_clock::now() > next +
@@ -289,6 +295,7 @@ private:
                 next = std::chrono::steady_clock::now();
         }
         mj_deleteData(sensor_data);
+        mj_deleteModel(sensor_model);
     }
 
 public:
@@ -394,9 +401,12 @@ public:
     // scene so occlusion is real, but the controller receives only this
     // lidar-derived observation.  Heights are expressed relative to
     // base_link; unknown cells remain NaN and are never filled by the oracle.
-    void PublishLidarHeightMap(mjData *sensor_data)
+    void PublishLidarHeightMap(
+        const mjModel *sensor_model,
+        mjData *sensor_data)
     {
-        if (!param::config.terrain_lidar || !lidar_heightmap)
+        if (!param::config.terrain_lidar || !lidar_heightmap ||
+            sensor_model == nullptr)
             return;
         if (sensor_data == nullptr)
             return;
@@ -404,7 +414,7 @@ public:
         if (sim_time - last_lidar_map_publish_s_ < 0.020)
             return;
         const int base_body_id = mj_name2id(
-            mj_model_, mjOBJ_BODY, "base_link");
+            sensor_model, mjOBJ_BODY, "base_link");
         if (base_body_id < 0)
             return;
         last_lidar_map_publish_s_ = sim_time;
@@ -442,15 +452,15 @@ public:
                 for (int bounce = 0; bounce < 3; ++bounce)
                 {
                     distance = mj_ray(
-                        mj_model_, sensor_data, ray_origin, direction_world,
+                        sensor_model, sensor_data, ray_origin, direction_world,
                         nullptr, 1, base_body_id, geom_id_out);
                     if (distance < 0.0 || geom_id_out[0] < 0)
                         break;
                     const int geom_id = geom_id_out[0];
                     const bool skip =
-                        mj_model_->geom_bodyid[geom_id] != 0 ||
-                        (mj_model_->geom_contype[geom_id] == 0 &&
-                         mj_model_->geom_conaffinity[geom_id] == 0);
+                        sensor_model->geom_bodyid[geom_id] != 0 ||
+                        (sensor_model->geom_contype[geom_id] == 0 &&
+                         sensor_model->geom_conaffinity[geom_id] == 0);
                     if (!skip)
                     {
                         accepted = true;
