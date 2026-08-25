@@ -75,7 +75,7 @@ void TrotExperiment::LidarHeightMapMessageHandler(const void *message)
 {
     if (message == nullptr)
         return;
-    std::lock_guard<std::mutex> lock(state_mutex_);
+    std::lock_guard<std::mutex> lock(terrain_map_mutex_);
     const bool first_message = !have_lidar_heightmap_;
     lidar_heightmap_ =
         *static_cast<const unitree_go::msg::dds_::HeightMap_ *>(message);

@@ -457,6 +457,7 @@ private:
     std::atomic<bool> terrain_worker_stop_{false};
     std::thread terrain_planner_thread_;
 
+    std::mutex terrain_map_mutex_;
     std::mutex state_mutex_;
     std::ofstream csv_;
     std::atomic<bool> finished_{false};

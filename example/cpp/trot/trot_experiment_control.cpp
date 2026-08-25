@@ -152,7 +152,7 @@ void TrotExperiment::UpdateTerrainRuntime(
         return;
 
     {
-        std::lock_guard<std::mutex> lock(state_mutex_);
+        std::lock_guard<std::mutex> lock(terrain_map_mutex_);
         work.have_map = have_lidar_heightmap_;
         if (work.have_map)
             work.map = lidar_heightmap_;
