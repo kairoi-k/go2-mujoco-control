@@ -87,8 +87,20 @@ planner work about every 50 ms, despite the planner itself being asynchronous.
 Commit 6244c81eedbfdb9f06aa8f482e3df667e229d000 moves map/work capture to the
 best-effort terrain worker and leaves only a bounded control snapshot on the
 500 Hz path. This is an implementation isolation fix; thresholds, holdout
-membership, and safety limits are unchanged. Epoch 7 must rerun the complete
-frozen membership, and epoch-6 evidence remains diagnostic only.
+membership, and safety limits are unchanged. Epoch 7 evidence remains
+diagnostic only. Several valid terrain members reached inherited Phase 1
+undershoot or overshoot gates marginally while all B0 interface, lifecycle,
+and planner-deadline fields passed; exact paired reruns of some members
+passed without a config or threshold change. This exposes residual
+wall-clock contention, not a new acceptance contract.
+
+Commit b567fc30993922419dbd2d793853798a4cfd130b pins the 500 Hz command
+writer to one CPU and the terrain worker to a separate CPU when the host has
+at least five CPUs, while retaining best-effort terrain scheduling and
+recording the effective affinities. This is an implementation isolation fix;
+thresholds, holdout membership, and safety limits remain unchanged. Epoch 8
+must rerun the complete frozen membership, and epoch-7 evidence remains
+diagnostic only.
 
 ## Development and holdout split
 

@@ -1,9 +1,9 @@
 {
   "contract": "b0-contract-v1.2",
   "source_base": "71d0e9ba7ca1097e840fe878aa30207f6f63600d",
-  "acceptance_epoch": "b0-v1.2-epoch-7",
-  "implementation_head": "6244c81eedbfdb9f06aa8f482e3df667e229d000",
-  "supersedes_epoch_evidence": "pre-epoch-7 diagnostic runs remain preserved; do not mix into this verdict",
+  "acceptance_epoch": "b0-v1.2-epoch-8",
+  "implementation_head": "b567fc30993922419dbd2d793853798a4cfd130b",
+  "supersedes_epoch_evidence": "pre-epoch-8 diagnostic runs remain preserved; do not mix into this verdict",
   "terrain_mode": "sensor_only",
   "scene": "unitree_robots/go2/scene_leg_lift_demo.xml",
   "profiles": [
