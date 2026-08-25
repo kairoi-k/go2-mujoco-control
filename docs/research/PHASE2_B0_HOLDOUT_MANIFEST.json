@@ -1,9 +1,9 @@
 {
   "contract": "b0-contract-v1.2",
   "source_base": "71d0e9ba7ca1097e840fe878aa30207f6f63600d",
-  "acceptance_epoch": "b0-v1.2-epoch-15",
-  "implementation_head": "de17294360cd29bb992b3551645503b2c75f75a5",
-  "supersedes_epoch_evidence": "epoch-14 formal holdout was interrupted before completion; all partial epoch-14 evidence remains preserved and diagnostic only for this epoch; do not mix into this verdict",
+  "acceptance_epoch": "b0-v1.2-epoch-16",
+  "implementation_head": "1b7c97307f34307cfd4b79ae5b0e36684ed33cbb",
+  "supersedes_epoch_evidence": "epoch-15 formal holdout completed with one terrain brake undershoot failure; all epoch-15 evidence remains preserved and diagnostic only for this verdict; do not mix into this verdict",
   "terrain_mode": "sensor_only",
   "scene": "unitree_robots/go2/scene_leg_lift_demo.xml",
   "profiles": [
