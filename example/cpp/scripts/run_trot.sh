@@ -27,17 +27,23 @@ sim_affinity="${TROT_CPU_AFFINITY_SIM:-}"
 ctrl_affinity="${TROT_CPU_AFFINITY_CTRL:-}"
 writer_affinity="${TROT_CPU_AFFINITY_WRITER:-}"
 terrain_affinity="${TROT_CPU_AFFINITY_TERRAIN:-}"
+sim_affinity_auto=false
+sim_lidar_affinity="${TROT_SIM_LIDAR_CPU:-}"
+sim_physics_affinity="${TROT_SIM_PHYSICS_CPU:-}"
+sim_bridge_affinity="${TROT_SIM_BRIDGE_CPU:-}"
 if [[ "${TROT_CPU_AUTOPIN:-1}" != "0" &&
       -z "$sim_affinity" && -z "$ctrl_affinity" ]]; then
   cpu_count="$(nproc 2>/dev/null || echo 0)"
   if [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 5 )); then
     # MuJoCo and the DDS controller must not compete for the same WSL core.
     sim_affinity=2
+    sim_affinity_auto=true
     ctrl_affinity=3,4
     writer_affinity="${writer_affinity:-3}"
     terrain_affinity="${terrain_affinity:-4}"
   elif [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 4 )); then
     sim_affinity=2
+    sim_affinity_auto=true
     ctrl_affinity=3
   fi
 fi
@@ -92,6 +98,18 @@ for ((i = 0; i < ${#controller_args[@]}; ++i)); do
     filtered_controller_args+=("$arg")
   fi
 done
+if [[ "$sim_terrain_lidar" == true && "$sim_affinity_auto" == true ]]; then
+  cpu_count="$(nproc 2>/dev/null || echo 0)"
+  if [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 6 )); then
+    sim_affinity=2,5
+    sim_lidar_affinity="${sim_lidar_affinity:-5}"
+    sim_physics_affinity="${sim_physics_affinity:-2}"
+    sim_bridge_affinity="${sim_bridge_affinity:-2}"
+  fi
+fi
+export TROT_SIM_LIDAR_CPU="$sim_lidar_affinity"
+export TROT_SIM_PHYSICS_CPU="$sim_physics_affinity"
+export TROT_SIM_BRIDGE_CPU="$sim_bridge_affinity"
 controller_args=("${filtered_controller_args[@]}")
 
 if (( ${#controller_args[@]} > 0 )) && [[ "${controller_args[0]}" != --* ]]; then
@@ -208,6 +226,9 @@ env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_)" >"$environment
   printf "controller_cpu_affinity=%s\n" "${ctrl_affinity:-auto}"
   printf "controller_writer_cpu_affinity=%s\n" "${writer_affinity:-auto}"
   printf "terrain_worker_cpu_affinity=%s\n" "${terrain_affinity:-auto}"
+  printf "sim_lidar_cpu_affinity=%s\n" "${sim_lidar_affinity:-auto}"
+  printf "sim_physics_cpu_affinity=%s\n" "${sim_physics_affinity:-auto}"
+  printf "sim_bridge_cpu_affinity=%s\n" "${sim_bridge_affinity:-auto}"
   printf "argv=%s\n" "$*"
   printf "controller_argv_shell="
   printf "%q " "${controller_args[@]}"

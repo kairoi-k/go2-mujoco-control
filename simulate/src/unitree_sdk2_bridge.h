@@ -16,6 +16,7 @@
 #include <cmath>
 #include <chrono>
 #include <iostream>
+#include <cstdlib>
 #if defined(__linux__)
 #include <sched.h>
 #endif
@@ -106,7 +107,26 @@ protected:
         return std::unique_lock<std::recursive_mutex>(*sim_mutex_);
     }
 
-    // Sensor data indices
+    void PinCurrentThreadToEnv(const char *env_name)
+    {
+#if defined(__linux__)
+        const char *value = std::getenv(env_name);
+        if (value == nullptr || value[0] == 0)
+            return;
+        char *end = nullptr;
+        const long cpu = std::strtol(value, &end, 10);
+        if (end == value || *end != 0 || cpu < 0 || cpu >= CPU_SETSIZE)
+            return;
+        cpu_set_t cpu_set{};
+        CPU_ZERO(&cpu_set);
+        CPU_SET(static_cast<int>(cpu), &cpu_set);
+        if (sched_setaffinity(0, sizeof(cpu_set), &cpu_set) != 0)
+            std::cerr << "Unable to pin " << env_name << " to CPU " << cpu << "\n";
+#else
+        (void)env_name;
+#endif
+    }
+
     int imu_quat_adr_ = -1;
     int imu_gyro_adr_ = -1;
     int imu_acc_adr_ = -1;
@@ -244,6 +264,7 @@ private:
         sched_param scheduler_params{};
         (void)sched_setscheduler(0, SCHED_IDLE, &scheduler_params);
 #endif
+        PinCurrentThreadToEnv("TROT_SIM_LIDAR_CPU");
         mjData *sensor_data = mj_makeData(mj_model_);
         if (sensor_data == nullptr)
             return;
@@ -253,9 +274,13 @@ private:
             {
                 auto sim_lock = LockSimulation();
                 if (mj_data_ != nullptr)
-                    mj_copyData(sensor_data, mj_model_, mj_data_);
+                {
+                    mju_copy(sensor_data->qpos, mj_data_->qpos, mj_model_->nq);
+                    mju_copy(sensor_data->qvel, mj_data_->qvel, mj_model_->nv);
+                    sensor_data->time = mj_data_->time;
+                }
             }
-            mj_forward(mj_model_, sensor_data);
+            mj_fwdPosition(mj_model_, sensor_data);
             PublishLidarHeightMap(sensor_data);
             next += std::chrono::milliseconds(20);
             std::this_thread::sleep_until(next);
@@ -503,6 +528,12 @@ public:
 
     virtual void run()
     {
+        static thread_local bool affinity_initialized = false;
+        if (!affinity_initialized)
+        {
+            PinCurrentThreadToEnv("TROT_SIM_BRIDGE_CPU");
+            affinity_initialized = true;
+        }
         auto sim_lock = LockSimulation();
         if(!mj_data_) return;
         if(lowstate->joystick) { lowstate->joystick->update(); }

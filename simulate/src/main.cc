@@ -21,6 +21,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#if defined(__linux__)
+#include <sched.h>
+#endif
 #include <cstring>
 #include <array>
 #include <filesystem>
@@ -1292,8 +1295,31 @@ namespace
 
 //-------------------------------------- physics_thread --------------------------------------------
 
+namespace
+{
+void PinSimulatorThreadToEnv(const char *env_name)
+{
+#if defined(__linux__)
+  const char *value = std::getenv(env_name);
+  if (value == nullptr || value[0] == 0)
+    return;
+  char *end = nullptr;
+  const long cpu = std::strtol(value, &end, 10);
+  if (end == value || *end != 0 || cpu < 0 || cpu >= CPU_SETSIZE)
+    return;
+  cpu_set_t cpu_set{};
+  CPU_ZERO(&cpu_set);
+  CPU_SET(static_cast<int>(cpu), &cpu_set);
+  if (sched_setaffinity(0, sizeof(cpu_set), &cpu_set) != 0)
+    std::cerr << "Unable to pin " << env_name << " to CPU " << cpu << "\n";
+#else
+  (void)env_name;
+#endif
+}
+}
 void PhysicsThread(mj::Simulate *sim, const char *filename)
 {
+  PinSimulatorThreadToEnv("TROT_SIM_PHYSICS_CPU");
   // request loadmodel if file given (otherwise drag-and-drop)
   if (filename != nullptr)
   {
