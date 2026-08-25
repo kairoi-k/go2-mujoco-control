@@ -22,3 +22,13 @@ analyze_phase1_velocity.py reports tracking error, applied-command limiting,
 shaper acceleration/jerk, gait schedule, attitude, and run status. A strict
 pass requires controller, safety, quality, completion, and analyzer statuses
 to be zero. This does not change the legacy 3 m/s analyzer or its thresholds.
+
+The analyzer also reports requested-to-profile error, shaped-to-measured error,
+steady-state error on constant profile segments, transition excursion
+(overshoot/undershoot), one-second settling time, acceleration discontinuity,
+roll/pitch percentiles, base height, contact loss, support-foot speed and
+low-friction evidence, touchdown error, solver and plan validity, torque
+magnitude/saturation, and the final stop tail. These are evidence metrics;
+the existing status-based strict gate is unchanged until acceptance thresholds
+are explicitly frozen from repeated runs. A nonzero or missing evidence metric
+cannot be silently treated as a pass.
