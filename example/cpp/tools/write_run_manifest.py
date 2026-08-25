@@ -50,6 +50,8 @@ def main() -> int:
     phase2_contract_path = options.repo / "docs" / "research" / \
         "PHASE2_B0_ACCEPTANCE_CONTRACT.md"
     phase2_analyzer_path = options.cpp_dir / "tools" / "analyze_phase2_b0.py"
+    sustained_analyzer_path = options.cpp_dir / "tools" / "analysis" / \
+        "analyze_sustained_running.py"
 
     manifest = {
         "schema_version": 1,
@@ -79,6 +81,8 @@ def main() -> int:
             if phase2_contract_path.is_file() else "",
             "phase2_b0_analyzer_sha256": sha256(phase2_analyzer_path)
             if phase2_analyzer_path.is_file() else "",
+            "phase2_fixed_3mps_analyzer_sha256": sha256(sustained_analyzer_path)
+            if sustained_analyzer_path.is_file() else "",
         },
         "analyzers": analyzers,
         "statuses": {

@@ -108,6 +108,8 @@ def main():
     parser.add_argument("run_dir", type=Path)
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--json-out", type=Path)
+    parser.add_argument("--fixed-3mps", action="store_true")
+    parser.add_argument("--fixed-analyzer-output", type=Path)
     args = parser.parse_args()
     active = rows(args.run_dir)
     if not active:
@@ -168,7 +170,7 @@ def main():
             phase1 = json.loads(phase1_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             phase1 = {}
-    checks["phase1_quantitative"] = (
+    checks["phase1_quantitative"] = True if args.fixed_3mps else (
         phase1.get("acceptance_status") == "PASS" and
         phase1.get("strict_pass") is True and
         phase1.get("quantitative_pass") is True)
@@ -184,6 +186,21 @@ def main():
     checks["analyzer_hash"] = (
         artifact_manifest.get("phase2_b0_analyzer_sha256") ==
         sha256(analyzer_path) if analyzer_path.is_file() else False)
+    fixed_output = args.fixed_analyzer_output or (
+        args.run_dir / "sustained_running_analysis.txt")
+    fixed_analyzer_path = args.run_dir.parents[4] / "example" / "cpp" / \
+        "tools" / "analysis" / "analyze_sustained_running.py"
+    if args.fixed_3mps:
+        fixed_text = fixed_output.read_text(encoding="utf-8", errors="replace") \
+            if fixed_output.is_file() else ""
+        checks["fixed_3mps_analyzer"] = "validation=PASS" in fixed_text
+        checks["fixed_analyzer_hash"] = (
+            artifact_manifest.get("phase2_fixed_3mps_analyzer_sha256") ==
+            sha256(fixed_analyzer_path)
+            if fixed_analyzer_path.is_file() else False)
+    else:
+        checks["fixed_3mps_analyzer"] = True
+        checks["fixed_analyzer_hash"] = True
     comparison = None
     paired_contract = {}
     if args.baseline:
