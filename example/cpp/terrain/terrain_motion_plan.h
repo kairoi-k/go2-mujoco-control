@@ -75,6 +75,8 @@ struct TerrainFootholdPrediction
     double touchdown_time_s = 0.0;
     double touchdown_phase = 0.0;
     go2::Vec3 position_world{};
+    go2::Vec3 swing_start_position_world{};
+    bool swing_start_position_valid = false;
     std::array<double, 3> surface_normal{0.0, 0.0, 1.0};
     std::uint32_t region_id = 0;
     double edge_margin_m = 0.0;
@@ -206,10 +208,10 @@ struct TerrainMotionPlan
                     foot.swing_peak_phase > 0.90)
                     return false;
                 if (foot.touchdown &&
-                    (!swing_start_position_valid[leg] ||
-                     !std::isfinite(swing_start_position_world[leg].x) ||
-                     !std::isfinite(swing_start_position_world[leg].y) ||
-                     !std::isfinite(swing_start_position_world[leg].z)))
+                    (!foot.swing_start_position_valid ||
+                     !std::isfinite(foot.swing_start_position_world.x) ||
+                     !std::isfinite(foot.swing_start_position_world.y) ||
+                     !std::isfinite(foot.swing_start_position_world.z)))
                     return false;
             }
         }

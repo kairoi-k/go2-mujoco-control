@@ -72,6 +72,10 @@ struct TerrainPlannerResult
     TerrainMotionPlan plan{};
     std::array<std::vector<SafeFootholdRegion>, go2::kLegCount> regions{};
     std::array<FootholdCandidate, go2::kLegCount> selected{};
+    std::array<std::array<FootholdCandidate, kTerrainPlanMaxKnots>,
+               go2::kLegCount> selected_by_touchdown{};
+    std::array<std::array<bool, kTerrainPlanMaxKnots>, go2::kLegCount>
+        selected_by_touchdown_valid{};
     std::array<std::size_t, go2::kLegCount> candidate_counts{};
     std::array<std::size_t, go2::kLegCount> swing_candidate_counts{};
     std::array<double, go2::kLegCount> max_static_region_z_by_leg{};
@@ -250,6 +254,8 @@ public:
         TerrainPlannerResult result;
         result.touchdown_knot_by_leg.fill(-1);
         result.candidate_required.fill(false);
+        for (auto &valid : result.selected_by_touchdown_valid)
+            valid.fill(false);
         result.swing_candidate_counts.fill(0);
         result.max_static_region_z_by_leg.fill(
             -std::numeric_limits<double>::infinity());
@@ -646,6 +652,7 @@ public:
             if (found_infeasible_selection)
             {
                 result.selected = best_infeasible_selection;
+                SeedTouchdownSelections(input, result);
                 PopulatePlan(input, result);
                 result.support_failure_knot = best_infeasible_knot;
                 result.support_failure_contact_mask =
@@ -659,7 +666,14 @@ public:
             return Finish(input, std::move(result), start);
         }
         result.selected = best_feasible_selection;
+        SeedTouchdownSelections(input, result);
+        PopulateFutureTouchdownSelections(input, result);
         PopulatePlan(input, result);
+        if (!SupportFeasible(input, result))
+        {
+            SeedTouchdownSelections(input, result);
+            PopulatePlan(input, result);
+        }
         if (!SupportFeasible(input, result))
         {
             result.plan.status = TerrainPlanStatus::kRejected;
@@ -979,6 +993,176 @@ private:
         return -1;
     }
 
+    void SeedTouchdownSelections(const TerrainPlannerInput &input,
+                                 TerrainPlannerResult &result) const
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            result.selected_by_touchdown_valid[leg].fill(false);
+            const int touchdown = CandidateTouchdownKnot(input, leg);
+            if (touchdown < 0 ||
+                static_cast<std::size_t>(touchdown) >= config_.horizon_knots ||
+                !result.selected[leg].hard_feasible)
+                continue;
+            result.selected_by_touchdown[leg][touchdown] =
+                result.selected[leg];
+            result.selected_by_touchdown_valid[leg][touchdown] = true;
+        }
+    }
+
+    bool FutureBaseDisplacementAt(
+        const TerrainPlannerInput &input, int first_touchdown,
+        int touchdown, go2::Vec3 &displacement) const
+    {
+        if (touchdown <= 0 ||
+            touchdown >= static_cast<int>(config_.horizon_knots) ||
+            touchdown <= first_touchdown ||
+            !std::isfinite(input.base_yaw_rad) ||
+            !std::isfinite(input.base_velocity_world.x) ||
+            !std::isfinite(input.base_velocity_world.y) ||
+            !std::isfinite(input.base_velocity_world.z))
+            return false;
+        const double touchdown_dt_s =
+            static_cast<double>(touchdown) * config_.knot_dt_s;
+        if (!(touchdown_dt_s > 0.0) ||
+            !std::isfinite(touchdown_dt_s))
+            return false;
+        displacement = RotateWorldVectorToBase(
+            input.base_yaw_rad,
+            {input.base_velocity_world.x * touchdown_dt_s,
+             input.base_velocity_world.y * touchdown_dt_s,
+             input.base_velocity_world.z * touchdown_dt_s});
+        return std::isfinite(displacement.x) &&
+            std::isfinite(displacement.y) &&
+            std::isfinite(displacement.z);
+    }
+    void PopulateFutureTouchdownSelections(
+        const TerrainPlannerInput &input,
+        TerrainPlannerResult &result) const
+    {
+        constexpr std::size_t kMaxFutureSwingEvaluations = 32;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            const int first_touchdown = CandidateTouchdownKnot(input, leg);
+            if (first_touchdown < 0 ||
+                first_touchdown >= static_cast<int>(config_.horizon_knots) ||
+                !result.selected_by_touchdown_valid[leg][
+                    static_cast<std::size_t>(first_touchdown)])
+                continue;
+            FootholdCandidate previous_candidate =
+                result.selected_by_touchdown[leg][
+                    static_cast<std::size_t>(first_touchdown)];
+            int previous_touchdown = first_touchdown;
+            for (std::size_t k = static_cast<std::size_t>(first_touchdown + 1);
+                 k < config_.horizon_knots; ++k)
+            {
+                if (!input.contact_schedule.planned_contact[k][leg] ||
+                    input.contact_schedule.planned_contact[k - 1][leg])
+                    continue;
+                if (!previous_candidate.hard_feasible)
+                    break;
+                const go2::Vec3 swing_start =
+                    previous_candidate.foot_position;
+                const double elapsed_dt_s =
+                    static_cast<double>(k - previous_touchdown) *
+                    config_.knot_dt_s;
+                const double command_direction =
+                    input.commanded_vx_mps > 1.0e-3 ? 1.0
+                    : (input.commanded_vx_mps < -1.0e-3 ? -1.0 : 0.0);
+                const double expected_progress =
+                    std::abs(input.commanded_vx_mps) * elapsed_dt_s;
+                const auto region_score =
+                    [&](const go2::Vec3 &position, double uncertainty,
+                        double edge_margin) {
+                        const double directional_progress = command_direction *
+                            (position.x - swing_start.x);
+                        const double progress_error = std::abs(
+                            directional_progress - expected_progress);
+                        const double lateral_error = std::abs(
+                            position.y - input.nominal_feet_base[leg].y);
+                        const double elevation_gain = command_direction != 0.0
+                            ? std::max(0.0, position.z - swing_start.z)
+                            : 0.0;
+                        const double uncertainty_term =
+                            std::isfinite(uncertainty) ? uncertainty : 1.0;
+                        return progress_error + 0.5 * lateral_error +
+                            0.25 * uncertainty_term - 0.05 * edge_margin -
+                            config_.upward_surface_preference_weight *
+                                elevation_gain;
+                    };
+                std::vector<std::size_t> region_order;
+                region_order.reserve(result.regions[leg].size());
+                for (std::size_t region_index = 0;
+                     region_index < result.regions[leg].size(); ++region_index)
+                {
+                    if (result.regions[leg][region_index].valid)
+                        region_order.push_back(region_index);
+                }
+                std::sort(region_order.begin(), region_order.end(),
+                          [&](std::size_t lhs, std::size_t rhs) {
+                              const auto &lhs_region =
+                                  result.regions[leg][lhs];
+                              const auto &rhs_region =
+                                  result.regions[leg][rhs];
+                              const double lhs_score = region_score(
+                                  lhs_region.center, lhs_region.uncertainty_m,
+                                  lhs_region.edge_margin_m);
+                              const double rhs_score = region_score(
+                                  rhs_region.center, rhs_region.uncertainty_m,
+                                  rhs_region.edge_margin_m);
+                              if (lhs_score != rhs_score)
+                                  return lhs_score < rhs_score;
+                              return lhs_region.region_id < rhs_region.region_id;
+                          });
+                if (region_order.size() > kMaxFutureSwingEvaluations)
+                    region_order.resize(kMaxFutureSwingEvaluations);
+                go2::Vec3 future_displacement{};
+                const bool future_displacement_valid =
+                    FutureBaseDisplacementAt(
+                        input, first_touchdown, static_cast<int>(k),
+                        future_displacement);
+                bool found = false;
+                double best_score =
+                    std::numeric_limits<double>::infinity();
+                FootholdCandidate best_candidate{};
+                for (const std::size_t region_index : region_order)
+                {
+                    const auto &region = result.regions[leg][region_index];
+                    FootholdCandidate candidate = EvaluateFoothold(
+                        *input.terrain, static_cast<go2::Leg>(leg),
+                        region.center.x, region.center.y,
+                        config_.feasibility, &swing_start,
+                        config_.swing_clearance_m,
+                        future_displacement_valid
+                            ? &future_displacement : nullptr);
+                    if (!candidate.hard_feasible)
+                        continue;
+                    candidate.region_id = region.region_id;
+                    candidate.support_margin_m = region.support_margin_m;
+                    candidate.collision_margin_m =
+                        candidate.swing_clearance_m;
+                    const double score = region_score(
+                        candidate.foot_position, candidate.uncertainty_m,
+                        candidate.edge_margin_m);
+                    if (!found || score < best_score ||
+                        (score == best_score &&
+                         candidate.region_id < best_candidate.region_id))
+                    {
+                        found = true;
+                        best_score = score;
+                        best_candidate = candidate;
+                    }
+                }
+                if (!found)
+                    break;
+                result.selected_by_touchdown[leg][k] = best_candidate;
+                result.selected_by_touchdown_valid[leg][k] = true;
+                previous_candidate = best_candidate;
+                previous_touchdown = static_cast<int>(k);
+            }
+        }
+    }
+
     void PopulatePlan(const TerrainPlannerInput &input,
                       TerrainPlannerResult &result) const
     {
@@ -1080,21 +1264,45 @@ private:
             result.plan.body_reference[k].valid = true;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {
-                const int touchdown = CandidateTouchdownKnot(input, leg);
-                TerrainFootholdPrediction foot;
-                if (touchdown >= 0 && static_cast<int>(k) >= touchdown)
+                const int first_touchdown =
+                    CandidateTouchdownKnot(input, leg);
+                int active_touchdown = -1;
+                for (std::size_t event = 0; event <= k; ++event)
                 {
-                    const auto &candidate = result.selected[leg];
+                    if (result.selected_by_touchdown_valid[leg][event])
+                        active_touchdown = static_cast<int>(event);
+                }
+                TerrainFootholdPrediction foot;
+                if (active_touchdown >= 0)
+                {
+                    const auto &candidate =
+                        result.selected_by_touchdown[leg][
+                            static_cast<std::size_t>(active_touchdown)];
                     foot.valid = candidate.hard_feasible;
-                    foot.touchdown = static_cast<int>(k) == touchdown;
+                    foot.touchdown =
+                        static_cast<int>(k) == active_touchdown;
                     const bool exact_touchdown_time =
+                        active_touchdown == first_touchdown &&
                         input.next_touchdown_time_valid[leg] &&
                         std::isfinite(input.next_touchdown_time_s[leg]);
                     foot.touchdown_time_s = exact_touchdown_time
                         ? input.next_touchdown_time_s[leg]
                         : input.state_stamp_s +
-                              touchdown * config_.knot_dt_s;
+                              active_touchdown * config_.knot_dt_s;
                     foot.touchdown_phase = input.gait_phase;
+                    if (std::isfinite(input.gait_phase) &&
+                        std::isfinite(input.gait_period_s) &&
+                        input.gait_period_s > 0.0)
+                    {
+                        foot.touchdown_phase = std::fmod(
+                            input.gait_phase +
+                                static_cast<double>(active_touchdown) *
+                                    config_.knot_dt_s /
+                                    input.gait_period_s,
+                            1.0);
+                        if (foot.touchdown_phase < 0.0)
+                            foot.touchdown_phase += 1.0;
+                    }
                     foot.position_world = RotateBaseToWorld(
                         input.base_position_world, input.base_yaw_rad,
                         candidate.foot_position);
@@ -1111,9 +1319,41 @@ private:
                     foot.uncertainty_m = candidate.uncertainty_m;
                     result.plan.uncertainty_m = std::max(
                         result.plan.uncertainty_m, candidate.uncertainty_m);
-                    if (static_cast<int>(k) == touchdown)
+                    if (static_cast<int>(k) == active_touchdown)
                     {
                         ++result.plan.committed_touchdowns;
+                        if (active_touchdown == first_touchdown)
+                        {
+                            foot.swing_start_position_world =
+                                result.plan.swing_start_position_world[leg];
+                            foot.swing_start_position_valid =
+                                result.plan.swing_start_position_valid[leg];
+                        }
+                        else
+                        {
+                            for (int event = active_touchdown - 1;
+                                 event >= 0; --event)
+                            {
+                                if (!result.selected_by_touchdown_valid[leg][
+                                        static_cast<std::size_t>(event)])
+                                    continue;
+                                foot.swing_start_position_world =
+                                    RotateBaseToWorld(
+                                        input.base_position_world,
+                                        input.base_yaw_rad,
+                                        result.selected_by_touchdown[leg][
+                                            static_cast<std::size_t>(event)]
+                                                .foot_position);
+                                foot.swing_start_position_valid =
+                                    std::isfinite(
+                                        foot.swing_start_position_world.x) &&
+                                    std::isfinite(
+                                        foot.swing_start_position_world.y) &&
+                                    std::isfinite(
+                                        foot.swing_start_position_world.z);
+                                break;
+                            }
+                        }
                         result.plan.min_edge_margin_m = std::min(
                             result.plan.min_edge_margin_m,
                             candidate.edge_margin_m);

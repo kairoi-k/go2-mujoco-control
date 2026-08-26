@@ -1689,6 +1689,15 @@ bool TrotExperiment::BuildGaitTargets(
                     start_valid = true;
                     time_rebased_at_handoff = true;
                 }
+                if (!start_valid &&
+                    planned.swing_start_position_valid &&
+                    std::isfinite(planned.swing_start_position_world.x) &&
+                    std::isfinite(planned.swing_start_position_world.y) &&
+                    std::isfinite(planned.swing_start_position_world.z))
+                {
+                    start_world = planned.swing_start_position_world;
+                    start_valid = true;
+                }
                 const double plan_leg_phase = go2_control::GaitLegPhase(
                     leg, active_terrain_plan->gait_phase,
                     params_.gait_pattern);

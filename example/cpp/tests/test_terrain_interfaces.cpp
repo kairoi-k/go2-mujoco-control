@@ -126,6 +126,15 @@ int main()
     }
     const auto high_step_built = go2_terrain::BuildTerrainModel(
         &high_step_map, 10.04, 4, go2_terrain::TerrainSource::kLidar);
+    auto repeated_step_map = step_map;
+    for (std::size_t iy = 0; iy < repeated_step_map.height(); ++iy)
+    {
+        for (std::size_t ix = 20; ix < repeated_step_map.width(); ++ix)
+            repeated_step_map.data()[iy * repeated_step_map.width() + ix] =
+                -0.10f;
+    }
+    const auto repeated_step_built = go2_terrain::BuildTerrainModel(
+        &repeated_step_map, 10.04, 5, go2_terrain::TerrainSource::kLidar);
     double high_step_clearance = 0.0;
     double high_step_required_lift = 0.0;
     if (!Check(go2_terrain::CheckSwingClearance(
@@ -231,6 +240,69 @@ int main()
         return 1;
 
     auto measured_support_input = input;
+    auto repeated_input = forward_step_input;
+    repeated_input.terrain = &repeated_step_built.model;
+    repeated_input.base_velocity_world = {0.30, 0.0, 0.0};
+    repeated_input.contact_schedule.measured_contact =
+        {true, false, false, true};
+    for (std::size_t k = 0; k < 24; ++k)
+    {
+        if (k < 2)
+            repeated_input.contact_schedule.planned_contact[k] =
+                {true, false, false, true};
+        else if (k < 6)
+            repeated_input.contact_schedule.planned_contact[k] =
+                {true, true, true, true};
+        else if (k < 10)
+            repeated_input.contact_schedule.planned_contact[k] =
+                {true, false, false, true};
+        else
+            repeated_input.contact_schedule.planned_contact[k] =
+                {true, true, true, true};
+    }
+    repeated_input.contact_schedule.planned_valid = true;
+    auto repeated_planner_config = planner_config;
+    repeated_planner_config.plan_validity_s = 0.50;
+    go2_terrain::TerrainPlanner repeated_planner(
+        repeated_planner_config);
+    const auto repeated_plan = repeated_planner.Build(
+        repeated_input, 14);
+    int first_repeated_touchdown = -1;
+    int second_repeated_touchdown = -1;
+    for (std::size_t k = 0; k < 24; ++k)
+    {
+        if (!repeated_plan.plan.predicted_foothold[k][1].touchdown)
+            continue;
+        if (first_repeated_touchdown < 0)
+            first_repeated_touchdown = static_cast<int>(k);
+        else if (second_repeated_touchdown < 0)
+            second_repeated_touchdown = static_cast<int>(k);
+    }
+    if (!Check(repeated_plan.publishable &&
+                   repeated_plan.plan.valid(),
+               "repeated terrain plan was not publishable") ||
+        !Check(first_repeated_touchdown >= 0 &&
+                   second_repeated_touchdown > first_repeated_touchdown,
+               "plan did not preserve repeated touchdown events") ||
+        !Check(repeated_plan.plan.predicted_foothold[
+                   static_cast<std::size_t>(second_repeated_touchdown)][1].valid &&
+                   repeated_plan.plan.predicted_foothold[
+                       static_cast<std::size_t>(second_repeated_touchdown)][1].position_world.x >
+                   repeated_plan.plan.predicted_foothold[
+                       static_cast<std::size_t>(first_repeated_touchdown)][1].position_world.x,
+               "future touchdown did not advance its sensor foothold") ||
+        !Check(repeated_plan.plan.predicted_foothold[
+                   static_cast<std::size_t>(second_repeated_touchdown)][1].
+                       swing_start_position_valid &&
+                   std::abs(repeated_plan.plan.predicted_foothold[
+                       static_cast<std::size_t>(second_repeated_touchdown)][1].
+                       swing_start_position_world.x -
+                       repeated_plan.plan.predicted_foothold[
+                           static_cast<std::size_t>(first_repeated_touchdown)][1].
+                           position_world.x) < 1.0e-9,
+               "future touchdown lost its checked swing start"))
+        return 1;
+
     measured_support_input.contact_schedule.measured_contact =
         {true, true, true, true};
     measured_support_input.current_feet_base = {
