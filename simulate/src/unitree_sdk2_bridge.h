@@ -288,10 +288,10 @@ private:
             }
             mj_fwdPosition(sensor_model, sensor_data);
             PublishLidarHeightMap(sensor_model, sensor_data);
-            next += std::chrono::milliseconds(20);
+            next += std::chrono::milliseconds(50);
             std::this_thread::sleep_until(next);
             if (std::chrono::steady_clock::now() > next +
-                    std::chrono::milliseconds(20))
+                    std::chrono::milliseconds(50))
                 next = std::chrono::steady_clock::now();
         }
         mj_deleteData(sensor_data);
@@ -411,7 +411,7 @@ public:
         if (sensor_data == nullptr)
             return;
         const double sim_time = sensor_data->time;
-        if (sim_time - last_lidar_map_publish_s_ < 0.020)
+        if (sim_time - last_lidar_map_publish_s_ < kLidarPublishPeriodS)
             return;
         const int base_body_id = mj_name2id(
             sensor_model, mjOBJ_BODY, "base_link");
@@ -689,6 +689,7 @@ private:
     static constexpr float kLidarWindowOriginX = -0.10f;
     static constexpr float kLidarWindowOriginY = -0.40f;
     static constexpr double kLidarMemoryS = 1.5;
+    static constexpr double kLidarPublishPeriodS = 0.050;
     static constexpr std::size_t kLidarWorldCellCount =
         static_cast<std::size_t>(kLidarWorldWidth) * kLidarWorldHeight;
     std::vector<double> lidar_world_z_;
