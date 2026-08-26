@@ -4,8 +4,8 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 cpp_dir="$(cd "$script_dir/.." && pwd)"
 repo_dir="$(cd "$cpp_dir/../.." && pwd)"
-simulator="$repo_dir/simulate/build/unitree_mujoco"
-controller="$cpp_dir/build/real_trot_go2"
+simulator="${TROT_SIMULATOR_PATH:-$repo_dir/simulate/build/unitree_mujoco}"
+controller="${TROT_CONTROLLER_PATH:-$cpp_dir/build/real_trot_go2}"
 scene_arg="scene_leg_lift_demo.xml"
 scene_file="$repo_dir/unitree_robots/go2/scene_leg_lift_demo.xml"
 
@@ -154,7 +154,7 @@ for ((i=0; i < ${#controller_args[@]}; ++i)); do
   fi
 done
 # Named go2_* directories stay under experiments/; other output goes to experiments/_runs/.
-if [[ "$experiment_name" == go2_* || "$experiment_name" == _runs/* ]]; then
+if [[ "$experiment_name" == go2_* || "$experiment_name" == _runs/* || "$experiment_name" == _determinism_runs/* ]]; then
   experiment_dir="$cpp_dir/experiments/$experiment_name"
 else
   experiment_dir="$cpp_dir/experiments/_runs/$experiment_name"
@@ -163,6 +163,15 @@ ground_truth_file="$experiment_dir/contact_ground_truth.csv"
 ground_truth_analysis_file="$experiment_dir/contact_ground_truth_analysis.txt"
 ground_truth_dynamics_analysis_file="$experiment_dir/contact_ground_truth_dynamics_analysis.txt"
 mkdir -p "$experiment_dir"
+bridge_trace_file="${GO2_BRIDGE_TRACE_FILE:-}"
+if [[ "${TROT_TRACE_TELEMETRY:-0}" == "1" ]]; then
+  bridge_trace_file="$experiment_dir/bridge_trace.csv"
+  export GO2_BRIDGE_TRACE_FILE="$bridge_trace_file"
+elif [[ -n "$bridge_trace_file" ]]; then
+  export GO2_BRIDGE_TRACE_FILE="$bridge_trace_file"
+else
+  unset GO2_BRIDGE_TRACE_FILE
+fi
 stop_file="$experiment_dir/stop.request"
 rm -f "$ground_truth_file"
 rm -f "$ground_truth_analysis_file"
@@ -184,6 +193,12 @@ if ! [[ "$domain_id" =~ ^[0-9]+$ ]] || (( domain_id < 0 || domain_id > 232 )); t
   exit 2
 fi
 
+lock_file="/tmp/go2_mujoco_experiment.lock"
+if [[ "${TROT_LOCK_HELD:-0}" != "1" ]]; then
+  exec 9>"$lock_file"
+  flock 9
+fi
+dynamics_tolerance_n="${TROT_DYNAMICS_TOLERANCE_N:-10}"
 display_value="${DISPLAY:-:0}"
 runtime_dir="${XDG_RUNTIME_DIR:-/mnt/wslg/runtime-dir}"
 pulse_server="${PULSE_SERVER:-/mnt/wslg/PulseServer}"
@@ -207,14 +222,6 @@ if [[ "$task_torque_option" == true ]]; then
     exit 2
   fi
 fi
-
-lock_file="/tmp/unitree_mujoco_run_trot_domain_${domain_id}.lock"
-exec 9>"$lock_file"
-if ! flock -n 9; then
-  echo "Another trot experiment is already running in DDS domain $domain_id; use a different --domain-id for parallel runs." >&2
-  exit 2
-fi
-dynamics_tolerance_n="${TROT_DYNAMICS_TOLERANCE_N:-10}"
 
 existing_sim_pids="$(pgrep -f -x "$simulator -i $domain_id -r go2 -s $scene_arg" || true)"
 if [[ -n "$existing_sim_pids" ]]; then
@@ -266,6 +273,7 @@ env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_)" >"$environment
   printf "stop_file=%s\n" "$stop_file"
   printf "contact_ground_truth_file=%s\n" "$ground_truth_file"
   printf "contact_ground_truth_dynamics_analysis_file=%s\n" "$ground_truth_dynamics_analysis_file"
+  printf "bridge_trace_file=%s\n" "$bridge_trace_file"
   printf "environment_file=%s\n" "$environment_file"
 } >"$metadata_file"
 

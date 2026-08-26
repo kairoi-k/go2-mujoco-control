@@ -13,6 +13,9 @@
 #include <algorithm>
 #include <atomic>
 #include <array>
+#include <cstdint>
+#include <cstring>
+#include <fstream>
 #include <cmath>
 #include <chrono>
 #include <iostream>
@@ -236,6 +239,7 @@ public:
         lidar_world_t_.assign(kLidarWorldCellCount, -1.0e9);
         wireless_controller = std::make_unique<WirelessController_t>();
         wireless_controller->joystick = joystick;
+        ConfigureBridgeTrace();
     }
 
     void start()
@@ -258,6 +262,44 @@ public:
     }
 
 private:
+    void ConfigureBridgeTrace()
+    {
+        const char *path = std::getenv("GO2_BRIDGE_TRACE_FILE");
+        if (path == nullptr || path[0] == 0)
+            return;
+        bridge_trace_.open(path, std::ios::out | std::ios::trunc);
+        if (!bridge_trace_)
+        {
+            std::cerr << "Unable to open GO2_BRIDGE_TRACE_FILE=" << path << "\n";
+            return;
+        }
+        bridge_trace_
+            << "bridge_tick,simulation_tick,simulation_time_s,"
+               "command_sequence,command_hash,command_age_s,wall_time_ns\n";
+    }
+
+    std::uint64_t LowCmdHash() const
+    {
+        std::lock_guard<std::mutex> lock(lowcmd->mutex_);
+        std::uint64_t hash = 1469598103934665603ULL;
+        auto mix = [&hash](double value) {
+            std::uint64_t bits = 0;
+            std::memcpy(&bits, &value, sizeof(bits));
+            hash ^= bits;
+            hash *= 1099511628211ULL;
+        };
+        for (int i = 0; i < num_motor_; ++i)
+        {
+            const auto &motor = lowcmd->msg_.motor_cmd()[i];
+            mix(static_cast<double>(motor.q()));
+            mix(static_cast<double>(motor.dq()));
+            mix(static_cast<double>(motor.kp()));
+            mix(static_cast<double>(motor.kd()));
+            mix(static_cast<double>(motor.tau()));
+        }
+        return hash;
+    }
+
     void TerrainLidarLoop()
     {
 #if defined(__linux__)
@@ -546,6 +588,14 @@ public:
         }
         auto sim_lock = LockSimulation();
         if(!mj_data_) return;
+        const bool trace_enabled = bridge_trace_.is_open();
+        std::uint64_t trace_command_hash = 0;
+        std::uint64_t trace_command_sequence = 0;
+        std::uint64_t trace_bridge_tick = 0;
+        double trace_simulation_time_s = 0.0;
+        double trace_command_age_s = 0.0;
+        std::int64_t trace_wall_time_ns = 0;
+
         if(lowstate->joystick) { lowstate->joystick->update(); }
         // lowcmd
         {
@@ -557,6 +607,27 @@ public:
                                     m.kd() * (m.dq() - mj_data_->sensordata[i + num_motor_]);
             }
         }
+            if (trace_enabled)
+            {
+                trace_simulation_time_s = mj_data_->time;
+                trace_command_hash = LowCmdHash();
+                if (!bridge_have_command_hash_ ||
+                    trace_command_hash != bridge_last_command_hash_)
+                {
+                    bridge_have_command_hash_ = true;
+                    bridge_last_command_hash_ = trace_command_hash;
+                    bridge_last_command_sim_time_s_ = trace_simulation_time_s;
+                    ++bridge_command_sequence_;
+                }
+                trace_bridge_tick = ++bridge_tick_;
+                trace_command_sequence = bridge_command_sequence_;
+                trace_command_age_s = std::max(
+                    0.0,
+                    trace_simulation_time_s - bridge_last_command_sim_time_s_);
+                trace_wall_time_ns = std::chrono::duration_cast<
+                    std::chrono::nanoseconds>(
+                    std::chrono::steady_clock::now().time_since_epoch()).count();
+            }
 
         // lowstate
         if(lowstate->trylock()) {
@@ -666,6 +737,20 @@ public:
         if(wireless_controller->joystick) {
             wireless_controller->unlockAndPublish();
         }
+        if (trace_enabled)
+        {
+            if (sim_lock.owns_lock())
+                sim_lock.unlock();
+            bridge_trace_
+                << trace_bridge_tick << ","
+                << std::llround(trace_simulation_time_s / 1.0e-3) << ","
+                << trace_simulation_time_s << ","
+                << trace_command_sequence << ","
+                << trace_command_hash << ","
+                << trace_command_age_s << "," << trace_wall_time_ns << "\n";
+            if ((trace_bridge_tick & 0xffU) == 0U)
+                bridge_trace_.flush();
+        }
     }
 
     std::unique_ptr<HighState_t> highstate;
@@ -697,6 +782,12 @@ private:
     double last_lidar_map_publish_s_ = -1.0e9;
     double last_environment_map_publish_s_ = -1.0e9;
     unitree::common::RecurrentThreadPtr thread_;
+    std::ofstream bridge_trace_;
+    std::uint64_t bridge_tick_ = 0;
+    std::uint64_t bridge_command_sequence_ = 0;
+    std::uint64_t bridge_last_command_hash_ = 0;
+    double bridge_last_command_sim_time_s_ = 0.0;
+    bool bridge_have_command_hash_ = false;
     std::atomic<bool> terrain_lidar_stop_{false};
     std::thread terrain_lidar_thread_;
 };

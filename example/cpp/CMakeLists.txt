@@ -68,6 +68,33 @@ if(EXISTS "${_go2_mujoco_lib}")
     set_target_properties(
         real_trot_go2 PROPERTIES
         BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
+    add_executable(phase2_deterministic_functional_runner
+        tools/phase2_deterministic_functional_runner.cpp)
+    target_include_directories(
+        phase2_deterministic_functional_runner
+        PRIVATE "${_go2_mujoco_inc}")
+    target_link_libraries(
+        phase2_deterministic_functional_runner
+        unitree_sdk2 Eigen3::Eigen "${_go2_mujoco_lib}")
+    set_target_properties(
+        phase2_deterministic_functional_runner PROPERTIES
+        BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
+endif()
+if(TARGET phase2_deterministic_functional_runner)
+    add_test(
+        NAME phase2_deterministic_functional_smoke
+        COMMAND phase2_deterministic_functional_runner
+            --profile "${CMAKE_CURRENT_SOURCE_DIR}/configs/phase1_velocity_accel_1_to_3.csv"
+            --scene "${CMAKE_CURRENT_SOURCE_DIR}/../../unitree_robots/go2/scene_leg_lift_demo.xml"
+            --model "${CMAKE_CURRENT_SOURCE_DIR}/../../unitree_robots/go2/go2.xml"
+            --mode terrain_sensor_only
+            --duration 0.02
+            --stand-duration 0.01
+            --output "${CMAKE_CURRENT_BINARY_DIR}/phase2_deterministic_smoke"
+            --seed 1)
+    set_tests_properties(
+        phase2_deterministic_functional_smoke PROPERTIES
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 endif()
 
 function(go2_add_ctest name)

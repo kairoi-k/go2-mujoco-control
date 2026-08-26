@@ -386,9 +386,11 @@ void TrotExperiment::LowCmdWrite()
     if (!SnapshotState(state_snapshot, high_state_snapshot,
                        have_state, have_high_state))
         return;
+    ++controller_tick_;
 
     bool motion_clock_paused = false;
     const double motion_dt = MotionClockStep(state_snapshot, motion_clock_paused);
+    controller_wall_jitter_s_ = last_wall_motion_dt_s_ - dt_;
 
     std::array<double, kMotorCount> joint_targets = task_.stand_up_joint_pos_;
     UpdateVelocityEstimate(state_snapshot, high_state_snapshot, have_high_state, motion_dt);
@@ -513,6 +515,8 @@ void TrotExperiment::LowCmdWrite()
 
 void TrotExperiment::PublishLowCmdWithCrc()
 {
+    ++low_cmd_sequence_;
+    last_low_cmd_publish_wall_ns_ = TrotSteadyNowNs();
     low_cmd_.crc() = crc32_core(
         (uint32_t *)&low_cmd_,
         (sizeof(unitree_go::msg::dds_::LowCmd_) >> 2) - 1);
@@ -964,6 +968,23 @@ bool TrotExperiment::SnapshotState(
             state_snapshot = low_state_;
         if (have_high_state)
             high_state_snapshot = high_state_;
+        controller_input_low_state_sequence_ =
+            have_state ? low_state_rx_sequence_ : 0;
+        controller_input_high_state_sequence_ =
+            have_high_state ? high_state_rx_sequence_ : 0;
+        controller_input_sim_tick_ =
+            have_state ? static_cast<std::uint64_t>(state_snapshot.tick()) : 0;
+        const std::int64_t snapshot_wall_ns = TrotSteadyNowNs();
+        controller_input_low_state_age_s_ =
+            have_state && low_state_last_rx_wall_ns_ > 0
+                ? std::max(0.0, static_cast<double>(
+                      snapshot_wall_ns - low_state_last_rx_wall_ns_) * 1.0e-9)
+                : 0.0;
+        controller_input_high_state_age_s_ =
+            have_high_state && high_state_last_rx_wall_ns_ > 0
+                ? std::max(0.0, static_cast<double>(
+                      snapshot_wall_ns - high_state_last_rx_wall_ns_) * 1.0e-9)
+                : 0.0;
     }
     return have_state;
 }

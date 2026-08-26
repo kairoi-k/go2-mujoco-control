@@ -26,6 +26,7 @@ struct TerrainPlannerConfig
     double knot_dt_s = 0.020;
     double plan_validity_s = 0.15;
     double deadline_us = 5000.0;
+    bool measure_realtime_timing = true;
     double min_support_margin_m = 0.015;
     double max_two_contact_line_error_m = 0.040;
     double candidate_x_span_m = 0.090;
@@ -205,7 +206,9 @@ public:
         result.plan.horizon_knots = config_.horizon_knots;
         result.plan.solver.attempted = true;
         result.plan.solver.deadline_us = config_.deadline_us;
-        const auto start = std::chrono::steady_clock::now();
+        const auto start = config_.measure_realtime_timing
+            ? std::chrono::steady_clock::now()
+            : std::chrono::steady_clock::time_point{};
         if (!input.contact_schedule.valid(config_.horizon_knots))
         {
             result.plan.failure = TerrainPlanFailure::kInvalidInput;
@@ -476,10 +479,18 @@ private:
                                 std::chrono::steady_clock::time_point start) const
     {
         (void)input;
-        result.plan.solver.elapsed_us = std::chrono::duration<double,
-            std::micro>(std::chrono::steady_clock::now() - start).count();
-        result.plan.solver.deadline_miss =
-            result.plan.solver.elapsed_us > config_.deadline_us;
+        if (config_.measure_realtime_timing)
+        {
+            result.plan.solver.elapsed_us = std::chrono::duration<double,
+                std::micro>(std::chrono::steady_clock::now() - start).count();
+            result.plan.solver.deadline_miss =
+                result.plan.solver.elapsed_us > config_.deadline_us;
+        }
+        else
+        {
+            result.plan.solver.elapsed_us = 0.0;
+            result.plan.solver.deadline_miss = false;
+        }
         if (result.plan.solver.deadline_miss &&
             result.plan.status != TerrainPlanStatus::kRejected)
         {

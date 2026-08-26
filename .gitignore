@@ -32,6 +32,7 @@ Thumbs.db
 **/logs/
 **/runs/
 example/cpp/experiments/_runs/
+example/cpp/experiments/_determinism_runs/
 example/cpp/experiments/_videos/
 *.log
 

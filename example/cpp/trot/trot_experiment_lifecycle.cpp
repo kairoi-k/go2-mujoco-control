@@ -43,6 +43,8 @@ void TrotExperiment::LowStateMessageHandler(const void *message)
     std::lock_guard<std::mutex> lock(state_mutex_);
     low_state_ = *(unitree_go::msg::dds_::LowState_ *)message;
     have_low_state_ = true;
+    ++low_state_rx_sequence_;
+    low_state_last_rx_wall_ns_ = TrotSteadyNowNs();
 }
 
 // --- TrotExperiment::HighStateMessageHandler ---
@@ -51,6 +53,8 @@ void TrotExperiment::HighStateMessageHandler(const void *message)
     std::lock_guard<std::mutex> lock(state_mutex_);
     high_state_ = *(unitree_go::msg::dds_::SportModeState_ *)message;
     have_high_state_ = true;
+    ++high_state_rx_sequence_;
+    high_state_last_rx_wall_ns_ = TrotSteadyNowNs();
 }
 
 void TrotExperiment::EnvironmentHeightMapMessageHandler(const void *message)
@@ -62,6 +66,7 @@ void TrotExperiment::EnvironmentHeightMapMessageHandler(const void *message)
     environment_heightmap_ =
         *static_cast<const unitree_go::msg::dds_::HeightMap_ *>(message);
     have_environment_heightmap_ = true;
+    ++environment_map_rx_sequence_;
     if (first_message)
     {
         std::cerr << "Environment map received: stamp="
@@ -80,6 +85,9 @@ void TrotExperiment::LidarHeightMapMessageHandler(const void *message)
     lidar_heightmap_ =
         *static_cast<const unitree_go::msg::dds_::HeightMap_ *>(message);
     have_lidar_heightmap_ = true;
+    ++terrain_lidar_rx_sequence_;
+    terrain_lidar_last_rx_wall_ns_ = TrotSteadyNowNs();
+    terrain_lidar_last_stamp_s_ = lidar_heightmap_.stamp();
     if (first_message)
     {
         std::cerr << "Lidar map received: stamp="

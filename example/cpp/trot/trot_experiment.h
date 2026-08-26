@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstddef>
 #include <condition_variable>
+#include <cstdint>
 #include <fstream>
 #include <limits>
 #include <memory>
@@ -37,6 +38,12 @@
 
 using unitree::robot::ChannelPublisherPtr;
 using unitree::robot::ChannelSubscriberPtr;
+inline std::int64_t TrotSteadyNowNs() noexcept
+{
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
 
 // DDS topics (shared by lifecycle Init).
 #ifndef GO2_TROT_TOPIC_LOWCMD
@@ -334,6 +341,18 @@ private:
     double last_wall_motion_dt_s_ = 0.0;
     bool last_motion_clock_paused_ = false;
     int motion_clock_pause_count_ = 0;
+    // Earliest-divergence telemetry. DDS payloads do not carry transport
+    // sequence numbers, so callback delivery and consumed-input order are
+    // recorded at the ownership boundary.
+    std::uint64_t controller_tick_ = 0;
+    std::uint64_t controller_input_low_state_sequence_ = 0;
+    std::uint64_t controller_input_high_state_sequence_ = 0;
+    std::uint64_t controller_input_sim_tick_ = 0;
+    double controller_input_low_state_age_s_ = 0.0;
+    double controller_input_high_state_age_s_ = 0.0;
+    double controller_wall_jitter_s_ = 0.0;
+    std::uint64_t low_cmd_sequence_ = 0;
+    std::int64_t last_low_cmd_publish_wall_ns_ = 0;
 
     int active_cycle_index_ = -1;
     int completed_cycles_ = 0;
@@ -430,6 +449,14 @@ private:
     bool have_high_state_ = false;
     bool have_environment_heightmap_ = false;
     bool have_lidar_heightmap_ = false;
+    std::uint64_t low_state_rx_sequence_ = 0;
+    std::uint64_t high_state_rx_sequence_ = 0;
+    std::int64_t low_state_last_rx_wall_ns_ = 0;
+    std::int64_t high_state_last_rx_wall_ns_ = 0;
+    std::uint64_t environment_map_rx_sequence_ = 0;
+    std::uint64_t terrain_lidar_rx_sequence_ = 0;
+    std::int64_t terrain_lidar_last_rx_wall_ns_ = 0;
+    double terrain_lidar_last_stamp_s_ = 0.0;
 
     go2_terrain::TerrainPlanner terrain_planner_{};
     go2_terrain::TerrainPlanStore terrain_plan_store_{};

@@ -96,7 +96,14 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_full_srbd_ok,wbc_full_id_ok,wbc_full_eq_residual"
          << ",wbc_full_velocity_target_x_mps,wbc_full_requested_acc_x_mps2"
          << ",wbc_full_srbd_acc_x_mps2,wbc_full_id_qdd_x_mps2"
-         << ",wbc_full_id_contact_force_x_n";
+         << ",wbc_full_id_contact_force_x_n"
+         << ",controller_tick,simulation_tick,simulation_time_s"
+         << ",physics_sequence"
+         << ",controller_input_low_state_sequence,controller_input_high_state_sequence"
+         << ",controller_input_sim_tick,controller_input_low_state_age_s,controller_input_high_state_age_s"
+         << ",controller_output_sequence,controller_wall_jitter_s"
+         << ",terrain_lidar_rx_sequence,terrain_lidar_sim_tick,terrain_lidar_wall_age_s"
+         << ",terrain_control_generation";
     for (int i = 0; i < kMotorCount; ++i)
     {
         csv_ << "," << kMotorNames[i] << "_q_target"
@@ -564,6 +571,27 @@ void TrotExperiment::LogSample(
             contact_count += contact_flags[leg];
         }
     }
+    std::uint64_t terrain_lidar_rx_sequence = 0;
+    std::int64_t terrain_lidar_last_rx_wall_ns = 0;
+    double terrain_lidar_last_stamp_s = 0.0;
+    if (params_.terrain_enabled)
+    {
+        std::lock_guard<std::mutex> lock(terrain_map_mutex_);
+        terrain_lidar_rx_sequence = terrain_lidar_rx_sequence_;
+        terrain_lidar_last_rx_wall_ns = terrain_lidar_last_rx_wall_ns_;
+        terrain_lidar_last_stamp_s = terrain_lidar_last_stamp_s_;
+    }
+    const std::int64_t log_wall_ns = TrotSteadyNowNs();
+    const double terrain_lidar_wall_age_s =
+        terrain_lidar_last_rx_wall_ns > 0
+            ? std::max(0.0, static_cast<double>(
+                  log_wall_ns - terrain_lidar_last_rx_wall_ns) * 1.0e-9)
+            : 0.0;
+    const std::uint64_t terrain_lidar_sim_tick =
+        std::isfinite(terrain_lidar_last_stamp_s)
+            ? static_cast<std::uint64_t>(
+                  std::llround(std::max(0.0, terrain_lidar_last_stamp_s) * 1000.0))
+            : 0;
     double terrain_last_failure = 0.0;
     double terrain_min_edge_margin_m = 0.0;
     double terrain_min_uncertainty_edge_margin_m = 0.0;
@@ -794,7 +822,28 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.full_requested_acc_x_mps2
          << "," << wbc_shadow_diagnostics_.full_srbd_acc_x_mps2
          << "," << wbc_shadow_diagnostics_.full_id_qdd_x_mps2
-         << "," << wbc_shadow_diagnostics_.full_id_contact_force_x_n;
+         << "," << wbc_shadow_diagnostics_.full_id_contact_force_x_n
+         << "," << controller_tick_
+         << "," << (have_state
+                        ? static_cast<std::uint64_t>(state_snapshot.tick())
+                        : 0)
+         << "," << (have_state
+                        ? static_cast<double>(state_snapshot.tick()) * 0.001
+                        : 0.0)
+         << "," << (have_state
+                        ? static_cast<std::uint64_t>(state_snapshot.tick())
+                        : 0)
+         << "," << controller_input_low_state_sequence_
+         << "," << controller_input_high_state_sequence_
+         << "," << controller_input_sim_tick_
+         << "," << controller_input_low_state_age_s_
+         << "," << controller_input_high_state_age_s_
+         << "," << low_cmd_sequence_
+         << "," << controller_wall_jitter_s_
+         << "," << terrain_lidar_rx_sequence
+         << "," << terrain_lidar_sim_tick
+         << "," << terrain_lidar_wall_age_s
+         << "," << terrain_control_generation_.load();
 
     // SECTION: log-joint-cmds (cmd vs state per joint)
     for (int i = 0; i < kMotorCount; ++i)
