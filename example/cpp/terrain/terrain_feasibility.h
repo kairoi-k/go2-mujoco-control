@@ -322,30 +322,6 @@ inline bool CheckSwingClearance(
     }
     if (!std::isfinite(lift))
         return reject(FootholdRejectReason::kSwingClearance);
-    if (required_lift_m != nullptr)
-        *required_lift_m = lift;
-    if (required_peak_phase != nullptr)
-        *required_peak_phase = best_peak_phase;
-    if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr &&
-        lift > 0.15 &&
-        (first_rise_phase >= 0.0 || end.z - start.z > 0.04))
-    {
-        static int debug_prints = 0;
-        if (debug_prints < 64)
-        {
-            std::fprintf(
-                stderr,
-                "Terrain swing diagnostic leg=%d start=(%.6f,%.6f,%.6f) "
-                "end=(%.6f,%.6f,%.6f) samples=%d first_rise=%.6f "
-                "peak=%.6f lift=%.6f lift_phase=%.6f terrain=%.6f "
-                "linear=%.6f req=%.6f shape=%.6f\n",
-                static_cast<int>(leg), start.x, start.y, start.z,
-                end.x, end.y, end.z, samples, first_rise_phase,
-                best_peak_phase, lift, lift_phase, lift_terrain_height,
-                lift_linear_height, lift_clearance_requirement, lift_shape);
-            ++debug_prints;
-        }
-    }
 
     const auto knee_position = [leg](
         const go2::LegJointPositions &joints) {
@@ -375,74 +351,154 @@ inline bool CheckSwingClearance(
     double worst_foot_patch_height_m = 0.0;
     double worst_foot_sample_height_m = 0.0;
     double worst_foot_requirement_m = 0.0;
-    for (int i = 0; i <= samples; ++i)
-    {
-        const double u = static_cast<double>(i) / samples;
-        const double clearance_requirement =
-            TerrainSwingClearanceRequirement(u, clearance_m, best_peak_phase);
-        const double clearance_threshold = std::nextafter(
-            clearance_requirement, -std::numeric_limits<double>::infinity());
-        const double path_progress = TerrainSwingEase(u);
-        const double linear_height =
-            start.z + path_progress * (end.z - start.z);
-        const double foot_height = std::fma(
-            TerrainSwingProfile(u, best_peak_phase), lift, linear_height);
-        const go2::Vec3 foot{
-            start.x + path_progress * (end.x - start.x),
-            start.y + path_progress * (end.y - start.y), foot_height};
-        go2::LegJointPositions joints;
-        if (!go2::LegInverseKinematics(leg, foot, joints))
-            return reject(FootholdRejectReason::kReachability);
-        if (i == 0 || i == samples)
-            continue;
-
-        TerrainPatch foot_patch;
-        if (!model.SamplePatch(
-                foot.x, foot.y, sweep_radius_m, foot_patch) ||
-            !foot_patch.valid || !foot_patch.all_known)
-            return reject(FootholdRejectReason::kUnknown);
-        const double foot_clearance = foot.z - foot_patch.max_height_m;
-        const double foot_target_height =
-            foot_patch.max_height_m + clearance_requirement;
-        minimum_clearance_m = std::min(minimum_clearance_m, foot_clearance);
-        minimum_foot_clearance_m = std::min(
-            minimum_foot_clearance_m, foot_clearance);
-        const double foot_deficit = foot.z - foot_target_height;
-        if (foot_deficit < worst_foot_deficit_m)
+    const auto evaluate_swept_geometry = [&](double test_lift) {
+        foot_violation = false;
+        shin_violation = false;
+        minimum_clearance_m = std::numeric_limits<double>::infinity();
+        minimum_foot_clearance_m =
+            std::numeric_limits<double>::infinity();
+        minimum_shin_clearance_m =
+            std::numeric_limits<double>::infinity();
+        worst_foot_deficit_m = std::numeric_limits<double>::infinity();
+        worst_foot_phase = 0.0;
+        worst_foot_height_m = 0.0;
+        worst_foot_patch_height_m = 0.0;
+        worst_foot_sample_height_m = 0.0;
+        worst_foot_requirement_m = 0.0;
+        for (int i = 0; i <= samples; ++i)
         {
-            worst_foot_deficit_m = foot_deficit;
-            worst_foot_phase = u;
-            worst_foot_height_m = foot.z;
-            worst_foot_patch_height_m = foot_patch.max_height_m;
-            worst_foot_sample_height_m = terrain_height[
-                static_cast<std::size_t>(i)];
-            worst_foot_requirement_m = clearance_requirement;
-        }
-        if (foot.z < foot_target_height)
-            foot_violation = true;
+            const double u = static_cast<double>(i) / samples;
+            const double clearance_requirement =
+                TerrainSwingClearanceRequirement(
+                    u, clearance_m, best_peak_phase);
+            const double clearance_threshold = std::nextafter(
+                clearance_requirement,
+                -std::numeric_limits<double>::infinity());
+            const double path_progress = TerrainSwingEase(u);
+            const double linear_height =
+                start.z + path_progress * (end.z - start.z);
+            const double foot_height = std::fma(
+                TerrainSwingProfile(u, best_peak_phase), test_lift,
+                linear_height);
+            const go2::Vec3 foot{
+                start.x + path_progress * (end.x - start.x),
+                start.y + path_progress * (end.y - start.y), foot_height};
+            go2::LegJointPositions joints;
+            if (!go2::LegInverseKinematics(leg, foot, joints))
+                return FootholdRejectReason::kReachability;
+            if (i == 0 || i == samples)
+                continue;
 
-        // Check the lower-leg/shin segment at interior swept samples.  The
-        // touchdown endpoint is allowed to meet the terrain; the shin is not.
-        const go2::Vec3 knee = knee_position(joints);
-        for (int segment = 1; segment < 3; ++segment)
-        {
-            const double alpha = 0.3333333333333333 * segment;
-            const go2::Vec3 shin{
-                knee.x + alpha * (foot.x - knee.x),
-                knee.y + alpha * (foot.y - knee.y),
-                knee.z + alpha * (foot.z - knee.z)};
-            TerrainPatch shin_patch;
+            TerrainPatch foot_patch;
             if (!model.SamplePatch(
-                    shin.x, shin.y, sweep_radius_m, shin_patch) ||
-                !shin_patch.valid || !shin_patch.all_known)
-                return reject(FootholdRejectReason::kUnknown);
-            const double shin_clearance = shin.z - shin_patch.max_height_m;
-            minimum_clearance_m =
-                std::min(minimum_clearance_m, shin_clearance);
-            minimum_shin_clearance_m = std::min(
-                minimum_shin_clearance_m, shin_clearance);
-            if (shin_clearance < clearance_threshold)
-                shin_violation = true;
+                    foot.x, foot.y, sweep_radius_m, foot_patch) ||
+                !foot_patch.valid || !foot_patch.all_known)
+                return FootholdRejectReason::kUnknown;
+            const double foot_clearance = foot.z - foot_patch.max_height_m;
+            const double foot_target_height =
+                foot_patch.max_height_m + clearance_requirement;
+            minimum_clearance_m = std::min(
+                minimum_clearance_m, foot_clearance);
+            minimum_foot_clearance_m = std::min(
+                minimum_foot_clearance_m, foot_clearance);
+            const double foot_deficit = foot.z - foot_target_height;
+            if (foot_deficit < worst_foot_deficit_m)
+            {
+                worst_foot_deficit_m = foot_deficit;
+                worst_foot_phase = u;
+                worst_foot_height_m = foot.z;
+                worst_foot_patch_height_m = foot_patch.max_height_m;
+                worst_foot_sample_height_m = terrain_height[
+                    static_cast<std::size_t>(i)];
+                worst_foot_requirement_m = clearance_requirement;
+            }
+            if (foot.z < foot_target_height)
+                foot_violation = true;
+
+            // Check the lower-leg/shin segment at interior swept samples. The
+            // touchdown endpoint is allowed to meet the terrain; the shin is
+            // not. This is part of the lift solve, not a post-hoc rejection.
+            const go2::Vec3 knee = knee_position(joints);
+            for (int segment = 1; segment < 3; ++segment)
+            {
+                const double alpha = 0.3333333333333333 * segment;
+                const go2::Vec3 shin{
+                    knee.x + alpha * (foot.x - knee.x),
+                    knee.y + alpha * (foot.y - knee.y),
+                    knee.z + alpha * (foot.z - knee.z)};
+                TerrainPatch shin_patch;
+                if (!model.SamplePatch(
+                        shin.x, shin.y, sweep_radius_m, shin_patch) ||
+                    !shin_patch.valid || !shin_patch.all_known)
+                    return FootholdRejectReason::kUnknown;
+                const double shin_clearance =
+                    shin.z - shin_patch.max_height_m;
+                minimum_clearance_m = std::min(
+                    minimum_clearance_m, shin_clearance);
+                minimum_shin_clearance_m = std::min(
+                    minimum_shin_clearance_m, shin_clearance);
+                if (shin_clearance < clearance_threshold)
+                    shin_violation = true;
+            }
+        }
+        return FootholdRejectReason::kNone;
+    };
+
+    constexpr int kMaxLiftRefinementIterations = 32;
+    for (int attempt = 0; attempt < kMaxLiftRefinementIterations; ++attempt)
+    {
+        const FootholdRejectReason geometry_reason =
+            evaluate_swept_geometry(lift);
+        if (geometry_reason != FootholdRejectReason::kNone)
+            return reject(geometry_reason);
+        if (!foot_violation && !shin_violation)
+            break;
+        const double foot_deficit =
+            foot_violation && std::isfinite(worst_foot_deficit_m)
+                ? std::max(0.0, -worst_foot_deficit_m)
+                : 0.0;
+        const double shin_deficit =
+            shin_violation && std::isfinite(minimum_shin_clearance_m)
+                ? std::max(0.0, clearance_m - minimum_shin_clearance_m)
+                : 0.0;
+        const double increment = std::max({0.002, foot_deficit,
+                                           shin_deficit});
+        const double next_lift = std::nextafter(
+            lift + increment, std::numeric_limits<double>::infinity());
+        if (!std::isfinite(next_lift) || !(next_lift > lift))
+            return reject(shin_violation
+                              ? FootholdRejectReason::kCollision
+                              : FootholdRejectReason::kSwingClearance);
+        lift = next_lift;
+    }
+    if (shin_violation)
+        return reject(FootholdRejectReason::kCollision);
+    if (foot_violation)
+        return reject(FootholdRejectReason::kSwingClearance);
+    if (!std::isfinite(lift))
+        return reject(FootholdRejectReason::kSwingClearance);
+    if (required_lift_m != nullptr)
+        *required_lift_m = lift;
+    if (required_peak_phase != nullptr)
+        *required_peak_phase = best_peak_phase;
+    if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr &&
+        lift > 0.15 &&
+        (first_rise_phase >= 0.0 || end.z - start.z > 0.04))
+    {
+        static int debug_prints = 0;
+        if (debug_prints < 64)
+        {
+            std::fprintf(
+                stderr,
+                "Terrain swing diagnostic leg=%d start=(%.6f,%.6f,%.6f) "
+                "end=(%.6f,%.6f,%.6f) samples=%d first_rise=%.6f "
+                "peak=%.6f lift=%.6f lift_phase=%.6f terrain=%.6f "
+                "linear=%.6f req=%.6f shape=%.6f\n",
+                static_cast<int>(leg), start.x, start.y, start.z,
+                end.x, end.y, end.z, samples, first_rise_phase,
+                best_peak_phase, lift, lift_phase, lift_terrain_height,
+                lift_linear_height, lift_clearance_requirement, lift_shape);
+            ++debug_prints;
         }
     }
     if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr &&
@@ -476,10 +532,6 @@ inline bool CheckSwingClearance(
                 worst_foot_patch_height_m - worst_foot_sample_height_m);
         }
     }
-    if (shin_violation)
-        return reject(FootholdRejectReason::kCollision);
-    if (foot_violation)
-        return reject(FootholdRejectReason::kSwingClearance);
     return true;
 }
 

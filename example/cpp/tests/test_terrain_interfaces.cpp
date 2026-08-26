@@ -101,6 +101,23 @@ int main()
                "low swing was accepted"))
         return 1;
 
+    double step_clearance = 0.0;
+    double step_required_lift = 0.0;
+    double step_peak_phase = 0.0;
+    go2_terrain::FootholdRejectReason step_swing_reason =
+        go2_terrain::FootholdRejectReason::kNone;
+    if (!Check(go2_terrain::CheckSwingClearance(
+                   step_built.model, {0.18, -0.10, -0.25},
+                   {0.425, -0.10, -0.15}, 0.03, step_clearance,
+                   &step_swing_reason, go2::Leg::FL, &step_required_lift,
+                   &step_peak_phase),
+               "10cm sensor-derived swing clearance was rejected") ||
+        !Check(step_required_lift >= 0.03 &&
+                   step_required_lift < 0.30 &&
+                   step_peak_phase >= 0.10 && step_peak_phase <= 0.90,
+               "10cm swing clearance geometry was invalid"))
+        return 1;
+
     go2_terrain::TerrainPlannerInput input;
     input.terrain = &built.model;
     input.state_stamp_s = 10.04;
