@@ -1065,7 +1065,9 @@ private:
             result.plan.contact_schedule.planned_contact[k] =
                 input.contact_schedule.planned_contact[k];
             result.plan.body_reference[k].position =
-                input.base_position_world;
+                PredictBasePosition(input.base_position_world,
+                                    input.base_velocity_world,
+                                    static_cast<double>(k) * config_.knot_dt_s);
             result.plan.body_reference[k].linear_velocity =
                 input.base_velocity_world;
             result.plan.body_reference[k].linear_acceleration =

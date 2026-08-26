@@ -218,6 +218,18 @@ int main()
                "actuation planner did not propagate swept lift"))
         return 1;
 
+    auto moving_body_input = input;
+    moving_body_input.base_velocity_world = {0.25, 0.0, 0.0};
+    const auto moving_body_plan = actuation_planner.Build(
+        moving_body_input, 13);
+    if (!Check(moving_body_plan.publishable &&
+                   moving_body_plan.plan.body_reference[4].position.x >
+                       moving_body_plan.plan.body_reference[0].position.x,
+               "planner did not advance its future body reference") ||
+        !Check(moving_body_plan.plan.body_reference[4].position.x > 0.0,
+               "future body reference did not use measured velocity"))
+        return 1;
+
     auto measured_support_input = input;
     measured_support_input.contact_schedule.measured_contact =
         {true, true, true, true};
