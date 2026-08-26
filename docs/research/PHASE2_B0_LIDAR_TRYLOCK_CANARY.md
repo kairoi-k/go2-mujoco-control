@@ -50,4 +50,3 @@ Do not run the remaining canaries or a full B0 from this dirty implementation.
 Keep both run directories. The next investigation must isolate controller-side
 terrain DDS/map callbacks and low-rate terrain snapshot/worker scheduling
 without changing Phase1 control semantics. B1 remains blocked.
-
