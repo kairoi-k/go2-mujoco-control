@@ -125,9 +125,12 @@ int main()
                    planned.plan.status ==
                        go2_terrain::TerrainPlanStatus::kDegraded,
                "sensor-only planner became actuation-capable") ||
-        !Check(planned.candidate_counts[1] > 0 &&
-                   planned.selected[1].hard_feasible,
-               "planner did not select a feasible touchdown candidate"))
+        !Check(planned.candidate_counts[0] > 0 &&
+                   planned.candidate_counts[1] > 0 &&
+                   planned.candidate_counts[2] > 0 &&
+                   planned.candidate_counts[3] > 0 &&
+                   !planned.selected[1].hard_feasible,
+               "sensor-only planner performed actuation selection"))
         return 1;
 
     planner_config.sensor_only = false;
@@ -142,7 +145,10 @@ int main()
                    std::isfinite(actuation_plan.plan.min_support_margin_m),
                "planner validity metrics are not finite") ||
         !Check(actuation_plan.plan.body_reference[0].yaw_rad == 0.0,
-               "planner did not preserve body yaw reference"))
+               "planner did not preserve body yaw reference") ||
+        !Check(actuation_plan.selected[1].region_id <
+                   actuation_plan.regions[1].size(),
+               "actuation planner did not consume a safe region"))
         return 1;
 
     go2_terrain::TerrainMotionPlan atomic_plan;

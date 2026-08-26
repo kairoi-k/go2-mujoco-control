@@ -308,11 +308,11 @@ void TrotExperiment::UpdateWbcFull(
         go2_control::SrbdMpcInput mpc_in;
         if (terrain_plan && task_.gait_started_ && task_.motion_stage_ == 2)
         {
-            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            {
-                if (terrain_plan->contact_schedule.planned_contact[0][leg] != qp_contact[leg])
-                    terrain_plan_contact_coherent = false;
-            }
+            terrain_plan_contact_coherent =
+                terrain_plan->contact_schedule.valid(
+                    terrain_plan->horizon_knots) &&
+                terrain_plan->horizon_knots >=
+                    static_cast<std::size_t>(mpc_params.horizon);
             if (!terrain_plan_contact_coherent)
                 ++terrain_plan_contact_rejections_;
         }

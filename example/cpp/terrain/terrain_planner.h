@@ -243,6 +243,14 @@ public:
             result.candidate_counts[leg] = result.regions[leg].size();
         }
 
+        if (config_.sensor_only || !config_.allow_actuation)
+        {
+            result.plan.status = TerrainPlanStatus::kDegraded;
+            result.plan.fallback_to_phase1 = true;
+            result.publishable = false;
+            return Finish(input, std::move(result), start);
+        }
+
         // Select a feasible touchdown for each leg that first enters stance
         // in the supplied Phase 1 schedule.  The schedule remains an input in
         // Stage B; the planner cannot switch topology or phase offsets.
@@ -253,33 +261,30 @@ public:
                 continue;
             FootholdCandidate best;
             double best_score = std::numeric_limits<double>::infinity();
-            for (double dx = -config_.candidate_x_span_m;
-                 dx <= config_.candidate_x_span_m + 1.0e-9;
-                 dx += config_.candidate_spacing_m)
+            for (const auto &region : result.regions[leg])
             {
-                for (double dy = -config_.candidate_y_span_m;
-                     dy <= config_.candidate_y_span_m + 1.0e-9;
-                     dy += config_.candidate_spacing_m)
+                if (!region.valid)
+                    continue;
+                FootholdCandidate candidate = EvaluateFoothold(
+                    *input.terrain, static_cast<go2::Leg>(leg),
+                    region.center.x, region.center.y, config_.feasibility,
+                    &input.current_feet_base[leg],
+                    config_.swing_clearance_m);
+                if (!candidate.hard_feasible)
+                    continue;
+                candidate.region_id = region.region_id;
+                const double displacement = std::hypot(
+                    candidate.foot_position.x -
+                        input.nominal_feet_base[leg].x,
+                    candidate.foot_position.y -
+                        input.nominal_feet_base[leg].y);
+                const double score = displacement +
+                    0.5 * candidate.uncertainty_m -
+                    0.1 * candidate.edge_margin_m;
+                if (score < best_score)
                 {
-                    const double x = input.nominal_feet_base[leg].x + dx;
-                    const double y = input.nominal_feet_base[leg].y + dy;
-                    const FootholdCandidate candidate = EvaluateFoothold(
-                        *input.terrain, static_cast<go2::Leg>(leg), x, y,
-                        config_.feasibility,
-                        &input.current_feet_base[leg],
-                        config_.swing_clearance_m);
-                    if (!candidate.hard_feasible)
-                        continue;
-                    const double displacement = std::hypot(
-                        dx, dy);
-                    const double score = displacement +
-                        0.5 * candidate.uncertainty_m -
-                        0.1 * candidate.edge_margin_m;
-                    if (score < best_score)
-                    {
-                        best = candidate;
-                        best_score = score;
-                    }
+                    best = candidate;
+                    best_score = score;
                 }
             }
             if (!best.hard_feasible)
@@ -298,13 +303,6 @@ public:
             result.plan.status = TerrainPlanStatus::kRejected;
             result.plan.failure = TerrainPlanFailure::kSupportInfeasible;
             result.plan.solver.failure = result.plan.failure;
-            return Finish(input, std::move(result), start);
-        }
-        if (config_.sensor_only || !config_.allow_actuation)
-        {
-            result.plan.status = TerrainPlanStatus::kDegraded;
-            result.plan.fallback_to_phase1 = true;
-            result.publishable = false;
             return Finish(input, std::move(result), start);
         }
         result.plan.status = TerrainPlanStatus::kValid;
