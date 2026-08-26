@@ -11,9 +11,10 @@
 namespace go2_terrain
 {
 
-// Shared, bounded interface storage.  The limit is deliberately the same
-// order as the existing SRBD horizon; it is not a new timing or gait policy.
-constexpr std::size_t kTerrainContactMaxKnots = 12;
+// Shared, bounded interface storage.  Keep enough absolute-time knots for
+// asynchronous planner latency plus the consumer horizon; this is storage
+// capacity only and does not change the gait or MPC horizon.
+constexpr std::size_t kTerrainContactMaxKnots = 24;
 
 struct TerrainPlanIdentity
 {

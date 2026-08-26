@@ -20,7 +20,7 @@ struct TerrainPlannerConfig
 {
     TerrainFeasibilityConfig feasibility{};
     // Keep enough future knots for the asynchronous planner-to-WBC latency
-    // while preserving the bounded 12-knot interface.
+    // while preserving a bounded interface.
     std::size_t horizon_knots = kTerrainContactMaxKnots;
     // Match the Phase 1 running-trot MPC sample time at the default period.
     // The planner remains configurable, but must not invent a second timing

@@ -20,7 +20,7 @@ namespace go2_control
 {
 
 constexpr int kSrbdStateSize = 12;
-constexpr int kSrbdMaxHorizon = 12;
+constexpr int kSrbdMaxHorizon = 24;
 constexpr int kSrbdForceSize = 12;
 
 struct SrbdMpcParams

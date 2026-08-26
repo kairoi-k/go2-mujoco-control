@@ -229,10 +229,15 @@ int main()
                    plan_indices) &&
                    plan_indices[0] == 2 && plan_indices[3] == 5,
                "terrain plan horizon was not time-aligned") ||
-        !Check(!go2_terrain::BuildTerrainPlanHorizonIndices(
+        !Check(go2_terrain::BuildTerrainPlanHorizonIndices(
                    flight_plan.plan, 10.10, 0.02, 0.02, 12,
+                   plan_indices) &&
+                   plan_indices[0] == 3 && plan_indices[11] == 14,
+               "extended terrain horizon was not time-aligned") ||
+        !Check(!go2_terrain::BuildTerrainPlanHorizonIndices(
+                   flight_plan.plan, 10.30, 0.02, 0.02, 12,
                    plan_indices),
-               "expired terrain horizon was not rejected"))
+               "expired terrain plan was not rejected"))
         return 1;
 
     auto no_support_input = flight_input;
