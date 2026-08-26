@@ -1,9 +1,9 @@
 {
   "contract": "b0-contract-v1.2",
   "source_base": "71d0e9ba7ca1097e840fe878aa30207f6f63600d",
-  "acceptance_epoch": "b0-v1.2-epoch-20",
-  "implementation_head": "9ef51230b74e362fb8756713e36df7b34be6ac39",
-  "supersedes_epoch_evidence": "epoch-19 formal holdout did not pass: 16/18 terrain members passed; brake repeat 2 failed paired-baseline lifecycle because the no-terrain baseline hit the existing hard posture safety stop with completion_status=1 and safety_status=1 while the terrain member quantitative gate passed; varying repeat 3 failed only inherited steady_state_error at 0.450988522 versus the frozen 0.45 limit while all terrain interface and actuation gates passed; epoch-19 and its diagnostic follow-up remain preserved and diagnostic only for this verdict; do not mix into this verdict",
+  "acceptance_epoch": "b0-v1.2-epoch-21",
+  "implementation_head": "03d5fb786f57d822a5adcfac6b4d5c22a4b2d697",
+  "supersedes_epoch_evidence": "epoch-20 formal holdout did not pass: 15/18 terrain members passed; brake repeat 1 failed only inherited phase1 shaper_accel_continuity at 0.020935180 versus the frozen 0.02 while its paired baseline passed; brake repeat 2 failed only paired-baseline lifecycle because the no-terrain baseline hit the existing hard posture safety stop with completion_status=1 and safety_status=1 while the terrain member passed; ramp repeat 3 failed only inherited undershoot at -0.217021273 versus the frozen -0.2 while its paired baseline passed; no terrain planner publish/consume/actuation or deadline gate failed; preserve epoch-20 evidence and do not mix it into this verdict",
   "terrain_mode": "sensor_only",
   "scene": "unitree_robots/go2/scene_leg_lift_demo.xml",
   "profiles": [
