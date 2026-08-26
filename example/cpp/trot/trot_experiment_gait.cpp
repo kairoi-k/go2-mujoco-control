@@ -353,10 +353,71 @@ bool TrotExperiment::BuildGaitTargets(
     current_phase_ = phase;
     const double terrain_now_s = static_cast<double>(state_snapshot.tick()) *
         1.0e-3;
-    const auto active_terrain_plan =
+    const auto latest_terrain_plan =
         params_.terrain_actuation && !params_.terrain_sensor_only
             ? terrain_plan_store_.LoadUsable(terrain_now_s)
             : nullptr;
+    const auto terrain_plan_has_active_swing =
+        [this, phase, terrain_now_s](
+            const std::shared_ptr<const go2_terrain::TerrainMotionPlan> &plan) {
+            if (!plan || !plan->usable_at(terrain_now_s) ||
+                !std::isfinite(plan->gait_period_s) ||
+                plan->gait_period_s <= 0.0 ||
+                !std::isfinite(plan->duty_factor))
+                return false;
+            const double duty = std::clamp(plan->duty_factor, 0.35, 0.90);
+            const double duration = (1.0 - duty) * plan->gait_period_s;
+            if (!(duration > 0.0) ||
+                !std::isfinite(duration))
+                return false;
+            const double knot_dt = terrain_planner_.config().knot_dt_s;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                const double leg_phase = go2_control::GaitLegPhase(
+                    leg, phase, params_.gait_pattern);
+                if (!(leg_phase >= duty))
+                    continue;
+                for (std::size_t k = 0; k < plan->horizon_knots; ++k)
+                {
+                    const auto &foot = plan->predicted_foothold[k][leg];
+                    if (!foot.valid || !foot.touchdown ||
+                        !std::isfinite(foot.touchdown_time_s))
+                        continue;
+                    const double swing_start =
+                        foot.touchdown_time_s - duration;
+                    if (terrain_now_s + 0.5 * knot_dt >= swing_start &&
+                        terrain_now_s <= foot.touchdown_time_s +
+                            0.5 * knot_dt)
+                        return true;
+                }
+            }
+            return false;
+        };
+    const bool terrain_execution_allowed =
+        params_.terrain_actuation && !params_.terrain_sensor_only &&
+        task_.gait_started_ && task_.motion_stage_ == 2;
+    const bool terrain_swing_transaction_active =
+        std::any_of(
+            terrain_swing_execution_.begin(), terrain_swing_execution_.end(),
+            [](const TerrainSwingExecution &execution) {
+                return execution.valid && !execution.endpoint_held;
+            }) ||
+        std::any_of(
+            terrain_swing_pending_.begin(), terrain_swing_pending_.end(),
+            [](const TerrainSwingExecution &execution) {
+                return execution.valid;
+            });
+    if (!terrain_execution_allowed)
+    {
+        terrain_execution_plan_.reset();
+        terrain_swing_execution_ = {};
+        terrain_swing_pending_ = {};
+    }
+    else if (!terrain_execution_plan_ ||
+             (!terrain_swing_transaction_active &&
+              !terrain_plan_has_active_swing(terrain_execution_plan_)))
+        terrain_execution_plan_ = latest_terrain_plan;
+    const auto active_terrain_plan = terrain_execution_plan_;
     const int cycle_index = gait_result.cycle_index;
     if (active_cycle_index_ < 0)
     {
@@ -1468,55 +1529,470 @@ bool TrotExperiment::BuildGaitTargets(
         attitude_feedback_y_m_ = 0.0;
     }
 
-    // Consume only a complete, latest-valid planner snapshot.  This is a
-    // bounded swing-target adapter: gait topology, phase, duty, lift and
-    // velocity remain owned by the Phase 1 kernel and its v_cmd shaper.
-    if (active_terrain_plan && have_high_state)
+    // Consume one complete planner snapshot.  A selected foothold is a
+    // trajectory transaction: prepare it in stance, execute it through the
+    // actual gait swing boundary, then hold its world endpoint.  Planner
+    // refreshes cannot make an in-flight target disappear mid-swing.
+    const bool terrain_target_adapter_enabled =
+        Full2EnvDouble("TROT_TERRAIN_TARGET_ADAPTER", 1.0) > 0.5;
+    if (terrain_target_adapter_enabled && active_terrain_plan &&
+        have_high_state &&
+        task_.gait_started_ && task_.motion_stage_ == 2)
     {
         ++terrain_plan_consumed_count_;
         bool terrain_target_overridden = false;
         const WorldPose terrain_pose = ComputeWorldPose(
             state_snapshot, high_state_snapshot);
-        const double c = std::cos(terrain_pose.yaw_rad);
-        const double s = std::sin(terrain_pose.yaw_rad);
+        const bool terrain_target_xy_enabled =
+            Full2EnvDouble("TROT_TERRAIN_TARGET_XY", 1.0) > 0.5;
+        const bool terrain_target_z_enabled =
+            Full2EnvDouble("TROT_TERRAIN_TARGET_Z", 1.0) > 0.5;
+        std::array<double, go2::kLegCount> support_surface_heights{};
+        std::size_t support_surface_count = 0;
+        for (std::size_t support_leg = 0;
+             support_leg < go2::kLegCount; ++support_leg)
+        {
+            const auto &anchor =
+                active_terrain_plan->current_support_anchor[support_leg];
+            if (anchor.valid &&
+                active_terrain_plan->current_support_surface_valid[
+                    support_leg] &&
+                std::isfinite(active_terrain_plan->
+                    current_support_surface_height_world[support_leg]))
+            {
+                support_surface_heights[support_surface_count++] =
+                    active_terrain_plan->
+                        current_support_surface_height_world[support_leg];
+            }
+        }
+        double support_surface_z = 0.0;
+        if (support_surface_count > 0)
+        {
+            std::sort(support_surface_heights.begin(),
+                      support_surface_heights.begin() +
+                          support_surface_count);
+            support_surface_z = support_surface_heights[
+                support_surface_count / 2];
+        }
         const double duty = std::clamp(
             gait_result.duty_factor, 0.35, 0.90);
+        const double terrain_plan_period_s =
+            active_terrain_plan->gait_period_s;
+        const double terrain_plan_duty = std::clamp(
+            active_terrain_plan->duty_factor, 0.35, 0.90);
+        const double terrain_swing_duration_s =
+            (1.0 - terrain_plan_duty) * terrain_plan_period_s;
+        const double terrain_plan_knot_dt_s =
+            terrain_planner_.config().knot_dt_s;
+        const double terrain_time_tolerance_s = 0.5 * std::max(
+            1.0e-4, terrain_plan_knot_dt_s);
+        const bool terrain_timeline_valid =
+            std::isfinite(terrain_plan_period_s) &&
+            terrain_plan_period_s > 0.0 &&
+            std::isfinite(active_terrain_plan->duty_factor) &&
+            std::isfinite(terrain_swing_duration_s) &&
+            terrain_swing_duration_s > terrain_time_tolerance_s;
+
+        const auto find_planned_foothold =
+            [&](std::size_t leg,
+                bool leg_in_swing,
+                const go2_terrain::TerrainFootholdPrediction *&planned,
+                double &swing_start_time_s) {
+                planned = nullptr;
+                swing_start_time_s =
+                    std::numeric_limits<double>::infinity();
+                if (!terrain_timeline_valid)
+                    return false;
+                double best_touchdown_time_s =
+                    std::numeric_limits<double>::infinity();
+                for (std::size_t k = 0;
+                     k < active_terrain_plan->horizon_knots; ++k)
+                {
+                    const auto &foot =
+                        active_terrain_plan->predicted_foothold[k][leg];
+                    if (!foot.valid || !foot.touchdown ||
+                        !std::isfinite(foot.touchdown_time_s) ||
+                        !std::isfinite(active_terrain_plan->valid_until_s) ||
+                        foot.touchdown_time_s >
+                            active_terrain_plan->valid_until_s)
+                        continue;
+                    const double candidate_swing_start_s =
+                        foot.touchdown_time_s - terrain_swing_duration_s;
+                    // A past swing start may still be adopted while the
+                    // touchdown remains ahead: the stored planner start
+                    // anchors this late handoff.  A stance leg must still
+                    // have a future swing window.
+                    if (foot.touchdown_time_s + terrain_time_tolerance_s <
+                            terrain_now_s ||
+                        (!leg_in_swing && candidate_swing_start_s +
+                            terrain_time_tolerance_s < terrain_now_s))
+                        continue;
+                    if (foot.touchdown_time_s < best_touchdown_time_s)
+                    {
+                        planned = &foot;
+                        best_touchdown_time_s = foot.touchdown_time_s;
+                        swing_start_time_s = candidate_swing_start_s;
+                    }
+                }
+                return planned != nullptr;
+            };
+
+        const auto terrain_height_change_for =
+            [&](std::size_t leg,
+                const go2_terrain::TerrainFootholdPrediction &planned) {
+                const bool leg_surface_valid =
+                    active_terrain_plan->current_terrain_height_valid[leg] &&
+                    std::isfinite(active_terrain_plan->
+                        current_terrain_height_world[leg]);
+                const double terrain_surface_reference_z = leg_surface_valid
+                    ? active_terrain_plan->current_terrain_height_world[leg]
+                    : support_surface_z;
+                const bool terrain_surface_reference_valid =
+                    leg_surface_valid || support_surface_count > 0;
+                const double terrain_surface_delta =
+                    terrain_surface_reference_valid
+                        ? planned.position_world.z -
+                            terrain_surface_reference_z
+                        : 0.0;
+                const double terrain_height_deadband = std::max(
+                    2.0 * std::max(0.0, planned.uncertainty_m),
+                    0.5 * terrain_planner_.config().feasibility.
+                        foot_patch_radius_m);
+                return terrain_surface_reference_valid &&
+                    terrain_surface_delta > terrain_height_deadband;
+            };
+
+        const auto prepare_terrain_target =
+            [&](std::size_t leg,
+                const go2_terrain::TerrainFootholdPrediction &planned,
+                double swing_start_time_s,
+                bool current_leg_in_swing,
+                TerrainSwingExecution &execution) {
+                if (!std::isfinite(swing_start_time_s) ||
+                    !std::isfinite(planned.touchdown_time_s) ||
+                    !std::isfinite(planned.position_world.x) ||
+                    !std::isfinite(planned.position_world.y) ||
+                    !std::isfinite(planned.position_world.z))
+                    return false;
+                go2::Vec3 start_world{};
+                bool start_valid = false;
+                bool time_rebased_at_handoff = false;
+                if (current_leg_in_swing && have_actual_world_feet &&
+                    std::isfinite(actual_world_feet[leg].x) &&
+                    std::isfinite(actual_world_feet[leg].y) &&
+                    std::isfinite(actual_world_feet[leg].z))
+                {
+                    // A late sensor plan must attach to the measured foot at
+                    // the handoff instant.  Reusing the planner's old phase
+                    // would create a position jump before the first lift.
+                    start_world = actual_world_feet[leg];
+                    start_valid = true;
+                    time_rebased_at_handoff = true;
+                }
+                const double plan_leg_phase = go2_control::GaitLegPhase(
+                    leg, active_terrain_plan->gait_phase,
+                    params_.gait_pattern);
+                const bool plan_captured_in_stance =
+                    std::isfinite(plan_leg_phase) &&
+                    plan_leg_phase < terrain_plan_duty;
+                const auto &plan_start =
+                    active_terrain_plan->swing_start_position_world[leg];
+                if (!start_valid && plan_captured_in_stance &&
+                    active_terrain_plan->swing_start_position_valid[leg] &&
+                    std::isfinite(plan_start.x) &&
+                    std::isfinite(plan_start.y) &&
+                    std::isfinite(plan_start.z))
+                {
+                    start_world = plan_start;
+                    start_valid = true;
+                }
+                // A deferred target cannot use an in-flight foot as the
+                // origin of its next swing.  Capture a measured support
+                // anchor only while the leg is actually in stance.
+                if (!start_valid && !current_leg_in_swing)
+                {
+                    if (support_anchor_valid_[leg] &&
+                        std::isfinite(support_anchor_world_feet_[leg].x) &&
+                        std::isfinite(support_anchor_world_feet_[leg].y) &&
+                        std::isfinite(support_anchor_world_feet_[leg].z))
+                    {
+                        start_world = support_anchor_world_feet_[leg];
+                        start_valid = true;
+                    }
+                    else if (have_actual_world_feet &&
+                             std::isfinite(actual_world_feet[leg].x) &&
+                             std::isfinite(actual_world_feet[leg].y) &&
+                             std::isfinite(actual_world_feet[leg].z))
+                    {
+                        start_world = actual_world_feet[leg];
+                        start_valid = true;
+                    }
+                }
+                if (!start_valid)
+                    return false;
+                execution = {};
+                execution.valid = true;
+                execution.plan_id = active_terrain_plan->plan_id;
+                execution.map_epoch = active_terrain_plan->map_epoch;
+                execution.start_world = start_world;
+                execution.target_world = planned.position_world;
+                execution.swing_start_time_s = swing_start_time_s;
+                execution.touchdown_time_s = planned.touchdown_time_s;
+                execution.trajectory_start_time_s =
+                    time_rebased_at_handoff ? terrain_now_s :
+                                               swing_start_time_s;
+                execution.swing_duration_s =
+                    planned.touchdown_time_s -
+                    execution.trajectory_start_time_s;
+                if (!std::isfinite(execution.swing_duration_s) ||
+                    execution.swing_duration_s <= terrain_time_tolerance_s)
+                {
+                    execution = {};
+                    return false;
+                }
+                execution.swing_lift_m = std::max(0.0, planned.swing_lift_m);
+                execution.swing_peak_phase = std::clamp(
+                    planned.swing_peak_phase, 0.10, 0.90);
+                execution.time_rebased_at_handoff = time_rebased_at_handoff;
+                execution.terrain_height_change =
+                    terrain_height_change_for(leg, planned);
+                const go2::Vec3 nominal_target_world =
+                    go2_control::BodyToWorld(
+                        terrain_pose.base, terrain_pose.quaternion, feet[leg]);
+                const bool nominal_target_valid =
+                    std::isfinite(nominal_target_world.x) &&
+                    std::isfinite(nominal_target_world.y) &&
+                    std::isfinite(nominal_target_world.z);
+                const double target_deadband_m = std::max(
+                    2.0 * std::max(0.0, planned.uncertainty_m),
+                    0.5 * terrain_planner_.config().feasibility.
+                        foot_patch_radius_m);
+                const double target_xy_delta_m = nominal_target_valid
+                    ? std::hypot(
+                          planned.position_world.x - nominal_target_world.x,
+                          planned.position_world.y - nominal_target_world.y)
+                    : 0.0;
+                const double xy_deadband_m = std::max(
+                    0.5 * terrain_planner_.config().candidate_spacing_m,
+                    0.010);
+                const bool terrain_foothold_differs = nominal_target_valid &&
+                    (std::abs(planned.position_world.z -
+                              nominal_target_world.z) > target_deadband_m ||
+                     target_xy_delta_m > xy_deadband_m);
+                execution.terrain_target_required =
+                    execution.terrain_height_change ||
+                    terrain_foothold_differs;
+                if (!execution.terrain_target_required)
+                {
+                    execution = {};
+                    return false;
+                }
+                return true;
+            };
+
+        const auto apply_world_target =
+            [&](std::size_t leg,
+                const go2::Vec3 &target_world,
+                const go2::Vec3 &target_world_velocity) {
+                // Cartesian WBC owns the actual swing task. Keep its world
+                // target and velocity on the exact terrain trajectory that
+                // is also converted to joint targets below; changing only
+                // `feet` would leave WBC tracking the old nominal swing.
+                if (params_.cartesian_world && have_commanded_world_feet_)
+                {
+                    if (terrain_target_xy_enabled)
+                    {
+                        commanded_world_feet_[leg].x = target_world.x;
+                        commanded_world_feet_[leg].y = target_world.y;
+                        cartesian_state_.target_world_vel[leg].x =
+                            target_world_velocity.x;
+                        cartesian_state_.target_world_vel[leg].y =
+                            target_world_velocity.y;
+                    }
+                    if (terrain_target_z_enabled)
+                    {
+                        commanded_world_feet_[leg].z = target_world.z;
+                        cartesian_state_.target_world_vel[leg].z =
+                            target_world_velocity.z;
+                    }
+                }
+                const go2::Vec3 target_base = go2_control::WorldToBody(
+                    terrain_pose.base, terrain_pose.quaternion, target_world);
+                bool overridden = false;
+                if (terrain_target_xy_enabled)
+                {
+                    feet[leg].x = target_base.x;
+                    feet[leg].y = target_base.y;
+                    overridden = true;
+                }
+                if (terrain_target_z_enabled)
+                {
+                    feet[leg].z = target_base.z;
+                    overridden = true;
+                }
+                terrain_target_overridden =
+                    terrain_target_overridden || overridden;
+            };
+
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             const double leg_phase = go2_control::GaitLegPhase(
                 leg, phase, params_.gait_pattern);
-            if (leg_phase < duty)
-                continue;
-            const double swing_phase = std::clamp(
-                (leg_phase - duty) / std::max(1.0e-6, 1.0 - duty),
-                0.0, 1.0);
-            const go2_terrain::TerrainFootholdPrediction *planned = nullptr;
-            for (std::size_t k = 0; k < active_terrain_plan->horizon_knots; ++k)
+            const bool leg_in_swing = leg_phase >= duty;
+            auto &execution = terrain_swing_execution_[leg];
+            auto &pending = terrain_swing_pending_[leg];
+            if (!leg_in_swing)
             {
-                const auto &foot = active_terrain_plan->predicted_foothold[k][leg];
-                if (foot.valid && foot.touchdown)
+                if (execution.valid && execution.in_flight)
                 {
-                    planned = &foot;
-                    break;
+                    // The gait boundary completed the trajectory.  This is
+                    // not a measured-contact assertion.
+                    execution.in_flight = false;
+                    execution.endpoint_held = true;
+                }
+                if (execution.valid && execution.endpoint_held)
+                {
+                    if (execution.terrain_target_required)
+                        apply_world_target(
+                            leg, execution.target_world, go2::Vec3{});
+                    if (!pending.valid)
+                    {
+                        const go2_terrain::TerrainFootholdPrediction *planned =
+                            nullptr;
+                        double swing_start_time_s = 0.0;
+                        if (find_planned_foothold(
+                                leg, false, planned, swing_start_time_s) &&
+                            planned != nullptr)
+                        {
+                            prepare_terrain_target(
+                                leg, *planned, swing_start_time_s, false,
+                                pending);
+                        }
+                    }
+                    continue;
+                }
+                if (!execution.valid)
+                {
+                    const go2_terrain::TerrainFootholdPrediction *planned =
+                        nullptr;
+                    double swing_start_time_s = 0.0;
+                    if (find_planned_foothold(
+                            leg, false, planned, swing_start_time_s) &&
+                        planned != nullptr)
+                    {
+                        prepare_terrain_target(
+                            leg, *planned, swing_start_time_s, false,
+                            execution);
+                    }
+                }
+                continue;
+            }
+
+            if (execution.endpoint_held)
+            {
+                if (pending.valid)
+                {
+                    execution = pending;
+                    pending = {};
+                }
+                else
+                {
+                    execution = {};
                 }
             }
-            if (planned == nullptr)
+            if (!execution.valid)
+            {
+                const go2_terrain::TerrainFootholdPrediction *planned = nullptr;
+                double swing_start_time_s = 0.0;
+                if (find_planned_foothold(
+                        leg, true, planned, swing_start_time_s) &&
+                    planned != nullptr)
+                {
+                    prepare_terrain_target(
+                        leg, *planned, swing_start_time_s, true, execution);
+                }
+            }
+            if (execution.valid && !execution.endpoint_held &&
+                !execution.in_flight &&
+                !execution.time_rebased_at_handoff)
+            {
+                // A plan may be prepared while the leg is in stance, but
+                // the body and the loaded foot can move before the actual
+                // gait swing boundary.  The touchdown target is immutable;
+                // the swing origin must be the measured foot at that
+                // boundary, otherwise the first terrain sample jumps from
+                // a stale planner-time anchor.
+                if (have_actual_world_feet &&
+                    std::isfinite(actual_world_feet[leg].x) &&
+                    std::isfinite(actual_world_feet[leg].y) &&
+                    std::isfinite(actual_world_feet[leg].z))
+                {
+                    execution.start_world = actual_world_feet[leg];
+                    execution.trajectory_start_time_s = terrain_now_s;
+                    execution.swing_start_time_s = terrain_now_s;
+                    execution.swing_duration_s =
+                        execution.touchdown_time_s - terrain_now_s;
+                    if (!std::isfinite(execution.swing_duration_s) ||
+                        execution.swing_duration_s <= terrain_time_tolerance_s)
+                    {
+                        execution = {};
+                        continue;
+                    }
+                    execution.time_rebased_at_handoff = true;
+                }
+            }
+            if (!execution.valid || !execution.terrain_target_required ||
+                terrain_now_s + terrain_time_tolerance_s <
+                    execution.swing_start_time_s)
                 continue;
-            const double dx = planned->position_world.x - terrain_pose.base.x;
-            const double dy = planned->position_world.y - terrain_pose.base.y;
-            const go2::Vec3 target_base{
-                c * dx + s * dy,
-                -s * dx + c * dy,
-                planned->position_world.z - terrain_pose.base.z};
-            const double blend = Smoothstep(
-                (swing_phase - 0.08) / 0.84);
-            feet[leg].x = (1.0 - blend) * feet[leg].x +
-                blend * target_base.x;
-            feet[leg].y = (1.0 - blend) * feet[leg].y +
-                blend * target_base.y;
-            feet[leg].z = (1.0 - blend) * feet[leg].z +
-                blend * target_base.z;
-            terrain_target_overridden = true;
+
+            execution.in_flight = true;
+            const double swing_phase = execution.time_rebased_at_handoff
+                ? std::clamp(
+                      (terrain_now_s - execution.trajectory_start_time_s) /
+                          std::max(1.0e-6, execution.swing_duration_s),
+                      0.0, 1.0)
+                : std::clamp(
+                      (leg_phase - duty) / std::max(1.0e-6, 1.0 - duty),
+                      0.0, 1.0);
+            const double path_progress = go2_terrain::TerrainSwingEase(
+                swing_phase);
+            const double swing_arch = execution.swing_lift_m *
+                go2_terrain::TerrainSwingProfile(
+                    swing_phase, execution.swing_peak_phase);
+            const go2::Vec3 path_world{
+                execution.start_world.x + path_progress *
+                    (execution.target_world.x - execution.start_world.x),
+                execution.start_world.y + path_progress *
+                    (execution.target_world.y - execution.start_world.y),
+                execution.start_world.z + path_progress *
+                    (execution.target_world.z - execution.start_world.z) +
+                    swing_arch};
+            const double actual_swing_duration_s =
+                execution.time_rebased_at_handoff
+                    ? execution.swing_duration_s
+                    : (1.0 - duty) * std::max(
+                          0.05,
+                          std::isfinite(gait_result.period_s)
+                              ? gait_result.period_s
+                              : terrain_plan_period_s);
+            const double phase_rate = 1.0 / std::max(
+                1.0e-6, actual_swing_duration_s);
+            const double path_progress_rate =
+                go2_terrain::TerrainSwingEaseDerivative(swing_phase) *
+                phase_rate;
+            const double swing_arch_rate = execution.swing_lift_m *
+                go2_terrain::TerrainSwingProfileDerivative(
+                    swing_phase, execution.swing_peak_phase) * phase_rate;
+            const go2::Vec3 path_velocity{
+                path_progress_rate *
+                    (execution.target_world.x - execution.start_world.x),
+                path_progress_rate *
+                    (execution.target_world.y - execution.start_world.y),
+                path_progress_rate *
+                    (execution.target_world.z - execution.start_world.z) +
+                    swing_arch_rate};
+            apply_world_target(leg, path_world, path_velocity);
         }
         if (terrain_target_overridden)
             ++terrain_gait_target_override_count_;

@@ -50,6 +50,8 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_plan_published,terrain_plan_consumed"
          << ",terrain_gait_target_overrides,terrain_mpc_plan_consumed"
          << ",terrain_plan_failure,terrain_committed_touchdowns"
+         << ",terrain_dominant_foothold_reject"
+         << ",terrain_failed_leg,terrain_failed_leg_reject"
          << ",terrain_min_edge_margin_m,terrain_min_uncertainty_edge_margin_m"
          << ",terrain_min_slope_rad,terrain_max_roughness_m,terrain_min_reachability_margin_m,terrain_min_swing_clearance_m"
          << ",terrain_min_support_margin_m,terrain_min_uncertainty_support_margin_m"
@@ -565,6 +567,7 @@ void TrotExperiment::LogSample(
         }
     }
     double terrain_last_failure = 0.0;
+    std::string terrain_dominant_foothold_reject = "none";
     double terrain_min_edge_margin_m = 0.0;
     double terrain_min_uncertainty_edge_margin_m = 0.0;
     double terrain_min_slope_rad = 0.0;
@@ -587,6 +590,8 @@ void TrotExperiment::LogSample(
     std::uint64_t terrain_planner_deadline_misses = 0;
     bool terrain_latest_plan_valid = false;
     std::uint64_t terrain_plan_published = 0;
+    int terrain_failed_leg = -1;
+    std::string terrain_failed_leg_reject_reason = "none";
     if (params_.terrain_enabled)
     {
         std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
@@ -594,6 +599,9 @@ void TrotExperiment::LogSample(
         terrain_last_map_age_s = terrain_last_map_age_s_;
         terrain_last_solver_us = terrain_last_solver_us_;
         terrain_last_failure = terrain_last_failure_;
+        terrain_dominant_foothold_reject = terrain_dominant_foothold_reject_reason_;
+        terrain_failed_leg = terrain_failed_leg_;
+        terrain_failed_leg_reject_reason = terrain_failed_leg_reject_reason_;
         terrain_min_edge_margin_m = terrain_min_edge_margin_m_;
         terrain_min_uncertainty_edge_margin_m =
             terrain_min_uncertainty_edge_margin_m_;
@@ -702,6 +710,9 @@ void TrotExperiment::LogSample(
          << "," << terrain_mpc_plan_consumed_count_
          << "," << terrain_last_failure
          << "," << terrain_committed_touchdowns
+         << "," << terrain_dominant_foothold_reject
+         << "," << terrain_failed_leg
+         << "," << terrain_failed_leg_reject_reason
          << "," << terrain_min_edge_margin_m
          << "," << terrain_min_uncertainty_edge_margin_m
          << "," << terrain_min_slope_rad

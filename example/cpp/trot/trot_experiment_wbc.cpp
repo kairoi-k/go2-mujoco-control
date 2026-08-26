@@ -295,27 +295,41 @@ void TrotExperiment::UpdateWbcFull(
     const int mpc_period_ticks = high_speed_curriculum
         ? 5
         : (params_.cartesian_world ? 10 : 25);
-    const auto terrain_plan =
+    const double terrain_now_s =
+        static_cast<double>(state_snapshot.tick()) * 1.0e-3;
+    const auto latest_terrain_plan =
         params_.terrain_actuation && !params_.terrain_sensor_only
-            ? terrain_plan_store_.LoadUsable(
-                  static_cast<double>(state_snapshot.tick()) * 1.0e-3)
+            ? terrain_plan_store_.LoadUsable(terrain_now_s)
             : nullptr;
+    const auto terrain_plan =
+        terrain_execution_plan_ &&
+                terrain_execution_plan_->usable_at(terrain_now_s)
+            ? terrain_execution_plan_
+            : latest_terrain_plan;
+    std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
+        terrain_plan_knot{};
     bool terrain_plan_contact_coherent = true;
+    const bool terrain_plan_active =
+        terrain_plan && task_.gait_started_ && task_.motion_stage_ == 2;
+    if (terrain_plan_active)
+    {
+        terrain_plan_contact_coherent =
+            terrain_plan->contact_schedule.valid(
+                terrain_plan->horizon_knots) &&
+            go2_terrain::BuildTerrainPlanHorizonIndices(
+                *terrain_plan, terrain_now_s,
+                terrain_planner_.config().knot_dt_s,
+                mpc_params.dt_s,
+                static_cast<std::size_t>(mpc_params.horizon),
+                terrain_plan_knot);
+        if (!terrain_plan_contact_coherent)
+            ++terrain_plan_contact_rejections_;
+    }
     const bool run_mpc =
         (wbc_full_ticks_ % mpc_period_ticks) == 0 || !last_srbd_.ok;
     if (run_mpc)
     {
         go2_control::SrbdMpcInput mpc_in;
-        if (terrain_plan && task_.gait_started_ && task_.motion_stage_ == 2)
-        {
-            terrain_plan_contact_coherent =
-                terrain_plan->contact_schedule.valid(
-                    terrain_plan->horizon_knots) &&
-                terrain_plan->horizon_knots >=
-                    static_cast<std::size_t>(mpc_params.horizon);
-            if (!terrain_plan_contact_coherent)
-                ++terrain_plan_contact_rejections_;
-        }
         mpc_in.state[0] = state_snapshot.imu_state().rpy()[0];
         mpc_in.state[1] = state_snapshot.imu_state().rpy()[1];
         mpc_in.state[2] = state_snapshot.imu_state().rpy()[2];
@@ -352,8 +366,12 @@ void TrotExperiment::UpdateWbcFull(
                 ? (std::isfinite(kernel_nominal_velocity_x_mps_) &&
                            std::abs(kernel_nominal_velocity_x_mps_) > 1.0e-6
                        ? kernel_nominal_velocity_x_mps_
-                       : params_.direction_sign * params_.step_length_m /
-                             params_.period_s)
+                       : (params_.runtime_velocity_command
+                              ? params_.direction_sign *
+                                    velocity_command_state_.applied_mps
+                              : params_.direction_sign *
+                                    params_.step_length_m /
+                                    params_.period_s))
                 : 0.0;
         const double yaw =
             static_cast<double>(state_snapshot.imu_state().rpy()[2]);
@@ -463,12 +481,14 @@ void TrotExperiment::UpdateWbcFull(
                 state_snapshot, high_state_snapshot);
             for (int k = 0; k < mpc_params.horizon; ++k)
             {
+                const std::size_t plan_knot =
+                    terrain_plan_knot[static_cast<std::size_t>(k)];
                 mpc_in.contact[k] = terrain_plan->contact_schedule.planned_contact[
-                    static_cast<std::size_t>(k)];
+                    plan_knot];
                 mpc_in.reference_horizon[static_cast<std::size_t>(k)] =
                     mpc_in.reference;
                 const auto &body = terrain_plan->body_reference[
-                    static_cast<std::size_t>(k)];
+                    plan_knot];
                 if (body.valid)
                 {
                     mpc_in.reference_horizon[static_cast<std::size_t>(k)][3] =
@@ -490,7 +510,7 @@ void TrotExperiment::UpdateWbcFull(
                 for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
                 {
                     const auto &foot = terrain_plan->predicted_foothold[
-                        static_cast<std::size_t>(k)][leg];
+                        plan_knot][leg];
                     if (mpc_in.contact[k][leg])
                     {
                         if (!foot.valid)
@@ -538,7 +558,7 @@ void TrotExperiment::UpdateWbcFull(
     go2_control::IdWbcInput wbc_in;
     wbc_in.dynamics = dyn;
     wbc_in.contact = qp_contact;
-    if (terrain_plan)
+    if (terrain_plan_active && terrain_plan_contact_coherent)
     {
         wbc_in.has_terrain_plan = true;
         wbc_in.terrain_plan.plan_id = terrain_plan->plan_id;
@@ -551,7 +571,8 @@ void TrotExperiment::UpdateWbcFull(
         wbc_in.measured_contact_valid =
             terrain_plan->contact_schedule.measured_valid;
         wbc_in.planned_contact =
-            terrain_plan->contact_schedule.planned_contact[0];
+            terrain_plan->contact_schedule.planned_contact[
+                terrain_plan_knot[0]];
         wbc_in.planned_contact_valid =
             terrain_plan->contact_schedule.planned_valid;
     }

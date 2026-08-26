@@ -505,6 +505,59 @@ public:
                           std::numeric_limits<float>::quiet_NaN());
         const double yaw = std::atan2(base_mat[3], base_mat[0]);
         const double c = std::cos(yaw), s = std::sin(yaw);
+        // Dense downward elevation sweep over the published local window.
+        // It remains a sensor-derived ray observation through the scene.
+        // Occluded or missed rays leave the corresponding cells unknown.
+        for (uint32_t iy = 0; iy < kLidarWindowHeight; ++iy)
+        {
+            for (uint32_t ix = 0; ix < kLidarWindowWidth; ++ix)
+            {
+                const double local_x = kLidarWindowOriginX +
+                    (static_cast<double>(ix) + 0.5) * kLidarWindowResolution;
+                const double local_y = kLidarWindowOriginY +
+                    (static_cast<double>(iy) + 0.5) * kLidarWindowResolution;
+                const double world_x = base_pos[0] + c * local_x - s * local_y;
+                const double world_y = base_pos[1] + s * local_x + c * local_y;
+                mjtNum ray_origin[3] = {world_x, world_y,
+                    base_pos[2] + 1.0};
+                const mjtNum direction[3] = {0.0, 0.0, -1.0};
+                bool accepted = false;
+                mjtNum distance = -1.0;
+                for (int bounce = 0; bounce < 16; ++bounce)
+                {
+                    distance = mj_ray(
+                        sensor_model, sensor_data, ray_origin, direction,
+                        nullptr, 1, base_body_id, geom_id_out);
+                    if (distance < 0.0 || geom_id_out[0] < 0)
+                        break;
+                    const int geom_id = geom_id_out[0];
+                    if (sensor_model->geom_bodyid[geom_id] == 0 &&
+                        (sensor_model->geom_contype[geom_id] != 0 ||
+                         sensor_model->geom_conaffinity[geom_id] != 0))
+                    {
+                        accepted = true;
+                        break;
+                    }
+                    ray_origin[2] -= distance + 0.01;
+                }
+                if (!accepted)
+                    continue;
+                const double hit_z = ray_origin[2] - distance;
+                const int gx = static_cast<int>(std::floor(
+                    (world_x - kLidarWorldOriginX) / kLidarWorldResolution));
+                const int gy = static_cast<int>(std::floor(
+                    (world_y - kLidarWorldOriginY) / kLidarWorldResolution));
+                if (gx < 0 || gx >= kLidarWorldWidth ||
+                    gy < 0 || gy >= kLidarWorldHeight)
+                    continue;
+                const std::size_t index = static_cast<std::size_t>(gy) *
+                    kLidarWorldWidth + static_cast<std::size_t>(gx);
+                if (!std::isfinite(lidar_world_z_[index]) ||
+                    hit_z < lidar_world_z_[index])
+                    lidar_world_z_[index] = hit_z;
+                lidar_world_t_[index] = sim_time;
+            }
+        }
         for (uint32_t iy = 0; iy < kLidarWindowHeight; ++iy)
         {
             for (uint32_t ix = 0; ix < kLidarWindowWidth; ++ix)
@@ -681,13 +734,13 @@ private:
     static constexpr int kLidarWorldHeight = 80;
     static constexpr float kLidarWorldOriginX = -2.0f;
     static constexpr float kLidarWorldOriginY = -2.0f;
-    static constexpr uint32_t kLidarWindowWidth = 20;
-    static constexpr uint32_t kLidarWindowHeight = 16;
+    static constexpr uint32_t kLidarWindowWidth = 32;
+    static constexpr uint32_t kLidarWindowHeight = 10;
     static constexpr std::size_t kLidarWindowCellCount =
         static_cast<std::size_t>(kLidarWindowWidth) * kLidarWindowHeight;
     static constexpr float kLidarWindowResolution = 0.05f;
-    static constexpr float kLidarWindowOriginX = -0.10f;
-    static constexpr float kLidarWindowOriginY = -0.40f;
+    static constexpr float kLidarWindowOriginX = -0.45f;
+    static constexpr float kLidarWindowOriginY = -0.225f;
     static constexpr double kLidarMemoryS = 1.5;
     static constexpr double kLidarPublishPeriodS = 0.050;
     static constexpr std::size_t kLidarWorldCellCount =

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstddef>
@@ -79,6 +80,8 @@ struct TerrainFootholdPrediction
     double edge_margin_m = 0.0;
     double reachability_margin_m = 0.0;
     double swing_clearance_m = 0.0;
+    double swing_lift_m = 0.0;
+    double swing_peak_phase = 0.5;
     double support_margin_m = 0.0;
     double collision_margin_m = 0.0;
     double uncertainty_m = 0.0;
@@ -124,6 +127,12 @@ struct TerrainMotionPlan
     double map_age_s = 0.0;
     double uncertainty_m = 0.0;
     std::size_t horizon_knots = 0;
+    // Preserve the continuous gait timing used when the atomic snapshot was
+    // generated.  The target adapter can distinguish a plan made during an
+    // active swing from one made while the leg was still supporting.
+    double gait_phase = 0.0;
+    double gait_period_s = 0.8;
+    double duty_factor = 0.58;
     std::size_t current_support_count = 0;
     double min_edge_margin_m = 0.0;
     double min_uncertainty_inflated_edge_margin_m = 0.0;
@@ -141,6 +150,27 @@ struct TerrainMotionPlan
         predicted_foothold{};
     std::array<TerrainFootholdPrediction, go2::kLegCount>
         current_support_anchor{};
+    // Keep the sensor-derived terrain reference separate from the measured
+    // kinematic foot anchors used for support and MPC lever arms.
+    std::array<double, go2::kLegCount>
+        current_support_surface_height_world{};
+    std::array<bool, go2::kLegCount>
+        current_support_surface_valid{};
+    // Per-leg sensor-derived terrain at the current foot footprint.  This is
+    // deliberately distinct from current_support_anchor: an unconfirmed
+    // footprint may inform height adaptation, but never becomes measured
+    // support merely because a map sample exists.
+    std::array<double, go2::kLegCount>
+        current_terrain_height_world{};
+    std::array<bool, go2::kLegCount>
+        current_terrain_height_valid{};
+    // The planner checks the swept path from this measured/kinematic
+    // per-leg start to the committed foothold.  Keep that start in the same
+    // atomic snapshot so the target adapter executes the path it checked.
+    std::array<go2::Vec3, go2::kLegCount>
+        swing_start_position_world{};
+    std::array<bool, go2::kLegCount>
+        swing_start_position_valid{};
     TerrainVelocityRequest velocity_request{};
     TerrainSolverDiagnostics solver{};
     bool fallback_to_phase1 = true;
@@ -168,7 +198,18 @@ struct TerrainMotionPlan
                 if (!foot.valid || !std::isfinite(foot.touchdown_time_s) ||
                     !std::isfinite(foot.position_world.x) ||
                     !std::isfinite(foot.position_world.y) ||
-                    !std::isfinite(foot.position_world.z))
+                    !std::isfinite(foot.position_world.z) ||
+                    !std::isfinite(foot.swing_lift_m) ||
+                    foot.swing_lift_m < 0.0 ||
+                    !std::isfinite(foot.swing_peak_phase) ||
+                    foot.swing_peak_phase < 0.10 ||
+                    foot.swing_peak_phase > 0.90)
+                    return false;
+                if (foot.touchdown &&
+                    (!swing_start_position_valid[leg] ||
+                     !std::isfinite(swing_start_position_world[leg].x) ||
+                     !std::isfinite(swing_start_position_world[leg].y) ||
+                     !std::isfinite(swing_start_position_world[leg].z)))
                     return false;
             }
         }
@@ -180,6 +221,53 @@ struct TerrainMotionPlan
         return valid() && std::isfinite(now_s) && now_s <= valid_until_s;
     }
 };
+
+// Map a published plan's absolute-time knots onto the consumer horizon.  The
+// planner runs asynchronously, so knot zero is not necessarily "now" when
+// SRBD-MPC consumes the snapshot.  Resampling by time keeps planned contact
+// and planned foothold data on the same timeline and rejects a snapshot that
+// no longer covers the complete consumer horizon.
+inline bool BuildTerrainPlanHorizonIndices(
+    const TerrainMotionPlan &plan,
+    double now_s,
+    double plan_knot_dt_s,
+    double consumer_knot_dt_s,
+    std::size_t consumer_horizon,
+    std::array<std::size_t, kTerrainPlanMaxKnots> &indices)
+{
+    indices.fill(0);
+    if (!plan.usable_at(now_s) ||
+        !std::isfinite(now_s) ||
+        !std::isfinite(plan.state_stamp_s) ||
+        !std::isfinite(plan_knot_dt_s) ||
+        !std::isfinite(consumer_knot_dt_s) ||
+        plan_knot_dt_s <= 0.0 ||
+        consumer_knot_dt_s <= 0.0 ||
+        consumer_horizon == 0 ||
+        consumer_horizon > kTerrainPlanMaxKnots)
+        return false;
+
+    const double age_s = now_s - plan.state_stamp_s;
+    if (!std::isfinite(age_s) ||
+        age_s < -0.5 * plan_knot_dt_s)
+        return false;
+    const double clamped_age_s = std::max(0.0, age_s);
+    for (std::size_t k = 0; k < consumer_horizon; ++k)
+    {
+        const double relative_time_s = clamped_age_s +
+            static_cast<double>(k) * consumer_knot_dt_s;
+        const double plan_knot =
+            relative_time_s / plan_knot_dt_s;
+        if (!std::isfinite(plan_knot) || plan_knot < 0.0)
+            return false;
+        const auto index = static_cast<std::size_t>(
+            std::floor(plan_knot + 1.0e-9));
+        if (index >= plan.horizon_knots)
+            return false;
+        indices[k] = index;
+    }
+    return true;
+}
 
 class TerrainPlanStore
 {

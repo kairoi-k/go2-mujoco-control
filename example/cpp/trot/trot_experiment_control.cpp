@@ -26,6 +26,8 @@ using namespace unitree::robot;
 
 namespace
 {
+constexpr double kTerrainRuntimePeriodS = 0.020;
+
 void FillObstacleScan(
     const unitree_go::msg::dds_::HeightMap_ &map,
     double now_s,
@@ -107,7 +109,7 @@ void TrotExperiment::PublishTerrainControlSnapshot(
 {
     if (!params_.terrain_enabled ||
         !std::isfinite(running_time_) ||
-        running_time_ - terrain_last_control_snapshot_s_ < 0.050)
+        running_time_ - terrain_last_control_snapshot_s_ < kTerrainRuntimePeriodS)
         return;
 
     TerrainControlSnapshot snapshot;
@@ -173,7 +175,7 @@ void TrotExperiment::UpdateTerrainRuntime()
         control = terrain_control_snapshot_;
     }
     if (!control.valid || !std::isfinite(control.state_stamp_s) ||
-        control.state_stamp_s - terrain_last_update_s_ < 0.050)
+        control.state_stamp_s - terrain_last_update_s_ < kTerrainRuntimePeriodS)
         return;
 
     TerrainPlannerWork work;
@@ -214,6 +216,46 @@ void TrotExperiment::UpdateTerrainRuntime()
     // The gait helper fills contact bits only; validity is an explicit
     // planned-vs-measured interface contract.
     input.contact_schedule.planned_valid = true;
+    if (std::isfinite(input.gait_period_s) &&
+        input.gait_period_s > 0.0 &&
+        std::isfinite(input.state_stamp_s))
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            const double leg_phase = go2_control::GaitLegPhase(
+                leg, input.gait_phase, params_.gait_pattern);
+            if (!std::isfinite(leg_phase))
+                continue;
+            // A measured contact gap while the nominal schedule is already
+            // in stance denotes the current planned touchdown.  Otherwise
+            // the next touchdown is the next continuous stance boundary.
+            double time_to_touchdown_s =
+                (1.0 - leg_phase) * input.gait_period_s;
+            if (input.contact_schedule.planned_contact[0][leg] &&
+                !input.contact_schedule.measured_contact[leg])
+                time_to_touchdown_s = 0.0;
+            const double touchdown_time_s =
+                input.state_stamp_s + std::max(0.0, time_to_touchdown_s);
+            const double planner_duty = std::clamp(
+                input.duty_factor, 0.35, 0.90);
+            const double swing_duration_s =
+                (1.0 - planner_duty) * input.gait_period_s;
+            double candidate_touchdown_time_s = touchdown_time_s;
+            // If the current swing has already started, the planner cannot
+            // safely retarget that touchdown from the present foot state.
+            // Advertise the next continuous touchdown instead; the discrete
+            // schedule remains unchanged and the first contact stays nominal.
+            if (std::isfinite(swing_duration_s) &&
+                touchdown_time_s - swing_duration_s < input.state_stamp_s)
+                candidate_touchdown_time_s += input.gait_period_s;
+            if (std::isfinite(candidate_touchdown_time_s))
+            {
+                input.next_touchdown_time_s[leg] =
+                    candidate_touchdown_time_s;
+                input.next_touchdown_time_valid[leg] = true;
+            }
+        }
+    }
 
     {
         std::lock_guard<std::mutex> lock(terrain_map_mutex_);
@@ -244,6 +286,8 @@ void TrotExperiment::TerrainPlannerWorker()
 #endif
     PinCurrentThreadToEnv("TROT_TERRAIN_CPU");
     std::uint64_t consumed_generation = 0;
+    bool terrain_map_diagnostic_logged = false;
+    bool terrain_relief_diagnostic_logged = false;
     for (;;)
     {
         {
@@ -282,16 +326,202 @@ void TrotExperiment::TerrainPlannerWorker()
         }
         work.input.terrain = model.get();
         const auto result = terrain_planner_.Build(work.input, work.plan_id);
+        static int terrain_selection_debug_prints = 0;
+        if (Full2EnvDouble("TROT_TERRAIN_DEBUG_SELECTION", 0.0) > 0.5 &&
+            model && terrain_selection_debug_prints < 200)
+        {
+            double min_region_z = std::numeric_limits<double>::infinity();
+            double max_region_z = -std::numeric_limits<double>::infinity();
+            go2::Vec3 max_region{};
+            std::array<double, go2::kLegCount> max_region_z_by_leg{};
+            max_region_z_by_leg.fill(
+                -std::numeric_limits<double>::infinity());
+            for (const auto &regions : result.regions)
+                for (const auto &region : regions)
+                {
+                    if (!region.valid || !std::isfinite(region.center.z))
+                        continue;
+                    const auto leg = static_cast<std::size_t>(region.leg);
+                    if (leg < go2::kLegCount)
+                        max_region_z_by_leg[leg] = std::max(
+                            max_region_z_by_leg[leg], region.center.z);
+                    min_region_z = std::min(min_region_z, region.center.z);
+                    if (region.center.z > max_region_z)
+                    {
+                        max_region_z = region.center.z;
+                        max_region = region.center;
+                    }
+                }
+            if (std::isfinite(min_region_z) &&
+                std::isfinite(max_region_z) &&
+                max_region_z - min_region_z > 0.025)
+            {
+                std::cout << "Terrain selection diagnostic plan="
+                          << result.plan.plan_id
+                          << " state=" << work.input.state_stamp_s
+                          << " phase=" << work.input.gait_phase
+                          << " min_region_z=" << min_region_z
+                          << " region_max_z=("
+                          << max_region_z_by_leg[0] << ","
+                          << max_region_z_by_leg[1] << ","
+                          << max_region_z_by_leg[2] << ","
+                          << max_region_z_by_leg[3] << ")"
+                          << " swing_max_z=("
+                          << result.max_swing_candidate_z_by_leg[0] << ","
+                          << result.max_swing_candidate_z_by_leg[1] << ","
+                          << result.max_swing_candidate_z_by_leg[2] << ","
+                          << result.max_swing_candidate_z_by_leg[3] << ")"
+                          << " max_region_z=" << max_region_z
+                          << " max_region_xy=" << max_region.x << ","
+                          << max_region.y
+                          << " selected_z=("
+                          << result.selected[0].foot_position.z << ","
+                          << result.selected[1].foot_position.z << ","
+                          << result.selected[2].foot_position.z << ","
+                          << result.selected[3].foot_position.z << ")\n";
+                ++terrain_selection_debug_prints;
+            }
+        }
+
+        static int terrain_failure_debug_prints = 0;
+        static int terrain_last_failure = -1;
+        static int terrain_last_failed_leg = -1;
+        static int terrain_last_support_knot = -1;
+        static int terrain_last_support_mask = -1;
+        const int terrain_failure = static_cast<int>(result.plan.failure);
+        const int terrain_support_mask = static_cast<int>(
+            result.support_failure_contact_mask);
+        if (terrain_failure != static_cast<int>(
+                go2_terrain::TerrainPlanFailure::kNone) &&
+            terrain_failure_debug_prints < 64 &&
+            (terrain_failure != terrain_last_failure ||
+             result.failed_leg != terrain_last_failed_leg ||
+             result.support_failure_knot != terrain_last_support_knot ||
+             terrain_support_mask != terrain_last_support_mask))
+        {
+            std::cout << "Terrain failure diagnostic plan="
+                      << result.plan.plan_id
+                      << " state=" << work.input.state_stamp_s
+                      << " failure=" << terrain_failure
+                      << " failed_leg=" << result.failed_leg
+                      << " failed_reason="
+                      << (result.failed_leg >= 0
+                          ? go2_terrain::FootholdRejectReasonName(
+                                result.dominant_foothold_reject_by_leg[
+                                    static_cast<std::size_t>(
+                                        result.failed_leg)])
+                          : "none")
+                      << " support_knot=" << result.support_failure_knot
+                      << " support_mask=" << terrain_support_mask
+                      << " support_margin="
+                      << result.support_failure_margin_m
+                      << " solver_us=" << result.plan.solver.elapsed_us
+                      << " legs=(";
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                if (leg != 0)
+                    std::cout << ";";
+                std::cout << result.candidate_counts[leg] << ","
+                          << result.swing_candidate_counts[leg] << ","
+                          << (result.candidate_required[leg] ? 1 : 0) << ","
+                          << result.touchdown_knot_by_leg[leg] << ","
+                          << go2_terrain::FootholdRejectReasonName(
+                                result.dominant_foothold_reject_by_leg[leg])
+                          << ","
+                          << result.foothold_reject_counts_by_leg[leg][
+                                static_cast<std::size_t>(
+                                    result.dominant_foothold_reject_by_leg[
+                                        leg])];
+            }
+            std::cout << ")\n";
+            ++terrain_failure_debug_prints;
+        }
+        terrain_last_failure = terrain_failure;
+        terrain_last_failed_leg = result.failed_leg;
+        terrain_last_support_knot = result.support_failure_knot;
+        terrain_last_support_mask = terrain_support_mask;
+
+        static int terrain_support_debug_prints = 0;
+        if (result.plan.failure == go2_terrain::TerrainPlanFailure::kSupportInfeasible &&
+            terrain_support_debug_prints < 12)
+        {
+            std::cout << "Terrain support reject plan=" << result.plan.plan_id
+                      << " knot=" << result.support_failure_knot
+                      << " mask=" << static_cast<int>(
+                             result.support_failure_contact_mask)
+                      << " margin=" << result.support_failure_margin_m
+                      << " selected_xy="
+                      << result.selected[0].foot_position.x << ","
+                      << result.selected[0].foot_position.y << ";"
+                      << result.selected[1].foot_position.x << ","
+                      << result.selected[1].foot_position.y << ";"
+                      << result.selected[2].foot_position.x << ","
+                      << result.selected[2].foot_position.y << ";"
+                      << result.selected[3].foot_position.x << ","
+                      << result.selected[3].foot_position.y
+                      << "\n";
+            ++terrain_support_debug_prints;
+        }
 
         std::size_t known_cells = 0;
         std::size_t feasible_regions = 0;
         if (model)
         {
+            double min_height_m = std::numeric_limits<double>::infinity();
+            double max_height_m = -std::numeric_limits<double>::infinity();
+            std::size_t max_ix = 0;
+            std::size_t max_iy = 0;
             for (const auto &cell : model->cells)
                 if (cell.known)
+                {
                     ++known_cells;
+                    min_height_m = std::min(min_height_m, cell.height_m);
+                    if (cell.height_m > max_height_m)
+                    {
+                        max_height_m = cell.height_m;
+                        const std::size_t index = static_cast<std::size_t>(
+                            &cell - model->cells.data());
+                        max_ix = index % model->width;
+                        max_iy = index / model->width;
+                    }
+                }
             for (const auto &regions : result.regions)
                 feasible_regions += regions.size();
+            const double observed_relief_m =
+                std::isfinite(min_height_m) && std::isfinite(max_height_m)
+                ? max_height_m - min_height_m
+                : std::numeric_limits<double>::quiet_NaN();
+            if (!terrain_map_diagnostic_logged ||
+                (!terrain_relief_diagnostic_logged &&
+                 std::isfinite(observed_relief_m) &&
+                 observed_relief_m >= 0.030))
+            {
+                const double max_cell_x = model->origin_m[0] +
+                    (static_cast<double>(max_ix) + 0.5) *
+                        model->resolution_m;
+                const double max_cell_y = model->origin_m[1] +
+                    (static_cast<double>(max_iy) + 0.5) *
+                        model->resolution_m;
+                std::cout << "Terrain local map diagnostic: source="
+                          << go2_terrain::TerrainSourceName(model->source)
+                          << " frame=" << model->frame_id
+                          << " epoch=" << model->epoch
+                          << " state_stamp=" << model->state_stamp_s
+                          << " map_stamp=" << model->map_stamp_s
+                          << " age=" << model->age_s
+                          << " origin=(" << model->origin_m[0] << ","
+                          << model->origin_m[1] << ") resolution="
+                          << model->resolution_m << " dims=" << model->width
+                          << "x" << model->height << " known=" << known_cells
+                          << " height_range=[" << min_height_m << ","
+                          << max_height_m << "] relief=" << observed_relief_m
+                          << " max_cell_local=(" << max_cell_x << ","
+                          << max_cell_y << ")\n";
+                terrain_map_diagnostic_logged = true;
+                if (std::isfinite(observed_relief_m) &&
+                    observed_relief_m >= 0.030)
+                    terrain_relief_diagnostic_logged = true;
+            }
         }
         {
             std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
@@ -306,6 +536,16 @@ void TrotExperiment::TerrainPlannerWorker()
                 static_cast<int>(result.plan.status));
             terrain_last_failure_ = static_cast<double>(
                 static_cast<int>(result.plan.failure));
+            terrain_dominant_foothold_reject_reason_ =
+                go2_terrain::FootholdRejectReasonName(
+                    result.dominant_foothold_reject_reason);
+            terrain_failed_leg_ = result.failed_leg;
+            terrain_failed_leg_reject_reason_ =
+                result.failed_leg >= 0
+                ? go2_terrain::FootholdRejectReasonName(
+                      result.dominant_foothold_reject_by_leg[
+                          static_cast<std::size_t>(result.failed_leg)])
+                : "none";
             terrain_min_edge_margin_m_ = result.plan.min_edge_margin_m;
             terrain_min_uncertainty_edge_margin_m_ =
                 result.plan.min_uncertainty_inflated_edge_margin_m;

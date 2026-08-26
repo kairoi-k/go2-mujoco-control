@@ -1,4 +1,5 @@
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -87,9 +88,13 @@ int main()
     const go2::Vec3 swing_start{0.18, -0.10, -0.25};
     const go2::Vec3 swing_end{0.28, -0.10, -0.25};
     double clearance = 0.0;
+    double required_lift = 0.0;
     if (!Check(go2_terrain::CheckSwingClearance(
-                   built.model, swing_start, swing_end, 0.03, clearance),
+                   built.model, swing_start, swing_end, 0.03, clearance,
+                   nullptr, go2::Leg::FR, &required_lift),
                "valid swept swing was rejected") ||
+        !Check(required_lift >= 0.03,
+               "swept clearance did not report required lift") ||
         !Check(!go2_terrain::CheckSwingClearance(
                    built.model, {0.18, -0.10, -0.32},
                    {0.28, -0.10, -0.32}, 0.03, clearance),
@@ -136,6 +141,19 @@ int main()
     planner_config.sensor_only = false;
     planner_config.allow_actuation = true;
     go2_terrain::TerrainPlanner actuation_planner(planner_config);
+
+    auto forward_step_input = input;
+    forward_step_input.terrain = &step_built.model;
+    forward_step_input.commanded_vx_mps = 0.30;
+    forward_step_input.next_touchdown_time_valid.fill(false);
+    const auto forward_step_plan = actuation_planner.Build(
+        forward_step_input, 12);
+    if (!Check(forward_step_plan.publishable &&
+                   forward_step_plan.selected[1].hard_feasible &&
+                   forward_step_plan.selected[1].foot_position.z > -0.20,
+               "forward sensor-elevated foothold was not selected"))
+        return 1;
+
     const auto actuation_plan = actuation_planner.Build(input, 8);
     if (!Check(actuation_plan.publishable && actuation_plan.plan.valid(),
                "actuation planner did not publish a valid plan") ||
@@ -144,11 +162,87 @@ int main()
         !Check(std::isfinite(actuation_plan.plan.min_edge_margin_m) &&
                    std::isfinite(actuation_plan.plan.min_support_margin_m),
                "planner validity metrics are not finite") ||
+        !Check(std::all_of(
+                   actuation_plan.plan.current_terrain_height_valid.begin(),
+                   actuation_plan.plan.current_terrain_height_valid.end(),
+                   [](bool valid) { return valid; }),
+               "planner did not preserve per-leg sensor terrain heights") ||
+        !Check(actuation_plan.plan.current_support_surface_valid[0] &&
+                   actuation_plan.plan.current_support_surface_valid[3] &&
+                   !actuation_plan.plan.current_support_surface_valid[1] &&
+                   !actuation_plan.plan.current_support_surface_valid[2],
+               "sensor terrain height was promoted to measured support") ||
         !Check(actuation_plan.plan.body_reference[0].yaw_rad == 0.0,
                "planner did not preserve body yaw reference") ||
         !Check(actuation_plan.selected[1].region_id <
                    actuation_plan.regions[1].size(),
-               "actuation planner did not consume a safe region"))
+               "actuation planner did not consume a safe region") ||
+        !Check(actuation_plan.selected[1].swing_lift_m >= 0.03,
+               "actuation planner did not propagate swept lift"))
+        return 1;
+
+    auto measured_support_input = input;
+    measured_support_input.contact_schedule.measured_contact =
+        {true, true, true, true};
+    measured_support_input.current_feet_base = {
+        go2::Vec3{0.214, -0.135, -0.25},
+        go2::Vec3{0.214, 0.135, -0.25},
+        go2::Vec3{-0.174, -0.193, -0.25},
+        go2::Vec3{-0.174, 0.193, -0.25}};
+    measured_support_input.nominal_feet_base =
+        measured_support_input.current_feet_base;
+    for (std::size_t k = 0; k < 8; ++k)
+        measured_support_input.contact_schedule.planned_contact[k] =
+            {true, false, false, true};
+    const auto measured_support_plan =
+        actuation_planner.Build(measured_support_input, 11);
+    if (!Check(measured_support_plan.publishable &&
+                   measured_support_plan.plan.valid() &&
+                   measured_support_plan.plan.current_support_count == 4,
+               "measured support geometry was rejected as planned diagonal"))
+        return 1;
+
+    auto flight_input = input;
+    for (std::size_t k = 0; k < 8; ++k)
+    {
+        if (k < 2)
+            flight_input.contact_schedule.planned_contact[k] =
+                {true, false, false, true};
+        else if (k < 4)
+            flight_input.contact_schedule.planned_contact[k] =
+                {false, false, false, false};
+        else
+            flight_input.contact_schedule.planned_contact[k] =
+                {false, true, true, false};
+    }
+    const auto flight_plan = actuation_planner.Build(flight_input, 9);
+    if (!Check(flight_plan.publishable && flight_plan.plan.valid(),
+               "running-trot flight knot was rejected") ||
+        !Check(flight_plan.plan.committed_touchdowns > 0,
+               "flight schedule did not retain touchdown planning"))
+        return 1;
+
+    std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
+        plan_indices{};
+    if (!Check(go2_terrain::BuildTerrainPlanHorizonIndices(
+                   flight_plan.plan, 10.08, 0.02, 0.02, 4,
+                   plan_indices) &&
+                   plan_indices[0] == 2 && plan_indices[3] == 5,
+               "terrain plan horizon was not time-aligned") ||
+        !Check(!go2_terrain::BuildTerrainPlanHorizonIndices(
+                   flight_plan.plan, 10.10, 0.02, 0.02, 12,
+                   plan_indices),
+               "expired terrain horizon was not rejected"))
+        return 1;
+
+    auto no_support_input = flight_input;
+    for (auto &contact : no_support_input.contact_schedule.planned_contact)
+        contact = {false, false, false, false};
+    const auto no_support_plan = actuation_planner.Build(no_support_input, 10);
+    if (!Check(!no_support_plan.publishable &&
+                   no_support_plan.plan.failure ==
+                       go2_terrain::TerrainPlanFailure::kSupportInfeasible,
+               "support-free schedule was accepted"))
         return 1;
 
     go2_terrain::TerrainMotionPlan atomic_plan;

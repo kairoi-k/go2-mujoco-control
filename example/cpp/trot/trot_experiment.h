@@ -433,6 +433,42 @@ private:
 
     go2_terrain::TerrainPlanner terrain_planner_{};
     go2_terrain::TerrainPlanStore terrain_plan_store_{};
+    // A committed terrain foothold is a trajectory transaction.  It is
+    // prepared from the measured stance anchor, executed through the actual
+    // gait swing boundary, and held at its endpoint after that boundary.
+    // endpoint_held is only a kinematic lifecycle state; measured contact
+    // remains owned by the fused contact path.
+    struct TerrainSwingExecution
+    {
+        bool valid = false;
+        bool in_flight = false;
+        bool endpoint_held = false;
+        std::uint64_t plan_id = 0;
+        std::uint64_t map_epoch = 0;
+        go2::Vec3 start_world{};
+        go2::Vec3 target_world{};
+        double swing_start_time_s = 0.0;
+        double touchdown_time_s = 0.0;
+        double trajectory_start_time_s = 0.0;
+        double swing_duration_s = 0.0;
+        double swing_lift_m = 0.0;
+        double swing_peak_phase = 0.5;
+        bool time_rebased_at_handoff = false;
+        bool terrain_height_change = false;
+        // A foothold may remain on the currently loaded terrain surface after
+        // the body has not yet risen with it. Keep that sensor-derived
+        // reference active even when the target is not a new height step.
+        bool terrain_target_required = false;
+    };
+    std::array<TerrainSwingExecution, go2::kLegCount>
+        terrain_swing_execution_{};
+    std::array<TerrainSwingExecution, go2::kLegCount>
+        terrain_swing_pending_{};
+    // One accepted immutable snapshot is shared by gait, SRBD-MPC and WBC
+    // for the duration of an in-flight terrain swing.  Planner refreshes may
+    // replace the latest store value, but must not retarget that swing.
+    std::shared_ptr<const go2_terrain::TerrainMotionPlan>
+        terrain_execution_plan_;
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model_;
     std::atomic<std::uint64_t> terrain_map_epoch_{0};
     std::atomic<std::uint64_t> terrain_plan_epoch_{0};
@@ -442,6 +478,9 @@ private:
     double terrain_last_solver_us_ = 0.0;
     double terrain_last_plan_status_ = 0.0;
     double terrain_last_failure_ = 0.0;
+    std::string terrain_dominant_foothold_reject_reason_ = "none";
+    int terrain_failed_leg_ = -1;
+    std::string terrain_failed_leg_reject_reason_ = "none";
     double terrain_min_edge_margin_m_ = 0.0;
     double terrain_min_uncertainty_edge_margin_m_ = 0.0;
     double terrain_min_slope_rad_ = 0.0;
