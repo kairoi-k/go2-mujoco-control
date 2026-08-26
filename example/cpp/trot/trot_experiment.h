@@ -338,6 +338,7 @@ private:
     int active_cycle_index_ = -1;
     int completed_cycles_ = 0;
     std::array<bool, go2::kLegCount> wbc_shadow_contact_state_{};
+    bool wbc_shadow_contact_state_valid_ = false;
     std::array<double, go2::kLegCount> wbc_stance_blend_{};
     go2_trot::WbcShadowDiagnostics wbc_shadow_diagnostics_{};
     go2_control::JointTorques wbc_shadow_candidate_torques_{};

@@ -150,9 +150,14 @@ void TrotExperiment::PublishTerrainControlSnapshot(
     snapshot.have_commanded_body_feet = have_commanded_body_feet_;
     if (snapshot.have_commanded_body_feet)
         snapshot.nominal_feet_base = commanded_body_feet_;
-    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-        snapshot.measured_contact[leg] =
-            state_snapshot.foot_force()[leg] >= kContactForceThreshold;
+    if (wbc_shadow_contact_state_valid_)
+        snapshot.measured_contact = wbc_shadow_contact_state_;
+    else
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            snapshot.measured_contact[leg] =
+                state_snapshot.foot_force()[leg] >= kContactForceThreshold;
+    }
     snapshot.measured_valid = true;
 
     {

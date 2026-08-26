@@ -113,6 +113,7 @@ void TrotExperiment::UpdateWbcFull(
     const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot)
 {
     wbc_shadow_diagnostics_.enabled = true;
+    wbc_shadow_contact_state_valid_ = false;
     if (!rigid_body_ || !rigid_body_->loaded())
         return;
     const double pitch_abs = std::abs(
@@ -189,6 +190,7 @@ void TrotExperiment::UpdateWbcFull(
         wbc_shadow_contact_state_[leg] = next_contact;
         measured_contact[leg] = next_contact;
     }
+    wbc_shadow_contact_state_valid_ = true;
     const int high_speed_contact_merge_mode = high_speed_curriculum
         ? std::clamp(static_cast<int>(std::llround(Full2EnvDouble(
               "TROT_HS_HYBRID_CONTACT", 0.0))), 0, 2)
@@ -1191,6 +1193,7 @@ void TrotExperiment::UpdateWbcShadow(
     bool have_high_state)
 {
     wbc_shadow_diagnostics_ = WbcShadowDiagnostics{};
+    wbc_shadow_contact_state_valid_ = false;
     const bool high_speed_curriculum =
         Full2EnvDouble("TROT_HS_DISABLE", 0.0) <= 0.5 &&
         (params_.gait_pattern != go2_control::GaitPattern::kDiagonalTrot ||
@@ -1273,6 +1276,7 @@ void TrotExperiment::UpdateWbcShadow(
             contact_mask |= 1 << static_cast<int>(leg);
         }
     }
+    wbc_shadow_contact_state_valid_ = true;
     wbc_shadow_diagnostics_.active_contacts = active_contacts;
     const bool reduced_contact_task =
         params_.wbc_reduced_contact_task &&
