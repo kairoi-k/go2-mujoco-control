@@ -22,6 +22,7 @@ controller_duration_s="$timeout_s"
 sim_headless=false
 sim_camera_follow=false
 sim_terrain_lidar=false
+sim_initial_args=()
 sim_push_args=()
 sim_affinity="${TROT_CPU_AFFINITY_SIM:-}"
 ctrl_affinity="${TROT_CPU_AFFINITY_CTRL:-}"
@@ -75,6 +76,15 @@ for ((i = 0; i < ${#controller_args[@]}; ++i)); do
   elif [[ "$arg" == "--camera-follow" ]]; then
     # simulator-only flag: track the robot body in the GUI camera
     sim_camera_follow=true
+  elif [[ "$arg" == "--initial-x" || "$arg" == "--initial-y" ]]; then
+    if (( i + 1 >= ${#controller_args[@]} )); then
+      echo "$arg requires a value" >&2
+      exit 2
+    fi
+    # simulator-only harness variation: keep the controller unaware of the
+    # initial pose used for development evidence.
+    sim_initial_args+=("$arg" "${controller_args[$((i + 1))]}")
+    i=$((i + 1))
   elif [[ "$arg" == "--scene-file" ]]; then
     if (( i + 1 >= ${#controller_args[@]} )); then
       echo "--scene-file requires a value" >&2
@@ -328,6 +338,7 @@ PULSE_SERVER="$pulse_server" \
   $([[ "$sim_headless" == true ]] && printf %s --headless) \
   $([[ "$sim_camera_follow" == true ]] && printf %s --camera-follow) \
   $([[ "$sim_terrain_lidar" == true ]] && printf %s --terrain-lidar) \
+  "${sim_initial_args[@]}" \
   "${sim_push_args[@]}" \
   >"$experiment_dir/simulator.log" 2>&1 &
 sim_pid=$!
