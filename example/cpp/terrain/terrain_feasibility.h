@@ -263,19 +263,26 @@ inline bool CheckSwingClearance(
     }
 
     // A patch-radius observation can report the riser before the foot reaches
-    // its leading edge.  Centering the peak on that first sample makes the
-    // trajectory descend while the observed upper surface is still ahead.
-    // Use the centroid of the sensor-derived terrain-over-linear-height
-    // demand so the peak covers the whole observed obstacle interval.  The
-    // first rise remains a fallback for a barely resolved transition.
+    // its leading edge.  For a sharply resolved leading edge, the peak must
+    // move earlier or the foot remains below the upper surface in the swept
+    // patch.  Broad relief keeps the demand centroid, so the profile remains
+    // terrain-derived without penalizing a long, gradual transition.
+    // The choice is based only on the observed height profile.
     const double weighted_peak_phase = excess_weight > 1.0e-9
         ? std::clamp(weighted_phase / excess_weight, 0.10, 0.90)
         : -1.0;
+    const double first_rise_peak_phase = first_rise_phase >= 0.0
+        ? std::clamp(first_rise_phase, 0.10, 0.90)
+        : 0.90;
+    const bool leading_edge_dominant =
+        weighted_peak_phase >= 0.0 && first_rise_phase >= 0.0 &&
+        first_rise_phase < 0.5 * weighted_peak_phase;
+    const double terrain_peak_phase = leading_edge_dominant
+        ? first_rise_peak_phase
+        : weighted_peak_phase;
     const double best_peak_phase = weighted_peak_phase >= 0.0
-        ? weighted_peak_phase
-        : (first_rise_phase >= 0.0
-               ? std::clamp(first_rise_phase, 0.10, 0.90)
-               : 0.5);
+        ? terrain_peak_phase
+        : (first_rise_phase >= 0.0 ? first_rise_peak_phase : 0.5);
     double lift = std::max(clearance_m, 0.050);
     double lift_phase = 0.0;
     double lift_terrain_height = 0.0;

@@ -118,6 +118,26 @@ int main()
                "10cm swing clearance geometry was invalid"))
         return 1;
 
+    auto high_step_map = map;
+    for (std::size_t iy = 0; iy < high_step_map.height(); ++iy)
+    {
+        for (std::size_t ix = 14; ix < high_step_map.width(); ++ix)
+            high_step_map.data()[iy * high_step_map.width() + ix] = -0.10f;
+    }
+    const auto high_step_built = go2_terrain::BuildTerrainModel(
+        &high_step_map, 10.04, 4, go2_terrain::TerrainSource::kLidar);
+    double high_step_clearance = 0.0;
+    double high_step_required_lift = 0.0;
+    if (!Check(go2_terrain::CheckSwingClearance(
+                   high_step_built.model, {0.18, -0.10, -0.25},
+                   {0.425, -0.10, -0.10}, 0.03, high_step_clearance,
+                   nullptr, go2::Leg::FL, &high_step_required_lift),
+               "15cm sensor-derived swing clearance was rejected") ||
+        !Check(high_step_required_lift >= 0.03 &&
+                   high_step_required_lift < 0.40,
+               "15cm swing clearance geometry was invalid"))
+        return 1;
+
     go2_terrain::TerrainPlannerInput input;
     input.terrain = &built.model;
     input.state_stamp_s = 10.04;
