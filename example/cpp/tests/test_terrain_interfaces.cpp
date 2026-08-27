@@ -223,6 +223,11 @@ int main()
         !Check(actuation_plan.selected[1].region_id <
                    actuation_plan.regions[1].size(),
                "actuation planner did not consume a safe region") ||
+        !Check(std::abs(actuation_plan.selected[1].foot_position.x -
+                            input.nominal_feet_base[1].x) < 1.0e-9 &&
+                   std::abs(actuation_plan.selected[1].foot_position.y -
+                            input.nominal_feet_base[1].y) < 1.0e-9,
+               "flat safe region displaced the nominal foothold") ||
         !Check(actuation_plan.selected[1].swing_lift_m >= 0.03,
                "actuation planner did not propagate swept lift"))
         return 1;

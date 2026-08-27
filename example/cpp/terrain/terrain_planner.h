@@ -476,22 +476,24 @@ public:
             for (const std::size_t region_index : region_order)
             {
                 const auto &region = result.regions[leg][region_index];
-                FootholdCandidate candidate;
-                candidate.leg = static_cast<go2::Leg>(leg);
-                candidate.map_epoch = region.map_epoch;
+                const auto &nominal = input.nominal_feet_base[leg];
+                const auto &current = input.current_feet_base[leg];
+                const go2::Vec3 desired_position =
+                    std::isfinite(nominal.x) && std::isfinite(nominal.y)
+                        ? nominal : current;
+                const go2::Vec3 representative = RegionRepresentative(
+                    region, desired_position, input.terrain->resolution_m);
+                FootholdCandidate candidate = EvaluateFoothold(
+                    *input.terrain, static_cast<go2::Leg>(leg),
+                    representative.x, representative.y,
+                    config_.feasibility, nullptr,
+                    std::numeric_limits<double>::infinity(),
+                    future_base_displacement_valid[leg]
+                        ? &future_base_displacement_base[leg] : nullptr);
+                if (!candidate.hard_feasible)
+                    continue;
                 candidate.region_id = region.region_id;
-                candidate.foot_position = region.center;
-                candidate.surface_normal = region.normal;
-                candidate.height_min_m = region.height_min_m;
-                candidate.height_max_m = region.height_max_m;
-                candidate.slope_rad = region.slope_rad;
-                candidate.roughness_m = region.roughness_m;
-                candidate.edge_margin_m = region.edge_margin_m;
-                candidate.reachability_margin_m =
-                    region.reachability_margin_m;
-                candidate.uncertainty_m = region.uncertainty_m;
                 candidate.support_margin_m = region.support_margin_m;
-                candidate.collision_margin_m = region.collision_margin_m;
                 FootholdRejectReason swing_reject_reason =
                     FootholdRejectReason::kSwingClearance;
                 if (!CheckSwingClearance(
@@ -689,6 +691,51 @@ public:
     }
 
 private:
+    static go2::Vec3 RegionRepresentative(
+        const SafeFootholdRegion &region, const go2::Vec3 &desired,
+        double map_resolution_m)
+    {
+        if (!std::isfinite(desired.x) || !std::isfinite(desired.y) ||
+            region.vertex_count == 0 ||
+            region.vertex_count > SafeFootholdRegion::kMaxVertices)
+            return region.center;
+        double min_x = std::numeric_limits<double>::infinity();
+        double max_x = -std::numeric_limits<double>::infinity();
+        double min_y = std::numeric_limits<double>::infinity();
+        double max_y = -std::numeric_limits<double>::infinity();
+        for (std::size_t vertex = 0; vertex < region.vertex_count; ++vertex)
+        {
+            const auto &point = region.vertices[vertex];
+            min_x = std::min(min_x, point.x);
+            max_x = std::max(max_x, point.x);
+            min_y = std::min(min_y, point.y);
+            max_y = std::max(max_y, point.y);
+        }
+        // At the common 5 cm map / 2.5 cm foot-patch boundary the safe-region
+        // construction can have zero numerical interior.  The candidate is
+        // still re-evaluated against the full sensor patch below, so use the
+        // containing map cell as the representative domain instead of forcing
+        // a harmless flat-ground quantization offset into the gait.
+        if (max_x - min_x <= 1.0e-6 &&
+            std::isfinite(map_resolution_m) && map_resolution_m > 0.0)
+        {
+            min_x = region.center.x - 0.5 * map_resolution_m;
+            max_x = region.center.x + 0.5 * map_resolution_m;
+        }
+        if (max_y - min_y <= 1.0e-6 &&
+            std::isfinite(map_resolution_m) && map_resolution_m > 0.0)
+        {
+            min_y = region.center.y - 0.5 * map_resolution_m;
+            max_y = region.center.y + 0.5 * map_resolution_m;
+        }
+        if (!std::isfinite(min_x) || !std::isfinite(max_x) ||
+            !std::isfinite(min_y) || !std::isfinite(max_y) ||
+            desired.x < min_x || desired.x > max_x ||
+            desired.y < min_y || desired.y > max_y)
+            return region.center;
+        return {desired.x, desired.y, region.center.z};
+    }
+
     static double ObservedTerrainHeightAt(
         const TerrainPlannerInput &input, std::size_t leg)
     {
@@ -1128,9 +1175,14 @@ private:
                 for (const std::size_t region_index : region_order)
                 {
                     const auto &region = result.regions[leg][region_index];
+                    const go2::Vec3 desired_position{
+                        swing_start.x + command_direction * expected_progress,
+                        input.nominal_feet_base[leg].y, region.center.z};
+                    const go2::Vec3 representative = RegionRepresentative(
+                        region, desired_position, input.terrain->resolution_m);
                     FootholdCandidate candidate = EvaluateFoothold(
                         *input.terrain, static_cast<go2::Leg>(leg),
-                        region.center.x, region.center.y,
+                        representative.x, representative.y,
                         config_.feasibility, &swing_start,
                         config_.swing_clearance_m,
                         future_displacement_valid

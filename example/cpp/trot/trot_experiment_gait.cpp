@@ -1781,9 +1781,16 @@ bool TrotExperiment::BuildGaitTargets(
                           planned.position_world.x - nominal_target_world.x,
                           planned.position_world.y - nominal_target_world.y)
                     : 0.0;
-                const double xy_deadband_m = std::max(
+                // A safe-region center is a sensor-grid representative, not
+                // automatically a terrain-induced foothold displacement.  On
+                // flat ground the 5 cm map quantization routinely moves the
+                // center by less than the region footprint; applying that
+                // offset would hijack the Phase 1 gait and make the robot
+                // shuffle around without approaching the terrain event.
+                const double xy_deadband_m = std::max({
+                    terrain_planner_.config().feasibility.region_half_extent_m,
                     0.5 * terrain_planner_.config().candidate_spacing_m,
-                    0.010);
+                    0.010});
                 const bool terrain_foothold_differs = nominal_target_valid &&
                     (std::abs(planned.position_world.z -
                               nominal_target_world.z) > target_deadband_m ||
