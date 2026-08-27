@@ -1657,15 +1657,17 @@ bool TrotExperiment::BuildGaitTargets(
         const auto terrain_height_change_for =
             [&](std::size_t leg,
                 const go2_terrain::TerrainFootholdPrediction &planned) {
-                const bool leg_surface_valid =
-                    active_terrain_plan->current_terrain_height_valid[leg] &&
+                const bool measured_leg_surface_valid =
+                    active_terrain_plan->current_support_surface_valid[leg] &&
                     std::isfinite(active_terrain_plan->
-                        current_terrain_height_world[leg]);
-                const double terrain_surface_reference_z = leg_surface_valid
-                    ? active_terrain_plan->current_terrain_height_world[leg]
-                    : support_surface_z;
+                        current_support_surface_height_world[leg]);
+                const double terrain_surface_reference_z =
+                    measured_leg_surface_valid
+                        ? active_terrain_plan->
+                              current_support_surface_height_world[leg]
+                        : support_surface_z;
                 const bool terrain_surface_reference_valid =
-                    leg_surface_valid || support_surface_count > 0;
+                    measured_leg_surface_valid || support_surface_count > 0;
                 const double terrain_surface_delta =
                     terrain_surface_reference_valid
                         ? planned.position_world.z -

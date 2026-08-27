@@ -405,7 +405,7 @@ public:
             if (!result.candidate_required[leg])
                 continue;
             const double observed_leg_surface_height_m =
-                ObservedTerrainHeightAt(input, leg);
+                ObservedTerrainReferenceHeight(input, leg);
             const double observed_surface_height_m =
                 std::isfinite(observed_leg_surface_height_m)
                     ? observed_leg_surface_height_m
@@ -825,6 +825,24 @@ private:
             static_cast<std::ptrdiff_t>(heights.size() / 2);
         std::nth_element(heights.begin(), middle, heights.end());
         return *middle;
+    }
+
+    static double ObservedTerrainReferenceHeight(
+        const TerrainPlannerInput &input, std::size_t leg)
+    {
+        // A non-contact leg is in flight: its map footprint is not a loaded
+        // support surface. Use the measured support median as the reference
+        // so an upper surface ahead cannot be mistaken for current ground.
+        if (input.contact_schedule.measured_valid &&
+            leg < go2::kLegCount &&
+            input.contact_schedule.measured_contact[leg])
+        {
+            const double measured_height =
+                ObservedTerrainHeightAt(input, leg);
+            if (std::isfinite(measured_height))
+                return measured_height;
+        }
+        return ObservedSupportSurfaceHeight(input);
     }
 
     static double ObservedSupportSurfaceWorldHeight(
@@ -1334,7 +1352,7 @@ private:
                 foot.swing_duration_s <= 0.0)
                 continue;
             const double observed_leg_height_m =
-                ObservedTerrainHeightAt(input, leg);
+                ObservedTerrainReferenceHeight(input, leg);
             const double observed_surface_world_z =
                 std::isfinite(observed_leg_height_m) &&
                         std::isfinite(input.base_position_world.z)
@@ -1776,19 +1794,17 @@ private:
 
         result.plan.velocity_request.valid = false;
         bool elevated_foothold_pending = false;
-        const double observed_support_surface_height_m =
-            ObservedSupportSurfaceHeight(input);
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             if (!result.candidate_required[leg] ||
                 !result.selected[leg].hard_feasible)
                 continue;
             const double observed_leg_surface_height_m =
-                ObservedTerrainHeightAt(input, leg);
+                ObservedTerrainReferenceHeight(input, leg);
             const double observed_surface_height_m =
                 std::isfinite(observed_leg_surface_height_m)
                     ? observed_leg_surface_height_m
-                    : observed_support_surface_height_m;
+                    : std::numeric_limits<double>::quiet_NaN();
             if (!std::isfinite(observed_surface_height_m) ||
                 !std::isfinite(result.selected[leg].foot_position.z))
                 continue;
