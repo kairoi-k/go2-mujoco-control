@@ -210,6 +210,11 @@ int main()
                    forward_step_plan.selected[1].foot_position.z > -0.20,
                "forward sensor-elevated foothold was not selected"))
         return 1;
+    if (!Check(forward_step_plan.plan.body_reference[4].position.z >
+                   forward_step_plan.plan.body_reference[0].position.z +
+                       1.0e-4,
+               "terrain body reference did not rise with planned surface"))
+        return 1;
 
     const auto actuation_plan = actuation_planner.Build(input, 8);
     if (!Check(actuation_plan.publishable && actuation_plan.plan.valid(),
@@ -231,6 +236,11 @@ int main()
                "sensor terrain height was promoted to measured support") ||
         !Check(actuation_plan.plan.body_reference[0].yaw_rad == 0.0,
                "planner did not preserve body yaw reference") ||
+        !Check(std::abs(
+                   actuation_plan.plan.body_reference[7].position.z -
+                   actuation_plan.plan.body_reference[0].position.z) <
+                   1.0e-9,
+               "flat terrain changed the body height reference") ||
         !Check(actuation_plan.selected[1].region_id <
                    actuation_plan.regions[1].size(),
                "actuation planner did not consume a safe region") ||

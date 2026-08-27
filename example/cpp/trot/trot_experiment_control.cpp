@@ -942,6 +942,8 @@ bool TrotExperiment::PhaseStartGait(
     previous_leg_swing_.fill(false);
     touchdown_recorded_.fill(false);
     touchdown_waiting_contact_.fill(false);
+    terrain_transfer_hold_contact_.fill(false);
+    terrain_transfer_hold_active_ = false;
     previous_support_foot_valid_.fill(false);
     have_leg_phase_history_ = false;
     std::cout << "Starting diagonal trot: period="

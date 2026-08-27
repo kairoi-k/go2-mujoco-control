@@ -815,6 +815,16 @@ private:
         return *middle;
     }
 
+    static double ObservedSupportSurfaceWorldHeight(
+        const TerrainPlannerInput &input)
+    {
+        const double surface_height_m = ObservedSupportSurfaceHeight(input);
+        if (!std::isfinite(surface_height_m) ||
+            !std::isfinite(input.base_position_world.z))
+            return std::numeric_limits<double>::quiet_NaN();
+        return input.base_position_world.z + surface_height_m;
+    }
+
     bool SupportFeasibleSelection(
         const TerrainPlannerInput &input,
         const std::array<FootholdCandidate, go2::kLegCount> &selection,
@@ -1505,6 +1515,79 @@ private:
                 result.plan.predicted_foothold[k][leg] = foot;
             }
         }
+
+        // Once a sensor-derived foothold becomes part of the planned support
+        // horizon, the CoM reference must rise with that observed support
+        // surface.  Keep this as a smooth reference transition: the planner
+        // still never changes gait topology, and the WBC sees the same atomic
+        // foothold/contact snapshot that produced the height reference.
+        const double current_surface_world_z =
+            ObservedSupportSurfaceWorldHeight(input);
+        if (std::isfinite(current_surface_world_z))
+        {
+            std::array<double, kTerrainPlanMaxKnots> future_surface_world_z{};
+            double held_surface_world_z = current_surface_world_z;
+            for (std::size_t k = 0; k < config_.horizon_knots; ++k)
+            {
+                double surface_sum = 0.0;
+                std::size_t surface_count = 0;
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                {
+                    if (!result.plan.contact_schedule.planned_contact[k][leg])
+                        continue;
+                    const auto &foot = result.plan.predicted_foothold[k][leg];
+                    if (!foot.valid || !std::isfinite(foot.position_world.z))
+                        continue;
+                    surface_sum += foot.position_world.z;
+                    ++surface_count;
+                }
+                if (surface_count > 0)
+                    held_surface_world_z =
+                        surface_sum / static_cast<double>(surface_count);
+                future_surface_world_z[k] = held_surface_world_z;
+            }
+
+            constexpr double kBodySurfaceTransitionS = 0.20;
+            std::array<double, kTerrainPlanMaxKnots> body_reference_z{};
+            for (std::size_t k = 0; k < config_.horizon_knots; ++k)
+            {
+                const double t_s =
+                    static_cast<double>(k) * config_.knot_dt_s;
+                const double transition = TerrainSwingEase(
+                    t_s / kBodySurfaceTransitionS);
+                const double surface_delta =
+                    future_surface_world_z[k] - current_surface_world_z;
+                body_reference_z[k] =
+                    input.base_position_world.z +
+                    transition * surface_delta;
+                result.plan.body_reference[k].position.z =
+                    body_reference_z[k];
+                result.plan.body_reference[k].height_m =
+                    input.base_height_m + transition * surface_delta;
+            }
+            double previous_vertical_velocity =
+                input.base_velocity_world.z;
+            for (std::size_t k = 0; k < config_.horizon_knots; ++k)
+            {
+                double vertical_velocity = input.base_velocity_world.z;
+                if (k > 0 && config_.knot_dt_s > 1.0e-6)
+                {
+                    vertical_velocity =
+                        (body_reference_z[k] -
+                         body_reference_z[k - 1]) /
+                        config_.knot_dt_s;
+                }
+                result.plan.body_reference[k].linear_velocity.z =
+                    vertical_velocity;
+                result.plan.body_reference[k].linear_acceleration.z =
+                    k > 0 && config_.knot_dt_s > 1.0e-6
+                        ? (vertical_velocity - previous_vertical_velocity) /
+                              config_.knot_dt_s
+                        : input.base_acceleration_world.z;
+                previous_vertical_velocity = vertical_velocity;
+            }
+        }
+
         result.plan.velocity_request.valid = false;
         if (!std::isfinite(result.plan.min_edge_margin_m))
             result.plan.min_edge_margin_m = 0.0;

@@ -464,6 +464,9 @@ private:
         bool swing_leading_edge_phase_valid = false;
         bool time_rebased_at_handoff = false;
         bool terrain_height_change = false;
+        // The endpoint is not a support anchor until the live contact filter
+        // confirms force while the measured foot is actually at this target.
+        bool measured_touchdown = false;
         // A foothold may remain on the currently loaded terrain surface after
         // the body has not yet risen with it. Keep that sensor-derived
         // reference active even when the target is not a new height step.
@@ -473,6 +476,12 @@ private:
         terrain_swing_execution_{};
     std::array<TerrainSwingExecution, go2::kLegCount>
         terrain_swing_pending_{};
+    // During a terrain transfer the currently loaded support set is held
+    // until the planned endpoint is confirmed by measured contact.  This set
+    // is captured from the live gait schedule at transaction start; it is not
+    // a prescribed leg order or a scene-specific transfer script.
+    std::array<bool, go2::kLegCount> terrain_transfer_hold_contact_{};
+    bool terrain_transfer_hold_active_ = false;
     // One accepted immutable snapshot is shared by gait, SRBD-MPC and WBC
     // for the duration of an in-flight terrain swing.  Planner refreshes may
     // replace the latest store value, but must not retarget that swing.

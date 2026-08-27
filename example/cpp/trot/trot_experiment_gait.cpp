@@ -416,6 +416,8 @@ bool TrotExperiment::BuildGaitTargets(
         terrain_execution_plan_.reset();
         terrain_swing_execution_ = {};
         terrain_swing_pending_ = {};
+        terrain_transfer_hold_contact_.fill(false);
+        terrain_transfer_hold_active_ = false;
     }
     else if (!terrain_execution_plan_ ||
              (!terrain_swing_transaction_active &&
@@ -1856,6 +1858,25 @@ bool TrotExperiment::BuildGaitTargets(
                     terrain_target_overridden || overridden;
             };
 
+        const auto begin_terrain_transfer_hold = [&]() {
+            if (terrain_transfer_hold_active_)
+                return;
+            std::array<bool, go2::kLegCount> scheduled_support{};
+            for (std::size_t support_leg = 0;
+                 support_leg < go2::kLegCount; ++support_leg)
+            {
+                scheduled_support[support_leg] =
+                    go2_control::GaitLegPhase(
+                        support_leg, phase, params_.gait_pattern) < duty;
+            }
+            const int support_count = static_cast<int>(std::count(
+                scheduled_support.begin(), scheduled_support.end(), true));
+            if (support_count < 2)
+                return;
+            terrain_transfer_hold_contact_ = scheduled_support;
+            terrain_transfer_hold_active_ = true;
+        };
+
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             const double leg_phase = go2_control::GaitLegPhase(
@@ -1863,6 +1884,19 @@ bool TrotExperiment::BuildGaitTargets(
             const bool leg_in_swing = leg_phase >= duty;
             auto &execution = terrain_swing_execution_[leg];
             auto &pending = terrain_swing_pending_[leg];
+            if (terrain_transfer_hold_active_ &&
+                terrain_transfer_hold_contact_[leg] &&
+                have_actual_world_feet)
+            {
+                // A support foot that was loaded when the terrain transfer
+                // began remains an anchor even if the nominal phase reaches
+                // its swing interval.  Defer that leg's next terrain target
+                // until the current target has been measured.
+                feet[leg] = go2_control::WorldToBody(
+                    terrain_pose.base, terrain_pose.quaternion,
+                    actual_world_feet[leg]);
+                continue;
+            }
             if (!leg_in_swing)
             {
                 if (execution.valid && execution.in_flight)
@@ -1910,6 +1944,19 @@ bool TrotExperiment::BuildGaitTargets(
                 continue;
             }
 
+            if (execution.endpoint_held &&
+                terrain_transfer_hold_active_ &&
+                execution.terrain_target_required &&
+                !execution.measured_touchdown)
+            {
+                // Do not start the next nominal swing while this target is
+                // still waiting for live touchdown confirmation.  The
+                // endpoint remains the swing task until the WBC transaction
+                // promotes it to measured support.
+                apply_world_target(
+                    leg, execution.target_world, go2::Vec3{});
+                continue;
+            }
             if (execution.endpoint_held)
             {
                 if (pending.valid)
@@ -1969,6 +2016,7 @@ bool TrotExperiment::BuildGaitTargets(
                 continue;
 
             execution.in_flight = true;
+            begin_terrain_transfer_hold();
             const double swing_phase = execution.time_rebased_at_handoff
                 ? std::clamp(
                       (terrain_now_s - execution.trajectory_start_time_s) /
@@ -2031,6 +2079,24 @@ bool TrotExperiment::BuildGaitTargets(
                     (execution.target_world.z - execution.start_world.z) +
                     swing_arch_rate};
             apply_world_target(leg, path_world, path_velocity);
+        }
+        if (terrain_transfer_hold_active_ && have_actual_world_feet)
+        {
+            // The phase continues to advance while the terrain foothold is
+            // being confirmed. Keep the support feet at measured anchors
+            // instead of feeding their nominal swing targets to the servo.
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                if (!terrain_transfer_hold_contact_[leg])
+                    continue;
+                const auto &execution = terrain_swing_execution_[leg];
+                if (execution.valid && execution.in_flight &&
+                    execution.terrain_target_required)
+                    continue;
+                feet[leg] = go2_control::WorldToBody(
+                    terrain_pose.base, terrain_pose.quaternion,
+                    actual_world_feet[leg]);
+            }
         }
         if (terrain_target_overridden)
             ++terrain_gait_target_override_count_;

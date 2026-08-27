@@ -199,18 +199,30 @@ void TrotExperiment::UpdateWbcFull(
     // the validated path uses the gait schedule.  Sprint experiments may opt
     // into a measured/scheduled merge to absorb early or late touchdown.
     std::array<bool, go2::kLegCount> qp_contact = measured_contact;
+    std::array<bool, go2::kLegCount> scheduled_contact = measured_contact;
     const double gait_period =
         kernel_period_s_ > 0.05 ? kernel_period_s_ : params_.period_s;
     const double gait_duty =
         kernel_duty_factor_ > 0.05 ? kernel_duty_factor_ : params_.duty_factor;
+    const bool gait_contact_schedule_active =
+        task_.gait_started_ &&
+        (task_.motion_stage_ == 2 || WbcStopHoldActive());
+    if (gait_contact_schedule_active)
+    {
+        std::array<std::array<bool, go2::kLegCount>,
+                   go2_control::kSrbdMaxHorizon> scheduled{};
+        go2_control::FillTrotContactSchedulePhase(
+            current_phase_, gait_period, gait_duty, 1, 0.0, scheduled,
+            params_.gait_pattern);
+        scheduled_contact = scheduled[0];
+    }
     // During the brake, keep the scheduled running contacts.  The body is
     // still carrying sprint momentum, so declaring all four feet fixed after
     // an arbitrary 0.40 s creates the same hidden plant switch we are trying
     // to avoid.  The brake-complete gate promotes this to a four-contact WBC
     // hold only once measured speed and attitude are both safe.
     const bool high_speed_stop_support = high_speed_stop_hold_active_;
-    if (task_.gait_started_ &&
-        (task_.motion_stage_ == 2 || WbcStopHoldActive()))
+    if (gait_contact_schedule_active)
     {
         if (WbcStopHoldActive() || high_speed_stop_support)
             qp_contact.fill(true);
@@ -218,16 +230,87 @@ void TrotExperiment::UpdateWbcFull(
             qp_contact.fill(true);
         else
         {
-            std::array<std::array<bool, go2::kLegCount>, go2_control::kSrbdMaxHorizon>
-                scheduled{};
-            go2_control::FillTrotContactSchedulePhase(
-                current_phase_, gait_period, gait_duty, 1, 0.0, scheduled,
-                params_.gait_pattern);
             qp_contact = MergeHighSpeedContact(
-                scheduled[0], measured_contact,
+                scheduled_contact, measured_contact,
                 high_speed_contact_merge_mode);
         }
     }
+
+    // A terrain foothold is not a support contact at the predicted gait
+    // boundary.  Keep the support set that was loaded when the sensor-derived
+    // swing started, then promote a target only after the live force filter
+    // and the live foot pose agree at the immutable endpoint.  This preserves
+    // the planned/measured distinction while allowing the fixed gait cadence
+    // to wait for a real touchdown instead of dropping its old support pair.
+    bool terrain_transfer_has_target = false;
+    bool terrain_transfer_complete = true;
+    const double terrain_touchdown_tolerance_m = std::max(
+        0.020,
+        1.5 * terrain_planner_.config().feasibility.foot_patch_radius_m);
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        auto &execution = terrain_swing_execution_[leg];
+        if (!execution.valid || !execution.terrain_target_required ||
+            execution.measured_touchdown ||
+            (!execution.in_flight && !execution.endpoint_held))
+            continue;
+        terrain_transfer_has_target = true;
+        if (!execution.endpoint_held)
+        {
+            terrain_transfer_complete = false;
+            continue;
+        }
+        const Eigen::Vector3d endpoint_error =
+            dyn.foot_pos_world[leg] - Eigen::Vector3d(
+                execution.target_world.x,
+                execution.target_world.y,
+                execution.target_world.z);
+        const bool at_endpoint = endpoint_error.allFinite() &&
+            endpoint_error.norm() <= terrain_touchdown_tolerance_m;
+        if (measured_contact[leg] && at_endpoint)
+            execution.measured_touchdown = true;
+        else
+            terrain_transfer_complete = false;
+    }
+
+    if (!terrain_transfer_has_target)
+    {
+        terrain_transfer_hold_contact_.fill(false);
+        terrain_transfer_hold_active_ = false;
+    }
+    else
+    {
+        if (!terrain_transfer_hold_active_)
+        {
+            terrain_transfer_hold_contact_ = scheduled_contact;
+            int scheduled_support_count = 0;
+            for (bool contact : terrain_transfer_hold_contact_)
+                scheduled_support_count += contact ? 1 : 0;
+            if (scheduled_support_count < 2)
+            {
+                terrain_transfer_hold_contact_ = qp_contact;
+                scheduled_support_count = 0;
+                for (bool contact : terrain_transfer_hold_contact_)
+                    scheduled_support_count += contact ? 1 : 0;
+            }
+            terrain_transfer_hold_active_ = scheduled_support_count >= 2;
+        }
+        if (terrain_transfer_hold_active_ && !terrain_transfer_complete)
+        {
+            qp_contact = terrain_transfer_hold_contact_;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                if (terrain_swing_execution_[leg].measured_touchdown)
+                    qp_contact[leg] = true;
+            }
+        }
+        else if (terrain_transfer_complete)
+        {
+            terrain_transfer_hold_contact_.fill(false);
+            terrain_transfer_hold_active_ = false;
+        }
+    }
+
     int contact_mask = 0;
     int active = 0;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -460,7 +543,8 @@ void TrotExperiment::UpdateWbcFull(
                     current_phase_, gait_period, gait_duty,
                     mpc_params.horizon, mpc_params.dt_s, mpc_in.contact,
                     params_.gait_pattern);
-                if (high_speed_contact_merge_mode > 0 &&
+                if ((high_speed_contact_merge_mode > 0 ||
+                     terrain_transfer_hold_active_) &&
                     mpc_params.horizon > 0)
                     mpc_in.contact[0] = qp_contact;
             }
@@ -478,6 +562,7 @@ void TrotExperiment::UpdateWbcFull(
             // The accepted planner snapshot is the sole source for future
             // terrain contacts.  A partial snapshot is rejected rather than
             // mixed with the legacy current-foot anchor.
+            const auto fallback_mpc_contact = mpc_in.contact;
             bool complete_foot_horizon = true;
             const WorldPose current_pose = ComputeWorldPose(
                 state_snapshot, high_state_snapshot);
@@ -487,6 +572,8 @@ void TrotExperiment::UpdateWbcFull(
                     terrain_plan_knot[static_cast<std::size_t>(k)];
                 mpc_in.contact[k] = terrain_plan->contact_schedule.planned_contact[
                     plan_knot];
+                if (k == 0 && terrain_transfer_hold_active_)
+                    mpc_in.contact[k] = qp_contact;
                 mpc_in.reference_horizon[static_cast<std::size_t>(k)] =
                     mpc_in.reference;
                 const auto &body = terrain_plan->body_reference[
@@ -515,8 +602,52 @@ void TrotExperiment::UpdateWbcFull(
                         plan_knot][leg];
                     if (mpc_in.contact[k][leg])
                     {
+                        const auto &execution =
+                            terrain_swing_execution_[leg];
+                        if (k == 0 && execution.valid &&
+                            execution.measured_touchdown &&
+                            std::isfinite(execution.target_world.x) &&
+                            std::isfinite(execution.target_world.y) &&
+                            std::isfinite(execution.target_world.z))
+                        {
+                            mpc_in.foot_from_com_world_horizon[
+                                static_cast<std::size_t>(k)][leg] =
+                                Eigen::Vector3d(
+                                    execution.target_world.x -
+                                        dyn.com_world.x(),
+                                    execution.target_world.y -
+                                        dyn.com_world.y(),
+                                    execution.target_world.z -
+                                        dyn.com_world.z());
+                            mpc_in.foot_valid[
+                                static_cast<std::size_t>(k)][leg] = true;
+                            continue;
+                        }
+                        if (k == 0 && terrain_transfer_hold_active_ &&
+                            terrain_transfer_hold_contact_[leg])
+                        {
+                            mpc_in.foot_from_com_world_horizon[
+                                static_cast<std::size_t>(k)][leg] =
+                                dyn.foot_pos_world[leg] - dyn.com_world;
+                            mpc_in.foot_valid[
+                                static_cast<std::size_t>(k)][leg] = true;
+                            continue;
+                        }
                         if (!foot.valid)
                         {
+                            // A live contact promoted during the current
+                            // transfer can be ahead of the planner knot.
+                            // Keep its measured anchor at knot zero; future
+                            // knots must still come from the atomic plan.
+                            if (k == 0 && qp_contact[leg])
+                            {
+                                mpc_in.foot_from_com_world_horizon[
+                                    static_cast<std::size_t>(k)][leg] =
+                                    dyn.foot_pos_world[leg] - dyn.com_world;
+                                mpc_in.foot_valid[
+                                    static_cast<std::size_t>(k)][leg] = true;
+                                continue;
+                            }
                             complete_foot_horizon = false;
                             continue;
                         }
@@ -543,12 +674,12 @@ void TrotExperiment::UpdateWbcFull(
                 mpc_in.terrain_plan.map_epoch = terrain_plan->map_epoch;
                 mpc_in.terrain_plan.generated_at_s = terrain_plan->generated_at_s;
                 mpc_in.terrain_plan.valid_until_s = terrain_plan->valid_until_s;
-                mpc_in.measured_contact =
-                    terrain_plan->contact_schedule.measured_contact;
-                mpc_in.measured_contact_valid =
-                    terrain_plan->contact_schedule.measured_valid;
+                mpc_in.measured_contact = measured_contact;
+                mpc_in.measured_contact_valid = true;
                 ++terrain_mpc_plan_consumed_count_;
             }
+            else
+                mpc_in.contact = fallback_mpc_contact;
         }
         go2_control::SrbdMpcOutput mpc_out;
         if (go2_control::SolveSrbdMpc(mpc_params, mpc_in, mpc_out) && mpc_out.ok)
@@ -568,10 +699,8 @@ void TrotExperiment::UpdateWbcFull(
         wbc_in.terrain_plan.map_epoch = terrain_plan->map_epoch;
         wbc_in.terrain_plan.generated_at_s = terrain_plan->generated_at_s;
         wbc_in.terrain_plan.valid_until_s = terrain_plan->valid_until_s;
-        wbc_in.measured_contact =
-            terrain_plan->contact_schedule.measured_contact;
-        wbc_in.measured_contact_valid =
-            terrain_plan->contact_schedule.measured_valid;
+        wbc_in.measured_contact = measured_contact;
+        wbc_in.measured_contact_valid = true;
         wbc_in.planned_contact =
             terrain_plan->contact_schedule.planned_contact[
                 terrain_plan_knot[0]];
