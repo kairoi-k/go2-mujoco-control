@@ -82,6 +82,9 @@ void TrotExperiment::WriteCsvHeader()
              << ",terrain_exec_" << name << "_in_flight"
              << ",terrain_exec_" << name << "_endpoint_held"
              << ",terrain_exec_" << name << "_measured_touchdown"
+             << ",terrain_exec_" << name << "_wbc_endpoint_error_m"
+             << ",terrain_exec_" << name << "_wbc_at_endpoint"
+             << ",terrain_exec_" << name << "_wbc_measured_contact"
              << ",terrain_exec_" << name << "_target_required"
              << ",terrain_exec_" << name << "_height_change"
              << ",terrain_exec_" << name << "_time_rebased"
@@ -892,6 +895,9 @@ void TrotExperiment::LogSample(
              << "," << (execution.in_flight ? 1 : 0)
              << "," << (execution.endpoint_held ? 1 : 0)
              << "," << (execution.measured_touchdown ? 1 : 0)
+             << "," << execution.wbc_endpoint_error_m
+             << "," << (execution.wbc_at_endpoint ? 1 : 0)
+             << "," << (execution.wbc_measured_contact ? 1 : 0)
              << "," << (execution.terrain_target_required ? 1 : 0)
              << "," << (execution.terrain_height_change ? 1 : 0)
              << "," << (execution.time_rebased_at_handoff ? 1 : 0)

@@ -58,8 +58,22 @@ int main()
     qacc[7] = -0.2;
     const double rne = model.InverseDynamicsResidual(dyn, qacc);
     passed &= Check(rne < 0.5, "RNEA residual");
+    std::array<double, go2::kJointCount> joint_positions{};
+    for (std::size_t joint = 0; joint < joint_positions.size(); ++joint)
+        joint_positions[joint] = StandState().q[
+            static_cast<Eigen::Index>(joint)];
+    const auto fk_feet = go2::AllFootPositions(joint_positions);
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
         passed &= Check(dyn.foot_pos_world[leg].z() > -0.01, "foot z");
+        const Eigen::Vector3d expected(
+            StandState().position_world.x() + fk_feet[leg].x,
+            StandState().position_world.y() + fk_feet[leg].y,
+            StandState().position_world.z() + fk_feet[leg].z);
+        passed &= Check(
+            (dyn.foot_pos_world[leg] - expected).norm() < 0.003,
+            "MJCF foot point does not match analytical FK");
+    }
 
     if (!passed)
     {

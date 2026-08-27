@@ -469,6 +469,10 @@ private:
         // The endpoint is not a support anchor until the live contact filter
         // confirms force while the measured foot is actually at this target.
         bool measured_touchdown = false;
+        double wbc_endpoint_error_m =
+            std::numeric_limits<double>::infinity();
+        bool wbc_at_endpoint = false;
+        bool wbc_measured_contact = false;
         // A foothold may remain on the currently loaded terrain surface after
         // the body has not yet risen with it. Keep that sensor-derived
         // reference active even when the target is not a new height step.
@@ -531,6 +535,7 @@ private:
     std::uint64_t terrain_plan_consumed_count_ = 0;
     std::uint64_t terrain_gait_target_override_count_ = 0;
     std::uint64_t terrain_mpc_plan_consumed_count_ = 0;
+    std::uint64_t terrain_mpc_update_count_ = 0;
     std::atomic<std::uint64_t> terrain_plan_contact_rejections_{0};
     std::uint64_t terrain_target_prepare_attempt_count_ = 0;
     std::uint64_t terrain_target_prepared_count_ = 0;

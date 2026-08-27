@@ -288,8 +288,13 @@ void TrotExperiment::UpdateWbcFull(
                 execution.target_world.x,
                 execution.target_world.y,
                 execution.target_world.z);
+        execution.wbc_endpoint_error_m = endpoint_error.allFinite()
+            ? endpoint_error.norm()
+            : std::numeric_limits<double>::infinity();
         const bool at_endpoint = endpoint_error.allFinite() &&
             endpoint_error.norm() <= terrain_touchdown_tolerance_m;
+        execution.wbc_at_endpoint = at_endpoint;
+        execution.wbc_measured_contact = measured_contact[leg];
         if (measured_contact[leg] && at_endpoint)
             execution.measured_touchdown = true;
         else
@@ -762,7 +767,8 @@ void TrotExperiment::UpdateWbcFull(
             else
                 mpc_in.contact = fallback_mpc_contact;
         }
-        ++wbc_shadow_diagnostics_.mpc_update_count;
+        wbc_shadow_diagnostics_.mpc_update_count =
+            ++terrain_mpc_update_count_;
         wbc_shadow_diagnostics_.mpc_contact_mask_k0 =
             mpc_params.horizon > 0 ? contact_mask_for(mpc_in.contact[0]) : 0;
         wbc_shadow_diagnostics_.mpc_min_contact_count =

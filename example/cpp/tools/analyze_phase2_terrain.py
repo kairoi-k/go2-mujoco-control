@@ -237,6 +237,9 @@ def main():
         required |= {
             f"terrain_exec_{leg}_valid", f"terrain_exec_{leg}_in_flight",
             f"terrain_exec_{leg}_measured_touchdown",
+            f"terrain_exec_{leg}_wbc_endpoint_error_m",
+            f"terrain_exec_{leg}_wbc_at_endpoint",
+            f"terrain_exec_{leg}_wbc_measured_contact",
             f"terrain_exec_{leg}_target_required",
             f"terrain_exec_{leg}_target_world_x_m",
             f"terrain_exec_{leg}_target_world_y_m",
