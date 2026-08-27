@@ -50,6 +50,12 @@ def main() -> int:
     phase2_contract_path = options.repo / "docs" / "research" / \
         "PHASE2_B0_ACCEPTANCE_CONTRACT.md"
     phase2_analyzer_path = options.cpp_dir / "tools" / "analyze_phase2_b0.py"
+    phase2_terrain_contract_path = options.repo / "docs" / "research" / \
+        "PHASE2_B123_ACCEPTANCE_CONTRACT.md"
+    phase2_b1_contract_path = options.repo / "docs" / "research" / \
+        "PHASE2_B1_ACCEPTANCE_CONTRACT.md"
+    phase2_terrain_analyzer_path = options.cpp_dir / "tools" / \
+        "analyze_phase2_terrain.py"
     sustained_analyzer_path = options.cpp_dir / "tools" / "analysis" / \
         "analyze_sustained_running.py"
 
@@ -81,6 +87,12 @@ def main() -> int:
             if phase2_contract_path.is_file() else "",
             "phase2_b0_analyzer_sha256": sha256(phase2_analyzer_path)
             if phase2_analyzer_path.is_file() else "",
+            "phase2_b123_contract_sha256": sha256(phase2_terrain_contract_path)
+            if phase2_terrain_contract_path.is_file() else "",
+            "phase2_b1_contract_sha256": sha256(phase2_b1_contract_path)
+            if phase2_b1_contract_path.is_file() else "",
+            "phase2_b123_analyzer_sha256": sha256(phase2_terrain_analyzer_path)
+            if phase2_terrain_analyzer_path.is_file() else "",
             "phase2_fixed_3mps_analyzer_sha256": sha256(sustained_analyzer_path)
             if sustained_analyzer_path.is_file() else "",
             "phase2_contract_sha256": sha256(pathlib.Path(environment["TROT_PHASE2_CONTRACT"]))
@@ -101,6 +113,8 @@ def main() -> int:
                 "ground_truth_status",
                 "dynamics_status",
                 "completion_status",
+                "phase1_quantitative_status",
+                "terrain_analysis_status",
             )
         },
         "run": {
@@ -109,6 +123,8 @@ def main() -> int:
             "wall_timeout_s": metadata.get("wall_timeout_s", ""),
             "run_mode": metadata.get("run_mode", ""),
             "headless": metadata.get("headless", ""),
+            "phase2_milestone": metadata.get("phase2_milestone", ""),
+            "scene_file": metadata.get("scene_file", ""),
             "initial_x_m": environment.get("TROT_INITIAL_X_M", metadata.get("initial_x_m", "0.0")),
             "initial_y_m": environment.get("TROT_INITIAL_Y_M", metadata.get("initial_y_m", "0.0")),
         },

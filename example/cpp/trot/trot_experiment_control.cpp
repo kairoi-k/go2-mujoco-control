@@ -579,6 +579,16 @@ void TrotExperiment::TerrainPlannerWorker()
                       result.dominant_foothold_reject_by_leg[
                           static_cast<std::size_t>(result.failed_leg)])
                 : "none";
+            terrain_candidate_counts_ = result.candidate_counts;
+            terrain_swing_candidate_counts_ =
+                result.swing_candidate_counts;
+            terrain_candidate_required_ = result.candidate_required;
+            terrain_touchdown_knots_ = result.touchdown_knot_by_leg;
+            terrain_support_failure_knot_ = result.support_failure_knot;
+            terrain_support_failure_contact_mask_ = static_cast<int>(
+                result.support_failure_contact_mask);
+            terrain_support_failure_margin_m_ =
+                result.support_failure_margin_m;
             terrain_min_edge_margin_m_ = result.plan.min_edge_margin_m;
             terrain_min_uncertainty_edge_margin_m_ =
                 result.plan.min_uncertainty_inflated_edge_margin_m;

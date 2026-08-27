@@ -24,6 +24,7 @@ sim_camera_follow=false
 sim_terrain_lidar=false
 sim_initial_args=()
 sim_push_args=()
+phase2_milestone=""
 sim_affinity="${TROT_CPU_AFFINITY_SIM:-}"
 ctrl_affinity="${TROT_CPU_AFFINITY_CTRL:-}"
 writer_affinity="${TROT_CPU_AFFINITY_WRITER:-}"
@@ -84,6 +85,30 @@ for ((i = 0; i < ${#controller_args[@]}; ++i)); do
     # simulator-only harness variation: keep the controller unaware of the
     # initial pose used for development evidence.
     sim_initial_args+=("$arg" "${controller_args[$((i + 1))]}")
+    i=$((i + 1))
+  elif [[ "$arg" == "--phase2-milestone" ]]; then
+    if (( i + 1 >= ${#controller_args[@]} )); then
+      echo "--phase2-milestone requires B1, B2, or B3" >&2
+      exit 2
+    fi
+    phase2_milestone="${controller_args[$((i + 1))]^^}"
+    if [[ "$phase2_milestone" != "B1" &&
+          "$phase2_milestone" != "B2" &&
+          "$phase2_milestone" != "B3" ]]; then
+      echo "--phase2-milestone requires B1, B2, or B3" >&2
+      exit 2
+    fi
+    i=$((i + 1))
+  elif [[ "$arg" == "--velocity-command-script" ]]; then
+    if (( i + 1 >= ${#controller_args[@]} )); then
+      echo "--velocity-command-script requires a path" >&2
+      exit 2
+    fi
+    profile_path="${controller_args[$((i + 1))]}"
+    if [[ "$profile_path" != /* ]]; then
+      profile_path="$repo_dir/$profile_path"
+    fi
+    filtered_controller_args+=("$arg" "${controller_args[$((i + 1))]}")
     i=$((i + 1))
   elif [[ "$arg" == "--scene-file" ]]; then
     if (( i + 1 >= ${#controller_args[@]} )); then
@@ -243,6 +268,8 @@ env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_)" >"$environment
   printf "simulator_sha256=%s\n" "$(sha256sum "$simulator" | cut -d" " -f1)"
   printf "controller_sha256=%s\n" "$(sha256sum "$controller" | cut -d" " -f1)"
   printf "scene_sha256=%s\n" "$(sha256sum "$scene_file" | cut -d" " -f1)"
+  printf "scene_file=%s\n" "$scene_file"
+  printf "phase2_milestone=%s\n" "$phase2_milestone"
   printf "display=%s\n" "$display_value"
   printf "runtime_dir=%s\n" "$runtime_dir"
   printf "headless=%s\n" "$([[ "$sim_headless" == true ]] && echo true || echo false)"
@@ -493,6 +520,37 @@ fi
   printf "contact_ground_truth_dynamics_analysis_file=%s\n" "$ground_truth_dynamics_analysis_file"
   printf "dynamics_tolerance_n=%s\n" "$dynamics_tolerance_n"
   printf "completion_status=%s\n" "$completion_status"
+} >>"$metadata_file"
+
+phase1_quantitative_status=0
+terrain_analysis_status=0
+if [[ -n "$phase2_milestone" ]]; then
+  if [[ -z "$profile_path" || ! -f "$profile_path" ]]; then
+    echo "A Phase 2 milestone run requires --velocity-command-script." >&2
+    phase1_quantitative_status=1
+    terrain_analysis_status=1
+  else
+    if ! python3 "$cpp_dir/scripts/analyze_phase1_velocity.py" \
+        "$experiment_dir" --profile "$profile_path" \
+        --json-out "$experiment_dir/phase1_quantitative.json" \
+        --require-quantitative >"$experiment_dir/phase1_quantitative.log" 2>&1; then
+      echo "Phase 1 quantitative analysis failed; see $experiment_dir/phase1_quantitative.log" >&2
+      phase1_quantitative_status=1
+    fi
+    if ! python3 "$cpp_dir/tools/analyze_phase2_terrain.py" \
+        "$experiment_dir" --milestone "$phase2_milestone" \
+        --scene "$scene_file" \
+        --json-out "$experiment_dir/phase2_terrain_analysis.json" \
+        >"$experiment_dir/phase2_terrain_analysis.log" 2>&1; then
+      echo "Phase 2 terrain analysis failed; see $experiment_dir/phase2_terrain_analysis.log" >&2
+      terrain_analysis_status=1
+    fi
+  fi
+fi
+
+{
+  printf "phase1_quantitative_status=%s\n" "$phase1_quantitative_status"
+  printf "terrain_analysis_status=%s\n" "$terrain_analysis_status"
   printf "finished_at=%s\n" "$(date --iso-8601=seconds)"
 } >>"$metadata_file"
 
@@ -505,6 +563,7 @@ fi
 
 if (( controller_status != 0 || safety_status != 0 || quality_status != 0 ||
       analysis_status != 0 || ground_truth_status != 0 || dynamics_status != 0 ||
-      completion_status != 0 || manifest_status != 0 )); then
+      completion_status != 0 || phase1_quantitative_status != 0 ||
+      terrain_analysis_status != 0 || manifest_status != 0 )); then
   exit 1
 fi

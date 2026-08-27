@@ -501,6 +501,14 @@ private:
     std::string terrain_dominant_foothold_reject_reason_ = "none";
     int terrain_failed_leg_ = -1;
     std::string terrain_failed_leg_reject_reason_ = "none";
+    std::array<std::size_t, go2::kLegCount> terrain_candidate_counts_{};
+    std::array<std::size_t, go2::kLegCount>
+        terrain_swing_candidate_counts_{};
+    std::array<bool, go2::kLegCount> terrain_candidate_required_{};
+    std::array<int, go2::kLegCount> terrain_touchdown_knots_{};
+    int terrain_support_failure_knot_ = -1;
+    int terrain_support_failure_contact_mask_ = 0;
+    double terrain_support_failure_margin_m_ = 0.0;
     double terrain_min_edge_margin_m_ = 0.0;
     double terrain_min_uncertainty_edge_margin_m_ = 0.0;
     double terrain_min_slope_rad_ = 0.0;
@@ -524,6 +532,15 @@ private:
     std::uint64_t terrain_gait_target_override_count_ = 0;
     std::uint64_t terrain_mpc_plan_consumed_count_ = 0;
     std::atomic<std::uint64_t> terrain_plan_contact_rejections_{0};
+    std::uint64_t terrain_target_prepare_attempt_count_ = 0;
+    std::uint64_t terrain_target_prepared_count_ = 0;
+    std::uint64_t terrain_target_prepare_rejection_count_ = 0;
+    // 0=none, 1=invalid plan fields, 2=no measured start anchor,
+    // 3=insufficient atomic swing window, 4=no terrain height transition,
+    // 5=endpoint IK invalid, 6=swing-boundary rebase infeasible.
+    int terrain_target_last_prepare_failure_ = 0;
+    std::array<int, go2::kLegCount>
+        terrain_target_last_prepare_failure_by_leg_{};
 
     std::mutex terrain_diagnostics_mutex_;
     std::mutex terrain_control_mutex_;

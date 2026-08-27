@@ -260,6 +260,11 @@ struct WbcShadowDiagnostics
     bool constraint_feasible = false;
     int active_contacts = 0;
     int contact_mask = 0;
+    int measured_contact_mask = 0;
+    int scheduled_contact_mask = 0;
+    int terrain_planned_contact_mask = 0;
+    bool terrain_contact_coherent = false;
+    std::uint64_t terrain_plan_id = 0;
     int iterations = 0;
     double residual_norm = 0.0;
     double desired_force_x_n = 0.0;

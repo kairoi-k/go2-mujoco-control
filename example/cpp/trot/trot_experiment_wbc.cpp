@@ -343,6 +343,14 @@ void TrotExperiment::UpdateWbcFull(
         }
     }
 
+    const auto contact_mask_for = [](
+        const std::array<bool, go2::kLegCount> &contact) {
+        int mask = 0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            if (contact[leg])
+                mask |= 1 << static_cast<int>(leg);
+        return mask;
+    };
     int contact_mask = 0;
     int active = 0;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -355,6 +363,10 @@ void TrotExperiment::UpdateWbcFull(
     }
     wbc_shadow_diagnostics_.active_contacts = active;
     wbc_shadow_diagnostics_.contact_mask = contact_mask;
+    wbc_shadow_diagnostics_.measured_contact_mask =
+        contact_mask_for(measured_contact);
+    wbc_shadow_diagnostics_.scheduled_contact_mask =
+        contact_mask_for(scheduled_contact);
 
     go2_control::SrbdMpcParams mpc_params;
     mpc_params.horizon = 8;
@@ -432,6 +444,16 @@ void TrotExperiment::UpdateWbcFull(
         if (!terrain_plan_contact_coherent)
             ++terrain_plan_contact_rejections_;
     }
+    wbc_shadow_diagnostics_.terrain_plan_id =
+        terrain_plan_active ? terrain_plan->plan_id : 0;
+    wbc_shadow_diagnostics_.terrain_contact_coherent =
+        terrain_plan_active && terrain_plan_contact_coherent;
+    wbc_shadow_diagnostics_.terrain_planned_contact_mask =
+        terrain_plan_active && terrain_plan_contact_coherent
+            ? contact_mask_for(
+                  terrain_plan->contact_schedule.planned_contact[
+                      terrain_plan_knot[0]])
+            : 0;
     const bool run_mpc =
         (wbc_full_ticks_ % mpc_period_ticks) == 0 || !last_srbd_.ok;
     if (run_mpc)

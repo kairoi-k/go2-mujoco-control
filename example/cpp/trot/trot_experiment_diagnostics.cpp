@@ -52,10 +52,66 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_plan_failure,terrain_committed_touchdowns"
          << ",terrain_dominant_foothold_reject"
          << ",terrain_failed_leg,terrain_failed_leg_reject"
+         << ",terrain_support_failure_knot"
+         << ",terrain_support_failure_contact_mask"
+         << ",terrain_support_failure_margin_m";
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const char *name = kLegNames[leg];
+        csv_ << ",terrain_" << name << "_candidate_count"
+             << ",terrain_" << name << "_swing_candidate_count"
+             << ",terrain_" << name << "_candidate_required"
+             << ",terrain_" << name << "_touchdown_knot";
+    }
+    csv_
          << ",terrain_min_edge_margin_m,terrain_min_uncertainty_edge_margin_m"
          << ",terrain_min_slope_rad,terrain_max_roughness_m,terrain_min_reachability_margin_m,terrain_min_swing_clearance_m"
          << ",terrain_min_support_margin_m,terrain_min_uncertainty_support_margin_m"
          << ",terrain_plan_contact_rejections"
+         << ",terrain_execution_plan_id,terrain_execution_plan_epoch"
+         << ",terrain_execution_map_epoch,terrain_execution_plan_generated_at_s"
+         << ",terrain_execution_plan_valid_until_s,terrain_execution_plan_age_s"
+         << ",terrain_execution_plan_usable,terrain_execution_planned_contact_mask"
+         << ",terrain_transfer_hold_active,terrain_transfer_hold_mask"
+         << ",terrain_target_prepare_attempts,terrain_target_prepared"
+         << ",terrain_target_prepare_rejections,terrain_target_last_prepare_failure";
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const char *name = kLegNames[leg];
+        csv_ << ",terrain_exec_" << name << "_valid"
+             << ",terrain_exec_" << name << "_in_flight"
+             << ",terrain_exec_" << name << "_endpoint_held"
+             << ",terrain_exec_" << name << "_measured_touchdown"
+             << ",terrain_exec_" << name << "_target_required"
+             << ",terrain_exec_" << name << "_height_change"
+             << ",terrain_exec_" << name << "_time_rebased"
+             << ",terrain_exec_" << name << "_plan_id"
+             << ",terrain_exec_" << name << "_map_epoch"
+             << ",terrain_exec_" << name << "_swing_start_time_s"
+             << ",terrain_exec_" << name << "_trajectory_start_time_s"
+             << ",terrain_exec_" << name << "_nominal_touchdown_time_s"
+             << ",terrain_exec_" << name << "_touchdown_time_s"
+             << ",terrain_exec_" << name << "_swing_duration_s"
+             << ",terrain_exec_" << name << "_terrain_swing_duration_s"
+             << ",terrain_exec_" << name << "_phase"
+             << ",terrain_exec_" << name << "_start_world_x_m"
+             << ",terrain_exec_" << name << "_start_world_y_m"
+             << ",terrain_exec_" << name << "_start_world_z_m"
+             << ",terrain_exec_" << name << "_target_world_x_m"
+             << ",terrain_exec_" << name << "_target_world_y_m"
+             << ",terrain_exec_" << name << "_target_world_z_m"
+             << ",terrain_exec_" << name << "_foot_world_x_m"
+             << ",terrain_exec_" << name << "_foot_world_y_m"
+             << ",terrain_exec_" << name << "_foot_world_z_m"
+             << ",terrain_pending_" << name << "_valid"
+             << ",terrain_pending_" << name << "_plan_id"
+             << ",terrain_pending_" << name << "_touchdown_time_s"
+             << ",terrain_pending_" << name << "_target_world_x_m"
+             << ",terrain_pending_" << name << "_target_world_y_m"
+             << ",terrain_pending_" << name << "_target_world_z_m"
+             << ",terrain_" << name << "_last_prepare_failure";
+    }
+    csv_
          << ",support_foot_kinematics_valid,support_foot_count,support_foot_speed_mps"
          << ",support_low_friction_evidence"
          << ",low_friction_accumulation"
@@ -98,7 +154,10 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_full_srbd_ok,wbc_full_id_ok,wbc_full_eq_residual"
          << ",wbc_full_velocity_target_x_mps,wbc_full_requested_acc_x_mps2"
          << ",wbc_full_srbd_acc_x_mps2,wbc_full_id_qdd_x_mps2"
-         << ",wbc_full_id_contact_force_x_n";
+         << ",wbc_full_id_contact_force_x_n"
+         << ",wbc_measured_contact_mask,wbc_scheduled_contact_mask"
+         << ",wbc_terrain_planned_contact_mask,wbc_terrain_contact_coherent"
+         << ",wbc_terrain_plan_id";
     for (int i = 0; i < kMotorCount; ++i)
     {
         csv_ << "," << kMotorNames[i] << "_q_target"
@@ -578,6 +637,48 @@ void TrotExperiment::LogSample(
     double terrain_min_uncertainty_support_margin_m = 0.0;
     std::uint64_t terrain_committed_touchdowns = 0;
     std::uint64_t terrain_plan_contact_rejections = 0;
+    const auto terrain_execution_plan = terrain_execution_plan_;
+    const bool terrain_execution_plan_usable = terrain_execution_plan &&
+        terrain_execution_plan->usable_at(state_tick_s);
+    const double terrain_execution_plan_age_s = terrain_execution_plan
+        ? state_tick_s - terrain_execution_plan->generated_at_s
+        : 0.0;
+    int terrain_execution_planned_contact_mask = 0;
+    if (terrain_execution_plan_usable)
+    {
+        std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
+            terrain_plan_indices{};
+        if (go2_terrain::BuildTerrainPlanHorizonIndices(
+                *terrain_execution_plan, state_tick_s,
+                terrain_planner_.config().knot_dt_s,
+                terrain_planner_.config().knot_dt_s, 1,
+                terrain_plan_indices))
+        {
+            const auto &planned = terrain_execution_plan->contact_schedule
+                .planned_contact[terrain_plan_indices[0]];
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                if (planned[leg])
+                    terrain_execution_planned_contact_mask |=
+                        1 << static_cast<int>(leg);
+        }
+    }
+    int terrain_transfer_hold_mask = 0;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        if (terrain_transfer_hold_contact_[leg])
+            terrain_transfer_hold_mask |= 1 << static_cast<int>(leg);
+    std::array<go2::Vec3, go2::kLegCount> terrain_actual_world_feet{};
+    bool terrain_actual_world_feet_valid = false;
+    if (have_state && have_high_state)
+    {
+        std::array<double, kMotorCount> joint_positions{};
+        for (std::size_t motor = 0; motor < joint_positions.size(); ++motor)
+            joint_positions[motor] = state_snapshot.motor_state()[motor].q();
+        const auto body_feet = go2::AllFootPositions(joint_positions);
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            terrain_actual_world_feet[leg] = go2_control::BodyToWorld(
+                pose.base, pose.quaternion, body_feet[leg]);
+        terrain_actual_world_feet_valid = true;
+    }
 
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model;
     double terrain_last_map_age_s = std::numeric_limits<double>::infinity();
@@ -592,6 +693,14 @@ void TrotExperiment::LogSample(
     std::uint64_t terrain_plan_published = 0;
     int terrain_failed_leg = -1;
     std::string terrain_failed_leg_reject_reason = "none";
+    std::array<std::size_t, go2::kLegCount> terrain_candidate_counts{};
+    std::array<std::size_t, go2::kLegCount>
+        terrain_swing_candidate_counts{};
+    std::array<bool, go2::kLegCount> terrain_candidate_required{};
+    std::array<int, go2::kLegCount> terrain_touchdown_knots{};
+    int terrain_support_failure_knot = -1;
+    int terrain_support_failure_contact_mask = 0;
+    double terrain_support_failure_margin_m = 0.0;
     if (params_.terrain_enabled)
     {
         std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
@@ -602,6 +711,14 @@ void TrotExperiment::LogSample(
         terrain_dominant_foothold_reject = terrain_dominant_foothold_reject_reason_;
         terrain_failed_leg = terrain_failed_leg_;
         terrain_failed_leg_reject_reason = terrain_failed_leg_reject_reason_;
+        terrain_candidate_counts = terrain_candidate_counts_;
+        terrain_swing_candidate_counts = terrain_swing_candidate_counts_;
+        terrain_candidate_required = terrain_candidate_required_;
+        terrain_touchdown_knots = terrain_touchdown_knots_;
+        terrain_support_failure_knot = terrain_support_failure_knot_;
+        terrain_support_failure_contact_mask =
+            terrain_support_failure_contact_mask_;
+        terrain_support_failure_margin_m = terrain_support_failure_margin_m_;
         terrain_min_edge_margin_m = terrain_min_edge_margin_m_;
         terrain_min_uncertainty_edge_margin_m =
             terrain_min_uncertainty_edge_margin_m_;
@@ -713,6 +830,17 @@ void TrotExperiment::LogSample(
          << "," << terrain_dominant_foothold_reject
          << "," << terrain_failed_leg
          << "," << terrain_failed_leg_reject_reason
+         << "," << terrain_support_failure_knot
+         << "," << terrain_support_failure_contact_mask
+         << "," << terrain_support_failure_margin_m;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        csv_ << "," << terrain_candidate_counts[leg]
+             << "," << terrain_swing_candidate_counts[leg]
+             << "," << (terrain_candidate_required[leg] ? 1 : 0)
+             << "," << terrain_touchdown_knots[leg];
+    }
+    csv_
          << "," << terrain_min_edge_margin_m
          << "," << terrain_min_uncertainty_edge_margin_m
          << "," << terrain_min_slope_rad
@@ -722,6 +850,74 @@ void TrotExperiment::LogSample(
          << "," << terrain_min_support_margin_m
          << "," << terrain_min_uncertainty_support_margin_m
          << "," << terrain_plan_contact_rejections
+         << "," << (terrain_execution_plan
+                          ? terrain_execution_plan->plan_id : 0)
+         << "," << (terrain_execution_plan
+                          ? terrain_execution_plan->plan_epoch : 0)
+         << "," << (terrain_execution_plan
+                          ? terrain_execution_plan->map_epoch : 0)
+         << "," << (terrain_execution_plan
+                          ? terrain_execution_plan->generated_at_s : 0.0)
+         << "," << (terrain_execution_plan
+                          ? terrain_execution_plan->valid_until_s : 0.0)
+         << "," << terrain_execution_plan_age_s
+         << "," << (terrain_execution_plan_usable ? 1 : 0)
+         << "," << terrain_execution_planned_contact_mask
+         << "," << (terrain_transfer_hold_active_ ? 1 : 0)
+         << "," << terrain_transfer_hold_mask
+         << "," << terrain_target_prepare_attempt_count_
+         << "," << terrain_target_prepared_count_
+         << "," << terrain_target_prepare_rejection_count_
+         << "," << terrain_target_last_prepare_failure_;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const auto &execution = terrain_swing_execution_[leg];
+        const auto &pending = terrain_swing_pending_[leg];
+        const double execution_phase = execution.valid &&
+                std::isfinite(execution.trajectory_start_time_s) &&
+                std::isfinite(execution.swing_duration_s) &&
+                execution.swing_duration_s > 1.0e-9
+            ? std::clamp(
+                  (state_tick_s - execution.trajectory_start_time_s) /
+                      execution.swing_duration_s,
+                  0.0, 1.0)
+            : 0.0;
+        const auto actual_foot = terrain_actual_world_feet_valid
+            ? terrain_actual_world_feet[leg] : go2::Vec3{};
+        csv_ << "," << (execution.valid ? 1 : 0)
+             << "," << (execution.in_flight ? 1 : 0)
+             << "," << (execution.endpoint_held ? 1 : 0)
+             << "," << (execution.measured_touchdown ? 1 : 0)
+             << "," << (execution.terrain_target_required ? 1 : 0)
+             << "," << (execution.terrain_height_change ? 1 : 0)
+             << "," << (execution.time_rebased_at_handoff ? 1 : 0)
+             << "," << execution.plan_id
+             << "," << execution.map_epoch
+             << "," << execution.swing_start_time_s
+             << "," << execution.trajectory_start_time_s
+             << "," << execution.nominal_touchdown_time_s
+             << "," << execution.touchdown_time_s
+             << "," << execution.swing_duration_s
+             << "," << execution.terrain_swing_duration_s
+             << "," << execution_phase
+             << "," << execution.start_world.x
+             << "," << execution.start_world.y
+             << "," << execution.start_world.z
+             << "," << execution.target_world.x
+             << "," << execution.target_world.y
+             << "," << execution.target_world.z
+             << "," << actual_foot.x
+             << "," << actual_foot.y
+             << "," << actual_foot.z
+             << "," << (pending.valid ? 1 : 0)
+             << "," << pending.plan_id
+             << "," << pending.touchdown_time_s
+             << "," << pending.target_world.x
+             << "," << pending.target_world.y
+             << "," << pending.target_world.z
+             << "," << terrain_target_last_prepare_failure_by_leg_[leg];
+    }
+    csv_
          << "," << (latest_motion_sensor_.have_support_foot_kinematics ? 1 : 0)
          << "," << latest_motion_sensor_.support_foot_count
          << "," << latest_motion_sensor_.support_foot_speed_mps
@@ -805,7 +1001,12 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.full_requested_acc_x_mps2
          << "," << wbc_shadow_diagnostics_.full_srbd_acc_x_mps2
          << "," << wbc_shadow_diagnostics_.full_id_qdd_x_mps2
-         << "," << wbc_shadow_diagnostics_.full_id_contact_force_x_n;
+         << "," << wbc_shadow_diagnostics_.full_id_contact_force_x_n
+         << "," << wbc_shadow_diagnostics_.measured_contact_mask
+         << "," << wbc_shadow_diagnostics_.scheduled_contact_mask
+         << "," << wbc_shadow_diagnostics_.terrain_planned_contact_mask
+         << "," << (wbc_shadow_diagnostics_.terrain_contact_coherent ? 1 : 0)
+         << "," << wbc_shadow_diagnostics_.terrain_plan_id;
 
     // SECTION: log-joint-cmds (cmd vs state per joint)
     for (int i = 0; i < kMotorCount; ++i)

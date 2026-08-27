@@ -185,6 +185,7 @@ namespace
       foot_body_ids_.fill(-1);
       foot_geom_ids_.fill(-1);
       geom_leg_ids_.assign(model->ngeom, -1);
+      terrain_geom_ids_.assign(model->ngeom, false);
       leg_root_body_ids_.fill(-1);
       obstacle_geom_id_ = mj_name2id(model, mjOBJ_GEOM, "reactive_obstacle");
 
@@ -223,6 +224,9 @@ namespace
 
       for (int geom_id = 0; geom_id < model->ngeom; ++geom_id)
       {
+        const char *geom_name = mj_id2name(model, mjOBJ_GEOM, geom_id);
+        terrain_geom_ids_[geom_id] = geom_name != nullptr &&
+            std::strncmp(geom_name, "phase2_step", 11) == 0;
         const int geom_body_id = model->geom_bodyid[geom_id];
         for (std::size_t leg = 0; leg < leg_root_body_ids_.size(); ++leg)
         {
@@ -277,7 +281,10 @@ namespace
                  << ",total_contact_moment_world_x_Nm,total_contact_moment_world_y_Nm,total_contact_moment_world_z_Nm";
         stream_ << ",reactive_obstacle_contact_count,reactive_obstacle_contact_force_N"
                  << ",reactive_obstacle_contact_normal_force_N"
-                 << ",reactive_obstacle_contact_other_geom_id";
+                 << ",reactive_obstacle_contact_other_geom_id"
+                 << ",phase2_terrain_foot_contact_mask"
+                 << ",phase2_terrain_nonfoot_contact_count"
+                 << ",phase2_terrain_nonfoot_contact_force_N";
         for (const char *leg : kLegs)
         {
           stream_ << "," << leg << "_sensor_force_site_x_N"
@@ -467,6 +474,47 @@ namespace
       }
     }
 
+    void ComputePhase2TerrainContact(
+        const mjModel *model, const mjData *data, int *foot_contact_mask,
+        int *nonfoot_contact_count, double *nonfoot_contact_force_N) const
+    {
+      *foot_contact_mask = 0;
+      *nonfoot_contact_count = 0;
+      *nonfoot_contact_force_N = 0.0;
+      mjtNum contact_force[6];
+      for (int contact_id = 0; contact_id < data->ncon; ++contact_id)
+      {
+        const mjContact &contact = data->contact[contact_id];
+        if (contact.exclude != 0 || contact.efc_address < 0 ||
+            contact.geom[0] < 0 || contact.geom[1] < 0)
+          continue;
+        const int terrain_side = terrain_geom_ids_[contact.geom[0]] ? 0
+            : (terrain_geom_ids_[contact.geom[1]] ? 1 : -1);
+        if (terrain_side < 0)
+          continue;
+        const int robot_geom = contact.geom[1 - terrain_side];
+        if (model->geom_bodyid[robot_geom] == 0)
+          continue;
+        bool foot_contact = false;
+        for (std::size_t leg = 0; leg < foot_geom_ids_.size(); ++leg)
+        {
+          if (robot_geom == foot_geom_ids_[leg])
+          {
+            *foot_contact_mask |= 1 << static_cast<int>(leg);
+            foot_contact = true;
+            break;
+          }
+        }
+        if (foot_contact)
+          continue;
+        mj_contactForce(model, data, contact_id, contact_force);
+        ++(*nonfoot_contact_count);
+        *nonfoot_contact_force_N += std::hypot(
+            contact_force[0],
+            std::hypot(contact_force[1], contact_force[2]));
+      }
+    }
+
     void Log(const mjModel *model, mjData *data)
     {
       if (!ready_ || model != model_ || !stream_)
@@ -535,6 +583,12 @@ namespace
                              &obstacle_contact_force_N,
                              &obstacle_contact_normal_force_N,
                              &obstacle_contact_other_geom_id);
+      int terrain_foot_contact_mask = 0;
+      int terrain_nonfoot_contact_count = 0;
+      double terrain_nonfoot_contact_force_N = 0.0;
+      ComputePhase2TerrainContact(
+          model, data, &terrain_foot_contact_mask,
+          &terrain_nonfoot_contact_count, &terrain_nonfoot_contact_force_N);
       stream_ << std::setprecision(12) << data->time
               << "," << step_index_
               << "," << total_mass_kg_
@@ -577,7 +631,10 @@ namespace
               << "," << obstacle_contact_count
               << "," << obstacle_contact_force_N
               << "," << obstacle_contact_normal_force_N
-              << "," << obstacle_contact_other_geom_id;
+              << "," << obstacle_contact_other_geom_id
+              << "," << terrain_foot_contact_mask
+              << "," << terrain_nonfoot_contact_count
+              << "," << terrain_nonfoot_contact_force_N;
 
       for (std::size_t i = 0; i < kLegs.size(); ++i)
       {
@@ -705,6 +762,7 @@ namespace
     std::array<int, 4> foot_geom_ids_ = {-1, -1, -1, -1};
     std::array<int, 4> leg_root_body_ids_ = {-1, -1, -1, -1};
     std::vector<int> geom_leg_ids_;
+    std::vector<bool> terrain_geom_ids_;
     std::ofstream stream_;
     double total_mass_kg_ = 0.0;
     std::uint64_t step_index_ = 0;

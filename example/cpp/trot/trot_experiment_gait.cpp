@@ -1687,12 +1687,22 @@ bool TrotExperiment::BuildGaitTargets(
                 double swing_start_time_s,
                 bool current_leg_in_swing,
                 TerrainSwingExecution &execution) {
+                ++terrain_target_prepare_attempt_count_;
+                const auto reject_prepare = [&](int failure) {
+                    execution = {};
+                    ++terrain_target_prepare_rejection_count_;
+                    terrain_target_last_prepare_failure_ = failure;
+                    if (leg < go2::kLegCount)
+                        terrain_target_last_prepare_failure_by_leg_[leg] =
+                            failure;
+                    return false;
+                };
                 if (!std::isfinite(swing_start_time_s) ||
                     !std::isfinite(planned.touchdown_time_s) ||
                     !std::isfinite(planned.position_world.x) ||
                     !std::isfinite(planned.position_world.y) ||
                     !std::isfinite(planned.position_world.z))
-                    return false;
+                    return reject_prepare(1);
                 go2::Vec3 start_world{};
                 bool start_valid = false;
                 bool time_rebased_at_handoff = false;
@@ -1757,7 +1767,7 @@ bool TrotExperiment::BuildGaitTargets(
                     }
                 }
                 if (!start_valid)
-                    return false;
+                    return reject_prepare(2);
                 execution = {};
                 execution.valid = true;
                 execution.plan_id = active_terrain_plan->plan_id;
@@ -1795,8 +1805,7 @@ bool TrotExperiment::BuildGaitTargets(
                         available_swing_duration_s +
                             terrain_time_tolerance_s)
                 {
-                    execution = {};
-                    return false;
+                    return reject_prepare(3);
                 }
                 // The planner committed this absolute touchdown time.  Do
                 // not replace it with a consumer-side duration extension:
@@ -1828,10 +1837,7 @@ bool TrotExperiment::BuildGaitTargets(
                 execution.terrain_target_required =
                     execution.terrain_height_change;
                 if (!execution.terrain_target_required)
-                {
-                    execution = {};
-                    return false;
-                }
+                    return reject_prepare(4);
                 // The planner's reachability test is made at its predicted
                 // touchdown body pose.  A committed snapshot can outlive a
                 // body-height/pose change, however; applying its world
@@ -1848,11 +1854,11 @@ bool TrotExperiment::BuildGaitTargets(
                     go2::LegJointPositions joints;
                     if (!go2::LegInverseKinematics(
                             static_cast<go2::Leg>(leg), target_base, joints))
-                    {
-                        execution = {};
-                        return false;
-                    }
+                        return reject_prepare(5);
                 }
+                ++terrain_target_prepared_count_;
+                terrain_target_last_prepare_failure_ = 0;
+                terrain_target_last_prepare_failure_by_leg_[leg] = 0;
                 return true;
             };
 
@@ -2071,6 +2077,9 @@ bool TrotExperiment::BuildGaitTargets(
                                 terrain_time_tolerance_s)
                     {
                         execution = {};
+                        ++terrain_target_prepare_rejection_count_;
+                        terrain_target_last_prepare_failure_ = 6;
+                        terrain_target_last_prepare_failure_by_leg_[leg] = 6;
                         continue;
                     }
                     execution.terrain_swing_duration_s =
