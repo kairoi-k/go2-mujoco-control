@@ -19,9 +19,9 @@ namespace go2_terrain
 struct TerrainPlannerConfig
 {
     TerrainFeasibilityConfig feasibility{};
-    // Keep enough future knots for the asynchronous planner-to-WBC latency
-    // while preserving a bounded interface.
-    std::size_t horizon_knots = kTerrainContactMaxKnots;
+    // Bound hard-feasibility optimization independently of the atomic
+    // execution tail stored for delayed SRBD-MPC consumption.
+    std::size_t horizon_knots = 24;
     // Match the Phase 1 running-trot MPC sample time at the default period.
     // The planner remains configurable, but must not invent a second timing
     // base for the contact/foothold horizon.
@@ -752,6 +752,13 @@ public:
             ExtendValidityThroughTouchdowns(result.plan);
         }
         if (!SupportFeasible(coherent_input, result))
+        {
+            result.plan.status = TerrainPlanStatus::kRejected;
+            result.plan.failure = TerrainPlanFailure::kSupportInfeasible;
+            result.plan.solver.failure = result.plan.failure;
+            return Finish(input, std::move(result), start);
+        }
+        if (!ExtendExecutionSupportTail(result.plan))
         {
             result.plan.status = TerrainPlanStatus::kRejected;
             result.plan.failure = TerrainPlanFailure::kSupportInfeasible;
@@ -1534,6 +1541,70 @@ private:
         }
         if (std::isfinite(execution_until_s))
             plan.valid_until_s = execution_until_s;
+    }
+
+    bool ExtendExecutionSupportTail(TerrainMotionPlan &plan) const
+    {
+        if (plan.horizon_knots == 0 ||
+            plan.horizon_knots > kTerrainPlanMaxKnots)
+            return false;
+        if (plan.horizon_knots == kTerrainPlanMaxKnots)
+            return true;
+
+        // The optimizer proves the finite touchdown horizon. Consumers also
+        // need a bounded support set while that transaction remains pinned.
+        // Repeat the last already-proven support knot without enlarging the
+        // combinatorial search or inventing a new contact sequence.
+        std::size_t anchor = plan.horizon_knots;
+        for (std::size_t k = plan.horizon_knots; k-- > 0;)
+        {
+            std::size_t contacts = 0;
+            bool complete = true;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                if (!plan.contact_schedule.planned_contact[k][leg])
+                    continue;
+                ++contacts;
+                complete = complete &&
+                    plan.predicted_foothold[k][leg].valid;
+            }
+            if (contacts >= 2 && complete)
+            {
+                anchor = k;
+                break;
+            }
+        }
+        if (anchor >= plan.horizon_knots)
+            return false;
+
+        for (std::size_t k = plan.horizon_knots;
+             k < kTerrainPlanMaxKnots; ++k)
+        {
+            plan.contact_schedule.planned_contact[k] =
+                plan.contact_schedule.planned_contact[anchor];
+            plan.body_reference[k] = plan.body_reference[anchor];
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                if (!plan.contact_schedule.planned_contact[k][leg])
+                {
+                    plan.predicted_foothold[k][leg] = {};
+                    continue;
+                }
+                plan.predicted_foothold[k][leg] =
+                    plan.predicted_foothold[anchor][leg];
+                plan.predicted_foothold[k][leg].touchdown = false;
+                plan.predicted_foothold[k][leg].touchdown_time_s =
+                    plan.state_stamp_s +
+                    static_cast<double>(k) * config_.knot_dt_s;
+            }
+        }
+        plan.horizon_knots = kTerrainPlanMaxKnots;
+        plan.valid_until_s = std::max(
+            plan.valid_until_s,
+            plan.state_stamp_s +
+                static_cast<double>(kTerrainPlanMaxKnots - 1) *
+                    config_.knot_dt_s);
+        return true;
     }
 
     void PopulatePlan(const TerrainPlannerInput &input,

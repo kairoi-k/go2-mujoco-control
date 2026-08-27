@@ -296,8 +296,13 @@ int main()
         forward_step_input, 16);
     std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
         execution_indices{};
-    if (!Check(execution_plan.publishable && execution_plan.plan.valid(),
+    if (!Check(execution_planner.config().horizon_knots == 24,
+               "execution tail enlarged the optimization horizon") ||
+        !Check(execution_plan.publishable && execution_plan.plan.valid(),
                "execution-lifetime plan was not publishable") ||
+        !Check(execution_plan.plan.horizon_knots ==
+                   go2_terrain::kTerrainPlanMaxKnots,
+               "execution support tail was not stored") ||
         !Check(go2_terrain::BuildTerrainPlanHorizonIndices(
                    execution_plan.plan,
                    execution_plan.plan.state_stamp_s + 0.10,
@@ -429,9 +434,9 @@ int main()
                    plan_indices[0] == 3 && plan_indices[11] == 14,
                "extended terrain horizon was not time-aligned") ||
         !Check(!go2_terrain::BuildTerrainPlanHorizonIndices(
-                   flight_plan.plan, 10.30, 0.02, 0.02, 12,
+                   flight_plan.plan, 10.90, 0.02, 0.02, 12,
                    plan_indices),
-               "expired terrain plan was not rejected"))
+               "plan beyond the bounded support tail was not rejected"))
         return 1;
 
     auto no_support_input = flight_input;
