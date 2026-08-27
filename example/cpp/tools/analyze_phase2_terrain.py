@@ -220,6 +220,12 @@ def main():
         "terrain_execution_plan_id", "terrain_execution_map_epoch",
         "terrain_execution_plan_usable",
         "terrain_execution_planned_contact_mask", "terrain_transfer_hold_active",
+        "terrain_surface_transition_active",
+        "terrain_surface_transition_required_mask",
+        "terrain_surface_transition_committed_mask",
+        "terrain_surface_transition_completions",
+        "terrain_surface_transition_last_required_mask",
+        "terrain_surface_transition_last_committed_mask",
         "terrain_target_prepare_attempts", "terrain_target_prepared",
         "terrain_target_prepare_rejections", "wbc_measured_contact_mask",
         "wbc_scheduled_contact_mask", "wbc_terrain_planned_contact_mask",
@@ -289,7 +295,8 @@ def main():
     previous_mpc_update = -1
     for row in execution_rows:
         update = int(number(row, "wbc_mpc_update_count", -1))
-        if (number(row, "terrain_transfer_hold_active") > 0.5 and
+        if ((number(row, "terrain_transfer_hold_active") > 0.5 or
+             number(row, "terrain_surface_transition_active") > 0.5) and
                 update > previous_mpc_update):
             transfer_mpc_rows.append(row)
         previous_mpc_update = max(previous_mpc_update, update)
@@ -362,6 +369,14 @@ def main():
         "target_prepare_attempts": max(number(row, "terrain_target_prepare_attempts") for row in data),
         "target_prepared": max(number(row, "terrain_target_prepared") for row in data),
         "target_prepare_rejections": max(number(row, "terrain_target_prepare_rejections") for row in data),
+        "surface_transition_completions": max(number(
+            row, "terrain_surface_transition_completions") for row in data),
+        "surface_transition_last_required_mask": int(max(number(
+            row, "terrain_surface_transition_last_required_mask") for row in data)),
+        "surface_transition_last_committed_mask": int(max(number(
+            row, "terrain_surface_transition_last_committed_mask") for row in data)),
+        "surface_transition_max_committed_contacts": max(mask_population(number(
+            row, "terrain_surface_transition_committed_mask")) for row in data),
         "required_plan_rejection_rows": len(required_rejection_rows),
         "valid_plan_rows": len(valid_plans),
         "execution_rows": len(execution_rows),
@@ -452,6 +467,11 @@ def main():
         "plan_pipeline": metrics["plan_published"] > 0 and metrics["plan_consumed"] > 0 and
                          metrics["gait_target_overrides"] > 0 and
                          metrics["mpc_plan_consumed"] > 0 and metrics["target_prepared"] > 0,
+        "surface_transition_transaction":
+            metrics["surface_transition_completions"] > 0 and
+            metrics["surface_transition_last_required_mask"] > 0 and
+            metrics["surface_transition_last_required_mask"] ==
+                metrics["surface_transition_last_committed_mask"],
         "plan_geometry": bool(valid_plans) and min(plan_edge) >= 0.040 and
                          min(plan_uncertainty_edge) >= 0.0 and
                          max(plan_slope) <= math.radians(20.0) and

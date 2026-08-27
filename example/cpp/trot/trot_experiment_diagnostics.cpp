@@ -73,6 +73,12 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_execution_plan_valid_until_s,terrain_execution_plan_age_s"
          << ",terrain_execution_plan_usable,terrain_execution_planned_contact_mask"
          << ",terrain_transfer_hold_active,terrain_transfer_hold_mask"
+         << ",terrain_surface_transition_active"
+         << ",terrain_surface_transition_required_mask"
+         << ",terrain_surface_transition_committed_mask"
+         << ",terrain_surface_transition_completions"
+         << ",terrain_surface_transition_last_required_mask"
+         << ",terrain_surface_transition_last_committed_mask"
          << ",terrain_target_prepare_attempts,terrain_target_prepared"
          << ",terrain_target_prepare_rejections,terrain_target_last_prepare_failure";
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -670,9 +676,19 @@ void TrotExperiment::LogSample(
         }
     }
     int terrain_transfer_hold_mask = 0;
+    int terrain_surface_transition_required_mask = 0;
+    int terrain_surface_transition_committed_mask = 0;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
         if (terrain_transfer_hold_contact_[leg])
             terrain_transfer_hold_mask |= 1 << static_cast<int>(leg);
+        if (terrain_surface_transition_required_[leg])
+            terrain_surface_transition_required_mask |=
+                1 << static_cast<int>(leg);
+        if (terrain_surface_transition_committed_[leg])
+            terrain_surface_transition_committed_mask |=
+                1 << static_cast<int>(leg);
+    }
     std::array<go2::Vec3, go2::kLegCount> terrain_actual_world_feet{};
     bool terrain_actual_world_feet_valid = false;
     if (have_state && have_high_state)
@@ -872,6 +888,12 @@ void TrotExperiment::LogSample(
          << "," << terrain_execution_planned_contact_mask
          << "," << (terrain_transfer_hold_active_ ? 1 : 0)
          << "," << terrain_transfer_hold_mask
+         << "," << (terrain_surface_transition_active_ ? 1 : 0)
+         << "," << terrain_surface_transition_required_mask
+         << "," << terrain_surface_transition_committed_mask
+         << "," << terrain_surface_transition_completions_
+         << "," << terrain_surface_transition_last_required_mask_
+         << "," << terrain_surface_transition_last_committed_mask_
          << "," << terrain_target_prepare_attempt_count_
          << "," << terrain_target_prepared_count_
          << "," << terrain_target_prepare_rejection_count_

@@ -423,6 +423,10 @@ bool TrotExperiment::BuildGaitTargets(
         terrain_swing_pending_ = {};
         terrain_transfer_hold_contact_.fill(false);
         terrain_transfer_hold_active_ = false;
+        terrain_surface_transition_active_ = false;
+        terrain_surface_transition_required_.fill(false);
+        terrain_surface_transition_committed_.fill(false);
+        terrain_surface_transition_source_valid_.fill(false);
     }
     else if (!terrain_execution_plan_ ||
              (!terrain_swing_transaction_active &&
@@ -1657,6 +1661,15 @@ bool TrotExperiment::BuildGaitTargets(
         const auto terrain_height_change_for =
             [&](std::size_t leg,
                 const go2_terrain::TerrainFootholdPrediction &planned) {
+                if (terrain_surface_transition_active_ &&
+                    terrain_surface_transition_required_[leg] &&
+                    !terrain_surface_transition_committed_[leg] &&
+                    terrain_surface_transition_source_valid_[leg])
+                {
+                    return planned.position_world.z -
+                            terrain_surface_transition_source_world_z_[leg] >
+                        terrain_surface_transition_deadband_m_;
+                }
                 const bool measured_leg_surface_valid =
                     active_terrain_plan->current_support_surface_valid[leg] &&
                     std::isfinite(active_terrain_plan->
@@ -1679,6 +1692,47 @@ bool TrotExperiment::BuildGaitTargets(
                         foot_patch_radius_m);
                 return terrain_surface_reference_valid &&
                     terrain_surface_delta > terrain_height_deadband;
+            };
+
+        const auto begin_terrain_surface_transition =
+            [&](double target_world_z, double uncertainty_m) {
+                if (terrain_surface_transition_active_)
+                    return;
+                terrain_surface_transition_active_ = true;
+                terrain_surface_transition_target_world_z_ = target_world_z;
+                terrain_surface_transition_deadband_m_ = std::max(
+                    2.0 * std::max(0.0, uncertainty_m),
+                    0.5 * terrain_planner_.config().feasibility.
+                        foot_patch_radius_m);
+                terrain_surface_transition_required_.fill(true);
+                terrain_surface_transition_committed_.fill(false);
+                terrain_surface_transition_source_valid_.fill(false);
+                for (std::size_t transition_leg = 0;
+                     transition_leg < go2::kLegCount; ++transition_leg)
+                {
+                    double source_world_z = support_surface_z;
+                    bool source_valid = support_surface_count > 0;
+                    if (active_terrain_plan->current_support_surface_valid[
+                            transition_leg] &&
+                        std::isfinite(active_terrain_plan->
+                            current_support_surface_height_world[
+                                transition_leg]))
+                    {
+                        source_world_z = active_terrain_plan->
+                            current_support_surface_height_world[
+                                transition_leg];
+                        source_valid = true;
+                    }
+                    terrain_surface_transition_source_valid_[transition_leg] =
+                        source_valid;
+                    terrain_surface_transition_source_world_z_[transition_leg] =
+                        source_world_z;
+                    if (source_valid &&
+                        std::abs(source_world_z - target_world_z) <=
+                            terrain_surface_transition_deadband_m_)
+                        terrain_surface_transition_required_[transition_leg] =
+                            false;
+                }
             };
 
         const auto prepare_terrain_target =
@@ -1838,6 +1892,8 @@ bool TrotExperiment::BuildGaitTargets(
                     execution.terrain_height_change;
                 if (!execution.terrain_target_required)
                     return reject_prepare(4);
+                begin_terrain_surface_transition(
+                    execution.target_world.z, planned.uncertainty_m);
                 // The planner's reachability test is made at its predicted
                 // touchdown body pose.  A committed snapshot can outlive a
                 // body-height/pose change, however; applying its world
@@ -1942,6 +1998,13 @@ bool TrotExperiment::BuildGaitTargets(
                     execution.touchdown_time_s;
             const bool effective_leg_in_swing =
                 leg_in_swing || terrain_extended_swing;
+            if (terrain_surface_transition_active_ &&
+                terrain_surface_transition_committed_[leg] &&
+                execution.valid && execution.measured_touchdown)
+            {
+                apply_world_target(leg, execution.target_world, go2::Vec3{});
+                continue;
+            }
             if (terrain_transfer_hold_active_ &&
                 terrain_transfer_hold_contact_[leg] &&
                 have_actual_world_feet)

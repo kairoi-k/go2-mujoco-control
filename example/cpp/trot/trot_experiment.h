@@ -488,6 +488,25 @@ private:
     // a prescribed leg order or a scene-specific transfer script.
     std::array<bool, go2::kLegCount> terrain_transfer_hold_contact_{};
     bool terrain_transfer_hold_active_ = false;
+    // A surface transition spans every foot whose observed support surface
+    // differs from the first measured terrain endpoint.  Completed endpoints
+    // remain sensor-confirmed anchors while the nominal diagonal partner is
+    // allowed to consume the next planner snapshot.  This is an order-free
+    // transaction assembled from live surfaces, not a prescribed leg script.
+    bool terrain_surface_transition_active_ = false;
+    double terrain_surface_transition_target_world_z_ = 0.0;
+    double terrain_surface_transition_deadband_m_ = 0.0;
+    std::array<bool, go2::kLegCount>
+        terrain_surface_transition_required_{};
+    std::array<bool, go2::kLegCount>
+        terrain_surface_transition_committed_{};
+    std::array<bool, go2::kLegCount>
+        terrain_surface_transition_source_valid_{};
+    std::array<double, go2::kLegCount>
+        terrain_surface_transition_source_world_z_{};
+    std::uint64_t terrain_surface_transition_completions_ = 0;
+    int terrain_surface_transition_last_required_mask_ = 0;
+    int terrain_surface_transition_last_committed_mask_ = 0;
     // One accepted immutable snapshot is shared by gait, SRBD-MPC and WBC
     // for the duration of an in-flight terrain swing.  Planner refreshes may
     // replace the latest store value, but must not retarget that swing.

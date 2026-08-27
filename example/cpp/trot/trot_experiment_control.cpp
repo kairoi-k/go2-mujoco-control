@@ -177,7 +177,8 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         {
             const double leg_phase = go2_control::GaitLegPhase(
                 leg, snapshot.gait_phase, params_.gait_pattern);
-            if (std::isfinite(leg_phase) && leg_phase >= duty)
+            if (std::isfinite(leg_phase) && leg_phase >= duty &&
+                !terrain_surface_transition_committed_[leg])
                 snapshot.measured_contact[leg] = false;
         }
     }
@@ -981,6 +982,14 @@ bool TrotExperiment::PhaseStartGait(
     touchdown_waiting_contact_.fill(false);
     terrain_transfer_hold_contact_.fill(false);
     terrain_transfer_hold_active_ = false;
+    terrain_surface_transition_active_ = false;
+    terrain_surface_transition_required_.fill(false);
+    terrain_surface_transition_committed_.fill(false);
+    terrain_surface_transition_source_valid_.fill(false);
+    terrain_surface_transition_source_world_z_.fill(0.0);
+    terrain_surface_transition_completions_ = 0;
+    terrain_surface_transition_last_required_mask_ = 0;
+    terrain_surface_transition_last_committed_mask_ = 0;
     previous_support_foot_valid_.fill(false);
     have_leg_phase_history_ = false;
     std::cout << "Starting diagonal trot: period="

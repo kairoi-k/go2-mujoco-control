@@ -296,7 +296,12 @@ void TrotExperiment::UpdateWbcFull(
         execution.wbc_at_endpoint = at_endpoint;
         execution.wbc_measured_contact = measured_contact[leg];
         if (measured_contact[leg] && at_endpoint)
+        {
             execution.measured_touchdown = true;
+            if (terrain_surface_transition_active_ &&
+                terrain_surface_transition_required_[leg])
+                terrain_surface_transition_committed_[leg] = true;
+        }
         else
             terrain_transfer_complete = false;
     }
@@ -345,6 +350,37 @@ void TrotExperiment::UpdateWbcFull(
             }
             terrain_transfer_hold_contact_.fill(false);
             terrain_transfer_hold_active_ = false;
+        }
+    }
+
+    bool terrain_surface_transition_complete =
+        terrain_surface_transition_active_;
+    if (terrain_surface_transition_active_)
+    {
+        int required_mask = 0;
+        int committed_mask = 0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (terrain_surface_transition_required_[leg])
+                required_mask |= 1 << static_cast<int>(leg);
+            if (terrain_surface_transition_committed_[leg])
+            {
+                committed_mask |= 1 << static_cast<int>(leg);
+                qp_contact[leg] = true;
+            }
+            if (terrain_surface_transition_required_[leg] &&
+                !terrain_surface_transition_committed_[leg])
+                terrain_surface_transition_complete = false;
+        }
+        if (terrain_surface_transition_complete)
+        {
+            terrain_surface_transition_last_required_mask_ = required_mask;
+            terrain_surface_transition_last_committed_mask_ = committed_mask;
+            ++terrain_surface_transition_completions_;
+            terrain_surface_transition_active_ = false;
+            terrain_surface_transition_required_.fill(false);
+            terrain_surface_transition_committed_.fill(false);
+            terrain_surface_transition_source_valid_.fill(false);
         }
     }
 
@@ -593,7 +629,8 @@ void TrotExperiment::UpdateWbcFull(
                     mpc_params.horizon, mpc_params.dt_s, mpc_in.contact,
                     params_.gait_pattern);
                 if ((high_speed_contact_merge_mode > 0 ||
-                     terrain_transfer_hold_active_) &&
+                     terrain_transfer_hold_active_ ||
+                     terrain_surface_transition_active_) &&
                     mpc_params.horizon > 0)
                     mpc_in.contact[0] = qp_contact;
             }
@@ -616,6 +653,7 @@ void TrotExperiment::UpdateWbcFull(
             const WorldPose current_pose = ComputeWorldPose(
                 state_snapshot, high_state_snapshot);
             std::array<bool, go2::kLegCount> active_transfer_target{};
+            std::array<bool, go2::kLegCount> effective_transfer_hold{};
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {
                 const auto &execution = terrain_swing_execution_[leg];
@@ -623,6 +661,15 @@ void TrotExperiment::UpdateWbcFull(
                     execution.terrain_target_required &&
                     !execution.measured_touchdown &&
                     (execution.in_flight || execution.endpoint_held);
+                effective_transfer_hold[leg] =
+                    terrain_surface_transition_active_ &&
+                    terrain_surface_transition_committed_[leg];
+                if (terrain_transfer_hold_active_ &&
+                    terrain_transfer_has_target &&
+                    !terrain_transfer_complete)
+                    effective_transfer_hold[leg] =
+                        effective_transfer_hold[leg] ||
+                        terrain_transfer_hold_contact_[leg];
             }
             for (int k = 0; k < mpc_params.horizon; ++k)
             {
@@ -630,9 +677,10 @@ void TrotExperiment::UpdateWbcFull(
                     terrain_plan_knot[static_cast<std::size_t>(k)];
                 mpc_in.contact[k] = terrain_plan->contact_schedule.planned_contact[
                     plan_knot];
-                if (terrain_transfer_hold_active_ &&
-                    terrain_transfer_has_target &&
-                    !terrain_transfer_complete)
+                if (terrain_surface_transition_active_ ||
+                    (terrain_transfer_hold_active_ &&
+                     terrain_transfer_has_target &&
+                     !terrain_transfer_complete))
                 {
                     // The nominal plan is a prediction.  While a terrain
                     // target is still seeking measured touchdown, keep the
@@ -644,10 +692,11 @@ void TrotExperiment::UpdateWbcFull(
                     mpc_in.contact[k] =
                         go2_terrain::TerrainTransferPreviewContact(
                             mpc_in.contact[k],
-                            terrain_transfer_hold_contact_,
+                            effective_transfer_hold,
                             active_transfer_target);
                 }
-                if (k == 0 && terrain_transfer_hold_active_)
+                if (k == 0 && (terrain_transfer_hold_active_ ||
+                               terrain_surface_transition_active_))
                     mpc_in.contact[k] = qp_contact;
                 mpc_in.reference_horizon[static_cast<std::size_t>(k)] =
                     mpc_in.reference;
@@ -674,10 +723,7 @@ void TrotExperiment::UpdateWbcFull(
                     {
                         const auto &execution =
                             terrain_swing_execution_[leg];
-                        if (terrain_transfer_hold_active_ &&
-                            terrain_transfer_has_target &&
-                            !terrain_transfer_complete &&
-                            terrain_transfer_hold_contact_[leg])
+                        if (effective_transfer_hold[leg])
                         {
                             // A held support foot may already be past its
                             // nominal schedule boundary.  Its live
@@ -709,8 +755,7 @@ void TrotExperiment::UpdateWbcFull(
                                 static_cast<std::size_t>(k)][leg] = true;
                             continue;
                         }
-                        if (k == 0 && terrain_transfer_hold_active_ &&
-                            terrain_transfer_hold_contact_[leg])
+                        if (k == 0 && effective_transfer_hold[leg])
                         {
                             mpc_in.foot_from_com_world_horizon[
                                 static_cast<std::size_t>(k)][leg] =
