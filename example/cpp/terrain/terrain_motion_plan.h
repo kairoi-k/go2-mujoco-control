@@ -226,6 +226,9 @@ struct TerrainMotionPlan
                      !std::isfinite(foot.swing_start_position_world.y) ||
                      !std::isfinite(foot.swing_start_position_world.z)))
                     return false;
+                if (foot.touchdown &&
+                    foot.touchdown_time_s > valid_until_s + 1.0e-6)
+                    return false;
             }
         }
         return true;

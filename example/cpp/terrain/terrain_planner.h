@@ -702,10 +702,12 @@ public:
         }
         if (retimed)
             PopulatePlan(coherent_input, result);
+        ExtendValidityThroughTouchdowns(result.plan);
         if (!SupportFeasible(coherent_input, result))
         {
             SeedTouchdownSelections(coherent_input, result);
             PopulatePlan(coherent_input, result);
+            ExtendValidityThroughTouchdowns(result.plan);
         }
         if (!SupportFeasible(coherent_input, result))
         {
@@ -714,6 +716,9 @@ public:
             result.plan.solver.failure = result.plan.failure;
             return Finish(input, std::move(result), start);
         }
+        if (result.plan.velocity_request.valid)
+            result.plan.velocity_request.valid_until_s =
+                result.plan.valid_until_s;
         result.plan.status = TerrainPlanStatus::kValid;
         result.plan.fallback_to_phase1 = false;
         result.plan.solver.success = true;
@@ -1460,6 +1465,33 @@ private:
             result.touchdown_knot_by_leg[leg] = retimed_first;
         }
         return true;
+    }
+
+    void ExtendValidityThroughTouchdowns(TerrainMotionPlan &plan) const
+    {
+        // `valid_until_s` is the lifetime of the atomic execution contract,
+        // not merely the freshness window of the planner snapshot.  A
+        // terrain swing may be retimed beyond the nominal 150 ms replanning
+        // period; expiring the plan before its committed touchdown makes the
+        // gait consumer silently discard the foothold while MPC/WBC still see
+        // the old schedule.  Keep the plan alive through every committed
+        // touchdown, with one knot of handoff margin.
+        double execution_until_s = plan.valid_until_s;
+        for (std::size_t k = 0; k < plan.horizon_knots; ++k)
+        {
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                const auto &foot = plan.predicted_foothold[k][leg];
+                if (!foot.valid || !foot.touchdown ||
+                    !std::isfinite(foot.touchdown_time_s))
+                    continue;
+                execution_until_s = std::max(
+                    execution_until_s,
+                    foot.touchdown_time_s + config_.knot_dt_s);
+            }
+        }
+        if (std::isfinite(execution_until_s))
+            plan.valid_until_s = execution_until_s;
     }
 
     void PopulatePlan(const TerrainPlannerInput &input,
