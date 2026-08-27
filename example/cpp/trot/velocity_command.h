@@ -188,15 +188,35 @@ inline ContinuousVelocityGaitSchedule ScheduleContinuousVelocityGait(
 {
     const double speed = std::clamp(
         std::isfinite(velocity_mps) ? velocity_mps : 0.0, 0.0, 3.20);
-    const double normalized = std::clamp(speed / 3.0, 0.0, 1.0);
-    const double blend = normalized * normalized * (3.0 - 2.0 * normalized);
+    // The running-trot timing is validated at the high-speed end, but it is
+    // not a viable low-speed support schedule: at 0.30 m/s it gives a 5 mm
+    // swing lift and only 44% duty.  Keep the runtime v_cmd path continuous
+    // while using the already-proven support-rich probe schedule at low
+    // speed.  This changes timing parameters only; topology and the
+    // acceleration/jerk shaper remain untouched.
+    constexpr double kLowSpeedPeriodS = 0.50;
+    constexpr double kLowSpeedDuty = 0.75;
+    constexpr double kLowSpeedFootLiftM = 0.035;
+    constexpr double kHighSpeedPeriodS = 0.14;
+    constexpr double kHighSpeedDuty = 0.44;
+    constexpr double kHighSpeedFootLiftM = 0.200;
+    constexpr double kTransitionStartMps = 0.40;
+    constexpr double kTransitionEndMps = 1.00;
+    const double transition = std::clamp(
+        (speed - kTransitionStartMps) /
+            (kTransitionEndMps - kTransitionStartMps),
+        0.0, 1.0);
+    const double blend = transition * transition *
+        (3.0 - 2.0 * transition);
     ContinuousVelocityGaitSchedule schedule;
-    // Preserve the validated running-trot contact timing across commands.
-    schedule.period_s = 0.14;
-    schedule.duty_factor = 0.44;
+    schedule.period_s = kLowSpeedPeriodS + blend *
+        (kHighSpeedPeriodS - kLowSpeedPeriodS);
+    schedule.duty_factor = kLowSpeedDuty + blend *
+        (kHighSpeedDuty - kLowSpeedDuty);
     schedule.step_length_m = speed * schedule.period_s /
         std::max(0.20, 2.0 * schedule.duty_factor);
-    schedule.foot_lift_m = 0.200 * blend;
+    schedule.foot_lift_m = kLowSpeedFootLiftM + blend *
+        (kHighSpeedFootLiftM - kLowSpeedFootLiftM);
     return schedule;
 }
 }  // namespace go2_trot
