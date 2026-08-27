@@ -1773,39 +1773,16 @@ bool TrotExperiment::BuildGaitTargets(
                 execution.time_rebased_at_handoff = time_rebased_at_handoff;
                 execution.terrain_height_change =
                     terrain_height_change_for(leg, planned);
-                const go2::Vec3 nominal_target_world =
-                    go2_control::BodyToWorld(
-                        terrain_pose.base, terrain_pose.quaternion, feet[leg]);
-                const bool nominal_target_valid =
-                    std::isfinite(nominal_target_world.x) &&
-                    std::isfinite(nominal_target_world.y) &&
-                    std::isfinite(nominal_target_world.z);
-                const double target_deadband_m = std::max(
-                    2.0 * std::max(0.0, planned.uncertainty_m),
-                    0.5 * terrain_planner_.config().feasibility.
-                        foot_patch_radius_m);
-                const double target_xy_delta_m = nominal_target_valid
-                    ? std::hypot(
-                          planned.position_world.x - nominal_target_world.x,
-                          planned.position_world.y - nominal_target_world.y)
-                    : 0.0;
                 // A safe-region center is a sensor-grid representative, not
-                // automatically a terrain-induced foothold displacement.  On
-                // flat ground the 5 cm map quantization routinely moves the
-                // center by less than the region footprint; applying that
-                // offset would hijack the Phase 1 gait and make the robot
-                // shuffle around without approaching the terrain event.
-                const double xy_deadband_m = std::max({
-                    terrain_planner_.config().feasibility.region_half_extent_m,
-                    0.5 * terrain_planner_.config().candidate_spacing_m,
-                    0.010});
-                const bool terrain_foothold_differs = nominal_target_valid &&
-                    (std::abs(planned.position_world.z -
-                              nominal_target_world.z) > target_deadband_m ||
-                     target_xy_delta_m > xy_deadband_m);
+                // automatically a terrain-induced foothold displacement.  A
+                // plan may carry future flat-surface representatives for
+                // MPC/support prediction, but only an observed surface-height
+                // transition may retarget the actuation trajectory.  This
+                // keeps map quantization from hijacking the Phase 1 gait and
+                // prevents an early world endpoint from becoming an
+                // unreachable held stance before the riser.
                 execution.terrain_target_required =
-                    execution.terrain_height_change ||
-                    terrain_foothold_differs;
+                    execution.terrain_height_change;
                 if (!execution.terrain_target_required)
                 {
                     execution = {};
