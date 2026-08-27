@@ -1788,6 +1788,27 @@ bool TrotExperiment::BuildGaitTargets(
                     execution = {};
                     return false;
                 }
+                // The planner's reachability test is made at its predicted
+                // touchdown body pose.  A committed snapshot can outlive a
+                // body-height/pose change, however; applying its world
+                // endpoint against the current pose can make the following
+                // AllLegInverseKinematicsClamped call fail.  Revalidate an
+                // in-flight endpoint in the measured current frame and let
+                // the nominal gait continue if the old transaction no longer
+                // has a realizable endpoint.
+                if (current_leg_in_swing)
+                {
+                    const go2::Vec3 target_base = go2_control::WorldToBody(
+                        terrain_pose.base, terrain_pose.quaternion,
+                        planned.position_world);
+                    go2::LegJointPositions joints;
+                    if (!go2::LegInverseKinematics(
+                            static_cast<go2::Leg>(leg), target_base, joints))
+                    {
+                        execution = {};
+                        return false;
+                    }
+                }
                 return true;
             };
 
