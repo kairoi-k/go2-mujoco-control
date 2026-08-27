@@ -919,9 +919,16 @@ private:
                     return false;
             }
 
+            // Candidate combinations are scored against the same future
+            // body reference later written into the atomic plan.  Using the
+            // current base here could select a combination that only passes
+            // before the body advances, then gets rejected by SupportFeasible
+            // at the actual horizon knot.
+            const go2::Vec3 support_body = PredictBasePosition(
+                input.base_position_world, input.base_velocity_world,
+                static_cast<double>(k) * config_.knot_dt_s);
             const double margin = SupportMargin2D(
-                feet, contacts, input.base_position_world,
-                config_.min_support_margin_m,
+                feet, contacts, support_body, config_.min_support_margin_m,
                 config_.max_two_contact_line_error_m);
             result.plan.min_support_margin_m = std::min(
                 result.plan.min_support_margin_m, margin);
