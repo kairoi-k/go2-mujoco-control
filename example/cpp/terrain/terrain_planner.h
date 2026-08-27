@@ -71,6 +71,18 @@ struct TerrainPlannerInput
     // handoff; this keeps both diagonal pairs represented in one horizon.
     std::array<bool, go2::kLegCount> terrain_retarget_allowed{};
     bool terrain_retarget_allowed_valid = false;
+    // Preserve each leg's measured pre-transition surface after another leg
+    // reaches the new level, so candidate ranking keeps seeking the same
+    // sensor-derived surface instead of moving its reference mid-transaction.
+    bool terrain_surface_transition_active = false;
+    std::array<bool, go2::kLegCount>
+        terrain_surface_transition_required{};
+    std::array<bool, go2::kLegCount>
+        terrain_surface_transition_committed{};
+    std::array<bool, go2::kLegCount>
+        terrain_surface_transition_source_valid{};
+    std::array<double, go2::kLegCount>
+        terrain_surface_transition_source_height_m{};
     TerrainContactSchedule contact_schedule{};
     // The discrete schedule feeds the MPC horizon, while this optional
     // absolute timestamp keeps swing execution aligned with the continuous
@@ -884,6 +896,14 @@ private:
     static double ObservedTerrainReferenceHeight(
         const TerrainPlannerInput &input, std::size_t leg)
     {
+        if (input.terrain_surface_transition_active &&
+            leg < go2::kLegCount &&
+            input.terrain_surface_transition_required[leg] &&
+            !input.terrain_surface_transition_committed[leg] &&
+            input.terrain_surface_transition_source_valid[leg] &&
+            std::isfinite(
+                input.terrain_surface_transition_source_height_m[leg]))
+            return input.terrain_surface_transition_source_height_m[leg];
         // A non-contact leg is in flight: its map footprint is not a loaded
         // support surface. Use the measured support median as the reference
         // so an upper surface ahead cannot be mistaken for current ground.

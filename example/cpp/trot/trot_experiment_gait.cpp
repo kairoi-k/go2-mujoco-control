@@ -144,6 +144,14 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         : dt_;
     double requested_mps = params_.velocity_command_profile.Sample(gait_time_s);
     if (params_.terrain_actuation && !params_.terrain_sensor_only &&
+        terrain_surface_transition_active_)
+    {
+        // Keep the existing Phase-1 shaper as the sole velocity authority,
+        // but do not let a newer flat snapshot revoke the zero request while
+        // the sensor-derived surface transaction is still incomplete.
+        requested_mps = 0.0;
+    }
+    if (params_.terrain_actuation && !params_.terrain_sensor_only &&
         std::isfinite(terrain_velocity_cap_mps_.load()))
     {
         // Terrain is an arbitration request only.  The Phase 1 shaper remains

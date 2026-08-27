@@ -183,6 +183,16 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         }
     }
     snapshot.measured_valid = true;
+    snapshot.terrain_surface_transition_active =
+        terrain_surface_transition_active_;
+    snapshot.terrain_surface_transition_required =
+        terrain_surface_transition_required_;
+    snapshot.terrain_surface_transition_committed =
+        terrain_surface_transition_committed_;
+    snapshot.terrain_surface_transition_source_valid =
+        terrain_surface_transition_source_valid_;
+    snapshot.terrain_surface_transition_source_world_z =
+        terrain_surface_transition_source_world_z_;
 
     {
         std::lock_guard<std::mutex> lock(terrain_control_mutex_);
@@ -240,6 +250,18 @@ void TrotExperiment::UpdateTerrainRuntime()
         control.have_nominal_touchdown_feet;
     input.contact_schedule.measured_contact = control.measured_contact;
     input.contact_schedule.measured_valid = control.measured_valid;
+    input.terrain_surface_transition_active =
+        control.terrain_surface_transition_active;
+    input.terrain_surface_transition_required =
+        control.terrain_surface_transition_required;
+    input.terrain_surface_transition_committed =
+        control.terrain_surface_transition_committed;
+    input.terrain_surface_transition_source_valid =
+        control.terrain_surface_transition_source_valid;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        input.terrain_surface_transition_source_height_m[leg] =
+            control.terrain_surface_transition_source_world_z[leg] -
+            input.base_position_world.z;
     go2_control::FillTrotContactSchedulePhase(
         input.gait_phase, input.gait_period_s, input.duty_factor,
         static_cast<int>(terrain_planner_.config().horizon_knots),

@@ -366,7 +366,8 @@ void TrotExperiment::UpdateWbcFull(
             if (terrain_surface_transition_committed_[leg])
             {
                 committed_mask |= 1 << static_cast<int>(leg);
-                qp_contact[leg] = true;
+                if (measured_contact[leg])
+                    qp_contact[leg] = true;
             }
             if (terrain_surface_transition_required_[leg] &&
                 !terrain_surface_transition_committed_[leg])
@@ -663,7 +664,8 @@ void TrotExperiment::UpdateWbcFull(
                     (execution.in_flight || execution.endpoint_held);
                 effective_transfer_hold[leg] =
                     terrain_surface_transition_active_ &&
-                    terrain_surface_transition_committed_[leg];
+                    terrain_surface_transition_committed_[leg] &&
+                    measured_contact[leg];
                 if (terrain_transfer_hold_active_ &&
                     terrain_transfer_has_target &&
                     !terrain_transfer_complete)

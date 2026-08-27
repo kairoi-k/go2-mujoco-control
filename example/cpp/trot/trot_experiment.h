@@ -230,6 +230,15 @@ private:
         std::array<go2::Vec3, go2::kLegCount>
             nominal_touchdown_feet_base{};
         std::array<bool, go2::kLegCount> measured_contact{};
+        bool terrain_surface_transition_active = false;
+        std::array<bool, go2::kLegCount>
+            terrain_surface_transition_required{};
+        std::array<bool, go2::kLegCount>
+            terrain_surface_transition_committed{};
+        std::array<bool, go2::kLegCount>
+            terrain_surface_transition_source_valid{};
+        std::array<double, go2::kLegCount>
+            terrain_surface_transition_source_world_z{};
         bool have_commanded_body_feet = false;
         bool have_nominal_touchdown_feet = false;
         bool measured_valid = false;
