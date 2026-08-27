@@ -163,6 +163,24 @@ void TrotExperiment::PublishTerrainControlSnapshot(
             snapshot.measured_contact[leg] =
                 state_snapshot.foot_force()[leg] >= kContactForceThreshold;
     }
+    // The force sensor is a loaded-contact observation only when the leg is
+    // in its scheduled stance interval.  MuJoCo keeps a large foot force for
+    // part of lift-off, so passing that hysteresis state directly to the
+    // terrain planner lets an airborne foot sample the step top and makes it
+    // the reference for its own swing.  Keep early/late touchdown handling in
+    // WBC, but expose a fused loaded-support state to TerrainModel/planning.
+    if (std::isfinite(snapshot.gait_phase) &&
+        std::isfinite(snapshot.duty_factor))
+    {
+        const double duty = std::clamp(snapshot.duty_factor, 0.35, 0.90);
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            const double leg_phase = go2_control::GaitLegPhase(
+                leg, snapshot.gait_phase, params_.gait_pattern);
+            if (std::isfinite(leg_phase) && leg_phase >= duty)
+                snapshot.measured_contact[leg] = false;
+        }
+    }
     snapshot.measured_valid = true;
 
     {
