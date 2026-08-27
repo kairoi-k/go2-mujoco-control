@@ -599,19 +599,74 @@ public:
             best_infeasible_selection{};
         bool found_feasible_selection = false;
         bool found_infeasible_selection = false;
-        double best_feasible_score = std::numeric_limits<double>::infinity();
-        int best_feasible_elevated_surface_count = -1;
         double best_infeasible_margin =
             -std::numeric_limits<double>::infinity();
         int best_infeasible_knot = -1;
         std::uint8_t best_infeasible_contact_mask = 0;
         double best_infeasible_failure_margin =
             -std::numeric_limits<double>::infinity();
+
+        // Group the bounded search by the sensor-derived touchdown event.
+        // Running-trot support constraints are dominated by the two legs in
+        // the same scheduled event; visiting those variables together lets a
+        // bad support pair fail before unrelated later-event combinations are
+        // expanded.  The order comes only from the supplied schedule.
+        std::array<std::size_t, go2::kLegCount> search_order{};
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            search_order[leg] = leg;
+        std::stable_sort(
+            search_order.begin(), search_order.end(),
+            [&](std::size_t lhs, std::size_t rhs) {
+                if (result.candidate_required[lhs] !=
+                    result.candidate_required[rhs])
+                    return result.candidate_required[lhs];
+                if (touchdown_knots[lhs] != touchdown_knots[rhs])
+                    return touchdown_knots[lhs] < touchdown_knots[rhs];
+                return lhs < rhs;
+            });
+
+        int maximum_elevated_surface_count = 0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (!result.candidate_required[leg])
+                continue;
+            if (std::any_of(
+                    candidate_options[leg].begin(),
+                    candidate_options[leg].end(),
+                    [](const CandidateOption &option) {
+                        return option.forward_elevated_surface > 0;
+                    }))
+                ++maximum_elevated_surface_count;
+        }
         const auto visit_joint_candidates =
-            [&](auto &&self, std::size_t leg, double score,
-                int elevated_surface_count) -> void {
-                if (leg == go2::kLegCount)
+            [&](auto &&self, std::size_t depth,
+                int elevated_surface_count,
+                int target_elevated_surface_count) -> bool {
+                if (elevated_surface_count > target_elevated_surface_count)
+                    return false;
+                int remaining_elevated = 0;
+                for (std::size_t remaining = depth;
+                     remaining < go2::kLegCount; ++remaining)
                 {
+                    const std::size_t leg = search_order[remaining];
+                    if (!result.candidate_required[leg])
+                        continue;
+                    if (std::any_of(
+                            candidate_options[leg].begin(),
+                            candidate_options[leg].end(),
+                            [](const CandidateOption &option) {
+                                return option.forward_elevated_surface > 0;
+                            }))
+                        ++remaining_elevated;
+                }
+                if (elevated_surface_count + remaining_elevated <
+                    target_elevated_surface_count)
+                    return false;
+                if (depth == go2::kLegCount)
+                {
+                    if (elevated_surface_count !=
+                        target_elevated_surface_count)
+                        return false;
                     if (!SupportFeasibleSelection(
                             input, joint_selection, result))
                     {
@@ -628,45 +683,32 @@ public:
                                 result.support_failure_contact_mask;
                             best_infeasible_failure_margin = margin;
                         }
-                        return;
+                        return false;
                     }
-                    const double margin =
-                        result.plan.min_support_margin_m;
-                    const double robust_score = score -
-                        0.25 * std::max(
-                            0.0,
-                            margin - config_.min_support_margin_m);
-                    if (!found_feasible_selection ||
-                        elevated_surface_count >
-                            best_feasible_elevated_surface_count ||
-                        (elevated_surface_count ==
-                             best_feasible_elevated_surface_count &&
-                        robust_score < best_feasible_score)
-                    )
-                    {
-                        found_feasible_selection = true;
-                        best_feasible_score = robust_score;
-                        best_feasible_elevated_surface_count =
-                            elevated_surface_count;
-                        best_feasible_selection = joint_selection;
-                    }
-                    return;
+                    found_feasible_selection = true;
+                    best_feasible_selection = joint_selection;
+                    return true;
                 }
+                const std::size_t leg = search_order[depth];
                 if (!result.candidate_required[leg])
-                {
-                    self(self, leg + 1, score, elevated_surface_count);
-                    return;
-                }
+                    return self(self, depth + 1,
+                                elevated_surface_count,
+                                target_elevated_surface_count);
                 for (const auto &option : candidate_options[leg])
                 {
                     joint_selection[leg] = option.candidate;
-                    self(self, leg + 1,
-                         score + option.score,
-                         elevated_surface_count +
-                             option.forward_elevated_surface);
+                    if (self(self, depth + 1,
+                             elevated_surface_count +
+                                 option.forward_elevated_surface,
+                             target_elevated_surface_count))
+                        return true;
                 }
+                return false;
             };
-        visit_joint_candidates(visit_joint_candidates, 0, 0.0, 0);
+        for (int elevated = maximum_elevated_surface_count;
+             elevated >= 0 && !found_feasible_selection; --elevated)
+            visit_joint_candidates(
+                visit_joint_candidates, 0, 0, elevated);
 
         if (!found_feasible_selection)
         {
