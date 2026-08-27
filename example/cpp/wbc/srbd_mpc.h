@@ -375,19 +375,21 @@ inline bool SolveSrbdMpc(
 }
 
 // Diagonal trot contact from the kernel phase (0-1), then dt/period ahead.
+template <std::size_t Horizon>
 inline void FillTrotContactSchedulePhase(
     double phase,
     double period_s,
     double duty,
     int horizon,
     double dt_s,
-    std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon> &contact,
+    std::array<std::array<bool, go2::kLegCount>, Horizon> &contact,
     GaitPattern pattern = GaitPattern::kDiagonalTrot)
 {
     contact = {};
     if (!(period_s > 0.0))
         return;
-    for (int k = 0; k < horizon && k < kSrbdMaxHorizon; ++k)
+    for (int k = 0;
+         k < horizon && k < static_cast<int>(Horizon); ++k)
     {
         double a = phase + static_cast<double>(k) * dt_s / period_s;
         a -= std::floor(a);

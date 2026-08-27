@@ -286,6 +286,26 @@ int main()
                "future body reference did not use measured velocity"))
         return 1;
 
+    // An armed terrain swing and the complete SRBD preview must remain one
+    // atomic transaction after consumer latency.  Short storage makes gait
+    // retain the touchdown while WBC drops its future contact schedule.
+    auto execution_config = planner_config;
+    execution_config.plan_validity_s = 0.50;
+    go2_terrain::TerrainPlanner execution_planner(execution_config);
+    const auto execution_plan = execution_planner.Build(
+        forward_step_input, 16);
+    std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
+        execution_indices{};
+    if (!Check(execution_plan.publishable && execution_plan.plan.valid(),
+               "execution-lifetime plan was not publishable") ||
+        !Check(go2_terrain::BuildTerrainPlanHorizonIndices(
+                   execution_plan.plan,
+                   execution_plan.plan.state_stamp_s + 0.10,
+                   execution_config.knot_dt_s, 0.05, 8,
+                   execution_indices),
+               "atomic plan did not cover the delayed SRBD horizon"))
+        return 1;
+
     auto measured_support_input = input;
     auto repeated_input = forward_step_input;
     repeated_input.terrain = &repeated_step_built.model;

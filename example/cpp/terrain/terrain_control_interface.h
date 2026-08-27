@@ -14,7 +14,7 @@ namespace go2_terrain
 // Shared, bounded interface storage.  Keep enough absolute-time knots for
 // asynchronous planner latency plus the consumer horizon; this is storage
 // capacity only and does not change the gait or MPC horizon.
-constexpr std::size_t kTerrainContactMaxKnots = 24;
+constexpr std::size_t kTerrainContactMaxKnots = 48;
 
 struct TerrainPlanIdentity
 {
