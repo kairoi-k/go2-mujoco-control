@@ -223,6 +223,10 @@ def main():
         "terrain_target_prepare_attempts", "terrain_target_prepared",
         "terrain_target_prepare_rejections", "wbc_measured_contact_mask",
         "wbc_scheduled_contact_mask", "wbc_terrain_planned_contact_mask",
+        "wbc_mpc_update_count", "wbc_mpc_contact_mask_k0",
+        "wbc_mpc_min_contact_count", "wbc_mpc_reference_x_first_m",
+        "wbc_mpc_reference_x_last_m", "wbc_mpc_reference_vx_first_mps",
+        "wbc_mpc_reference_vx_last_mps",
         "wbc_terrain_contact_coherent", "wbc_terrain_plan_id",
         "kernel_footstep_plan_valid", "wbc_full_srbd_ok", "wbc_full_id_ok",
         "wbc_shadow_within_budget", "support_low_friction_evidence",
@@ -278,6 +282,14 @@ def main():
         number(row, f"terrain_exec_{leg}_target_required") > 0.5
         for leg in LEGS)]
     coherent_rows = [row for row in execution_rows if number(row, "wbc_terrain_plan_id") > 0]
+    transfer_mpc_rows = []
+    previous_mpc_update = -1
+    for row in execution_rows:
+        update = int(number(row, "wbc_mpc_update_count", -1))
+        if (number(row, "terrain_transfer_hold_active") > 0.5 and
+                update > previous_mpc_update):
+            transfer_mpc_rows.append(row)
+        previous_mpc_update = max(previous_mpc_update, update)
     required_rejection_rows = [row for row in active if
         number(row, "terrain_plan_status") == 4 and any(
             number(row, f"terrain_{leg}_candidate_required") > 0.5
@@ -362,6 +374,24 @@ def main():
         "wbc_plan_coherence_fraction": (
             sum(number(row, "wbc_terrain_contact_coherent") > 0.5 for row in coherent_rows) /
             len(coherent_rows) if coherent_rows else float("nan")),
+        "transfer_mpc_samples": len(transfer_mpc_rows),
+        "transfer_mpc_min_contacts": min((number(
+            row, "wbc_mpc_min_contact_count") for row in transfer_mpc_rows),
+            default=float("nan")),
+        "transfer_mpc_k0_contact_mismatches": sum(
+            int(number(row, "wbc_mpc_contact_mask_k0")) !=
+            int(number(row, "wbc_shadow_contact_mask"))
+            for row in transfer_mpc_rows),
+        "mpc_vcmd_authority_abs_max_mps": max((max(
+            abs(number(row, "wbc_mpc_reference_vx_first_mps") -
+                number(row, "velocity_command_applied_mps")),
+            abs(number(row, "wbc_mpc_reference_vx_last_mps") -
+                number(row, "velocity_command_applied_mps")))
+            for row in transfer_mpc_rows), default=float("nan")),
+        "mpc_horizontal_reference_span_abs_max_m": max((abs(
+            number(row, "wbc_mpc_reference_x_last_m") -
+            number(row, "wbc_mpc_reference_x_first_m"))
+            for row in transfer_mpc_rows), default=float("nan")),
         "clear_time_s": clear_time_s,
         "exit_window_s": (number(exit_truth[-1], "time_s") - number(exit_truth[0], "time_s"))
         if len(exit_truth) >= 2 else 0.0,
@@ -431,6 +461,12 @@ def main():
         "wbc_plan_coherence": bool(coherent_rows) and
                               len(coherent_rows) == len(execution_rows) and
                               metrics["wbc_plan_coherence_fraction"] == 1.0,
+        "transfer_mpc_support": metrics["transfer_mpc_samples"] > 0 and
+                                metrics["transfer_mpc_min_contacts"] >= 2 and
+                                metrics["transfer_mpc_k0_contact_mismatches"] == 0,
+        "single_vcmd_authority": metrics["transfer_mpc_samples"] > 0 and
+                                 metrics["mpc_vcmd_authority_abs_max_mps"] <= 0.020 and
+                                 metrics["mpc_horizontal_reference_span_abs_max_m"] <= 0.001,
         "ground_truth_surface_support": all(item["all_legs_supported"] for item in surface_results),
         "ground_truth_collision": metrics["ground_truth_collision_rows"] == 0,
         "body_and_all_legs_clear": clear_time_s is not None,

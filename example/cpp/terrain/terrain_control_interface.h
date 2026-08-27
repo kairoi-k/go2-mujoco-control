@@ -56,4 +56,20 @@ struct TerrainContactSchedule
     }
 };
 
+inline std::array<bool, go2::kLegCount> TerrainTransferPreviewContact(
+    const std::array<bool, go2::kLegCount> &planned_contact,
+    const std::array<bool, go2::kLegCount> &held_support,
+    const std::array<bool, go2::kLegCount> &active_target)
+{
+    auto contact = planned_contact;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (held_support[leg])
+            contact[leg] = true;
+        if (active_target[leg])
+            contact[leg] = false;
+    }
+    return contact;
+}
+
 } // namespace go2_terrain

@@ -263,6 +263,13 @@ struct WbcShadowDiagnostics
     int measured_contact_mask = 0;
     int scheduled_contact_mask = 0;
     int terrain_planned_contact_mask = 0;
+    std::uint64_t mpc_update_count = 0;
+    int mpc_contact_mask_k0 = 0;
+    int mpc_min_contact_count = 0;
+    double mpc_reference_x_first_m = 0.0;
+    double mpc_reference_x_last_m = 0.0;
+    double mpc_reference_vx_first_mps = 0.0;
+    double mpc_reference_vx_last_mps = 0.0;
     bool terrain_contact_coherent = false;
     std::uint64_t terrain_plan_id = 0;
     int iterations = 0;

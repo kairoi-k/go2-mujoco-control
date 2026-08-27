@@ -156,7 +156,11 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_full_srbd_acc_x_mps2,wbc_full_id_qdd_x_mps2"
          << ",wbc_full_id_contact_force_x_n"
          << ",wbc_measured_contact_mask,wbc_scheduled_contact_mask"
-         << ",wbc_terrain_planned_contact_mask,wbc_terrain_contact_coherent"
+         << ",wbc_terrain_planned_contact_mask,wbc_mpc_update_count"
+         << ",wbc_mpc_contact_mask_k0"
+         << ",wbc_mpc_min_contact_count,wbc_mpc_reference_x_first_m"
+         << ",wbc_mpc_reference_x_last_m,wbc_mpc_reference_vx_first_mps"
+         << ",wbc_mpc_reference_vx_last_mps,wbc_terrain_contact_coherent"
          << ",wbc_terrain_plan_id";
     for (int i = 0; i < kMotorCount; ++i)
     {
@@ -1005,6 +1009,13 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.measured_contact_mask
          << "," << wbc_shadow_diagnostics_.scheduled_contact_mask
          << "," << wbc_shadow_diagnostics_.terrain_planned_contact_mask
+         << "," << wbc_shadow_diagnostics_.mpc_update_count
+         << "," << wbc_shadow_diagnostics_.mpc_contact_mask_k0
+         << "," << wbc_shadow_diagnostics_.mpc_min_contact_count
+         << "," << wbc_shadow_diagnostics_.mpc_reference_x_first_m
+         << "," << wbc_shadow_diagnostics_.mpc_reference_x_last_m
+         << "," << wbc_shadow_diagnostics_.mpc_reference_vx_first_mps
+         << "," << wbc_shadow_diagnostics_.mpc_reference_vx_last_mps
          << "," << (wbc_shadow_diagnostics_.terrain_contact_coherent ? 1 : 0)
          << "," << wbc_shadow_diagnostics_.terrain_plan_id;
 

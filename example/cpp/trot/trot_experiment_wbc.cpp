@@ -610,6 +610,15 @@ void TrotExperiment::UpdateWbcFull(
             bool complete_foot_horizon = true;
             const WorldPose current_pose = ComputeWorldPose(
                 state_snapshot, high_state_snapshot);
+            std::array<bool, go2::kLegCount> active_transfer_target{};
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                const auto &execution = terrain_swing_execution_[leg];
+                active_transfer_target[leg] = execution.valid &&
+                    execution.terrain_target_required &&
+                    !execution.measured_touchdown &&
+                    (execution.in_flight || execution.endpoint_held);
+            }
             for (int k = 0; k < mpc_params.horizon; ++k)
             {
                 const std::size_t plan_knot =
@@ -627,18 +636,11 @@ void TrotExperiment::UpdateWbcFull(
                     // into the current transfer.  Once measured touchdown
                     // is promoted, the atomic plan regains ownership of the
                     // future knots.
-                    for (std::size_t leg = 0;
-                         leg < go2::kLegCount; ++leg)
-                    {
-                        if (terrain_transfer_hold_contact_[leg])
-                            mpc_in.contact[k][leg] = true;
-                        const auto &execution =
-                            terrain_swing_execution_[leg];
-                        if (execution.valid &&
-                            execution.terrain_target_required &&
-                            !execution.measured_touchdown)
-                            mpc_in.contact[k][leg] = false;
-                    }
+                    mpc_in.contact[k] =
+                        go2_terrain::TerrainTransferPreviewContact(
+                            mpc_in.contact[k],
+                            terrain_transfer_hold_contact_,
+                            active_transfer_target);
                 }
                 if (k == 0 && terrain_transfer_hold_active_)
                     mpc_in.contact[k] = qp_contact;
@@ -648,19 +650,14 @@ void TrotExperiment::UpdateWbcFull(
                     plan_knot];
                 if (body.valid)
                 {
-                    mpc_in.reference_horizon[static_cast<std::size_t>(k)][3] =
-                        dyn.com_world.x() +
-                        body.position.x - current_pose.base.x;
-                    mpc_in.reference_horizon[static_cast<std::size_t>(k)][4] =
-                        dyn.com_world.y() +
-                        body.position.y - current_pose.base.y;
+                    // Horizontal speed remains owned by the approved Phase-1
+                    // v_cmd path already present in mpc_in.reference.  The
+                    // planner's measured-state extrapolation is not a second
+                    // longitudinal velocity authority.  Stage B consumes the
+                    // terrain-conditioned vertical body reference here.
                     mpc_in.reference_horizon[static_cast<std::size_t>(k)][5] =
                         mpc_in.reference[5] +
                         body.position.z - current_pose.base.z;
-                    mpc_in.reference_horizon[static_cast<std::size_t>(k)][9] =
-                        body.linear_velocity.x;
-                    mpc_in.reference_horizon[static_cast<std::size_t>(k)][10] =
-                        body.linear_velocity.y;
                     mpc_in.reference_horizon[static_cast<std::size_t>(k)][11] =
                         body.linear_velocity.z;
                 }
@@ -765,6 +762,29 @@ void TrotExperiment::UpdateWbcFull(
             else
                 mpc_in.contact = fallback_mpc_contact;
         }
+        ++wbc_shadow_diagnostics_.mpc_update_count;
+        wbc_shadow_diagnostics_.mpc_contact_mask_k0 =
+            mpc_params.horizon > 0 ? contact_mask_for(mpc_in.contact[0]) : 0;
+        wbc_shadow_diagnostics_.mpc_min_contact_count =
+            static_cast<int>(go2::kLegCount);
+        for (int k = 0; k < mpc_params.horizon; ++k)
+        {
+            const int count = static_cast<int>(std::count(
+                mpc_in.contact[k].begin(), mpc_in.contact[k].end(), true));
+            wbc_shadow_diagnostics_.mpc_min_contact_count = std::min(
+                wbc_shadow_diagnostics_.mpc_min_contact_count, count);
+        }
+        const auto &first_reference = mpc_in.has_time_indexed_reference
+            ? mpc_in.reference_horizon[0] : mpc_in.reference;
+        const auto &last_reference = mpc_in.has_time_indexed_reference
+            ? mpc_in.reference_horizon[
+                  static_cast<std::size_t>(mpc_params.horizon - 1)]
+            : mpc_in.reference;
+        wbc_shadow_diagnostics_.mpc_reference_x_first_m = first_reference[3];
+        wbc_shadow_diagnostics_.mpc_reference_x_last_m = last_reference[3];
+        wbc_shadow_diagnostics_.mpc_reference_vx_first_mps =
+            first_reference[9];
+        wbc_shadow_diagnostics_.mpc_reference_vx_last_mps = last_reference[9];
         go2_control::SrbdMpcOutput mpc_out;
         if (go2_control::SolveSrbdMpc(mpc_params, mpc_in, mpc_out) && mpc_out.ok)
             last_srbd_ = mpc_out;

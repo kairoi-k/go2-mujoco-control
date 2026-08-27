@@ -449,6 +449,20 @@ int main()
                "support-free schedule was accepted"))
         return 1;
 
+    const std::array<bool, go2::kLegCount> flight_contact{
+        false, false, false, false};
+    const std::array<bool, go2::kLegCount> held_diagonal{
+        true, false, false, true};
+    const std::array<bool, go2::kLegCount> active_left_front_target{
+        false, true, false, false};
+    const auto transfer_contact =
+        go2_terrain::TerrainTransferPreviewContact(
+            flight_contact, held_diagonal, active_left_front_target);
+    if (!Check(transfer_contact[0] && !transfer_contact[1] &&
+                   !transfer_contact[2] && transfer_contact[3],
+               "active target removed an unrelated held support foot"))
+        return 1;
+
     go2_terrain::TerrainMotionPlan atomic_plan;
     atomic_plan.plan_id = 1;
     atomic_plan.plan_epoch = 1;

@@ -19,6 +19,11 @@ touchdown by every leg on each crossed terrain surface; zero obstacle
 collision; the body and all feet beyond the final terrain; and at least 0.45 s
 of stable post-crossing evidence. A brake, required-plan rejection, stale-plan
 failure, deadline miss, safety stop, or incomplete crossing is FAIL.
+During a terrain transfer the effective MPC preview must retain at least two
+contacts, its knot-zero mask must equal the applied WBC support mask, and its
+first/last horizontal velocity references must match the shaped/applied Phase 1
+v_cmd within 0.020 m/s. A separate planner-derived horizontal reference span
+above 0.001 m is a second velocity authority and is FAIL.
 
 ## Milestones
 
