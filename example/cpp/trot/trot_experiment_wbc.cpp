@@ -191,6 +191,15 @@ void TrotExperiment::UpdateWbcFull(
         measured_contact[leg] = next_contact;
     }
     wbc_shadow_contact_state_valid_ = true;
+    const double terrain_now_s =
+        static_cast<double>(state_snapshot.tick()) * 1.0e-3;
+    const auto terrain_contact_plan =
+        params_.terrain_actuation && !params_.terrain_sensor_only
+            ? (terrain_execution_plan_ &&
+                       terrain_execution_plan_->usable_at(terrain_now_s)
+                   ? terrain_execution_plan_
+                   : terrain_plan_store_.LoadUsable(terrain_now_s))
+            : nullptr;
     const int high_speed_contact_merge_mode = high_speed_curriculum
         ? std::clamp(static_cast<int>(std::llround(Full2EnvDouble(
               "TROT_HS_HYBRID_CONTACT", 0.0))), 0, 2)
@@ -215,6 +224,20 @@ void TrotExperiment::UpdateWbcFull(
             current_phase_, gait_period, gait_duty, 1, 0.0, scheduled,
             params_.gait_pattern);
         scheduled_contact = scheduled[0];
+        if (terrain_contact_plan &&
+            terrain_contact_plan->contact_schedule.valid(
+                terrain_contact_plan->horizon_knots))
+        {
+            std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
+                plan_contact_index{};
+            if (go2_terrain::BuildTerrainPlanHorizonIndices(
+                    *terrain_contact_plan, terrain_now_s,
+                    terrain_planner_.config().knot_dt_s,
+                    terrain_planner_.config().knot_dt_s, 1,
+                    plan_contact_index))
+                scheduled_contact = terrain_contact_plan->contact_schedule
+                    .planned_contact[plan_contact_index[0]];
+        }
     }
     // During the brake, keep the scheduled running contacts.  The body is
     // still carrying sprint momentum, so declaring all four feet fixed after
@@ -306,6 +329,15 @@ void TrotExperiment::UpdateWbcFull(
         }
         else if (terrain_transfer_complete)
         {
+            // The measured target is now a real support contact. Promote the
+            // same retimed plan set on this tick instead of spending one
+            // cycle on the stale transfer-hold mask.
+            qp_contact = scheduled_contact;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                if (terrain_swing_execution_[leg].measured_touchdown)
+                    qp_contact[leg] = true;
+            }
             terrain_transfer_hold_contact_.fill(false);
             terrain_transfer_hold_active_ = false;
         }
@@ -380,17 +412,7 @@ void TrotExperiment::UpdateWbcFull(
     const int mpc_period_ticks = high_speed_curriculum
         ? 5
         : (params_.cartesian_world ? 10 : 25);
-    const double terrain_now_s =
-        static_cast<double>(state_snapshot.tick()) * 1.0e-3;
-    const auto latest_terrain_plan =
-        params_.terrain_actuation && !params_.terrain_sensor_only
-            ? terrain_plan_store_.LoadUsable(terrain_now_s)
-            : nullptr;
-    const auto terrain_plan =
-        terrain_execution_plan_ &&
-                terrain_execution_plan_->usable_at(terrain_now_s)
-            ? terrain_execution_plan_
-            : latest_terrain_plan;
+    const auto terrain_plan = terrain_contact_plan;
     std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
         terrain_plan_knot{};
     bool terrain_plan_contact_coherent = true;

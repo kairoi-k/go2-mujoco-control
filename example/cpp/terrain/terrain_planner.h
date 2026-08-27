@@ -690,12 +690,24 @@ public:
         SeedTouchdownSelections(input, result);
         PopulateFutureTouchdownSelections(input, result);
         PopulatePlan(input, result);
-        if (!SupportFeasible(input, result))
+        TerrainPlannerInput coherent_input = input;
+        bool retimed = false;
+        if (!BuildRetimedPlanInput(
+                input, result, coherent_input, retimed))
         {
-            SeedTouchdownSelections(input, result);
-            PopulatePlan(input, result);
+            result.plan.status = TerrainPlanStatus::kRejected;
+            result.plan.failure = TerrainPlanFailure::kNoSafeFoothold;
+            result.plan.solver.failure = result.plan.failure;
+            return Finish(input, std::move(result), start);
         }
-        if (!SupportFeasible(input, result))
+        if (retimed)
+            PopulatePlan(coherent_input, result);
+        if (!SupportFeasible(coherent_input, result))
+        {
+            SeedTouchdownSelections(coherent_input, result);
+            PopulatePlan(coherent_input, result);
+        }
+        if (!SupportFeasible(coherent_input, result))
         {
             result.plan.status = TerrainPlanStatus::kRejected;
             result.plan.failure = TerrainPlanFailure::kSupportInfeasible;
@@ -1272,6 +1284,164 @@ private:
                 previous_touchdown = static_cast<int>(k);
             }
         }
+    }
+
+    // A terrain-conditioned swing may need more time than the nominal gait
+    // flight interval.  Retiming only the execution trajectory would create
+    // a new foothold with the old contact schedule, which is unsafe for both
+    // SRBD-MPC and ID-WBC.  Delay the same per-leg contact event in the
+    // atomic planner input, then repopulate the whole plan from that timeline.
+    // The waveform prefix and the gait topology remain unchanged; only an
+    // observed, feasibility-derived touchdown is delayed.
+    bool BuildRetimedPlanInput(
+        const TerrainPlannerInput &input,
+        TerrainPlannerResult &result,
+        TerrainPlannerInput &retimed_input,
+        bool &changed) const
+    {
+        retimed_input = input;
+        changed = false;
+        const double nominal_swing_duration_s =
+            std::isfinite(input.gait_period_s) &&
+                    input.gait_period_s > 0.0 &&
+                    std::isfinite(input.duty_factor) &&
+                    input.duty_factor > 0.0 && input.duty_factor < 1.0
+                ? (1.0 - input.duty_factor) * input.gait_period_s
+                : config_.knot_dt_s;
+        if (!std::isfinite(nominal_swing_duration_s) ||
+            nominal_swing_duration_s <= 0.0 ||
+            !std::isfinite(config_.knot_dt_s) ||
+            config_.knot_dt_s <= 0.0)
+            return true;
+
+        std::array<int, go2::kLegCount> first_knot{};
+        std::array<int, go2::kLegCount> delay_knots{};
+        first_knot.fill(-1);
+        delay_knots.fill(0);
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            const int first = CandidateTouchdownKnot(input, leg);
+            if (first < 0 ||
+                first >= static_cast<int>(config_.horizon_knots) ||
+                !result.selected_by_touchdown_valid[leg][
+                    static_cast<std::size_t>(first)])
+                continue;
+            const auto &foot = result.plan.predicted_foothold[
+                static_cast<std::size_t>(first)][leg];
+            if (!foot.valid || !foot.touchdown ||
+                !std::isfinite(foot.touchdown_time_s) ||
+                !std::isfinite(foot.swing_duration_s) ||
+                foot.swing_duration_s <= 0.0)
+                continue;
+            const double observed_leg_height_m =
+                ObservedTerrainHeightAt(input, leg);
+            const double observed_surface_world_z =
+                std::isfinite(observed_leg_height_m) &&
+                        std::isfinite(input.base_position_world.z)
+                    ? input.base_position_world.z + observed_leg_height_m
+                    : ObservedSupportSurfaceWorldHeight(input);
+            const double terrain_deadband = std::max(
+                2.0 * std::max(0.0, foot.uncertainty_m),
+                0.5 * config_.feasibility.foot_patch_radius_m);
+            // Only an observed height transition needs a terrain-retimed
+            // touchdown. Flat-surface footholds retain the Phase-1 schedule,
+            // even when their candidate path is longer than nominal.
+            if (!std::isfinite(observed_surface_world_z) ||
+                !std::isfinite(foot.position_world.z) ||
+                foot.position_world.z - observed_surface_world_z <=
+                    terrain_deadband)
+                continue;
+            const double nominal_swing_start_s = std::max(
+                input.state_stamp_s,
+                foot.touchdown_time_s - nominal_swing_duration_s);
+            const double required_touchdown_s =
+                nominal_swing_start_s + foot.swing_duration_s;
+            if (!std::isfinite(nominal_swing_start_s) ||
+                !std::isfinite(required_touchdown_s))
+                return false;
+            const double delay_s = std::max(
+                0.0, required_touchdown_s - foot.touchdown_time_s);
+            const int delay = static_cast<int>(std::ceil(
+                std::max(0.0, delay_s / config_.knot_dt_s - 1.0e-9)));
+            if (delay <= 0)
+                continue;
+            const int retimed_first = first + delay;
+            if (retimed_first < 0 ||
+                retimed_first >= static_cast<int>(config_.horizon_knots))
+                return false;
+            first_knot[leg] = first;
+            delay_knots[leg] = delay;
+            changed = true;
+        }
+        // Retiming one member of a discrete touchdown event retimes every
+        // member entering stance at that same event.  The group is derived
+        // from the supplied schedule, never from leg identity: leaving one
+        // co-event leg in the old knot can create a zero-margin triangular
+        // support set while the other leg is still in swing.
+        for (std::size_t trigger = 0; trigger < go2::kLegCount; ++trigger)
+        {
+            if (first_knot[trigger] < 0 || delay_knots[trigger] <= 0)
+                continue;
+            const int event = first_knot[trigger];
+            const int delay = delay_knots[trigger];
+            for (std::size_t member = 0; member < go2::kLegCount; ++member)
+            {
+                if (CandidateTouchdownKnot(input, member) != event)
+                    continue;
+                first_knot[member] = event;
+                delay_knots[member] = std::max(delay_knots[member], delay);
+            }
+        }
+        if (!changed)
+            return true;
+
+        const auto original_schedule = input.contact_schedule.planned_contact;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            const int first = first_knot[leg];
+            const int delay = delay_knots[leg];
+            if (first < 0 || delay <= 0)
+                continue;
+            for (std::size_t k = 0; k < config_.horizon_knots; ++k)
+            {
+                const int index = static_cast<int>(k);
+                if (index < first)
+                    retimed_input.contact_schedule.planned_contact[k][leg] =
+                        original_schedule[k][leg];
+                else if (index < first + delay)
+                    retimed_input.contact_schedule.planned_contact[k][leg] =
+                        false;
+                else
+                    retimed_input.contact_schedule.planned_contact[k][leg] =
+                        original_schedule[static_cast<std::size_t>(
+                            index - delay)][leg];
+            }
+
+            const int retimed_first = first + delay;
+            auto old_selected = result.selected_by_touchdown[leg];
+            auto old_selected_valid = result.selected_by_touchdown_valid[leg];
+            result.selected_by_touchdown[leg].fill(FootholdCandidate{});
+            result.selected_by_touchdown_valid[leg].fill(false);
+            for (std::size_t event = static_cast<std::size_t>(first);
+                 event < config_.horizon_knots; ++event)
+            {
+                if (!old_selected_valid[event])
+                    continue;
+                const std::size_t shifted = event +
+                    static_cast<std::size_t>(delay);
+                if (shifted >= config_.horizon_knots)
+                    continue;
+                result.selected_by_touchdown[leg][shifted] =
+                    old_selected[event];
+                result.selected_by_touchdown_valid[leg][shifted] = true;
+            }
+            retimed_input.next_touchdown_time_s[leg] =
+                input.state_stamp_s +
+                static_cast<double>(retimed_first) * config_.knot_dt_s;
+            retimed_input.next_touchdown_time_valid[leg] = true;
+            result.touchdown_knot_by_leg[leg] = retimed_first;
+        }
+        return true;
     }
 
     void PopulatePlan(const TerrainPlannerInput &input,

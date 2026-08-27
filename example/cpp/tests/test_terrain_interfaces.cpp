@@ -222,13 +222,16 @@ int main()
     contact_gap_input.contact_schedule.measured_contact[0] = false;
     const auto contact_gap_plan = actuation_planner.Build(
         contact_gap_input, 15);
-    if (!Check(contact_gap_plan.publishable &&
-                   contact_gap_plan.candidate_required[0] &&
+    if (!Check(contact_gap_plan.candidate_required[0] &&
                    contact_gap_plan.selected[0].hard_feasible &&
                    contact_gap_plan.selected[0].foot_position.z > -0.20,
-               "contact-gap front leg was not replanned from sensor terrain"))
+               "contact-gap front leg was not replanned from sensor terrain") ||
+        !Check(!contact_gap_plan.publishable &&
+                   contact_gap_plan.plan.failure ==
+                       go2_terrain::TerrainPlanFailure::kSupportInfeasible,
+               "contact-gap plan did not reject an unsupported retime"))
         return 1;
-    if (!Check(forward_step_plan.plan.body_reference[4].position.z >
+    if (!Check(forward_step_plan.plan.body_reference[20].position.z >
                    forward_step_plan.plan.body_reference[0].position.z +
                        1.0e-4,
                "terrain body reference did not rise with planned surface"))
@@ -286,7 +289,12 @@ int main()
     auto measured_support_input = input;
     auto repeated_input = forward_step_input;
     repeated_input.terrain = &repeated_step_built.model;
-    repeated_input.base_velocity_world = {0.30, 0.0, 0.0};
+    // Keep this synthetic repeated-contact schedule coherent with the
+    // planner's terrain-conditioned swing duration: the first event is
+    // deliberately retimed, while the second event remains inside the
+    // finite preview horizon.
+    repeated_input.gait_period_s = 0.10;
+    repeated_input.base_velocity_world = {0.0, 0.0, 0.0};
     repeated_input.contact_schedule.measured_contact =
         {true, false, false, true};
     for (std::size_t k = 0; k < 24; ++k)
@@ -307,6 +315,7 @@ int main()
     repeated_input.contact_schedule.planned_valid = true;
     auto repeated_planner_config = planner_config;
     repeated_planner_config.plan_validity_s = 0.50;
+    repeated_planner_config.feasibility.max_swing_speed_mps = 10.0;
     go2_terrain::TerrainPlanner repeated_planner(
         repeated_planner_config);
     const auto repeated_plan = repeated_planner.Build(

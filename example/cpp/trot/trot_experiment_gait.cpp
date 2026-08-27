@@ -387,8 +387,13 @@ bool TrotExperiment::BuildGaitTargets(
                     if (!foot.valid || !foot.touchdown ||
                         !std::isfinite(foot.touchdown_time_s))
                         continue;
+                    const double swing_duration =
+                        std::isfinite(foot.swing_duration_s) &&
+                                foot.swing_duration_s > 0.0
+                            ? foot.swing_duration_s
+                            : duration;
                     const double swing_start =
-                        foot.touchdown_time_s - duration;
+                        foot.touchdown_time_s - swing_duration;
                     if (terrain_now_s + 0.5 * knot_dt >= swing_start &&
                         terrain_now_s <= foot.touchdown_time_s +
                             0.5 * knot_dt)
@@ -1622,8 +1627,14 @@ bool TrotExperiment::BuildGaitTargets(
                         foot.touchdown_time_s >
                             active_terrain_plan->valid_until_s)
                         continue;
+                    const double planned_swing_duration_s =
+                        std::isfinite(foot.swing_duration_s) &&
+                                foot.swing_duration_s >
+                                    terrain_time_tolerance_s
+                            ? foot.swing_duration_s
+                            : terrain_swing_duration_s;
                     const double candidate_swing_start_s =
-                        foot.touchdown_time_s - terrain_swing_duration_s;
+                        foot.touchdown_time_s - planned_swing_duration_s;
                     // A past swing start may still be adopted while the
                     // touchdown remains ahead: the stored planner start
                     // anchors this late handoff.  A stance leg must still
@@ -1757,32 +1768,44 @@ bool TrotExperiment::BuildGaitTargets(
                     time_rebased_at_handoff ? terrain_now_s :
                                                swing_start_time_s;
                 execution.swing_lift_m = std::max(0.0, planned.swing_lift_m);
-                const double nominal_swing_duration_s =
+                const double committed_swing_duration_s =
                     std::isfinite(planned.swing_duration_s) &&
                             planned.swing_duration_s >
                                 terrain_time_tolerance_s
                         ? planned.swing_duration_s
                         : planned.touchdown_time_s - swing_start_time_s;
-                execution.terrain_swing_duration_s =
+                const double available_swing_duration_s =
+                    planned.touchdown_time_s -
+                    execution.trajectory_start_time_s;
+                const double required_swing_duration_s =
                     go2_terrain::TerrainSwingDurationForPath(
-                        nominal_swing_duration_s,
+                        available_swing_duration_s,
                         start_world, execution.target_world,
                         execution.swing_lift_m,
                         terrain_planner_.config().feasibility.
                             max_swing_speed_mps);
-                execution.swing_duration_s =
-                    execution.terrain_swing_duration_s;
-                if (!std::isfinite(execution.swing_duration_s) ||
-                    execution.swing_duration_s <= terrain_time_tolerance_s)
+                if (!std::isfinite(committed_swing_duration_s) ||
+                    committed_swing_duration_s <= terrain_time_tolerance_s ||
+                    !std::isfinite(available_swing_duration_s) ||
+                    available_swing_duration_s <= terrain_time_tolerance_s ||
+                    !std::isfinite(required_swing_duration_s) ||
+                    required_swing_duration_s >
+                        available_swing_duration_s +
+                            terrain_time_tolerance_s)
                 {
                     execution = {};
                     return false;
                 }
+                // The planner committed this absolute touchdown time.  Do
+                // not replace it with a consumer-side duration extension:
+                // the contact schedule, MPC preview, WBC transaction, and
+                // swing trajectory must all end at this same event.
+                execution.terrain_swing_duration_s =
+                    available_swing_duration_s;
+                execution.swing_duration_s = available_swing_duration_s;
                 execution.swing_start_time_s =
                     execution.trajectory_start_time_s;
-                execution.touchdown_time_s =
-                    execution.trajectory_start_time_s +
-                    execution.swing_duration_s;
+                execution.touchdown_time_s = planned.touchdown_time_s;
                 execution.swing_peak_phase = std::clamp(
                     planned.swing_peak_phase, 0.10, 0.90);
                 execution.swing_leading_edge_phase = std::clamp(
@@ -2027,24 +2050,32 @@ bool TrotExperiment::BuildGaitTargets(
                     execution.start_world = actual_world_feet[leg];
                     execution.trajectory_start_time_s = terrain_now_s;
                     execution.swing_start_time_s = terrain_now_s;
-                    execution.terrain_swing_duration_s =
+                    const double available_swing_duration_s =
+                        execution.nominal_touchdown_time_s - terrain_now_s;
+                    const double required_swing_duration_s =
                         go2_terrain::TerrainSwingDurationForPath(
-                            execution.terrain_swing_duration_s,
+                            available_swing_duration_s,
                             execution.start_world,
                             execution.target_world,
                             execution.swing_lift_m,
                             terrain_planner_.config().feasibility.
                                 max_swing_speed_mps);
-                    execution.swing_duration_s =
-                        execution.terrain_swing_duration_s;
-                    if (!std::isfinite(execution.swing_duration_s) ||
-                        execution.swing_duration_s <= terrain_time_tolerance_s)
+                    if (!std::isfinite(available_swing_duration_s) ||
+                        available_swing_duration_s <=
+                            terrain_time_tolerance_s ||
+                        !std::isfinite(required_swing_duration_s) ||
+                        required_swing_duration_s >
+                            available_swing_duration_s +
+                                terrain_time_tolerance_s)
                     {
                         execution = {};
                         continue;
                     }
+                    execution.terrain_swing_duration_s =
+                        available_swing_duration_s;
+                    execution.swing_duration_s = available_swing_duration_s;
                     execution.touchdown_time_s =
-                        terrain_now_s + execution.swing_duration_s;
+                        execution.nominal_touchdown_time_s;
                     execution.time_rebased_at_handoff = true;
                 }
             }
