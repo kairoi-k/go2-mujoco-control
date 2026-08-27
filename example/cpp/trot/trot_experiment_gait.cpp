@@ -2026,10 +2026,10 @@ bool TrotExperiment::BuildGaitTargets(
                       (leg_phase - duty) / std::max(1.0e-6, 1.0 - duty),
                       0.0, 1.0);
             // A riser is not safely crossed by a centered bell swing when
-            // the nominal foot is already at its leading edge.  The
-            // feasibility solver records the observed edge phase; keep the
-            // foot vertically pre-cleared there, then resume horizontal
-            // progress using the same zero-endpoint easing law.
+            // the nominal foot reaches its leading edge late in the swing.
+            // The feasibility solver records that sensor-derived edge phase
+            // and moves the vertical peak to it; horizontal progress stays
+            // continuous so the immutable touchdown endpoint is reachable.
             const double path_progress =
                 go2_terrain::TerrainSwingPathProgress(
                     swing_phase,

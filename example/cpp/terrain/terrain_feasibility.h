@@ -182,22 +182,20 @@ inline double TerrainSwingProfileDerivative(
         (1.0 - p);
 }
 
-// A sensor-observed leading edge is cleared before horizontal progress is
-// resumed.  This is deliberately expressed in swing phase, not scene/world
-// coordinates: the same trajectory contract works for any observed riser.
+// A sensor-observed leading edge changes the vertical clearance timing, while
+// horizontal progress remains continuous through the whole swing.  Delaying
+// horizontal motion until a late edge phase would create an unreachable
+// endpoint jump at the fixed gait boundary.  This is deliberately expressed
+// in swing phase, not scene/world coordinates: the same trajectory contract
+// works for any observed riser.
 inline double TerrainSwingHorizontalPhase(
     double phase, bool leading_edge_phase_valid,
     double leading_edge_phase)
 {
     const double u = std::clamp(phase, 0.0, 1.0);
-    if (!leading_edge_phase_valid || !std::isfinite(leading_edge_phase))
-        return u;
-    const double clear_phase = std::clamp(leading_edge_phase, 0.10, 0.75);
-    if (u <= clear_phase)
-        return 0.0;
-    return std::clamp(
-        (u - clear_phase) / std::max(1.0e-6, 1.0 - clear_phase),
-        0.0, 1.0);
+    (void)leading_edge_phase_valid;
+    (void)leading_edge_phase;
+    return u;
 }
 
 inline double TerrainSwingHorizontalPhaseDerivative(
@@ -205,12 +203,10 @@ inline double TerrainSwingHorizontalPhaseDerivative(
     double leading_edge_phase)
 {
     const double u = std::clamp(phase, 0.0, 1.0);
-    if (!leading_edge_phase_valid || !std::isfinite(leading_edge_phase))
-        return 1.0;
-    const double clear_phase = std::clamp(leading_edge_phase, 0.10, 0.75);
-    return u <= clear_phase
-        ? 0.0
-        : 1.0 / std::max(1.0e-6, 1.0 - clear_phase);
+    (void)leading_edge_phase_valid;
+    (void)leading_edge_phase;
+    (void)u;
+    return 1.0;
 }
 
 inline double TerrainSwingPathProgress(

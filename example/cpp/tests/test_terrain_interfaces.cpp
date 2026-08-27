@@ -123,7 +123,7 @@ int main()
                    step_leading_edge_phase <= 0.75 &&
                    go2_terrain::TerrainSwingPathProgress(
                        step_leading_edge_phase, true,
-                       step_leading_edge_phase) < 1.0e-9 &&
+                       step_leading_edge_phase) > 0.10 &&
                    go2_terrain::TerrainSwingPathProgress(
                        1.0, true, step_leading_edge_phase) > 0.999,
                "10cm swing clearance geometry was invalid"))
