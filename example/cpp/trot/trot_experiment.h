@@ -455,9 +455,11 @@ private:
         go2::Vec3 start_world{};
         go2::Vec3 target_world{};
         double swing_start_time_s = 0.0;
+        double nominal_touchdown_time_s = 0.0;
         double touchdown_time_s = 0.0;
         double trajectory_start_time_s = 0.0;
         double swing_duration_s = 0.0;
+        double terrain_swing_duration_s = 0.0;
         double swing_lift_m = 0.0;
         double swing_peak_phase = 0.5;
         double swing_leading_edge_phase = 0.5;

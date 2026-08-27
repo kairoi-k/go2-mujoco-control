@@ -1751,21 +1751,38 @@ bool TrotExperiment::BuildGaitTargets(
                 execution.map_epoch = active_terrain_plan->map_epoch;
                 execution.start_world = start_world;
                 execution.target_world = planned.position_world;
-                execution.swing_start_time_s = swing_start_time_s;
-                execution.touchdown_time_s = planned.touchdown_time_s;
+                execution.nominal_touchdown_time_s =
+                    planned.touchdown_time_s;
                 execution.trajectory_start_time_s =
                     time_rebased_at_handoff ? terrain_now_s :
                                                swing_start_time_s;
+                execution.swing_lift_m = std::max(0.0, planned.swing_lift_m);
+                const double nominal_swing_duration_s =
+                    std::isfinite(planned.swing_duration_s) &&
+                            planned.swing_duration_s >
+                                terrain_time_tolerance_s
+                        ? planned.swing_duration_s
+                        : planned.touchdown_time_s - swing_start_time_s;
+                execution.terrain_swing_duration_s =
+                    go2_terrain::TerrainSwingDurationForPath(
+                        nominal_swing_duration_s,
+                        start_world, execution.target_world,
+                        execution.swing_lift_m,
+                        terrain_planner_.config().feasibility.
+                            max_swing_speed_mps);
                 execution.swing_duration_s =
-                    planned.touchdown_time_s -
-                    execution.trajectory_start_time_s;
+                    execution.terrain_swing_duration_s;
                 if (!std::isfinite(execution.swing_duration_s) ||
                     execution.swing_duration_s <= terrain_time_tolerance_s)
                 {
                     execution = {};
                     return false;
                 }
-                execution.swing_lift_m = std::max(0.0, planned.swing_lift_m);
+                execution.swing_start_time_s =
+                    execution.trajectory_start_time_s;
+                execution.touchdown_time_s =
+                    execution.trajectory_start_time_s +
+                    execution.swing_duration_s;
                 execution.swing_peak_phase = std::clamp(
                     planned.swing_peak_phase, 0.10, 0.90);
                 execution.swing_leading_edge_phase = std::clamp(
@@ -1884,6 +1901,16 @@ bool TrotExperiment::BuildGaitTargets(
             const bool leg_in_swing = leg_phase >= duty;
             auto &execution = terrain_swing_execution_[leg];
             auto &pending = terrain_swing_pending_[leg];
+            const bool terrain_extended_swing =
+                execution.valid &&
+                execution.terrain_target_required &&
+                execution.in_flight &&
+                !execution.endpoint_held &&
+                std::isfinite(execution.touchdown_time_s) &&
+                terrain_now_s + terrain_time_tolerance_s <
+                    execution.touchdown_time_s;
+            const bool effective_leg_in_swing =
+                leg_in_swing || terrain_extended_swing;
             if (terrain_transfer_hold_active_ &&
                 terrain_transfer_hold_contact_[leg] &&
                 have_actual_world_feet)
@@ -1897,12 +1924,13 @@ bool TrotExperiment::BuildGaitTargets(
                     actual_world_feet[leg]);
                 continue;
             }
-            if (!leg_in_swing)
+            if (!effective_leg_in_swing)
             {
                 if (execution.valid && execution.in_flight)
                 {
-                    // The gait boundary completed the trajectory.  This is
-                    // not a measured-contact assertion.
+                    // The terrain-conditioned trajectory reached its own
+                    // feasible touchdown time.  This is still not a
+                    // measured-contact assertion.
                     execution.in_flight = false;
                     execution.endpoint_held = true;
                 }
@@ -1999,14 +2027,24 @@ bool TrotExperiment::BuildGaitTargets(
                     execution.start_world = actual_world_feet[leg];
                     execution.trajectory_start_time_s = terrain_now_s;
                     execution.swing_start_time_s = terrain_now_s;
+                    execution.terrain_swing_duration_s =
+                        go2_terrain::TerrainSwingDurationForPath(
+                            execution.terrain_swing_duration_s,
+                            execution.start_world,
+                            execution.target_world,
+                            execution.swing_lift_m,
+                            terrain_planner_.config().feasibility.
+                                max_swing_speed_mps);
                     execution.swing_duration_s =
-                        execution.touchdown_time_s - terrain_now_s;
+                        execution.terrain_swing_duration_s;
                     if (!std::isfinite(execution.swing_duration_s) ||
                         execution.swing_duration_s <= terrain_time_tolerance_s)
                     {
                         execution = {};
                         continue;
                     }
+                    execution.touchdown_time_s =
+                        terrain_now_s + execution.swing_duration_s;
                     execution.time_rebased_at_handoff = true;
                 }
             }
@@ -2053,13 +2091,9 @@ bool TrotExperiment::BuildGaitTargets(
                     (execution.target_world.z - execution.start_world.z) +
                     swing_arch};
             const double actual_swing_duration_s =
-                execution.time_rebased_at_handoff
-                    ? execution.swing_duration_s
-                    : (1.0 - duty) * std::max(
-                          0.05,
-                          std::isfinite(gait_result.period_s)
-                              ? gait_result.period_s
-                              : terrain_plan_period_s);
+                std::max(
+                    terrain_time_tolerance_s,
+                    execution.swing_duration_s);
             const double phase_rate = 1.0 / std::max(
                 1.0e-6, actual_swing_duration_s);
             const double path_progress_rate =

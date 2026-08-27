@@ -73,6 +73,11 @@ struct TerrainFeasibilityConfig
     double max_surface_step_m = 0.040;
     double min_reachability_margin_m = 0.010;
     double min_swing_clearance_m = 0.030;
+    // A terrain retarget is allowed to use a longer, sensor-derived swing
+    // window when the checked path would otherwise demand an unrealizable
+    // foot velocity.  This is a feasibility limit, not a safety-threshold
+    // relaxation and does not alter the Phase 1 gait gains.
+    double max_swing_speed_mps = 2.50;
     double region_half_extent_m = 0.035;
 };
 
@@ -180,6 +185,38 @@ inline double TerrainSwingProfileDerivative(
         return TerrainSwingEaseDerivative(u / p) / p;
     return -TerrainSwingEaseDerivative((1.0 - u) / (1.0 - p)) /
         (1.0 - p);
+}
+
+// The quintic/eased path has a peak normalized derivative of 1.875.  Use an
+// L1 path-length bound so the terrain transaction can request enough time for
+// horizontal travel, elevation change, and the clearance arch without
+// changing the nominal command or gait topology.
+inline double TerrainSwingDurationForPath(
+    double nominal_duration_s,
+    const go2::Vec3 &start,
+    const go2::Vec3 &end,
+    double swing_lift_m,
+    double max_swing_speed_mps)
+{
+    if (!std::isfinite(nominal_duration_s) ||
+        nominal_duration_s <= 0.0 ||
+        !std::isfinite(start.x) || !std::isfinite(start.y) ||
+        !std::isfinite(start.z) || !std::isfinite(end.x) ||
+        !std::isfinite(end.y) || !std::isfinite(end.z) ||
+        !std::isfinite(swing_lift_m) || swing_lift_m < 0.0 ||
+        !std::isfinite(max_swing_speed_mps) ||
+        max_swing_speed_mps <= 0.0)
+        return nominal_duration_s;
+    const double path_length =
+        std::abs(end.x - start.x) +
+        std::abs(end.y - start.y) +
+        std::abs(end.z - start.z) +
+        swing_lift_m;
+    if (!std::isfinite(path_length))
+        return nominal_duration_s;
+    const double required_duration =
+        1.875 * path_length / max_swing_speed_mps;
+    return std::max(nominal_duration_s, required_duration);
 }
 
 // A sensor-observed leading edge changes the vertical clearance timing, while

@@ -572,6 +572,30 @@ void TrotExperiment::UpdateWbcFull(
                     terrain_plan_knot[static_cast<std::size_t>(k)];
                 mpc_in.contact[k] = terrain_plan->contact_schedule.planned_contact[
                     plan_knot];
+                if (terrain_transfer_hold_active_ &&
+                    terrain_transfer_has_target &&
+                    !terrain_transfer_complete)
+                {
+                    // The nominal plan is a prediction.  While a terrain
+                    // target is still seeking measured touchdown, keep the
+                    // loaded support anchors in the preview and do not let
+                    // the nominal contact boundary inject unsupported force
+                    // into the current transfer.  Once measured touchdown
+                    // is promoted, the atomic plan regains ownership of the
+                    // future knots.
+                    for (std::size_t leg = 0;
+                         leg < go2::kLegCount; ++leg)
+                    {
+                        if (terrain_transfer_hold_contact_[leg])
+                            mpc_in.contact[k][leg] = true;
+                        const auto &execution =
+                            terrain_swing_execution_[leg];
+                        if (execution.valid &&
+                            execution.terrain_target_required &&
+                            !execution.measured_touchdown)
+                            mpc_in.contact[k][leg] = false;
+                    }
+                }
                 if (k == 0 && terrain_transfer_hold_active_)
                     mpc_in.contact[k] = qp_contact;
                 mpc_in.reference_horizon[static_cast<std::size_t>(k)] =
@@ -604,6 +628,22 @@ void TrotExperiment::UpdateWbcFull(
                     {
                         const auto &execution =
                             terrain_swing_execution_[leg];
+                        if (terrain_transfer_hold_active_ &&
+                            terrain_transfer_has_target &&
+                            !terrain_transfer_complete &&
+                            terrain_transfer_hold_contact_[leg])
+                        {
+                            // A held support foot may already be past its
+                            // nominal schedule boundary.  Its live
+                            // kinematic anchor is the only valid lever arm
+                            // until the new measured contact is promoted.
+                            mpc_in.foot_from_com_world_horizon[
+                                static_cast<std::size_t>(k)][leg] =
+                                dyn.foot_pos_world[leg] - dyn.com_world;
+                            mpc_in.foot_valid[
+                                static_cast<std::size_t>(k)][leg] = true;
+                            continue;
+                        }
                         if (k == 0 && execution.valid &&
                             execution.measured_touchdown &&
                             std::isfinite(execution.target_world.x) &&

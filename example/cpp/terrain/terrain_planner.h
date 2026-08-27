@@ -1469,6 +1469,22 @@ private:
                                 break;
                             }
                         }
+                        const double nominal_swing_duration_s =
+                            std::isfinite(input.gait_period_s) &&
+                                    input.gait_period_s > 0.0 &&
+                                    std::isfinite(input.duty_factor) &&
+                                    input.duty_factor > 0.0 &&
+                                    input.duty_factor < 1.0
+                                ? (1.0 - input.duty_factor) *
+                                      input.gait_period_s
+                                : config_.knot_dt_s;
+                        foot.swing_duration_s =
+                            TerrainSwingDurationForPath(
+                                nominal_swing_duration_s,
+                                foot.swing_start_position_world,
+                                foot.position_world,
+                                foot.swing_lift_m,
+                                config_.feasibility.max_swing_speed_mps);
                         result.plan.min_edge_margin_m = std::min(
                             result.plan.min_edge_margin_m,
                             candidate.edge_margin_m);

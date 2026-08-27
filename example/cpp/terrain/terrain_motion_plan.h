@@ -83,6 +83,10 @@ struct TerrainFootholdPrediction
     double reachability_margin_m = 0.0;
     double swing_clearance_m = 0.0;
     double swing_lift_m = 0.0;
+    // Full terrain-conditioned swing duration, including the clearance
+    // arch.  The consumer may rebase its start to a newer measured foot
+    // anchor, but must preserve this feasibility-derived lower bound.
+    double swing_duration_s = 0.0;
     double swing_peak_phase = 0.5;
     double swing_leading_edge_phase = 0.5;
     bool swing_leading_edge_phase_valid = false;
@@ -205,6 +209,9 @@ struct TerrainMotionPlan
                     !std::isfinite(foot.position_world.z) ||
                     !std::isfinite(foot.swing_lift_m) ||
                     foot.swing_lift_m < 0.0 ||
+                    (foot.touchdown &&
+                     (!std::isfinite(foot.swing_duration_s) ||
+                      foot.swing_duration_s <= 0.0)) ||
                     !std::isfinite(foot.swing_peak_phase) ||
                     foot.swing_peak_phase < 0.10 ||
                     foot.swing_peak_phase > 0.90 ||
