@@ -244,13 +244,12 @@ void TrotExperiment::UpdateTerrainRuntime()
             if (!std::isfinite(leg_phase))
                 continue;
             // A measured contact gap while the nominal schedule is already
-            // in stance denotes the current planned touchdown.  Otherwise
-            // the next touchdown is the next continuous stance boundary.
+            // in stance is an observation mismatch, not permission to
+            // discard a sensor-derived foothold.  Keep the next continuous
+            // boundary so a front foot that meets an observed riser can be
+            // replanned before its next swing.
             double time_to_touchdown_s =
                 (1.0 - leg_phase) * input.gait_period_s;
-            if (input.contact_schedule.planned_contact[0][leg] &&
-                !input.contact_schedule.measured_contact[leg])
-                time_to_touchdown_s = 0.0;
             const double touchdown_time_s =
                 input.state_stamp_s + std::max(0.0, time_to_touchdown_s);
             double candidate_touchdown_time_s = touchdown_time_s;
@@ -264,11 +263,12 @@ void TrotExperiment::UpdateTerrainRuntime()
                     candidate_touchdown_time_s;
                 input.next_touchdown_time_valid[leg] = true;
             }
-            const bool current_contact_gap =
-                input.contact_schedule.planned_contact[0][leg] &&
-                !input.contact_schedule.measured_contact[leg];
-            input.terrain_retarget_allowed[leg] =
-                leg_phase < planner_duty && !current_contact_gap;
+            // A nominal stance with no measured load is exactly the case in
+            // which an unanticipated sensor-observed edge can have invalidated
+            // the nominal touchdown.  The planner will still require a real
+            // safe region and the adapter will keep planned/measured contact
+            // separate; do not gate that recovery on the stale contact bit.
+            input.terrain_retarget_allowed[leg] = leg_phase < planner_duty;
         }
     }
 
@@ -590,8 +590,17 @@ void TrotExperiment::TerrainPlannerWorker()
                 std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
                 ++terrain_plan_published_count_;
             }
-            terrain_velocity_cap_mps_.store(
-                std::numeric_limits<double>::infinity());
+            const double terrain_velocity_cap =
+                result.plan.velocity_request.valid &&
+                        result.plan.velocity_request.is_cap &&
+                        std::isfinite(
+                            result.plan.velocity_request.max_vx_mps)
+                    ? std::max(0.0,
+                        result.plan.velocity_request.max_vx_mps)
+                    : std::numeric_limits<double>::infinity();
+            // This is arbitration state only. UpdateRuntimeVelocityCommand
+            // feeds it into the existing acceleration/jerk shaper.
+            terrain_velocity_cap_mps_.store(terrain_velocity_cap);
             terrain_safe_stop_requested_.store(false);
         }
         else if (params_.terrain_actuation && !params_.terrain_sensor_only)

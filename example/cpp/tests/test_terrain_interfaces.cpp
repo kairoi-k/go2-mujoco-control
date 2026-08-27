@@ -210,6 +210,11 @@ int main()
                    forward_step_plan.selected[1].foot_position.z > -0.20,
                "forward sensor-elevated foothold was not selected"))
         return 1;
+    if (!Check(forward_step_plan.plan.velocity_request.valid &&
+                   forward_step_plan.plan.velocity_request.is_cap &&
+                   forward_step_plan.plan.velocity_request.max_vx_mps == 0.0,
+               "sensor-elevated foothold did not request a velocity cap"))
+        return 1;
     if (!Check(forward_step_plan.plan.body_reference[4].position.z >
                    forward_step_plan.plan.body_reference[0].position.z +
                        1.0e-4,
