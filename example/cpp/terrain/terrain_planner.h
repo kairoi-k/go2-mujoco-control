@@ -65,10 +65,10 @@ struct TerrainPlannerInput
     std::array<go2::Vec3, go2::kLegCount>
         nominal_touchdown_feet_base{};
     bool nominal_touchdown_feet_valid = false;
-    // A terrain candidate may only replace a touchdown when the swing was
-    // still in stance at snapshot time.  An in-flight leg keeps its nominal
-    // Phase-1 endpoint for this exchange; the next complete swing can use a
-    // sensor-derived foothold.
+    // A terrain candidate may replace any future touchdown whose live foot
+    // path is still executable.  In-flight legs are checked from their
+    // measured current foot and the execution adapter rebases that path at
+    // handoff; this keeps both diagonal pairs represented in one horizon.
     std::array<bool, go2::kLegCount> terrain_retarget_allowed{};
     bool terrain_retarget_allowed_valid = false;
     TerrainContactSchedule contact_schedule{};

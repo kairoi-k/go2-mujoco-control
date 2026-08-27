@@ -231,8 +231,6 @@ void TrotExperiment::UpdateTerrainRuntime()
     // planned-vs-measured interface contract.
     input.contact_schedule.planned_valid = true;
     input.terrain_retarget_allowed_valid = true;
-    const double planner_duty = std::clamp(
-        input.duty_factor, 0.35, 0.90);
     if (std::isfinite(input.gait_period_s) &&
         input.gait_period_s > 0.0 &&
         std::isfinite(input.state_stamp_s))
@@ -263,12 +261,14 @@ void TrotExperiment::UpdateTerrainRuntime()
                     candidate_touchdown_time_s;
                 input.next_touchdown_time_valid[leg] = true;
             }
-            // A nominal stance with no measured load is exactly the case in
-            // which an unanticipated sensor-observed edge can have invalidated
-            // the nominal touchdown.  The planner will still require a real
-            // safe region and the adapter will keep planned/measured contact
-            // separate; do not gate that recovery on the stale contact bit.
-            input.terrain_retarget_allowed[leg] = leg_phase < planner_duty;
+            // Every leg with a future touchdown is eligible for a
+            // sensor-derived candidate, including a leg already in swing.
+            // This keeps the complete future foothold horizon populated: an
+            // asynchronous plan made during the diagonal partner's swing
+            // must still protect the next pair before it reaches the edge.
+            // The adapter rebases the checked path to the live foot and keeps
+            // planned/measured contact separate.
+            input.terrain_retarget_allowed[leg] = true;
         }
     }
 

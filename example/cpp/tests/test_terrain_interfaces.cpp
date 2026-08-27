@@ -215,6 +215,19 @@ int main()
                    forward_step_plan.plan.velocity_request.max_vx_mps == 0.0,
                "sensor-elevated foothold did not request a velocity cap"))
         return 1;
+
+    auto contact_gap_input = forward_step_input;
+    contact_gap_input.terrain_retarget_allowed_valid = true;
+    contact_gap_input.terrain_retarget_allowed.fill(true);
+    contact_gap_input.contact_schedule.measured_contact[0] = false;
+    const auto contact_gap_plan = actuation_planner.Build(
+        contact_gap_input, 15);
+    if (!Check(contact_gap_plan.publishable &&
+                   contact_gap_plan.candidate_required[0] &&
+                   contact_gap_plan.selected[0].hard_feasible &&
+                   contact_gap_plan.selected[0].foot_position.z > -0.20,
+               "contact-gap front leg was not replanned from sensor terrain"))
+        return 1;
     if (!Check(forward_step_plan.plan.body_reference[4].position.z >
                    forward_step_plan.plan.body_reference[0].position.z +
                        1.0e-4,
