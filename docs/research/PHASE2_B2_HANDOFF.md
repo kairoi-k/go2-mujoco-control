@@ -16,8 +16,11 @@ Required implementation base:
 Phase 1 origin/main reference and merge-base:
 `71d0e9ba7ca1097e840fe878aa30207f6f63600d`
 
-Implementation HEAD before this handoff document:
+Implementation HEAD before the handoff-only validity patch:
 `ca32942ed6f040041057051b9490c7279f8c8a01`
+
+Current implementation HEAD:
+`1de4b98e9586dd4799458cc2b34a254f4d7a710c`
 
 The implementation commits are already pushed to the branch. The handoff
 document and evidence archives are the final repository changes to push.
@@ -52,6 +55,9 @@ chain:
   touchdown timing, and measured support handling are implemented and covered
   by the interface tests, but their combined dynamic crossing behavior is not
   proven.
+* `1de4b98` makes the atomic plan lifetime cover every committed touchdown and
+  rejects a plan whose touchdown lies beyond `valid_until`. This is an
+  uncanaried contract correction, not runtime crossing evidence.
 
 The most recent run, `b1_dev_step5_support_reference_20260827_131`, is a
 failure before touchdown. It used period `0.50 s`, duty `0.75`, step length
@@ -111,6 +117,8 @@ The relevant pushed implementation sequence is:
 * `ca32942` — terrain-planner support contact fuses force evidence with the
   scheduled stance phase; WBC's separate early/late touchdown evidence is
   preserved.
+* `1de4b98` — retimed terrain plans remain valid through committed touchdown;
+  plan validity now enforces that same atomic execution lifetime.
 
 No Phase 1 gain, hard safety threshold, or quantitative threshold was widened.
 No main branch was modified, no old stash was applied, and no history was
@@ -157,7 +165,8 @@ atomic event alone does not create support feasibility.
 Force hysteresis alone is not measured support: run 131 showed high force on
 swing-phase legs. `ca32942` removes those legs from the planner's loaded-support
 reference while keeping WBC touchdown confirmation independent. This is a
-semantic correction, not runtime proof of crossing.
+semantic correction, not runtime proof of crossing. The later `1de4b98`
+validity correction has likewise not had a runtime canary.
 
 Repeated threshold relaxation, Phase 1 gain tuning, ground-truth input, fixed
 scene coordinates, fixed leg order, and a scripted crawl are not valid paths
@@ -165,8 +174,9 @@ and were not adopted.
 
 ## 6. Unique current first causal blocker
 
-The first causal blocker is a **fixed-timing terrain swing contract**, not
-terrain detection: the latest experiment uses a `0.50 s` gait period and
+The first causal blocker in the latest verified runtime evidence is a
+**fixed-timing terrain swing contract**, not terrain detection: the latest
+experiment uses a `0.50 s` gait period and
 `0.75` duty factor, leaving only `0.125 s` for swing. The sensor-derived
 foothold path must move the foot to the upper surface, clear the leading edge
 with the foot and shin, remain IK/reachability-valid, preserve support, and
@@ -176,9 +186,11 @@ support checks cannot satisfy those requirements in that fixed window.
 The observed consequence is a sequence of support/deadline rejections or a
 late target handoff before the first measured upper-surface touchdown. Delaying
 or locally stretching one leg creates the forbidden mismatch between swing,
-planned contact, MPC preview, and WBC support. This is an architecture-level
-timing/geometry incompatibility under the current fixed running-trot schedule;
-it is not evidence that the step was mapped as the robot's current ground.
+planned contact, MPC preview, and WBC support. `1de4b98` removes one additional
+plan-expiry failure mode, but was intentionally not canaried during handoff;
+the verified timing/geometry blocker therefore remains the only current
+runtime blocker. It is not evidence that the step was mapped as the robot's
+current ground.
 
 ## 7. Current architecture/dataflow
 
@@ -245,7 +257,7 @@ over → body clear → stable exit transaction.
 
 ## 9. Final validation and reproduction
 
-The final validation command was run once under the shared lock
+The final validation command was run once after `1de4b98` under the shared lock
 `/tmp/go2_mujoco_experiment.lock`:
 
 ```text
@@ -255,7 +267,8 @@ ctest --test-dir example/cpp/build --output-on-failure
 ```
 
 Both builds reported no work to do. CTest passed `27/27`; total test time was
-1.51 s. This is a build/test result only and is not terrain acceptance.
+1.33 s. This is a build/test result only and is not terrain acceptance. No
+additional simulator/canary run was performed after the validity patch.
 
 The most useful local raw reproduction is the run-131 command recorded in its
 archived `run_metadata.txt`. It uses `scripts/run_trot.sh`, the
@@ -264,7 +277,8 @@ archived `run_metadata.txt`. It uses `scripts/run_trot.sh`, the
 experiment must first acquire the shared lock; this handoff itself ran no
 additional canary.
 
-Final source state: implementation `ca32942ed6f040041057051b9490c7279f8c8a01`
-plus this handoff document and the three evidence archives. Formal B0
+Final source state: implementation `1de4b98e9586dd4799458cc2b34a254f4d7a710c`
+plus this handoff document and the three evidence archives. The final git
+status is clean after push. Formal B0
 recertification remains required later after the capability chain and
 determinism work are stabilized. Formal B1 acceptance: **no**.
