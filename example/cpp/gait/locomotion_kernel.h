@@ -174,6 +174,11 @@ struct GaitKernelResult
     int cycle_index = 0;
     std::array<go2::Vec3, go2::kLegCount> feet{};
     std::array<double, go2::kLegCount> touchdown_target_x_m{};
+    // Exact nominal touchdown endpoints in the body frame.  The terrain
+    // planner uses these as the Phase-1 geometric reference even when a leg
+    // is already in swing; feet is the instantaneous commanded trajectory.
+    std::array<go2::Vec3, go2::kLegCount> touchdown_target_feet_base{};
+    bool touchdown_target_feet_valid = false;
     double velocity_error_x_mps = 0.0;
     double nominal_velocity_x_mps = 0.0;  // [Fix 2026-08-13] kernel 当前生效目标速度 (换挡后 world 同步用)
     bool footstep_plan_valid = false;
@@ -281,6 +286,8 @@ public:
         result.cycle_index = static_cast<int>(std::floor(cycle_position));
         result.feet = request.neutral_feet;
         result.touchdown_target_x_m.fill(0.0);
+        result.touchdown_target_feet_base = request.neutral_feet;
+        result.touchdown_target_feet_valid = true;
         result.velocity_error_x_mps = 0.0;
         result.footstep_plan_valid = false;
         result.period_s = params_.period_s;
@@ -325,6 +332,8 @@ public:
                     params_.foot_lift_m * std::sin(kPi * swing_phase);
             }
             x_offset *= params_.direction_sign;
+            result.touchdown_target_feet_base[leg].x +=
+                params_.direction_sign * half_step;
             result.feet[leg].x += gait_blend * x_offset;
             result.feet[leg].z += gait_blend * z_offset;
         }

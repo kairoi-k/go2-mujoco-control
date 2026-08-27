@@ -150,6 +150,11 @@ void TrotExperiment::PublishTerrainControlSnapshot(
     snapshot.have_commanded_body_feet = have_commanded_body_feet_;
     if (snapshot.have_commanded_body_feet)
         snapshot.nominal_feet_base = commanded_body_feet_;
+    snapshot.have_nominal_touchdown_feet =
+        have_kernel_touchdown_target_feet_;
+    if (snapshot.have_nominal_touchdown_feet)
+        snapshot.nominal_touchdown_feet_base =
+            kernel_touchdown_target_feet_base_;
     if (wbc_shadow_contact_state_valid_)
         snapshot.measured_contact = wbc_shadow_contact_state_;
     else
@@ -210,6 +215,10 @@ void TrotExperiment::UpdateTerrainRuntime()
     input.nominal_feet_base = control.have_commanded_body_feet
         ? control.nominal_feet_base
         : go2::AllFootPositions(task_.stand_up_joint_pos_);
+    input.nominal_touchdown_feet_base =
+        control.nominal_touchdown_feet_base;
+    input.nominal_touchdown_feet_valid =
+        control.have_nominal_touchdown_feet;
     input.contact_schedule.measured_contact = control.measured_contact;
     input.contact_schedule.measured_valid = control.measured_valid;
     go2_control::FillTrotContactSchedulePhase(
@@ -221,6 +230,9 @@ void TrotExperiment::UpdateTerrainRuntime()
     // The gait helper fills contact bits only; validity is an explicit
     // planned-vs-measured interface contract.
     input.contact_schedule.planned_valid = true;
+    input.terrain_retarget_allowed_valid = true;
+    const double planner_duty = std::clamp(
+        input.duty_factor, 0.35, 0.90);
     if (std::isfinite(input.gait_period_s) &&
         input.gait_period_s > 0.0 &&
         std::isfinite(input.state_stamp_s))
@@ -241,24 +253,22 @@ void TrotExperiment::UpdateTerrainRuntime()
                 time_to_touchdown_s = 0.0;
             const double touchdown_time_s =
                 input.state_stamp_s + std::max(0.0, time_to_touchdown_s);
-            const double planner_duty = std::clamp(
-                input.duty_factor, 0.35, 0.90);
-            const double swing_duration_s =
-                (1.0 - planner_duty) * input.gait_period_s;
             double candidate_touchdown_time_s = touchdown_time_s;
-            // If the current swing has already started, the planner cannot
-            // safely retarget that touchdown from the present foot state.
-            // Advertise the next continuous touchdown instead; the discrete
-            // schedule remains unchanged and the first contact stays nominal.
-            if (std::isfinite(swing_duration_s) &&
-                touchdown_time_s - swing_duration_s < input.state_stamp_s)
-                candidate_touchdown_time_s += input.gait_period_s;
+            // The terrain target adapter can rebase an in-flight swing to
+            // the measured foot at this snapshot.  Preserve the actual next
+            // contact boundary instead of moving it one whole cycle beyond
+            // the planner horizon.
             if (std::isfinite(candidate_touchdown_time_s))
             {
                 input.next_touchdown_time_s[leg] =
                     candidate_touchdown_time_s;
                 input.next_touchdown_time_valid[leg] = true;
             }
+            const bool current_contact_gap =
+                input.contact_schedule.planned_contact[0][leg] &&
+                !input.contact_schedule.measured_contact[leg];
+            input.terrain_retarget_allowed[leg] =
+                leg_phase < planner_duty && !current_contact_gap;
         }
     }
 
@@ -927,6 +937,7 @@ bool TrotExperiment::PhaseStartGait(
     cartesian_state_ = {};
     have_commanded_body_feet_ = false;
     have_commanded_body_feet_velocity_ = false;
+    have_kernel_touchdown_target_feet_ = false;
     have_commanded_world_feet_ = false;
     previous_leg_swing_.fill(false);
     touchdown_recorded_.fill(false);

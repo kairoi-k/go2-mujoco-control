@@ -227,8 +227,11 @@ private:
         double commanded_vx_mps = 0.0;
         std::array<double, go2_trot::kMotorCount> joint_positions{};
         std::array<go2::Vec3, go2::kLegCount> nominal_feet_base{};
+        std::array<go2::Vec3, go2::kLegCount>
+            nominal_touchdown_feet_base{};
         std::array<bool, go2::kLegCount> measured_contact{};
         bool have_commanded_body_feet = false;
+        bool have_nominal_touchdown_feet = false;
         bool measured_valid = false;
     };
 
@@ -399,6 +402,9 @@ private:
     double cycle_vx_sum_ = 0.0;
     int cycle_vx_count_ = 0;
     std::array<double, go2::kLegCount> kernel_touchdown_target_x_m_{};
+    std::array<go2::Vec3, go2::kLegCount>
+        kernel_touchdown_target_feet_base_{};
+    bool have_kernel_touchdown_target_feet_ = false;
     int preview_n_steps_ = 0;
     double preview_touchdown_x_m_ = 0.0;
     double preview_terminal_velocity_x_mps_ = 0.0;
@@ -454,6 +460,8 @@ private:
         double swing_duration_s = 0.0;
         double swing_lift_m = 0.0;
         double swing_peak_phase = 0.5;
+        double swing_leading_edge_phase = 0.5;
+        bool swing_leading_edge_phase_valid = false;
         bool time_rebased_at_handoff = false;
         bool terrain_height_change = false;
         // A foothold may remain on the currently loaded terrain surface after

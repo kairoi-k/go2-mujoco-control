@@ -253,9 +253,11 @@ public:
         result.phase = phase;
         result.cycle_index = cycle_index;
         result.feet = request.neutral_feet;
+        result.touchdown_target_feet_base = request.neutral_feet;
         result.velocity_error_x_mps = velocity_error;
         result.nominal_velocity_x_mps = nominal_velocity;  // [Fix 2026-08-13]
         result.footstep_plan_valid = true;
+        result.touchdown_target_feet_valid = true;
         result.preview_n_steps = last_preview_n_steps_;
         result.preview_touchdown_x_m = last_preview_touchdown_x_m_;
         result.preview_terminal_velocity_x_mps =
@@ -425,6 +427,10 @@ public:
 
             result.touchdown_target_x_m[leg] =
                 state.next_touchdown_x_m;
+            result.touchdown_target_feet_base[leg].x +=
+                state.next_touchdown_x_m;
+            result.touchdown_target_feet_base[leg].y +=
+                state.next_touchdown_y_m;
             result.feet[leg].x += gait_blend * x_offset;
             result.feet[leg].y += gait_blend * y_offset;
             result.feet[leg].z += gait_blend * z_offset;

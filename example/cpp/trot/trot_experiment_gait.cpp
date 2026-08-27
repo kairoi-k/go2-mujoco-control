@@ -327,6 +327,10 @@ bool TrotExperiment::BuildGaitTargets(
     kernel_velocity_error_x_mps_ = gait_result.velocity_error_x_mps;
     kernel_nominal_velocity_x_mps_ = gait_result.nominal_velocity_x_mps;
     kernel_touchdown_target_x_m_ = gait_result.touchdown_target_x_m;
+    kernel_touchdown_target_feet_base_ =
+        gait_result.touchdown_target_feet_base;
+    have_kernel_touchdown_target_feet_ =
+        gait_result.touchdown_target_feet_valid;
     if (params_.runtime_velocity_command)
         kernel_nominal_velocity_x_mps_ =
             params_.direction_sign * velocity_command_state_.applied_mps;
@@ -1762,6 +1766,10 @@ bool TrotExperiment::BuildGaitTargets(
                 execution.swing_lift_m = std::max(0.0, planned.swing_lift_m);
                 execution.swing_peak_phase = std::clamp(
                     planned.swing_peak_phase, 0.10, 0.90);
+                execution.swing_leading_edge_phase = std::clamp(
+                    planned.swing_leading_edge_phase, 0.10, 0.75);
+                execution.swing_leading_edge_phase_valid =
+                    planned.swing_leading_edge_phase_valid;
                 execution.time_rebased_at_handoff = time_rebased_at_handoff;
                 execution.terrain_height_change =
                     terrain_height_change_for(leg, planned);
@@ -1971,11 +1979,25 @@ bool TrotExperiment::BuildGaitTargets(
                 : std::clamp(
                       (leg_phase - duty) / std::max(1.0e-6, 1.0 - duty),
                       0.0, 1.0);
-            const double path_progress = go2_terrain::TerrainSwingEase(
-                swing_phase);
+            // A riser is not safely crossed by a centered bell swing when
+            // the nominal foot is already at its leading edge.  The
+            // feasibility solver records the observed edge phase; keep the
+            // foot vertically pre-cleared there, then resume horizontal
+            // progress using the same zero-endpoint easing law.
+            const double path_progress =
+                go2_terrain::TerrainSwingPathProgress(
+                    swing_phase,
+                    execution.swing_leading_edge_phase_valid,
+                    execution.swing_leading_edge_phase);
+            const double terrain_peak_phase =
+                execution.swing_leading_edge_phase_valid
+                    ? std::max(
+                          execution.swing_peak_phase,
+                          execution.swing_leading_edge_phase)
+                    : execution.swing_peak_phase;
             const double swing_arch = execution.swing_lift_m *
                 go2_terrain::TerrainSwingProfile(
-                    swing_phase, execution.swing_peak_phase);
+                    swing_phase, terrain_peak_phase);
             const go2::Vec3 path_world{
                 execution.start_world.x + path_progress *
                     (execution.target_world.x - execution.start_world.x),
@@ -1995,11 +2017,13 @@ bool TrotExperiment::BuildGaitTargets(
             const double phase_rate = 1.0 / std::max(
                 1.0e-6, actual_swing_duration_s);
             const double path_progress_rate =
-                go2_terrain::TerrainSwingEaseDerivative(swing_phase) *
-                phase_rate;
+                go2_terrain::TerrainSwingPathProgressDerivative(
+                    swing_phase,
+                    execution.swing_leading_edge_phase_valid,
+                    execution.swing_leading_edge_phase) * phase_rate;
             const double swing_arch_rate = execution.swing_lift_m *
                 go2_terrain::TerrainSwingProfileDerivative(
-                    swing_phase, execution.swing_peak_phase) * phase_rate;
+                    swing_phase, terrain_peak_phase) * phase_rate;
             const go2::Vec3 path_velocity{
                 path_progress_rate *
                     (execution.target_world.x - execution.start_world.x),

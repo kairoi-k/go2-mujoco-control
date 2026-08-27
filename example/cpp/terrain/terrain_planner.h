@@ -59,6 +59,18 @@ struct TerrainPlannerInput
     double commanded_vx_mps = 0.0;
     std::array<go2::Vec3, go2::kLegCount> current_feet_base{};
     std::array<go2::Vec3, go2::kLegCount> nominal_feet_base{};
+    // Instantaneous nominal_feet_base is the current gait trajectory.  This
+    // separate endpoint is stable through an in-flight swing and is the
+    // reference for terrain candidate ranking and support prediction.
+    std::array<go2::Vec3, go2::kLegCount>
+        nominal_touchdown_feet_base{};
+    bool nominal_touchdown_feet_valid = false;
+    // A terrain candidate may only replace a touchdown when the swing was
+    // still in stance at snapshot time.  An in-flight leg keeps its nominal
+    // Phase-1 endpoint for this exchange; the next complete swing can use a
+    // sensor-derived foothold.
+    std::array<bool, go2::kLegCount> terrain_retarget_allowed{};
+    bool terrain_retarget_allowed_valid = false;
     TerrainContactSchedule contact_schedule{};
     // The discrete schedule feeds the MPC horizon, while this optional
     // absolute timestamp keeps swing execution aligned with the continuous
@@ -388,7 +400,10 @@ public:
             const bool has_touchdown = touchdown_knot >= 0;
             if (!has_touchdown)
                 continue;
-            result.candidate_required[leg] = true;
+            result.candidate_required[leg] =
+                TerrainTouchdownRetargetAllowed(input, leg);
+            if (!result.candidate_required[leg])
+                continue;
             const double observed_leg_surface_height_m =
                 ObservedTerrainHeightAt(input, leg);
             const double observed_surface_height_m =
@@ -420,9 +435,11 @@ public:
             const auto candidate_score = [&](const go2::Vec3 &position,
                                              double uncertainty,
                                              double edge_margin) {
+                const auto nominal_touchdown =
+                    NominalTouchdownFoot(input, leg);
                 const double displacement = std::hypot(
-                    position.x - input.nominal_feet_base[leg].x,
-                    position.y - input.nominal_feet_base[leg].y);
+                    position.x - nominal_touchdown.x,
+                    position.y - nominal_touchdown.y);
                 const double upward_surface_gain_m =
                     std::isfinite(observed_surface_height_m) &&
                             std::isfinite(position.z)
@@ -476,7 +493,7 @@ public:
             for (const std::size_t region_index : region_order)
             {
                 const auto &region = result.regions[leg][region_index];
-                const auto &nominal = input.nominal_feet_base[leg];
+                const auto nominal = NominalTouchdownFoot(input, leg);
                 const auto &current = input.current_feet_base[leg];
                 const go2::Vec3 desired_position =
                     std::isfinite(nominal.x) && std::isfinite(nominal.y)
@@ -501,7 +518,9 @@ public:
                         candidate.foot_position, config_.swing_clearance_m,
                         candidate.swing_clearance_m, &swing_reject_reason,
                         static_cast<go2::Leg>(leg), &candidate.swing_lift_m,
-                        &candidate.swing_peak_phase))
+                        &candidate.swing_peak_phase,
+                        &candidate.swing_leading_edge_phase,
+                        &candidate.swing_leading_edge_phase_valid))
                 {
                     const auto reason = static_cast<std::size_t>(
                         swing_reject_reason);
@@ -691,6 +710,25 @@ public:
     }
 
 private:
+    static go2::Vec3 NominalTouchdownFoot(
+        const TerrainPlannerInput &input, std::size_t leg)
+    {
+        if (input.nominal_touchdown_feet_valid &&
+            leg < go2::kLegCount &&
+            std::isfinite(input.nominal_touchdown_feet_base[leg].x) &&
+            std::isfinite(input.nominal_touchdown_feet_base[leg].y) &&
+            std::isfinite(input.nominal_touchdown_feet_base[leg].z))
+            return input.nominal_touchdown_feet_base[leg];
+        return input.nominal_feet_base[leg];
+    }
+
+    static bool TerrainTouchdownRetargetAllowed(
+        const TerrainPlannerInput &input, std::size_t leg)
+    {
+        return !input.terrain_retarget_allowed_valid ||
+            (leg < go2::kLegCount && input.terrain_retarget_allowed[leg]);
+    }
+
     static go2::Vec3 RegionRepresentative(
         const SafeFootholdRegion &region, const go2::Vec3 &desired,
         double map_resolution_m)
@@ -817,11 +855,20 @@ private:
                     static_cast<int>(k) >= touchdown_knots[leg];
                 if (use_selected)
                 {
-                    if (!selection[leg].hard_feasible)
+                    if (selection[leg].hard_feasible)
+                    {
+                        feet[leg] = RotateBaseToWorld(
+                            input.base_position_world, input.base_yaw_rad,
+                            selection[leg].foot_position);
+                    }
+                    else if (!TerrainTouchdownRetargetAllowed(input, leg))
+                    {
+                        feet[leg] = RotateBaseToWorld(
+                            input.base_position_world, input.base_yaw_rad,
+                            NominalTouchdownFoot(input, leg));
+                    }
+                    else
                         return false;
-                    feet[leg] = RotateBaseToWorld(
-                        input.base_position_world, input.base_yaw_rad,
-                        selection[leg].foot_position);
                 }
                 else
                 {
@@ -1013,15 +1060,8 @@ private:
             !std::isfinite(input.gait_period_s) ||
             input.gait_period_s <= 0.0)
             return first;
-        const double duty = std::clamp(input.duty_factor, 0.35, 0.90);
-        const double swing_duration_s =
-            (1.0 - duty) * input.gait_period_s;
         const double desired_touchdown_s =
             input.next_touchdown_time_s[leg];
-        if (!std::isfinite(swing_duration_s) ||
-            desired_touchdown_s - swing_duration_s <
-                input.state_stamp_s)
-            return -1;
         bool previous = input.contact_schedule.measured_contact[leg];
         for (std::size_t k = 0; k < kTerrainPlanMaxKnots; ++k)
         {
@@ -1100,6 +1140,8 @@ private:
                 result.selected_by_touchdown[leg][
                     static_cast<std::size_t>(first_touchdown)];
             int previous_touchdown = first_touchdown;
+            const auto nominal_touchdown =
+                NominalTouchdownFoot(input, leg);
             for (std::size_t k = static_cast<std::size_t>(first_touchdown + 1);
                  k < config_.horizon_knots; ++k)
             {
@@ -1126,7 +1168,7 @@ private:
                         const double progress_error = std::abs(
                             directional_progress - expected_progress);
                         const double lateral_error = std::abs(
-                            position.y - input.nominal_feet_base[leg].y);
+                            position.y - nominal_touchdown.y);
                         const double elevation_gain = command_direction != 0.0
                             ? std::max(0.0, position.z - swing_start.z)
                             : 0.0;
@@ -1177,7 +1219,7 @@ private:
                     const auto &region = result.regions[leg][region_index];
                     const go2::Vec3 desired_position{
                         swing_start.x + command_direction * expected_progress,
-                        input.nominal_feet_base[leg].y, region.center.z};
+                        nominal_touchdown.y, region.center.z};
                     const go2::Vec3 representative = RegionRepresentative(
                         region, desired_position, input.terrain->resolution_m);
                     FootholdCandidate candidate = EvaluateFoothold(
@@ -1366,6 +1408,10 @@ private:
                     foot.swing_clearance_m = candidate.swing_clearance_m;
                     foot.swing_lift_m = candidate.swing_lift_m;
                     foot.swing_peak_phase = candidate.swing_peak_phase;
+                    foot.swing_leading_edge_phase =
+                        candidate.swing_leading_edge_phase;
+                    foot.swing_leading_edge_phase_valid =
+                        candidate.swing_leading_edge_phase_valid;
                     foot.support_margin_m = candidate.support_margin_m;
                     foot.collision_margin_m = candidate.collision_margin_m;
                     foot.uncertainty_m = candidate.uncertainty_m;
@@ -1427,10 +1473,26 @@ private:
                 else if (input.contact_schedule.planned_contact[k][leg])
                 {
                     foot.valid = true;
+                    const auto nominal_touchdown =
+                        NominalTouchdownFoot(input, leg);
+                    const bool after_first_touchdown =
+                        first_touchdown >= 0 &&
+                        static_cast<int>(k) >= first_touchdown &&
+                        std::isfinite(nominal_touchdown.x) &&
+                        std::isfinite(nominal_touchdown.y) &&
+                        std::isfinite(nominal_touchdown.z);
                     foot.position_world = RotateBaseToWorld(
                         input.base_position_world, input.base_yaw_rad,
-                        input.current_feet_base[leg]);
-                    foot.touchdown_time_s = input.state_stamp_s;
+                        after_first_touchdown
+                            ? nominal_touchdown
+                            : input.current_feet_base[leg]);
+                    foot.touchdown_time_s =
+                        after_first_touchdown &&
+                                input.next_touchdown_time_valid[leg] &&
+                                std::isfinite(
+                                    input.next_touchdown_time_s[leg])
+                            ? input.next_touchdown_time_s[leg]
+                            : input.state_stamp_s;
                     foot.surface_normal = {0.0, 0.0, 1.0};
                 }
                 result.plan.predicted_foothold[k][leg] = foot;

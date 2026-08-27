@@ -190,6 +190,14 @@ bool TrotExperiment::Init()
     go2_terrain::TerrainPlannerConfig terrain_config;
     terrain_config.sensor_only = params_.terrain_sensor_only;
     terrain_config.allow_actuation = params_.terrain_actuation;
+    if (terrain_config.allow_actuation && !terrain_config.sensor_only)
+    {
+        // An actuating terrain plan is an atomic future-contact transaction,
+        // not a one-tick observation.  Keep it valid through the configured
+        // contact horizon so a foothold can be armed in stance and executed
+        // at the next swing without falling back to a late riser handoff.
+        terrain_config.plan_validity_s = 0.50;
+    }
     terrain_planner_ = go2_terrain::TerrainPlanner(terrain_config);
 
     if (params_.wbc_full)

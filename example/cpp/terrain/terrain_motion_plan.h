@@ -84,6 +84,8 @@ struct TerrainFootholdPrediction
     double swing_clearance_m = 0.0;
     double swing_lift_m = 0.0;
     double swing_peak_phase = 0.5;
+    double swing_leading_edge_phase = 0.5;
+    bool swing_leading_edge_phase_valid = false;
     double support_margin_m = 0.0;
     double collision_margin_m = 0.0;
     double uncertainty_m = 0.0;
@@ -205,7 +207,11 @@ struct TerrainMotionPlan
                     foot.swing_lift_m < 0.0 ||
                     !std::isfinite(foot.swing_peak_phase) ||
                     foot.swing_peak_phase < 0.10 ||
-                    foot.swing_peak_phase > 0.90)
+                    foot.swing_peak_phase > 0.90 ||
+                    !std::isfinite(foot.swing_leading_edge_phase) ||
+                    (foot.swing_leading_edge_phase_valid &&
+                     (foot.swing_leading_edge_phase < 0.10 ||
+                      foot.swing_leading_edge_phase > 0.75)))
                     return false;
                 if (foot.touchdown &&
                     (!foot.swing_start_position_valid ||

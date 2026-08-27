@@ -97,6 +97,8 @@ struct SafeFootholdRegion
     double swing_clearance_m = std::numeric_limits<double>::infinity();
     double swing_lift_m = 0.0;
     double swing_peak_phase = 0.5;
+    double swing_leading_edge_phase = 0.5;
+    bool swing_leading_edge_phase_valid = false;
     double uncertainty_m = std::numeric_limits<double>::infinity();
     bool valid = false;
 };
@@ -117,6 +119,8 @@ struct FootholdCandidate
     double swing_clearance_m = std::numeric_limits<double>::infinity();
     double swing_lift_m = 0.0;
     double swing_peak_phase = 0.5;
+    double swing_leading_edge_phase = 0.5;
+    bool swing_leading_edge_phase_valid = false;
     double support_margin_m = std::numeric_limits<double>::infinity();
     double collision_margin_m = std::numeric_limits<double>::infinity();
     double uncertainty_m = std::numeric_limits<double>::infinity();
@@ -178,6 +182,56 @@ inline double TerrainSwingProfileDerivative(
         (1.0 - p);
 }
 
+// A sensor-observed leading edge is cleared before horizontal progress is
+// resumed.  This is deliberately expressed in swing phase, not scene/world
+// coordinates: the same trajectory contract works for any observed riser.
+inline double TerrainSwingHorizontalPhase(
+    double phase, bool leading_edge_phase_valid,
+    double leading_edge_phase)
+{
+    const double u = std::clamp(phase, 0.0, 1.0);
+    if (!leading_edge_phase_valid || !std::isfinite(leading_edge_phase))
+        return u;
+    const double clear_phase = std::clamp(leading_edge_phase, 0.10, 0.75);
+    if (u <= clear_phase)
+        return 0.0;
+    return std::clamp(
+        (u - clear_phase) / std::max(1.0e-6, 1.0 - clear_phase),
+        0.0, 1.0);
+}
+
+inline double TerrainSwingHorizontalPhaseDerivative(
+    double phase, bool leading_edge_phase_valid,
+    double leading_edge_phase)
+{
+    const double u = std::clamp(phase, 0.0, 1.0);
+    if (!leading_edge_phase_valid || !std::isfinite(leading_edge_phase))
+        return 1.0;
+    const double clear_phase = std::clamp(leading_edge_phase, 0.10, 0.75);
+    return u <= clear_phase
+        ? 0.0
+        : 1.0 / std::max(1.0e-6, 1.0 - clear_phase);
+}
+
+inline double TerrainSwingPathProgress(
+    double phase, bool leading_edge_phase_valid,
+    double leading_edge_phase)
+{
+    return TerrainSwingEase(TerrainSwingHorizontalPhase(
+        phase, leading_edge_phase_valid, leading_edge_phase));
+}
+
+inline double TerrainSwingPathProgressDerivative(
+    double phase, bool leading_edge_phase_valid,
+    double leading_edge_phase)
+{
+    const double horizontal_phase = TerrainSwingHorizontalPhase(
+        phase, leading_edge_phase_valid, leading_edge_phase);
+    return TerrainSwingEaseDerivative(horizontal_phase) *
+        TerrainSwingHorizontalPhaseDerivative(
+            phase, leading_edge_phase_valid, leading_edge_phase);
+}
+
 // A swing starts and ends in contact with the observed terrain.  For an
 // asymmetric, terrain-derived profile, use the same phase envelope for the
 // clearance budget and for the lift itself.  Keeping their endpoint orders
@@ -196,7 +250,9 @@ inline bool CheckSwingClearance(
     FootholdRejectReason *failure_reason = nullptr,
     go2::Leg leg = go2::Leg::FR,
     double *required_lift_m = nullptr,
-    double *required_peak_phase = nullptr)
+    double *required_peak_phase = nullptr,
+    double *leading_edge_phase = nullptr,
+    bool *leading_edge_phase_valid = nullptr)
 {
     minimum_clearance_m = std::numeric_limits<double>::infinity();
     if (failure_reason != nullptr)
@@ -205,6 +261,10 @@ inline bool CheckSwingClearance(
         *required_lift_m = 0.0;
     if (required_peak_phase != nullptr)
         *required_peak_phase = 0.5;
+    if (leading_edge_phase != nullptr)
+        *leading_edge_phase = 0.5;
+    if (leading_edge_phase_valid != nullptr)
+        *leading_edge_phase_valid = false;
     const auto reject = [&](FootholdRejectReason reason) {
         if (failure_reason != nullptr)
             *failure_reason = reason;
@@ -283,6 +343,12 @@ inline bool CheckSwingClearance(
     const double best_peak_phase = weighted_peak_phase >= 0.0
         ? terrain_peak_phase
         : (first_rise_phase >= 0.0 ? first_rise_peak_phase : 0.5);
+    const bool observed_leading_edge = first_rise_phase >= 0.0;
+    const double execution_peak_phase = observed_leading_edge
+        ? std::max(
+              best_peak_phase,
+              std::clamp(first_rise_phase, 0.10, 0.75))
+        : best_peak_phase;
     double lift = std::max(clearance_m, 0.050);
     double lift_phase = 0.0;
     double lift_terrain_height = 0.0;
@@ -292,9 +358,11 @@ inline bool CheckSwingClearance(
     for (int i = 1; i < samples; ++i)
     {
         const double u = static_cast<double>(i) / samples;
-        const double path_progress = TerrainSwingEase(u);
+        const double path_progress = TerrainSwingPathProgress(
+            u, observed_leading_edge, first_rise_phase);
         const double clearance_requirement =
-            TerrainSwingClearanceRequirement(u, clearance_m, best_peak_phase);
+            TerrainSwingClearanceRequirement(
+                u, clearance_m, execution_peak_phase);
         const double linear_height =
             start.z + path_progress * (end.z - start.z);
         const double target_height = terrain_height[
@@ -302,7 +370,8 @@ inline bool CheckSwingClearance(
         const double required = target_height - linear_height;
         if (required <= 0.0)
             continue;
-        const double shape = TerrainSwingProfile(u, best_peak_phase);
+        const double shape = TerrainSwingProfile(
+            u, execution_peak_phase);
         if (!(shape > 1.0e-9))
             return reject(FootholdRejectReason::kSwingClearance);
         double lift_for_sample = std::max(lift, required / shape);
@@ -377,15 +446,16 @@ inline bool CheckSwingClearance(
             const double u = static_cast<double>(i) / samples;
             const double clearance_requirement =
                 TerrainSwingClearanceRequirement(
-                    u, clearance_m, best_peak_phase);
+                    u, clearance_m, execution_peak_phase);
             const double clearance_threshold = std::nextafter(
                 clearance_requirement,
                 -std::numeric_limits<double>::infinity());
-            const double path_progress = TerrainSwingEase(u);
+            const double path_progress = TerrainSwingPathProgress(
+                u, observed_leading_edge, first_rise_phase);
             const double linear_height =
                 start.z + path_progress * (end.z - start.z);
             const double foot_height = std::fma(
-                TerrainSwingProfile(u, best_peak_phase), test_lift,
+                TerrainSwingProfile(u, execution_peak_phase), test_lift,
                 linear_height);
             const go2::Vec3 foot{
                 start.x + path_progress * (end.x - start.x),
@@ -487,7 +557,11 @@ inline bool CheckSwingClearance(
     if (required_lift_m != nullptr)
         *required_lift_m = lift;
     if (required_peak_phase != nullptr)
-        *required_peak_phase = best_peak_phase;
+        *required_peak_phase = execution_peak_phase;
+    if (leading_edge_phase != nullptr && observed_leading_edge)
+        *leading_edge_phase = std::clamp(first_rise_phase, 0.10, 0.75);
+    if (leading_edge_phase_valid != nullptr)
+        *leading_edge_phase_valid = observed_leading_edge;
     if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr &&
         lift > 0.15 &&
         (first_rise_phase >= 0.0 || end.z - start.z > 0.04))
@@ -503,7 +577,7 @@ inline bool CheckSwingClearance(
                 "linear=%.6f req=%.6f shape=%.6f\n",
                 static_cast<int>(leg), start.x, start.y, start.z,
                 end.x, end.y, end.z, samples, first_rise_phase,
-                best_peak_phase, lift, lift_phase, lift_terrain_height,
+                execution_peak_phase, lift, lift_phase, lift_terrain_height,
                 lift_linear_height, lift_clearance_requirement, lift_shape);
             ++debug_prints;
         }
@@ -642,7 +716,9 @@ inline FootholdCandidate EvaluateFoothold(
                 model, *swing_start, candidate.foot_position,
                 swing_clearance_m, candidate.swing_clearance_m,
                 &swing_reject_reason, leg, &candidate.swing_lift_m,
-                &candidate.swing_peak_phase))
+                &candidate.swing_peak_phase,
+                &candidate.swing_leading_edge_phase,
+                &candidate.swing_leading_edge_phase_valid))
         {
             candidate.reject_reason = swing_reject_reason;
             return candidate;
@@ -701,6 +777,10 @@ inline std::vector<SafeFootholdRegion> BuildSafeFootholdRegions(
             region.swing_lift_m = candidate.swing_lift_m;
             region.support_margin_m = candidate.support_margin_m;
             region.swing_peak_phase = candidate.swing_peak_phase;
+            region.swing_leading_edge_phase =
+                candidate.swing_leading_edge_phase;
+            region.swing_leading_edge_phase_valid =
+                candidate.swing_leading_edge_phase_valid;
             region.collision_margin_m = candidate.collision_margin_m;
             region.vertex_count = 4;
             region.vertices = {
