@@ -144,14 +144,6 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         : dt_;
     double requested_mps = params_.velocity_command_profile.Sample(gait_time_s);
     if (params_.terrain_actuation && !params_.terrain_sensor_only &&
-        terrain_surface_transition_active_)
-    {
-        // Keep the existing Phase-1 shaper as the sole velocity authority,
-        // but do not let a newer flat snapshot revoke the zero request while
-        // the sensor-derived surface transaction is still incomplete.
-        requested_mps = 0.0;
-    }
-    if (params_.terrain_actuation && !params_.terrain_sensor_only &&
         std::isfinite(terrain_velocity_cap_mps_.load()))
     {
         // Terrain is an arbitration request only.  The Phase 1 shaper remains
@@ -441,6 +433,21 @@ bool TrotExperiment::BuildGaitTargets(
               !terrain_plan_has_active_swing(terrain_execution_plan_)))
         terrain_execution_plan_ = latest_terrain_plan;
     const auto active_terrain_plan = terrain_execution_plan_;
+    std::array<bool, go2::kLegCount> terrain_contact_now{};
+    bool terrain_contact_now_valid = false;
+    if (active_terrain_plan)
+    {
+        std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
+            terrain_now_index{};
+        terrain_contact_now_valid =
+            go2_terrain::BuildTerrainPlanHorizonIndices(
+                *active_terrain_plan, terrain_now_s,
+                terrain_planner_.config().knot_dt_s,
+                terrain_planner_.config().knot_dt_s, 1, terrain_now_index);
+        if (terrain_contact_now_valid)
+            terrain_contact_now = active_terrain_plan->contact_schedule
+                .planned_contact[terrain_now_index[0]];
+    }
     const int cycle_index = gait_result.cycle_index;
     if (active_cycle_index_ < 0)
     {
@@ -1703,44 +1710,50 @@ bool TrotExperiment::BuildGaitTargets(
             };
 
         const auto begin_terrain_surface_transition =
-            [&](double target_world_z, double uncertainty_m) {
-                if (terrain_surface_transition_active_)
+            [&](std::size_t transition_leg,
+                double target_world_z, double uncertainty_m) {
+                if (transition_leg >= go2::kLegCount)
                     return;
-                terrain_surface_transition_active_ = true;
-                terrain_surface_transition_target_world_z_ = target_world_z;
-                terrain_surface_transition_deadband_m_ = std::max(
+                const double deadband_m = std::max(
                     2.0 * std::max(0.0, uncertainty_m),
                     0.5 * terrain_planner_.config().feasibility.
                         foot_patch_radius_m);
-                terrain_surface_transition_required_.fill(true);
-                terrain_surface_transition_committed_.fill(false);
-                terrain_surface_transition_source_valid_.fill(false);
-                for (std::size_t transition_leg = 0;
-                     transition_leg < go2::kLegCount; ++transition_leg)
+                if (!terrain_surface_transition_active_)
                 {
-                    double source_world_z = support_surface_z;
-                    bool source_valid = support_surface_count > 0;
-                    if (active_terrain_plan->current_support_surface_valid[
-                            transition_leg] &&
-                        std::isfinite(active_terrain_plan->
-                            current_support_surface_height_world[
-                                transition_leg]))
-                    {
-                        source_world_z = active_terrain_plan->
-                            current_support_surface_height_world[
-                                transition_leg];
-                        source_valid = true;
-                    }
-                    terrain_surface_transition_source_valid_[transition_leg] =
-                        source_valid;
-                    terrain_surface_transition_source_world_z_[transition_leg] =
-                        source_world_z;
-                    if (source_valid &&
-                        std::abs(source_world_z - target_world_z) <=
-                            terrain_surface_transition_deadband_m_)
-                        terrain_surface_transition_required_[transition_leg] =
-                            false;
+                    terrain_surface_transition_active_ = true;
+                    terrain_surface_transition_target_world_z_ = target_world_z;
+                    terrain_surface_transition_deadband_m_ = deadband_m;
+                    terrain_surface_transition_required_.fill(false);
+                    terrain_surface_transition_committed_.fill(false);
+                    terrain_surface_transition_source_valid_.fill(false);
                 }
+                else
+                {
+                    terrain_surface_transition_target_world_z_ = std::max(
+                        terrain_surface_transition_target_world_z_,
+                        target_world_z);
+                    terrain_surface_transition_deadband_m_ = std::max(
+                        terrain_surface_transition_deadband_m_, deadband_m);
+                }
+                double source_world_z = support_surface_z;
+                bool source_valid = support_surface_count > 0;
+                if (active_terrain_plan->current_support_surface_valid[
+                        transition_leg] &&
+                    std::isfinite(active_terrain_plan->
+                        current_support_surface_height_world[transition_leg]))
+                {
+                    source_world_z = active_terrain_plan->
+                        current_support_surface_height_world[transition_leg];
+                    source_valid = true;
+                }
+                terrain_surface_transition_source_valid_[transition_leg] =
+                    source_valid;
+                terrain_surface_transition_source_world_z_[transition_leg] =
+                    source_world_z;
+                terrain_surface_transition_required_[transition_leg] =
+                    !source_valid ||
+                    std::abs(source_world_z - target_world_z) >
+                        terrain_surface_transition_deadband_m_;
             };
 
         const auto prepare_terrain_target =
@@ -1897,11 +1910,12 @@ bool TrotExperiment::BuildGaitTargets(
                 // prevents an early world endpoint from becoming an
                 // unreachable held stance before the riser.
                 execution.terrain_target_required =
+                    planned.surface_transition_required ||
                     execution.terrain_height_change;
                 if (!execution.terrain_target_required)
                     return reject_prepare(4);
                 begin_terrain_surface_transition(
-                    execution.target_world.z, planned.uncertainty_m);
+                    leg, execution.target_world.z, planned.uncertainty_m);
                 // The planner's reachability test is made at its predicted
                 // touchdown body pose.  A committed snapshot can outlive a
                 // body-height/pose change, however; applying its world
@@ -1970,19 +1984,32 @@ bool TrotExperiment::BuildGaitTargets(
                     terrain_target_overridden || overridden;
             };
 
-        const auto begin_terrain_transfer_hold = [&]() {
-            if (terrain_transfer_hold_active_)
-                return;
+        const auto begin_terrain_transfer_hold =
+            [&](std::size_t target_leg) {
             std::array<bool, go2::kLegCount> scheduled_support{};
-            for (std::size_t support_leg = 0;
-                 support_leg < go2::kLegCount; ++support_leg)
+            if (terrain_contact_now_valid)
+                scheduled_support = terrain_contact_now;
+            else
             {
-                scheduled_support[support_leg] =
-                    go2_control::GaitLegPhase(
-                        support_leg, phase, params_.gait_pattern) < duty;
+                for (std::size_t support_leg = 0;
+                     support_leg < go2::kLegCount; ++support_leg)
+                {
+                    scheduled_support[support_leg] =
+                        go2_control::GaitLegPhase(
+                            support_leg, phase, params_.gait_pattern) < duty;
+                }
             }
             const int support_count = static_cast<int>(std::count(
                 scheduled_support.begin(), scheduled_support.end(), true));
+            if (terrain_transfer_hold_active_)
+            {
+                if (target_leg < go2::kLegCount &&
+                    terrain_transfer_hold_contact_[target_leg] &&
+                    !scheduled_support[target_leg] &&
+                    support_count >= 2)
+                    terrain_transfer_hold_contact_ = scheduled_support;
+                return;
+            }
             if (support_count < 2)
                 return;
             terrain_transfer_hold_contact_ = scheduled_support;
@@ -1993,7 +2020,10 @@ bool TrotExperiment::BuildGaitTargets(
         {
             const double leg_phase = go2_control::GaitLegPhase(
                 leg, phase, params_.gait_pattern);
-            const bool leg_in_swing = leg_phase >= duty;
+            const bool nominal_leg_in_swing = leg_phase >= duty;
+            const bool leg_in_swing = terrain_contact_now_valid
+                ? !terrain_contact_now[leg]
+                : nominal_leg_in_swing;
             auto &execution = terrain_swing_execution_[leg];
             auto &pending = terrain_swing_pending_[leg];
             const bool terrain_extended_swing =
@@ -2006,6 +2036,9 @@ bool TrotExperiment::BuildGaitTargets(
                     execution.touchdown_time_s;
             const bool effective_leg_in_swing =
                 leg_in_swing || terrain_extended_swing;
+            const bool terrain_target_pending = execution.valid &&
+                execution.terrain_target_required &&
+                !execution.measured_touchdown;
             if (terrain_surface_transition_active_ &&
                 terrain_surface_transition_committed_[leg] &&
                 execution.valid && execution.measured_touchdown)
@@ -2014,6 +2047,7 @@ bool TrotExperiment::BuildGaitTargets(
                 continue;
             }
             if (terrain_transfer_hold_active_ &&
+                !terrain_target_pending &&
                 terrain_transfer_hold_contact_[leg] &&
                 have_actual_world_feet)
             {
@@ -2166,8 +2200,28 @@ bool TrotExperiment::BuildGaitTargets(
                     execution.swing_start_time_s)
                 continue;
 
+            begin_terrain_transfer_hold(leg);
+            if (terrain_transfer_hold_active_ &&
+                terrain_transfer_hold_contact_[leg])
+            {
+                int alternate_support_count = 0;
+                for (std::size_t support_leg = 0;
+                     support_leg < go2::kLegCount; ++support_leg)
+                {
+                    if (support_leg != leg &&
+                        terrain_transfer_hold_contact_[support_leg])
+                        ++alternate_support_count;
+                }
+                if (alternate_support_count < 2)
+                {
+                    if (have_actual_world_feet)
+                        feet[leg] = go2_control::WorldToBody(
+                            terrain_pose.base, terrain_pose.quaternion,
+                            actual_world_feet[leg]);
+                    continue;
+                }
+            }
             execution.in_flight = true;
-            begin_terrain_transfer_hold();
             const double swing_phase = execution.time_rebased_at_handoff
                 ? std::clamp(
                       (terrain_now_s - execution.trajectory_start_time_s) /

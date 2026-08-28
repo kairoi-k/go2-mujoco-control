@@ -267,6 +267,33 @@ void TrotExperiment::UpdateWbcFull(
     // to wait for a real touchdown instead of dropping its old support pair.
     bool terrain_transfer_has_target = false;
     bool terrain_transfer_complete = true;
+    if (terrain_surface_transition_active_ &&
+        terrain_transfer_hold_active_)
+    {
+        terrain_transfer_has_target = true;
+        terrain_transfer_complete = false;
+    }
+    const bool terrain_execution_pending = std::any_of(
+        terrain_swing_execution_.begin(), terrain_swing_execution_.end(),
+        [](const TerrainSwingExecution &execution) {
+            return execution.valid && execution.terrain_target_required &&
+                !execution.measured_touchdown;
+        });
+    if (!terrain_surface_transition_active_ &&
+        terrain_transfer_hold_active_ &&
+        !terrain_transfer_has_target && !terrain_execution_pending)
+    {
+        if (scheduled_contact == terrain_transfer_hold_contact_)
+        {
+            terrain_transfer_hold_contact_.fill(false);
+            terrain_transfer_hold_active_ = false;
+        }
+        else
+        {
+            terrain_transfer_has_target = true;
+            terrain_transfer_complete = false;
+        }
+    }
     const double terrain_touchdown_tolerance_m = std::max(
         0.020,
         1.5 * terrain_planner_.config().feasibility.foot_patch_radius_m);
@@ -300,7 +327,10 @@ void TrotExperiment::UpdateWbcFull(
             execution.measured_touchdown = true;
             if (terrain_surface_transition_active_ &&
                 terrain_surface_transition_required_[leg])
+            {
                 terrain_surface_transition_committed_[leg] = true;
+                terrain_transfer_complete = false;
+            }
         }
         else
             terrain_transfer_complete = false;
@@ -330,12 +360,23 @@ void TrotExperiment::UpdateWbcFull(
         }
         if (terrain_transfer_hold_active_ && !terrain_transfer_complete)
         {
+            // Keep the support captured at the first target boundary;
+            // only a confirmed target may be removed from that support
+            // set while its terrain swing is in flight. This keeps a
+            // later target from replacing the transaction's support pair.
             qp_contact = terrain_transfer_hold_contact_;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {
-                if (terrain_swing_execution_[leg].measured_touchdown)
+                const auto &execution = terrain_swing_execution_[leg];
+                const bool active_target = execution.valid &&
+                    execution.terrain_target_required &&
+                    !execution.measured_touchdown &&
+                    (execution.in_flight || execution.endpoint_held);
+                if (active_target)
+                    qp_contact[leg] = false;
+                if (execution.measured_touchdown)
                     qp_contact[leg] = true;
-            }
+        }
         }
         else if (terrain_transfer_complete)
         {

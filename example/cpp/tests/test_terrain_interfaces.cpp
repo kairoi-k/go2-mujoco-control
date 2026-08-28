@@ -210,10 +210,15 @@ int main()
                    forward_step_plan.selected[1].foot_position.z > -0.20,
                "forward sensor-elevated foothold was not selected"))
         return 1;
-    if (!Check(forward_step_plan.plan.velocity_request.valid &&
-                   forward_step_plan.plan.velocity_request.is_cap &&
-                   forward_step_plan.plan.velocity_request.max_vx_mps == 0.0,
-               "sensor-elevated foothold did not request a velocity cap"))
+    bool transition_marked = false;
+    for (std::size_t k = 0; k < go2_terrain::kTerrainPlanMaxKnots; ++k)
+        transition_marked = transition_marked ||
+            forward_step_plan.plan.predicted_foothold[k][1]
+                .surface_transition_required;
+    if (!Check(transition_marked,
+               "sensor-elevated foothold did not mark a surface transition") ||
+        !Check(!forward_step_plan.plan.velocity_request.valid,
+               "sensor-elevated foothold injected a nominal velocity request"))
         return 1;
 
     auto contact_gap_input = forward_step_input;

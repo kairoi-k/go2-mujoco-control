@@ -1785,6 +1785,17 @@ private:
                     foot.support_margin_m = candidate.support_margin_m;
                     foot.collision_margin_m = candidate.collision_margin_m;
                     foot.uncertainty_m = candidate.uncertainty_m;
+                    const double observed_surface_height_m =
+                        ObservedTerrainReferenceHeight(input, leg);
+                    const double transition_deadband_m = std::max(
+                        2.0 * std::max(0.0, candidate.uncertainty_m),
+                        0.5 * config_.feasibility.foot_patch_radius_m);
+                    foot.surface_transition_required =
+                        std::isfinite(observed_surface_height_m) &&
+                        std::isfinite(candidate.foot_position.z) &&
+                        candidate.foot_position.z -
+                                observed_surface_height_m >
+                            transition_deadband_m;
                     result.plan.uncertainty_m = std::max(
                         result.plan.uncertainty_m, candidate.uncertainty_m);
                     if (static_cast<int>(k) == active_touchdown)
@@ -1958,48 +1969,6 @@ private:
         }
 
         result.plan.velocity_request.valid = false;
-        bool elevated_foothold_pending = false;
-        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-        {
-            if (!result.candidate_required[leg] ||
-                !result.selected[leg].hard_feasible)
-                continue;
-            const double observed_leg_surface_height_m =
-                ObservedTerrainReferenceHeight(input, leg);
-            const double observed_surface_height_m =
-                std::isfinite(observed_leg_surface_height_m)
-                    ? observed_leg_surface_height_m
-                    : std::numeric_limits<double>::quiet_NaN();
-            if (!std::isfinite(observed_surface_height_m) ||
-                !std::isfinite(result.selected[leg].foot_position.z))
-                continue;
-            const double deadband = std::max(
-                2.0 * std::max(0.0, result.selected[leg].uncertainty_m),
-                0.5 * config_.feasibility.foot_patch_radius_m);
-            if (result.selected[leg].foot_position.z -
-                    observed_surface_height_m > deadband)
-            {
-                elevated_foothold_pending = true;
-                break;
-            }
-        }
-        if (elevated_foothold_pending)
-        {
-            // The observed upper surface is not a reason to inject a new
-            // nominal velocity or motion reference.  Request a zero cap so
-            // the existing Phase-1 shaper arrests the body while the
-            // terrain-conditioned swing reaches its sensor-derived target.
-            result.plan.velocity_request.valid = true;
-            result.plan.velocity_request.is_cap = true;
-            result.plan.velocity_request.target_vx_mps = 0.0;
-            result.plan.velocity_request.max_vx_mps = 0.0;
-            result.plan.velocity_request.priority = 1;
-            result.plan.velocity_request.plan_id = result.plan.plan_id;
-            result.plan.velocity_request.valid_until_s =
-                result.plan.valid_until_s;
-            result.plan.velocity_request.reason =
-                "sensor_elevated_foothold_pending";
-        }
         if (!std::isfinite(result.plan.min_edge_margin_m))
             result.plan.min_edge_margin_m = 0.0;
         if (!std::isfinite(result.plan.min_uncertainty_inflated_edge_margin_m))

@@ -93,6 +93,10 @@ struct TerrainFootholdPrediction
     double support_margin_m = 0.0;
     double collision_margin_m = 0.0;
     double uncertainty_m = 0.0;
+    // Sensor-derived target elevation crosses the currently loaded support
+    // surface. This identifies the contact event that must be confirmed;
+    // it is never inferred from a fixed leg order or scene geometry.
+    bool surface_transition_required = false;
 };
 
 struct TerrainVelocityRequest
