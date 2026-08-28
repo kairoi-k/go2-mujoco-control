@@ -328,6 +328,9 @@ void TrotExperiment::UpdateWbcFull(
             if (terrain_surface_transition_active_ &&
                 terrain_surface_transition_required_[leg])
             {
+                terrain_surface_transition_committed_surface_valid_[leg] = true;
+                terrain_surface_transition_committed_surface_world_z_[leg] =
+                    execution.target_world.z;
                 terrain_surface_transition_committed_[leg] = true;
                 terrain_transfer_complete = false;
             }

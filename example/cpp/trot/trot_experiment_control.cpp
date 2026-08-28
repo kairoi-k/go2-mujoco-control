@@ -1008,6 +1008,8 @@ bool TrotExperiment::PhaseStartGait(
     terrain_surface_transition_required_.fill(false);
     terrain_surface_transition_committed_.fill(false);
     terrain_surface_transition_source_valid_.fill(false);
+    terrain_surface_transition_committed_surface_valid_.fill(false);
+    terrain_surface_transition_committed_surface_world_z_.fill(0.0);
     terrain_surface_transition_source_world_z_.fill(0.0);
     terrain_surface_transition_completions_ = 0;
     terrain_surface_transition_last_required_mask_ = 0;

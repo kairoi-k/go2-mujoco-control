@@ -426,6 +426,8 @@ bool TrotExperiment::BuildGaitTargets(
         terrain_surface_transition_active_ = false;
         terrain_surface_transition_required_.fill(false);
         terrain_surface_transition_committed_.fill(false);
+        terrain_surface_transition_committed_surface_valid_.fill(false);
+        terrain_surface_transition_committed_surface_world_z_.fill(0.0);
         terrain_surface_transition_source_valid_.fill(false);
     }
     else if (!terrain_execution_plan_ ||
@@ -1718,6 +1720,32 @@ bool TrotExperiment::BuildGaitTargets(
                     2.0 * std::max(0.0, uncertainty_m),
                     0.5 * terrain_planner_.config().feasibility.
                         foot_patch_radius_m);
+                const bool previously_committed =
+                    terrain_surface_transition_committed_surface_valid_[
+                        transition_leg] &&
+                    std::isfinite(
+                        terrain_surface_transition_committed_surface_world_z_[
+                            transition_leg]) &&
+                    std::abs(
+                        terrain_surface_transition_committed_surface_world_z_[
+                            transition_leg] - target_world_z) <= deadband_m;
+                if (previously_committed)
+                {
+                    if (terrain_surface_transition_active_)
+                    {
+                        terrain_surface_transition_source_valid_[
+                            transition_leg] = true;
+                        terrain_surface_transition_source_world_z_[
+                            transition_leg] =
+                            terrain_surface_transition_committed_surface_world_z_[
+                                transition_leg];
+                        terrain_surface_transition_required_[transition_leg] =
+                            false;
+                        terrain_surface_transition_committed_[transition_leg] =
+                            true;
+                    }
+                    return;
+                }
                 if (!terrain_surface_transition_active_)
                 {
                     terrain_surface_transition_active_ = true;
@@ -2039,8 +2067,8 @@ bool TrotExperiment::BuildGaitTargets(
             const bool terrain_target_pending = execution.valid &&
                 execution.terrain_target_required &&
                 !execution.measured_touchdown;
-            if (terrain_surface_transition_active_ &&
-                terrain_surface_transition_committed_[leg] &&
+            if ((terrain_surface_transition_active_ ||
+                 terrain_transfer_hold_active_) &&
                 execution.valid && execution.measured_touchdown)
             {
                 apply_world_target(leg, execution.target_world, go2::Vec3{});

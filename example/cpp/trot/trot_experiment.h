@@ -513,6 +513,13 @@ private:
         terrain_surface_transition_source_valid_{};
     std::array<double, go2::kLegCount>
         terrain_surface_transition_source_world_z_{};
+    // A confirmed surface persists beyond one transaction. This prevents a
+    // delayed planner snapshot from reopening the same height transition
+    // before the live contact/support state has caught up.
+    std::array<bool, go2::kLegCount>
+        terrain_surface_transition_committed_surface_valid_{};
+    std::array<double, go2::kLegCount>
+        terrain_surface_transition_committed_surface_world_z_{};
     std::uint64_t terrain_surface_transition_completions_ = 0;
     int terrain_surface_transition_last_required_mask_ = 0;
     int terrain_surface_transition_last_committed_mask_ = 0;
