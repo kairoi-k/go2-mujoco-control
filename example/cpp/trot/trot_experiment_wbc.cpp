@@ -279,11 +279,20 @@ void TrotExperiment::UpdateWbcFull(
             return execution.valid && execution.terrain_target_required &&
                 !execution.measured_touchdown;
         });
+    bool terrain_measured_target_not_scheduled = false;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const auto &execution = terrain_swing_execution_[leg];
+        terrain_measured_target_not_scheduled |=
+            execution.valid && execution.terrain_target_required &&
+            execution.measured_touchdown && !scheduled_contact[leg];
+    }
     if (!terrain_surface_transition_active_ &&
         terrain_transfer_hold_active_ &&
         !terrain_transfer_has_target && !terrain_execution_pending)
     {
-        if (scheduled_contact == terrain_transfer_hold_contact_)
+        if (scheduled_contact == terrain_transfer_hold_contact_ &&
+            !terrain_measured_target_not_scheduled)
         {
             terrain_transfer_hold_contact_.fill(false);
             terrain_transfer_hold_active_ = false;
