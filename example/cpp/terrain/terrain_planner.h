@@ -1896,11 +1896,10 @@ private:
             }
         }
 
-        // Once a sensor-derived foothold becomes part of the planned support
-        // horizon, the CoM reference must rise with that observed support
-        // surface.  Keep this as a smooth reference transition: the planner
-        // still never changes gait topology, and the WBC sees the same atomic
-        // foothold/contact snapshot that produced the height reference.
+        // Raise the CoM only behind a support surface that is both planned
+        // and confirmed. An unconfirmed elevated target must not lift the
+        // old support feet before its measured touchdown; average only
+        // across the surfaces that are already confirmed.
         const double current_surface_world_z =
             ObservedSupportSurfaceWorldHeight(input);
         if (std::isfinite(current_surface_world_z))
@@ -1917,6 +1916,13 @@ private:
                         continue;
                     const auto &foot = result.plan.predicted_foothold[k][leg];
                     if (!foot.valid || !std::isfinite(foot.position_world.z))
+                        continue;
+                    const bool transition_confirmed =
+                        input.terrain_surface_transition_active &&
+                        input.terrain_surface_transition_required[leg] &&
+                        input.terrain_surface_transition_committed[leg];
+                    if (foot.surface_transition_required &&
+                        !transition_confirmed)
                         continue;
                     surface_sum += foot.position_world.z;
                     ++surface_count;

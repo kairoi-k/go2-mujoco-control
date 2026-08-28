@@ -236,10 +236,25 @@ int main()
                        go2_terrain::TerrainPlanFailure::kSupportInfeasible,
                "contact-gap plan did not reject an unsupported retime"))
         return 1;
-    if (!Check(forward_step_plan.plan.body_reference[20].position.z >
+    if (!Check(forward_step_plan.plan.body_reference[20].position.z <=
                    forward_step_plan.plan.body_reference[0].position.z +
                        1.0e-4,
-               "terrain body reference did not rise with planned surface"))
+               "terrain body reference rose before measured touchdown"))
+        return 1;
+
+    auto confirmed_step_input = forward_step_input;
+    confirmed_step_input.terrain_surface_transition_active = true;
+    confirmed_step_input.terrain_surface_transition_required.fill(false);
+    confirmed_step_input.terrain_surface_transition_required[1] = true;
+    confirmed_step_input.terrain_surface_transition_committed.fill(false);
+    confirmed_step_input.terrain_surface_transition_committed[1] = true;
+    const auto confirmed_step_plan = actuation_planner.Build(
+        confirmed_step_input, 13);
+    if (!Check(confirmed_step_plan.publishable &&
+                   confirmed_step_plan.plan.body_reference[20].position.z >
+                       confirmed_step_plan.plan.body_reference[0].position.z +
+                           1.0e-4,
+               "confirmed terrain surface did not raise body reference"))
         return 1;
 
     const auto actuation_plan = actuation_planner.Build(input, 8);
