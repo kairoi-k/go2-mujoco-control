@@ -161,32 +161,73 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         terrain_crawl_min_contact_count_ = go2::kLegCount;
         terrain_crawl_step_commit_count_ = 0;
     }
-    const bool terrain_crawl_active = terrain_transfer_window_active_;
+    const bool terrain_window_active = terrain_transfer_window_active_;
+    const bool terrain_crawl_active = terrain_window_active &&
+        terrain_crawl_state_machine_.UsesCrawlExecution();
     if (params_.terrain_actuation && !params_.terrain_sensor_only)
     {
-        if (terrain_crawl_active)
+        if (terrain_window_active)
         {
+            const auto crawl_state = terrain_crawl_state_machine_.state();
             if (terrain_crawl_state_machine_.aborted())
             {
                 // Abort is a controlled v2 window stop. Let the existing
                 // shaper ramp to zero; do not enter the v1 stop-brake path.
                 requested_mps = 0.0;
                 terrain_velocity_cap_mps_.store(0.0);
+                terrain_deceleration_active_ = false;
                 runtime_gait_regime_ = "terrain-crawl-abort";
             }
-            else
+            else if (crawl_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep)
             {
-                requested_mps = std::clamp(
-                    std::min(std::max(0.0, requested_mps), 0.12),
-                    0.05, 0.30);
+                // Do not hand a 0.12 m/s cap directly to the 2 m/s^2 shaper:
+                // the observed epoch41 collapse occurred during that sharp
+                // transition. Spread 0.30 -> 0.12 over 0.80 s while trot
+                // timing remains unchanged, then hand off to crawl.
+                constexpr double kDecelRampS = 0.80;
+                constexpr double kApproachSpeedMps = 0.30;
+                constexpr double kCreepSpeedMps =
+                    go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps;
+                if (!terrain_deceleration_active_)
+                {
+                    terrain_deceleration_active_ = true;
+                    terrain_deceleration_target_mps_ = kApproachSpeedMps;
+                }
+                terrain_deceleration_target_mps_ = std::max(
+                    kCreepSpeedMps, terrain_deceleration_target_mps_ -
+                        (kApproachSpeedMps - kCreepSpeedMps) *
+                        dt / kDecelRampS);
+                requested_mps = std::min(
+                    std::max(0.0, requested_mps),
+                    terrain_deceleration_target_mps_);
+            }
+            else if (crawl_state == go2_terrain::TerrainCrawlState::kApproach ||
+                     crawl_state == go2_terrain::TerrainCrawlState::kInactive)
+            {
+                // Approach is the unchanged 0.30 m/s trot; do not apply the
+                // planner's eventual crawl cap before DECELERATE starts.
+                terrain_deceleration_active_ = false;
+                terrain_deceleration_target_mps_ = 0.30;
+            }
+            else if (terrain_crawl_active)
+            {
+                // SHIFT_COM, each crawl step, and body advance are
+                // quasi-static: stop the base while the existing WBC shifts
+                // the measured COM or executes the selected foot.
+                requested_mps = 0.0;
                 terrain_velocity_cap_mps_.store(0.12);
             }
         }
-        else if (std::isfinite(terrain_velocity_cap_mps_.load()))
+        else
         {
-            requested_mps = std::min(
-                std::max(0.0, requested_mps),
-                std::max(0.0, terrain_velocity_cap_mps_.load()));
+            terrain_deceleration_active_ = false;
+            terrain_deceleration_target_mps_ = 0.30;
+            if (std::isfinite(terrain_velocity_cap_mps_.load()))
+            {
+                requested_mps = std::min(
+                    std::max(0.0, requested_mps),
+                    std::max(0.0, terrain_velocity_cap_mps_.load()));
+            }
         }
     }
     velocity_command_state_ = velocity_command_shaper_.Step(
@@ -291,7 +332,19 @@ bool TrotExperiment::BuildGaitTargets(
     const bool runtime_velocity_command = params_.runtime_velocity_command;
     if (runtime_velocity_command)
         UpdateRuntimeVelocityCommand(gait_time_s);
-    runtime_gait_pattern_ = terrain_transfer_window_active_
+    const auto terrain_state = terrain_crawl_state_machine_.state();
+    const bool measured_creep_speed = have_filtered_body_velocity_ &&
+        std::abs(latest_filtered_body_velocity_[0]) <=
+            go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps;
+    // The state update runs after gait target generation. Start the crawl
+    // schedule on the same tick that measured speed reaches creep, so the
+    // first SHIFT_COM sample is already from crawl timing rather than the
+    // preceding trot flight phase.
+    const bool terrain_crawl_active = terrain_transfer_window_active_ &&
+        (terrain_crawl_state_machine_.UsesCrawlExecution() ||
+         (terrain_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep &&
+          measured_creep_speed));
+    runtime_gait_pattern_ = terrain_crawl_active
         ? go2_control::GaitPattern::kCrawl
         : params_.gait_pattern;
     locomotion_kernel_->SetGaitPattern(runtime_gait_pattern_);
@@ -2235,7 +2288,10 @@ bool TrotExperiment::BuildGaitTargets(
             const bool leg_in_swing = terrain_contact_now_valid
                 ? !terrain_contact_now[leg]
                 : nominal_leg_in_swing;
-            const bool explicit_crawl_step = terrain_transfer_window_active_ &&
+            const bool terrain_crawl_execution =
+                terrain_transfer_window_active_ &&
+                terrain_crawl_state_machine_.UsesCrawlExecution();
+            const bool explicit_crawl_step = terrain_crawl_execution &&
                 terrain_crawl_state_machine_.state() ==
                     go2_terrain::TerrainCrawlState::kCrawlStep;
             const bool explicit_active_leg = explicit_crawl_step &&
@@ -2243,7 +2299,7 @@ bool TrotExperiment::BuildGaitTargets(
             auto &execution = terrain_swing_execution_[leg];
             auto &pending = terrain_swing_pending_[leg];
             const auto crawl_state = terrain_crawl_state_machine_.state();
-            if (terrain_transfer_window_active_ && !explicit_crawl_step)
+            if (terrain_crawl_execution && !explicit_crawl_step)
             {
                 if (have_actual_world_feet)
                     feet[leg] = go2_control::WorldToBody(
@@ -2251,6 +2307,10 @@ bool TrotExperiment::BuildGaitTargets(
                         actual_world_feet[leg]);
                 continue;
             }
+            // Before the creep handoff, leave all terrain transactions alone
+            // and let the configured trot generate its ordinary swing.
+            if (terrain_transfer_window_active_ && !terrain_crawl_execution)
+                continue;
             if (explicit_crawl_step &&
                 terrain_crawl_state_machine_.ActiveLeg() != leg)
             {

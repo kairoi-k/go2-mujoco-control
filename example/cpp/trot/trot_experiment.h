@@ -539,6 +539,10 @@ private:
     go2_terrain::TerrainCrawlStateMachine terrain_crawl_state_machine_{};
     int terrain_crawl_min_contact_count_ = go2::kLegCount;
     std::uint64_t terrain_crawl_step_commit_count_ = 0;
+    // The transfer window decelerates while retaining the configured trot;
+    // this target is deliberately window-local and reset at each handoff.
+    bool terrain_deceleration_active_ = false;
+    double terrain_deceleration_target_mps_ = 0.30;
     go2_control::GaitPattern runtime_gait_pattern_ =
         go2_control::GaitPattern::kDiagonalTrot;
     double terrain_surface_transition_target_world_z_ = 0.0;

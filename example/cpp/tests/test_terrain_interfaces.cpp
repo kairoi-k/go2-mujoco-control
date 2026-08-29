@@ -1228,6 +1228,48 @@ int main()
                "stretched touchdown did not travel with the moving body"))
         return 1;
 
+    // The running-trot approach/deceleration phases may report two contacts
+    // (or a flight phase). The >=3 invariant starts at SHIFT_COM only.
+    {
+        go2_terrain::TerrainCrawlStateMachine m;
+        go2_terrain::TerrainCrawlSignals x;
+        x.transfer_window_active = true;
+        x.plan_valid = true;
+        x.measured_contact_valid = true;
+        x.measured_contact = {true, true, false, false};
+        x.measured_velocity_mps = 0.30;
+        x.now_s = 10.0;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kDecelerateToCreep &&
+                       !m.UsesCrawlExecution(),
+                   "crawl invariant was applied during approach"))
+            return 1;
+        x.measured_velocity_mps = 0.20;
+        x.now_s = 10.1;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kDecelerateToCreep,
+                   "deceleration did not retain trot with two contacts"))
+            return 1;
+        x.measured_velocity_mps =
+            go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps;
+        x.now_s = 10.2;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom &&
+                       m.UsesCrawlExecution(),
+                   "crawl execution did not begin at creep speed"))
+            return 1;
+        x.now_s = 10.21;
+        m.Update(x);
+        if (!Check(!m.aborted(),
+                   "crawl support invariant aborted during contact recovery"))
+            return 1;
+        x.now_s = 10.4;
+        m.Update(x);
+        if (!Check(m.aborted(),
+                   "crawl support invariant did not abort after handoff"))
+            return 1;
+    }
+
     // Explicit v2 crawl sequencing uses measured support and a COM margin.
     {
         std::array<go2::Vec3, go2::kLegCount> feet{

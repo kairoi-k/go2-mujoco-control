@@ -152,6 +152,8 @@ public:
         {1, 0, 2, 3};
     static constexpr int kMaxRetries = 2;
     static constexpr double kComMarginM = 0.02;
+    static constexpr double kCreepSpeedMps = 0.12;
+    static constexpr double kContactRecoveryGraceS = 0.10;
 
     void Reset() noexcept
     {
@@ -201,21 +203,33 @@ public:
         switch (state_)
         {
         case TerrainCrawlState::kApproach:
-            if (signals.plan_valid && three_contacts)
+            // Running trot legitimately has diagonal and flight phases. Do
+            // not apply the crawl support invariant until sequencing starts.
+            if (signals.plan_valid)
                 SetState(TerrainCrawlState::kDecelerateToCreep,
                          signals.now_s);
             break;
         case TerrainCrawlState::kDecelerateToCreep:
-            if (signals.plan_valid && three_contacts &&
+            // Keep trot in charge while slowing to creep; SHIFT_COM owns the
+            // measured-contact invariant after this speed handoff.
+            if (signals.plan_valid &&
                 std::isfinite(signals.measured_velocity_mps) &&
                 signals.measured_velocity_mps >= 0.05 &&
-                signals.measured_velocity_mps <= 0.30 + 1.0e-6)
+                signals.measured_velocity_mps <= kCreepSpeedMps)
                 SetState(TerrainCrawlState::kShiftCom, signals.now_s);
             break;
         case TerrainCrawlState::kShiftCom:
             if (!three_contacts)
             {
-                SetState(TerrainCrawlState::kAbort, signals.now_s);
+                // Update() runs after target generation. Allow one control
+                // tick for the newly selected crawl schedule to replace the
+                // preceding trot phase before enforcing the crawl invariant.
+                const bool gait_handoff_pending =
+                    std::isfinite(signals.now_s) &&
+                    signals.now_s - state_enter_time_s_ <
+                        kContactRecoveryGraceS;
+                if (!gait_handoff_pending)
+                    SetState(TerrainCrawlState::kAbort, signals.now_s);
                 break;
             }
             UpdateComTarget(signals);
@@ -270,8 +284,7 @@ public:
             }
             break;
         case TerrainCrawlState::kClear:
-            if (three_contacts && signals.base_clear &&
-                signals.all_feet_clear)
+            if (signals.base_clear && signals.all_feet_clear)
             {
                 stable_start_time_s_ = valid_time ? signals.now_s : 0.0;
                 SetState(TerrainCrawlState::kResume, signals.now_s);
@@ -289,6 +302,15 @@ public:
     }
 
     TerrainCrawlState state() const noexcept { return state_; }
+    bool UsesCrawlExecution() const noexcept
+    {
+        return state_ == TerrainCrawlState::kShiftCom ||
+            state_ == TerrainCrawlState::kCrawlStep ||
+            state_ == TerrainCrawlState::kAdvanceBody ||
+            state_ == TerrainCrawlState::kClear ||
+            state_ == TerrainCrawlState::kResume ||
+            state_ == TerrainCrawlState::kAbort;
+    }
     int retry_count() const noexcept { return retry_count_; }
     std::size_t order_index() const noexcept { return order_index_; }
     std::size_t ActiveLeg() const noexcept

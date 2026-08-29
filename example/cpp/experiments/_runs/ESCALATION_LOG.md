@@ -737,3 +737,67 @@ evidence:
 verdict: |
   The epoch40 data confirms the COM/support-triangle mechanism quantitatively. The implementation now makes the triangle margin a measured precondition and preserves the >=3-contact invariant; epoch41 stochastic contact loss occurred before the precondition could be met. Further tuning or canaries are required for a physical commit; no gate conclusion.
 git_status: clean worktree; no staged files; no push/amend; simulations serialized.
+
+
+---
+timestamp: 2026-08-30T06:40:00+0800
+run_id: Order-025 b1_sm_epoch42_20260828 (+ _r2)
+trigger: T1
+evidence:
+  epoch41_verdict: |
+    (a) is the primary mechanism; (b) is not supported at the abort instant.
+    In epoch41 r1 the machine was SHIFT_COM at t=6.550118 s, running-trot
+    phase=0.499972, measured contacts=2. The preceding 1.00 s changed from
+    roll=+0.401 deg, pitch=+0.885 deg, z=0.3717 m to roll=+2.567 deg,
+    pitch=+0.896 deg, z=0.3593 m; the contact drop coincided with a normal
+    trot phase handoff and no prior attitude divergence. In r2 the machine
+    was SHIFT_COM at t=6.812089 s, phase=0.473204, contacts=1; over the
+    preceding 1.00 s roll changed -0.102 -> -2.860 deg, pitch +0.355 ->
+    +1.457 deg, and z 0.3718 -> 0.3813 m. This was a modest transient,
+    not a height collapse; the later hard-posture fall followed the abort.
+    Thus the old guard was applied at the trot-to-crawl handoff, where 2/0
+    contact phases are legal, rather than proving a deceleration fall.
+  implementation: |
+    The >=3 measured-contact invariant is now enforced only in SHIFT_COM,
+    CRAWL_STEP, and ADVANCE_BODY. APPROACH and DECELERATE_TO_CREEP no longer
+    require three contacts; DECELERATE hands off only at measured creep <=
+    0.12 m/s. The window keeps the configured trot through approach and uses
+    a 0.80 s 0.30 -> 0.12 m/s request ramp. Crawl gait is selected only at
+    the measured creep handoff; quasi-static SHIFT_COM/CRAWL_STEP/ADVANCE
+    commands hold the base at zero speed. A 0.10 s measured-contact recovery
+    grace covers the one-tick gait handoff before the crawl invariant.
+    Flat/out-of-window paths retain their prior scheduler and pattern.
+  canary_command: |
+    Both runs used serial flock -x /tmp/go2_mujoco_experiment.lock, domain
+    229, LD_PRELOAD=/home/che/dds_base8000_preload.so, and the unchanged
+    epoch28 run_trot arguments (18 s, headless, wall-clock, wbc-full,
+    running-trot, raibert-trot, period 0.50, duty 0.75, step 0.15,
+    lift 0.08, tau 45, velocity script, terrain planner, phase2_step_5cm.xml,
+    B1). The pair was run serially.
+  canary_r1: |
+    b1_sm_epoch42_20260828 trace: INACTIVE (0.000) -> APPROACH (6.342)
+    -> DECELERATE_TO_CREEP (6.344) -> SHIFT_COM (6.880) -> ABORT (6.980).
+    Minimum measured contacts by state: INACTIVE=0, APPROACH=2,
+    DECELERATE_TO_CREEP=1, SHIFT_COM=0, ABORT=0. SHIFT_COM lasted 50
+    samples; no CRAWL_STEP and no measured commit. During deceleration,
+    roll=-1.692..+0.268 deg, pitch=-0.699..+1.414 deg, z=0.3671..0.3780 m.
+  canary_r2: |
+    b1_sm_epoch42_20260828_r2 trace: INACTIVE (0.000) -> APPROACH (6.334)
+    -> DECELERATE_TO_CREEP (6.336) -> SHIFT_COM (6.906) -> ABORT (7.008).
+    Minimum measured contacts by state: INACTIVE=0, APPROACH=2,
+    DECELERATE_TO_CREEP=0, SHIFT_COM=2, ABORT=0. SHIFT_COM lasted 51
+    samples; no CRAWL_STEP and no measured commit. During deceleration,
+    roll=-0.538..+1.824 deg, pitch=-0.786..+1.324 deg, z=0.3662..0.3785 m.
+  validation: |
+    cmake --build example/cpp/build -j2 and ctest --test-dir
+    example/cpp/build --output-on-failure passed 27/27. git diff --check
+    passed. Existing v1 contract, analyzer thresholds, and canary
+    definitions were untouched; no gate-level conclusion is claimed.
+verdict: |
+  Epoch41 distinguishes (a) from (b): the pre-CRAWL invariant was
+  mis-scoped to a legal running-trot contact phase; deceleration did not
+  show a true pre-contact fall in the decisive r1/r2 evidence. The epoch42
+  pair confirms stable posture through deceleration, but neither run yet
+  reaches CRAWL_STEP(FL) or a measured commit, so the physical success
+  criterion remains open.
+git_status: pending local implementation/documentation commit; no staged files, no push/amend; simulations serialized.
