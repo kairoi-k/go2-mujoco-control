@@ -692,3 +692,13 @@ evidence: |
     Final B0 fixed pair at the same HEAD used serial flock and preload and returned acceptance_status=PASS; frozen acceptance checks were green. ctest remained 27/27 passed.
 git_status: final-HEAD evidence correction pending local commit; no push/amend; generated canary artifacts ignored.
 ---
+
+---
+timestamp: 2026-08-30T03:45:00+0800
+run_id: Order-023 final safety-invariant canary correction
+trigger: T1
+evidence: |
+  Final named pair ran at clean HEAD 6fdc4bab810d0b715a6048450588c5a9a9dd9032. Both runs entered CRAWL_STEP(FL) only after APPROACH -> DECELERATE_TO_CREEP, then immediately entered ABORT when measured support fell below the >=3 invariant: r1 window 6.352123-10.074135 s, base_x=.635741 m; r2 6.360140-10.134162 s, base_x=.714441 m. Both had zero endpoint commits and minimum measured contacts=0 after collapse; complete crossing and stable RESUME were not achieved. This final rerun demonstrates controlled state-machine abort rather than allowing a crawl flight phase.
+  validation: ctest 27/27 passed after the invariant guard; final B0 PASS was obtained at preceding clean HEAD 638386b and no B0-scoped files changed afterward.
+git_status: final canary correction pending local commit; no push/amend; generated artifacts ignored.
+---
