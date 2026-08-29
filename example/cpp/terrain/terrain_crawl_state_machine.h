@@ -277,9 +277,9 @@ public:
     // The four-foot shift is the only path that asks stance to resist a
     // moving COM reference; retain ordinary non-transfer weights elsewhere.
     static constexpr double kShiftStanceNoSlipWeight = 80.0;
-    // Stay at the contract's minimum crawl speed while each raised foot is
-    // being loaded; this limits body momentum during the multi-step window.
-    static constexpr double kCreepSpeedMps = 0.05;
+    // Keep the established crawl handoff speed; the deceleration ramp has
+    // already removed the approach momentum before sequencing begins.
+    static constexpr double kCreepSpeedMps = 0.12;
     static constexpr double kContactRecoveryGraceS = 0.80;
     static constexpr double kCrawlStepHandoffGraceS = 0.10;
     // Allow the endpoint confirmation to arrive after the first force sample
