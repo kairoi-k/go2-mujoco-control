@@ -1102,7 +1102,24 @@ private:
         }
 
         std::size_t support_knots = 0;
-        for (std::size_t k = 0; k < config_.horizon_knots; ++k)
+        std::size_t support_horizon = config_.horizon_knots;
+        if (!input.terrain_surface_transition_active)
+        {
+            // Before the first front commit, do not reject an otherwise
+            // usable target because a later preview knot enters the
+            // pre-advance straddle geometry. The post-commit planner pass
+            // validates the complete atomic horizon once transition intent
+            // is latched.
+            int latest_front_touchdown = -1;
+            for (std::size_t leg = 0; leg < 2; ++leg)
+                latest_front_touchdown = std::max(
+                    latest_front_touchdown, touchdown_knots[leg]);
+            if (latest_front_touchdown >= 0)
+                support_horizon = std::min(
+                    support_horizon,
+                    static_cast<std::size_t>(latest_front_touchdown + 1));
+        }
+        for (std::size_t k = 0; k < support_horizon; ++k)
         {
             std::array<go2::Vec3, go2::kLegCount> feet{};
             std::array<bool, go2::kLegCount> contacts =
@@ -1262,7 +1279,22 @@ private:
         result.plan.min_uncertainty_inflated_support_margin_m =
             std::numeric_limits<double>::infinity();
         std::size_t support_knots = 0;
-        for (std::size_t k = 0; k < result.plan.horizon_knots; ++k)
+        std::size_t support_horizon = result.plan.horizon_knots;
+        if (!input.terrain_surface_transition_active)
+        {
+            // Match selection: before a front commit, late preview knots
+            // belong to the future body-advance phase and must not veto the
+            // front target that arms that phase.
+            int latest_front_touchdown = -1;
+            for (std::size_t leg = 0; leg < 2; ++leg)
+                latest_front_touchdown = std::max(
+                    latest_front_touchdown, CandidateTouchdownKnot(input, leg));
+            if (latest_front_touchdown >= 0)
+                support_horizon = std::min(
+                    support_horizon,
+                    static_cast<std::size_t>(latest_front_touchdown + 1));
+        }
+        for (std::size_t k = 0; k < support_horizon; ++k)
         {
             std::array<go2::Vec3, go2::kLegCount> feet{};
             std::size_t contact_count = 0;

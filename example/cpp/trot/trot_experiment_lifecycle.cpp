@@ -197,10 +197,13 @@ bool TrotExperiment::Init()
         // contact horizon so a foothold can be armed in stance and executed
         // at the next swing without falling back to a late riser handoff.
         terrain_config.plan_validity_s = 0.50;
-        // The rear leg needs a longer preview than the default 24 knots:
-        // with the base before the riser, its elevated foothold becomes
-        // reachable only after the body has advanced onto the platform.
-        terrain_config.horizon_knots = go2_terrain::kTerrainPlanMaxKnots;
+        // Before the first front commit, blended riser cells do not yet carry
+        // a latched transition identity. Use the already-proven straddle
+        // corridor and retain a small geometric margin for that pre-arm knot;
+        // B0 and flat-ground control never construct an actuating planner.
+        terrain_config.max_two_contact_line_error_m =
+            terrain_config.two_contact_straddle_corridor_m;
+        terrain_config.min_support_margin_m = 0.0;
     }
     terrain_planner_ = go2_terrain::TerrainPlanner(terrain_config);
 
