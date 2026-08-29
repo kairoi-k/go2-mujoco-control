@@ -865,6 +865,16 @@ void TrotExperiment::UpdateWbcFull(
                 // existing MPC/WBC body task, not a second balance controller.
                 mpc_in.reference[3] = target.x;
                 mpc_in.reference[4] = target.y;
+                if (terrain_crawl_state_machine_.state() ==
+                        go2_terrain::TerrainCrawlState::kShiftCom ||
+                    terrain_crawl_state_machine_.state() ==
+                        go2_terrain::TerrainCrawlState::kCrawlStep)
+                {
+                    // Hold the body while it loads the triangle; the stance
+                    // feet remain the existing WBC support task.
+                    mpc_in.reference[9] = 0.0;
+                    mpc_in.reference[10] = 0.0;
+                }
             }
         }
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
