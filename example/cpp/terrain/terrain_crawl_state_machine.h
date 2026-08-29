@@ -173,6 +173,9 @@ public:
         retry_count_ = 0;
         state_enter_time_s_ = now_s;
         stable_start_time_s_ = 0.0;
+        com_target_world_ = {};
+        com_margin_m_ = -std::numeric_limits<double>::infinity();
+        triangle_valid_ = false;
         ++transition_count_;
     }
 
