@@ -206,7 +206,7 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             const double leg_phase = go2_control::GaitLegPhase(
-                leg, snapshot.gait_phase, params_.gait_pattern);
+                leg, snapshot.gait_phase, runtime_gait_pattern_);
             if (std::isfinite(leg_phase) && leg_phase >= duty &&
                 !terrain_surface_transition_committed_[leg])
                 snapshot.measured_contact[leg] = false;
@@ -312,7 +312,7 @@ void TrotExperiment::UpdateTerrainRuntime()
         static_cast<int>(terrain_planner_.config().horizon_knots),
         terrain_planner_.config().knot_dt_s,
         input.contact_schedule.planned_contact,
-        params_.gait_pattern);
+        runtime_gait_pattern_);
     // The gait helper fills contact bits only; validity is an explicit
     // planned-vs-measured interface contract.
     input.contact_schedule.planned_valid = true;
@@ -359,7 +359,7 @@ void TrotExperiment::UpdateTerrainRuntime()
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             const double leg_phase = go2_control::GaitLegPhase(
-                leg, input.gait_phase, params_.gait_pattern);
+                leg, input.gait_phase, runtime_gait_pattern_);
             if (!std::isfinite(leg_phase))
                 continue;
             // A measured contact gap while the nominal schedule is already
@@ -1126,6 +1126,10 @@ bool TrotExperiment::PhaseStartGait(
     terrain_transfer_hold_contact_.fill(false);
     terrain_transfer_hold_active_ = false;
     terrain_surface_transition_active_ = false;
+    terrain_transfer_window_active_ = false;
+    terrain_transfer_window_release_s_ =
+        -std::numeric_limits<double>::infinity();
+    runtime_gait_pattern_ = params_.gait_pattern;
     terrain_surface_transition_required_.fill(false);
     terrain_surface_transition_original_required_.fill(false);
     terrain_surface_transition_cancelled_.fill(false);
@@ -1242,7 +1246,7 @@ void TrotExperiment::UpdateMotionEventResponse(
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             const double leg_phase = go2_control::GaitLegPhase(
-                leg, phase, params_.gait_pattern);
+                leg, phase, runtime_gait_pattern_);
             const bool scheduled_stance = leg_phase < duty;
             if (!scheduled_stance)
             {

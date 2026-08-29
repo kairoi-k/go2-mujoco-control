@@ -65,6 +65,27 @@ int main()
             !Check(std::abs(touchdown[2] - 0.52) < 1.0e-9,
                    "S1 did not shift the rear touchdown time"))
             return 1;
+        go2_terrain::TerrainContactSchedule crawl_schedule;
+        crawl_schedule.measured_contact = {true, true, false, false};
+        crawl_schedule.measured_valid = true;
+        crawl_schedule.planned_valid = true;
+        for (std::size_t k = 0; k < 48; ++k)
+            crawl_schedule.planned_contact[k] =
+                k < 4 ? std::array<bool, go2::kLegCount>{true, true, false, false}
+                      : std::array<bool, go2::kLegCount>{true, true, true, false};
+        const auto crawl_before = crawl_schedule.planned_contact;
+        std::array<double, go2::kLegCount> crawl_touchdown{0.02, 0.04, 0.08, 0.10};
+        if (!Check(
+                go2_terrain::StretchTerrainFrontStanceSchedule(
+                    crawl_schedule, required, committed, crawl_touchdown,
+                    touchdown_valid, 0.0, 0.05, 0.02, 48),
+                "S1 rejected a crawl-floor advance longer than one horizon") ||
+            !Check(crawl_schedule.planned_contact[47] == crawl_before[3],
+                   "S1 did not retain the captured stance through crawl horizon") ||
+            !Check(crawl_touchdown[2] > 2.0,
+                   "S1 did not defer crawl-floor touchdown to the fixed deadline"))
+            return 1;
+
         go2_terrain::TerrainContactSchedule flat = schedule;
         const auto flat_before = flat.planned_contact;
         const std::array<bool, go2::kLegCount> no_transition{};

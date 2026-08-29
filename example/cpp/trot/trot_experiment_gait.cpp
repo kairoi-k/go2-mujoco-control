@@ -144,14 +144,36 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         ? last_motion_dt_s_
         : dt_;
     double requested_mps = params_.velocity_command_profile.Sample(gait_time_s);
-    if (params_.terrain_actuation && !params_.terrain_sensor_only &&
-        std::isfinite(terrain_velocity_cap_mps_.load()))
+    // V2-A: the declared terrain window owns a bounded creep request. Keep
+    // the Phase 1 shaper as the sole command writer, but do not let an
+    // asynchronous planner snapshot restore the approach command while the
+    // body is crossing the riser. This is a creep, not a full brake.
+    const double absolute_gait_time_s = gait_time_s +
+        task_.gait_start_time_s_;
+    if (terrain_transfer_window_active_ &&
+        std::isfinite(terrain_transfer_window_release_s_) &&
+        absolute_gait_time_s >= terrain_transfer_window_release_s_)
     {
-        // Terrain is an arbitration request only.  The Phase 1 shaper remains
-        // the sole producer of shaped/applied v_cmd and gait parameters.
-        requested_mps = std::min(
-            std::max(0.0, requested_mps),
-            std::max(0.0, terrain_velocity_cap_mps_.load()));
+        terrain_transfer_window_active_ = false;
+        terrain_transfer_window_release_s_ =
+            -std::numeric_limits<double>::infinity();
+    }
+    const bool terrain_crawl_active = terrain_transfer_window_active_;
+    if (params_.terrain_actuation && !params_.terrain_sensor_only)
+    {
+        if (terrain_crawl_active)
+        {
+            requested_mps = std::clamp(
+                std::min(std::max(0.0, requested_mps), 0.12),
+                0.05, 0.30);
+            terrain_velocity_cap_mps_.store(0.12);
+        }
+        else if (std::isfinite(terrain_velocity_cap_mps_.load()))
+        {
+            requested_mps = std::min(
+                std::max(0.0, requested_mps),
+                std::max(0.0, terrain_velocity_cap_mps_.load()));
+        }
     }
     velocity_command_state_ = velocity_command_shaper_.Step(
         requested_mps, dt);
@@ -208,7 +230,13 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         applied_mps = high_speed_health_cap_mps_;
     }
     velocity_command_state_.applied_mps = applied_mps;
-    const auto schedule = velocity_gait_scheduler_.Step(applied_mps, dt);
+    const auto schedule = terrain_crawl_active
+        ? ScheduleTerrainCrawl(applied_mps)
+        : velocity_gait_scheduler_.Step(applied_mps, dt);
+    runtime_gait_pattern_ = terrain_crawl_active
+        ? go2_control::GaitPattern::kCrawl
+        : params_.gait_pattern;
+    locomotion_kernel_->SetGaitPattern(runtime_gait_pattern_);
     locomotion_kernel_->SetGaitEffectiveSpeedConvention(true);
     locomotion_kernel_->SetGaitSlewLimits(0.060, 0.020, 0.020);
     locomotion_kernel_->SetGaitPeriod(schedule.period_s);
@@ -249,6 +277,10 @@ bool TrotExperiment::BuildGaitTargets(
     const bool runtime_velocity_command = params_.runtime_velocity_command;
     if (runtime_velocity_command)
         UpdateRuntimeVelocityCommand(gait_time_s);
+    runtime_gait_pattern_ = terrain_transfer_window_active_
+        ? go2_control::GaitPattern::kCrawl
+        : params_.gait_pattern;
+    locomotion_kernel_->SetGaitPattern(runtime_gait_pattern_);
     const double requested_speed = runtime_velocity_command
         ? velocity_command_state_.shaped_mps
         : std::abs(
@@ -388,6 +420,10 @@ bool TrotExperiment::BuildGaitTargets(
         terrain_transfer_hold_contact_.fill(false);
         terrain_transfer_hold_active_ = false;
         terrain_surface_transition_active_ = false;
+        terrain_transfer_window_active_ = false;
+        terrain_transfer_window_release_s_ =
+            -std::numeric_limits<double>::infinity();
+        runtime_gait_pattern_ = params_.gait_pattern;
         terrain_surface_transition_required_.fill(false);
         terrain_surface_transition_original_required_.fill(false);
         terrain_surface_transition_cancelled_.fill(false);
@@ -1121,7 +1157,7 @@ bool TrotExperiment::BuildGaitTargets(
             locomotion_kernel_->SetGaitStepLength(step);
             locomotion_kernel_->SetGaitFootLift(lift);
             std::cout << "HIGH-SPEED-GOV pattern="
-                      << go2_control::GaitPatternName(params_.gait_pattern)
+                      << go2_control::GaitPatternName(runtime_gait_pattern_)
                       << " cycle=" << cycle_index
                       << " v_cmd=" << wbc_speed_cmd_mps_
                       << " v_meas=" << v_meas_abs
@@ -1462,7 +1498,7 @@ bool TrotExperiment::BuildGaitTargets(
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             const double leg_phase = go2_control::GaitLegPhase(
-                leg, phase, params_.gait_pattern);
+                leg, phase, runtime_gait_pattern_);
             const bool support = leg_phase < stance_duration;
             if (!support)
             {
@@ -1728,6 +1764,12 @@ bool TrotExperiment::BuildGaitTargets(
                 if (!terrain_surface_transition_active_)
                 {
                     terrain_surface_transition_active_ = true;
+                    // V2 window starts from the first sensor-derived surface
+                    // transition intent and remains active through the
+                    // stable post-crossing passage.
+                    terrain_transfer_window_active_ = true;
+                    terrain_transfer_window_release_s_ =
+                        -std::numeric_limits<double>::infinity();
                     terrain_surface_transition_target_world_z_ = target_world_z;
                     terrain_surface_transition_deadband_m_ = deadband_m;
                     terrain_surface_transition_required_.fill(false);
@@ -1816,7 +1858,7 @@ bool TrotExperiment::BuildGaitTargets(
                 }
                 const double plan_leg_phase = go2_control::GaitLegPhase(
                     leg, active_terrain_plan->gait_phase,
-                    params_.gait_pattern);
+                    runtime_gait_pattern_);
                 const bool plan_captured_in_stance =
                     std::isfinite(plan_leg_phase) &&
                     plan_leg_phase < terrain_plan_duty;
@@ -2010,7 +2052,7 @@ bool TrotExperiment::BuildGaitTargets(
                 {
                     scheduled_support[support_leg] =
                         go2_control::GaitLegPhase(
-                            support_leg, phase, params_.gait_pattern) < duty;
+                            support_leg, phase, runtime_gait_pattern_) < duty;
                 }
             }
             const int support_count = static_cast<int>(std::count(
@@ -2036,7 +2078,7 @@ bool TrotExperiment::BuildGaitTargets(
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             const double leg_phase = go2_control::GaitLegPhase(
-                leg, phase, params_.gait_pattern);
+                leg, phase, runtime_gait_pattern_);
             const bool nominal_leg_in_swing = leg_phase >= duty;
             const bool leg_in_swing = terrain_contact_now_valid
                 ? !terrain_contact_now[leg]

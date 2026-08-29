@@ -124,8 +124,7 @@ inline bool StretchTerrainFrontStanceSchedule(
                                 (state_stamp_s +
                                  static_cast<double>(rear_event) * knot_dt_s))
              : advance_distance_m / (std::abs(commanded_vx_mps) * knot_dt_s))));
-    if (delay_knots <= 0 || rear_event + delay_knots >=
-        static_cast<int>(horizon_knots))
+    if (delay_knots <= 0)
         return false;
 
     const auto original_schedule = schedule.planned_contact;
@@ -136,6 +135,10 @@ inline bool StretchTerrainFrontStanceSchedule(
         if (k == rear_event)
         {
             const int source = std::max(0, k - 1);
+            // A crawl advance can exceed one consumer horizon. Keep the
+            // current horizon on the captured stance; the next snapshot
+            // repeats this bounded operation until the fixed deadline enters
+            // view, without publishing a partially shifted contact row.
             for (int j = 0; j < delay_knots && dst <
                  static_cast<int>(horizon_knots); ++j)
                 stretched[static_cast<std::size_t>(dst++)] =

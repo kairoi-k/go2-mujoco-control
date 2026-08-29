@@ -222,7 +222,7 @@ void TrotExperiment::UpdateWbcFull(
                    go2_control::kSrbdMaxHorizon> scheduled{};
         go2_control::FillTrotContactSchedulePhase(
             current_phase_, gait_period, gait_duty, 1, 0.0, scheduled,
-            params_.gait_pattern);
+            runtime_gait_pattern_);
         scheduled_contact = scheduled[0];
         if (terrain_contact_plan &&
             terrain_contact_plan->contact_schedule.valid(
@@ -556,6 +556,11 @@ void TrotExperiment::UpdateWbcFull(
                     terrain_surface_transition_required_,
                     terrain_surface_transition_committed_,
                     terrain_surface_transition_cancelled_);
+            // Transaction completion is not yet the end of the V2 window:
+            // keep crawl authority for the declared 0.45 s stable crossing
+            // passage before restoring the Phase 1 profile.
+            terrain_transfer_window_active_ = true;
+            terrain_transfer_window_release_s_ = terrain_now_s + 0.45;
             terrain_surface_transition_active_ = false;
             terrain_surface_transition_required_.fill(false);
             terrain_surface_transition_committed_.fill(false);
@@ -816,7 +821,7 @@ void TrotExperiment::UpdateWbcFull(
                 go2_control::FillTrotContactSchedulePhase(
                     current_phase_, gait_period, gait_duty,
                     mpc_params.horizon, mpc_params.dt_s, mpc_in.contact,
-                    params_.gait_pattern);
+                    runtime_gait_pattern_);
                 if ((high_speed_contact_merge_mode > 0 ||
                      terrain_transfer_hold_active_ ||
                      terrain_surface_transition_active_) &&

@@ -248,7 +248,7 @@ void TrotExperiment::UpdateCycleDiagnostics(
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         const double leg_phase = go2_control::GaitLegPhase(
-            leg, phase, params_.gait_pattern);
+            leg, phase, runtime_gait_pattern_);
         const bool swing = leg_phase >= diagnostic_duty;
         const double force = state_snapshot.foot_force()[leg];
         const bool contact = force >= kContactForceThreshold;

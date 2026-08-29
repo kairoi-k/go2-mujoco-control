@@ -53,6 +53,11 @@ public:
     }
 
     // [Phase3] 在线步长/周期变更(cycle 边界调用,渐变趋近防冲击)
+    void SetGaitPattern(GaitPattern pattern) override
+    {
+        params_.gait.pattern = pattern;
+    }
+
     void SetGaitStepLength(double step_m) override
     {
         if (step_m >= 0.0 && std::isfinite(step_m))

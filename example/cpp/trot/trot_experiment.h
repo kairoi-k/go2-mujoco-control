@@ -75,6 +75,7 @@ public:
           velocity_filter_({params_.velocity_filter_cutoff_hz}),
           velocity_command_shaper_(params_.velocity_command_shaper)
     {
+        runtime_gait_pattern_ = params_.gait_pattern;
         task_.Configure(task_mode, goal);
         motion_event_response_enabled_ =
             params_.reactive_events || params_.auto_environment ||
@@ -523,6 +524,14 @@ private:
     // allowed to consume the next planner snapshot.  This is an order-free
     // transaction assembled from live surfaces, not a prescribed leg script.
     bool terrain_surface_transition_active_ = false;
+    // V2 transfer window remains latched through the post-crossing stable
+    // passage. It is separate from the per-leg transaction latch so the
+    // crawl/velocity authority cannot return while the body is clearing.
+    bool terrain_transfer_window_active_ = false;
+    double terrain_transfer_window_release_s_ =
+        -std::numeric_limits<double>::infinity();
+    go2_control::GaitPattern runtime_gait_pattern_ =
+        go2_control::GaitPattern::kDiagonalTrot;
     double terrain_surface_transition_target_world_z_ = 0.0;
     double terrain_surface_transition_deadband_m_ = 0.0;
     std::array<bool, go2::kLegCount>

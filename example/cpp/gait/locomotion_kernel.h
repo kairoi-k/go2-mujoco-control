@@ -21,6 +21,9 @@ enum class GaitPattern
     // high-speed, overlap-support variant; unlike the ordinary trot it does
     // not rely on an exact half-cycle hand-off at the WBC contact boundary.
     kRunningTrot,
+    // Quasi-static rotary crawl. With duty >= 0.75, at least three legs
+    // remain scheduled in stance at every phase.
+    kCrawl,
     kBound,
     kPace,
     kGallop,
@@ -40,6 +43,8 @@ inline const char *GaitPatternName(GaitPattern pattern) noexcept
         return "diagonal-trot";
     case GaitPattern::kRunningTrot:
         return "running-trot";
+    case GaitPattern::kCrawl:
+        return "crawl";
     default:
         return "diagonal-trot";
     }
@@ -60,6 +65,11 @@ inline bool ParseGaitPattern(
     if (value == "running-trot" || value == "running")
     {
         pattern = GaitPattern::kRunningTrot;
+        return true;
+    }
+    if (value == "crawl")
+    {
+        pattern = GaitPattern::kCrawl;
         return true;
     }
     if (value == "bound")
@@ -117,6 +127,7 @@ inline double GaitLegPhase(
     // fore -> left fore.  Leg order is FR, FL, RR, RL, so the rear pair
     // leads the fore pair by half a cycle while each side is staggered.
     static constexpr std::array<double, 4> kGallop = {0.50, 0.62, 0.0, 0.12};
+    static constexpr std::array<double, 4> kCrawl = {0.0, 0.25, 0.50, 0.75};
     if (pattern == GaitPattern::kRunningTrot)
     {
         const double offset = RunningTrotPhaseOffset();
@@ -128,7 +139,9 @@ inline double GaitLegPhase(
             ? kBound
             : (pattern == GaitPattern::kPace
                    ? kPace
-                   : (pattern == GaitPattern::kGallop ? kGallop : kDiagonal));
+                   : (pattern == GaitPattern::kGallop
+                   ? kGallop
+                   : (pattern == GaitPattern::kCrawl ? kCrawl : kDiagonal)));
     return WrapUnitPhase(phase + offsets[leg % offsets.size()]);
 }
 
@@ -200,6 +213,7 @@ public:
         const GaitKernelRequest &request,
         GaitKernelResult &result) = 0;
     virtual void SetGaitStepLength(double) {}
+    virtual void SetGaitPattern(GaitPattern) {}
     virtual void SetGaitPeriod(double) {}
     virtual void SetGaitDuty(double) {}
     virtual void SetGaitFootLift(double) {}
@@ -220,6 +234,11 @@ public:
     const char *Name() const noexcept override
     {
         return "hand-coded-trot";
+    }
+
+    void SetGaitPattern(GaitPattern pattern) override
+    {
+        params_.pattern = pattern;
     }
 
     void SetGaitStepLength(double step_m) override
