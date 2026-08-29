@@ -70,6 +70,29 @@ int main()
             return 1;
     }
 
+    // A later nominal diagonal must not replace an active transfer hold.
+    {
+        const std::array<bool, go2::kLegCount> held{true, false, false, true};
+        const std::array<bool, go2::kLegCount> scheduled{false, true, true, false};
+        if (!Check(
+                go2_terrain::TerrainTransferHoldSupport(
+                    held, scheduled, true) == held,
+                "active transfer hold was replaced by scheduled support") ||
+            !Check(
+                go2_terrain::TerrainTransferHoldSupport(
+                    held, scheduled, false) == scheduled,
+                "inactive transfer did not capture scheduled support"))
+            return 1;
+        const std::array<bool, go2::kLegCount> measured{
+            false, false, true, false};
+        const auto expanded = go2_terrain::TerrainTransferHoldSupport(
+            held, scheduled, measured, true);
+        if (!Check(
+                expanded == std::array<bool, go2::kLegCount>{true, true, true, true},
+                "active transfer hold did not retain scheduled/measured support"))
+            return 1;
+    }
+
     // Support remains captured while a target waits at its endpoint or while
     // a non-in-flight transaction requirement is still uncommitted.
     {

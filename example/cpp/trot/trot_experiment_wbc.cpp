@@ -397,18 +397,13 @@ void TrotExperiment::UpdateWbcFull(
         }
         else
         {
-            int held_support_count = 0;
-            for (bool contact : terrain_transfer_hold_contact_)
-                held_support_count += contact ? 1 : 0;
-            if (held_support_count < 3)
-            {
-                // Keep the captured set monotonic until the transfer ends;
-                // a late schedule update must not release its third anchor.
-                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-                    terrain_transfer_hold_contact_[leg] =
-                        terrain_transfer_hold_contact_[leg] ||
-                        measured_contact[leg];
-            }
+            // Keep the captured set monotonic until the transfer ends;
+            // add newly scheduled/measured stance feet so a target swing
+            // cannot reduce physical support below three contacts.
+            terrain_transfer_hold_contact_ =
+                go2_terrain::TerrainTransferHoldSupport(
+                    terrain_transfer_hold_contact_, scheduled_contact,
+                    measured_contact, true);
         }
         if (terrain_transfer_hold_active_ && !terrain_transfer_complete)
         {
@@ -1382,6 +1377,11 @@ void TrotExperiment::UpdateWbcFull(
         "TROT_HS_FORCE_TRACK", 0.0);
     if (high_speed_curriculum && force_track_ov > 0.0)
         id_params.w_force_track = std::clamp(force_track_ov, 0.0, 1.0);
+    // A terrain transfer hold is a physical-support request, not merely a
+    // contact-mask request. Prevent the ID-WBC force solution from satisfying
+    // the floating-base equations with a near-zero load on one held foot.
+    if (terrain_transfer_hold_active_ && !terrain_transfer_complete)
+        id_params.min_normal_n = 20.0;
     id_params.tau_limit_nm = 35.0;
     const double tau_ov = Full2EnvDouble("FULL2_TAU", -1.0);
     if (tau_ov > 0.0)

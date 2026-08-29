@@ -54,6 +54,21 @@ int main()
         std::abs(fz - dyn.mass_kg * 9.81) < 40.0, "ID-WBC gravity");
     passed &= Check(out.tau.cwiseAbs().maxCoeff() < 35.0, "tau limit");
 
+    // A terrain hold must keep every selected contact physically loadable,
+    // rather than allowing the solver to satisfy the base equations with a
+    // near-zero held-foot force.
+    go2_control::IdWbcParams loaded_params = {};
+    loaded_params.min_normal_n = 20.0;
+    go2_control::IdWbcOutput loaded;
+    passed &= Check(
+        go2_control::SolveInverseDynamicsWbc(
+            loaded_params, input, loaded) && loaded.ok,
+        "loaded-contact ID-WBC failed");
+    for (int i = 0; i < 4; ++i)
+        passed &= Check(
+            loaded.force[3 * i + 2] >= 19.9,
+            "held contact fell below minimum normal force");
+
     input.has_terrain_plan = true;
     input.terrain_plan.plan_id = 5;
     input.terrain_plan.plan_epoch = 6;

@@ -58,6 +58,35 @@ inline bool TerrainTransitionComplete(
 // transaction that has not committed may not release that set while a
 // target waits at its endpoint. An in-flight target remains a swing task
 // and is intentionally excluded from QP support.
+// Once a transfer hold is active, the captured support set is authoritative.
+// A later gait phase must not replace it with a nominal diagonal while the
+// terrain target is still waiting for measured touchdown.
+inline std::array<bool, go2::kLegCount> TerrainTransferHoldSupport(
+    const std::array<bool, go2::kLegCount> &held_support,
+    const std::array<bool, go2::kLegCount> &scheduled_support,
+    bool hold_active)
+{
+    return hold_active ? held_support : scheduled_support;
+}
+
+// While active, retain the captured set and monotonically add a newly
+// scheduled or measured stance foot. This permits a target leg to swing
+// without reducing the remaining physical support below three feet.
+inline std::array<bool, go2::kLegCount> TerrainTransferHoldSupport(
+    const std::array<bool, go2::kLegCount> &held_support,
+    const std::array<bool, go2::kLegCount> &scheduled_support,
+    const std::array<bool, go2::kLegCount> &measured_support,
+    bool hold_active)
+{
+    if (!hold_active)
+        return scheduled_support;
+    auto support = held_support;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        support[leg] = support[leg] || scheduled_support[leg] ||
+            measured_support[leg];
+    return support;
+}
+
 inline bool TerrainTransferSupportMustBeKept(
     const std::array<bool, go2::kLegCount> &required,
     const std::array<bool, go2::kLegCount> &committed,

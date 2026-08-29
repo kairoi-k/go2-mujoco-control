@@ -2017,16 +2017,19 @@ bool TrotExperiment::BuildGaitTargets(
                 scheduled_support.begin(), scheduled_support.end(), true));
             if (terrain_transfer_hold_active_)
             {
-                if (target_leg < go2::kLegCount &&
-                    terrain_transfer_hold_contact_[target_leg] &&
-                    !scheduled_support[target_leg] &&
-                    support_count >= 2)
-                    terrain_transfer_hold_contact_ = scheduled_support;
+                // Do not replace the captured support with the next nominal
+                // diagonal: that would reintroduce a two-contact plant while
+                // the terrain target is still endpoint-held/uncommitted.
+                terrain_transfer_hold_contact_ =
+                    go2_terrain::TerrainTransferHoldSupport(
+                        terrain_transfer_hold_contact_, scheduled_support, true);
                 return;
             }
             if (support_count < 2)
                 return;
-            terrain_transfer_hold_contact_ = scheduled_support;
+            terrain_transfer_hold_contact_ =
+                go2_terrain::TerrainTransferHoldSupport(
+                    terrain_transfer_hold_contact_, scheduled_support, false);
             terrain_transfer_hold_active_ = true;
         };
 
