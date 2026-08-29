@@ -358,6 +358,34 @@ void TrotExperiment::UpdateWbcFull(
             terrain_transfer_complete = false;
     }
 
+    // Once one front foothold is physically committed, make the still-flat
+    // rear pair explicit pending transition requirements.  Their elevated
+    // targets are intentionally discovered by the next planner snapshot,
+    // after S1 has translated the body into the FK envelope.
+    bool front_transition_committed = false;
+    for (std::size_t leg = 0; leg < 2; ++leg)
+        front_transition_committed = front_transition_committed ||
+            (terrain_surface_transition_active_ &&
+             terrain_surface_transition_committed_[leg]);
+    if (front_transition_committed)
+    {
+        for (std::size_t leg = 2; leg < go2::kLegCount; ++leg)
+        {
+            if (terrain_surface_transition_required_[leg] ||
+                terrain_surface_transition_committed_[leg])
+                continue;
+            const double source_world_z = dyn.foot_pos_world[leg].z();
+            if (!std::isfinite(source_world_z) ||
+                terrain_surface_transition_target_world_z_ - source_world_z <=
+                    terrain_surface_transition_deadband_m_)
+                continue;
+            terrain_surface_transition_source_valid_[leg] = true;
+            terrain_surface_transition_source_world_z_[leg] = source_world_z;
+            terrain_surface_transition_required_[leg] = true;
+            terrain_surface_transition_original_required_[leg] = true;
+        }
+    }
+
     if (!terrain_transfer_has_target)
     {
         terrain_transfer_hold_contact_.fill(false);
