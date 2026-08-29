@@ -34,6 +34,7 @@
 #include "cartesian_world_trot.h"
 #include "terrain_model.h"
 #include "terrain_motion_plan.h"
+#include "terrain_crawl_state_machine.h"
 #include "terrain_planner.h"
 
 using unitree::robot::ChannelPublisherPtr;
@@ -530,6 +531,12 @@ private:
     bool terrain_transfer_window_active_ = false;
     double terrain_transfer_window_release_s_ =
         -std::numeric_limits<double>::infinity();
+    // Explicit v2 crawl sequencing. This object is only advanced while the
+    // sensor-derived transfer window is active; the Phase 1 path never reads
+    // it and therefore remains bit-identical outside the window.
+    go2_terrain::TerrainCrawlStateMachine terrain_crawl_state_machine_{};
+    int terrain_crawl_min_contact_count_ = go2::kLegCount;
+    std::uint64_t terrain_crawl_step_commit_count_ = 0;
     go2_control::GaitPattern runtime_gait_pattern_ =
         go2_control::GaitPattern::kDiagonalTrot;
     double terrain_surface_transition_target_world_z_ = 0.0;

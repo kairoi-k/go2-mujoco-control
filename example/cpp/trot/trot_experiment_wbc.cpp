@@ -362,6 +362,8 @@ void TrotExperiment::UpdateWbcFull(
         if (measured_contact[leg] && at_endpoint)
         {
             execution.measured_touchdown = true;
+            if (terrain_transfer_window_active_)
+                ++terrain_crawl_step_commit_count_;
             if (terrain_surface_transition_active_ &&
                 terrain_surface_transition_required_[leg])
             {

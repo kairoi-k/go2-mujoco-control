@@ -1129,6 +1129,9 @@ bool TrotExperiment::PhaseStartGait(
     terrain_transfer_window_active_ = false;
     terrain_transfer_window_release_s_ =
         -std::numeric_limits<double>::infinity();
+    terrain_crawl_state_machine_.Reset();
+    terrain_crawl_min_contact_count_ = go2::kLegCount;
+    terrain_crawl_step_commit_count_ = 0;
     runtime_gait_pattern_ = params_.gait_pattern;
     terrain_surface_transition_required_.fill(false);
     terrain_surface_transition_original_required_.fill(false);

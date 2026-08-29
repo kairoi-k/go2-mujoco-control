@@ -74,6 +74,9 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_execution_plan_usable,terrain_execution_planned_contact_mask"
          << ",terrain_transfer_hold_active,terrain_transfer_hold_mask"
          << ",terrain_transfer_window_active,terrain_transfer_window_release_s"
+         << ",terrain_crawl_state,terrain_crawl_active_leg"
+         << ",terrain_crawl_retry_count,terrain_crawl_state_enter_s"
+         << ",terrain_crawl_min_contacts,terrain_crawl_step_commits"
          << ",terrain_surface_transition_active"
          << ",terrain_surface_transition_required_mask"
          << ",terrain_surface_transition_original_required_mask"
@@ -744,6 +747,11 @@ void TrotExperiment::LogSample(
         terrain_actual_world_feet_valid = true;
     }
 
+    const auto terrain_crawl_state = terrain_crawl_state_machine_.state();
+    const int terrain_crawl_active_leg = static_cast<int>(
+        terrain_crawl_state_machine_.ActiveLeg());
+    const int terrain_crawl_min_contacts = terrain_crawl_min_contact_count_ ==
+            go2::kLegCount ? 0 : terrain_crawl_min_contact_count_;
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model;
     double terrain_last_map_age_s = std::numeric_limits<double>::infinity();
     double terrain_last_solver_us = 0.0;
@@ -931,6 +939,12 @@ void TrotExperiment::LogSample(
          << "," << terrain_transfer_hold_mask
          << "," << (terrain_transfer_window_active_ ? 1 : 0)
          << "," << terrain_transfer_window_release_s_
+         << "," << go2_terrain::TerrainCrawlStateName(terrain_crawl_state)
+         << "," << terrain_crawl_active_leg
+         << "," << terrain_crawl_state_machine_.retry_count()
+         << "," << terrain_crawl_state_machine_.state_enter_time_s()
+         << "," << terrain_crawl_min_contacts
+         << "," << terrain_crawl_step_commit_count_
          << "," << (terrain_surface_transition_active_ ? 1 : 0)
          << "," << terrain_surface_transition_required_mask
          << "," << terrain_surface_transition_original_required_mask

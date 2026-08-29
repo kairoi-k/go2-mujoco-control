@@ -157,16 +157,30 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         terrain_transfer_window_active_ = false;
         terrain_transfer_window_release_s_ =
             -std::numeric_limits<double>::infinity();
+        terrain_crawl_state_machine_.Reset();
+        terrain_crawl_min_contact_count_ = go2::kLegCount;
+        terrain_crawl_step_commit_count_ = 0;
     }
     const bool terrain_crawl_active = terrain_transfer_window_active_;
     if (params_.terrain_actuation && !params_.terrain_sensor_only)
     {
         if (terrain_crawl_active)
         {
-            requested_mps = std::clamp(
-                std::min(std::max(0.0, requested_mps), 0.12),
-                0.05, 0.30);
-            terrain_velocity_cap_mps_.store(0.12);
+            if (terrain_crawl_state_machine_.aborted())
+            {
+                // Abort is a controlled v2 window stop. Let the existing
+                // shaper ramp to zero; do not enter the v1 stop-brake path.
+                requested_mps = 0.0;
+                terrain_velocity_cap_mps_.store(0.0);
+                runtime_gait_regime_ = "terrain-crawl-abort";
+            }
+            else
+            {
+                requested_mps = std::clamp(
+                    std::min(std::max(0.0, requested_mps), 0.12),
+                    0.05, 0.30);
+                terrain_velocity_cap_mps_.store(0.12);
+            }
         }
         else if (std::isfinite(terrain_velocity_cap_mps_.load()))
         {
@@ -463,6 +477,101 @@ bool TrotExperiment::BuildGaitTargets(
             terrain_contact_now = active_terrain_plan->contact_schedule
                 .planned_contact[terrain_now_index[0]];
     }
+    // Drive terrain execution from the explicit v2 sequencer. All inputs
+    // here are observations from the force filter, lidar plan, current FK,
+    // and measured body/foot pose; no scene or XML truth is consulted.
+    if (terrain_transfer_window_active_)
+    {
+        if (terrain_crawl_state_machine_.state() ==
+                go2_terrain::TerrainCrawlState::kInactive)
+            terrain_crawl_state_machine_.Enter(terrain_now_s);
+        go2_terrain::TerrainCrawlSignals crawl_signals;
+        crawl_signals.transfer_window_active = true;
+        crawl_signals.plan_valid = active_terrain_plan &&
+            active_terrain_plan->valid();
+        crawl_signals.measured_contact_valid = wbc_shadow_contact_state_valid_;
+        crawl_signals.measured_contact = wbc_shadow_contact_state_;
+        crawl_signals.measured_velocity_mps = have_filtered_body_velocity_
+            ? std::abs(latest_filtered_body_velocity_[0]) : 0.0;
+        crawl_signals.committed = terrain_surface_transition_committed_;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            crawl_signals.target_valid[leg] =
+                terrain_swing_execution_[leg].valid ||
+                terrain_swing_pending_[leg].valid;
+            if (!crawl_signals.target_valid[leg] && active_terrain_plan)
+                for (std::size_t k = 0;
+                     k < active_terrain_plan->horizon_knots; ++k)
+                {
+                    const auto &foot = active_terrain_plan->predicted_foothold[k][leg];
+                    if (foot.valid && foot.touchdown &&
+                        foot.surface_transition_required)
+                    {
+                        crawl_signals.target_valid[leg] = true;
+                        break;
+                    }
+                }
+        }
+        crawl_signals.rear_targets_fk_reachable = false;
+        if (active_terrain_plan && have_high_state)
+        {
+            const WorldPose crawl_pose = ComputeWorldPose(
+                state_snapshot, high_state_snapshot);
+            bool rear_targets_found = true;
+            for (std::size_t leg = 2; leg < go2::kLegCount; ++leg)
+            {
+                const go2_terrain::TerrainFootholdPrediction *rear = nullptr;
+                for (std::size_t k = 0;
+                     k < active_terrain_plan->horizon_knots; ++k)
+                {
+                    const auto &foot = active_terrain_plan->predicted_foothold[k][leg];
+                    if (foot.valid && foot.touchdown &&
+                        foot.surface_transition_required)
+                    {
+                        rear = &foot;
+                        break;
+                    }
+                }
+                if (rear == nullptr)
+                {
+                    rear_targets_found = false;
+                    break;
+                }
+                const go2::Vec3 target_base = go2_control::WorldToBody(
+                    crawl_pose.base, crawl_pose.quaternion, rear->position_world);
+                go2::LegJointPositions joints;
+                const double radial = std::hypot(target_base.x, target_base.y);
+                if (radial > 0.40 || !go2::LegInverseKinematics(
+                        static_cast<go2::Leg>(leg), target_base, joints))
+                {
+                    rear_targets_found = false;
+                    break;
+                }
+            }
+            crawl_signals.rear_targets_fk_reachable = rear_targets_found;
+        }
+        crawl_signals.step_failed =
+            terrain_crawl_state_machine_.ActiveLeg() < go2::kLegCount &&
+            terrain_target_last_prepare_failure_by_leg_[
+                terrain_crawl_state_machine_.ActiveLeg()] == 7;
+        crawl_signals.now_s = terrain_now_s;
+        const auto crawl_state = terrain_crawl_state_machine_.Update(crawl_signals);
+        if (crawl_state == go2_terrain::TerrainCrawlState::kResume &&
+            !std::isfinite(terrain_transfer_window_release_s_))
+            terrain_transfer_window_release_s_ = terrain_now_s + 0.45;
+        if (crawl_state == go2_terrain::TerrainCrawlState::kAbort)
+        {
+            terrain_safe_stop_requested_.store(true);
+            terrain_velocity_cap_mps_.store(0.0);
+        }
+        terrain_crawl_min_contact_count_ = std::min(
+            terrain_crawl_min_contact_count_,
+            crawl_signals.measured_contact_valid
+                ? go2_terrain::TerrainCrawlContactCount(
+                      crawl_signals.measured_contact)
+                : 0);
+    }
+
     const int cycle_index = gait_result.cycle_index;
     if (active_cycle_index_ < 0)
     {
@@ -1768,6 +1877,11 @@ bool TrotExperiment::BuildGaitTargets(
                     // transition intent and remains active through the
                     // stable post-crossing passage.
                     terrain_transfer_window_active_ = true;
+                    if (terrain_crawl_state_machine_.state() ==
+                        go2_terrain::TerrainCrawlState::kInactive)
+                        terrain_crawl_state_machine_.Enter(terrain_now_s);
+                    terrain_crawl_min_contact_count_ = go2::kLegCount;
+                    terrain_crawl_step_commit_count_ = 0;
                     terrain_transfer_window_release_s_ =
                         -std::numeric_limits<double>::infinity();
                     terrain_surface_transition_target_world_z_ = target_world_z;
@@ -2085,6 +2199,26 @@ bool TrotExperiment::BuildGaitTargets(
                 : nominal_leg_in_swing;
             auto &execution = terrain_swing_execution_[leg];
             auto &pending = terrain_swing_pending_[leg];
+            const auto crawl_state = terrain_crawl_state_machine_.state();
+            const bool explicit_crawl_step = terrain_transfer_window_active_ &&
+                crawl_state == go2_terrain::TerrainCrawlState::kCrawlStep;
+            if (terrain_transfer_window_active_ && !explicit_crawl_step)
+            {
+                if (have_actual_world_feet)
+                    feet[leg] = go2_control::WorldToBody(
+                        terrain_pose.base, terrain_pose.quaternion,
+                        actual_world_feet[leg]);
+                continue;
+            }
+            if (explicit_crawl_step &&
+                terrain_crawl_state_machine_.ActiveLeg() != leg)
+            {
+                if (have_actual_world_feet)
+                    feet[leg] = go2_control::WorldToBody(
+                        terrain_pose.base, terrain_pose.quaternion,
+                        actual_world_feet[leg]);
+                continue;
+            }
             const bool terrain_extended_swing =
                 execution.valid &&
                 execution.terrain_target_required &&
