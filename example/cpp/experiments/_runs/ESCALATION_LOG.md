@@ -550,3 +550,12 @@ evidence:
     b1_crawl_epoch36_20260828_r2: window active 7.134-27.138 s; FL target=(0.830766,0.093478,0.049308) m, swing 7.352-7.552 s (0.200 s). At endpoint hold t=7.552, error=0.046723 m with no contact; first measured contact t=7.602 was (0.859291,0.108429,0.069925) m, delta=(+0.028525,+0.014951,+0.020617) m, norm=0.036467 m <=0.0375, at_endpoint=1, commit=YES. FR had no measured platform landing. Final base_x=0.413604 m, front commit mask=2 (FR/FL=0/1), transaction completions=0. The pair therefore demonstrates a post-fix single-front commit and the endpoint-error reduction, but neither run reached the dual-front success criterion; no rear swing/body-advance sequence was observed and no gate-level conclusion is made.
 git_status: code implementation commit b9962b2; this documentation append is pending local commit; no push/amend; generated artifacts ignored; simulations serialized.
 ---
+---
+timestamp: 2026-08-30T06:40:00+08:00
+run_id: Order-019 documentation status correction
+trigger: T1
+signature: Order-019 implementation and evidence documentation are committed locally.
+evidence: |
+  Code commit b9962b2 and documentation commits 96558c4/286ea97 are local only; the worktree is clean. The final named canary artifacts above were generated after b9962b2. No push or amend was performed.
+git_status: clean; no staged files; no push/amend.
+---
