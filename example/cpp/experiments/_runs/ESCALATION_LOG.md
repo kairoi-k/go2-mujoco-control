@@ -702,3 +702,12 @@ evidence: |
   validation: ctest 27/27 passed after the invariant guard; final B0 PASS was obtained at preceding clean HEAD 638386b and no B0-scoped files changed afterward.
 git_status: final canary correction pending local commit; no push/amend; generated artifacts ignored.
 ---
+
+---
+timestamp: 2026-08-30T03:50:00+0800
+run_id: Order-023 final B0 rerun correction
+trigger: T1
+evidence: |
+  The first post-documentation B0 attempt was a stochastic paired-baseline lifecycle failure (acceptance_status=FAIL) while all terrain-disabled checks passed. A serial rerun at clean HEAD 30cfdbae099b6a699c2e78c443d948429ffa783a returned acceptance_status=PASS, controller/dynamics/quality/safety status 0, planner deadline misses 0, and terrain actuation disabled. No source files changed between these B0 runs.
+git_status: final documentation correction pending local commit; no push/amend.
+---
