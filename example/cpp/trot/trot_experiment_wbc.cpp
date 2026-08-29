@@ -353,35 +353,6 @@ void TrotExperiment::UpdateWbcFull(
             endpoint_error.norm() <= terrain_touchdown_tolerance_m;
         execution.wbc_at_endpoint = at_endpoint;
         execution.wbc_measured_contact = measured_contact[leg];
-        if (measured_contact[leg] &&
-            go2_terrain::TerrainSwingContactBeforeLeadingEdge(
-                execution.start_world, execution.target_world, actual_world,
-                execution.swing_leading_edge_phase_valid,
-                execution.swing_leading_edge_phase))
-        {
-            // Force at the riser corner is a failed swing, not touchdown.
-            // Drop only this execution so the unchanged transition
-            // requirement is picked up by the next planner snapshot.
-            terrain_transfer_complete = false;
-            ++terrain_target_prepare_rejection_count_;
-            terrain_target_last_prepare_failure_ = 7;
-            terrain_target_last_prepare_failure_by_leg_[leg] = 7;
-            if (Full2EnvDouble(
-                    "TROT_TERRAIN_DEBUG_TRANSACTION", 0.0) > 0.5)
-            {
-                std::cout << "Terrain transaction event=swing_failed"
-                          << " t=" << terrain_now_s
-                          << " leg=" << leg
-                          << " actual_x=" << actual_world.x
-                          << " target_x=" << execution.target_world.x
-                          << " edge_phase="
-                          << execution.swing_leading_edge_phase
-                          << " endpoint_error="
-                          << execution.wbc_endpoint_error_m << " reason=corner" << std::endl;
-            }
-            execution = {};
-            continue;
-        }
         if (measured_contact[leg] && at_endpoint)
         {
             execution.measured_touchdown = true;
