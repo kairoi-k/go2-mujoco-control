@@ -822,3 +822,27 @@ evidence:
     period/duty and WBC references are non-gate diagnostics and remain
     outside the frozen acceptance result.
 git_status: clean worktree; no staged files; no push/amend; simulations serialized.
+
+
+---
+timestamp: 2026-08-30T07:45:00+0800
+run_id: Order-025 clean-HEAD canary correction
+trigger: T1
+evidence: |
+  After the local documentation commits, both named canaries were rerun
+  serially with clean HEAD 47c7e0a7eb61d7dd8836969aa4ce642585fd2f37;
+  both manifests report git_dirty=false. r1 trace INACTIVE (0.000) ->
+  APPROACH (6.378) -> DECELERATE_TO_CREEP (6.380) -> SHIFT_COM (6.912)
+  -> ABORT (7.016), with per-state minimum contacts
+  INACTIVE=0, APPROACH=2, DECELERATE_TO_CREEP=1, SHIFT_COM=2, ABORT=0.
+  r2 trace INACTIVE (0.000) -> APPROACH (6.318) ->
+  DECELERATE_TO_CREEP (6.320) -> SHIFT_COM (6.924) -> ABORT (7.028),
+  with per-state minimum contacts INACTIVE=0, APPROACH=1,
+  DECELERATE_TO_CREEP=0, SHIFT_COM=0, ABORT=0. Neither reached
+  CRAWL_STEP(FL) or measured commit. Deceleration posture ranges were
+  r1 roll=-1.445..+0.225 deg, pitch=-0.689..+1.505 deg,
+  z=.3675.. .3789 m; r2 roll=-3.031..+2.020 deg,
+  pitch=-.709..+3.674 deg, z=.3662.. .3812 m. No pre-contact height
+  collapse was observed; the remaining failure is post-handoff support/
+  COM recovery, not a gate-level conclusion.
+git_status: clean worktree; no staged files; no push/amend; simulations serialized.
