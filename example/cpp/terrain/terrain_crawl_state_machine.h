@@ -122,12 +122,22 @@ inline TerrainSupportTriangle ComputeTerrainSupportTriangle(
     triangle.valid = true;
     for (const auto &v : triangle.vertex)
         triangle.valid = triangle.valid && std::isfinite(v.x) &&
-            std::isfinite(v.y);
-    const double twice_area = (triangle.vertex[1].x - triangle.vertex[0].x) *
-            (triangle.vertex[2].y - triangle.vertex[0].y) -
-        (triangle.vertex[1].y - triangle.vertex[0].y) *
-            (triangle.vertex[2].x - triangle.vertex[0].x);
-    triangle.valid = triangle.valid && std::abs(twice_area) > 1.0e-6;
+            std::isfinite(v.y) && std::isfinite(v.z);
+    const go2::Vec3 edge01{
+        triangle.vertex[1].x - triangle.vertex[0].x,
+        triangle.vertex[1].y - triangle.vertex[0].y,
+        triangle.vertex[1].z - triangle.vertex[0].z};
+    const go2::Vec3 edge02{
+        triangle.vertex[2].x - triangle.vertex[0].x,
+        triangle.vertex[2].y - triangle.vertex[0].y,
+        triangle.vertex[2].z - triangle.vertex[0].z};
+    const go2::Vec3 cross{
+        edge01.y * edge02.z - edge01.z * edge02.y,
+        edge01.z * edge02.x - edge01.x * edge02.z,
+        edge01.x * edge02.y - edge01.y * edge02.x};
+    const double twice_area_3d = std::sqrt(
+        cross.x * cross.x + cross.y * cross.y + cross.z * cross.z);
+    triangle.valid = triangle.valid && twice_area_3d > 1.0e-6;
     return triangle;
 }
 
@@ -135,12 +145,95 @@ inline TerrainSupportTriangleMetrics MeasureTerrainSupportTriangle(
     const TerrainSupportTriangle &triangle, const go2::Vec3 &point) noexcept
 {
     TerrainSupportTriangleMetrics metrics;
-    if (!triangle.valid || !std::isfinite(point.x) || !std::isfinite(point.y))
+    if (!triangle.valid || !std::isfinite(point.x) ||
+        !std::isfinite(point.y) || !std::isfinite(point.z))
         return metrics;
-    auto vertex = triangle.vertex;
-    const double area = (vertex[1].x - vertex[0].x) *
-            (vertex[2].y - vertex[0].y) -
-        (vertex[1].y - vertex[0].y) * (vertex[2].x - vertex[0].x);
+    // Preserve the exact flat-ground arithmetic. The transfer-window-only
+    // 3-D path below is needed only when a support vertex has a distinct
+    // measured height.
+    if (triangle.vertex[0].z == triangle.vertex[1].z &&
+        triangle.vertex[1].z == triangle.vertex[2].z)
+    {
+        auto vertex = triangle.vertex;
+        const double area = (vertex[1].x - vertex[0].x) *
+                (vertex[2].y - vertex[0].y) -
+            (vertex[1].y - vertex[0].y) * (vertex[2].x - vertex[0].x);
+        if (area < 0.0)
+            std::swap(vertex[1], vertex[2]);
+        metrics.valid = true;
+        metrics.signed_margin_m = std::numeric_limits<double>::infinity();
+        for (std::size_t i = 0; i < 3; ++i)
+        {
+            const auto &a = vertex[i];
+            const auto &b = vertex[(i + 1) % 3];
+            const double dx = b.x - a.x;
+            const double dy = b.y - a.y;
+            const double edge = (dx * (point.y - a.y) -
+                                 dy * (point.x - a.x)) / std::hypot(dx, dy);
+            metrics.edge_margin_m[i] = edge;
+            metrics.signed_margin_m = std::min(metrics.signed_margin_m, edge);
+        }
+        metrics.inside = metrics.signed_margin_m >= 0.0;
+        return metrics;
+    }
+
+    // Support is a 3-D triangle, not a height-discarding XY hull. Build an
+    // orthonormal basis on its plane and orthogonally project the COM onto
+    // that plane before measuring signed edge distances. This keeps a raised
+    // committed foot in the geometry while retaining a scalar support margin.
+    const go2::Vec3 e01{
+        triangle.vertex[1].x - triangle.vertex[0].x,
+        triangle.vertex[1].y - triangle.vertex[0].y,
+        triangle.vertex[1].z - triangle.vertex[0].z};
+    const go2::Vec3 e02{
+        triangle.vertex[2].x - triangle.vertex[0].x,
+        triangle.vertex[2].y - triangle.vertex[0].y,
+        triangle.vertex[2].z - triangle.vertex[0].z};
+    const go2::Vec3 normal{
+        e01.y * e02.z - e01.z * e02.y,
+        e01.z * e02.x - e01.x * e02.z,
+        e01.x * e02.y - e01.y * e02.x};
+    const double normal_length = std::sqrt(
+        normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+    const double edge_length = std::sqrt(
+        e01.x * e01.x + e01.y * e01.y + e01.z * e01.z);
+    if (!(normal_length > 1.0e-6) || !(edge_length > 1.0e-9))
+        return metrics;
+    const go2::Vec3 u{
+        e01.x / edge_length, e01.y / edge_length, e01.z / edge_length};
+    const go2::Vec3 n{
+        normal.x / normal_length, normal.y / normal_length,
+        normal.z / normal_length};
+    const go2::Vec3 v{
+        n.y * u.z - n.z * u.y,
+        n.z * u.x - n.x * u.z,
+        n.x * u.y - n.y * u.x};
+    const auto coordinates = [&](const go2::Vec3 &p) {
+        const go2::Vec3 d{
+            p.x - triangle.vertex[0].x,
+            p.y - triangle.vertex[0].y,
+            p.z - triangle.vertex[0].z};
+        return std::array<double, 2>{
+            d.x * u.x + d.y * u.y + d.z * u.z,
+            d.x * v.x + d.y * v.y + d.z * v.z};
+    };
+    const go2::Vec3 d{
+        point.x - triangle.vertex[0].x,
+        point.y - triangle.vertex[0].y,
+        point.z - triangle.vertex[0].z};
+    const double normal_distance =
+        d.x * n.x + d.y * n.y + d.z * n.z;
+    const go2::Vec3 projected_point{
+        point.x - normal_distance * n.x,
+        point.y - normal_distance * n.y,
+        point.z - normal_distance * n.z};
+    const auto projected = coordinates(projected_point);
+    std::array<std::array<double, 2>, 3> vertex{};
+    for (std::size_t i = 0; i < vertex.size(); ++i)
+        vertex[i] = coordinates(triangle.vertex[i]);
+    const double area = (vertex[1][0] - vertex[0][0]) *
+            (vertex[2][1] - vertex[0][1]) -
+        (vertex[1][1] - vertex[0][1]) * (vertex[2][0] - vertex[0][0]);
     if (area < 0.0)
         std::swap(vertex[1], vertex[2]);
     metrics.valid = true;
@@ -148,11 +241,14 @@ inline TerrainSupportTriangleMetrics MeasureTerrainSupportTriangle(
     for (std::size_t i = 0; i < 3; ++i)
     {
         const auto &a = vertex[i];
-        const auto &b = vertex[(i + 1) % 3];
-        const double dx = b.x - a.x;
-        const double dy = b.y - a.y;
-        const double edge = (dx * (point.y - a.y) -
-                             dy * (point.x - a.x)) / std::hypot(dx, dy);
+        const auto &b = vertex[(i + 1) % vertex.size()];
+        const double dx = b[0] - a[0];
+        const double dy = b[1] - a[1];
+        const double length = std::hypot(dx, dy);
+        if (!(length > 1.0e-9))
+            return TerrainSupportTriangleMetrics{};
+        const double edge = (dx * (projected[1] - a[1]) -
+                             dy * (projected[0] - a[0])) / length;
         metrics.edge_margin_m[i] = edge;
         metrics.signed_margin_m = std::min(metrics.signed_margin_m, edge);
     }
@@ -165,7 +261,7 @@ inline go2::Vec3 TerrainSupportTriangleCentroid(
 {
     return {(triangle.vertex[0].x + triangle.vertex[1].x + triangle.vertex[2].x) / 3.0,
             (triangle.vertex[0].y + triangle.vertex[1].y + triangle.vertex[2].y) / 3.0,
-            0.0};
+            (triangle.vertex[0].z + triangle.vertex[1].z + triangle.vertex[2].z) / 3.0};
 }
 
 class TerrainCrawlStateMachine
@@ -184,6 +280,10 @@ public:
     static constexpr double kCreepSpeedMps = 0.12;
     static constexpr double kContactRecoveryGraceS = 0.80;
     static constexpr double kCrawlStepHandoffGraceS = 0.10;
+    // Allow the endpoint confirmation to arrive after the first force sample
+    // that still contains the active leg, without weakening the three-foot
+    // invariant for a genuinely unsupported swing.
+    static constexpr double kCrawlStepCommitGraceS = 0.30;
 
     void Reset() noexcept
     {
@@ -255,6 +355,7 @@ public:
                 SetState(TerrainCrawlState::kShiftCom, signals.now_s);
             break;
         case TerrainCrawlState::kShiftCom:
+        {
             if (!three_contacts)
             {
                 // Update() runs after target generation. Allow one control
@@ -269,12 +370,45 @@ public:
                 break;
             }
             UpdateComTarget(signals);
-            if (signals.plan_valid && ComShiftReady())
+            const std::size_t target_leg = ActiveLegForSupport();
+            if (signals.plan_valid && ComShiftReady() &&
+                target_leg < go2::kLegCount && signals.target_valid[target_leg])
                 SetState(TerrainCrawlState::kCrawlStep, signals.now_s);
             break;
+        }
         case TerrainCrawlState::kCrawlStep:
         {
             const std::size_t leg = ActiveLeg();
+            // A measured touchdown is the transaction boundary. Advance to
+            // the next leg before checking the old swing's support mask;
+            // otherwise a force-filter sample that still contains the just
+            // landed leg can make the old active-leg subtraction report one
+            // support and abort before FR SHIFT_COM is entered.
+            const bool active_leg_committed = leg < go2::kLegCount &&
+                signals.plan_valid && signals.committed[leg];
+            if (active_leg_committed)
+            {
+                retry_count_ = 0;
+                if (order_index_ == 1)
+                    SetState(TerrainCrawlState::kAdvanceBody, signals.now_s);
+                else if (order_index_ + 1 < kLegOrder.size())
+                {
+                    ++order_index_;
+                    SetState(TerrainCrawlState::kShiftCom, signals.now_s);
+                }
+                else
+                    SetState(TerrainCrawlState::kClear, signals.now_s);
+                break;
+            }
+            // A stale prepared target cannot be repaired by changing its
+            // immutable touchdown timestamp. Return to SHIFT_COM and wait
+            // for the next fresh planner handoff instead of spending the
+            // contact grace interval in a targetless swing state.
+            if (leg >= go2::kLegCount || !signals.target_valid[leg])
+            {
+                SetState(TerrainCrawlState::kShiftCom, signals.now_s);
+                break;
+            }
             // The active leg may be in swing; the three remaining measured
             // contacts are the invariant that protects the crawl triangle.
             const int support_contacts = signals.measured_contact_valid
@@ -283,6 +417,20 @@ public:
                 : 0;
             if (support_contacts < 3)
             {
+                // The force filter can still report the active foot loaded
+                // while endpoint confirmation catches up. Give this bounded
+                // interval to the commit path; once it expires, enforce the
+                // three-foot invariant for a genuinely unsupported swing.
+                const bool touchdown_boundary_pending =
+                    signals.measured_contact_valid &&
+                    leg < go2::kLegCount && signals.measured_contact[leg] &&
+                    std::isfinite(signals.now_s) &&
+                    signals.now_s - state_enter_time_s_ <
+                        kCrawlStepHandoffGraceS + kCrawlStepCommitGraceS;
+                if (touchdown_boundary_pending)
+                {
+                    break;
+                }
                 // The explicit contact override takes one control handoff to
                 // replace the preceding trot schedule. Do not call a
                 // transient boundary sample a failed three-foot stance.

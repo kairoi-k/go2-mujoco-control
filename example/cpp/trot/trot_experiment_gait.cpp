@@ -1667,24 +1667,21 @@ bool TrotExperiment::BuildGaitTargets(
         crawl_signals.measured_velocity_mps = have_filtered_body_velocity_
             ? std::abs(latest_filtered_body_velocity_[0]) : 0.0;
         crawl_signals.committed = terrain_surface_transition_committed_;
+        const double crawl_target_time_guard_s = 0.5 * std::max(
+            1.0e-4, terrain_planner_.config().knot_dt_s);
+        const auto crawl_target_is_live = [&](const TerrainSwingExecution &target) {
+            if (!target.valid)
+                return false;
+            if (!target.terrain_target_required)
+                return true;
+            return std::isfinite(target.touchdown_time_s) &&
+                target.touchdown_time_s > terrain_now_s +
+                    crawl_target_time_guard_s;
+        };
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-        {
             crawl_signals.target_valid[leg] =
-                terrain_swing_execution_[leg].valid ||
-                terrain_swing_pending_[leg].valid;
-            if (!crawl_signals.target_valid[leg] && active_terrain_plan)
-                for (std::size_t k = 0;
-                     k < active_terrain_plan->horizon_knots; ++k)
-                {
-                    const auto &foot = active_terrain_plan->predicted_foothold[k][leg];
-                    if (foot.valid && foot.touchdown &&
-                        foot.surface_transition_required)
-                    {
-                        crawl_signals.target_valid[leg] = true;
-                        break;
-                    }
-                }
-        }
+                crawl_target_is_live(terrain_swing_execution_[leg]) ||
+                crawl_target_is_live(terrain_swing_pending_[leg]);
         crawl_signals.rear_targets_fk_reachable = false;
         if (active_terrain_plan && have_high_state)
         {

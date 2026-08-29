@@ -1369,6 +1369,28 @@ int main()
             return 1;
     }
 
+    // A committed raised front foot must participate as a 3-D support
+    // vertex. The COM target is on that sloped support plane, not forced to
+    // z=0 as it was for the flat-only XY calculation.
+    {
+        const std::array<go2::Vec3, go2::kLegCount> mixed_feet{
+            go2::Vec3{0.30, -0.20, 0.0}, go2::Vec3{0.30, 0.20, 0.05},
+            go2::Vec3{-0.30, -0.20, 0.0}, go2::Vec3{-0.30, 0.20, 0.0}};
+        const auto triangle = go2_terrain::ComputeTerrainSupportTriangle(
+            mixed_feet, 0);
+        const auto centroid = go2_terrain::TerrainSupportTriangleCentroid(
+            triangle);
+        const auto metrics = go2_terrain::MeasureTerrainSupportTriangle(
+            triangle, centroid);
+        if (!Check(triangle.valid && metrics.valid && metrics.inside,
+                   "mixed-height support triangle was invalid") ||
+            !Check(std::abs(centroid.z - 0.0166666667) < 1.0e-9,
+                   "support centroid discarded raised-foot height") ||
+            !Check(metrics.signed_margin_m >= 0.02,
+                   "mixed-height support margin was too small"))
+            return 1;
+    }
+
     // Explicit v2 crawl sequencing uses measured support and a COM margin.
     {
         std::array<go2::Vec3, go2::kLegCount> feet{
@@ -1405,6 +1427,7 @@ int main()
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom,
                    "crawl machine did not enter COM shift")) return 1;
         x.measured_com_world = {-0.05, 0.0, 0.0};
+        x.target_valid[1] = true;
         x.now_s = 1.2;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kCrawlStep &&
@@ -1412,10 +1435,16 @@ int main()
                    "crawl machine did not gate FL on COM margin")) return 1;
         x.target_valid[1] = true;
         x.committed[1] = true;
+        // The old active leg may still be the only front force sample at
+        // touchdown. Commit must advance first; subtracting FL from this
+        // transient mask would otherwise abort before FR SHIFT_COM.
+        x.measured_contact = {false, true, true, false};
         x.now_s = 1.3;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom &&
                        m.order_index() == 1, "crawl machine did not shift before FR")) return 1;
+        x.measured_contact = {true, true, true, true};
+        x.target_valid[0] = true;
         x.now_s = 1.4;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kCrawlStep &&
@@ -1432,6 +1461,7 @@ int main()
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom,
                    "body advance did not shift COM")) return 1;
         x.measured_com_world = {0.10, 0.067, 0.0};
+        x.target_valid[2] = true;
         x.now_s = 1.7;
         m.Update(x);
         if (!Check(m.ActiveLeg() == 2, "crawl machine did not select RR")) return 1;
@@ -1442,6 +1472,7 @@ int main()
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom,
                    "crawl machine did not shift before RL")) return 1;
         x.measured_com_world = {0.10, -0.067, 0.0};
+        x.target_valid[3] = true;
         x.now_s = 1.9;
         m.Update(x);
         if (!Check(m.ActiveLeg() == 3, "crawl machine did not select RL")) return 1;

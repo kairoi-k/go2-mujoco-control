@@ -950,3 +950,51 @@ canary_command: |
   domain 229, LD_PRELOAD=/home/che/dds_base8000_preload.so, and the
   unchanged epoch28 run_trot command line.
 git_status: local changes pending commit; no staged files; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-30T23:30:00+0800
+run_id: Order-030 b1_sm_epoch47_20260828 (+ _r2)
+trigger: T1
+root_cause: |
+  Epoch46 r1's FL commit was recorded at t=9.058 in the CSV (the
+  experiment-relative commit was t=7.804 in the prior report). The
+  measured masks immediately before the abort were 15, then 6; with FL
+  still the active leg, the old CRAWL_STEP invariant subtracted FL and
+  saw only one remaining support. The state machine therefore aborted
+  before it could enter FR SHIFT_COM. Epoch46 r2 had 52 CRAWL_STEP
+  samples, seven preparations, and 3657 rejections; the stable terminal
+  reason was failure=6: an immutable touchdown was too close/past by the
+  time the prepared target reached the gait handoff, not missing intent.
+fix: |
+  The state machine now advances a measured commit before evaluating the
+  prior active-leg support mask, and permits a bounded 0.40 s endpoint
+  confirmation interval (0.10 s handoff + 0.30 s commit grace) when the
+  active force sample is still present. CRAWL_STEP is gated on a live
+  prepared target; stale targets return to SHIFT_COM without rewriting
+  their immutable touchdown time. The 3-D support metric uses the true
+  measured foot triangle plane, orthogonal COM projection, and a raised
+  centroid z; exact equal-height triangles retain the prior flat arithmetic.
+  Target preparation remains available in SHIFT_COM so fresh snapshots can
+  replace a stale target. All behavior remains transfer-window scoped.
+evidence: |
+  Mixed-height unit geometry uses FL z=0.05 m and gives the support
+  centroid z=0.0166666667 m with a positive >=0.02 m projected margin.
+  Epoch46 evidence was FL endpoint error 0.028003 m, committed mask 2,
+  r1 CRAWL_STEP measured masks 15 then 6, and r2 failure=6 after 52
+  samples. Final rebuilt epoch47 canary traces were:
+  r1 APPROACH 7.570 -> DECELERATE_TO_CREEP -> SHIFT_COM 8.132 ->
+  CRAWL_STEP 8.742 -> ABORT 8.968; r2 APPROACH 7.506 ->
+  DECELERATE_TO_CREEP -> SHIFT_COM 7.896 -> CRAWL_STEP 8.082 ->
+  SHIFT_COM 8.084 -> ABORT 9.024. This final stochastic pair recorded
+  no commit; one preceding rebuilt attempt recorded r2 FL commit and
+  FR SHIFT_COM, but neither final named artifact reached FR commit.
+  No ADVANCE_BODY/rear progress is claimed.
+canary_command: |
+  Both named runs used serial flock -x /tmp/go2_mujoco_experiment.lock,
+  domain 229, LD_PRELOAD=/home/che/dds_base8000_preload.so, and the
+  unchanged epoch28 run_trot command line.
+validation: |
+  cmake --build example/cpp/build -j2; ctest --test-dir example/cpp/build
+  --output-on-failure: 27/27 passed. No v1, analyzer threshold, or canary
+  definition changed. Simulations were serialized; no push/amend.
+git_status: local changes pending commit; no staged files; no push/amend; simulations serialized.
