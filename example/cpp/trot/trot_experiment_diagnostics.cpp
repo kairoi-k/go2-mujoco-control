@@ -77,6 +77,9 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_crawl_state,terrain_crawl_active_leg"
          << ",terrain_crawl_retry_count,terrain_crawl_state_enter_s"
          << ",terrain_crawl_min_contacts,terrain_crawl_step_commits"
+         << ",terrain_crawl_com_x_m,terrain_crawl_com_y_m"
+         << ",terrain_crawl_com_margin_m,terrain_crawl_com_target_x_m"
+         << ",terrain_crawl_com_target_y_m,terrain_crawl_com_target_valid"
          << ",terrain_surface_transition_active"
          << ",terrain_surface_transition_required_mask"
          << ",terrain_surface_transition_original_required_mask"
@@ -945,6 +948,12 @@ void TrotExperiment::LogSample(
          << "," << terrain_crawl_state_machine_.state_enter_time_s()
          << "," << terrain_crawl_min_contacts
          << "," << terrain_crawl_step_commit_count_
+         << "," << (have_measured_com_world_ ? measured_com_world_.x : 0.0)
+         << "," << (have_measured_com_world_ ? measured_com_world_.y : 0.0)
+         << "," << terrain_crawl_state_machine_.com_margin_m()
+         << "," << terrain_crawl_state_machine_.com_target_world().x
+         << "," << terrain_crawl_state_machine_.com_target_world().y
+         << "," << (terrain_crawl_state_machine_.com_target_valid() ? 1 : 0)
          << "," << (terrain_surface_transition_active_ ? 1 : 0)
          << "," << terrain_surface_transition_required_mask
          << "," << terrain_surface_transition_original_required_mask

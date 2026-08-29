@@ -169,6 +169,8 @@ void TrotExperiment::UpdateWbcFull(
     {
         return;
     }
+    measured_com_world_ = {dyn.com_world.x(), dyn.com_world.y(), dyn.com_world.z()};
+    have_measured_com_world_ = dyn.com_world.allFinite();
     if (!dynamics_logged_)
     {
         dynamics_logged_ = true;
@@ -489,6 +491,17 @@ void TrotExperiment::UpdateWbcFull(
                 if (execution.measured_touchdown)
                     qp_contact[leg] = true;
         }
+        }
+        if (terrain_transfer_window_active_ &&
+            terrain_crawl_state_machine_.state() ==
+                go2_terrain::TerrainCrawlState::kCrawlStep)
+        {
+            const std::size_t active_leg = terrain_crawl_state_machine_.ActiveLeg();
+            if (active_leg < go2::kLegCount)
+            {
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                    qp_contact[leg] = leg != active_leg;
+            }
         }
         else if (terrain_transfer_complete)
         {
@@ -834,6 +847,18 @@ void TrotExperiment::UpdateWbcFull(
             }
         }
         mpc_in.reference[11] = 0.0;
+        if (terrain_transfer_window_active_ &&
+            terrain_crawl_state_machine_.com_target_valid())
+        {
+            const auto target = terrain_crawl_state_machine_.com_target_world();
+            if (std::isfinite(target.x) && std::isfinite(target.y))
+            {
+                // SHIFT_COM and the swing hold are a reference change to the
+                // existing MPC/WBC body task, not a second balance controller.
+                mpc_in.reference[3] = target.x;
+                mpc_in.reference[4] = target.y;
+            }
+        }
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             mpc_in.foot_from_com_world[leg] =
                 dyn.foot_pos_world[leg] - dyn.com_world;

@@ -1228,15 +1228,31 @@ int main()
                "stretched touchdown did not travel with the moving body"))
         return 1;
 
-    // Explicit v2 crawl sequencing uses only measured contacts, plan,
-    // endpoint commits and FK reachability.
+    // Explicit v2 crawl sequencing uses measured support and a COM margin.
     {
+        std::array<go2::Vec3, go2::kLegCount> feet{
+            go2::Vec3{0.30, -0.20, 0.0}, go2::Vec3{0.30, 0.20, 0.0},
+            go2::Vec3{-0.30, -0.20, 0.0}, go2::Vec3{-0.30, 0.20, 0.0}};
+        const auto triangle = go2_terrain::ComputeTerrainSupportTriangle(feet, 1);
+        const auto before = go2_terrain::MeasureTerrainSupportTriangle(
+            triangle, go2::Vec3{0.30, 0.0, 0.0});
+        const auto after = go2_terrain::MeasureTerrainSupportTriangle(
+            triangle, go2::Vec3{-0.05, 0.0, 0.0});
+        if (!Check(triangle.valid && !before.inside && before.signed_margin_m < 0.0,
+                   "support triangle did not reject outside COM") ||
+            !Check(after.inside && after.signed_margin_m >= 0.02,
+                   "support triangle margin was not measured")) return 1;
+
         go2_terrain::TerrainCrawlStateMachine m;
         go2_terrain::TerrainCrawlSignals x;
         x.transfer_window_active = true;
         x.plan_valid = true;
         x.measured_contact_valid = true;
-        x.measured_contact = {true, true, true, false};
+        x.measured_contact = {true, true, true, true};
+        x.measured_foot_valid = true;
+        x.measured_foot_world = feet;
+        x.measured_com_valid = true;
+        x.measured_com_world = {0.30, 0.0, 0.0};
         x.measured_velocity_mps = 0.30;
         x.now_s = 1.0;
         m.Update(x);
@@ -1245,48 +1261,65 @@ int main()
         x.measured_velocity_mps = 0.05;
         x.now_s = 1.1;
         m.Update(x);
-        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kCrawlStep &&
-                       m.ActiveLeg() == 1, "crawl machine did not select FL")) return 1;
-        x.target_valid[1] = true;
-        x.committed[1] = true;
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom,
+                   "crawl machine did not enter COM shift")) return 1;
+        x.measured_com_world = {-0.05, 0.0, 0.0};
         x.now_s = 1.2;
         m.Update(x);
-        if (!Check(m.ActiveLeg() == 0, "crawl machine did not select FR")) return 1;
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kCrawlStep &&
+                       m.ActiveLeg() == 1 && m.com_margin_m() >= 0.02,
+                   "crawl machine did not gate FL on COM margin")) return 1;
+        x.target_valid[1] = true;
+        x.committed[1] = true;
+        x.now_s = 1.3;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom &&
+                       m.order_index() == 1, "crawl machine did not shift before FR")) return 1;
+        x.now_s = 1.4;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kCrawlStep &&
+                       m.ActiveLeg() == 0, "crawl machine did not select FR")) return 1;
         x.target_valid[0] = true;
         x.committed[0] = true;
-        x.now_s = 1.3;
+        x.now_s = 1.5;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kAdvanceBody,
                    "crawl machine skipped body advance")) return 1;
-        x.now_s = 1.4;
-        m.Update(x);
-        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kAdvanceBody,
-                   "body advance ignored FK gate")) return 1;
         x.rear_targets_fk_reachable = true;
-        x.now_s = 1.5;
+        x.now_s = 1.6;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom,
+                   "body advance did not shift COM")) return 1;
+        x.measured_com_world = {0.10, 0.067, 0.0};
+        x.now_s = 1.7;
         m.Update(x);
         if (!Check(m.ActiveLeg() == 2, "crawl machine did not select RR")) return 1;
         x.target_valid[2] = true;
         x.committed[2] = true;
-        x.now_s = 1.6;
+        x.now_s = 1.8;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom,
+                   "crawl machine did not shift before RL")) return 1;
+        x.measured_com_world = {0.10, -0.067, 0.0};
+        x.now_s = 1.9;
         m.Update(x);
         if (!Check(m.ActiveLeg() == 3, "crawl machine did not select RL")) return 1;
         x.target_valid[3] = true;
         x.committed[3] = true;
-        x.now_s = 1.7;
+        x.now_s = 2.0;
         m.Update(x);
         x.base_clear = true;
         x.all_feet_clear = true;
-        x.now_s = 1.8;
+        x.now_s = 2.1;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kResume,
                    "crawl machine ignored clear preconditions")) return 1;
         x.stable = true;
-        x.now_s = 2.24;
+        x.now_s = 2.54;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kResume,
                    "crawl machine resumed too early")) return 1;
-        x.now_s = 2.26;
+        x.now_s = 2.56;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kInactive,
                    "crawl machine did not finish stable resume")) return 1;
@@ -1297,12 +1330,18 @@ int main()
         x.transfer_window_active = true;
         x.plan_valid = true;
         x.measured_contact_valid = true;
-        x.measured_contact = {true, true, true, false};
+        x.measured_contact = {true, true, true, true};
+        x.measured_foot_valid = true;
+        x.measured_foot_world = feet;
+        x.measured_com_valid = true;
+        x.measured_com_world = {-0.05, 0.0, 0.0};
         x.measured_velocity_mps = 0.05;
         x.target_valid[1] = true;
         x.now_s = 3.1;
         m.Update(x);
         x.now_s = 3.2;
+        m.Update(x);
+        x.now_s = 3.3;
         m.Update(x);
         for (int retry = 0; retry < go2_terrain::TerrainCrawlStateMachine::kMaxRetries; ++retry)
         {

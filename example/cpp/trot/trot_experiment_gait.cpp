@@ -1602,6 +1602,10 @@ bool TrotExperiment::BuildGaitTargets(
             active_terrain_plan->valid();
         crawl_signals.measured_contact_valid = wbc_shadow_contact_state_valid_;
         crawl_signals.measured_contact = wbc_shadow_contact_state_;
+        crawl_signals.measured_com_valid = have_measured_com_world_;
+        crawl_signals.measured_com_world = measured_com_world_;
+        crawl_signals.measured_foot_valid = have_actual_world_feet;
+        crawl_signals.measured_foot_world = actual_world_feet;
         crawl_signals.measured_velocity_mps = have_filtered_body_velocity_
             ? std::abs(latest_filtered_body_velocity_[0]) : 0.0;
         crawl_signals.committed = terrain_surface_transition_committed_;
@@ -2231,11 +2235,14 @@ bool TrotExperiment::BuildGaitTargets(
             const bool leg_in_swing = terrain_contact_now_valid
                 ? !terrain_contact_now[leg]
                 : nominal_leg_in_swing;
+            const bool explicit_crawl_step = terrain_transfer_window_active_ &&
+                terrain_crawl_state_machine_.state() ==
+                    go2_terrain::TerrainCrawlState::kCrawlStep;
+            const bool explicit_active_leg = explicit_crawl_step &&
+                terrain_crawl_state_machine_.ActiveLeg() == leg;
             auto &execution = terrain_swing_execution_[leg];
             auto &pending = terrain_swing_pending_[leg];
             const auto crawl_state = terrain_crawl_state_machine_.state();
-            const bool explicit_crawl_step = terrain_transfer_window_active_ &&
-                crawl_state == go2_terrain::TerrainCrawlState::kCrawlStep;
             if (terrain_transfer_window_active_ && !explicit_crawl_step)
             {
                 if (have_actual_world_feet)
@@ -2262,7 +2269,7 @@ bool TrotExperiment::BuildGaitTargets(
                 terrain_now_s + terrain_time_tolerance_s <
                     execution.touchdown_time_s;
             const bool effective_leg_in_swing =
-                leg_in_swing || terrain_extended_swing;
+                explicit_active_leg || leg_in_swing || terrain_extended_swing;
             const bool terrain_target_pending = execution.valid &&
                 execution.terrain_target_required &&
                 !execution.measured_touchdown;
