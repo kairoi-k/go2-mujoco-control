@@ -801,3 +801,24 @@ verdict: |
   reaches CRAWL_STEP(FL) or a measured commit, so the physical success
   criterion remains open.
 git_status: local commits complete; clean worktree; no staged files, no push/amend; simulations serialized.
+
+
+---
+timestamp: 2026-08-30T07:10:00+0800
+run_id: Order-025 B0 fixed-pair verification
+trigger: T1
+evidence:
+  command: |
+    flock -x /tmp/go2_mujoco_experiment.lock -c
+    'LD_PRELOAD=/home/che/dds_base8000_preload.so bash
+    example/cpp/scripts/run_phase2_b0_fixed_pair.sh development 0'
+  result: |
+    Frozen B0 analyzer acceptance_status=PASS at HEAD
+    5fa08585fb3a7a416ce546fdad64a9ae70636220. controller=0,
+    dynamics=0, safety=0, quality=0, completion=0; terrain_rows=39013,
+    map_valid_fraction=0.9999743675, planner_deadline_misses=0,
+    planner_updates=2687. Frozen b0-contract-v1.2 hashes and no-terrain
+    checks passed. The auxiliary paired comparison diagnostics for gait
+    period/duty and WBC references are non-gate diagnostics and remain
+    outside the frozen acceptance result.
+git_status: clean worktree; no staged files; no push/amend; simulations serialized.
