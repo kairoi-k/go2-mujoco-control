@@ -711,3 +711,29 @@ evidence: |
   The first post-documentation B0 attempt was a stochastic paired-baseline lifecycle failure (acceptance_status=FAIL) while all terrain-disabled checks passed. A serial rerun at clean HEAD 30cfdbae099b6a699c2e78c443d948429ffa783a returned acceptance_status=PASS, controller/dynamics/quality/safety status 0, planner deadline misses 0, and terrain actuation disabled. No source files changed between these B0 runs.
 git_status: final documentation correction pending local commit; no push/amend.
 ---
+
+---
+timestamp: 2026-08-30T05:20:00+0800
+run_id: Order-024 b1_sm_epoch41_20260828 (+ _r2)
+trigger: T1
+signature: Added window-scoped COM pre-shift and support-triangle gating to the v2 crawl sequencer; no v1 contract, analyzer threshold, or canary definition changed.
+evidence:
+  epoch40_abort_triangle: |
+    Recomputed from contact_ground_truth.csv at the first ABORT sample. r1 t=8.042 s: COM projection=(0.538951,0.002092) m; upcoming FL support triangle FR=(0.661686,-0.124885), RR=(0.212289,-0.064404), RL=(0.296026,0.044664) m. Oriented signed edge distances=(+0.218611,+0.109473,-0.063567) m, hence COM is 63.567 mm outside the RL-RR edge (signed margin=-0.063567 m). RR was already the first unloaded leg: its force was 0 N throughout 8.000-8.042 s; at 8.042 FR/RR/RL were 0/0/0 N while FL carried 392.7 N. r2 t=8.206 s: COM=(0.560226,-0.002613) m; triangle FR=(0.679314,-0.186522), RR=(0.302314,-0.036718), RL=(0.357733,0.162203) m; signed edge distances=(+0.239298,+0.126934,-0.037129) m, so 37.129 mm outside (signed margin=-0.037129 m). RR and RL were already unloaded; FR was the first additional leg to unload (96 N at 8.160 s to 3 N at 8.162 s), before CRAWL_STEP.
+  implementation: |
+    terrain_crawl_state_machine.h adds SHIFT_COM, sensor-only triangle construction, signed edge-distance margin, centroid COM target, and a 0.020 m readiness precondition. Every FL/FR/RR/RL step enters SHIFT_COM first; ADVANCE_BODY transitions to rear SHIFT_COM. The explicit crawl requires the three non-active measured supports. Existing MPC/WBC horizontal body-position reference is overridden only in the active v2 window; SHIFT_COM holds all four commanded contacts, while CRAWL_STEP removes only the sequenced active leg. During swing the COM target remains held by the existing WBC stance task. Diagnostics now record COM x/y, target, validity, and triangle margin per sample.
+  tests: |
+    test_terrain_interfaces covers triangle validity, outside/inside signed margins, 20 mm shift readiness, each sequenced SHIFT_COM transition, and retry/abort. ctest: 27/27 passed.
+  canary_command: |
+    Both named runs used serial flock -x /tmp/go2_mujoco_experiment.lock, domain 229, LD_PRELOAD=/home/che/dds_base8000_preload.so, and the unchanged epoch28 run_trot arguments (18 s, headless, wall-clock, wbc-full, running-trot, raibert-trot, period 0.50, duty 0.75, step 0.15, lift 0.08, tau 45, velocity script, terrain planner, phase2_step_5cm.xml, B1).
+  canary_r1: |
+    b1_sm_epoch41_20260828: trace INACTIVE -> APPROACH (7.506 s) -> DECELERATE_TO_CREEP (7.766 s) -> SHIFT_COM (7.806 s) -> ABORT (7.808 s); min measured contacts=0, commits=0, final base_x=0.341446 m. The pre-shift contact signal was already 2, so the sensor-gated safety abort correctly prevented a lift; no completed CRAWL_STEP.
+  canary_r2: |
+    b1_sm_epoch41_20260828_r2: trace INACTIVE -> APPROACH (7.576 s) -> DECELERATE_TO_CREEP (7.846 s) -> SHIFT_COM/ABORT (8.044 s); min measured contacts=0, commits=0, final base_x=0.637526 m. The pre-shift contact signal was 1; no triangle was accepted and no lift was commanded.
+  commits: |
+    0a86a42 terrain: shift COM into crawl support triangle; 6fd47b5 terrain: keep all contacts during COM pre-shift; 2595c13 terrain: hold crawl body during COM shift; b188b5e terrain: strengthen scoped COM shift reference; 40d5c1f terrain: reset COM shift telemetry on entry.
+  validation: |
+    cmake --build example/cpp/build -j2 and ctest --test-dir example/cpp/build --output-on-failure passed 27/27. Worktree is clean, no staged files, no push. The epoch41 pair is signal evidence only: both runs aborted before a measured CRAWL_STEP commit, so no physical-success or gate-level conclusion is claimed.
+verdict: |
+  The epoch40 data confirms the COM/support-triangle mechanism quantitatively. The implementation now makes the triangle margin a measured precondition and preserves the >=3-contact invariant; epoch41 stochastic contact loss occurred before the precondition could be met. Further tuning or canaries are required for a physical commit; no gate conclusion.
+git_status: clean worktree; no staged files; no push/amend; simulations serialized.
