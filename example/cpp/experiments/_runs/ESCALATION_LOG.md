@@ -998,3 +998,55 @@ validation: |
   --output-on-failure: 27/27 passed. No v1, analyzer threshold, or canary
   definition changed. Simulations were serialized; no push/amend.
 git_status: local changes pending commit; no staged files; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-31T00:30:00+0800
+run_id: Order-031 autonomous grind b1_sm_epoch48..55
+trigger: T1
+objective: full v2 physical crossing; eight serial canary pairs consumed
+
+cycle_1:
+  diagnosis: epoch48 r2 reached FL commit (step_commits=1, committed mask=2) but FR SHIFT_COM aborted after 0.90 s when measured contacts fell to 2; r1 failed FL handoff with prepare failure=5.
+  fix: 4a7f723 lets the next crawl leg bypass the old transfer-hold anchor deferral, so FR can be prepared while FL remains committed.
+  evidence: ctest 27/27; epoch49 pair.
+cycle_2:
+  diagnosis: epoch49 both runs repeatedly hit prepare failure=5 at explicit crawl handoff; target IK was marginal at the measured pose although planner had checked its predicted handoff pose.
+  fix: 4ae6af0 retains the immutable crawl endpoint and delegates marginal live-pose handling to clamped WBC instead of dropping the transaction.
+  evidence: ctest 27/27; epoch50 r1 reached FL commit (step_commits=1), but committed mask telemetry was cleared before FR progress.
+cycle_3:
+  diagnosis: epoch50 r1 reached FL commit but FR handoff remained asynchronous; epoch50 r2 stopped before commit.
+  fix: 70c60c9 permits SHIFT_COM to enter CRAWL_STEP on a valid plan/COM margin before the adapter publishes the same-tick target, then safely returns to SHIFT_COM if absent.
+  evidence: ctest 27/27; epoch51 r2 reached FR CRAWL_STEP, but support collapsed before FR commit.
+cycle_4:
+  diagnosis: epoch51/52 showed crawl handoff being entered with fewer than three measured contacts; epoch52 r2 fell from base_z=0.4247 to 0.2040 m while support was 0--2.
+  fix: 51ae8b3 requires three measured contacts before DECELERATE_TO_CREEP can enter SHIFT_COM; unit test updated for this invariant.
+  evidence: ctest 27/27; epoch53 remained at FL/SHIFT_COM depth and did not commit.
+cycle_5:
+  diagnosis: epoch53 r2 reached CRAWL_STEP with only two measured contacts and aborted at t=8.378; no FR transaction was measured.
+  fix: a42dfe9 removes the redundant consumer IK rejection during transfer-window handoff, retaining the live endpoint for the clamped WBC.
+  evidence: ctest 27/27; epoch54 pair did not reach SHIFT_COM in either run.
+cycle_6:
+  diagnosis: epoch54 pair stopped before crawl (no canary state beyond DECELERATE_TO_CREEP).
+  fix: 7d29909 tested the v2-allowed minimum 0.05 m/s crawl speed to reduce transfer momentum.
+  evidence: ctest 27/27; epoch54 was the resulting pair; it produced no crawl progress.
+cycle_7:
+  diagnosis: minimum-speed trial removed the previously observed crawl entry in both runs.
+  fix: 1bf31df restored the established 0.12 m/s handoff speed; the measured-support gate remains in place.
+  evidence: ctest 27/27; epoch55 pair consumed the final budget pair.
+cycle_8:
+  diagnosis: epoch55 r1 remained in DECELERATE_TO_CREEP; r2 reached SHIFT_COM but no commit. r1/r2 base_z minima were 0.3494/0.2338 m, transition completions 0/0, committed mask 0/0, and max committed contacts 0/0.
+  fix: no further budget remains; no speculative change made.
+
+canary_command: |
+  Every pair was serial under flock -x /tmp/go2_mujoco_experiment.lock, domain 229,
+  LD_PRELOAD=/home/che/dds_base8000_preload.so, and the unchanged epoch28 run_trot
+  command line (18 s, headless, wall-clock, wbc-full, running-trot, raibert-trot,
+  period 0.50, duty 0.75, step 0.15, lift 0.08, tau 45, velocity script,
+  terrain planner, phase2_step_5cm.xml, B1). No v1/analyzer/canary definition changed.
+verdict: |
+  Full physical crossing was NOT achieved. Deepest measured progress was epoch51 r2:
+  FL committed (mask=2), then FR CRAWL_STEP was entered; no FR measured commit,
+  ADVANCE_BODY, rear steps, CLEAR, RESUME, or 0.45 s stable passage occurred.
+  Budget exhausted at 8/8 pairs (16 simulations). This is exploratory stuck evidence,
+  not a gate conclusion.
+git_status: local docs append pending commit; no staged files; no push/amend; simulations serialized.
