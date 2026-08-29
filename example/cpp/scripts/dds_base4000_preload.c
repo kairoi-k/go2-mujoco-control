@@ -15,7 +15,7 @@ dds_entity_t dds_create_domain(dds_domainid_t domain, const char *config)
         "<NetworkInterface name=\"lo\" multicast=\"default\"/>"
         "</Interfaces></General><Discovery><ParticipantIndex>auto</ParticipantIndex>"
         "<MaxAutoParticipantIndex>9</MaxAutoParticipantIndex>"
-        "<Ports><Base>7000</Base></Ports></Discovery></Domain></CycloneDDS>";
+        "<Ports><Base>4000</Base></Ports></Discovery></Domain></CycloneDDS>";
     (void)config;
     return real_create_domain(domain, xml);
 }

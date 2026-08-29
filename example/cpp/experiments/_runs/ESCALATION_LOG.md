@@ -1095,3 +1095,54 @@ verdict: |
   participants; this is exploratory stuck evidence, not a gate conclusion.
 
 git_status: local implementation and docs append pending commit; no staged files; no push/amend; simulations serialized.
+---
+timestamp: 2026-08-31T03:00:00+0800
+run_id: Order-033 b1_script_epoch59_20260828 (+ _r2)
+trigger: T1
+root_cause: |
+  Confirmed. The analytical FK/MuJoCo dynamics foot point is the center of
+  the foot collision sphere, while the terrain map foothold z is the contact
+  patch plane. unitree_robots/go2/go2.xml gives the foot sphere radius as
+  0.022 m, and the prior FL touchdown (epoch46 r1) measured target z=0.049858
+  against FK site z=0.073160: dz=+0.023302 m. No target-z/FK-site comparison
+  had applied this conversion. Earlier measured misses preserve the same sign
+  and magnitude: epoch56 FL dz=+0.024200 m (norm 0.029434), epoch57 r2
+  dz=+0.028004 m (norm 0.033080). Epoch44/45 reports and epoch58 unavailable
+  participant runs contain no newer measured endpoint; their recorded misses
+  remain in the +22--24 mm cluster.
+fix: |
+  Added calibrated 0.022 m ContactPatchToFootSite and FootSiteToContactPatch
+  conversion in the shared FK header. Terrain feasibility now evaluates IK
+  reachability and swing clearance at the site target while retaining map
+  patch elevations. Planner swing duration uses the site target. The terrain
+  execution handoff raises planner contact-patch targets to the FK site, and
+  transition source and committed surface bookkeeping converts measured FK
+  sites back to contact-patch z. This is confined to terrain target handling;
+  flat B0 touchdown tolerance and v1/analyzer/canary definitions are unchanged.
+
+dds: |
+  Windows measurement command: netsh interface ipv4 show
+  excludedportrange protocol=udp. Observed complete exclusions are
+  62889-62988 and 63089-63188. Base=8000 is replaced by Base=4000. Across
+  harness domains 200-230, multicast is 54000-64500 and p=0..9 unicast is
+  54010-61529, with no intersection. The reproducible source is
+  example/cpp/scripts/dds_base4000_preload.c and the generated artifact is
+  /home/che/dds_base4000_preload.so. Both epoch59 runs used serial flock,
+  domain 229, and the new preload; controller logs report DDS domain=229 and
+  no DDS participant or allocation error.
+evidence: |
+  ctest: 27/27 passed. Epoch46 r1 original endpoint decomposition was
+  dx=-0.015411, dy=+0.003557, dz=+0.023302 m, norm=0.028003 m; after the
+  calibrated z comparison the residual decomposition is
+  (-0.015411,+0.003557,+0.001302) m, norm about 0.0159 m. Epoch56 FL nearest
+  recorded endpoint was (-0.016753,-0.000296,+0.024200) m, norm 0.029434;
+  epoch57 r2 was (-0.010226,-0.014337,+0.028004) m, norm 0.033080.
+  Epoch59 r1/r2 did not reach CRAWL_STEP or measured FL touchdown (r1 stopped
+  in SHIFT_COM on the hard posture limit; r2 stopped in DECELERATE_TO_CREEP),
+  so no post-fix endpoint decomposition or commit can be claimed. DDS errors
+  were absent from both logs.
+verdict: |
+  Offset mechanism is confirmed and implemented. The requested epoch59 pair
+  is exploratory non-signal evidence because both runs stopped upstream of a
+  swing; no gate-level conclusion is claimed.
+git_status: local implementation commit 6ac88f4; canary artifacts ignored; no push/amend; simulations serialized.

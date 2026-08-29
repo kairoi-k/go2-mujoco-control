@@ -32,18 +32,7 @@ the existing entry point, for example:
 The permanent choice (Windows reserved-port range or a committed CycloneDDS
 XML/configuration) is intentionally left to the human owner.
 
-## Order-033 DDS hardening (Base=7000)
-
-The Windows-side measurement command is:
-
-    netsh interface ipv4 show excludedportrange protocol=udp
-
-The complete UDP exclusions observed for this host are `62889-62988` and
-`63089-63188` (the corresponding IPv6 query is not used by CycloneDDS here).
-The prior Base=8000 mapping put domain 222 at multicast 63500 and domain 223
-at 63750, but did not protect the harnesss
-
-## Order-033 DDS hardening (Base=7000)
+## Order-033 DDS hardening (Base=4000)
 
 The Windows-side measurement command is:
 
@@ -53,18 +42,18 @@ The complete UDP exclusions observed on this host are 62889-62988 and
 63089-63188 (the corresponding IPv6 query is not used by CycloneDDS here).
 The prior Base=8000 mapping put domain 222 at multicast 63500 and domain 223
 at 63750, but did not protect the harness other 200-230 participants from
-allocation failures. Base=7000 maps every harness domain 200-230 to multicast
-ports 57000-64500 and participant-index p=0..9 unicast ranges 57010-64529;
+allocation failures. Base=4000 maps every harness domain 200-230 to multicast
+ports 54000-61500 and participant-index p=0..9 unicast ranges 54010-61529;
 neither exclusion intersects these ranges. For example, domain 229 uses
-multicast 64250 and unicast 64260-64279, while the signal domain remains 229.
+multicast 61250 and unicast 61260-61279, while the signal domain remains 229.
 
 The reproducible preload source is
-example/cpp/scripts/dds_base7000_preload.c; the generated WSL artifact is
-/home/che/dds_base7000_preload.so:
+example/cpp/scripts/dds_base4000_preload.c; the generated WSL artifact is
+/home/che/dds_base4000_preload.so:
 
     gcc -shared -fPIC -I/home/che/dev/go2-workspace/external/unitree_sdk2/thirdparty/include \
-      example/cpp/scripts/dds_base7000_preload.c -ldl -o /home/che/dds_base7000_preload.so
+      example/cpp/scripts/dds_base4000_preload.c -ldl -o /home/che/dds_base4000_preload.so
 
-It injects CycloneDDS Ports Base=7000 while preserving the requested domain ID
+It injects CycloneDDS Ports Base=4000 while preserving the requested domain ID
 and loopback interface. Use LD_PRELOAD with both B0 fixed-pair domains and the
 serial B1 canary; no parallel simulation is permitted.
