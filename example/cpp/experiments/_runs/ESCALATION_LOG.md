@@ -419,3 +419,34 @@ timestamp: 2026-08-30T00:55:00+0800
 run_id: Order-015 line-number correction
 trigger: T1
 signature: In current final source, terrain support validation spans terrain_planner.h:1257-1388 (the rejection predicate is :1379), terrain feasibility FK/IK rejection is terrain_feasibility.h:911-953, and WBC terrain-plan horizon coherence/rejection is trot_experiment_wbc.cpp:661-675. Earlier evidence text's WBC line range referred to the pre-change source offset; mechanism and numeric evidence are unchanged.
+
+---
+timestamp: 2026-08-30T00:25:00+08:00
+run_id: Order-016 b1 front-commit reliability exploration (epoch29-32 taxonomy + epoch33 signal pair)
+trigger: T1
+signature: Planner support infeasibility is the dominant pre-front-commit rejection class; WBC contact-horizon rejection is secondary. The minimal runtime fix keeps the 24-knot hard-feasibility search and its proven 48-knot execution tail, and bounds pre-arm support validation to the first front touchdown instead of allowing late pre-advance geometry to veto publication. No contract, analyzer, or canary definition changed.
+evidence:
+  taxonomy: |
+    All available controller.log/data.csv artifacts: 36 runs (epoch29=30, epoch30=2, epoch31=2, epoch32=2). Planner codes: 4=no_safe_foothold, 5=support_infeasible, 8=deadline_miss. Front-commit means any FR/FL committed bit: 16 runs front-commit, 20 no-front-commit. Counts by phase (approach 4-6 s / crux 6-8 s / endgame >8 s):
+
+    |class|phase|no_safe_foothold|support_infeasible|deadline_miss|WBC contact-horizon|
+    |---|---|---:|---:|---:|---:|
+    |front commit|approach|25|0|0|0|
+    |front commit|crux|40|80|0|18|
+    |front commit|endgame|78|80|0|1031|
+    |no front commit|approach|28|0|0|0|
+    |no front commit|crux|21|376|2|294|
+    |no front commit|endgame|41|41|0|66|
+
+    Totals: approach 53 no_safe; crux 61 no_safe + 456 support + 2 deadline; endgame 119 no_safe + 121 support. The single dominant class preceding failed front commits is crux support_infeasible (376 diagnostics); WBC contact-horizon rejection is secondary (294). Approach rejection is uniformly no_safe_foothold (53 total), not the dominant separator.
+  fix: |
+    example/cpp/trot/trot_experiment_lifecycle.cpp:197-207 restores the default 24-knot planner optimization while retaining ExtendExecutionSupportTail's 48-knot atomic consumer storage, and confines pre-arm corridor/margin (0.120 m / nonnegative) to actuating terrain mode. example/cpp/terrain/terrain_planner.h:1102-1125 and :1279-1306 bound support validation before front commit to the first front touchdown. WBC's existing time-indexed 48-knot consumer remains at :661-675.
+  tests: |
+    cd example/cpp/build && cmake --build . -j2 && ctest --output-on-failure -> 27/27 passed. Existing test_terrain_interfaces at :918-941 verifies 24-knot optimization plus 48-knot execution tail and delayed 8-knot/0.05 s consumer alignment.
+  b0: |
+    B0 fixed pair phase2_b0_development_fixed_3mps_r0_20260829_234011 ran serially under /tmp/go2_mujoco_experiment.lock with LD_PRELOAD=/home/che/dds_base8000_preload.so; b0_analyzer acceptance_status=PASS, controller/dynamics/quality/safety/analysis statuses=0, terrain_rows=39082, map valid fraction=0.9999744128. B0 path is unchanged because settings are inside allow_actuation && !sensor_only.
+  canary: |
+    Final named signal runs used SHA c00af6adbc9614ca5659b23b43030eca5585ae76, domain 229, epoch28 command line, LD_PRELOAD=/home/che/dds_base8000_preload.so, and serial flock; manifests are clean. Final pair had zero FL/FR upper-platform measured touchdowns (target z >=0.045 m), so strict two-run physical-success criterion is not claimed. Prior retries showed stochastic partial signals only and are not substituted for the final named pair.
+  residual_risk: |
+    Canary remains stochastic and strict pair did not pass. Exploratory mechanism result only; no door-level conclusion. Pre-arm support relaxation needs review against broader transition data.
+git_status: clean before documentation append; no staged files; no push/amend.
