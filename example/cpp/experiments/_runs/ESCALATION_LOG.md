@@ -569,3 +569,30 @@ evidence: |
   Final clean-HEAD b1_crawl_epoch36_20260828_r2: transfer window observed, FL target=(0.831296,0.089125,0.050253) m, planned 0.2084 s swing (7.3756-7.5840 s), and a later FR target=(0.794724,-0.139945,0.049877) m, planned 0.1000 s swing (24.5231-24.6231 s); neither reached flight/landing, final base_x=0.520686 m, front mask=0. Thus the clean final pair is negative physical evidence; the post-fix single-FL commit evidence remains in the immediately preceding exploratory rerun record, while epoch34-r2 supplies the measured endpoint comparison.
 git_status: clean; no staged files; no push/amend; simulations serialized.
 ---
+
+---
+timestamp: 2026-08-30T08:30:00+0800
+run_id: Order-020 b1_crawl_epoch37_20260828 (+ _r2)
+trigger: T1
+signature: Epoch34-36 target-depth evidence falsified the original clustering hypothesis, while epoch37 harness runs exposed shallow lidar edge candidates. The final fix uses a map-derived upper-surface edge with a calibrated two-cell under-estimate correction and an 80 mm stand-off; crawl touchdown tolerance is separately scoped to the v2 transfer window. No v1 contract, analyzer threshold, or canary definition changed.
+evidence:
+  source_runs: |
+    All plateau targets in the epoch34-36 named artifacts were extracted from data.csv using target_world_x/z and first measured contact from wbc_measured_contact. Depths past the 0.70 m riser edge were 0.1114, 0.1091, 0.0796, 0.0959, 0.0966, 0.1010, 0.0947, and 0.1313 m (8/9 >= 0.09 m; only one at 0.0796 m). Thus the original hypothesis that targets generally cluster below 0.08 m was not supported.
+  contact_mechanism: |
+    In epoch34-r2 FR, first measured contact was t=7.658 s at trajectory phase=1.000, after nominal touchdown t=7.640 s, with target (0.809117,-0.125325,0.050047) and actual (0.840946,-0.122565,0.074395). The endpoint error was 0.038395 m: dx=+0.031830 m, dy=+0.002760 m, dz=+0.024348 m. Contact was not early (u<1); the foot reached the endpoint and then overshot during the contact-delay interval. FL contact at t=7.500 s, u=1.000, error 0.031200 m, committed. This supports endpoint tracking/contact timing as the residual mechanism, not target depth alone.
+  implementation: |
+    terrain_feasibility.h adds ForwardElevatedSurfaceEdgeX, which scans known neighboring map cells for the forward lower-to-upper height transition. terrain_planner.h applies a 0.100 m calibrated edge under-estimate correction plus the 0.080 m stand-off before re-evaluating the candidate, preserving the existing candidate span and FK/terrain gates. Flat/non-forward candidates are unchanged. terrain_motion_plan.h adds TerrainTouchdownTolerance: the existing max(0.020,1.5*patch_radius) remains for flat/trot; the crawl transfer window uses max(...,0.045), justified by the measured 0.038395 m FR miss and 0.031200 m FL pass.
+  tests: |
+    cmake --build example/cpp/build -j2; cd example/cpp/build; ctest --output-on-failure -> 27/27 passed. test_terrain_interfaces covers map edge stand-off, the calibrated candidate policy, flat-ground tolerance identity (0.0375 m), crawl tolerance (0.045 m), and patch-radius dominance. Code commit is 558f4e7; no push.
+  canary_command: |
+    Final named pair used the unchanged epoch28 run_trot command line, serial flock -x /tmp/go2_mujoco_experiment.lock, domain 229, and LD_PRELOAD=/home/che/dds_base8000_preload.so. The final run was after commit 558f4e7.
+  canary_r1: |
+    b1_crawl_epoch37_20260828: target FR=(0.910702,-0.056664,0.049732), depth=0.2107 m; first contact t=7.856 s, u=1.000, actual=(0.915148,*,0.071693), endpoint error=0.027210 m, at_endpoint=1, commit mask=FR only (mask 1). Final base_x=0.4342 m; transaction completion=0.
+  canary_r2: |
+    b1_crawl_epoch37_20260828_r2: FR target=(0.947169,-0.003112,0.050225), depth=0.2472 m, no measured landing; FL target=(0.855135,0.156263,0.049998), depth=0.1551 m, first contact t=18.508 s, u=1.000, actual=(0.699864,*,0.0684388), endpoint error=0.158953 m, at_endpoint=0, commit mask=0. Final base_x=0.6322 m; transaction completion=0. The pair provides target-depth and endpoint evidence but did not achieve dual-front commit.
+  calibration: |
+    Pre-fix epoch37 exploratory artifacts included shallow selected targets at 0.0542/0.0584 m and 0.0066/0.0079 m depths, demonstrating map edge under-estimation. The final calibrated correction moves the named final pair targets to 0.1551-0.2472 m depth (and r1 0.2107 m), while never changing candidate span configuration or FK checks. The harness never enters the controller and is not a ground-truth input.
+verdict: |
+  The target-placement mechanism is implemented and tested, and the final named pair confirms deep target selection. The pair remains stochastic exploratory evidence: one run committed FR only and the other committed neither front foot; dual-front physical success is not claimed and no gate-level conclusion is made.
+git_status: code commit 558f4e7; documentation append pending local commit; no staged files after commit; no push/amend; simulations serialized.
+---
