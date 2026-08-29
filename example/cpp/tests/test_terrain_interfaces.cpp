@@ -51,6 +51,59 @@ int main()
             return 1;
     }
 
+    // Crawl touchdown acceptance is scoped to the v2 transfer window. The
+    // measured FR landing miss was 0.0384 m, just above the trot-derived
+    // 0.0375 m geometric bound; flat ground keeps the original calculation.
+    {
+        if (!Check(
+                std::abs(go2_terrain::TerrainTouchdownTolerance(false, 0.025) -
+                         0.0375) < 1.0e-12,
+                "flat touchdown tolerance changed") ||
+            !Check(
+                std::abs(go2_terrain::TerrainTouchdownTolerance(true, 0.025) -
+                         0.045) < 1.0e-12,
+                "crawl touchdown tolerance was not window-scoped") ||
+            !Check(
+                std::abs(go2_terrain::TerrainTouchdownTolerance(true, 0.040) -
+                         0.060) < 1.0e-12,
+                "crawl tolerance ignored the geometric patch bound"))
+            return 1;
+    }
+
+    // The map-derived stand-off rejects the first upper cell after a
+    // forward height transition but accepts a candidate 8 cm deeper.
+    {
+        go2_terrain::TerrainModel model;
+        model.frame_id = "base_link";
+        model.state_stamp_s = 1.0;
+        model.map_stamp_s = 1.0;
+        model.age_s = 0.0;
+        model.epoch = 1;
+        model.resolution_m = 0.05;
+        model.origin_m = {-0.50, -0.10};
+        model.width = 30;
+        model.height = 4;
+        model.source = go2_terrain::TerrainSource::kTestFixture;
+        model.cells.resize(model.width * model.height);
+        for (auto &cell : model.cells)
+        {
+            cell.known = true;
+            cell.height_m = -0.25;
+        }
+        for (std::size_t iy = 0; iy < model.height; ++iy)
+            for (std::size_t ix = 24; ix < model.width; ++ix)
+                model.CellAt(ix, iy)->height_m = 0.05;
+        if (!Check(
+                !go2_terrain::HasForwardElevatedSurfaceStandoff(
+                    model, {0.775, 0.0, 0.05}, -0.25, 0.080, 0.025),
+                "shallow elevated candidate was not rejected") ||
+            !Check(
+                go2_terrain::HasForwardElevatedSurfaceStandoff(
+                    model, {0.85, 0.0, 0.05}, -0.25, 0.080, 0.025),
+                "deep elevated candidate was rejected"))
+            return 1;
+    }
+
     // S1 keeps the already-loaded front stance through a delayed rear
     // touchdown, yielding the commanded 0.13 m body preview at 0.30 m/s.
     {
@@ -655,6 +708,9 @@ int main()
     go2_terrain::TerrainPlannerConfig planner_config;
     planner_config.sensor_only = true;
     planner_config.allow_actuation = false;
+    // These legacy planner assertions use a compact synthetic step; the
+    // stand-off behavior itself is covered by the map-transition fixture.
+    planner_config.feasibility.elevated_surface_standoff_m = 0.0;
     go2_terrain::TerrainPlanner planner(planner_config);
     const auto planned = planner.Build(input, 7);
     if (!Check(!planned.publishable &&
@@ -844,6 +900,10 @@ int main()
     auto repeated_planner_config = planner_config;
     repeated_planner_config.plan_validity_s = 0.50;
     repeated_planner_config.feasibility.max_swing_speed_mps = 10.0;
+    // This fixture specifically exercises repeated-event retiming; leave
+    // candidate placement unconstrained so its shallow synthetic step does
+    // not obscure that timeline assertion.
+    repeated_planner_config.feasibility.elevated_surface_standoff_m = 0.0;
     go2_terrain::TerrainPlanner repeated_planner(
         repeated_planner_config);
     const auto repeated_plan = repeated_planner.Build(

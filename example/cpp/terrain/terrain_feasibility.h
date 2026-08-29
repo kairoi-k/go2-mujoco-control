@@ -86,6 +86,14 @@ struct TerrainFeasibilityConfig
     // See docs/research/PHASE2_B1_TIMING_CONTRACT_REDESIGN.md section 10.
     double max_swing_speed_mps = 4.50;
     double region_half_extent_m = 0.035;
+    // Upper-surface candidates must clear the observed forward terrain edge
+    // by this distance. This is evaluated from the height transition, not
+    // from a scene/world coordinate, and only applies to elevated candidates
+    // in the terrain-actuated planner path.
+    double elevated_surface_standoff_m = 0.080;
+    // Harness calibration bounds the lidar edge under-estimate to two map
+    // cells; retain that correction before applying the stand-off.
+    double elevated_surface_edge_bias_m = 0.100;
 };
 
 struct SafeFootholdRegion
@@ -972,6 +980,71 @@ inline FootholdCandidate EvaluateFoothold(
     candidate.support_margin_m = candidate.edge_margin_m;
     candidate.collision_margin_m = candidate.swing_clearance_m;
     return candidate;
+}
+
+inline double ForwardElevatedSurfaceEdgeX(
+    const TerrainModel &model, const go2::Vec3 &position,
+    double patch_radius_m)
+{
+    if (!std::isfinite(position.x) || !std::isfinite(position.y) ||
+        !std::isfinite(position.z))
+        return std::numeric_limits<double>::quiet_NaN();
+    const double lower_surface_delta = std::max(0.030, patch_radius_m);
+    std::size_t ix = 0;
+    std::size_t center_iy = 0;
+    if (!model.CellIndex(position.x, position.y, ix, center_iy))
+        return std::numeric_limits<double>::quiet_NaN();
+    (void)center_iy;
+    const double lateral_radius = std::max(0.070, 2.0 * patch_radius_m);
+    const int iy_min = std::max(
+        0, static_cast<int>(std::floor(
+            (position.y - lateral_radius - model.origin_m[1]) /
+            model.resolution_m)));
+    const int iy_max = std::min(
+        static_cast<int>(model.height) - 1,
+        static_cast<int>(std::floor(
+            (position.y + lateral_radius - model.origin_m[1]) /
+            model.resolution_m)));
+    double nearest_edge_x = -std::numeric_limits<double>::infinity();
+    for (int iy = iy_min; iy <= iy_max; ++iy)
+    {
+        const TerrainCell *candidate_cell = model.CellAt(
+            ix, static_cast<std::size_t>(iy));
+        if (candidate_cell == nullptr || !candidate_cell->known ||
+            candidate_cell->height_m < position.z - lower_surface_delta)
+            continue;
+        for (std::size_t edge_ix = ix + 1; edge_ix > 0; --edge_ix)
+        {
+            const TerrainCell *cell = model.CellAt(
+                edge_ix - 1, static_cast<std::size_t>(iy));
+            if (cell == nullptr || !cell->known)
+                continue;
+            if (cell->height_m < position.z - lower_surface_delta)
+            {
+                nearest_edge_x = std::max(
+                    nearest_edge_x, model.origin_m[0] +
+                        static_cast<double>(edge_ix) * model.resolution_m);
+                break;
+            }
+        }
+    }
+    return std::isfinite(nearest_edge_x)
+        ? nearest_edge_x : std::numeric_limits<double>::quiet_NaN();
+}
+
+inline bool HasForwardElevatedSurfaceStandoff(
+    const TerrainModel &model, const go2::Vec3 &position,
+    double reference_height_m, double standoff_m, double patch_radius_m)
+{
+    if (!(standoff_m > 0.0) || !std::isfinite(reference_height_m) ||
+        !std::isfinite(position.z) ||
+        position.z <= reference_height_m + std::max(
+            2.0 * std::max(0.0, patch_radius_m), 0.5 * patch_radius_m))
+        return true;
+    const double edge_x = ForwardElevatedSurfaceEdgeX(
+        model, position, patch_radius_m);
+    return std::isfinite(edge_x) &&
+        position.x - edge_x + 1.0e-9 >= standoff_m;
 }
 
 inline std::vector<SafeFootholdRegion> BuildSafeFootholdRegions(

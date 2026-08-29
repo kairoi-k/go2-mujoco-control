@@ -584,6 +584,35 @@ public:
                     return surface_delta > deadband &&
                         directional_progress >= -forward_tolerance ? 1 : 0;
                 };
+            const auto has_surface_standoff =
+                [&](const go2::Vec3 &position) {
+                    if (command_direction <= 0.0)
+                        return true;
+                    return go2_terrain::HasForwardElevatedSurfaceStandoff(
+                        *input.terrain, position, observed_surface_height_m,
+                        config_.feasibility.elevated_surface_standoff_m,
+                        config_.feasibility.foot_patch_radius_m);
+                };
+            const auto bias_surface_position =
+                [&](go2::Vec3 position) {
+                    if (command_direction <= 0.0 ||
+                        !std::isfinite(observed_surface_height_m) ||
+                        position.z <= observed_surface_height_m + std::max(
+                            2.0 * 0.0,
+                            0.5 * config_.feasibility.foot_patch_radius_m))
+                        return position;
+                    const double edge_x =
+                        go2_terrain::ForwardElevatedSurfaceEdgeX(
+                            *input.terrain, position,
+                            config_.feasibility.foot_patch_radius_m);
+                    if (std::isfinite(edge_x))
+                        position.x = std::max(
+                            position.x,
+                            edge_x +
+                                config_.feasibility.elevated_surface_edge_bias_m +
+                                config_.feasibility.elevated_surface_standoff_m);
+                    return position;
+                };
             const auto candidate_score = [&](const go2::Vec3 &position,
                                              double uncertainty,
                                              double edge_margin) {
@@ -650,8 +679,9 @@ public:
                 const go2::Vec3 desired_position =
                     std::isfinite(nominal.x) && std::isfinite(nominal.y)
                         ? nominal : current;
-                const go2::Vec3 representative = RegionRepresentative(
-                    region, desired_position, input.terrain->resolution_m);
+                const go2::Vec3 representative = bias_surface_position(
+                    RegionRepresentative(
+                        region, desired_position, input.terrain->resolution_m));
                 FootholdCandidate candidate = EvaluateFoothold(
                     *input.terrain, static_cast<go2::Leg>(leg),
                     representative.x, representative.y,
@@ -659,7 +689,8 @@ public:
                     std::numeric_limits<double>::infinity(),
                     future_base_displacement_valid[leg]
                         ? &future_base_displacement_base[leg] : nullptr);
-                if (!candidate.hard_feasible)
+                if (!candidate.hard_feasible ||
+                    !has_surface_standoff(candidate.foot_position))
                     continue;
                 candidate.region_id = region.region_id;
                 candidate.support_margin_m = region.support_margin_m;
@@ -1531,6 +1562,12 @@ private:
             int previous_touchdown = first_touchdown;
             const auto nominal_touchdown =
                 NominalTouchdownFoot(input, leg);
+            const double observed_leg_surface_height_m =
+                ObservedTerrainReferenceHeight(input, leg);
+            const double observed_surface_height_m =
+                std::isfinite(observed_leg_surface_height_m)
+                    ? observed_leg_surface_height_m
+                    : ObservedSupportSurfaceHeight(input);
             for (std::size_t k = static_cast<std::size_t>(first_touchdown + 1);
                  k < config_.horizon_knots; ++k)
             {
@@ -1549,6 +1586,24 @@ private:
                     : (input.commanded_vx_mps < -1.0e-3 ? -1.0 : 0.0);
                 const double expected_progress =
                     std::abs(input.commanded_vx_mps) * elapsed_dt_s;
+                const auto bias_surface_position =
+                    [&](go2::Vec3 position) {
+                        if (command_direction <= 0.0 ||
+                            !std::isfinite(observed_surface_height_m) ||
+                            position.z <= observed_surface_height_m +
+                                0.5 * config_.feasibility.foot_patch_radius_m)
+                            return position;
+                        const double edge_x =
+                            go2_terrain::ForwardElevatedSurfaceEdgeX(
+                                *input.terrain, position,
+                                config_.feasibility.foot_patch_radius_m);
+                        if (std::isfinite(edge_x))
+                            position.x = std::max(
+                                position.x,
+                                edge_x + config_.feasibility.elevated_surface_edge_bias_m +
+                                    config_.feasibility.elevated_surface_standoff_m);
+                        return position;
+                    };
                 const auto region_score =
                     [&](const go2::Vec3 &position, double uncertainty,
                         double edge_margin) {
@@ -1609,8 +1664,9 @@ private:
                     const go2::Vec3 desired_position{
                         swing_start.x + command_direction * expected_progress,
                         nominal_touchdown.y, region.center.z};
-                    const go2::Vec3 representative = RegionRepresentative(
-                        region, desired_position, input.terrain->resolution_m);
+                    const go2::Vec3 representative = bias_surface_position(
+                        RegionRepresentative(
+                            region, desired_position, input.terrain->resolution_m));
                     FootholdCandidate candidate = EvaluateFoothold(
                         *input.terrain, static_cast<go2::Leg>(leg),
                         representative.x, representative.y,
@@ -1618,7 +1674,13 @@ private:
                         config_.swing_clearance_m,
                         future_displacement_valid
                             ? &future_displacement : nullptr);
-                    if (!candidate.hard_feasible)
+                    if (!candidate.hard_feasible ||
+                        (command_direction > 0.0 &&
+                         !go2_terrain::HasForwardElevatedSurfaceStandoff(
+                             *input.terrain, candidate.foot_position,
+                             observed_surface_height_m,
+                             config_.feasibility.elevated_surface_standoff_m,
+                             config_.feasibility.foot_patch_radius_m)))
                         continue;
                     candidate.region_id = region.region_id;
                     candidate.support_margin_m = region.support_margin_m;

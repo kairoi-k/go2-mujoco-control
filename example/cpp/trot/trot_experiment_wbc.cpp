@@ -304,9 +304,10 @@ void TrotExperiment::UpdateWbcFull(
             terrain_transfer_complete = false;
         }
     }
-    const double terrain_touchdown_tolerance_m = std::max(
-        0.020,
-        1.5 * terrain_planner_.config().feasibility.foot_patch_radius_m);
+    const double terrain_touchdown_tolerance_m =
+        go2_terrain::TerrainTouchdownTolerance(
+            terrain_transfer_window_active_,
+            terrain_planner_.config().feasibility.foot_patch_radius_m);
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         auto &execution = terrain_swing_execution_[leg];

@@ -17,6 +17,19 @@ namespace go2_terrain
 
 constexpr std::size_t kTerrainPlanMaxKnots = kTerrainContactMaxKnots;
 
+constexpr double kTerrainTransferTouchdownToleranceM = 0.045;
+
+inline double TerrainTouchdownTolerance(
+    bool transfer_window_active, double foot_patch_radius_m)
+{
+    const double geometric_tolerance = std::max(
+        0.020, 1.5 * foot_patch_radius_m);
+    return transfer_window_active
+        ? std::max(geometric_tolerance,
+                   kTerrainTransferTouchdownToleranceM)
+        : geometric_tolerance;
+}
+
 // A target that cannot be handed off within its immutable touchdown window
 // is a failed leg of the transaction. Keep required unchanged: planned
 // requirements are part of the transfer-consistency record and a cancelled
