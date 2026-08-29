@@ -73,6 +73,7 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_execution_plan_valid_until_s,terrain_execution_plan_age_s"
          << ",terrain_execution_plan_usable,terrain_execution_planned_contact_mask"
          << ",terrain_transfer_hold_active,terrain_transfer_hold_mask"
+         << ",terrain_transfer_window_active,terrain_transfer_window_release_s"
          << ",terrain_surface_transition_active"
          << ",terrain_surface_transition_required_mask"
          << ",terrain_surface_transition_original_required_mask"
@@ -918,6 +919,8 @@ void TrotExperiment::LogSample(
          << "," << terrain_execution_planned_contact_mask
          << "," << (terrain_transfer_hold_active_ ? 1 : 0)
          << "," << terrain_transfer_hold_mask
+         << "," << (terrain_transfer_window_active_ ? 1 : 0)
+         << "," << terrain_transfer_window_release_s_
          << "," << (terrain_surface_transition_active_ ? 1 : 0)
          << "," << terrain_surface_transition_required_mask
          << "," << terrain_surface_transition_original_required_mask
