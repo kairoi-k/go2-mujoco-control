@@ -450,3 +450,25 @@ evidence:
   residual_risk: |
     Canary remains stochastic and strict pair did not pass. Exploratory mechanism result only; no door-level conclusion. Pre-arm support relaxation needs review against broader transition data.
 git_status: clean before documentation append; no staged files; no push/amend.
+
+---
+timestamp: 2026-08-30T01:45:00+0800
+run_id: b1_crawl_epoch34_20260828 (+ b1_crawl_epoch34_20260828_r2)
+trigger: T1
+signature: Order-017 v2 quasi-static transfer implementation committed at 72a1780. The implementation is exploratory; the required physical two-run crossing was not achieved.
+evidence:
+  implementation: |
+    V2-A adds an explicit terrain-transfer window latch. On the first sensor-derived surface-transition intent, the existing Phase-1 velocity shaper is capped at 0.12 m/s, with a hard 0.05 m/s floor, and the existing running script remains authoritative outside the window. V2-B adds the runtime crawl pattern with rotary offsets {0,.25,.50,.75} and duty .80, giving at least three scheduled stance legs at every phase. The window remains latched for the 0.45 s stable passage after transaction completion before restoring the original gait/profile. Existing S1 front-stance stretching, captured support, endpoint/measured commit, rear pending intent, and WBC release are reused. S1 now also retains the captured stance across a 48-knot consumer horizon when the 0.13 m advance at the 0.05 m/s floor is longer than one horizon; touchdown timestamps are shifted to the fixed deadline.
+  changed_files: |
+    example/cpp/gait/locomotion_kernel.h; example/cpp/gait/raibert_trot_kernel.h; example/cpp/trot/velocity_command.h; example/cpp/terrain/terrain_control_interface.h; example/cpp/trot/trot_experiment.h; example/cpp/trot/trot_experiment_gait.cpp; example/cpp/trot/trot_experiment_control.cpp; example/cpp/trot/trot_experiment_wbc.cpp; example/cpp/trot/trot_experiment_diagnostics.cpp; example/cpp/tests/test_velocity_command.cpp; example/cpp/tests/test_terrain_interfaces.cpp. No contract, analyzer, or canary-definition file changed.
+  tests: |
+    cmake --build example/cpp/build -j2 and ctest --output-on-failure both passed; 27/27 tests passed. Added crawl schedule/three-contact invariant coverage and the long-horizon S1 crawl-floor case.
+  canary_command: |
+    Both runs used HEAD 72a1780, domain 229, serial flock -x /tmp/go2_mujoco_experiment.lock, LD_PRELOAD=/home/che/dds_base8000_preload.so, and the unchanged epoch28 run_trot command line with only the v2 runtime implementation changed.
+  canary_r1: |
+    Window/transaction active was 7.146-10.236 s; captured hold 7.344-10.236 s. Realized requested profile in active rows ranged 0.12-0.30 m/s, shaped/applied ranged 0.1306-0.30 m/s, and crawl regime was observed; gait period slew was 0.20-0.24 s and duty 0.50-0.54 during the recorded active interval. Minimum/median measured contacts were 0/0. No FR/FL/RR/RL measured platform commit occurred, transaction completions=0, final base_x=.3768 m. Final terrain execution feet were FR x=.3975 z=.3826, FL .5606/.4508, RR .4191/.2126, RL .3269/.1672; the run hit the hard posture stop with roll about 178 degrees.
+  canary_r2: |
+    Window/transaction active was 7.230-27.190 s; captured hold was not active. Realized requested profile in active rows ranged 0.00-0.30 m/s, shaped/applied ranged 0.00-0.30 m/s, and terrain-crawl regime was observed; crawl gait period/duty slewed from .20/.50 to .50/.80. Minimum/median measured contacts were 0/3. No FR/FL/RR/RL measured platform commit occurred, transaction completions=0, final base_x=.5200 m. Final execution feet were FR x=.6753 z=.0223, FL .6775/.0225, RR .3418/.0231, RL .3243/.0229. The run stopped after planner failure/safe-stop conditions; no platform foot reached measured z=.05.
+  verdict: |
+    The code path does switch into terrain-crawl and preserves the requested 0.05-0.12 m/s authority after the shaper ramp, but the pair exposed a remaining execution blocker: no measured front platform commit was achieved, so S1/rear intent never advanced to a complete transaction. The first run also demonstrates that a hard posture failure can occur before a usable held support set is established. Physical success is not claimed; no gate-level conclusion is made.
+git_status: implementation commit 72a1780; generated canary artifacts ignored; documentation append pending commit; no push/amend; simulations serialized.
