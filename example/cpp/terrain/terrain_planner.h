@@ -1103,9 +1103,18 @@ private:
 
         std::size_t support_knots = 0;
         std::size_t support_horizon = config_.horizon_knots;
-        if (!input.terrain_surface_transition_active)
+        bool front_commit_pending =
+            !input.terrain_surface_transition_active;
+        if (!front_commit_pending)
         {
-            // Before the first front commit, do not reject an otherwise
+            for (std::size_t leg = 0; leg < 2; ++leg)
+                front_commit_pending = front_commit_pending ||
+                    (input.terrain_surface_transition_required[leg] &&
+                     !input.terrain_surface_transition_committed[leg]);
+        }
+        if (front_commit_pending)
+        {
+            // Before both front commits, do not reject an otherwise
             // usable target because a later preview knot enters the
             // pre-advance straddle geometry. The post-commit planner pass
             // validates the complete atomic horizon once transition intent
@@ -1280,9 +1289,18 @@ private:
             std::numeric_limits<double>::infinity();
         std::size_t support_knots = 0;
         std::size_t support_horizon = result.plan.horizon_knots;
-        if (!input.terrain_surface_transition_active)
+        bool front_commit_pending =
+            !input.terrain_surface_transition_active;
+        if (!front_commit_pending)
         {
-            // Match selection: before a front commit, late preview knots
+            for (std::size_t leg = 0; leg < 2; ++leg)
+                front_commit_pending = front_commit_pending ||
+                    (input.terrain_surface_transition_required[leg] &&
+                     !input.terrain_surface_transition_committed[leg]);
+        }
+        if (front_commit_pending)
+        {
+            // Match selection: before both front commits, late preview knots
             // belong to the future body-advance phase and must not veto the
             // front target that arms that phase.
             int latest_front_touchdown = -1;
