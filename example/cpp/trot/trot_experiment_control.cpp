@@ -226,6 +226,32 @@ void TrotExperiment::PublishTerrainControlSnapshot(
     snapshot.terrain_surface_transition_source_world_z =
         terrain_surface_transition_source_world_z_;
 
+    // The crawl sequencer owns the next leg's transition intent. Publish it
+    // with every control snapshot, including APPROACH/DECELERATE, so a stale
+    // retained plan cannot turn an already-known front step into flat drift.
+    const std::size_t pending_transition_leg =
+        terrain_crawl_state_machine_.PendingTransitionLeg();
+    if (terrain_transfer_window_active_ &&
+        pending_transition_leg < go2::kLegCount &&
+        !snapshot.terrain_surface_transition_committed[
+            pending_transition_leg])
+    {
+        snapshot.terrain_surface_transition_active = true;
+        snapshot.terrain_surface_transition_required[
+            pending_transition_leg] = true;
+    }
+    // SHIFT_COM/CRAWL_STEP are deliberately replanned as a standing/crawl
+    // support problem. Reflect the sequencer's full measured support to the
+    // planner even before a terrain target has been prepared; otherwise the
+    // planner rejects its fresh plateau candidate and only the old snapshot
+    // remains available.
+    if (terrain_transfer_window_active_ &&
+        terrain_crawl_state_machine_.UsesCrawlExecution())
+    {
+        snapshot.terrain_transfer_hold_active = true;
+        snapshot.terrain_transfer_hold_contact = snapshot.measured_contact;
+    }
+
     {
         std::lock_guard<std::mutex> lock(terrain_control_mutex_);
         terrain_control_snapshot_ = snapshot;

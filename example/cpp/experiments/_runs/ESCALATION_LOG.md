@@ -907,3 +907,46 @@ evidence:
 verdict: |
   The source-level commit deadlock is fixed and covered by a pure helper test. The named stochastic pair did not produce a physical FL commit: both runs lost the valid FL transition candidate before launch and aborted on support. This is exploratory signal evidence only; no gate-level conclusion is claimed. The residual planner/state handoff issue is recorded rather than masked by treating a non-transition target as committed.
 git_status: local changes pending commit; no staged files; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-30T22:00:00+0800
+run_id: Order-029 b1_sm_epoch46_20260828 (+ _r2)
+trigger: T1
+root_cause: |
+  Epoch45 was not a lidar/FOV starvation. At the CRAWL_STEP handoffs the
+  lidar model was fresh (map age 0.008--0.094 s in the CSV), complete
+  (320/320 cells, 0.05 m relief), and FL had 19--80 static regions and 8
+  swept candidates. The retained executable plan (r1 id 244 generated at
+  8.508 s, r2 id 260 at 8.056 s) predated the state-machine requirement;
+  its FL foothold therefore carried no transition intent. New snapshots
+  were rejected by the support check while the robot was standing because
+  planner input did not include the crawl hold support, so prepare failed
+  at the existing failure=4 gate. The edge estimator itself was not the
+  starvation source: candidate windows remained populated and upper-surface
+  candidates were ranked whenever a fresh feasible plan was built.
+fix: |
+  TerrainCrawlStateMachine now exposes PendingTransitionLeg(). Control
+  snapshots publish that state-owned intent through APPROACH/DECELERATE,
+  SHIFT_COM, and CRAWL_STEP, instead of relying only on each snapshot's
+  surface-height classification. During crawl execution the planner also
+  receives the measured support hold before a target exists, allowing fresh
+  plateau candidates to pass support planning. The explicit crawl leg treats
+  a prepared target as owned until its immutable touchdown, which removes
+  the pre-launch deadlock (execution_in_flight is set by the launch path).
+  All changes are transfer-window gated; flat path and v1/analyzer/canary
+  definitions are unchanged.
+evidence: |
+  Unit tests cover the latched FL intent and prepared-target launch;
+  ctest: 27/27 passed. In the epoch46 r1 CSV, SHIFT_COM had 348 samples
+  with FL candidate_required=1, swing_candidate_count=8, and FL execution
+  valid; CRAWL_STEP had 110 samples and FL was in-flight for 109. FL then
+  reached endpoint-held/measured touchdown at t=7.804133 s (target
+  x=0.727480, z=0.049858; measured x=0.712069, z=0.073160; endpoint error
+  0.028003 m), with committed mask 2. The run aborted on support before
+  sequence continuation. _r2 reached CRAWL_STEP (52 samples) but did not
+  launch FL. These are exploratory canaries, not gate conclusions.
+canary_command: |
+  Both named runs used serial flock -x /tmp/go2_mujoco_experiment.lock,
+  domain 229, LD_PRELOAD=/home/che/dds_base8000_preload.so, and the
+  unchanged epoch28 run_trot command line.
+git_status: local changes pending commit; no staged files; no push/amend; simulations serialized.

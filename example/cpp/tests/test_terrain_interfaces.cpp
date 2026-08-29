@@ -1260,8 +1260,9 @@ int main()
         x.now_s = 10.0;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kDecelerateToCreep &&
-                       !m.UsesCrawlExecution(),
-                   "crawl invariant was applied during approach"))
+                       !m.UsesCrawlExecution() &&
+                       m.PendingTransitionLeg() == 1,
+                   "crawl intent was not latched for the front leg"))
             return 1;
         x.measured_velocity_mps = 0.20;
         x.now_s = 10.1;

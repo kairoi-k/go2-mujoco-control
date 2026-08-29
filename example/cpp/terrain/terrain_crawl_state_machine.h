@@ -364,6 +364,18 @@ public:
             ? kLegOrder[order_index_]
             : go2::kLegCount;
     }
+    // The sequencer owns the next transition identity before a foothold
+    // snapshot is available. This keeps candidate intent alive through the
+    // asynchronous planner handoff instead of rediscovering it from each map.
+    std::size_t PendingTransitionLeg() const noexcept
+    {
+        const bool pending = state_ == TerrainCrawlState::kApproach ||
+            state_ == TerrainCrawlState::kDecelerateToCreep ||
+            state_ == TerrainCrawlState::kShiftCom ||
+            state_ == TerrainCrawlState::kCrawlStep ||
+            state_ == TerrainCrawlState::kAdvanceBody;
+        return pending ? ActiveLegForSupport() : go2::kLegCount;
+    }
     double state_enter_time_s() const noexcept { return state_enter_time_s_; }
     double stable_start_time_s() const noexcept { return stable_start_time_s_; }
     std::uint64_t transition_count() const noexcept { return transition_count_; }

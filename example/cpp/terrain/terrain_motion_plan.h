@@ -83,8 +83,12 @@ inline bool TerrainCrawlSwingStillInFlight(
         return false;
     if (!execution_valid)
         return true;
-    return execution_in_flight && std::isfinite(now_s) &&
-        std::isfinite(touchdown_time_s) &&
+    // A prepared target is still owned by the explicit crawl leg until its
+    // immutable touchdown boundary. This includes the pre-launch handoff;
+    // requiring execution_in_flight here deadlocks CRAWL_STEP before the
+    // launch path can set that bit.
+    (void)execution_in_flight;
+    return std::isfinite(now_s) && std::isfinite(touchdown_time_s) &&
         now_s + std::max(0.0, time_tolerance_s) < touchdown_time_s;
 }
 
