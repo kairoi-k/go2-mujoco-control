@@ -775,8 +775,8 @@ evidence:
     lift 0.08, tau 45, velocity script, terrain planner, phase2_step_5cm.xml,
     B1). The pair was run serially.
   canary_r1: |
-    b1_sm_epoch42_20260828 trace: INACTIVE (0.000) -> APPROACH (6.342)
-    -> DECELERATE_TO_CREEP (6.344) -> SHIFT_COM (6.880) -> ABORT (6.980).
+    b1_sm_epoch42_20260828 trace: INACTIVE (0.000) -> APPROACH (6.254)
+    -> DECELERATE_TO_CREEP (6.256) -> SHIFT_COM (6.880) -> ABORT (6.980).
     Minimum measured contacts by state: INACTIVE=0, APPROACH=2,
     DECELERATE_TO_CREEP=1, SHIFT_COM=0, ABORT=0. SHIFT_COM lasted 50
     samples; no CRAWL_STEP and no measured commit. During deceleration,
@@ -800,4 +800,4 @@ verdict: |
   pair confirms stable posture through deceleration, but neither run yet
   reaches CRAWL_STEP(FL) or a measured commit, so the physical success
   criterion remains open.
-git_status: pending local implementation/documentation commit; no staged files, no push/amend; simulations serialized.
+git_status: local commits complete; clean worktree; no staged files, no push/amend; simulations serialized.
