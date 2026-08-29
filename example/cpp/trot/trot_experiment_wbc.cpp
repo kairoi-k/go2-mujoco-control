@@ -371,6 +371,21 @@ void TrotExperiment::UpdateWbcFull(
             int scheduled_support_count = 0;
             for (bool contact : terrain_transfer_hold_contact_)
                 scheduled_support_count += contact ? 1 : 0;
+            if (scheduled_support_count < 3)
+            {
+                // The retimed planner schedule can expose only a diagonal at
+                // the transfer boundary while the force filter still sees a
+                // third loaded foot. Capture that measured support instead
+                // of allowing the schedule two-contact prediction to
+                // replace the loaded three-contact set.
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                    terrain_transfer_hold_contact_[leg] =
+                        terrain_transfer_hold_contact_[leg] ||
+                        measured_contact[leg];
+                scheduled_support_count = 0;
+                for (bool contact : terrain_transfer_hold_contact_)
+                    scheduled_support_count += contact ? 1 : 0;
+            }
             if (scheduled_support_count < 2)
             {
                 terrain_transfer_hold_contact_ = qp_contact;
@@ -379,6 +394,21 @@ void TrotExperiment::UpdateWbcFull(
                     scheduled_support_count += contact ? 1 : 0;
             }
             terrain_transfer_hold_active_ = scheduled_support_count >= 2;
+        }
+        else
+        {
+            int held_support_count = 0;
+            for (bool contact : terrain_transfer_hold_contact_)
+                held_support_count += contact ? 1 : 0;
+            if (held_support_count < 3)
+            {
+                // Keep the captured set monotonic until the transfer ends;
+                // a late schedule update must not release its third anchor.
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                    terrain_transfer_hold_contact_[leg] =
+                        terrain_transfer_hold_contact_[leg] ||
+                        measured_contact[leg];
+            }
         }
         if (terrain_transfer_hold_active_ && !terrain_transfer_complete)
         {
