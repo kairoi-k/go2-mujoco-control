@@ -394,7 +394,14 @@ void TrotExperiment::UpdateWbcFull(
                     execution.terrain_target_required &&
                     !execution.measured_touchdown &&
                     (execution.in_flight || execution.endpoint_held);
-                if (active_target)
+                const bool keep_transfer_support =
+                    go2_terrain::TerrainTransferSupportMustBeKept(
+                        terrain_surface_transition_required_,
+                        terrain_surface_transition_committed_,
+                        terrain_surface_transition_cancelled_,
+                        execution.endpoint_held,
+                        execution.in_flight);
+                if (active_target && !keep_transfer_support)
                     qp_contact[leg] = false;
                 if (execution.measured_touchdown)
                     qp_contact[leg] = true;

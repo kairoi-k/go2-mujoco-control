@@ -69,6 +69,34 @@ int main()
         if (go2_terrain::TerrainTransitionComplete(required, committed, cancelled))
             return 1;
     }
+
+    // Support remains captured while a target waits at its endpoint or while
+    // a non-in-flight transaction requirement is still uncommitted.
+    {
+        const std::array<bool, go2::kLegCount> required{true, true, false, false};
+        const std::array<bool, go2::kLegCount> committed{false, true, false, false};
+        const std::array<bool, go2::kLegCount> cancelled{false, false, false, false};
+        if (!Check(
+                go2_terrain::TerrainTransferSupportMustBeKept(
+                    required, committed, cancelled, false, false),
+                "uncommitted transition did not preserve waiting support") ||
+            !Check(
+                !go2_terrain::TerrainTransferSupportMustBeKept(
+                    required, committed, cancelled, false, true),
+                "in-flight swing was incorrectly held as support") ||
+            !Check(
+                go2_terrain::TerrainTransferSupportMustBeKept(
+                    required, committed, cancelled, true, true),
+                "endpoint-held target released support"))
+            return 1;
+        const std::array<bool, go2::kLegCount> all_committed{
+            true, true, false, false};
+        if (!Check(
+                !go2_terrain::TerrainTransferSupportMustBeKept(
+                    required, all_committed, cancelled, false, false),
+                "committed transition kept stale support"))
+            return 1;
+    }
     auto map = FlatMap();
     const auto built = go2_terrain::BuildTerrainModel(
         &map, 10.04, 1, go2_terrain::TerrainSource::kLidar);

@@ -53,6 +53,30 @@ inline bool TerrainTransitionComplete(
     return has_requirement;
 }
 
+// An endpoint-held target is still the support captured at the transfer
+// boundary. Keep it in the WBC support set until measured touchdown; a
+// transaction that has not committed may not release that set while a
+// target waits at its endpoint. An in-flight target remains a swing task
+// and is intentionally excluded from QP support.
+inline bool TerrainTransferSupportMustBeKept(
+    const std::array<bool, go2::kLegCount> &required,
+    const std::array<bool, go2::kLegCount> &committed,
+    const std::array<bool, go2::kLegCount> &cancelled,
+    bool endpoint_held,
+    bool in_flight)
+{
+    bool has_uncommitted_requirement = false;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (required[leg] && !committed[leg] && !cancelled[leg])
+        {
+            has_uncommitted_requirement = true;
+            break;
+        }
+    }
+    return endpoint_held || (has_uncommitted_requirement && !in_flight);
+}
+
 enum class TerrainPlanStatus : std::uint8_t
 {
     kEmpty = 0,
