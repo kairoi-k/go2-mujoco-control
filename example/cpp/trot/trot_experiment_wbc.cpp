@@ -316,6 +316,26 @@ void TrotExperiment::UpdateWbcFull(
             (!execution.in_flight && !execution.endpoint_held))
             continue;
         terrain_transfer_has_target = true;
+        const go2::Vec3 actual_world{
+            dyn.foot_pos_world[leg].x(),
+            dyn.foot_pos_world[leg].y(),
+            dyn.foot_pos_world[leg].z()};
+        if (measured_contact[leg] &&
+            go2_terrain::TerrainSwingContactBeforeLeadingEdge(
+                execution.start_world, execution.target_world, actual_world,
+                execution.swing_leading_edge_phase_valid,
+                execution.swing_leading_edge_phase))
+        {
+            // Force at the riser corner is a failed swing, not touchdown.
+            // Drop only this execution so the unchanged transition
+            // requirement is picked up by the next planner snapshot.
+            terrain_transfer_complete = false;
+            ++terrain_target_prepare_rejection_count_;
+            terrain_target_last_prepare_failure_ = 7;
+            terrain_target_last_prepare_failure_by_leg_[leg] = 7;
+            execution = {};
+            continue;
+        }
         if (!execution.endpoint_held)
         {
             terrain_transfer_complete = false;
@@ -333,10 +353,6 @@ void TrotExperiment::UpdateWbcFull(
             endpoint_error.norm() <= terrain_touchdown_tolerance_m;
         execution.wbc_at_endpoint = at_endpoint;
         execution.wbc_measured_contact = measured_contact[leg];
-        const go2::Vec3 actual_world{
-            dyn.foot_pos_world[leg].x(),
-            dyn.foot_pos_world[leg].y(),
-            dyn.foot_pos_world[leg].z()};
         if (measured_contact[leg] &&
             go2_terrain::TerrainSwingContactBeforeLeadingEdge(
                 execution.start_world, execution.target_world, actual_world,
