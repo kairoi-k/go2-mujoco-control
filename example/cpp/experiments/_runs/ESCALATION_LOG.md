@@ -233,3 +233,24 @@ suggestion: |
   CANARY. Both runs used HEAD 0ffbeb0, domain 229, the existing run_trot.sh entry point, and serial flock /tmp/go2_mujoco_experiment.lock. r1 completed the first transaction at t=7.718 but hit the hard posture stop later; r2 completed at t=7.582, then emitted failure=6 cancellations at t=8.348 and 8.804 before the hard posture stop. Thus failure=6 still occurs (r2), and the >=3-contact signal criterion was not met in either first transfer. The wrappers/analyzers returned nonzero because these are exploratory signal canaries and the hard/quantitative gates are not being claimed. No 30/60 episode acceptance sample was used.
 
   PORT FACT. Added docs/research/PHASE2_B0_WSL_PORT_FACTS.md. Windows UDP excluded ranges 62889-62988 and 63089-63188 cover Cyclone default domains 222/223; the existing LD_PRELOAD hook keeps domain IDs unchanged and moves the base to 8000. Permanent remediation remains a human decision. No contract, analyzer threshold, or canary definition changed.
+
+---
+timestamp: 2026-08-29T20:45:00+0800
+run_id: b1_holdfix_epoch27_20260828 (+ b1_holdfix_epoch27_20260828_r2) final HEAD rerun
+trigger: T1
+signature: Final rerun at code SHA d51bcfc with force telemetry enabled; serial domain 229. Signal remains mixed and exploratory; >=3 measured contact was not sustained in either first transfer.
+evidence:
+  controller_log: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/b1_holdfix_epoch27_20260828/controller.log; /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/b1_holdfix_epoch27_20260828_r2/controller.log
+  data_csv: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/b1_holdfix_epoch27_20260828/data.csv; /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/b1_holdfix_epoch27_20260828_r2/data.csv
+  analysis_json: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/b1_holdfix_epoch27_20260828/phase2_terrain_analysis.json; /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/b1_holdfix_epoch27_20260828_r2/phase2_terrain_analysis.json
+  git_sha: d51bcfcd315075ef77fe0c580bb9a892058c821f
+  telemetry_columns: terrain_hold_force_telemetry, terrain_hold_*_raw_normal_force_n, terrain_hold_*_wbc_normal_force_n, terrain_hold_cost_*
+git_status: code HEAD d51bcfc at launch; generated run directories ignored; no staged files
+suggestion: |
+  FINAL CANARY. First-transfer telemetry was r1 t=7.826-8.016, n=96, and r2 t=7.152-7.504, n=177. Raw measured contacts >=3 were r1 53/96=55.2% (min/median/max count 2/3/4) and r2 74/177=41.8% (0/2/4). Per-leg raw normal force medians/ranges (FR,FL,RR,RL; all first-transfer telemetry rows) were r1 FR 0 (0-57), FL 88 (6-155), RR 64 (23-127), RL 11 (0-140) N; r2 FR 72 (0-202), FL 0 (0-320), RR 0 (0-167), RL 13 (0-125) N.
+
+  20N ANSWER. In final r1 every RR sample had WBC RR >=19.9 N and raw RR was >=5 N in 96/96, median 64 N, consistent with real contact. In final r2 WBC RR >=19.9 N for 121 samples, but raw RR >=5 N for only 63/121=52.1%, with conditional raw median 5 N. RR histogram over all 177 rows: [0,5)=114, [5,10)=12, [10,20)=18, [20,40)=7, [40,80)=9, [80,120)=12, [120,200)=5 N. The r2 low-force mass while the WBC floor is active demonstrates that 20 N can be commanded on a weakly loaded foot; it is not evidence of a physical 20 N floor. The prior epoch26 r1 RR reference remains 240/339=71%, median realized normal force 10 N.
+
+  RR ROOT CAUSE. The samples diverge at support geometry and phase, not from a demonstrated torque limit: r1 RR actual foot z was 0.0208-0.0526 m against nominal target z=0 (ground/site reference about 0.02 m), and early captured masks excluded RR (0x0 -> 0x9 -> 0xB). Once RR returned to the captured 0xF set, it loaded 50-85 N. No workspace impossibility is proven; evidence supports a nominal swing/above-surface phase explanation rather than a control-side force-weight cause, so no unverified geometry patch was made. Median ID-WBC costs base_lin/base_ang/stance/swing/force_reg/posture/torque were r1 464.8/11.5/269.0/37.7/0.14/801.6/0.03 and r2 303.2/19.3/143.8/89.3/0.15/1262.1/0.02.
+
+  FAILURE6 AND GATES. Final r1 completed one required leg at t=8.016 and then hit the hard posture stop. Final r2 completed with required=2/original_required=3 at t=7.504, then emitted failure=6 cancellation at t=8.280 and hit the hard posture stop. failure=6 still occurs. Wrappers returned nonzero from safety/controlled-stop and frozen quantitative analyses; no PASS gate or acceptance conclusion is claimed, and no 30/60 episode sample was used. Both simulations were serialized by flock on /tmp/go2_mujoco_experiment.lock.
