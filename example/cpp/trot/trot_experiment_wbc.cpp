@@ -494,6 +494,14 @@ void TrotExperiment::UpdateWbcFull(
         }
         if (terrain_transfer_window_active_ &&
             terrain_crawl_state_machine_.state() ==
+                go2_terrain::TerrainCrawlState::kShiftCom)
+        {
+            // SHIFT_COM is still a four-contact stance: the upcoming leg
+            // must remain loaded while the existing body reference translates.
+            qp_contact.fill(true);
+        }
+        else if (terrain_transfer_window_active_ &&
+            terrain_crawl_state_machine_.state() ==
                 go2_terrain::TerrainCrawlState::kCrawlStep)
         {
             const std::size_t active_leg = terrain_crawl_state_machine_.ActiveLeg();
