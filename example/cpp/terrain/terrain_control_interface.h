@@ -87,7 +87,10 @@ inline bool StretchTerrainFrontStanceSchedule(
             front_committed = front_committed || transition_committed[leg];
             continue;
         }
-        if (!transition_required[leg] || transition_committed[leg])
+        // The rear requirement is discovered only after this preview
+        // makes its foothold reachable; do not wait for that bit here.
+        // A rear leg already committed to the upper surface is excluded.
+        if (transition_committed[leg])
             continue;
         bool previous = schedule.measured_contact[leg];
         for (std::size_t k = 0; k < horizon_knots; ++k)
