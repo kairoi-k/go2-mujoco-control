@@ -53,6 +53,12 @@ int main()
     passed &= Check(
         std::abs(fz - dyn.mass_kg * 9.81) < 40.0, "ID-WBC gravity");
     passed &= Check(out.tau.cwiseAbs().maxCoeff() < 35.0, "tau limit");
+    passed &= Check(std::isfinite(out.cost_terms.base_linear) &&
+                        std::isfinite(out.cost_terms.stance_no_slip) &&
+                        std::isfinite(out.cost_terms.torque),
+                    "ID-WBC objective terms are not finite");
+    passed &= Check(out.cost_terms.force_regularization >= 0.0,
+                    "ID-WBC force cost is negative");
 
     // A terrain hold must keep every selected contact physically loadable,
     // rather than allowing the solver to satisfy the base equations with a

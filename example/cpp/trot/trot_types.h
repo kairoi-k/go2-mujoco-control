@@ -298,6 +298,16 @@ struct WbcShadowDiagnostics
     bool feedforward_applied = false;
     bool feedforward_reduced_task_gate = false;
     double feedforward_max_abs_tau = 0.0;
+    bool terrain_hold_force_telemetry = false;
+    std::array<double, go2::kLegCount> terrain_hold_wbc_normal_force_n{};
+    double terrain_hold_cost_base_linear = 0.0;
+    double terrain_hold_cost_base_angular = 0.0;
+    double terrain_hold_cost_stance_no_slip = 0.0;
+    double terrain_hold_cost_swing = 0.0;
+    double terrain_hold_cost_force_regularization = 0.0;
+    double terrain_hold_cost_force_tracking = 0.0;
+    double terrain_hold_cost_posture = 0.0;
+    double terrain_hold_cost_torque = 0.0;
 };
 
 inline uint32_t crc32_core(uint32_t *ptr, uint32_t len)

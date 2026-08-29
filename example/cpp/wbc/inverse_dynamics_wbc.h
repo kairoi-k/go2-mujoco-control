@@ -66,6 +66,18 @@ struct IdWbcInput
         Eigen::Matrix<double, 12, 1>::Zero();
 };
 
+struct IdWbcCostTerms
+{
+    double base_linear = 0.0;
+    double base_angular = 0.0;
+    double stance_no_slip = 0.0;
+    double swing = 0.0;
+    double force_regularization = 0.0;
+    double force_tracking = 0.0;
+    double posture = 0.0;
+    double torque = 0.0;
+};
+
 struct IdWbcOutput
 {
     bool ok = false;
@@ -80,6 +92,7 @@ struct IdWbcOutput
         Eigen::Matrix<double, 12, 1>::Zero();
     Eigen::Matrix<double, go2::kJointCount, 1> tau =
         Eigen::Matrix<double, go2::kJointCount, 1>::Zero();
+    IdWbcCostTerms cost_terms{};
 };
 
 inline Eigen::Matrix<double, 12, kGo2Nv> StackFootJacobian(
@@ -303,6 +316,53 @@ inline bool SolveInverseDynamicsWbc(
     output.eq_residual = (Aeq * x - beq).norm();
     output.rne_residual =
         (M * output.qdd + h - J.transpose() * output.force).head<6>().norm();
+
+    // Keep the objective decomposition alongside the solution.  These are
+    // diagnostic terms only; the solver objective remains exactly the same.
+    const Eigen::Vector3d base_lin_error =
+        output.qdd.segment<3>(0) - input.desired_linear_acc_world;
+    const Eigen::Vector3d base_ang_error =
+        output.qdd.segment<3>(3) - input.desired_angular_acc_body;
+    output.cost_terms.base_linear =
+        (params.w_base_lin_x >= 0.0 ? params.w_base_lin_x
+                                    : params.w_base_lin) * base_lin_error.x() * base_lin_error.x() +
+        params.w_base_lin * (base_lin_error.y() * base_lin_error.y() +
+                             base_lin_error.z() * base_lin_error.z());
+    output.cost_terms.base_angular = params.w_base_ang * base_ang_error.squaredNorm();
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const auto Jl = input.dynamics.foot_jac_world[leg];
+        const Eigen::Vector3d jdot_qvel =
+            input.dynamics.foot_jac_dot_world[leg] * input.dynamics.qvel;
+        if (input.contact[leg])
+        {
+            const double wx = params.w_stance_no_slip_x >= 0.0
+                ? params.w_stance_no_slip_x : params.w_stance_no_slip;
+            const double wy = params.w_stance_no_slip_y >= 0.0
+                ? params.w_stance_no_slip_y : params.w_stance_no_slip;
+            const double wz = params.w_stance_no_slip_z >= 0.0
+                ? params.w_stance_no_slip_z : params.w_stance_no_slip;
+            const Eigen::Vector3d stance_error = Jl * output.qdd + jdot_qvel -
+                (input.have_stance_acc ? input.stance_acc_world[leg]
+                                        : Eigen::Vector3d::Zero());
+            output.cost_terms.stance_no_slip += wx * stance_error.x() * stance_error.x() +
+                wy * stance_error.y() * stance_error.y() + wz * stance_error.z() * stance_error.z();
+        }
+        else
+        {
+            const Eigen::Vector3d swing_error = Jl * output.qdd - input.swing_acc_world[leg];
+            const double wx = params.w_swing_x >= 0.0 ? params.w_swing_x : params.w_swing;
+            output.cost_terms.swing += wx * swing_error.x() * swing_error.x() +
+                params.w_swing * (swing_error.y() * swing_error.y() + swing_error.z() * swing_error.z());
+        }
+        const Eigen::Vector3d force = output.force.segment<3>(3 * static_cast<int>(leg));
+        output.cost_terms.force_regularization += params.w_force * force.squaredNorm();
+        if (params.w_force_track > 0.0 && input.have_force_ref)
+            output.cost_terms.force_tracking += params.w_force_track *
+                (force - input.force_ref.segment<3>(3 * static_cast<int>(leg))).squaredNorm();
+    }
+    output.cost_terms.posture = params.w_posture * output.qdd.tail<12>().squaredNorm();
+    output.cost_terms.torque = params.w_tau * output.tau.squaredNorm();
     if (output.eq_residual >= 5.0)
         return false;
     output.ok = qp_ok || output.eq_residual < 1.0e-2;

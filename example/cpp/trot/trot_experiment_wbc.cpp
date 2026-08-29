@@ -1630,6 +1630,36 @@ void TrotExperiment::UpdateWbcFull(
     }
     wbc_shadow_diagnostics_.min_contact_normal_force_n =
         std::isfinite(min_fz) ? min_fz : 0.0;
+
+    // This channel is deliberately opt-in: it records the physical force
+    // sensor alongside the final ID-WBC force and objective decomposition,
+    // but does not alter control or the normal CSV contract when disabled.
+    const bool hold_force_telemetry =
+        Full2EnvDouble("TROT_TERRAIN_DEBUG_FORCE", 0.0) > 0.5 &&
+        (terrain_transfer_hold_active_ || terrain_surface_transition_active_);
+    wbc_shadow_diagnostics_.terrain_hold_force_telemetry = hold_force_telemetry;
+    if (hold_force_telemetry)
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            wbc_shadow_diagnostics_.terrain_hold_wbc_normal_force_n[leg] =
+                wbc_out.force[3 * static_cast<int>(leg) + 2];
+        wbc_shadow_diagnostics_.terrain_hold_cost_base_linear =
+            wbc_out.cost_terms.base_linear;
+        wbc_shadow_diagnostics_.terrain_hold_cost_base_angular =
+            wbc_out.cost_terms.base_angular;
+        wbc_shadow_diagnostics_.terrain_hold_cost_stance_no_slip =
+            wbc_out.cost_terms.stance_no_slip;
+        wbc_shadow_diagnostics_.terrain_hold_cost_swing =
+            wbc_out.cost_terms.swing;
+        wbc_shadow_diagnostics_.terrain_hold_cost_force_regularization =
+            wbc_out.cost_terms.force_regularization;
+        wbc_shadow_diagnostics_.terrain_hold_cost_force_tracking =
+            wbc_out.cost_terms.force_tracking;
+        wbc_shadow_diagnostics_.terrain_hold_cost_posture =
+            wbc_out.cost_terms.posture;
+        wbc_shadow_diagnostics_.terrain_hold_cost_torque =
+            wbc_out.cost_terms.torque;
+    }
 }
 
 // --- TrotExperiment::UpdateWbcShadow ---

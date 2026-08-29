@@ -157,6 +157,21 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_shadow_max_axis_friction_ratio"
          << ",wbc_shadow_max_radial_friction_ratio"
          << ",wbc_shadow_min_contact_normal_force_n"
+         << ",terrain_hold_force_telemetry";
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        csv_ << ",terrain_hold_" << kLegNames[leg]
+             << "_raw_normal_force_n"
+             << ",terrain_hold_" << kLegNames[leg]
+             << "_wbc_normal_force_n";
+    csv_
+         << ",terrain_hold_cost_base_linear"
+         << ",terrain_hold_cost_base_angular"
+         << ",terrain_hold_cost_stance_no_slip"
+         << ",terrain_hold_cost_swing"
+         << ",terrain_hold_cost_force_regularization"
+         << ",terrain_hold_cost_force_tracking"
+         << ",terrain_hold_cost_posture"
+         << ",terrain_hold_cost_torque"
          << ",wbc_shadow_residual_norm,wbc_shadow_max_abs_tau"
          << ",wbc_shadow_elapsed_us,wbc_shadow_within_budget"
          << ",wbc_shadow_feedforward_ready,wbc_shadow_feedforward_applied"
@@ -629,6 +644,9 @@ void TrotExperiment::LogSample(
 
     imu_gyro_body = ConvertImuGyroToBody(imu_gyro);
     int contact_count = 0;
+    const bool terrain_force_telemetry =
+        Full2EnvDouble("TROT_TERRAIN_DEBUG_FORCE", 0.0) > 0.5 &&
+        (terrain_transfer_hold_active_ || terrain_surface_transition_active_);
     std::array<double, go2::kLegCount> foot_forces{};
     std::array<int, go2::kLegCount> contact_flags{};
     if (have_state)
@@ -1031,6 +1049,33 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.max_axis_friction_ratio
          << "," << wbc_shadow_diagnostics_.max_radial_friction_ratio
          << "," << wbc_shadow_diagnostics_.min_contact_normal_force_n
+         << "," << (terrain_force_telemetry ? 1 : 0);
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const bool held_leg = terrain_transfer_hold_contact_[leg];
+        csv_ << "," << (terrain_force_telemetry && held_leg
+                              ? foot_forces[leg] : 0.0)
+             << "," << (terrain_force_telemetry && held_leg
+                              ? wbc_shadow_diagnostics_.terrain_hold_wbc_normal_force_n[leg]
+                              : 0.0);
+    }
+    csv_
+         << "," << (terrain_force_telemetry
+                              ? wbc_shadow_diagnostics_.terrain_hold_cost_base_linear : 0.0)
+         << "," << (terrain_force_telemetry
+                              ? wbc_shadow_diagnostics_.terrain_hold_cost_base_angular : 0.0)
+         << "," << (terrain_force_telemetry
+                              ? wbc_shadow_diagnostics_.terrain_hold_cost_stance_no_slip : 0.0)
+         << "," << (terrain_force_telemetry
+                              ? wbc_shadow_diagnostics_.terrain_hold_cost_swing : 0.0)
+         << "," << (terrain_force_telemetry
+                              ? wbc_shadow_diagnostics_.terrain_hold_cost_force_regularization : 0.0)
+         << "," << (terrain_force_telemetry
+                              ? wbc_shadow_diagnostics_.terrain_hold_cost_force_tracking : 0.0)
+         << "," << (terrain_force_telemetry
+                              ? wbc_shadow_diagnostics_.terrain_hold_cost_posture : 0.0)
+         << "," << (terrain_force_telemetry
+                              ? wbc_shadow_diagnostics_.terrain_hold_cost_torque : 0.0)
          << "," << wbc_shadow_diagnostics_.residual_norm
          << "," << wbc_shadow_diagnostics_.max_abs_tau
          << "," << wbc_shadow_diagnostics_.elapsed_us
