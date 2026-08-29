@@ -412,7 +412,7 @@ public:
 
     const TerrainPlannerConfig &config() const { return config_; }
 
-    TerrainPlannerResult Build(const TerrainPlannerInput &input,
+    TerrainPlannerResult Build(TerrainPlannerInput input,
                                std::uint64_t plan_id) const
     {
         TerrainPlannerResult result;
@@ -469,6 +469,23 @@ public:
             result.plan.status = TerrainPlanStatus::kRejected;
             result.plan.solver.failure = result.plan.failure;
             return Finish(input, std::move(result), start);
+        }
+
+        // S1 body advance is a timing-only extension of the already-loaded
+        // front stance.  It is applied before touchdown selection so rear
+        // foothold FK is evaluated at the translated body pose.  Flat ground
+        // and transfers without a committed front leg remain bit-identical.
+        if (input.terrain_transfer_hold_active)
+        {
+            (void)StretchTerrainFrontStanceSchedule(
+                input.contact_schedule,
+                input.terrain_surface_transition_required,
+                input.terrain_surface_transition_committed,
+                input.next_touchdown_time_s,
+                input.next_touchdown_time_valid,
+                input.state_stamp_s,
+                input.commanded_vx_mps,
+                config_.knot_dt_s, config_.horizon_knots);
         }
 
         std::array<int, go2::kLegCount> touchdown_knots{};

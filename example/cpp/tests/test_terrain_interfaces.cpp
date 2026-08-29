@@ -36,6 +36,48 @@ unitree_go::msg::dds_::HeightMap_ FlatMap()
 
 int main()
 {
+    // S1 keeps the already-loaded front stance through a delayed rear
+    // touchdown, yielding the commanded 0.13 m body preview at 0.30 m/s.
+    {
+        go2_terrain::TerrainContactSchedule schedule;
+        schedule.measured_contact = {true, true, false, false};
+        schedule.measured_valid = true;
+        schedule.planned_valid = true;
+        for (std::size_t k = 0; k < 48; ++k)
+            schedule.planned_contact[k] =
+                k < 4 ? std::array<bool, go2::kLegCount>{true, true, false, false}
+                      : std::array<bool, go2::kLegCount>{true, true, true, false};
+        const auto before = schedule.planned_contact;
+        std::array<bool, go2::kLegCount> required{false, false, true, false};
+        const std::array<bool, go2::kLegCount> committed{true, false, false, false};
+        std::array<double, go2::kLegCount> touchdown{0.02, 0.04, 0.08, 0.10};
+        const std::array<bool, go2::kLegCount> touchdown_valid{true, true, true, true};
+        if (!Check(
+                go2_terrain::StretchTerrainFrontStanceSchedule(
+                    schedule, required, committed, touchdown, touchdown_valid,
+                    0.0, 0.30, 0.02, 48),
+                "S1 did not stretch a pending rear transition") ||
+            !Check(schedule.planned_contact[4] == before[3],
+                   "S1 did not retain the pre-event stance row") ||
+            !Check(schedule.planned_contact[26] == before[4] &&
+                       schedule.planned_contact[27] == before[4],
+                   "S1 inserted the rear event at the wrong knot") ||
+            !Check(std::abs(touchdown[2] - 0.52) < 1.0e-9,
+                   "S1 did not shift the rear touchdown time"))
+            return 1;
+        go2_terrain::TerrainContactSchedule flat = schedule;
+        const auto flat_before = flat.planned_contact;
+        const std::array<bool, go2::kLegCount> no_transition{};
+        if (!Check(
+                !go2_terrain::StretchTerrainFrontStanceSchedule(
+                    flat, no_transition, no_transition, touchdown,
+                    touchdown_valid, 1.0, 0.30, 0.02, 48),
+                "S1 unexpectedly changed a flat-ground schedule") ||
+            !Check(flat.planned_contact == flat_before,
+                   "flat-ground schedule was not bit-identical"))
+            return 1;
+    }
+
     // A failed immutable-time handoff must cancel its uncommitted
     // requirement; committed endpoints remain part of the transaction.
     {

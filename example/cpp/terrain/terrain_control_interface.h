@@ -56,6 +56,101 @@ struct TerrainContactSchedule
     }
 };
 
+// Stretch the stance row immediately before a pending rear transition.  This
+// is S1 timing: the command velocity and gait topology remain unchanged, while
+// the already-loaded front stance is retained long enough for the body to
+// translate into the rear-leg FK envelope.  Return false unless the requested
+// advance fits in the bounded atomic schedule.
+inline bool StretchTerrainFrontStanceSchedule(
+    TerrainContactSchedule &schedule,
+    const std::array<bool, go2::kLegCount> &transition_required,
+    const std::array<bool, go2::kLegCount> &transition_committed,
+    std::array<double, go2::kLegCount> &next_touchdown_time_s,
+    const std::array<bool, go2::kLegCount> &next_touchdown_time_valid,
+    double state_stamp_s, double commanded_vx_mps, double knot_dt_s,
+    std::size_t horizon_knots, double advance_distance_m = 0.13)
+{
+    if (!schedule.valid(horizon_knots) || horizon_knots == 0 ||
+        horizon_knots > kTerrainContactMaxKnots ||
+        !std::isfinite(state_stamp_s) || !std::isfinite(commanded_vx_mps) ||
+        std::abs(commanded_vx_mps) < 0.05 || !std::isfinite(knot_dt_s) ||
+        knot_dt_s <= 0.0 || !std::isfinite(advance_distance_m) ||
+        advance_distance_m <= 0.0)
+        return false;
+
+    bool front_committed = false;
+    int rear_event = -1;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (leg < 2)
+        {
+            front_committed = front_committed || transition_committed[leg];
+            continue;
+        }
+        if (!transition_required[leg] || transition_committed[leg])
+            continue;
+        bool previous = schedule.measured_contact[leg];
+        for (std::size_t k = 0; k < horizon_knots; ++k)
+        {
+            const bool planned = schedule.planned_contact[k][leg];
+            if (planned && !previous)
+            {
+                const double knot_time = state_stamp_s +
+                    static_cast<double>(k) * knot_dt_s;
+                if (!next_touchdown_time_valid[leg] ||
+                    !std::isfinite(next_touchdown_time_s[leg]) ||
+                    knot_time + 0.5 * knot_dt_s >=
+                        next_touchdown_time_s[leg])
+                {
+                    if (rear_event < 0 ||
+                        static_cast<int>(k) < rear_event)
+                        rear_event = static_cast<int>(k);
+                    break;
+                }
+            }
+            previous = planned;
+        }
+    }
+    if (!front_committed || rear_event <= 0)
+        return false;
+
+    const int delay_knots = static_cast<int>(std::ceil(
+        advance_distance_m / (std::abs(commanded_vx_mps) * knot_dt_s)));
+    if (delay_knots <= 0 || rear_event + delay_knots >=
+        static_cast<int>(horizon_knots))
+        return false;
+
+    const auto original_schedule = schedule.planned_contact;
+    auto &stretched = schedule.planned_contact;
+    int dst = 0;
+    for (int k = 0; k < static_cast<int>(horizon_knots); ++k)
+    {
+        if (k == rear_event)
+        {
+            const int source = std::max(0, k - 1);
+            for (int j = 0; j < delay_knots && dst <
+                 static_cast<int>(horizon_knots); ++j)
+                stretched[static_cast<std::size_t>(dst++)] =
+                    original_schedule[static_cast<std::size_t>(source)];
+        }
+        if (dst >= static_cast<int>(horizon_knots))
+            break;
+        stretched[static_cast<std::size_t>(dst++)] =
+            original_schedule[static_cast<std::size_t>(k)];
+    }
+    const double event_time = state_stamp_s +
+        static_cast<double>(rear_event) * knot_dt_s;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (next_touchdown_time_valid[leg] &&
+            std::isfinite(next_touchdown_time_s[leg]) &&
+            next_touchdown_time_s[leg] >= event_time - 0.5 * knot_dt_s)
+            next_touchdown_time_s[leg] +=
+                static_cast<double>(delay_knots) * knot_dt_s;
+    }
+    return true;
+}
+
 inline std::array<bool, go2::kLegCount> TerrainTransferPreviewContact(
     const std::array<bool, go2::kLegCount> &planned_contact,
     const std::array<bool, go2::kLegCount> &held_support,
