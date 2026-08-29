@@ -1272,12 +1272,16 @@ int main()
             return 1;
         x.measured_velocity_mps =
             go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps;
+        // A crawl handoff is allowed only after the measured support has
+        // recovered to the three-contact invariant.
+        x.measured_contact = {true, true, true, true};
         x.now_s = 10.2;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom &&
                        m.UsesCrawlExecution(),
                    "crawl execution did not begin at creep speed"))
             return 1;
+        x.measured_contact = {true, true, false, false};
         x.now_s = 10.21;
         m.Update(x);
         if (!Check(!m.aborted(),

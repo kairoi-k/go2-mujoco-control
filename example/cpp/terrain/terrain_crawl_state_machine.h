@@ -348,7 +348,7 @@ public:
         case TerrainCrawlState::kDecelerateToCreep:
             // Keep trot in charge while slowing to creep; SHIFT_COM owns the
             // measured-contact invariant after this speed handoff.
-            if (signals.plan_valid &&
+            if (signals.plan_valid && three_contacts &&
                 std::isfinite(signals.measured_velocity_mps) &&
                 signals.measured_velocity_mps >= 0.05 &&
                 signals.measured_velocity_mps <= kCreepSpeedMps)
