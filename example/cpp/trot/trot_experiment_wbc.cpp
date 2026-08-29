@@ -677,6 +677,16 @@ void TrotExperiment::UpdateWbcFull(
         mpc_params.w_vel_xy = 80.0;
         mpc_params.w_pos_xy = 20.0;
     }
+    if (terrain_transfer_window_active_ &&
+        terrain_crawl_state_machine_.state() ==
+            go2_terrain::TerrainCrawlState::kShiftCom)
+    {
+        // Load the measured three-leg geometry promptly. This is the same
+        // horizontal MPC body-position task with a window-scoped reference
+        // weight, not an additional balance controller.
+        mpc_params.w_pos_xy = 300.0;
+        mpc_params.w_vel_xy = 20.0;
+    }
     if (high_speed_curriculum)
     {
         // The ordinary trot weights are intentionally conservative.  Keep
