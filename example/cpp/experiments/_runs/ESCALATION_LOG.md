@@ -620,3 +620,15 @@ evidence:
 verdict: |
   The mechanism and numeric diagnosis are established, and the transfer-only edge-gated path removes the epoch37-r2 corner condition in the successful r1 swing (z=0.08147 at x=0.70304). The named pair still has only one FL commit and no dual-front/rear progression, so physical success and gate-level conclusions are not claimed.
 ---
+---
+timestamp: 2026-08-30T10:15:00+0800
+run_id: Order-021 final-HEAD canary metadata correction
+trigger: T1
+signature: The pre-edge contact check was moved ahead of the endpoint-held gate in b9d9a75, with redundant endpoint-only code removed in b486e87. This makes any measured corner contact fail immediately while preserving the transition requirement. Final named canaries were rerun at clean HEAD b486e87.
+evidence: |
+  b1_crawl_epoch38_20260828: manifest git_head=b486e87f8f0284c1f4b63b991a2ced09073eeaa8, git_dirty=false; final base_x=.991913 m, committed mask=0, completion=0. FL target=(.968304,.049934) was prepared but had only 19 rows at phase 0 and never entered in-flight execution; FR/RR/RL had no terrain swing. Therefore no apex/contact was observed in this final stochastic rerun.
+  b1_crawl_epoch38_20260828_r2: manifest git_head=b486e87f8f0284c1f4b63b991a2ced09073eeaa8, git_dirty=false; final base_x=.437811 m, committed mask=0, completion=0. FL target=(.942118,.050135) had only 19 phase-0 rows and never entered in-flight execution; FR/RR/RL had no terrain swing. The immediately preceding clean-20e548 rerun remains the per-swing evidence: r1 FL crossed x=.70 at z=.081470 and committed mask=2; r2 FL apex=.052493 at x=.691028 with no crossing/commit. No dual-front or rear progression is claimed.
+verdict: |
+  Final code and clean-HEAD metadata are consistent. The named final pair is negative stochastic evidence; the earlier clean pair demonstrates the edge-height mechanism but only one-front commit. No gate-level conclusion.
+git_status: clean; no staged files; no push/amend; simulations serialized.
+---
