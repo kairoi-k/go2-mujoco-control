@@ -413,3 +413,9 @@ timestamp: 2026-08-30T00:45:00+0800
 run_id: Order-015 evidence SHA correction
 trigger: T1
 signature: Commit 8fd2d15 follows the canary code commit e3e1fa1 and only restores the TerrainPlanner::Build const-reference API; it does not change runtime behavior. Canary evidence therefore remains behaviorally valid for final HEAD, with the implementation commit chain ending at 8fd2d15.
+
+---
+timestamp: 2026-08-30T00:55:00+0800
+run_id: Order-015 line-number correction
+trigger: T1
+signature: In current final source, terrain support validation spans terrain_planner.h:1257-1388 (the rejection predicate is :1379), terrain feasibility FK/IK rejection is terrain_feasibility.h:911-953, and WBC terrain-plan horizon coherence/rejection is trot_experiment_wbc.cpp:661-675. Earlier evidence text's WBC line range referred to the pre-change source offset; mechanism and numeric evidence are unchanged.
