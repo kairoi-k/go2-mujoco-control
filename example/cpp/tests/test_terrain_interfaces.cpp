@@ -526,7 +526,7 @@ int main()
                    &step_leading_edge_phase_valid),
                "10cm sensor-derived swing clearance was rejected") ||
         !Check(step_required_lift >= 0.03 &&
-                   step_required_lift < 0.30 &&
+                   step_required_lift < 0.40 &&
                    step_peak_phase >= 0.10 && step_peak_phase <= 0.90 &&
                    step_leading_edge_phase_valid &&
                    step_leading_edge_phase >= 0.10 &&
@@ -537,6 +537,19 @@ int main()
                    go2_terrain::TerrainSwingPathProgress(
                        1.0, true, step_leading_edge_phase) > 0.999,
                "10cm swing clearance geometry was invalid"))
+        return 1;
+
+    if (!Check(step_leading_edge_phase_valid &&
+                   step_peak_phase <= step_leading_edge_phase + 1.0e-9,
+               "swing apex was not placed before the observed edge") ||
+        !Check(go2_terrain::TerrainSwingContactBeforeLeadingEdge(
+                   {0.68, -0.10, 0.02}, {0.86, -0.10, 0.05},
+                   {0.701, -0.10, 0.07}, true, 0.30),
+               "corner contact was not classified as a failed swing") ||
+        !Check(!go2_terrain::TerrainSwingContactBeforeLeadingEdge(
+                   {0.68, -0.10, 0.02}, {0.86, -0.10, 0.05},
+                   {0.76, -0.10, 0.07}, true, 0.30),
+               "post-edge contact was incorrectly rejected"))
         return 1;
 
     // epoch15a/16 anchor false positive: the FK support foot stands on

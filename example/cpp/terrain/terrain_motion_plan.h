@@ -30,6 +30,35 @@ inline double TerrainTouchdownTolerance(
         : geometric_tolerance;
 }
 
+// Return the horizontal path progress at a sensor-derived leading edge. This
+// mirrors the bounded swing path's smoothstep without depending on the
+// terrain feasibility sweep.
+inline double TerrainSwingLeadingEdgePathProgress(double edge_phase)
+{
+    const double u = std::clamp(edge_phase, 0.10, 0.75);
+    return u * u * (3.0 - 2.0 * u);
+}
+
+// A measured contact at or before the inferred edge is a corner catch, not a
+// valid touchdown. Leave the transition requirement intact so the next plan
+// can execute a fresh swing rather than committing or pinning the endpoint.
+inline bool TerrainSwingContactBeforeLeadingEdge(
+    const go2::Vec3 &start_world, const go2::Vec3 &target_world,
+    const go2::Vec3 &actual_world, bool leading_edge_phase_valid,
+    double leading_edge_phase)
+{
+    if (!leading_edge_phase_valid ||
+        !std::isfinite(start_world.x) || !std::isfinite(target_world.x) ||
+        !std::isfinite(actual_world.x) || target_world.x <= start_world.x)
+        return false;
+    const double edge_x = start_world.x +
+        TerrainSwingLeadingEdgePathProgress(leading_edge_phase) *
+            (target_world.x - start_world.x);
+    // Allow the measured foot-site/contact filter's few-mm spatial jitter at
+    // the inferred edge while still rejecting a corner catch in front of it.
+    return actual_world.x <= edge_x + 0.005;
+}
+
 // A target that cannot be handed off within its immutable touchdown window
 // is a failed leg of the transaction. Keep required unchanged: planned
 // requirements are part of the transfer-consistency record and a cancelled

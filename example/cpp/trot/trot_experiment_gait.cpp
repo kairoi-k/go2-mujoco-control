@@ -2348,7 +2348,7 @@ bool TrotExperiment::BuildGaitTargets(
                     execution.swing_leading_edge_phase);
             const double terrain_peak_phase =
                 execution.swing_leading_edge_phase_valid
-                    ? std::max(
+                    ? std::min(
                           execution.swing_peak_phase,
                           execution.swing_leading_edge_phase)
                     : execution.swing_peak_phase;

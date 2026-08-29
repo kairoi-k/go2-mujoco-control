@@ -501,7 +501,7 @@ inline bool CheckSwingClearance(
         : (first_rise_phase >= 0.0 ? first_rise_peak_phase : 0.5);
     const bool observed_leading_edge = first_rise_phase >= 0.0;
     const double execution_peak_phase = observed_leading_edge
-        ? std::max(
+        ? std::min(
               best_peak_phase,
               std::clamp(first_rise_phase, 0.10, 0.75))
         : best_peak_phase;
