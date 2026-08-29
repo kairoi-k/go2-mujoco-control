@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstddef>
 #include <condition_variable>
+#include <deque>
 #include <fstream>
 #include <limits>
 #include <memory>
@@ -304,6 +305,7 @@ private:
     double emergency_stop_finish_time_s_ = 0.0;
     go2_control::FirstOrderVelocityFilter velocity_filter_;
     go2_trot::VelocityCommandShaper velocity_command_shaper_;
+    go2_trot::ContinuousVelocityGaitScheduler velocity_gait_scheduler_;
     go2_control::Vector3 latest_world_velocity_{};
     go2_control::Vector3 latest_raw_body_velocity_{};
     go2_control::Vector3 latest_filtered_body_velocity_{};
@@ -447,6 +449,11 @@ private:
     bool have_environment_heightmap_ = false;
     bool have_lidar_heightmap_ = false;
 
+    // (state_stamp_s, base_position_world.z) history used to re-reference
+    // the base-relative lidar heightmap from its snapshot-time base height
+    // to the planner snapshot's base height.  Control-thread only.
+    std::deque<std::pair<double, double>> base_height_history_;
+
     go2_terrain::TerrainPlanner terrain_planner_{};
     go2_terrain::TerrainPlanStore terrain_plan_store_{};
     // A committed terrain foothold is a trajectory transaction.  It is
@@ -469,6 +476,10 @@ private:
         double trajectory_start_time_s = 0.0;
         double swing_duration_s = 0.0;
         double terrain_swing_duration_s = 0.0;
+        // Lower bound checked by the planner for the retimed path.  Keep it
+        // visible at the execution rebase instead of replacing it with the
+        // stale nominal gait interval.
+        double planned_swing_duration_s = 0.0;
         double swing_lift_m = 0.0;
         double swing_peak_phase = 0.5;
         double swing_leading_edge_phase = 0.5;
@@ -507,6 +518,11 @@ private:
     double terrain_surface_transition_deadband_m_ = 0.0;
     std::array<bool, go2::kLegCount>
         terrain_surface_transition_required_{};
+    // The original plan requirement remains visible after a failed handoff.
+    std::array<bool, go2::kLegCount>
+        terrain_surface_transition_original_required_{};
+    std::array<bool, go2::kLegCount>
+        terrain_surface_transition_cancelled_{};
     std::array<bool, go2::kLegCount>
         terrain_surface_transition_committed_{};
     std::array<bool, go2::kLegCount>

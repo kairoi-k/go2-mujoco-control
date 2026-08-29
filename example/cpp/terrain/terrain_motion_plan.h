@@ -17,6 +17,42 @@ namespace go2_terrain
 
 constexpr std::size_t kTerrainPlanMaxKnots = kTerrainContactMaxKnots;
 
+// A target that cannot be handed off within its immutable touchdown window
+// is a failed leg of the transaction. Keep required unchanged: planned
+// requirements are part of the transfer-consistency record and a cancelled
+// leg must never be silently rewritten as completed.
+inline bool MarkTerrainTransitionLegCancelled(
+    const std::array<bool, go2::kLegCount> &required,
+    const std::array<bool, go2::kLegCount> &committed,
+    std::array<bool, go2::kLegCount> &cancelled,
+    std::array<bool, go2::kLegCount> &source_valid,
+    std::size_t leg)
+{
+    if (leg >= go2::kLegCount || !required[leg] || committed[leg] ||
+        cancelled[leg])
+        return false;
+    cancelled[leg] = true;
+    source_valid[leg] = false;
+    return true;
+}
+
+inline bool TerrainTransitionComplete(
+    const std::array<bool, go2::kLegCount> &required,
+    const std::array<bool, go2::kLegCount> &committed,
+    const std::array<bool, go2::kLegCount> &cancelled)
+{
+    bool has_requirement = false;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (!required[leg])
+            continue;
+        has_requirement = true;
+        if (cancelled[leg] || !committed[leg])
+            return false;
+    }
+    return has_requirement;
+}
+
 enum class TerrainPlanStatus : std::uint8_t
 {
     kEmpty = 0,
@@ -96,7 +132,10 @@ struct TerrainFootholdPrediction
     // Sensor-derived target elevation crosses the currently loaded support
     // surface. This identifies the contact event that must be confirmed;
     // it is never inferred from a fixed leg order or scene geometry.
+    // Planner-owned target-surface intent.  Support validation consumes this
+    // latched identity rather than comparing measured/blended foothold z.
     bool surface_transition_required = false;
+    bool surface_transition_intent_valid = false;
 };
 
 struct TerrainVelocityRequest

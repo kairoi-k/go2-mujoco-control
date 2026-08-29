@@ -6,6 +6,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <limits>
 #include <utility>
 #include <vector>
@@ -29,7 +31,23 @@ struct TerrainPlannerConfig
     double plan_validity_s = 0.15;
     double deadline_us = 5000.0;
     double min_support_margin_m = 0.015;
-    double max_two_contact_line_error_m = 0.040;
+    // Lateral half-width of the two-contact support capsule.  A trot
+    // diagonal sits ~30 degrees off the direction of travel, so the COM
+    // drifts off the line at ~0.13-0.18 m/s per 0.30 m/s of forward speed;
+    // 0.040 left only ~25 mm of band and rejected every terrain-retimed
+    // hold.  epoch11 showed the binding case is the mid-crossing straddle:
+    // front foot on the plateau, rear foot still on flat ground forces the
+    // support line ~45-46 mm off the COM path, and the 0.060 band (45 mm
+    // budget) rejected it by ~1 mm, freezing the plan stream mid-crossing.
+    // Sized as the observed straddle geometry (~46 mm) + the 15 mm margin
+    // + placement-variation headroom; see
+    // docs/research/PHASE2_B1_TIMING_CONTRACT_REDESIGN.md section 7.
+    double max_two_contact_line_error_m = 0.070;
+    // A planner-owned transition intent selects this wider corridor for a
+    // pair committed to different surfaces.  The intent is independent of
+    // the blended support-cell z values; flat-ground support keeps the drift
+    // band.
+    double two_contact_straddle_corridor_m = 0.120;
     double candidate_x_span_m = 0.090;
     double candidate_y_span_m = 0.070;
     double candidate_spacing_m = 0.030;
@@ -162,6 +180,33 @@ inline go2::Vec3 PredictBasePosition(
         base_position.z + base_velocity.z * dt_s};
 }
 
+inline bool PendingSurfaceTransition(
+    const TerrainPlannerInput &input, std::size_t leg)
+{
+    return leg < go2::kLegCount &&
+        input.terrain_surface_transition_active &&
+        input.terrain_surface_transition_required[leg] &&
+        !input.terrain_surface_transition_committed[leg];
+}
+
+inline void PopulateMeasuredSupportTransitionIntent(
+    const TerrainPlannerInput &input,
+    const std::array<bool, go2::kLegCount> &contacts,
+    std::array<bool, go2::kLegCount> &surface_transition_required,
+    std::array<bool, go2::kLegCount> &surface_transition_intent_valid)
+{
+    surface_transition_required.fill(false);
+    surface_transition_intent_valid.fill(false);
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (!contacts[leg])
+            continue;
+        surface_transition_required[leg] =
+            PendingSurfaceTransition(input, leg);
+        surface_transition_intent_valid[leg] = true;
+    }
+}
+
 inline double Cross2D(const go2::Vec3 &a, const go2::Vec3 &b,
                       const go2::Vec3 &p)
 {
@@ -255,6 +300,95 @@ inline double SupportMargin2D(
         minimum = std::min(minimum, cross);
     }
     return minimum >= min_margin ? minimum : minimum;
+}
+
+// Lateral line-error bound for a two-contact support set.  The support
+// gate consumes planner-owned transition intent, not the z values of the
+// support feet: riser-edge map cells may blend the measured height by an
+// arbitrary amount as resolution changes.  Exactly one pending transition
+// means the pair is straddling the old and new planned surfaces.  If both
+// feet have pending intent for the same destination, or either identity is
+// unavailable, use the ordinary drift band (fail closed for missing identity).
+inline double TwoContactLineErrorBound(
+    const std::array<go2::Vec3, go2::kLegCount> &feet,
+    const std::array<bool, go2::kLegCount> &contact,
+    const TerrainPlannerConfig &config,
+    const std::array<bool, go2::kLegCount> &surface_transition_required,
+    const std::array<bool, go2::kLegCount> &surface_transition_intent_valid)
+{
+    std::size_t count = 0;
+    std::size_t pending_transition_count = 0;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (!contact[leg])
+            continue;
+        ++count;
+        if (!surface_transition_intent_valid[leg])
+            return config.max_two_contact_line_error_m;
+        if (surface_transition_required[leg])
+            ++pending_transition_count;
+    }
+    if (count == 2 && pending_transition_count == 1)
+        return config.two_contact_straddle_corridor_m;
+    // Epoch19/20 two-contact failures are diagonal, pre-commit support
+    // pairs; the recorded pair geometry is an old/new straddle, never two
+    // independently committed surfaces.  Conversely, when both contacts
+    // carry pending transition intent they target the same upper plane in
+    // this single-riser scene, so their segment has no old/new boundary.
+    // Keep the ordinary drift band for zero or two pending legs rather than
+    // widening it without a geometric surface split.
+    return config.max_two_contact_line_error_m;
+}
+
+inline void LogTwoContactSupportBound(
+    const char *evaluation, std::uint64_t plan_id, std::size_t knot,
+    const std::array<bool, go2::kLegCount> &contact,
+    const std::array<bool, go2::kLegCount> &surface_transition_required,
+    const std::array<bool, go2::kLegCount> &surface_transition_intent_valid,
+    double bound, const TerrainPlannerConfig &config)
+{
+    if (std::getenv("TROT_TERRAIN_DEBUG_SUPPORT_BOUND") == nullptr)
+        return;
+    std::size_t contact_count = 0;
+    bool any_transition_required = false;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (contact[leg])
+            ++contact_count;
+        any_transition_required = any_transition_required ||
+            (contact[leg] && surface_transition_required[leg]);
+    }
+    if (contact_count != 2)
+        return;
+    // Match the existing swing diagnostics: keep a small ordinary sample,
+    // but retain every transition-intent record needed by the canary proof.
+    static std::size_t debug_support_bound_prints = 0;
+    static std::size_t debug_support_bound_ordinary_prints = 0;
+    if ((!any_transition_required && debug_support_bound_ordinary_prints >= 256) ||
+        debug_support_bound_prints >= 4096)
+        return;
+    ++debug_support_bound_prints;
+    if (!any_transition_required)
+        ++debug_support_bound_ordinary_prints;
+    std::fprintf(
+        stderr,
+        "Terrain support bound diagnostic eval=%s plan=%llu knot=%zu "
+        "contact=%d%d%d%d bound=%s bound_m=%.6f required=%d%d%d%d "
+        "intent_valid=%d%d%d%d\n",
+        evaluation, static_cast<unsigned long long>(plan_id), knot,
+        contact[0] ? 1 : 0, contact[1] ? 1 : 0, contact[2] ? 1 : 0,
+        contact[3] ? 1 : 0,
+        std::abs(bound - config.two_contact_straddle_corridor_m) < 1.0e-12
+            ? "straddle" : "drift",
+        bound,
+        surface_transition_required[0] ? 1 : 0,
+        surface_transition_required[1] ? 1 : 0,
+        surface_transition_required[2] ? 1 : 0,
+        surface_transition_required[3] ? 1 : 0,
+        surface_transition_intent_valid[0] ? 1 : 0,
+        surface_transition_intent_valid[1] ? 1 : 0,
+        surface_transition_intent_valid[2] ? 1 : 0,
+        surface_transition_intent_valid[3] ? 1 : 0);
 }
 
 class TerrainPlanner
@@ -550,6 +684,14 @@ public:
                     candidate.edge_margin_m);
                 const int surface_rank = forward_elevated_surface(
                     candidate.foot_position, candidate.uncertainty_m);
+                // Latch the planner's target-surface intent once, before the
+                // candidate enters the plan.  The support gate consumes this
+                // identity and never re-derives it from blended foothold z.
+                candidate.surface_transition_required =
+                    surface_rank > 0 ||
+                    (input.terrain_surface_transition_active &&
+                     input.terrain_surface_transition_required[leg]);
+                candidate.surface_transition_intent_valid = true;
                 result.max_swing_candidate_z_by_leg[leg] = std::max(
                     result.max_swing_candidate_z_by_leg[leg],
                     candidate.foot_position.z);
@@ -959,16 +1101,30 @@ private:
             std::array<go2::Vec3, go2::kLegCount> feet{};
             std::array<bool, go2::kLegCount> contacts =
                 input.contact_schedule.planned_contact[k];
+            std::array<bool, go2::kLegCount> surface_transition_required{};
+            std::array<bool, go2::kLegCount> surface_transition_intent_valid{};
             std::size_t contact_count = 0;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {
                 if (!contacts[leg])
                     continue;
+                surface_transition_intent_valid[leg] =
+                    input.contact_schedule.measured_valid &&
+                    input.contact_schedule.measured_contact[leg];
+                surface_transition_required[leg] =
+                    input.terrain_surface_transition_active &&
+                    input.terrain_surface_transition_required[leg] &&
+                    !input.terrain_surface_transition_committed[leg];
                 const bool use_selected =
                     touchdown_knots[leg] >= 0 &&
                     static_cast<int>(k) >= touchdown_knots[leg];
                 if (use_selected)
                 {
+                    surface_transition_intent_valid[leg] =
+                        selection[leg].surface_transition_intent_valid;
+                    surface_transition_required[leg] =
+                        surface_transition_required[leg] ||
+                        selection[leg].surface_transition_required;
                     if (selection[leg].hard_feasible)
                     {
                         feet[leg] = RotateBaseToWorld(
@@ -1018,7 +1174,13 @@ private:
             }
             if (current_confirmed_support && measured_count >= 2)
             {
+                // Keep pending transition intent while replacing planned
+                // geometry with measured support; only committed legs clear
+                // their required bit.
                 contacts = input.contact_schedule.measured_contact;
+                PopulateMeasuredSupportTransitionIntent(
+                    input, contacts, surface_transition_required,
+                    surface_transition_intent_valid);
                 contact_count = 0;
                 for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
                 {
@@ -1041,9 +1203,16 @@ private:
             const go2::Vec3 support_body = PredictBasePosition(
                 input.base_position_world, input.base_velocity_world,
                 static_cast<double>(k) * config_.knot_dt_s);
+            const double support_bound = TwoContactLineErrorBound(
+                feet, contacts, config_, surface_transition_required,
+                surface_transition_intent_valid);
+            LogTwoContactSupportBound(
+                "selection", result.plan.plan_id, k, contacts,
+                surface_transition_required, surface_transition_intent_valid,
+                support_bound, config_);
             const double margin = SupportMargin2D(
                 feet, contacts, support_body, config_.min_support_margin_m,
-                config_.max_two_contact_line_error_m);
+                support_bound);
             result.plan.min_support_margin_m = std::min(
                 result.plan.min_support_margin_m, margin);
             result.plan.min_uncertainty_inflated_support_margin_m = std::min(
@@ -1079,13 +1248,27 @@ private:
             std::size_t contact_count = 0;
             std::array<bool, go2::kLegCount> contacts =
                 result.plan.contact_schedule.planned_contact[k];
+            std::array<bool, go2::kLegCount> surface_transition_required{};
+            std::array<bool, go2::kLegCount> surface_transition_intent_valid{};
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {
                 if (!contacts[leg] ||
                     !result.plan.predicted_foothold[k][leg].valid)
                     continue;
                 ++contact_count;
-                feet[leg] = result.plan.predicted_foothold[k][leg].position_world;
+                const auto &predicted = result.plan.predicted_foothold[k][leg];
+                feet[leg] = predicted.position_world;
+                surface_transition_intent_valid[leg] =
+                    predicted.surface_transition_intent_valid;
+                surface_transition_required[leg] =
+                    predicted.surface_transition_required ||
+                    (input.terrain_surface_transition_active &&
+                     input.terrain_surface_transition_required[leg] &&
+                     !input.terrain_surface_transition_committed[leg]);
+                surface_transition_intent_valid[leg] =
+                    surface_transition_intent_valid[leg] ||
+                    (input.terrain_surface_transition_active &&
+                     input.terrain_surface_transition_required[leg]);
             }
             // A running trot may intentionally have an aerial knot; static support
             // geometry does not apply there. A single loaded leg remains rejected.
@@ -1117,7 +1300,13 @@ private:
             }
             if (current_confirmed_support && measured_count >= 2)
             {
+                // Preserve an uncommitted leg transition across this
+                // measured-support replacement; committed measured legs
+                // retain valid geometry but no longer require the corridor.
                 contacts = input.contact_schedule.measured_contact;
+                PopulateMeasuredSupportTransitionIntent(
+                    input, contacts, surface_transition_required,
+                    surface_transition_intent_valid);
                 contact_count = 0;
                 for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
                 {
@@ -1132,9 +1321,16 @@ private:
                     return false;
             }
             const auto &body = result.plan.body_reference[k];
+            const double support_bound = TwoContactLineErrorBound(
+                feet, contacts, config_, surface_transition_required,
+                surface_transition_intent_valid);
+            LogTwoContactSupportBound(
+                "validation", result.plan.plan_id, k, contacts,
+                surface_transition_required, surface_transition_intent_valid,
+                support_bound, config_);
             const double margin = SupportMargin2D(
                 feet, contacts, body.position, config_.min_support_margin_m,
-                config_.max_two_contact_line_error_m);
+                support_bound);
             result.plan.min_support_margin_m = std::min(
                 result.plan.min_support_margin_m, margin);
             result.plan.min_uncertainty_inflated_support_margin_m = std::min(
@@ -1356,6 +1552,14 @@ private:
                     candidate.support_margin_m = region.support_margin_m;
                     candidate.collision_margin_m =
                         candidate.swing_clearance_m;
+                    // Future retimed touchdowns remain on the surface
+                    // already committed by the preceding candidate.  If no
+                    // intent exists, leave it false and fail closed to the
+                    // ordinary drift band.
+                    candidate.surface_transition_required =
+                        previous_candidate.surface_transition_required;
+                    candidate.surface_transition_intent_valid =
+                        previous_candidate.surface_transition_intent_valid;
                     const double score = region_score(
                         candidate.foot_position, candidate.uncertainty_m,
                         candidate.edge_margin_m);
@@ -1453,14 +1657,22 @@ private:
                 return false;
             const double delay_s = std::max(
                 0.0, required_touchdown_s - foot.touchdown_time_s);
-            const int delay = static_cast<int>(std::ceil(
+            int delay = static_cast<int>(std::ceil(
                 std::max(0.0, delay_s / config_.knot_dt_s - 1.0e-9)));
             if (delay <= 0)
                 continue;
-            const int retimed_first = first + delay;
-            if (retimed_first < 0 ||
-                retimed_first >= static_cast<int>(config_.horizon_knots))
-                return false;
+            // The terrain duration is known here, before publication and
+            // execution rebase. Reserve one planner knot in the same atomic
+            // stretch for handoff/rebase jitter; otherwise a later measured
+            // swing start consumes the entire feasibility-derived delay.
+            // This is timing structure, not a velocity reduction, and the
+            // execution target remains frozen once the swing starts.
+            ++delay;
+            // A retimed touchdown that lands beyond the horizon is not a
+            // plan-killing overflow: the insertion below truncates the
+            // stretch at the horizon end and the selection shift drops the
+            // event, so the near-term schedule still publishes and the
+            // event is replanned once it slides into the window.
             first_knot[leg] = first;
             delay_knots[leg] = delay;
             changed = true;
@@ -1487,51 +1699,159 @@ private:
         if (!changed)
             return true;
 
-        const auto original_schedule = input.contact_schedule.planned_contact;
+        // One terrain event stretches the whole timeline, not only the
+        // triggered legs: the opposite diagonal pair must hold its stance
+        // while the extended swing is in the air, and every later event
+        // inherits the shift.  Insert `delay` copies of the pre-event
+        // contact row at the event knot for every leg — swinging legs read
+        // false (their swing continues), support legs read true (their
+        // stance extends) — so no knot can drop below the pre-event
+        // support count and gait, MPC, and WBC all read one identical
+        // atomic schedule.
+        std::vector<std::pair<int, int>> stretches;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const int first = first_knot[leg];
-            const int delay = delay_knots[leg];
-            if (first < 0 || delay <= 0)
+            if (first_knot[leg] < 0 || delay_knots[leg] <= 0)
                 continue;
-            for (std::size_t k = 0; k < config_.horizon_knots; ++k)
-            {
-                const int index = static_cast<int>(k);
-                if (index < first)
-                    retimed_input.contact_schedule.planned_contact[k][leg] =
-                        original_schedule[k][leg];
-                else if (index < first + delay)
-                    retimed_input.contact_schedule.planned_contact[k][leg] =
-                        false;
-                else
-                    retimed_input.contact_schedule.planned_contact[k][leg] =
-                        original_schedule[static_cast<std::size_t>(
-                            index - delay)][leg];
-            }
+            stretches.emplace_back(first_knot[leg], delay_knots[leg]);
+        }
+        std::sort(stretches.begin(), stretches.end());
+        std::vector<std::pair<int, int>> merged;
+        for (const auto &stretch : stretches)
+        {
+            if (!merged.empty() && merged.back().first == stretch.first)
+                merged.back().second = std::max(
+                    merged.back().second, stretch.second);
+            else
+                merged.push_back(stretch);
+        }
+        const auto shift_at = [&merged](int knot) {
+            int shift = 0;
+            for (const auto &stretch : merged)
+                if (stretch.first <= knot)
+                    shift += stretch.second;
+            return shift;
+        };
 
-            const int retimed_first = first + delay;
+        const int horizon = static_cast<int>(config_.horizon_knots);
+        const auto original_schedule = input.contact_schedule.planned_contact;
+        auto &stretched = retimed_input.contact_schedule.planned_contact;
+        int dst = 0;
+        bool stretch_cut = false;
+        std::size_t stretch_index = 0;
+        for (int k = 0; k < horizon; ++k)
+        {
+            while (stretch_index < merged.size() &&
+                   merged[stretch_index].first == k)
+            {
+                const int source = std::max(0, k - 1);
+                for (int j = 0; j < merged[stretch_index].second; ++j)
+                {
+                    // Truncate at the horizon end instead of rejecting the
+                    // plan: every written row is a copy of an original
+                    // schedule row, so a partial stretch keeps the schedule
+                    // internally consistent and only the far events that no
+                    // longer fit are dropped (their shifted selections are
+                    // dropped by the shift loop below as well).
+                    if (dst >= horizon)
+                    {
+                        stretch_cut = true;
+                        break;
+                    }
+                    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                        stretched[static_cast<std::size_t>(dst)][leg] =
+                            original_schedule[
+                                static_cast<std::size_t>(source)][leg];
+                    ++dst;
+                }
+                ++stretch_index;
+            }
+            if (dst >= horizon)
+                break;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                stretched[static_cast<std::size_t>(dst)][leg] =
+                    original_schedule[static_cast<std::size_t>(k)][leg];
+            ++dst;
+        }
+
+        // Graceful truncation is only safe while the measured state is
+        // independently supported.  A plan whose recovery touchdowns fell
+        // off the horizon must not be published over a one-contact or
+        // airborne measured state; fail closed there, as the overflow
+        // rejection did before.
+        if (stretch_cut && input.contact_schedule.measured_valid)
+        {
+            std::size_t measured_contacts = 0;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                if (input.contact_schedule.measured_contact[leg])
+                    ++measured_contacts;
+            if (measured_contacts < 2)
+                return false;
+        }
+
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
             auto old_selected = result.selected_by_touchdown[leg];
-            auto old_selected_valid = result.selected_by_touchdown_valid[leg];
+            auto old_selected_valid =
+                result.selected_by_touchdown_valid[leg];
             result.selected_by_touchdown[leg].fill(FootholdCandidate{});
             result.selected_by_touchdown_valid[leg].fill(false);
-            for (std::size_t event = static_cast<std::size_t>(first);
-                 event < config_.horizon_knots; ++event)
+            for (std::size_t event = 0; event < config_.horizon_knots;
+                 ++event)
             {
                 if (!old_selected_valid[event])
                     continue;
-                const std::size_t shifted = event +
-                    static_cast<std::size_t>(delay);
-                if (shifted >= config_.horizon_knots)
+                const int shift = shift_at(static_cast<int>(event));
+                const int shifted = static_cast<int>(event) + shift;
+                if (shifted >= horizon)
                     continue;
-                result.selected_by_touchdown[leg][shifted] =
-                    old_selected[event];
-                result.selected_by_touchdown_valid[leg][shifted] = true;
+                FootholdCandidate shifted_candidate = old_selected[event];
+                // The foothold was selected for the pre-stretch event time:
+                // its world anchor is fixed at the planning base pose while
+                // the body keeps travelling.  At the shifted touchdown the
+                // base has advanced by velocity*shift*dt past that anchor,
+                // which would silently shrink the post-touchdown support
+                // margin.  Carry the foothold forward with the stretch so
+                // the base-relative landing geometry is the one that was
+                // validated.
+                if (shift > 0)
+                {
+                    const go2::Vec3 travel_base = RotateWorldVectorToBase(
+                        input.base_yaw_rad, input.base_velocity_world);
+                    const double travel_s =
+                        static_cast<double>(shift) * config_.knot_dt_s;
+                    shifted_candidate.foot_position.x +=
+                        travel_base.x * travel_s;
+                    shifted_candidate.foot_position.y +=
+                        travel_base.y * travel_s;
+                }
+                result.selected_by_touchdown[leg][
+                    static_cast<std::size_t>(shifted)] = shifted_candidate;
+                result.selected_by_touchdown_valid[leg][
+                    static_cast<std::size_t>(shifted)] = true;
             }
-            retimed_input.next_touchdown_time_s[leg] =
-                input.state_stamp_s +
-                static_cast<double>(retimed_first) * config_.knot_dt_s;
-            retimed_input.next_touchdown_time_valid[leg] = true;
-            result.touchdown_knot_by_leg[leg] = retimed_first;
+            if (result.touchdown_knot_by_leg[leg] >= 0)
+                result.touchdown_knot_by_leg[leg] += shift_at(
+                    result.touchdown_knot_by_leg[leg]);
+            // Re-derive the next touchdown from the stretched schedule so
+            // consumers never see an event time that disagrees with the
+            // contact timeline they execute.
+            bool previous =
+                input.contact_schedule.measured_contact[leg];
+            for (int k = 0; k < horizon; ++k)
+            {
+                const bool planned =
+                    stretched[static_cast<std::size_t>(k)][leg];
+                if (planned && !previous)
+                {
+                    retimed_input.next_touchdown_time_s[leg] =
+                        input.state_stamp_s +
+                        static_cast<double>(k) * config_.knot_dt_s;
+                    retimed_input.next_touchdown_time_valid[leg] = true;
+                    break;
+                }
+                previous = planned;
+            }
         }
         return true;
     }
@@ -1785,17 +2105,13 @@ private:
                     foot.support_margin_m = candidate.support_margin_m;
                     foot.collision_margin_m = candidate.collision_margin_m;
                     foot.uncertainty_m = candidate.uncertainty_m;
-                    const double observed_surface_height_m =
-                        ObservedTerrainReferenceHeight(input, leg);
-                    const double transition_deadband_m = std::max(
-                        2.0 * std::max(0.0, candidate.uncertainty_m),
-                        0.5 * config_.feasibility.foot_patch_radius_m);
                     foot.surface_transition_required =
-                        std::isfinite(observed_surface_height_m) &&
-                        std::isfinite(candidate.foot_position.z) &&
-                        candidate.foot_position.z -
-                                observed_surface_height_m >
-                            transition_deadband_m;
+                        candidate.surface_transition_required;
+                    foot.surface_transition_intent_valid =
+                        candidate.surface_transition_intent_valid;
+                    // This intent is deliberately not recomputed from
+                    // candidate/observed z here: those values can be blended
+                    // at a riser edge and are not a stable surface identity.
                     result.plan.uncertainty_m = std::max(
                         result.plan.uncertainty_m, candidate.uncertainty_m);
                     if (static_cast<int>(k) == active_touchdown)

@@ -183,40 +183,73 @@ struct ContinuousVelocityGaitSchedule
     double foot_lift_m = 0.035;
     const char *regime = "continuous-trot";
 };
+// The running-trot timing is validated at the high-speed end, but it is
+// not a viable sustained low-speed support schedule: at 0.30 m/s it gives
+// a 5 mm swing lift and only 44% duty.  The support-rich probe schedule
+// (0.50 s period, 0.75 duty) is therefore used only for a *sustained*
+// low-speed regime such as a terrain approach.  Keying the schedule to
+// the instantaneous applied speed proved unstable: during an aggressive
+// ramp the tracking-lead cap holds the applied speed low, the schedule
+// then stays in a long-period blend for the whole ramp, and measured
+// tracking collapses (B0 brake_3_to_0 regression, 2026-08-28).
+// Qualification is time-based so ramping *through* the low band never
+// engages it, while a profile that holds <0.40 m/s still receives the
+// support-rich timing.  This changes timing parameters only; topology
+// and the acceleration/jerk shaper remain untouched.
 inline ContinuousVelocityGaitSchedule ScheduleContinuousVelocityGait(
-    double velocity_mps) noexcept
+    double velocity_mps,
+    bool low_speed_support) noexcept
 {
     const double speed = std::clamp(
         std::isfinite(velocity_mps) ? velocity_mps : 0.0, 0.0, 3.20);
-    // The running-trot timing is validated at the high-speed end, but it is
-    // not a viable low-speed support schedule: at 0.30 m/s it gives a 5 mm
-    // swing lift and only 44% duty.  Keep the runtime v_cmd path continuous
-    // while using the already-proven support-rich probe schedule at low
-    // speed.  This changes timing parameters only; topology and the
-    // acceleration/jerk shaper remain untouched.
     constexpr double kLowSpeedPeriodS = 0.50;
     constexpr double kLowSpeedDuty = 0.75;
     constexpr double kLowSpeedFootLiftM = 0.035;
     constexpr double kHighSpeedPeriodS = 0.14;
     constexpr double kHighSpeedDuty = 0.44;
     constexpr double kHighSpeedFootLiftM = 0.200;
-    constexpr double kTransitionStartMps = 0.40;
-    constexpr double kTransitionEndMps = 1.00;
-    const double transition = std::clamp(
-        (speed - kTransitionStartMps) /
-            (kTransitionEndMps - kTransitionStartMps),
-        0.0, 1.0);
-    const double blend = transition * transition *
-        (3.0 - 2.0 * transition);
     ContinuousVelocityGaitSchedule schedule;
-    schedule.period_s = kLowSpeedPeriodS + blend *
-        (kHighSpeedPeriodS - kLowSpeedPeriodS);
-    schedule.duty_factor = kLowSpeedDuty + blend *
-        (kHighSpeedDuty - kLowSpeedDuty);
+    if (low_speed_support)
+    {
+        schedule.period_s = kLowSpeedPeriodS;
+        schedule.duty_factor = kLowSpeedDuty;
+        schedule.foot_lift_m = kLowSpeedFootLiftM;
+    }
+    else
+    {
+        const double normalized = std::clamp(speed / 3.0, 0.0, 1.0);
+        const double blend = normalized * normalized *
+            (3.0 - 2.0 * normalized);
+        schedule.period_s = kHighSpeedPeriodS;
+        schedule.duty_factor = kHighSpeedDuty;
+        schedule.foot_lift_m = kHighSpeedFootLiftM * blend;
+    }
     schedule.step_length_m = speed * schedule.period_s /
         std::max(0.20, 2.0 * schedule.duty_factor);
-    schedule.foot_lift_m = kLowSpeedFootLiftM + blend *
-        (kHighSpeedFootLiftM - kLowSpeedFootLiftM);
     return schedule;
 }
+class ContinuousVelocityGaitScheduler
+{
+public:
+    void Reset() noexcept { low_speed_time_s_ = 0.0; }
+    ContinuousVelocityGaitSchedule Step(
+        double velocity_mps,
+        double dt_s) noexcept
+    {
+        constexpr double kLowSpeedEnterMps = 0.40;
+        constexpr double kLowSpeedQualificationS = 1.0;
+        const double speed = std::clamp(
+            std::isfinite(velocity_mps) ? velocity_mps : 0.0, 0.0, 3.20);
+        const double dt = std::clamp(
+            std::isfinite(dt_s) ? dt_s : 0.0, 0.0, 0.050);
+        if (speed < kLowSpeedEnterMps)
+            low_speed_time_s_ += dt;
+        else
+            low_speed_time_s_ = 0.0;
+        return ScheduleContinuousVelocityGait(
+            speed, low_speed_time_s_ >= kLowSpeedQualificationS);
+    }
+private:
+    double low_speed_time_s_ = 0.0;
+};
 }  // namespace go2_trot

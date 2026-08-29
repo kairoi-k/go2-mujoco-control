@@ -71,6 +71,9 @@ struct TerrainPatch
     bool all_known = false;
     std::size_t known_cells = 0;
     std::size_t total_cells = 0;
+    // Patch cells beyond the grid (sensor FOV edge), as opposed to
+    // in-grid cells that were never observed (occlusion holes).
+    std::size_t outside_cells = 0;
     double center_height_m = kTerrainNaN;
     double min_height_m = kTerrainNaN;
     double max_height_m = kTerrainNaN;
@@ -79,6 +82,16 @@ struct TerrainPatch
     double variance_m2 = kTerrainInf;
     std::array<double, 3> normal{0.0, 0.0, 1.0};
     double map_edge_margin_m = 0.0;
+
+    // True when an in-grid patch cell was never observed.  Out-of-grid
+    // (FOV fringe) cells do not count: the window never observes its own
+    // fringe at any time, so treating it as fatal unknown makes planning
+    // structurally impossible whenever a foot drifts near the edge
+    // (epoch17/18 crux starvation).
+    bool HasUnknownInside() const
+    {
+        return total_cells > outside_cells + known_cells;
+    }
 };
 
 struct TerrainModel
@@ -109,6 +122,19 @@ struct TerrainModel
         return valid() && x_m >= origin_m[0] && y_m >= origin_m[1] &&
             x_m < origin_m[0] + static_cast<double>(width) * resolution_m &&
             y_m < origin_m[1] + static_cast<double>(height) * resolution_m;
+    }
+
+    // True when a swept patch centered at (x_m, y_m) lies fully inside the
+    // grid.  Points failing this have no terrain observation at all, as
+    // opposed to observed-but-unknown cells inside the window.
+    bool CoversPatch(double x_m, double y_m, double radius_m) const
+    {
+        return InBounds(x_m, y_m) &&
+            x_m - radius_m >= origin_m[0] && y_m - radius_m >= origin_m[1] &&
+            x_m + radius_m < origin_m[0] +
+                static_cast<double>(width) * resolution_m &&
+            y_m + radius_m < origin_m[1] +
+                static_cast<double>(height) * resolution_m;
     }
 
     const TerrainCell *CellAt(std::size_t ix, std::size_t iy) const
@@ -179,7 +205,10 @@ struct TerrainModel
                 if (ix < 0 || iy < 0 ||
                     ix >= static_cast<int>(width) ||
                     iy >= static_cast<int>(height))
+                {
+                    ++patch.outside_cells;
                     continue;
+                }
                 const TerrainCell *cell = CellAt(
                     static_cast<std::size_t>(ix), static_cast<std::size_t>(iy));
                 if (cell == nullptr || !cell->known)
@@ -364,6 +393,26 @@ inline TerrainModelBuildResult BuildTerrainModel(
         }
     }
     return result;
+}
+
+// Re-references base-relative cell heights in z.  The sim lidar publisher
+// expresses each cell as world_z - base_z(snapshot); consumers compare
+// against feet expressed relative to base_z(now).  During fast base-height
+// transients (step-up crux) the stale reference masquerades as terrain
+// penetration at the swing anchor.  dz_m = base_z(now) - base_z(snapshot)
+// is subtracted from every finite cell; unknown (NaN) cells are preserved.
+// On flat ground base_z is quasi-static, dz_m ~= 0, behavior unchanged.
+inline void RereferenceHeightMapZ(
+    unitree_go::msg::dds_::HeightMap_ *message, double dz_m)
+{
+    if (message == nullptr || !std::isfinite(dz_m) || dz_m == 0.0)
+        return;
+    for (float &height : message->data())
+    {
+        if (std::isfinite(height))
+            height = static_cast<float>(
+                static_cast<double>(height) - dz_m);
+    }
 }
 
 } // namespace go2_terrain

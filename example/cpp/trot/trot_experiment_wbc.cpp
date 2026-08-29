@@ -341,6 +341,16 @@ void TrotExperiment::UpdateWbcFull(
                 terrain_surface_transition_committed_surface_world_z_[leg] =
                     execution.target_world.z;
                 terrain_surface_transition_committed_[leg] = true;
+                if (Full2EnvDouble(
+                        "TROT_TERRAIN_DEBUG_TRANSACTION", 0.0) > 0.5)
+                {
+                    std::cout << "Terrain transaction event=commit"
+                              << " t=" << terrain_now_s
+                              << " leg=" << leg
+                              << " endpoint_error="
+                              << execution.wbc_endpoint_error_m
+                              << " measured_contact=1\n";
+                }
                 terrain_transfer_complete = false;
             }
         }
@@ -411,20 +421,70 @@ void TrotExperiment::UpdateWbcFull(
     if (terrain_surface_transition_active_)
     {
         int required_mask = 0;
+        int original_required_mask = 0;
         int committed_mask = 0;
+        int cancelled_mask = 0;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             if (terrain_surface_transition_required_[leg])
                 required_mask |= 1 << static_cast<int>(leg);
+            if (terrain_surface_transition_original_required_[leg])
+                original_required_mask |= 1 << static_cast<int>(leg);
+            if (terrain_surface_transition_cancelled_[leg])
+                cancelled_mask |= 1 << static_cast<int>(leg);
             if (terrain_surface_transition_committed_[leg])
             {
                 committed_mask |= 1 << static_cast<int>(leg);
                 if (measured_contact[leg])
                     qp_contact[leg] = true;
             }
-            if (terrain_surface_transition_required_[leg] &&
-                !terrain_surface_transition_committed_[leg])
-                terrain_surface_transition_complete = false;
+        }
+        // Cancellation is a terminal failed leg, not completion. The
+        // original requirement remains in the mask so telemetry cannot
+        // rewrite a partial plan as a successful transfer.
+        terrain_surface_transition_complete =
+            go2_terrain::TerrainTransitionComplete(
+                terrain_surface_transition_required_,
+                terrain_surface_transition_committed_,
+                terrain_surface_transition_cancelled_);
+        if (Full2EnvDouble(
+                "TROT_TERRAIN_DEBUG_TRANSACTION", 0.0) > 0.5)
+        {
+            static int last_required_mask = -1;
+            static int last_committed_mask = -1;
+            static double last_report_s = -1.0e9;
+            if (terrain_surface_transition_complete ||
+                required_mask != last_required_mask ||
+                committed_mask != last_committed_mask ||
+                terrain_now_s - last_report_s >= 0.25)
+            {
+                std::cout << "Terrain transaction event="
+                          << (terrain_surface_transition_complete
+                              ? "complete" : "wait")
+                          << " t=" << terrain_now_s
+                          << " required=" << required_mask
+                          << " original_required=" << original_required_mask
+                          << " cancelled=" << cancelled_mask
+                          << " committed=" << committed_mask
+                          << " active=1";
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                {
+                    const auto &execution = terrain_swing_execution_[leg];
+                    std::cout << " leg" << leg << "_exec="
+                              << (execution.valid ? 1 : 0)
+                              << ":" << (execution.endpoint_held ? 1 : 0)
+                              << ":" << (execution.measured_touchdown ? 1 : 0)
+                              << "_at_endpoint="
+                              << (execution.wbc_at_endpoint ? 1 : 0)
+                              << "_contact="
+                              << (execution.wbc_measured_contact ? 1 : 0)
+                              << "_error=" << execution.wbc_endpoint_error_m;
+                }
+                std::cout << "\n";
+            }
+            last_required_mask = required_mask;
+            last_committed_mask = committed_mask;
+            last_report_s = terrain_now_s;
         }
         if (terrain_surface_transition_complete)
         {
@@ -894,6 +954,17 @@ void TrotExperiment::UpdateWbcFull(
         go2_control::SrbdMpcOutput mpc_out;
         if (go2_control::SolveSrbdMpc(mpc_params, mpc_in, mpc_out) && mpc_out.ok)
             last_srbd_ = mpc_out;
+    }
+    if (terrain_mpc_update_count_ == 0)
+    {
+        // Before the first SRBD solve the logged reference would read as
+        // zeros while the applied command is already moving.  The first
+        // solve's reference vx is the shaper-applied command, so report
+        // that value instead of a misleading zero window.
+        const double applied_vx_mps = params_.direction_sign *
+            velocity_command_state_.applied_mps;
+        wbc_shadow_diagnostics_.mpc_reference_vx_first_mps = applied_vx_mps;
+        wbc_shadow_diagnostics_.mpc_reference_vx_last_mps = applied_vx_mps;
     }
     ++wbc_full_ticks_;
     wbc_shadow_diagnostics_.srbd_ok = last_srbd_.ok;

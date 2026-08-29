@@ -77,7 +77,14 @@ struct TerrainFeasibilityConfig
     // window when the checked path would otherwise demand an unrealizable
     // foot velocity.  This is a feasibility limit, not a safety-threshold
     // relaxation and does not alter the Phase 1 gait gains.
-    double max_swing_speed_mps = 2.50;
+    // Calibrated against the measured crux step-up swing: 162 ms realized
+    // over an ~0.41 m L1 path is a ~4.6-4.7 m/s eased-profile peak, and
+    // flat nominal 125 ms swings already peak at ~3.5 m/s.  The old 2.50
+    // cap doubled the predicted duration (330 ms), over-stretching the
+    // timeline until the two-contact drift band exhausted; 4.50 keeps the
+    // prediction just above the best observed swing.
+    // See docs/research/PHASE2_B1_TIMING_CONTRACT_REDESIGN.md section 10.
+    double max_swing_speed_mps = 4.50;
     double region_half_extent_m = 0.035;
 };
 
@@ -130,6 +137,11 @@ struct FootholdCandidate
     double collision_margin_m = std::numeric_limits<double>::infinity();
     double uncertainty_m = std::numeric_limits<double>::infinity();
     FootholdRejectReason reject_reason = FootholdRejectReason::kNone;
+    // Planner-owned surface intent.  This is latched when the candidate is
+    // ranked against the current support surface; support validation must not
+    // reclassify it from a blended cell height.
+    bool surface_transition_required = false;
+    bool surface_transition_intent_valid = false;
     bool hard_feasible = false;
 };
 
@@ -320,22 +332,106 @@ inline bool CheckSwingClearance(
         const double path_progress = TerrainSwingEase(u);
         const double x = start.x + path_progress * (end.x - start.x);
         const double y = start.y + path_progress * (end.y - start.y);
-        TerrainPatch patch;
-        if (!model.SamplePatch(x, y, sweep_radius_m, patch) ||
-            !patch.valid || !patch.all_known)
-            return reject(FootholdRejectReason::kUnknown);
-        terrain_height[static_cast<std::size_t>(i)] = patch.max_height_m;
+        if (i > 0)
+        {
+            TerrainPatch patch;
+            if (!model.SamplePatch(x, y, sweep_radius_m, patch) ||
+                !patch.valid || patch.HasUnknownInside())
+            {
+                if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
+                {
+                    static int debug_unknown_path_prints = 0;
+                    if (debug_unknown_path_prints < 512)
+                    {
+                        std::fprintf(
+                            stderr,
+                            "Terrain swing reject unknown[path] leg=%d i=%d "
+                            "xy=(%.6f,%.6f) start=(%.6f,%.6f,%.6f) "
+                            "end=(%.6f,%.6f,%.6f)\n",
+                            static_cast<int>(leg), i, x, y,
+                            start.x, start.y, start.z, end.x, end.y, end.z);
+                        ++debug_unknown_path_prints;
+                    }
+                }
+                return reject(FootholdRejectReason::kUnknown);
+            }
+            // Fringe samples straddle the sensor FOV edge; their height is
+            // the max over the observed subset (the unobservable strip
+            // carries no constraint).  Only in-grid unobserved cells
+            // (occlusion holes) reject above.
+            terrain_height[static_cast<std::size_t>(i)] = patch.max_height_m;
+        }
         if (i == 0)
         {
             std::size_t start_ix = 0;
             std::size_t start_iy = 0;
             if (!model.CellIndex(start.x, start.y, start_ix, start_iy))
+            {
+                if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
+                {
+                    static int debug_unknown_anchor_oob_prints = 0;
+                    if (debug_unknown_anchor_oob_prints < 256)
+                    {
+                        std::fprintf(
+                            stderr,
+                            "Terrain swing reject unknown[anchor_oob] "
+                            "leg=%d start=(%.6f,%.6f,%.6f)\n",
+                            static_cast<int>(leg),
+                            start.x, start.y, start.z);
+                        ++debug_unknown_anchor_oob_prints;
+                    }
+                }
                 return reject(FootholdRejectReason::kUnknown);
-            const TerrainCell *start_cell = model.CellAt(start_ix, start_iy);
-            if (start_cell == nullptr || !start_cell->known ||
-                !std::isfinite(start_cell->height_m))
+            }
+            // The swing start is the live encoder-FK support foot,
+            // verified against ground truth.  Its single 5 cm cell can
+            // still read a neighboring riser top: the sparse lidar sweep
+            // fills any cell touching the riser with the riser height,
+            // which faked anchor penetration in epoch15a/16 (all 64
+            // rejects shared one stance anchor at the riser base, cell
+            // ~29 mm above the measured foot).  A real support foot
+            // stands on the LOWEST surface in its vicinity, so compare
+            // against the neighborhood minimum; a start genuinely below
+            // every nearby cell still rejects.
+            const int reach = std::max(1, static_cast<int>(std::ceil(
+                sweep_radius_m / model.resolution_m)));
+            double anchor_min_m = std::numeric_limits<double>::infinity();
+            for (int oy = -reach; oy <= reach; ++oy)
+            {
+                for (int ox = -reach; ox <= reach; ++ox)
+                {
+                    const int nx = static_cast<int>(start_ix) + ox;
+                    const int ny = static_cast<int>(start_iy) + oy;
+                    if (nx < 0 || ny < 0)
+                        continue;
+                    const TerrainCell *neighbor = model.CellAt(
+                        static_cast<std::size_t>(nx),
+                        static_cast<std::size_t>(ny));
+                    if (neighbor == nullptr || !neighbor->known ||
+                        !std::isfinite(neighbor->height_m))
+                        continue;
+                    anchor_min_m = std::min(anchor_min_m, neighbor->height_m);
+                }
+            }
+            if (!std::isfinite(anchor_min_m))
+            {
+                if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
+                {
+                    static int debug_unknown_anchor_cells_prints = 0;
+                    if (debug_unknown_anchor_cells_prints < 256)
+                    {
+                        std::fprintf(
+                            stderr,
+                            "Terrain swing reject unknown[anchor_cells] "
+                            "leg=%d start=(%.6f,%.6f,%.6f)\n",
+                            static_cast<int>(leg),
+                            start.x, start.y, start.z);
+                        ++debug_unknown_anchor_cells_prints;
+                    }
+                }
                 return reject(FootholdRejectReason::kUnknown);
-            terrain_height[0] = start_cell->height_m;
+            }
+            terrain_height[0] = anchor_min_m;
         }
         if (i > 0 && first_rise_phase < 0.0 &&
             terrain_height[static_cast<std::size_t>(i)] -
@@ -343,16 +439,35 @@ inline bool CheckSwingClearance(
             first_rise_phase = u;
         if (i > 0 && i < samples)
         {
-            const double required = patch.max_height_m + clearance_m -
+            const double required =
+                terrain_height[static_cast<std::size_t>(i)] + clearance_m -
                 (start.z + path_progress * (end.z - start.z));
             const double excess = std::max(0.0, required - clearance_m);
             weighted_phase += u * excess;
             excess_weight += excess;
         }
-        // A measured support anchor may be above the terrain, but it must not
-        // already be penetrating the swept terrain volume.
+        // A measured support anchor may be above the terrain, but it must
+        // not already be penetrating even the lowest nearby ground.
         if (i == 0 && start.z < terrain_height[0] - clearance_m)
+        {
+            if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
+            {
+                static int debug_anchor_prints = 0;
+                if (debug_anchor_prints < 64)
+                {
+                    std::fprintf(
+                        stderr,
+                        "Terrain swing reject anchor leg=%d "
+                        "start=(%.6f,%.6f,%.6f) end=(%.6f,%.6f,%.6f) "
+                        "terrain0=%.6f clearance=%.6f\n",
+                        static_cast<int>(leg), start.x, start.y, start.z,
+                        end.x, end.y, end.z, terrain_height[0],
+                        clearance_m);
+                    ++debug_anchor_prints;
+                }
+            }
             return reject(FootholdRejectReason::kSwingClearance);
+        }
     }
 
     // A patch-radius observation can report the riser before the foot reaches
@@ -406,7 +521,28 @@ inline bool CheckSwingClearance(
         const double shape = TerrainSwingProfile(
             u, execution_peak_phase);
         if (!(shape > 1.0e-9))
+        {
+            if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
+            {
+                static int debug_shape_prints = 0;
+                if (debug_shape_prints < 64)
+                {
+                    std::fprintf(
+                        stderr,
+                        "Terrain swing reject shape leg=%d "
+                        "start=(%.6f,%.6f,%.6f) end=(%.6f,%.6f,%.6f) "
+                        "u=%.6f terrain=%.6f linear=%.6f required=%.6f "
+                        "req_clearance=%.6f peak=%.6f shape=%.3e\n",
+                        static_cast<int>(leg), start.x, start.y, start.z,
+                        end.x, end.y, end.z, u,
+                        terrain_height[static_cast<std::size_t>(i)],
+                        linear_height, required, clearance_requirement,
+                        execution_peak_phase, shape);
+                    ++debug_shape_prints;
+                }
+            }
             return reject(FootholdRejectReason::kSwingClearance);
+        }
         double lift_for_sample = std::max(lift, required / shape);
         while (std::fma(shape, lift_for_sample, linear_height) <
                target_height)
@@ -502,8 +638,26 @@ inline bool CheckSwingClearance(
             TerrainPatch foot_patch;
             if (!model.SamplePatch(
                     foot.x, foot.y, sweep_radius_m, foot_patch) ||
-                !foot_patch.valid || !foot_patch.all_known)
+                !foot_patch.valid || foot_patch.HasUnknownInside())
+            {
+                if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
+                {
+                    static int debug_unknown_foot_prints = 0;
+                    if (debug_unknown_foot_prints < 512)
+                    {
+                        std::fprintf(
+                            stderr,
+                            "Terrain swing reject unknown[foot] leg=%d i=%d "
+                            "foot=(%.6f,%.6f,%.6f) start=(%.6f,%.6f,%.6f) "
+                            "end=(%.6f,%.6f,%.6f)\n",
+                            static_cast<int>(leg), i,
+                            foot.x, foot.y, foot.z,
+                            start.x, start.y, start.z, end.x, end.y, end.z);
+                        ++debug_unknown_foot_prints;
+                    }
+                }
                 return FootholdRejectReason::kUnknown;
+            }
             const double foot_clearance = foot.z - foot_patch.max_height_m;
             const double foot_target_height =
                 foot_patch.max_height_m + clearance_requirement;
@@ -539,8 +693,52 @@ inline bool CheckSwingClearance(
                 TerrainPatch shin_patch;
                 if (!model.SamplePatch(
                         shin.x, shin.y, sweep_radius_m, shin_patch) ||
-                    !shin_patch.valid || !shin_patch.all_known)
-                    return FootholdRejectReason::kUnknown;
+                    !shin_patch.valid || shin_patch.HasUnknownInside())
+                {
+                    // The local map window never observes its own lateral
+                    // fringe (y beyond +/-0.225 m), and a rear leg's
+                    // knee/shin grazes that fringe in every crux swing —
+                    // rejecting there starved all 32 regions with kUnknown
+                    // in epoch17 while the window was fully known.  An
+                    // unobserved fringe carries no terrain constraint, so
+                    // skip it; holes INSIDE the swept window still reject.
+                    if (model.CoversPatch(shin.x, shin.y, sweep_radius_m))
+                    {
+                        if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
+                        {
+                            static int debug_unknown_shin_prints = 0;
+                            if (debug_unknown_shin_prints < 512)
+                            {
+                                std::fprintf(
+                                    stderr,
+                                    "Terrain swing reject unknown[shin] leg=%d "
+                                    "i=%d seg=%d shin=(%.6f,%.6f,%.6f) "
+                                    "knee=(%.6f,%.6f,%.6f) foot=(%.6f,%.6f,%.6f)\n",
+                                    static_cast<int>(leg), i, segment,
+                                    shin.x, shin.y, shin.z,
+                                    knee.x, knee.y, knee.z,
+                                    foot.x, foot.y, foot.z);
+                                ++debug_unknown_shin_prints;
+                            }
+                        }
+                        return FootholdRejectReason::kUnknown;
+                    }
+                    if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
+                    {
+                        static int debug_fringe_shin_prints = 0;
+                        if (debug_fringe_shin_prints < 512)
+                        {
+                            std::fprintf(
+                                stderr,
+                                "Terrain swing skip fringe[shin] leg=%d "
+                                "i=%d seg=%d shin=(%.6f,%.6f,%.6f)\n",
+                                static_cast<int>(leg), i, segment,
+                                shin.x, shin.y, shin.z);
+                            ++debug_fringe_shin_prints;
+                        }
+                    }
+                    continue;
+                }
                 const double shin_clearance =
                     shin.z - shin_patch.max_height_m;
                 minimum_clearance_m = std::min(
@@ -581,6 +779,36 @@ inline bool CheckSwingClearance(
                               : FootholdRejectReason::kSwingClearance);
         lift = next_lift;
     }
+    if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr &&
+        (foot_violation || shin_violation))
+    {
+        static int debug_reject_prints = 0;
+        if (debug_reject_prints < 128)
+        {
+            std::fprintf(
+                stderr,
+                "Terrain swing reject leg=%d start=(%.6f,%.6f,%.6f) "
+                "end=(%.6f,%.6f,%.6f) peak=%.6f lift=%.6f "
+                "min_clearance=%.6f foot_violation=%d shin_violation=%d\n",
+                static_cast<int>(leg), start.x, start.y, start.z,
+                end.x, end.y, end.z, best_peak_phase, lift,
+                minimum_clearance_m, foot_violation ? 1 : 0,
+                shin_violation ? 1 : 0);
+            ++debug_reject_prints;
+            std::fprintf(
+                stderr,
+                "Terrain swing clearance detail foot_min=%.6f "
+                "foot_deficit=%+.17e foot_phase=%.6f shin_min=%.6f\n"
+                "Terrain swing clearance values foot_z=%+.17e "
+                "final_patch=%+.17e first_patch=%+.17e req=%+.17e "
+                "patch_delta=%+.17e\n",
+                minimum_foot_clearance_m, worst_foot_deficit_m,
+                worst_foot_phase, minimum_shin_clearance_m,
+                worst_foot_height_m, worst_foot_patch_height_m,
+                worst_foot_sample_height_m, worst_foot_requirement_m,
+                worst_foot_patch_height_m - worst_foot_sample_height_m);
+        }
+    }
     if (shin_violation)
         return reject(FootholdRejectReason::kCollision);
     if (foot_violation)
@@ -613,37 +841,6 @@ inline bool CheckSwingClearance(
                 execution_peak_phase, lift, lift_phase, lift_terrain_height,
                 lift_linear_height, lift_clearance_requirement, lift_shape);
             ++debug_prints;
-        }
-    }
-    if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr &&
-        end.z - start.z > 0.04 &&
-        (foot_violation || shin_violation))
-    {
-        static int debug_reject_prints = 0;
-        if (debug_reject_prints < 128)
-        {
-            std::fprintf(
-                stderr,
-                "Terrain swing reject leg=%d start=(%.6f,%.6f,%.6f) "
-                "end=(%.6f,%.6f,%.6f) peak=%.6f lift=%.6f "
-                "min_clearance=%.6f foot_violation=%d shin_violation=%d\n",
-                static_cast<int>(leg), start.x, start.y, start.z,
-                end.x, end.y, end.z, best_peak_phase, lift,
-                minimum_clearance_m, foot_violation ? 1 : 0,
-                shin_violation ? 1 : 0);
-            ++debug_reject_prints;
-            std::fprintf(
-                stderr,
-                "Terrain swing clearance detail foot_min=%.6f "
-                "foot_deficit=%+.17e foot_phase=%.6f shin_min=%.6f\n"
-                "Terrain swing clearance values foot_z=%+.17e "
-                "final_patch=%+.17e first_patch=%+.17e req=%+.17e "
-                "patch_delta=%+.17e\n",
-                minimum_foot_clearance_m, worst_foot_deficit_m,
-                worst_foot_phase, minimum_shin_clearance_m,
-                worst_foot_height_m, worst_foot_patch_height_m,
-                worst_foot_sample_height_m, worst_foot_requirement_m,
-                worst_foot_patch_height_m - worst_foot_sample_height_m);
         }
     }
     return true;
@@ -681,6 +878,20 @@ inline FootholdCandidate EvaluateFoothold(
             std::max<std::size_t>(1, patch.total_cells) <
             config.min_known_fraction)
     {
+        if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
+        {
+            static int debug_unknown_foothold_prints = 0;
+            if (debug_unknown_foothold_prints < 256)
+            {
+                std::fprintf(
+                    stderr,
+                    "Terrain foothold reject unknown leg=%d "
+                    "xy=(%.6f,%.6f) known=%zu/%zu\n",
+                    static_cast<int>(leg), x_m, y_m,
+                    patch.known_cells, patch.total_cells);
+                ++debug_unknown_foothold_prints;
+            }
+        }
         candidate.reject_reason = FootholdRejectReason::kUnknown;
         return candidate;
     }

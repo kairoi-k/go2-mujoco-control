@@ -136,6 +136,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     if (!velocity_command_initialized_ || gait_time_s <= 1.0e-9)
     {
         velocity_command_shaper_.Reset(0.0);
+        velocity_gait_scheduler_.Reset();
         velocity_command_initialized_ = true;
     }
     const double dt = (std::isfinite(last_motion_dt_s_) &&
@@ -207,7 +208,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         applied_mps = high_speed_health_cap_mps_;
     }
     velocity_command_state_.applied_mps = applied_mps;
-    const auto schedule = ScheduleContinuousVelocityGait(applied_mps);
+    const auto schedule = velocity_gait_scheduler_.Step(applied_mps, dt);
     locomotion_kernel_->SetGaitEffectiveSpeedConvention(true);
     locomotion_kernel_->SetGaitSlewLimits(0.060, 0.020, 0.020);
     locomotion_kernel_->SetGaitPeriod(schedule.period_s);
@@ -361,55 +362,18 @@ bool TrotExperiment::BuildGaitTargets(
         params_.terrain_actuation && !params_.terrain_sensor_only
             ? terrain_plan_store_.LoadUsable(terrain_now_s)
             : nullptr;
-    const auto terrain_plan_has_active_swing =
-        [this, phase, terrain_now_s](
-            const std::shared_ptr<const go2_terrain::TerrainMotionPlan> &plan) {
-            if (!plan || !plan->usable_at(terrain_now_s) ||
-                !std::isfinite(plan->gait_period_s) ||
-                plan->gait_period_s <= 0.0 ||
-                !std::isfinite(plan->duty_factor))
-                return false;
-            const double duty = std::clamp(plan->duty_factor, 0.35, 0.90);
-            const double duration = (1.0 - duty) * plan->gait_period_s;
-            if (!(duration > 0.0) ||
-                !std::isfinite(duration))
-                return false;
-            const double knot_dt = terrain_planner_.config().knot_dt_s;
-            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            {
-                const double leg_phase = go2_control::GaitLegPhase(
-                    leg, phase, params_.gait_pattern);
-                if (!(leg_phase >= duty))
-                    continue;
-                for (std::size_t k = 0; k < plan->horizon_knots; ++k)
-                {
-                    const auto &foot = plan->predicted_foothold[k][leg];
-                    if (!foot.valid || !foot.touchdown ||
-                        !std::isfinite(foot.touchdown_time_s))
-                        continue;
-                    const double swing_duration =
-                        std::isfinite(foot.swing_duration_s) &&
-                                foot.swing_duration_s > 0.0
-                            ? foot.swing_duration_s
-                            : duration;
-                    const double swing_start =
-                        foot.touchdown_time_s - swing_duration;
-                    if (terrain_now_s + 0.5 * knot_dt >= swing_start &&
-                        terrain_now_s <= foot.touchdown_time_s +
-                            0.5 * knot_dt)
-                        return true;
-                }
-            }
-            return false;
-        };
     const bool terrain_execution_allowed =
         params_.terrain_actuation && !params_.terrain_sensor_only &&
         task_.gait_started_ && task_.motion_stage_ == 2;
+    // A prepared-but-not-started target is not yet an execution snapshot.
+    // Permit a newer planner publication to replace it, because that is where
+    // S1's retimed touchdown knot becomes visible to the execution rebase.
     const bool terrain_swing_transaction_active =
         std::any_of(
             terrain_swing_execution_.begin(), terrain_swing_execution_.end(),
             [](const TerrainSwingExecution &execution) {
-                return execution.valid && !execution.endpoint_held;
+                return execution.valid &&
+                    (execution.in_flight || execution.endpoint_held);
             }) ||
         std::any_of(
             terrain_swing_pending_.begin(), terrain_swing_pending_.end(),
@@ -425,15 +389,28 @@ bool TrotExperiment::BuildGaitTargets(
         terrain_transfer_hold_active_ = false;
         terrain_surface_transition_active_ = false;
         terrain_surface_transition_required_.fill(false);
+        terrain_surface_transition_original_required_.fill(false);
+        terrain_surface_transition_cancelled_.fill(false);
         terrain_surface_transition_committed_.fill(false);
         terrain_surface_transition_committed_surface_valid_.fill(false);
         terrain_surface_transition_committed_surface_world_z_.fill(0.0);
         terrain_surface_transition_source_valid_.fill(false);
     }
-    else if (!terrain_execution_plan_ ||
-             (!terrain_swing_transaction_active &&
-              !terrain_plan_has_active_swing(terrain_execution_plan_)))
+    else if (!terrain_swing_transaction_active)
+    {
+        if (terrain_execution_plan_ != latest_terrain_plan)
+        {
+            // Do not carry a plan-time touchdown into the boundary when a
+            // newer S1-retimed knot has arrived. In-flight/held targets are
+            // immutable; only the not-yet-started handoff is replaceable.
+            for (auto &execution : terrain_swing_execution_)
+                if (execution.valid && !execution.in_flight &&
+                    !execution.endpoint_held)
+                    execution = {};
+            terrain_swing_pending_ = {};
+        }
         terrain_execution_plan_ = latest_terrain_plan;
+    }
     const auto active_terrain_plan = terrain_execution_plan_;
     std::array<bool, go2::kLegCount> terrain_contact_now{};
     bool terrain_contact_now_valid = false;
@@ -1633,7 +1610,9 @@ bool TrotExperiment::BuildGaitTargets(
                 planned = nullptr;
                 swing_start_time_s =
                     std::numeric_limits<double>::infinity();
-                if (!terrain_timeline_valid)
+                if (leg >= go2::kLegCount ||
+                    terrain_surface_transition_cancelled_[leg] ||
+                    !terrain_timeline_valid)
                     return false;
                 double best_touchdown_time_s =
                     std::numeric_limits<double>::infinity();
@@ -1752,6 +1731,8 @@ bool TrotExperiment::BuildGaitTargets(
                     terrain_surface_transition_target_world_z_ = target_world_z;
                     terrain_surface_transition_deadband_m_ = deadband_m;
                     terrain_surface_transition_required_.fill(false);
+                    terrain_surface_transition_original_required_.fill(false);
+                    terrain_surface_transition_cancelled_.fill(false);
                     terrain_surface_transition_committed_.fill(false);
                     terrain_surface_transition_source_valid_.fill(false);
                 }
@@ -1782,6 +1763,9 @@ bool TrotExperiment::BuildGaitTargets(
                     !source_valid ||
                     std::abs(source_world_z - target_world_z) >
                         terrain_surface_transition_deadband_m_;
+                if (terrain_surface_transition_required_[transition_leg])
+                    terrain_surface_transition_original_required_[transition_leg] =
+                        true;
             };
 
         const auto prepare_terrain_target =
@@ -1914,6 +1898,8 @@ bool TrotExperiment::BuildGaitTargets(
                 // not replace it with a consumer-side duration extension:
                 // the contact schedule, MPC preview, WBC transaction, and
                 // swing trajectory must all end at this same event.
+                execution.planned_swing_duration_s =
+                    committed_swing_duration_s;
                 execution.terrain_swing_duration_s =
                     available_swing_duration_s;
                 execution.swing_duration_s = available_swing_duration_s;
@@ -2193,7 +2179,7 @@ bool TrotExperiment::BuildGaitTargets(
                     execution.swing_start_time_s = terrain_now_s;
                     const double available_swing_duration_s =
                         execution.nominal_touchdown_time_s - terrain_now_s;
-                    const double required_swing_duration_s =
+                    const double required_path_duration_s =
                         go2_terrain::TerrainSwingDurationForPath(
                             available_swing_duration_s,
                             execution.start_world,
@@ -2201,6 +2187,9 @@ bool TrotExperiment::BuildGaitTargets(
                             execution.swing_lift_m,
                             terrain_planner_.config().feasibility.
                                 max_swing_speed_mps);
+                    const double required_swing_duration_s = std::max(
+                        execution.planned_swing_duration_s,
+                        required_path_duration_s);
                     if (!std::isfinite(available_swing_duration_s) ||
                         available_swing_duration_s <=
                             terrain_time_tolerance_s ||
@@ -2209,6 +2198,50 @@ bool TrotExperiment::BuildGaitTargets(
                             available_swing_duration_s +
                                 terrain_time_tolerance_s)
                     {
+                        int required_mask_before = 0;
+                        for (std::size_t required_leg = 0;
+                             required_leg < go2::kLegCount; ++required_leg)
+                            if (terrain_surface_transition_required_[
+                                    required_leg])
+                                required_mask_before |=
+                                    1 << static_cast<int>(required_leg);
+                        const bool cancelled_requirement =
+                            go2_terrain::MarkTerrainTransitionLegCancelled(
+                                terrain_surface_transition_required_,
+                                terrain_surface_transition_committed_,
+                                terrain_surface_transition_cancelled_,
+                                terrain_surface_transition_source_valid_,
+                                leg);
+                        int required_mask_after = 0;
+                        for (std::size_t required_leg = 0;
+                             required_leg < go2::kLegCount; ++required_leg)
+                            if (terrain_surface_transition_required_[
+                                    required_leg])
+                                required_mask_after |=
+                                    1 << static_cast<int>(required_leg);
+                        if (Full2EnvDouble(
+                                "TROT_TERRAIN_DEBUG_TRANSACTION", 0.0) >
+                                0.5)
+                        {
+                            std::cout << "Terrain transaction event=cancelled"
+                                      << " t=" << terrain_now_s
+                                      << " leg=" << leg
+                                      << " touchdown="
+                                      << execution.nominal_touchdown_time_s
+                                      << " available="
+                                      << available_swing_duration_s
+                                      << " required_swing="
+                                      << required_swing_duration_s
+                                      << " required_before="
+                                      << required_mask_before
+                                      << " required_after="
+                                      << required_mask_after
+                                      << " original_required="
+                                      << required_mask_before
+                                      << " cancelled="
+                                      << (cancelled_requirement ? 1 : 0)
+                                      << " failure=6\n";
+                        }
                         execution = {};
                         ++terrain_target_prepare_rejection_count_;
                         terrain_target_last_prepare_failure_ = 6;

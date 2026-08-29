@@ -36,12 +36,232 @@ unitree_go::msg::dds_::HeightMap_ FlatMap()
 
 int main()
 {
+    // A failed immutable-time handoff must cancel its uncommitted
+    // requirement; committed endpoints remain part of the transaction.
+    {
+        std::array<bool, go2::kLegCount> required{
+            true, true, false, false};
+        const std::array<bool, go2::kLegCount> committed{
+            false, true, false, false};
+        std::array<bool, go2::kLegCount> cancelled{false, false, false, false};
+        std::array<bool, go2::kLegCount> source_valid{
+            true, true, false, false};
+        if (!Check(
+                go2_terrain::MarkTerrainTransitionLegCancelled(
+                    required, committed, cancelled, source_valid, 0) &&
+                    required[0] && cancelled[0] && !source_valid[0] && required[1],
+                "unexecutable transition did not remain visible") ||
+            !Check(
+                !go2_terrain::MarkTerrainTransitionLegCancelled(
+                    required, committed, cancelled, source_valid, 1) && required[1],
+                "committed transition requirement was released") ||
+            !Check(
+                !go2_terrain::MarkTerrainTransitionLegCancelled(
+                    required, committed, cancelled, source_valid, go2::kLegCount),
+                "out-of-range transition leg was accepted"))
+            return 1;
+    }
+
+    {
+        const std::array<bool, go2::kLegCount> required{true, true, false, false};
+        const std::array<bool, go2::kLegCount> committed{false, true, false, false};
+        const std::array<bool, go2::kLegCount> cancelled{true, false, false, false};
+        if (go2_terrain::TerrainTransitionComplete(required, committed, cancelled))
+            return 1;
+    }
     auto map = FlatMap();
     const auto built = go2_terrain::BuildTerrainModel(
         &map, 10.04, 1, go2_terrain::TerrainSource::kLidar);
     if (!Check(built.ok(), "flat lidar map did not build") ||
         !Check(built.model.valid(), "flat terrain model is invalid"))
         return 1;
+
+    // Heightmap z re-referencing: a base rise between the map snapshot and
+    // the planner snapshot must shift every finite cell by -dz, preserve
+    // unknown cells, and leave the map untouched for a zero/non-finite dz.
+    {
+        auto shifting = FlatMap();
+        shifting.data()[0] = std::numeric_limits<float>::quiet_NaN();
+        go2_terrain::RereferenceHeightMapZ(&shifting, 0.04);
+        if (!Check(std::abs(shifting.data()[1] - (-0.29f)) < 1.0e-6f,
+                   "re-referenced cell did not shift by -dz") ||
+            !Check(!std::isfinite(shifting.data()[0]),
+                   "re-referencing clobbered an unknown cell"))
+            return 1;
+        const float before = shifting.data()[1];
+        go2_terrain::RereferenceHeightMapZ(&shifting, 0.0);
+        go2_terrain::RereferenceHeightMapZ(
+            &shifting, std::numeric_limits<double>::quiet_NaN());
+        go2_terrain::RereferenceHeightMapZ(nullptr, 0.04);
+        if (!Check(shifting.data()[1] == before,
+                   "zero or non-finite dz still shifted the map"))
+            return 1;
+    }
+
+    // Two-contact support capsule semantics, pinned against the epoch11
+    // crux geometry: a mid-crossing straddle (front foot on the plateau,
+    // rear foot still on flat ground) forces the diagonal support line
+    // ~46 mm off the COM path.  The gate must accept that forced geometry
+    // while still rejecting a support line outside the stance corridor and
+    // a COM projected beyond the segment endpoints.
+    {
+        go2_terrain::TerrainPlannerConfig margin_config;
+        std::array<go2::Vec3, go2::kLegCount> feet{};
+        std::array<bool, go2::kLegCount> contact{true, false, true, false};
+        feet[0] = {0.225, 0.100, 0.0};
+        feet[2] = {-0.125, -0.150, 0.0};
+        const go2::Vec3 com{0.006, 0.0, 0.0};
+        const double straddle_margin = go2_terrain::SupportMargin2D(
+            feet, contact, com, margin_config.min_support_margin_m,
+            margin_config.max_two_contact_line_error_m);
+        if (!Check(straddle_margin >= margin_config.min_support_margin_m,
+                   "mid-crossing straddle geometry was rejected"))
+            return 1;
+
+        std::array<go2::Vec3, go2::kLegCount> wide_feet{};
+        wide_feet[0] = {0.200, 0.300, 0.0};
+        wide_feet[2] = {-0.200, 0.300, 0.0};
+        const double corridor_margin = go2_terrain::SupportMargin2D(
+            wide_feet, contact, com, margin_config.min_support_margin_m,
+            margin_config.max_two_contact_line_error_m);
+        if (!Check(corridor_margin < margin_config.min_support_margin_m,
+                   "support line outside the stance corridor was accepted"))
+            return 1;
+
+        std::array<go2::Vec3, go2::kLegCount> short_feet{};
+        short_feet[0] = {0.050, 0.050, 0.0};
+        short_feet[2] = {0.100, -0.050, 0.0};
+        const double endpoint_margin = go2_terrain::SupportMargin2D(
+            short_feet, contact, {0.500, 0.0, 0.0},
+            margin_config.min_support_margin_m,
+            margin_config.max_two_contact_line_error_m);
+        if (!Check(endpoint_margin < margin_config.min_support_margin_m,
+                   "COM beyond the support segment endpoints was accepted"))
+            return 1;
+    }
+
+    // Straddle corridor semantics use planner-owned transition intent rather
+    // than measured z differences from blended map cells. Exactly one leg
+    // committed to the new surface is a crossing; both legs committed to the
+    // new surface use the ordinary drift band.
+    {
+        go2_terrain::TerrainPlannerConfig corridor_config;
+        std::array<go2::Vec3, go2::kLegCount> feet{};
+        std::array<bool, go2::kLegCount> contact{true, false, true, false};
+        std::array<bool, go2::kLegCount> no_transition{};
+        std::array<bool, go2::kLegCount> one_transition{
+            true, false, false, false};
+        std::array<bool, go2::kLegCount> both_transition{
+            true, false, true, false};
+        std::array<bool, go2::kLegCount> intent_valid{
+            true, true, true, true};
+
+        // The measured-support replacement must preserve the one leg still
+        // pending even when the other contact has already been confirmed.
+        go2_terrain::TerrainPlannerInput measured_input;
+        measured_input.terrain_surface_transition_active = true;
+        measured_input.terrain_surface_transition_required =
+            {true, false, true, false};
+        measured_input.terrain_surface_transition_committed =
+            {false, false, true, false};
+        std::array<bool, go2::kLegCount> measured_required{};
+        std::array<bool, go2::kLegCount> measured_valid{};
+        go2_terrain::PopulateMeasuredSupportTransitionIntent(
+            measured_input, contact, measured_required, measured_valid);
+        if (!Check(measured_required[0] && !measured_required[2] &&
+                       measured_valid[0] && measured_valid[2],
+                   "measured support erased pending transition intent"))
+            return 1;
+        std::array<bool, go2::kLegCount> missing_intent{
+            false, false, true, false};
+        feet[0] = {0.200, -0.050, 0.0};
+        feet[2] = {-0.200, 0.050, 0.0};
+        const go2::Vec3 com{0.0, 0.058, 0.0};  // line error ~56 mm
+
+        if (!Check(std::abs(go2_terrain::TwoContactLineErrorBound(
+                       feet, contact, corridor_config, no_transition, intent_valid) -
+                           corridor_config.max_two_contact_line_error_m) <
+                       1.0e-12,
+                   "flat two-contact set lost the drift band"))
+            return 1;
+        const double flat_margin = go2_terrain::SupportMargin2D(
+            feet, contact, com, corridor_config.min_support_margin_m,
+            go2_terrain::TwoContactLineErrorBound(
+                feet, contact, corridor_config, no_transition, intent_valid));
+        if (!Check(flat_margin < corridor_config.min_support_margin_m,
+                   "flat deep-offset support line was accepted"))
+            return 1;
+
+        auto straddle_feet = feet;
+        straddle_feet[0].z = 0.050;
+        if (!Check(std::abs(go2_terrain::TwoContactLineErrorBound(
+                       straddle_feet, contact, corridor_config, one_transition, intent_valid) -
+                           corridor_config.two_contact_straddle_corridor_m) <
+                       1.0e-12,
+                   "straddling two-contact set did not get the corridor"))
+            return 1;
+        const double straddle_margin = go2_terrain::SupportMargin2D(
+            straddle_feet, contact, com,
+            corridor_config.min_support_margin_m,
+            go2_terrain::TwoContactLineErrorBound(
+                straddle_feet, contact, corridor_config, one_transition, intent_valid));
+        if (!Check(straddle_margin >= corridor_config.min_support_margin_m,
+                   "committed-crossing straddle geometry was rejected"))
+            return 1;
+
+        auto coarse_blended_feet = feet;
+        coarse_blended_feet[0].z = 0.029;
+        if (!Check(std::abs(go2_terrain::TwoContactLineErrorBound(
+                       coarse_blended_feet, contact, corridor_config,
+                       one_transition, intent_valid) -
+                           corridor_config.two_contact_straddle_corridor_m) <
+                       1.0e-12,
+                   "coarse blended transition lost its surface intent"))
+            return 1;
+        if (!Check(std::abs(go2_terrain::TwoContactLineErrorBound(
+                       feet, contact, corridor_config, both_transition, intent_valid) -
+                           corridor_config.max_two_contact_line_error_m) <
+                       1.0e-12,
+                   "two pending transitions incorrectly used straddle corridor"))
+            return 1;
+
+        if (!Check(std::abs(go2_terrain::TwoContactLineErrorBound(
+                       feet, contact, corridor_config, one_transition,
+                       missing_intent) -
+                           corridor_config.max_two_contact_line_error_m) <
+                       1.0e-12,
+                   "missing transition intent did not fail closed"))
+            return 1;
+
+        const go2::Vec3 far_com{0.0, 0.200, 0.0};  // line error ~194 mm
+        const double outside_margin = go2_terrain::SupportMargin2D(
+            straddle_feet, contact, far_com,
+            corridor_config.min_support_margin_m,
+            go2_terrain::TwoContactLineErrorBound(
+                straddle_feet, contact, corridor_config, one_transition, intent_valid));
+        if (!Check(outside_margin < corridor_config.min_support_margin_m,
+                   "support line outside the stance corridor was accepted"))
+            return 1;
+
+        // A 15 mm riser blend selects the corridor through intent, while
+        // a 6 mm flat quantization difference remains on the drift band.
+        auto blended_feet = feet;
+        blended_feet[0].z = 0.015;
+        if (!Check(std::abs(go2_terrain::TwoContactLineErrorBound(
+                       blended_feet, contact, corridor_config, one_transition, intent_valid) -
+                           corridor_config.two_contact_straddle_corridor_m) <
+                       1.0e-12,
+                   "blended riser-edge straddle did not get the corridor"))
+            return 1;
+        auto flat_quantized_feet = feet;
+        flat_quantized_feet[0].z = 0.006;
+        if (!Check(std::abs(go2_terrain::TwoContactLineErrorBound(
+                       flat_quantized_feet, contact, corridor_config, no_transition, intent_valid) -
+                           corridor_config.max_two_contact_line_error_m) <
+                       1.0e-12,
+                   "flat quantization was misclassified as a straddle"))
+            return 1;
+    }
 
     go2_terrain::TerrainPatch patch;
     if (!Check(built.model.SamplePatch(0.20, 0.0, 0.025, patch),
@@ -128,6 +348,123 @@ int main()
                        1.0, true, step_leading_edge_phase) > 0.999,
                "10cm swing clearance geometry was invalid"))
         return 1;
+
+    // epoch15a/16 anchor false positive: the FK support foot stands on
+    // flat ground at the riser base, but its own 5 cm cell (first riser
+    // column, x in [0.30,0.35)) is filled with the riser top (-0.15),
+    // reading ~39 mm above the measured foot.  The anchor check must
+    // compare against the neighborhood minimum (the flat -0.25 the foot
+    // actually stands on), while a start below even the lowest nearby
+    // cell must still reject.
+    {
+        double anchor_clearance = 0.0;
+        if (!Check(go2_terrain::CheckSwingClearance(
+                       step_built.model, {0.32, -0.10, -0.1887},
+                       {0.52, -0.10, -0.15}, 0.03, anchor_clearance,
+                       nullptr, go2::Leg::FL),
+                   "support anchor in a riser-filled cell was rejected") ||
+            !Check(!go2_terrain::CheckSwingClearance(
+                       step_built.model, {0.32, -0.10, -0.30},
+                       {0.52, -0.10, -0.15}, 0.03, anchor_clearance),
+                   "anchor below every nearby cell was accepted"))
+            return 1;
+    }
+
+    // epoch18: CoversPatch distinguishes "no observation at all" (patch
+    // crosses the grid boundary) from observed-but-unknown cells.
+    {
+        const auto &m = built.model;  // 24x20, res 0.05, origin (-0.5,-0.5)
+        if (!Check(m.CoversPatch(0.0, 0.0, 0.025), "interior patch not covered") ||
+            !Check(!m.CoversPatch(-0.49, 0.0, 0.025),
+                   "boundary-crossing patch reported covered") ||
+            !Check(!m.CoversPatch(-0.60, 0.0, 0.025),
+                   "out-of-grid patch reported covered"))
+            return 1;
+    }
+
+    // epoch18: the real local window is narrow in y (+/-0.225 m) and a
+    // rear leg's knee/shin grazes that unobserved fringe in every swing.
+    // Fringe shin samples must be skipped (no observation, no
+    // constraint), not rejected with kUnknown — epoch17 starved all 32
+    // rear-leg regions at the crux on this while the window was fully
+    // known.
+    {
+        unitree_go::msg::dds_::HeightMap_ narrow_map;
+        narrow_map.stamp(10.0);
+        narrow_map.frame_id("base_link");
+        narrow_map.resolution(0.05f);
+        narrow_map.width(32);
+        narrow_map.height(10);
+        narrow_map.origin() = {-0.45f, -0.225f};
+        narrow_map.data().assign(
+            static_cast<std::size_t>(narrow_map.width()) *
+                narrow_map.height(),
+            -0.30f);
+        const auto narrow_built = go2_terrain::BuildTerrainModel(
+            &narrow_map, 10.04, 6, go2_terrain::TerrainSource::kLidar);
+        double narrow_clearance = 0.0;
+        go2_terrain::FootholdRejectReason narrow_reason =
+            go2_terrain::FootholdRejectReason::kNone;
+        if (!Check(narrow_built.ok(), "narrow map did not build") ||
+            !Check(go2_terrain::CheckSwingClearance(
+                       narrow_built.model, {-0.20, -0.156, -0.30},
+                       {0.10, -0.156, -0.30}, 0.03, narrow_clearance,
+                       &narrow_reason, go2::Leg::RR) &&
+                   narrow_reason == go2_terrain::FootholdRejectReason::kNone,
+                   "narrow-window rear-leg swing rejected at the fringe"))
+            return 1;
+
+        // An anchor drifted onto the lateral FOV fringe (y=-0.21, patch
+        // crosses the window edge, every in-grid cell known — the epoch17
+        // crux slip geometry) must use the observed subset, while a
+        // genuine occlusion hole inside the window must still reject.
+        go2_terrain::FootholdRejectReason fringe_reason =
+            go2_terrain::FootholdRejectReason::kNone;
+        if (!Check(go2_terrain::CheckSwingClearance(
+                       narrow_built.model, {-0.20, -0.21, -0.30},
+                       {-0.02, -0.17, -0.30}, 0.03, narrow_clearance,
+                       &fringe_reason, go2::Leg::RR) &&
+                   fringe_reason == go2_terrain::FootholdRejectReason::kNone,
+                   "fringe-anchor swing rejected on FOV-edge cells"))
+            return 1;
+        auto hole_map = narrow_map;
+        for (const std::size_t idx :
+                 {0 * 32 + 6, 0 * 32 + 7, 1 * 32 + 6, 1 * 32 + 7})
+            hole_map.data()[idx] = std::numeric_limits<float>::quiet_NaN();
+        const auto hole_built = go2_terrain::BuildTerrainModel(
+            &hole_map, 10.04, 7, go2_terrain::TerrainSource::kLidar);
+        go2_terrain::FootholdRejectReason hole_reason =
+            go2_terrain::FootholdRejectReason::kNone;
+        if (!Check(hole_built.ok(), "hole map did not build") ||
+            !Check(!go2_terrain::CheckSwingClearance(
+                       hole_built.model, {-0.20, -0.21, -0.30},
+                       {-0.02, -0.17, -0.30}, 0.03, narrow_clearance,
+                       &hole_reason, go2::Leg::RR) &&
+                   hole_reason == go2_terrain::FootholdRejectReason::kUnknown,
+                   "in-window occlusion hole did not reject"))
+            return 1;
+    }
+
+    // The default swing-speed cap must predict the measured crux step-up
+    // swing (162 ms realized over an ~0.41 m L1 path) instead of doubling
+    // it: the old 2.50 m/s cap stretched the timeline ~10 knots past
+    // nominal and exhausted the two-contact drift band mid-crossing.
+    // Flat nominal swings must stay nominal.
+    {
+        const go2_terrain::TerrainFeasibilityConfig default_feasibility;
+        const double crux_duration = go2_terrain::TerrainSwingDurationForPath(
+            0.125, {0.45, 0.13, 0.0}, {0.72, 0.13, 0.05}, 0.09,
+            default_feasibility.max_swing_speed_mps);
+        const double flat_duration = go2_terrain::TerrainSwingDurationForPath(
+            0.125, {0.20, 0.13, 0.0}, {0.35, 0.13, 0.0}, 0.08,
+            default_feasibility.max_swing_speed_mps);
+        if (!Check(crux_duration >= 0.125 && crux_duration <= 0.195,
+                   "default swing-speed cap mispredicts the crux swing") ||
+            !Check(std::abs(flat_duration - 0.125) < 1.0e-9,
+                   "default swing-speed cap stretches flat swings"))
+            return 1;
+    }
+
 
     auto high_step_map = map;
     for (std::size_t iy = 0; iy < high_step_map.height(); ++iy)
@@ -230,11 +567,20 @@ int main()
     if (!Check(contact_gap_plan.candidate_required[0] &&
                    contact_gap_plan.selected[0].hard_feasible &&
                    contact_gap_plan.selected[0].foot_position.z > -0.20,
-               "contact-gap front leg was not replanned from sensor terrain") ||
-        !Check(!contact_gap_plan.publishable &&
-                   contact_gap_plan.plan.failure ==
-                       go2_terrain::TerrainPlanFailure::kSupportInfeasible,
-               "contact-gap plan did not reject an unsupported retime"))
+               "contact-gap front leg was not replanned from sensor terrain"))
+        return 1;
+    // Three legs measured airborne cannot be made feasible by any retime;
+    // the plan must remain rejected.  The timeline-stretch retime truncates
+    // horizon overflows gracefully, but a truncated retime over a measured
+    // state with fewer than two contacts fails closed (kNoSafeFoothold)
+    // before the geometric support check (kSupportInfeasible) — either is a
+    // valid fail-closed rejection.
+    if (!Check(!contact_gap_plan.publishable &&
+                   (contact_gap_plan.plan.failure ==
+                        go2_terrain::TerrainPlanFailure::kSupportInfeasible ||
+                    contact_gap_plan.plan.failure ==
+                        go2_terrain::TerrainPlanFailure::kNoSafeFoothold),
+               "contact-gap plan was not rejected fail-closed"))
         return 1;
     if (!Check(forward_step_plan.plan.body_reference[20].position.z <=
                    forward_step_plan.plan.body_reference[0].position.z +
@@ -401,6 +747,40 @@ int main()
                "future touchdown lost its checked swing start"))
         return 1;
 
+    // A terrain retime whose delay pushes a late touchdown event past the
+    // horizon must degrade gracefully — truncate the stretch at the horizon
+    // end, drop the far event, and still publish the near-term schedule —
+    // instead of rejecting the whole plan with kNoSafeFoothold, as long as
+    // the measured state is independently supported (a two-contact diagonal
+    // here; the under-supported fail-closed case is pinned by the
+    // contact-gap check above).
+    auto overflow_input = repeated_input;
+    for (std::size_t k = 0; k < 24; ++k)
+    {
+        if (k < 23)
+            overflow_input.contact_schedule.planned_contact[k] =
+                {true, false, false, true};
+        else
+            overflow_input.contact_schedule.planned_contact[k] =
+                {true, true, true, true};
+    }
+    const auto overflow_plan = repeated_planner.Build(overflow_input, 15);
+    if (!Check(overflow_plan.publishable && overflow_plan.plan.valid(),
+               "horizon-overflow retime was not truncated gracefully") ||
+        !Check(overflow_plan.plan.failure !=
+                   go2_terrain::TerrainPlanFailure::kNoSafeFoothold,
+               "horizon-overflow retime still rejected the plan") ||
+        !Check(!overflow_plan.plan.predicted_foothold[23][1].touchdown,
+               "overflow retime left the touchdown event unshifted"))
+        return 1;
+    for (std::size_t k = 0; k < 16; ++k)
+    {
+        if (!Check(overflow_plan.plan.contact_schedule.planned_contact[k] ==
+                       overflow_input.contact_schedule.planned_contact[k],
+                   "graceful truncation changed the near-term schedule"))
+            return 1;
+    }
+
     measured_support_input.contact_schedule.measured_contact =
         {true, true, true, true};
     measured_support_input.current_feet_base = {
@@ -512,6 +892,123 @@ int main()
                    loaded->contact_schedule.measured_contact[0] &&
                    !loaded->contact_schedule.measured_contact[1],
                "planned and measured contact state was not preserved"))
+        return 1;
+
+    // A terrain-conditioned swing that needs more time than the nominal
+    // window must stretch the WHOLE contact timeline: the opposite support
+    // pair stays loaded while the extended swing is airborne, and every
+    // later event inherits the shift.  Regression guard for the deadlock
+    // where only the risen leg's touchdown was delayed while the opposite
+    // pair's swing still started on the raw phase, leaving knots with zero
+    // contacts for gait/MPC/WBC to disagree about.
+    auto stretch_input = forward_step_input;
+    stretch_input.gait_period_s = 0.50;
+    stretch_input.duty_factor = 0.75;
+    stretch_input.base_velocity_world = {0.0, 0.0, 0.0};
+    stretch_input.contact_schedule.measured_contact =
+        {true, false, false, true};
+    for (std::size_t k = 0; k < go2_terrain::kTerrainPlanMaxKnots; ++k)
+    {
+        stretch_input.contact_schedule.planned_contact[k] =
+            ((k / 7) % 2 == 0)
+                ? std::array<bool, go2::kLegCount>{true, false, false, true}
+                : std::array<bool, go2::kLegCount>{false, true, true, false};
+    }
+    auto stretch_config = planner_config;
+    stretch_config.feasibility.max_swing_speed_mps = 5.5;
+    go2_terrain::TerrainPlanner stretch_planner(stretch_config);
+    const auto stretched_plan = stretch_planner.Build(stretch_input, 22);
+    bool stretched_two_contacts = stretched_plan.plan.valid();
+    for (std::size_t k = 0;
+         k < stretched_plan.plan.horizon_knots && stretched_two_contacts;
+         ++k)
+    {
+        int contacts = 0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            contacts += stretched_plan.plan.contact_schedule
+                .planned_contact[k][leg] ? 1 : 0;
+        if (contacts < 2)
+            stretched_two_contacts = false;
+    }
+    bool previous = true;
+    int stretched_first_touchdown = -1;
+    for (std::size_t k = 0; k < stretched_plan.plan.horizon_knots; ++k)
+    {
+        const bool contact = stretched_plan.plan.contact_schedule
+            .planned_contact[k][1];
+        if (contact && !previous)
+        {
+            stretched_first_touchdown = static_cast<int>(k);
+            break;
+        }
+        previous = contact;
+    }
+    if (!Check(stretched_plan.publishable && stretched_plan.plan.valid(),
+               "stretched terrain plan was not publishable") ||
+        !Check(stretched_two_contacts,
+               "stretched schedule dropped below two contacts") ||
+        !Check(stretched_first_touchdown > 7,
+               "terrain touchdown was not stretched beyond the nominal knot"))
+        return 1;
+
+    // A stretched touchdown on a forward-moving body lands after the base
+    // has travelled past the foothold selected for the nominal event time.
+    // The retime must carry the foothold forward with the stretch so the
+    // base-relative landing geometry matches the stationary case.
+    auto moving_stretch_input = stretch_input;
+    moving_stretch_input.base_velocity_world = {0.30, 0.0, 0.0};
+    go2_terrain::TerrainPlanner moving_stretch_planner(stretch_config);
+    const auto moving_stretched_plan = moving_stretch_planner.Build(
+        moving_stretch_input, 23);
+    int nominal_touchdown_knot = -1;
+    for (std::size_t k = 0;
+         k < stretch_input.contact_schedule.planned_contact.size(); ++k)
+    {
+        if (stretch_input.contact_schedule.planned_contact[k][1])
+        {
+            nominal_touchdown_knot = static_cast<int>(k);
+            break;
+        }
+    }
+    bool moving_previous = true;
+    int moving_first_touchdown = -1;
+    for (std::size_t k = 0;
+         k < moving_stretched_plan.plan.horizon_knots; ++k)
+    {
+        const bool contact = moving_stretched_plan.plan.contact_schedule
+            .planned_contact[k][1];
+        if (contact && !moving_previous)
+        {
+            moving_first_touchdown = static_cast<int>(k);
+            break;
+        }
+        moving_previous = contact;
+    }
+    if (!Check(moving_stretched_plan.publishable &&
+                   moving_stretched_plan.plan.valid(),
+               "moving stretched terrain plan was not publishable") ||
+        !Check(nominal_touchdown_knot > 0 &&
+                   moving_first_touchdown > nominal_touchdown_knot,
+               "moving terrain touchdown was not stretched") ||
+        // A positive terrain delay reserves one additional 20 ms planner
+        // knot before publication, leaving a discrete handoff margin for the
+        // execution rebase rather than spending all delay on path duration.
+        !Check(moving_first_touchdown >= nominal_touchdown_knot + 2,
+               "terrain retime did not reserve the handoff margin knot"))
+        return 1;
+    const auto &moving_foot = moving_stretched_plan.plan.predicted_foothold[
+        static_cast<std::size_t>(moving_first_touchdown)][1];
+    const auto &static_foot = stretched_plan.plan.predicted_foothold[
+        static_cast<std::size_t>(stretched_first_touchdown)][1];
+    const double carry_forward_m = 0.30 *
+        static_cast<double>(moving_first_touchdown - nominal_touchdown_knot) *
+        stretch_config.knot_dt_s;
+    if (!Check(moving_foot.valid && static_foot.valid,
+               "stretched touchdown foothold was not populated") ||
+        !Check(std::abs(moving_foot.position_world.x -
+                            static_foot.position_world.x -
+                            carry_forward_m) < 0.01,
+               "stretched touchdown did not travel with the moving body"))
         return 1;
 
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";

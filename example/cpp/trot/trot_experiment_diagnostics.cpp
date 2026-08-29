@@ -75,6 +75,8 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_transfer_hold_active,terrain_transfer_hold_mask"
          << ",terrain_surface_transition_active"
          << ",terrain_surface_transition_required_mask"
+         << ",terrain_surface_transition_original_required_mask"
+         << ",terrain_surface_transition_cancelled_mask"
          << ",terrain_surface_transition_committed_mask"
          << ",terrain_surface_transition_completions"
          << ",terrain_surface_transition_last_required_mask"
@@ -102,6 +104,8 @@ void TrotExperiment::WriteCsvHeader()
              << ",terrain_exec_" << name << "_touchdown_time_s"
              << ",terrain_exec_" << name << "_swing_duration_s"
              << ",terrain_exec_" << name << "_terrain_swing_duration_s"
+             << ",terrain_exec_" << name << "_planned_swing_duration_s"
+             << ",terrain_exec_" << name << "_window_margin_s"
              << ",terrain_exec_" << name << "_phase"
              << ",terrain_exec_" << name << "_start_world_x_m"
              << ",terrain_exec_" << name << "_start_world_y_m"
@@ -677,6 +681,8 @@ void TrotExperiment::LogSample(
     }
     int terrain_transfer_hold_mask = 0;
     int terrain_surface_transition_required_mask = 0;
+    int terrain_surface_transition_original_required_mask = 0;
+    int terrain_surface_transition_cancelled_mask = 0;
     int terrain_surface_transition_committed_mask = 0;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
@@ -684,6 +690,12 @@ void TrotExperiment::LogSample(
             terrain_transfer_hold_mask |= 1 << static_cast<int>(leg);
         if (terrain_surface_transition_required_[leg])
             terrain_surface_transition_required_mask |=
+                1 << static_cast<int>(leg);
+        if (terrain_surface_transition_original_required_[leg])
+            terrain_surface_transition_original_required_mask |=
+                1 << static_cast<int>(leg);
+        if (terrain_surface_transition_cancelled_[leg])
+            terrain_surface_transition_cancelled_mask |=
                 1 << static_cast<int>(leg);
         if (terrain_surface_transition_committed_[leg])
             terrain_surface_transition_committed_mask |=
@@ -890,6 +902,8 @@ void TrotExperiment::LogSample(
          << "," << terrain_transfer_hold_mask
          << "," << (terrain_surface_transition_active_ ? 1 : 0)
          << "," << terrain_surface_transition_required_mask
+         << "," << terrain_surface_transition_original_required_mask
+         << "," << terrain_surface_transition_cancelled_mask
          << "," << terrain_surface_transition_committed_mask
          << "," << terrain_surface_transition_completions_
          << "," << terrain_surface_transition_last_required_mask_
@@ -931,6 +945,9 @@ void TrotExperiment::LogSample(
              << "," << execution.touchdown_time_s
              << "," << execution.swing_duration_s
              << "," << execution.terrain_swing_duration_s
+             << "," << execution.planned_swing_duration_s
+             << "," << (execution.terrain_swing_duration_s -
+                              execution.planned_swing_duration_s)
              << "," << execution_phase
              << "," << execution.start_world.x
              << "," << execution.start_world.y

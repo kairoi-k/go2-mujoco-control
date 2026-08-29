@@ -27,6 +27,36 @@ using namespace unitree::robot;
 namespace
 {
 constexpr double kTerrainRuntimePeriodS = 0.020;
+// The lidar heightmap is re-referenced from its snapshot-time base height
+// to the planner snapshot's base height; this much base-height history is
+// enough to cover any accepted map age.
+constexpr double kBaseHeightHistoryWindowS = 2.0;
+
+// Linear interpolation of the recorded base height at stamp_s, clamped to
+// the history endpoints.  Returns NaN when no history is available.
+double InterpolatedBaseHeight(
+    const std::deque<std::pair<double, double>> &history, double stamp_s)
+{
+    if (history.empty() || !std::isfinite(stamp_s))
+        return std::numeric_limits<double>::quiet_NaN();
+    if (stamp_s <= history.front().first)
+        return history.front().second;
+    for (std::size_t i = 1; i < history.size(); ++i)
+    {
+        if (history[i].first >= stamp_s)
+        {
+            const double t0 = history[i - 1].first;
+            const double t1 = history[i].first;
+            const double z0 = history[i - 1].second;
+            const double z1 = history[i].second;
+            const double span = t1 - t0;
+            const double fraction =
+                span > 1.0e-9 ? (stamp_s - t0) / span : 0.0;
+            return z0 + fraction * (z1 - z0);
+        }
+    }
+    return history.back().second;
+}
 
 void FillObstacleScan(
     const unitree_go::msg::dds_::HeightMap_ &map,
@@ -236,6 +266,17 @@ void TrotExperiment::UpdateTerrainRuntime()
     input.base_roll_rad = control.base_roll_rad;
     input.base_pitch_rad = control.base_pitch_rad;
     input.base_height_m = input.base_position_world.z;
+    if (control.have_base_position_world &&
+        std::isfinite(input.base_height_m) &&
+        std::isfinite(input.state_stamp_s))
+    {
+        base_height_history_.emplace_back(
+            input.state_stamp_s, input.base_height_m);
+        while (base_height_history_.size() > 2 &&
+               base_height_history_.front().first <
+                   input.state_stamp_s - kBaseHeightHistoryWindowS)
+            base_height_history_.pop_front();
+    }
     input.gait_phase = control.gait_phase;
     input.gait_period_s = control.gait_period_s;
     input.duty_factor = control.duty_factor;
@@ -317,7 +358,21 @@ void TrotExperiment::UpdateTerrainRuntime()
         std::lock_guard<std::mutex> lock(terrain_map_mutex_);
         work.have_map = have_lidar_heightmap_;
         if (work.have_map)
+        {
             work.map = lidar_heightmap_;
+            // The publisher expresses cell heights relative to the base
+            // height at its qpos snapshot (map stamp).  Re-reference to
+            // this planner snapshot's base height so the swing-anchor and
+            // foothold checks compare in one frame; on flat ground the
+            // shift is ~0 and behavior is unchanged.
+            const double snapshot_base_height_m =
+                InterpolatedBaseHeight(base_height_history_, work.map.stamp());
+            if (std::isfinite(snapshot_base_height_m) &&
+                std::isfinite(input.base_height_m))
+                go2_terrain::RereferenceHeightMapZ(
+                    &work.map,
+                    input.base_height_m - snapshot_base_height_m);
+        }
     }
     terrain_last_update_s_ = control.state_stamp_s;
 
@@ -514,8 +569,35 @@ void TrotExperiment::TerrainPlannerWorker()
                       << result.selected[2].foot_position.x << ","
                       << result.selected[2].foot_position.y << ";"
                       << result.selected[3].foot_position.x << ","
-                      << result.selected[3].foot_position.y
-                      << "\n";
+                      << result.selected[3].foot_position.y;
+            const int failed_knot = result.support_failure_knot;
+            if (failed_knot >= 0 &&
+                failed_knot < static_cast<int>(
+                    go2_terrain::kTerrainPlanMaxKnots))
+            {
+                const auto knot = static_cast<std::size_t>(failed_knot);
+                std::cout << " knot_feet=";
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                {
+                    if (leg != 0)
+                        std::cout << ";";
+                    const auto &foot =
+                        result.plan.predicted_foothold[knot][leg];
+                    if (foot.valid)
+                        std::cout << foot.position_world.x << ","
+                                  << foot.position_world.y << ","
+                                  << foot.position_world.z;
+                    else
+                        std::cout << "invalid";
+                }
+                std::cout << " knot_com="
+                          << result.plan.body_reference[knot].position.x
+                          << ","
+                          << result.plan.body_reference[knot].position.y
+                          << ","
+                          << result.plan.body_reference[knot].position.z;
+            }
+            std::cout << "\n";
             ++terrain_support_debug_prints;
         }
 
@@ -1006,6 +1088,8 @@ bool TrotExperiment::PhaseStartGait(
     terrain_transfer_hold_active_ = false;
     terrain_surface_transition_active_ = false;
     terrain_surface_transition_required_.fill(false);
+    terrain_surface_transition_original_required_.fill(false);
+    terrain_surface_transition_cancelled_.fill(false);
     terrain_surface_transition_committed_.fill(false);
     terrain_surface_transition_source_valid_.fill(false);
     terrain_surface_transition_committed_surface_valid_.fill(false);
