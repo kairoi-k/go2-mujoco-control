@@ -41,6 +41,29 @@ inline const char *TerrainCrawlStateName(TerrainCrawlState state) noexcept
     }
 }
 
+// The COM-shift state is a four-foot stance even before a terrain swing
+// transaction exists. Keep this policy beside the state machine so the WBC
+// cannot fall back to the running-trot schedule at handoff.
+inline bool TerrainCrawlWbcContactOverride(
+    TerrainCrawlState state,
+    std::size_t active_leg,
+    std::array<bool, go2::kLegCount> &contact) noexcept
+{
+    if (state == TerrainCrawlState::kShiftCom)
+    {
+        contact.fill(true);
+        return true;
+    }
+    if (state == TerrainCrawlState::kCrawlStep &&
+        active_leg < go2::kLegCount)
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            contact[leg] = leg != active_leg;
+        return true;
+    }
+    return false;
+}
+
 struct TerrainCrawlSignals
 {
     bool transfer_window_active = false;
@@ -152,6 +175,7 @@ public:
         {1, 0, 2, 3};
     static constexpr int kMaxRetries = 2;
     static constexpr double kComMarginM = 0.02;
+    static constexpr double kComShiftRampS = 0.40;
     static constexpr double kCreepSpeedMps = 0.12;
     static constexpr double kContactRecoveryGraceS = 0.10;
 
@@ -166,6 +190,9 @@ public:
         com_target_world_ = {};
         com_margin_m_ = -std::numeric_limits<double>::infinity();
         triangle_valid_ = false;
+        com_shift_start_world_ = {};
+        com_shift_start_time_s_ = 0.0;
+        com_shift_start_valid_ = false;
     }
 
     void Enter(double now_s) noexcept
@@ -178,6 +205,9 @@ public:
         com_target_world_ = {};
         com_margin_m_ = -std::numeric_limits<double>::infinity();
         triangle_valid_ = false;
+        com_shift_start_world_ = {};
+        com_shift_start_time_s_ = 0.0;
+        com_shift_start_valid_ = false;
         ++transition_count_;
     }
 
@@ -352,9 +382,32 @@ private:
             triangle, signals.measured_com_world);
         com_margin_m_ = metrics.signed_margin_m;
         if (metrics.signed_margin_m >= kComMarginM)
+        {
             com_target_world_ = signals.measured_com_world;
-        else
-            com_target_world_ = TerrainSupportTriangleCentroid(triangle);
+            com_shift_start_valid_ = false;
+            return;
+        }
+
+        // A centroid target can be about 100 mm from the measured COM at
+        // handoff. Start at the measured point and ramp the existing WBC
+        // reference, rather than injecting that displacement in one MPC
+        // update and unloading the stance legs.
+        if (!com_shift_start_valid_)
+        {
+            com_shift_start_world_ = signals.measured_com_world;
+            com_shift_start_time_s_ = signals.now_s;
+            com_shift_start_valid_ = std::isfinite(com_shift_start_time_s_);
+        }
+        const double elapsed = signals.now_s - com_shift_start_time_s_;
+        const double alpha = std::clamp(
+            elapsed / kComShiftRampS, 0.0, 1.0);
+        const auto centroid = TerrainSupportTriangleCentroid(triangle);
+        com_target_world_ = {
+            com_shift_start_world_.x +
+                alpha * (centroid.x - com_shift_start_world_.x),
+            com_shift_start_world_.y +
+                alpha * (centroid.y - com_shift_start_world_.y),
+            0.0};
     }
 
     bool ComShiftReady() const noexcept
@@ -367,6 +420,13 @@ private:
     {
         if (state_ != state)
             ++transition_count_;
+        if (state == TerrainCrawlState::kShiftCom &&
+            state_ != TerrainCrawlState::kShiftCom)
+        {
+            com_shift_start_world_ = {};
+            com_shift_start_time_s_ = 0.0;
+            com_shift_start_valid_ = false;
+        }
         state_ = state;
         state_enter_time_s_ = now_s;
     }
@@ -380,6 +440,9 @@ private:
     go2::Vec3 com_target_world_{};
     double com_margin_m_ = -std::numeric_limits<double>::infinity();
     bool triangle_valid_ = false;
+    go2::Vec3 com_shift_start_world_{};
+    double com_shift_start_time_s_ = 0.0;
+    bool com_shift_start_valid_ = false;
 };
 
 }  // namespace go2_terrain

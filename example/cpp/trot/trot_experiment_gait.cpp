@@ -2644,6 +2644,19 @@ bool TrotExperiment::BuildGaitTargets(
             ++terrain_gait_target_override_count_;
     }
 
+    if (terrain_transfer_window_active_ &&
+        terrain_crawl_state_machine_.state() ==
+            go2_terrain::TerrainCrawlState::kShiftCom &&
+        have_actual_world_feet)
+    {
+        // SHIFT_COM has no active swing. Freeze every commanded foot at its
+        // measured world anchor, otherwise the newly selected crawl gait
+        // can move feet while WBC simultaneously declares them stance.
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            feet[leg] = go2_control::WorldToBody(
+                pose.base, pose.quaternion, actual_world_feet[leg]);
+    }
+
     // Inner/outer-leg y offset (Raibert turn). Goal heading uses the same
     // plant; the old 4 s delay is gone so A→B can yaw immediately.
     double turn_rate = params_.turn_rate_radps;

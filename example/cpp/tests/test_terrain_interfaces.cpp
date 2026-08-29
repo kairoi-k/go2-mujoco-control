@@ -1270,6 +1270,71 @@ int main()
             return 1;
     }
 
+    // SHIFT_COM must force a full WBC stance before any foothold
+    // transaction exists; otherwise the running-trot diagonal can unload
+    // the standing robot at the handoff. CrawlStep still removes only its
+    // selected leg, and unrelated states retain the input schedule.
+    {
+        std::array<bool, go2::kLegCount> contact{false, true, false, true};
+        if (!Check(
+                go2_terrain::TerrainCrawlWbcContactOverride(
+                    go2_terrain::TerrainCrawlState::kShiftCom,
+                    go2::kLegCount, contact) &&
+                    contact == std::array<bool, go2::kLegCount>{true, true, true, true},
+                "SHIFT_COM did not force all WBC contacts") ||
+            !Check(
+                go2_terrain::TerrainCrawlWbcContactOverride(
+                    go2_terrain::TerrainCrawlState::kCrawlStep, 1, contact) &&
+                    contact == std::array<bool, go2::kLegCount>{true, false, true, true},
+                "CRAWL_STEP did not remove only the active leg"))
+            return 1;
+        const auto prior = contact;
+        if (!Check(
+                !go2_terrain::TerrainCrawlWbcContactOverride(
+                    go2_terrain::TerrainCrawlState::kApproach, 1, contact) &&
+                    contact == prior,
+                "non-crawl state unexpectedly changed WBC contacts"))
+            return 1;
+        if (!Check(
+                go2_terrain::TerrainCrawlStateMachine::kComShiftRampS == 0.40,
+                "COM shift ramp duration changed"))
+            return 1;
+    }
+
+    // An outside COM must approach the support-triangle centroid gradually;
+    // the first valid target remains at the measured COM instead of jumping.
+    {
+        const std::array<go2::Vec3, go2::kLegCount> feet{
+            go2::Vec3{0.30, -0.20, 0.0}, go2::Vec3{0.30, 0.20, 0.0},
+            go2::Vec3{-0.30, -0.20, 0.0}, go2::Vec3{-0.30, 0.20, 0.0}};
+        go2_terrain::TerrainCrawlStateMachine m;
+        go2_terrain::TerrainCrawlSignals x;
+        x.transfer_window_active = true;
+        x.plan_valid = true;
+        x.measured_contact_valid = true;
+        x.measured_contact = {true, true, true, true};
+        x.measured_foot_valid = true;
+        x.measured_foot_world = feet;
+        x.measured_com_valid = true;
+        x.measured_com_world = {0.30, 0.0, 0.0};
+        x.measured_velocity_mps = 0.30;
+        x.now_s = 4.0;
+        m.Update(x);
+        x.measured_velocity_mps = 0.05;
+        x.now_s = 4.1;
+        m.Update(x);
+        x.now_s = 4.2;
+        m.Update(x);
+        const double start_x = m.com_target_world().x;
+        x.now_s = 4.3;
+        m.Update(x);
+        const double ramped_x = m.com_target_world().x;
+        if (!Check(start_x == 0.30 && ramped_x < start_x &&
+                       ramped_x > -0.10,
+                   "COM shift target jumped instead of ramping"))
+            return 1;
+    }
+
     // Explicit v2 crawl sequencing uses measured support and a COM margin.
     {
         std::array<go2::Vec3, go2::kLegCount> feet{

@@ -492,25 +492,6 @@ void TrotExperiment::UpdateWbcFull(
                     qp_contact[leg] = true;
         }
         }
-        if (terrain_transfer_window_active_ &&
-            terrain_crawl_state_machine_.state() ==
-                go2_terrain::TerrainCrawlState::kShiftCom)
-        {
-            // SHIFT_COM is still a four-contact stance: the upcoming leg
-            // must remain loaded while the existing body reference translates.
-            qp_contact.fill(true);
-        }
-        else if (terrain_transfer_window_active_ &&
-            terrain_crawl_state_machine_.state() ==
-                go2_terrain::TerrainCrawlState::kCrawlStep)
-        {
-            const std::size_t active_leg = terrain_crawl_state_machine_.ActiveLeg();
-            if (active_leg < go2::kLegCount)
-            {
-                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-                    qp_contact[leg] = leg != active_leg;
-            }
-        }
         else if (terrain_transfer_complete)
         {
             // The measured target is now a real support contact. Promote the
@@ -525,6 +506,17 @@ void TrotExperiment::UpdateWbcFull(
             terrain_transfer_hold_contact_.fill(false);
             terrain_transfer_hold_active_ = false;
         }
+    }
+
+    // Apply the crawl state contact policy after transfer bookkeeping. In
+    // particular, SHIFT_COM has no swing transaction yet, so nesting this
+    // override under terrain_transfer_has_target lets the trot schedule
+    // (often a two-foot diagonal) unload the standing robot.
+    if (terrain_transfer_window_active_)
+    {
+        (void)go2_terrain::TerrainCrawlWbcContactOverride(
+            terrain_crawl_state_machine_.state(),
+            terrain_crawl_state_machine_.ActiveLeg(), qp_contact);
     }
 
     bool terrain_surface_transition_complete =
@@ -1515,9 +1507,13 @@ void TrotExperiment::UpdateWbcFull(
     if (high_speed_curriculum && force_track_ov > 0.0)
         id_params.w_force_track = std::clamp(force_track_ov, 0.0, 1.0);
     // A terrain transfer hold is a physical-support request, not merely a
-    // contact-mask request. Prevent the ID-WBC force solution from satisfying
-    // the floating-base equations with a near-zero load on one held foot.
-    if (terrain_transfer_hold_active_ && !terrain_transfer_complete)
+    // contact-mask request. SHIFT_COM is also a four-foot stance before a
+    // foothold transaction exists, so apply the same scoped floor there.
+    const bool terrain_crawl_shift = terrain_transfer_window_active_ &&
+        terrain_crawl_state_machine_.state() ==
+            go2_terrain::TerrainCrawlState::kShiftCom;
+    if ((terrain_transfer_hold_active_ && !terrain_transfer_complete) ||
+        terrain_crawl_shift)
         id_params.min_normal_n = 20.0;
     id_params.tau_limit_nm = 35.0;
     const double tau_ov = Full2EnvDouble("FULL2_TAU", -1.0);
