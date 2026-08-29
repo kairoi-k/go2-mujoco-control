@@ -372,8 +372,14 @@ public:
             UpdateComTarget(signals);
             const std::size_t target_leg = ActiveLegForSupport();
             if (signals.plan_valid && ComShiftReady() &&
-                target_leg < go2::kLegCount && signals.target_valid[target_leg])
+                target_leg < go2::kLegCount)
+            {
+                // The gait adapter prepares the selected target after this
+                // update. Enter CRAWL_STEP once the live plan is ready so it
+                // can perform that same-tick handoff; a missing target is
+                // returned to SHIFT_COM on the next update without swinging.
                 SetState(TerrainCrawlState::kCrawlStep, signals.now_s);
+            }
             break;
         }
         case TerrainCrawlState::kCrawlStep:
