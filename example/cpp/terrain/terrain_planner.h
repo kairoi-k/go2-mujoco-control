@@ -1103,16 +1103,7 @@ private:
 
         std::size_t support_knots = 0;
         std::size_t support_horizon = config_.horizon_knots;
-        bool front_commit_pending =
-            !input.terrain_surface_transition_active;
-        if (!front_commit_pending)
-        {
-            for (std::size_t leg = 0; leg < 2; ++leg)
-                front_commit_pending = front_commit_pending ||
-                    (input.terrain_surface_transition_required[leg] &&
-                     !input.terrain_surface_transition_committed[leg]);
-        }
-        if (front_commit_pending)
+        if (!input.terrain_surface_transition_active)
         {
             // Before both front commits, do not reject an otherwise
             // usable target because a later preview knot enters the
@@ -1289,16 +1280,7 @@ private:
             std::numeric_limits<double>::infinity();
         std::size_t support_knots = 0;
         std::size_t support_horizon = result.plan.horizon_knots;
-        bool front_commit_pending =
-            !input.terrain_surface_transition_active;
-        if (!front_commit_pending)
-        {
-            for (std::size_t leg = 0; leg < 2; ++leg)
-                front_commit_pending = front_commit_pending ||
-                    (input.terrain_surface_transition_required[leg] &&
-                     !input.terrain_surface_transition_committed[leg]);
-        }
-        if (front_commit_pending)
+        if (!input.terrain_surface_transition_active)
         {
             // Match selection: before both front commits, late preview knots
             // belong to the future body-advance phase and must not veto the
