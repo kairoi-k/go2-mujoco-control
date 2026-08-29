@@ -42,6 +42,18 @@ inline double TerrainSwingLeadingEdgePathProgress(double edge_phase)
 // A measured contact at or before the inferred edge is a corner catch, not a
 // valid touchdown. Leave the transition requirement intact so the next plan
 // can execute a fresh swing rather than committing or pinning the endpoint.
+inline bool TerrainSwingLeadingEdgeReached(
+    double elapsed_s, double swing_duration_s,
+    bool leading_edge_phase_valid, double leading_edge_phase)
+{
+    if (!leading_edge_phase_valid || !std::isfinite(elapsed_s) ||
+        !std::isfinite(swing_duration_s) || swing_duration_s <= 0.0)
+        return true;
+    const double phase = std::clamp(
+        elapsed_s / swing_duration_s, 0.0, 1.0);
+    return phase >= std::clamp(leading_edge_phase, 0.10, 0.75);
+}
+
 inline bool TerrainSwingContactBeforeLeadingEdge(
     const go2::Vec3 &start_world, const go2::Vec3 &target_world,
     const go2::Vec3 &actual_world, bool leading_edge_phase_valid,

@@ -320,7 +320,13 @@ void TrotExperiment::UpdateWbcFull(
             dyn.foot_pos_world[leg].x(),
             dyn.foot_pos_world[leg].y(),
             dyn.foot_pos_world[leg].z()};
-        if (measured_contact[leg] &&
+        const bool terrain_leading_edge_reached =
+            go2_terrain::TerrainSwingLeadingEdgeReached(
+                terrain_now_s - execution.trajectory_start_time_s,
+                execution.swing_duration_s,
+                execution.swing_leading_edge_phase_valid,
+                execution.swing_leading_edge_phase);
+        if (measured_contact[leg] && terrain_leading_edge_reached &&
             go2_terrain::TerrainSwingContactBeforeLeadingEdge(
                 execution.start_world, execution.target_world, actual_world,
                 execution.swing_leading_edge_phase_valid,

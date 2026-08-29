@@ -542,6 +542,12 @@ int main()
     if (!Check(step_leading_edge_phase_valid &&
                    step_peak_phase <= step_leading_edge_phase + 1.0e-9,
                "swing apex was not placed before the observed edge") ||
+        !Check(!go2_terrain::TerrainSwingLeadingEdgeReached(
+                   0.01, 0.20, true, 0.30),
+               "initial swing contact was treated as edge-crossing") ||
+        !Check(go2_terrain::TerrainSwingLeadingEdgeReached(
+                   0.06, 0.20, true, 0.30),
+               "edge-crossing phase was not recognized") ||
         !Check(go2_terrain::TerrainSwingContactBeforeLeadingEdge(
                    {0.68, -0.10, 0.02}, {0.86, -0.10, 0.05},
                    {0.701, -0.10, 0.07}, true, 0.30),
