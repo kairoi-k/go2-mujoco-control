@@ -889,3 +889,21 @@ evidence:
 verdict: |
   Root cause is tracking latency/stance authority: epoch43 applies a stale forward SRBD solution for up to 100 ms, then the four-foot stance is too weak to remove residual momentum before the readiness check. The fix is window-scoped MPC refresh plus stronger stance no-slip and longer recovery/settle allowance. No v1 contract, analyzer threshold, or canary definition changed. This is exploratory signal evidence only; the final pair does not claim the Order-027 physical-success criterion (FL measured commit).
 git_status: local changes pending commit; no staged files; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-30T18:00:00+0800
+run_id: Order-028 b1_sm_epoch45_20260828 (+ _r2)
+trigger: T1
+signature: The epoch44 FL attempt never reached the measured commit gate because the explicit CRAWL_STEP leg was held in explicit CRAWL_STEP swing for the whole state. The endpoint transition was therefore unreachable; the state-machine wait condition at terrain_crawl_state_machine.h:306-308 also remained false because committed[FL] never became true.
+evidence:
+  epoch44_trace: |
+    b1_sm_epoch44_20260828: state entered CRAWL_STEP at 8.918 s, active leg FL (1), measured mask 13 at the handoff; FL execution remained valid=0/in_flight=0/endpoint_held=0 through abort at 9.032 s, with FL prepare failure=4 (terrain target required false). The recorded FL world FK trajectory was x=0.6792 -> 0.6154 m and z=0.0230 -> 0.0732 m over the state interval; no FL command, leading-edge crossing, measured contact event, endpoint, or force-qualified commit exists in the CSV. r2 did not enter CRAWL_STEP.
+    source_mechanism: |
+      In the state-machine path, explicit_active_leg was unconditional while state==CRAWL_STEP (trot_experiment_gait.cpp:2294-2308), making effective_leg_in_swing true even after touchdown. The normal !effective_leg_in_swing branch at trot_experiment_gait.cpp:2357-2365, which changes in_flight to endpoint_held, could never run. Consequently the WBC commit predicates at trot_experiment_wbc.cpp:360-365 (measured contact && endpoint error <= window tolerance) were unreachable for an in-flight explicit swing.
+  fix: |
+    Added TerrainCrawlSwingStillInFlight() in terrain_motion_plan.h. The explicit leg is owned only until its immutable touchdown timestamp; at/after that timestamp the endpoint-held path executes. During CRAWL_STEP the selected leg now uses this predicate instead of the unconditional swing flag. During SHIFT_COM the selected upcoming leg is allowed to prepare from the retained last usable plan while all other legs remain measured anchors; a transient rejected planner snapshot no longer erases that snapshot inside the active window. Leading-edge guard, edge stand-off targets, and 0.045 m window tolerance are unchanged.
+  canary_command: |
+    Both named runs used serial flock -x /tmp/go2_mujoco_experiment.lock, domain 229, LD_PRELOAD=/home/che/dds_base8000_preload.so, and the unchanged epoch28 run_trot command line. b1_sm_epoch45_20260828: APPROACH 8.070 -> DECELERATE_TO_CREEP -> SHIFT_COM 8.616 -> CRAWL_STEP 9.314 -> ABORT 9.582; b1_sm_epoch45_20260828_r2: APPROACH 7.584 -> DECELERATE_TO_CREEP -> SHIFT_COM 8.142 -> CRAWL_STEP 8.720 -> ABORT 8.912. Both had zero measured commits; FL did not become in-flight because the available planner candidate was not surface-transition-required (failure=4) before the snapshot expired. Sequence progress: none beyond CRAWL_STEP; FR/ADVANCE_BODY/rear steps not reached.
+verdict: |
+  The source-level commit deadlock is fixed and covered by a pure helper test. The named stochastic pair did not produce a physical FL commit: both runs lost the valid FL transition candidate before launch and aborted on support. This is exploratory signal evidence only; no gate-level conclusion is claimed. The residual planner/state handoff issue is recorded rather than masked by treating a non-transition target as committed.
+git_status: local changes pending commit; no staged files; no push/amend; simulations serialized.

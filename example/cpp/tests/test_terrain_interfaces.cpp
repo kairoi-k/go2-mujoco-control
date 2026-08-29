@@ -559,6 +559,25 @@ int main()
                "post-edge contact was incorrectly rejected"))
         return 1;
 
+    // Explicit CRAWL_STEP must release ownership at the immutable endpoint;
+    // otherwise endpoint-held never runs and measured commit is unreachable.
+    if (!Check(go2_terrain::TerrainCrawlSwingStillInFlight(
+                   true, 1, 1, false, false, 1.0, 0.0, 0.002),
+               "crawl swing did not launch the selected leg") ||
+        !Check(go2_terrain::TerrainCrawlSwingStillInFlight(
+                   true, 1, 1, true, true, 1.10, 1.20, 0.002),
+               "crawl swing released before touchdown") ||
+        !Check(!go2_terrain::TerrainCrawlSwingStillInFlight(
+                   true, 1, 1, true, true, 1.20, 1.20, 0.002),
+               "crawl swing stayed active at touchdown") ||
+        !Check(!go2_terrain::TerrainCrawlSwingStillInFlight(
+                   true, 1, 1, true, false, 1.20, 1.20, 0.002),
+               "endpoint-held crawl target was treated as swing") ||
+        !Check(!go2_terrain::TerrainCrawlSwingStillInFlight(
+                   false, 1, 1, true, true, 1.10, 1.20, 0.002),
+               "flat swing path changed by crawl helper"))
+        return 1;
+
     // epoch15a/16 anchor false positive: the FK support foot stands on
     // flat ground at the riser base, but its own 5 cm cell (first riser
     // column, x in [0.30,0.35)) is filled with the riser top (-0.15),

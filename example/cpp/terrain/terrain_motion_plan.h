@@ -71,6 +71,23 @@ inline bool TerrainSwingContactBeforeLeadingEdge(
     return actual_world.x <= edge_x + 0.005;
 }
 
+// The explicit crawl state owns the selected leg until its immutable
+// touchdown time. Once that time is reached, let the normal endpoint-held
+// path run so the measured-contact/endpoint commit gate can execute.
+inline bool TerrainCrawlSwingStillInFlight(
+    bool explicit_crawl_step, std::size_t active_leg, std::size_t leg,
+    bool execution_valid, bool execution_in_flight,
+    double now_s, double touchdown_time_s, double time_tolerance_s) noexcept
+{
+    if (!explicit_crawl_step || active_leg != leg)
+        return false;
+    if (!execution_valid)
+        return true;
+    return execution_in_flight && std::isfinite(now_s) &&
+        std::isfinite(touchdown_time_s) &&
+        now_s + std::max(0.0, time_tolerance_s) < touchdown_time_s;
+}
+
 // A target that cannot be handed off within its immutable touchdown window
 // is a failed leg of the transaction. Keep required unchanged: planned
 // requirements are part of the transfer-consistency record and a cancelled

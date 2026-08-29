@@ -512,7 +512,12 @@ bool TrotExperiment::BuildGaitTargets(
                     execution = {};
             terrain_swing_pending_ = {};
         }
-        terrain_execution_plan_ = latest_terrain_plan;
+        // During a crawl shift, a transient planner rejection must not erase
+        // the last usable snapshot before the selected leg is prepared. Keep
+        // it until its immutable touchdown window expires or a newer usable
+        // snapshot replaces it; flat/out-of-window behavior is unchanged.
+        if (latest_terrain_plan || !terrain_transfer_window_active_)
+            terrain_execution_plan_ = latest_terrain_plan;
     }
     const auto active_terrain_plan = terrain_execution_plan_;
     std::array<bool, go2::kLegCount> terrain_contact_now{};
@@ -2294,12 +2299,20 @@ bool TrotExperiment::BuildGaitTargets(
             const bool explicit_crawl_step = terrain_crawl_execution &&
                 terrain_crawl_state_machine_.state() ==
                     go2_terrain::TerrainCrawlState::kCrawlStep;
-            const bool explicit_active_leg = explicit_crawl_step &&
-                terrain_crawl_state_machine_.ActiveLeg() == leg;
+            const bool crawl_shift_leg =
+                terrain_crawl_execution && !explicit_crawl_step &&
+                terrain_crawl_state_machine_.com_target_leg() == leg;
             auto &execution = terrain_swing_execution_[leg];
             auto &pending = terrain_swing_pending_[leg];
+            const bool explicit_active_leg =
+                go2_terrain::TerrainCrawlSwingStillInFlight(
+                    explicit_crawl_step,
+                    terrain_crawl_state_machine_.ActiveLeg(), leg,
+                    execution.valid, execution.in_flight, terrain_now_s,
+                    execution.touchdown_time_s, terrain_time_tolerance_s);
             const auto crawl_state = terrain_crawl_state_machine_.state();
-            if (terrain_crawl_execution && !explicit_crawl_step)
+            if (terrain_crawl_execution && !explicit_crawl_step &&
+                !crawl_shift_leg)
             {
                 if (have_actual_world_feet)
                     feet[leg] = go2_control::WorldToBody(
@@ -2328,8 +2341,10 @@ bool TrotExperiment::BuildGaitTargets(
                 std::isfinite(execution.touchdown_time_s) &&
                 terrain_now_s + terrain_time_tolerance_s <
                     execution.touchdown_time_s;
-            const bool effective_leg_in_swing =
-                explicit_active_leg || leg_in_swing || terrain_extended_swing;
+            const bool effective_leg_in_swing = explicit_crawl_step
+                ? explicit_active_leg
+                : (crawl_shift_leg ? false
+                                    : (leg_in_swing || terrain_extended_swing));
             const bool terrain_target_pending = execution.valid &&
                 execution.terrain_target_required &&
                 !execution.measured_touchdown;
