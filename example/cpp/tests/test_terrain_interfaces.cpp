@@ -7,6 +7,7 @@
 #include "terrain_feasibility.h"
 #include "terrain_motion_plan.h"
 #include "terrain_planner.h"
+#include "terrain_swing_tracking.h"
 
 namespace
 {
@@ -36,6 +37,20 @@ unitree_go::msg::dds_::HeightMap_ FlatMap()
 
 int main()
 {
+    // Transfer-only swing tracking authority reduces measured endpoint lag;
+    // the flat-ground defaults remain exactly unchanged.
+    {
+        const auto flat = go2_terrain::TerrainSwingTrackingForTransfer(false);
+        const auto crawl = go2_terrain::TerrainSwingTrackingForTransfer(true);
+        if (!Check(flat.position_gain == 180.0 && flat.velocity_gain == 16.0 &&
+                       flat.acceleration_limit == 50.0,
+                   "flat-ground swing tracking defaults changed") ||
+            !Check(crawl.position_gain == 240.0 && crawl.velocity_gain == 20.0 &&
+                       crawl.acceleration_limit == 70.0,
+                   "crawl swing tracking gains were not selected"))
+            return 1;
+    }
+
     // S1 keeps the already-loaded front stance through a delayed rear
     // touchdown, yielding the commanded 0.13 m body preview at 0.30 m/s.
     {

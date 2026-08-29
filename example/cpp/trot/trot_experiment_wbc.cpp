@@ -22,6 +22,7 @@
 #include "motion_frame_utils.h"
 #include "preview_footstep_horizon.h"
 #include "srbd_mpc.h"
+#include "terrain_swing_tracking.h"
 
 using namespace unitree::common;
 using namespace unitree::robot;
@@ -1382,9 +1383,15 @@ void TrotExperiment::UpdateWbcFull(
                     cartesian_state_.target_world_vel[leg].z);
             }
             const Eigen::Vector3d p = dyn.foot_pos_world[leg];
-            const double swing_kp = Full2EnvDouble("FULL2_SWING_KP", 180.0);
-            const double swing_kd = Full2EnvDouble("FULL2_SWING_KD", 16.0);
-            const double swing_acc_lim = Full2EnvDouble("FULL2_SWING_ACC", 50.0);
+            const auto terrain_swing_tracking =
+                go2_terrain::TerrainSwingTrackingForTransfer(
+                    terrain_transfer_window_active_);
+            const double swing_kp = Full2EnvDouble(
+                "FULL2_SWING_KP", terrain_swing_tracking.position_gain);
+            const double swing_kd = Full2EnvDouble(
+                "FULL2_SWING_KD", terrain_swing_tracking.velocity_gain);
+            const double swing_acc_lim = Full2EnvDouble(
+                "FULL2_SWING_ACC", terrain_swing_tracking.acceleration_limit);
             wbc_in.swing_acc_world[leg] = ClampVec3(
                 swing_kp * (p_des - p) + swing_kd * (v_des - v),
                 swing_acc_lim);
