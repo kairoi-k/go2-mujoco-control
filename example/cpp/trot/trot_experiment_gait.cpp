@@ -2195,7 +2195,19 @@ bool TrotExperiment::BuildGaitTargets(
                     go2::LegJointPositions joints;
                     if (!go2::LegInverseKinematics(
                             static_cast<go2::Leg>(leg), target_base, joints))
-                        return reject_prepare(5);
+                    {
+                        // The crawl transaction owns this measured swing.
+                        // The planner checked reachability at its predicted
+                        // handoff pose; keep the immutable endpoint when the
+                        // live pose is marginally outside the nominal IK
+                        // envelope and let the clamped WBC apply it.
+                        const bool explicit_crawl_handoff =
+                            terrain_crawl_state_machine_.state() ==
+                                go2_terrain::TerrainCrawlState::kCrawlStep &&
+                            terrain_crawl_state_machine_.ActiveLeg() == leg;
+                        if (!explicit_crawl_handoff)
+                            return reject_prepare(5);
+                    }
                 }
                 ++terrain_target_prepared_count_;
                 terrain_target_last_prepare_failure_ = 0;
