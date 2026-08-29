@@ -596,3 +596,27 @@ verdict: |
   The target-placement mechanism is implemented and tested, and the final named pair confirms deep target selection. The pair remains stochastic exploratory evidence: one run committed FR only and the other committed neither front foot; dual-front physical success is not claimed and no gate-level conclusion is made.
 git_status: code commit 558f4e7; documentation append pending local commit; no staged files after commit; no push/amend; simulations serialized.
 ---
+---
+timestamp: 2026-08-30T09:30:00+0800
+run_id: Order-021 b1_crawl_epoch38_20260828 (+ _r2)
+trigger: T1
+signature: Epoch37-r2 FL is a low/late in-flight apex at the riser corner, not a valid endpoint touchdown. Transfer-only swing shaping now places the peak no later than the sensor-derived leading edge, and a measured contact at/before that edge is discarded as a failed swing for the next planner snapshot. Commit evaluation remains the existing full 3D world endpoint norm; the known foot-site z offset is included consistently and no v1/analyzer/canary contract was changed.
+evidence:
+  epoch37_r2_diagnosis: |
+    data.csv FL target=(0.855135091,0.049998320) m and swing anchor=(0.678766178,0.022695500) m. In-flight rows were cmd t=17.148085-17.288088 s, phase 0.000-0.985714. The sampled in-flight maximum was t=17.288088, x=0.698843094, z=0.069278858 m, u=0.985714; the inferred corner crossing was t=17.982069 at x=0.700426, z=0.076853 m, u=1.000. Thus the apex was effectively at/after the corner and was below the upper surface plus 30 mm clearance (0.080 m) by about 3 mm at the crossing. This is the low-clearance/late-apex mechanism, not an endpoint commit: contact samples had at_endpoint=0 and the final transition mask stayed 0.
+  z_offset_check: |
+    The endpoint predicate in trot_experiment_wbc.cpp computes dyn.foot_pos_world minus the immutable target in all three axes and compares the Euclidean norm with TerrainTouchdownTolerance. It therefore includes the systematic foot-site z offset rather than silently dropping z. Reference committed contacts were +21.083 mm (epoch34-r2 FL) and +24.348 mm (epoch34-r2 FR) above target z; epoch37-r2 FL's corner sample was +18.440 mm. No offset correction or tolerance/analyzer change was made in this order.
+  implementation: |
+    terrain_feasibility.h changes an observed-edge swing peak from max(best_peak, edge_phase) to min(best_peak, edge_phase), forcing the clearance arch to reach its maximum by the inferred edge. trot_experiment_gait.cpp applies the same min rule at execution. terrain_motion_plan.h adds TerrainSwingContactBeforeLeadingEdge, using the same smoothstep path and a 5 mm edge jitter allowance. trot_experiment_wbc.cpp checks measured contact at the endpoint hold; a pre-edge contact clears only that execution, records failure reason 7, preserves the transition requirement, and allows the next planner snapshot to re-plan instead of committing or stalling.
+  canary_command: |
+    Both named canaries ran serially under flock -x /tmp/go2_mujoco_experiment.lock, domain 229, LD_PRELOAD=/home/che/dds_base8000_preload.so, headless, phase2_step_5cm.xml, and the unchanged epoch28 command line. Clean code SHA was 20e548e944a8510e2a89f949116c10495f24e66a; manifests report git_dirty=false.
+  canary_r1: |
+    b1_crawl_epoch38_20260828: FL target=(0.935309,0.049977) m, in-flight start state t=7.718 s. The first observed x>=0.70 crossing was state t=7.812 s, u=0.4273, x=0.703039, z=0.081470 m (above the 0.080 m upper-surface-plus-clearance gate). Sampled trajectory maximum was x=0.970299, z=0.107292 at u=0.9909 after crossing. First measured endpoint contact was x=0.945095, z=0.071821, 3D endpoint error=0.028143 m, at_endpoint=1, committed mask=FL (2); FR/RR/RL did not commit. Final base_x=0.374610 m, completion=0, no rear swing/body-advance sequence.
+  canary_r2: |
+    b1_crawl_epoch38_20260828_r2: FL target=(0.970772,0.049641) m. The sampled in-flight maximum before execution stopped was x=0.691028, z=0.052493 at u=0.4500; no x>=0.70 crossing or measured commit occurred. Final base_x=0.064894 m, committed mask=0, completion=0; FR/RR/RL had no terrain execution. This named run is stochastic negative evidence, not a physical-success or gate claim.
+  tests: |
+    cmake --build example/cpp/build -j2; cd example/cpp/build; ctest --output-on-failure -> 27/27 passed. B0 fixed pair acceptance_status=PASS, including no terrain actuation and no plan consumer/publication checks; auxiliary gait diagnostics remained non-gate. No contract, analyzer threshold, or canary definition changed.
+ git_status: code commit 20e548e; documentation append pending local commit; no staged files after commit; no push/amend; simulations serialized.
+verdict: |
+  The mechanism and numeric diagnosis are established, and the transfer-only edge-gated path removes the epoch37-r2 corner condition in the successful r1 swing (z=0.08147 at x=0.70304). The named pair still has only one FL commit and no dual-front/rear progression, so physical success and gate-level conclusions are not claimed.
+---
