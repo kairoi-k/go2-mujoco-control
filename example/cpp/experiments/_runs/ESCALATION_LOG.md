@@ -681,3 +681,14 @@ verdict: |
   The explicit state-machine path and unit coverage are present, but the required physical complete crossing and 0.45 s stable RESUME evidence were not achieved in either named canary. Residual blocker is physical posture collapse before first measured commit; no gate-level conclusion.
 git_status: implementation commits bb15f02 and bd3eaab; this documentation append is pending local commit; no push/amend; generated canary artifacts ignored.
 ---
+
+---
+timestamp: 2026-08-30T03:35:00+0800
+run_id: Order-023 final-HEAD metadata correction
+trigger: T1
+evidence: |
+  After the measured CLEAR precondition integration, the named pair was rerun at clean HEAD 638386b98dc2c5988ee5fd33be5a6565353ca4e0. b1_sm_epoch40_20260828 window 6.390142-10.308085 s, trace APPROACH -> DECELERATE_TO_CREEP -> CRAWL_STEP(FL), final world_base_x=.538633 m, commits=0, min measured contacts=0 after hard-posture collapse. _r2 window 6.338124-10.114121 s, trace APPROACH only, final world_base_x=.962795 m, commits=0, min measured contacts=0, also hard-posture collapse. Both manifests git_dirty=false and safety_status=1; neither completed crossing or stable RESUME.
+  final_b0: |
+    Final B0 fixed pair at the same HEAD used serial flock and preload and returned acceptance_status=PASS; frozen acceptance checks were green. ctest remained 27/27 passed.
+git_status: final-HEAD evidence correction pending local commit; no push/amend; generated canary artifacts ignored.
+---
