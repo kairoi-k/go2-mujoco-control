@@ -523,6 +523,16 @@ bool TrotExperiment::ValidateCycle(int cycle_index)
         support_fraction >= min_support_fraction &&
         cycle_diagnostics_.max_consecutive_low_support_samples <=
             max_consecutive_low_support;
+    // V2 crawl deliberately violates the running-trot support fraction and
+    // cycle timing envelope while the declared transfer window is active.
+    // Keep instantaneous hard posture limits below, but do not let this
+    // trot-tuned cycle-quality verdict abort the terrain transaction.
+    if (!safe && terrain_transfer_window_active_)
+    {
+        std::cerr << "Trot crawl cycle quality bypassed during transfer window "
+                  << cycle_index << "\n";
+        return true;
+    }
     const bool high_speed_health_governor =
         params_.wbc_full && !params_.cartesian_world &&
         Full2EnvDouble("TROT_HS_STABILITY_GOV", 0.0) > 0.5;
