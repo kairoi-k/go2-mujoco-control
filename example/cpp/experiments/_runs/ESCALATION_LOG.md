@@ -542,7 +542,7 @@ evidence:
   fix: |
     example/cpp/terrain/terrain_swing_tracking.h:13-22 adds a transfer-window-only parameter selection: WBC swing PD changes from 180/16/50 to 240/20/70 (position gain/velocity gain/acceleration limit). trot_experiment_wbc.cpp:1386-1397 consumes it only while terrain_transfer_window_active_; FULL2_* overrides remain honored. The flat/non-transfer tuple stays exactly 180/16/50, preserving B0 behavior. The endpoint predicate remains unchanged.
   tests_and_b0: |
-    test_terrain_interfaces now checks both transfer gain selection and flat-ground defaults.  and  passed, 27/27. B0 fixed pair command  returned acceptance_status=PASS at HEAD f1a7cc3; terrain_rows=39018, map valid fraction=0.9999743708, planner deadline misses=0. The auxiliary gait-period/WBC comparison diagnostics are known non-gate diagnostics; frozen B0 acceptance is PASS.
+    test_terrain_interfaces now checks both transfer gain selection and flat-ground defaults. Commands cmake --build example/cpp/build -j2 and ctest --output-on-failure passed, 27/27. B0 fixed pair command using flock, LD_PRELOAD=/home/che/dds_base8000_preload.so, and run_phase2_b0_fixed_pair.sh returned acceptance_status=PASS at HEAD f1a7cc3; terrain_rows=39018, map valid fraction=0.9999743708, planner deadline misses=0. The auxiliary gait-period/WBC comparison diagnostics are known non-gate diagnostics; frozen B0 acceptance is PASS.
   canary_command: |
     Final named pair was run serially under /tmp/go2_mujoco_experiment.lock with domain 229, LD_PRELOAD=/home/che/dds_base8000_preload.so, and the unchanged epoch28 run_trot command line. Final artifacts are b1_crawl_epoch36_20260828 and b1_crawl_epoch36_20260828_r2.
   canary: |
