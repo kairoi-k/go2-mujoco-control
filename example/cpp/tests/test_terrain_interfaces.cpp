@@ -133,6 +133,23 @@ int main()
             return 1;
     }
 
+    // Terrain maps carry contact-patch elevations while FK/WBC carry the
+    // foot-site center. The calibrated 22 mm conversion must be reversible.
+    {
+        const go2::Vec3 patch{0.31, -0.08, 0.050};
+        const go2::Vec3 site = go2::ContactPatchToFootSite(patch);
+        const go2::Vec3 recovered = go2::FootSiteToContactPatch(site);
+        if (!Check(
+                std::abs(go2::kFootSiteToContactPatchOffsetM - 0.022) <
+                    1.0e-12,
+                "foot-site/contact-patch calibration changed") ||
+            !Check(std::abs(site.z - 0.072) < 1.0e-12,
+                   "contact patch was not raised to the FK site") ||
+            !Check(std::abs(recovered.z - patch.z) < 1.0e-12,
+                   "foot-site/contact-patch conversion was not reversible"))
+            return 1;
+    }
+
     // Crawl touchdown acceptance is scoped to the v2 transfer window. The
     // measured FR landing miss was 0.0384 m, just above the trot-derived
     // 0.0375 m geometric bound; flat ground keeps the original calculation.

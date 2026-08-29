@@ -730,7 +730,8 @@ public:
                     FootholdRejectReason::kSwingClearance;
                 if (!CheckSwingClearance(
                         *input.terrain, input.current_feet_base[leg],
-                        candidate.foot_position, config_.swing_clearance_m,
+                        go2::ContactPatchToFootSite(candidate.foot_position),
+                        config_.swing_clearance_m,
                         candidate.swing_clearance_m, &swing_reject_reason,
                         static_cast<go2::Leg>(leg), &candidate.swing_lift_m,
                         &candidate.swing_peak_phase,
@@ -2328,7 +2329,8 @@ private:
                             TerrainSwingDurationForPath(
                                 nominal_swing_duration_s,
                                 foot.swing_start_position_world,
-                                foot.position_world,
+                                go2::ContactPatchToFootSite(
+                                    foot.position_world),
                                 foot.swing_lift_m,
                                 config_.feasibility.max_swing_speed_mps);
                         result.plan.min_edge_margin_m = std::min(

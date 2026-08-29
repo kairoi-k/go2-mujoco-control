@@ -371,7 +371,7 @@ void TrotExperiment::UpdateWbcFull(
             {
                 terrain_surface_transition_committed_surface_valid_[leg] = true;
                 terrain_surface_transition_committed_surface_world_z_[leg] =
-                    execution.target_world.z;
+                    go2::FootSiteToContactPatch(execution.target_world).z;
                 terrain_surface_transition_committed_[leg] = true;
                 if (Full2EnvDouble(
                         "TROT_TERRAIN_DEBUG_TRANSACTION", 0.0) > 0.5)
@@ -406,7 +406,10 @@ void TrotExperiment::UpdateWbcFull(
             if (terrain_surface_transition_required_[leg] ||
                 terrain_surface_transition_committed_[leg])
                 continue;
-            const double source_world_z = dyn.foot_pos_world[leg].z();
+            // Transition surfaces are contact-patch heights, while the
+            // dynamics foot point is the FK/collision-site center.
+            const double source_world_z = go2::FootSiteToContactPatch(
+                go2::Vec3{0.0, 0.0, dyn.foot_pos_world[leg].z()}).z;
             if (!std::isfinite(source_world_z) ||
                 terrain_surface_transition_target_world_z_ - source_world_z <=
                     terrain_surface_transition_deadband_m_)

@@ -2138,7 +2138,10 @@ bool TrotExperiment::BuildGaitTargets(
                 execution.plan_id = active_terrain_plan->plan_id;
                 execution.map_epoch = active_terrain_plan->map_epoch;
                 execution.start_world = start_world;
-                execution.target_world = planned.position_world;
+                // Planner targets are contact-patch coordinates; execution
+                // and FK/WBC use the calibrated foot-site coordinate.
+                execution.target_world = go2::ContactPatchToFootSite(
+                    planned.position_world);
                 execution.nominal_touchdown_time_s =
                     planned.touchdown_time_s;
                 execution.trajectory_start_time_s =
@@ -2207,7 +2210,8 @@ bool TrotExperiment::BuildGaitTargets(
                 if (!execution.terrain_target_required)
                     return reject_prepare(4);
                 begin_terrain_surface_transition(
-                    leg, execution.target_world.z, planned.uncertainty_m);
+                    leg, go2::FootSiteToContactPatch(execution.target_world).z,
+                    planned.uncertainty_m);
                 // The planner's reachability test is made at its predicted
                 // touchdown body pose.  A committed snapshot can outlive a
                 // body-height/pose change, however; applying its world

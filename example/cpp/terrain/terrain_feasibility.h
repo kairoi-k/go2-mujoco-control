@@ -916,6 +916,9 @@ inline FootholdCandidate EvaluateFoothold(
     candidate.roughness_m = patch.roughness_m;
     candidate.edge_margin_m = patch.map_edge_margin_m;
     candidate.uncertainty_m = std::sqrt(std::max(0.0, patch.variance_m2));
+    // Map elevations describe the contact patch. Analytical FK and the
+    // MuJoCo foot point describe the collision-sphere site, so reachability
+    // must evaluate the calibrated site target rather than the patch plane.
     const go2::Vec3 reachability_position =
         future_base_displacement_base != nullptr
             ? go2::Vec3{
@@ -924,8 +927,9 @@ inline FootholdCandidate EvaluateFoothold(
                   candidate.foot_position.y -
                       future_base_displacement_base->y,
                   candidate.foot_position.z -
-                      future_base_displacement_base->z}
-            : candidate.foot_position;
+                      future_base_displacement_base->z +
+                      go2::kFootSiteToContactPatchOffsetM}
+            : go2::ContactPatchToFootSite(candidate.foot_position);
     candidate.reachability_margin_m = LegReachabilityMargin(
         leg, reachability_position);
     if (candidate.edge_margin_m < config.min_edge_margin_m)
@@ -965,7 +969,8 @@ inline FootholdCandidate EvaluateFoothold(
         FootholdRejectReason swing_reject_reason =
             FootholdRejectReason::kSwingClearance;
         if (!CheckSwingClearance(
-                model, *swing_start, candidate.foot_position,
+                model, *swing_start,
+                go2::ContactPatchToFootSite(candidate.foot_position),
                 swing_clearance_m, candidate.swing_clearance_m,
                 &swing_reject_reason, leg, &candidate.swing_lift_m,
                 &candidate.swing_peak_phase,
