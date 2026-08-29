@@ -559,3 +559,13 @@ evidence: |
   Code commit b9962b2 and documentation commits 96558c4/286ea97 are local only; the worktree is clean. The final named canary artifacts above were generated after b9962b2. No push or amend was performed.
 git_status: clean; no staged files; no push/amend.
 ---
+---
+timestamp: 2026-08-30T06:55:00+08:00
+run_id: Order-019 final-HEAD canary metadata correction
+trigger: T1
+signature: The named epoch36 pair was rerun after all local commits; both manifests now report git_head=057aacbb18b966f1b618cfa372f1b6bdb1c8866f and git_dirty=false.
+evidence: |
+  Final clean-HEAD b1_crawl_epoch36_20260828: transfer window 7.188-27.144 s, FL target=(0.801030,0.100222,0.049445) m, planned 0.2104 s swing (7.8056-8.0160 s), no flight/landing, final base_x=0.520092 m, front mask=0.
+  Final clean-HEAD b1_crawl_epoch36_20260828_r2: transfer window observed, FL target=(0.831296,0.089125,0.050253) m, planned 0.2084 s swing (7.3756-7.5840 s), and a later FR target=(0.794724,-0.139945,0.049877) m, planned 0.1000 s swing (24.5231-24.6231 s); neither reached flight/landing, final base_x=0.520686 m, front mask=0. Thus the clean final pair is negative physical evidence; the post-fix single-FL commit evidence remains in the immediately preceding exploratory rerun record, while epoch34-r2 supplies the measured endpoint comparison.
+git_status: clean; no staged files; no push/amend; simulations serialized.
+---
