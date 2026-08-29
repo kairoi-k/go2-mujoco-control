@@ -316,6 +316,41 @@ void TrotExperiment::UpdateTerrainRuntime()
     // The gait helper fills contact bits only; validity is an explicit
     // planned-vs-measured interface contract.
     input.contact_schedule.planned_valid = true;
+    // S1 is armed once after a front upper-surface commit. Rebuild the
+    // nominal schedule on every snapshot, then stretch it only up to one
+    // absolute advance deadline so asynchronous replanning cannot postpone
+    // the rear event forever.
+    if (!control.terrain_surface_transition_active ||
+        !control.terrain_transfer_hold_active)
+    {
+        terrain_body_advance_phase_ = false;
+        terrain_body_advance_until_s_ =
+            -std::numeric_limits<double>::infinity();
+    }
+    bool front_transition_committed = false;
+    for (std::size_t leg = 0; leg < 2; ++leg)
+        front_transition_committed = front_transition_committed ||
+            control.terrain_surface_transition_committed[leg];
+    if (control.terrain_transfer_hold_active &&
+        front_transition_committed && !terrain_body_advance_phase_ &&
+        std::isfinite(input.commanded_vx_mps) &&
+        std::abs(input.commanded_vx_mps) >= 0.05)
+    {
+        terrain_body_advance_until_s_ = input.state_stamp_s +
+            0.13 / std::abs(input.commanded_vx_mps);
+        terrain_body_advance_phase_ = true;
+    }
+    if (terrain_body_advance_phase_)
+        (void)go2_terrain::StretchTerrainFrontStanceSchedule(
+            input.contact_schedule,
+            input.terrain_surface_transition_required,
+            input.terrain_surface_transition_committed,
+            input.next_touchdown_time_s,
+            input.next_touchdown_time_valid,
+            input.state_stamp_s, input.commanded_vx_mps,
+            terrain_planner_.config().knot_dt_s,
+            terrain_planner_.config().horizon_knots, 0.13,
+            terrain_body_advance_until_s_);
     input.terrain_retarget_allowed_valid = true;
     if (std::isfinite(input.gait_period_s) &&
         input.gait_period_s > 0.0 &&

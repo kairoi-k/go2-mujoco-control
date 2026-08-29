@@ -511,6 +511,12 @@ private:
     // a prescribed leg order or a scene-specific transfer script.
     std::array<bool, go2::kLegCount> terrain_transfer_hold_contact_{};
     bool terrain_transfer_hold_active_ = false;
+    // Absolute end of the one-shot S1 body-advance window. The planner
+    // replays this fixed deadline on each snapshot instead of extending the
+    // rear event indefinitely as the asynchronous plan refreshes.
+    double terrain_body_advance_until_s_ =
+        -std::numeric_limits<double>::infinity();
+    bool terrain_body_advance_phase_ = false;
     // A surface transition spans every foot whose observed support surface
     // differs from the first measured terrain endpoint.  Completed endpoints
     // remain sensor-confirmed anchors while the nominal diagonal partner is

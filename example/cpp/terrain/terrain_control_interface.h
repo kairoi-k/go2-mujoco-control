@@ -68,7 +68,8 @@ inline bool StretchTerrainFrontStanceSchedule(
     std::array<double, go2::kLegCount> &next_touchdown_time_s,
     const std::array<bool, go2::kLegCount> &next_touchdown_time_valid,
     double state_stamp_s, double commanded_vx_mps, double knot_dt_s,
-    std::size_t horizon_knots, double advance_distance_m = 0.13)
+    std::size_t horizon_knots, double advance_distance_m = 0.13,
+    double minimum_advance_until_s = std::numeric_limits<double>::quiet_NaN())
 {
     if (!schedule.valid(horizon_knots) || horizon_knots == 0 ||
         horizon_knots > kTerrainContactMaxKnots ||
@@ -118,7 +119,11 @@ inline bool StretchTerrainFrontStanceSchedule(
         return false;
 
     const int delay_knots = static_cast<int>(std::ceil(
-        advance_distance_m / (std::abs(commanded_vx_mps) * knot_dt_s)));
+        (std::isfinite(minimum_advance_until_s)
+             ? std::max(0.0, minimum_advance_until_s -
+                                (state_stamp_s +
+                                 static_cast<double>(rear_event) * knot_dt_s))
+             : advance_distance_m / (std::abs(commanded_vx_mps) * knot_dt_s))));
     if (delay_knots <= 0 || rear_event + delay_knots >=
         static_cast<int>(horizon_knots))
         return false;
