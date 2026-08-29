@@ -519,3 +519,11 @@ evidence:
     Both named runs used final built code, domain 229, serial flock /tmp/go2_mujoco_experiment.lock, and LD_PRELOAD=/home/che/dds_base8000_preload.so. r1 logged crawl-quality bypasses at controller.log:96 and :133, then hit the unchanged hard posture safety path (first physical collapse in the recorded active evidence at about state 8.036 s; roll reached 21.9488 deg, base height 0.273629 m). Window telemetry was 7.198-10.842 s (3.644 s latch, with physical survival to about 8.036 s); measured commit mask reached FL only (2), FR/RR/RL zero. r2 logged bypass at :96 and :133; its window was 7.204-9.242 s (2.038 s), then the trot quality guard rejected cycle 20 outside the window at :149 (support fraction 0.28 < diagnostics.cpp:500-507 threshold 0.35). It had no measured commit (mask 0); FR/RR/RL zero. These runs show window gating works but no dual-front success, so no gate-level conclusion is claimed.
   tests: cmake --build example/cpp/build -j2; ctest --output-on-failure -> 27/27 passed. No v1 contract, analyzer threshold, or canary definition changed; simulations were serial.
 git_status: documentation append and diagnostics implementation pending local commit; no push/amend.
+---
+timestamp: 2026-08-30T04:40:00+08:00
+run_id: Order-018 epoch35 final-HEAD evidence correction
+trigger: T1
+signature: Final named canaries were rerun after commit cfe16b3340eff325deef7b2a3ed8212f674d5ef4; manifests report clean source and this SHA.
+evidence: |
+  b1_crawl_epoch35_20260828: window 7.586-27.618 s (20.032 s telemetry latch), final base_x=.522108 m, committed mask=0, per-leg measured commit mask FR/FL/RR/RL=0/0/0/0. No cycle-quality rejection occurred in the window; no_safe_stop was false in the frozen analyzer because planner/safe-stop conditions later failed. b1_crawl_epoch35_20260828_r2: window 7.028-10.170 s (3.142 s), final base_x=.578745 m, committed mask=0, per-leg mask=0/0/0/0; it later hit the unchanged hard posture safety path (roll approximately 179 degrees). Neither run met the dual-front success criterion. Both simulations were serial under the required flock, domain 229, and preload.
+git_status: documentation correction pending local commit; no push/amend.
