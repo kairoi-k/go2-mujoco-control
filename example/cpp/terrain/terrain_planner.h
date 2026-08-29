@@ -412,7 +412,7 @@ public:
 
     const TerrainPlannerConfig &config() const { return config_; }
 
-    TerrainPlannerResult Build(TerrainPlannerInput input,
+    TerrainPlannerResult Build(const TerrainPlannerInput &input,
                                std::uint64_t plan_id) const
     {
         TerrainPlannerResult result;
