@@ -1050,3 +1050,48 @@ verdict: |
   Budget exhausted at 8/8 pairs (16 simulations). This is exploratory stuck evidence,
   not a gate conclusion.
 git_status: local docs append pending commit; no staged files; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-31T01:20:00+0800
+run_id: Order-032 scripted deterministic crawl b1_script_epoch56..58
+trigger: T1
+objective: fixed-timing, lidar-measured target crawl while retaining gait-SRBD-MPC-WBC
+
+implementation:
+  - terrain/terrain_crawl_script.h adds the direct lidar-map target measurement,
+    deterministic FL,FR,RR,RL scheduler, fixed 0.40 s ramp + 0.20 s settle,
+    fixed 0.60 s swing at 40% apex, endpoint commit, two retries, and abort.
+  - TerrainMotionPlan carries the map-measured scripted target. The gait target
+    adapter uses it only inside CRAWL_STEP; contact schedules and MPC/WBC
+    consumption remain supplied by the validated plan.
+  - The existing state skeleton is window-gated with the fixed shift/swing
+    deadline and clears only an uncommitted endpoint on retry. CLEAR/RESUME and
+    all flat/out-of-window paths are unchanged.
+
+tests:
+  ctest: 27/27 passed
+  build: test_terrain_interfaces and real_trot_go2 passed
+  unit_coverage: deterministic target ordering and edge stand-off; fixed timing;
+    FL/FR/RR/RL order; endpoint retry budget; abort; clear/resume.
+
+canary:
+  - b1_script_epoch56_20260831: valid serial run; reached SHIFT_COM at 6.906 s,
+    CRAWL_STEP at 7.532 s, no measured commit, then repeated fixed retry and
+    ABORT at 13.604 s; max committed mask 0; no crossing.
+  - b1_script_epoch56_20260831_r2: invalid simulator startup (DDS domain 227
+    participant unavailable); not counted as physical evidence.
+  - b1_script_epoch57_20260831: valid serial run; no crawl commit, safety stop;
+    no crossing.
+  - b1_script_epoch57_20260831_r2: valid serial run; entered CRAWL_STEP at
+    7.296 s and aborted at 7.550 s on measured support; no commit/crossing.
+  - b1_script_epoch58 pair: not counted; DDS participant allocation was
+    unavailable on domains 220/221.
+
+verdict: |
+  Full physical crossing was not achieved. The valid runs remain stuck before
+  the first measured FL commit (deepest rung CRAWL_STEP), with no ADVANCE_BODY,
+  rear steps, CLEAR, RESUME, or 0.45 s stable passage. Further canary launch
+  stopped after the repeated pre-commit/support signature and unavailable DDS
+  participants; this is exploratory stuck evidence, not a gate conclusion.
+
+git_status: local implementation and docs append pending commit; no staged files; no push/amend; simulations serialized.

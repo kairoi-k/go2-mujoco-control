@@ -67,6 +67,8 @@ inline bool TerrainCrawlWbcContactOverride(
 struct TerrainCrawlSignals
 {
     bool transfer_window_active = false;
+    // Order-032 enables fixed timing only inside the scripted window.
+    bool scripted_execution = false;
     bool plan_valid = false;
     bool measured_contact_valid = false;
     std::array<bool, go2::kLegCount> measured_contact{};
@@ -373,7 +375,11 @@ public:
             }
             UpdateComTarget(signals);
             const std::size_t target_leg = ActiveLegForSupport();
-            if (signals.plan_valid && ComShiftReady() &&
+            const double shift_elapsed = signals.now_s - state_enter_time_s_;
+            const bool fixed_shift_ready = !signals.scripted_execution ||
+                (std::isfinite(shift_elapsed) && shift_elapsed + 1.0e-9 >=
+                    kComShiftRampS + 0.20);
+            if (signals.plan_valid && ComShiftReady() && fixed_shift_ready &&
                 target_leg < go2::kLegCount)
             {
                 // The gait adapter prepares the selected target after this
@@ -387,6 +393,22 @@ public:
         case TerrainCrawlState::kCrawlStep:
         {
             const std::size_t leg = ActiveLeg();
+            // Scripted swings have a fixed 0.60 s flight and a bounded 0.20 s
+            // endpoint confirmation window. A missed measured commit retries
+            // from SHIFT_COM instead of waiting on planner timing.
+            if (signals.scripted_execution && leg < go2::kLegCount &&
+                !signals.committed[leg] && std::isfinite(signals.now_s) &&
+                signals.now_s - state_enter_time_s_ + 1.0e-9 >= 0.80)
+            {
+                if (retry_count_ < kMaxRetries)
+                {
+                    ++retry_count_;
+                    SetState(TerrainCrawlState::kShiftCom, signals.now_s);
+                }
+                else
+                    SetState(TerrainCrawlState::kAbort, signals.now_s);
+                break;
+            }
             // A measured touchdown is the transaction boundary. Advance to
             // the next leg before checking the old swing's support mask;
             // otherwise a force-filter sample that still contains the just

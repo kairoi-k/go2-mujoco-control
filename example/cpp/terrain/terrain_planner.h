@@ -14,6 +14,7 @@
 
 #include "terrain_feasibility.h"
 #include "terrain_motion_plan.h"
+#include "terrain_crawl_script.h"
 
 namespace go2_terrain
 {
@@ -457,6 +458,37 @@ public:
             return Finish(input, std::move(result), start);
         }
         result.plan.map_age_s = input.terrain->age_s;
+        // The script target is selected directly from the current lidar map,
+        // with stable cell ordering and edge stand-off. It is not obtained
+        // from the stochastic candidate ranking below.
+        if (std::isfinite(input.base_position_world.x) &&
+            std::isfinite(input.base_position_world.y) &&
+            std::isfinite(input.base_position_world.z))
+        {
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                const auto measured = MeasureTerrainScriptTarget(
+                    *input.terrain, static_cast<go2::Leg>(leg),
+                    input.current_feet_base[leg]);
+                if (!measured.valid)
+                    continue;
+                auto &target = result.plan.scripted_target[leg];
+                target.valid = true;
+                target.touchdown = true;
+                target.position_world = RotateBaseToWorld(
+                    input.base_position_world, input.base_yaw_rad,
+                    measured.position_base);
+                target.edge_margin_m = measured.edge_margin_m;
+                target.swing_clearance_m = config_.swing_clearance_m;
+                target.swing_lift_m = config_.swing_clearance_m;
+                target.swing_peak_phase = 0.40;
+                target.swing_leading_edge_phase = 0.40;
+                target.swing_leading_edge_phase_valid = true;
+                target.surface_transition_required = true;
+                target.surface_transition_intent_valid = true;
+            }
+        }
+
         result.map_usable = input.terrain->age_s <=
             config_.feasibility.max_map_age_s &&
             input.terrain->frame_id == config_.feasibility.required_frame;

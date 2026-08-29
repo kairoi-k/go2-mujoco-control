@@ -340,6 +340,11 @@ struct TerrainMotionPlan
         predicted_foothold{};
     std::array<TerrainFootholdPrediction, go2::kLegCount>
         current_support_anchor{};
+    // Deterministic crawl target measured directly from the lidar model.
+    // The planner still validates the contact schedule and consumer horizon;
+    // this field fixes only the script's where, not MPC/WBC consumption.
+    std::array<TerrainFootholdPrediction, go2::kLegCount>
+        scripted_target{};
     // Keep the sensor-derived terrain reference separate from the measured
     // kinematic foot anchors used for support and MPC lever arms.
     std::array<double, go2::kLegCount>

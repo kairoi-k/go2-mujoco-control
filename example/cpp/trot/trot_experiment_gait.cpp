@@ -1656,6 +1656,7 @@ bool TrotExperiment::BuildGaitTargets(
             terrain_crawl_state_machine_.Enter(terrain_now_s);
         go2_terrain::TerrainCrawlSignals crawl_signals;
         crawl_signals.transfer_window_active = true;
+        crawl_signals.scripted_execution = true;
         crawl_signals.plan_valid = active_terrain_plan &&
             active_terrain_plan->valid();
         crawl_signals.measured_contact_valid = wbc_shadow_contact_state_valid_;
@@ -1840,6 +1841,12 @@ bool TrotExperiment::BuildGaitTargets(
             std::isfinite(terrain_swing_duration_s) &&
             terrain_swing_duration_s > terrain_time_tolerance_s;
 
+
+        // In CRAWL_STEP use the map-measured script target and a fixed
+        // deadline. The surrounding plan remains the MPC/WBC validation
+        // snapshot; this removes asynchronous candidate/timing handoff.
+        go2_terrain::TerrainFootholdPrediction scripted_target{};
+
         const auto find_planned_foothold =
             [&](std::size_t leg,
                 bool leg_in_swing,
@@ -1852,6 +1859,28 @@ bool TrotExperiment::BuildGaitTargets(
                     terrain_surface_transition_cancelled_[leg] ||
                     !terrain_timeline_valid)
                     return false;
+                const bool scripted_step =
+                    terrain_transfer_window_active_ &&
+                    terrain_crawl_state_machine_.state() ==
+                        go2_terrain::TerrainCrawlState::kCrawlStep &&
+                    terrain_crawl_state_machine_.ActiveLeg() == leg &&
+                    active_terrain_plan->scripted_target[leg].valid;
+                if (scripted_step)
+                {
+                    scripted_target = active_terrain_plan->scripted_target[leg];
+                    scripted_target.touchdown_time_s = terrain_now_s +
+                        go2_terrain::TerrainCrawlScript::kSwingDurationS;
+                    scripted_target.swing_duration_s =
+                        go2_terrain::TerrainCrawlScript::kSwingDurationS;
+                    scripted_target.swing_peak_phase =
+                        go2_terrain::TerrainCrawlScript::kSwingApexPhase;
+                    scripted_target.swing_leading_edge_phase =
+                        go2_terrain::TerrainCrawlScript::kSwingApexPhase;
+                    scripted_target.swing_leading_edge_phase_valid = true;
+                    swing_start_time_s = terrain_now_s;
+                    planned = &scripted_target;
+                    return true;
+                }
                 double best_touchdown_time_s =
                     std::numeric_limits<double>::infinity();
                 for (std::size_t k = 0;
@@ -2305,6 +2334,18 @@ bool TrotExperiment::BuildGaitTargets(
                 terrain_crawl_state_machine_.com_target_leg() == leg;
             auto &execution = terrain_swing_execution_[leg];
             auto &pending = terrain_swing_pending_[leg];
+            // A scripted timeout owns a bounded retract/retry. Clear only
+            // the uncommitted active endpoint; committed feet remain anchors.
+            if (terrain_transfer_window_active_ &&
+                terrain_crawl_state_machine_.state() ==
+                    go2_terrain::TerrainCrawlState::kShiftCom &&
+                terrain_crawl_state_machine_.retry_count() > 0 &&
+                terrain_crawl_state_machine_.com_target_leg() == leg &&
+                execution.valid && !execution.measured_touchdown)
+            {
+                execution = {};
+                pending = {};
+            }
             const bool explicit_active_leg =
                 go2_terrain::TerrainCrawlSwingStillInFlight(
                     explicit_crawl_step,

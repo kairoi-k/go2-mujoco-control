@@ -9,6 +9,7 @@
 #include "terrain_crawl_state_machine.h"
 #include "terrain_planner.h"
 #include "terrain_swing_tracking.h"
+#include "terrain_crawl_script.h"
 
 namespace
 {
@@ -38,6 +39,86 @@ unitree_go::msg::dds_::HeightMap_ FlatMap()
 
 int main()
 {
+
+    // Order-032 script targets are direct, deterministic lidar measurements.
+    {
+        go2_terrain::TerrainModel model;
+        model.frame_id = "base_link";
+        model.state_stamp_s = 1.0;
+        model.map_stamp_s = 1.0;
+        model.age_s = 0.0;
+        model.epoch = 1;
+        model.resolution_m = 0.05;
+        model.origin_m = {-0.50, -0.20};
+        model.width = 30;
+        model.height = 8;
+        model.source = go2_terrain::TerrainSource::kTestFixture;
+        model.cells.resize(model.width * model.height);
+        for (auto &cell : model.cells)
+        {
+            cell.known = true;
+            cell.height_m = -0.25;
+            cell.slope_rad = 0.0;
+            cell.roughness_m = 0.0;
+            cell.variance_m2 = 0.0;
+        }
+        for (std::size_t iy = 0; iy < model.height; ++iy)
+            for (std::size_t ix = 20; ix < model.width; ++ix)
+                model.CellAt(ix, iy)->height_m = 0.05;
+        const go2::Vec3 current{0.30, 0.0, -0.25};
+        const auto first = go2_terrain::MeasureTerrainScriptTarget(
+            model, go2::Leg::FL, current);
+        const auto repeat = go2_terrain::MeasureTerrainScriptTarget(
+            model, go2::Leg::FL, current);
+        if (!Check(first.valid && repeat.valid &&
+                       first.position_base.x == repeat.position_base.x &&
+                       first.position_base.y == repeat.position_base.y &&
+                       first.position_base.z == repeat.position_base.z &&
+                       first.position_base.x >= 0.58,
+                   "script target was not deterministic or edge-stand-off safe"))
+            return 1;
+
+        go2_terrain::TerrainCrawlScript script;
+        go2_terrain::TerrainCrawlScriptSignals s;
+        s.transfer_window_active = true;
+        s.support_valid = true;
+        s.support_contacts = 4;
+        s.target_valid = true;
+        s.now_s = 0.0;
+        script.Update(s);
+        s.now_s = 0.59;
+        script.Update(s);
+        if (!Check(script.stage() == go2_terrain::TerrainCrawlScriptStage::kShiftCom,
+                   "script left COM shift before fixed settle")) return 1;
+        s.now_s = 0.60;
+        script.Update(s);
+        if (!Check(script.stage() == go2_terrain::TerrainCrawlScriptStage::kSwing &&
+                       script.active_leg() == 1,
+                   "script did not launch FL at the fixed deadline")) return 1;
+        s.now_s = 1.20;
+        script.Update(s);
+        if (!Check(script.stage() == go2_terrain::TerrainCrawlScriptStage::kEndpointHold,
+                   "script did not hold the endpoint after fixed swing")) return 1;
+        s.now_s = 1.41;
+        script.Update(s);
+        if (!Check(script.retry_count() == 1 &&
+                       script.stage() == go2_terrain::TerrainCrawlScriptStage::kShiftCom,
+                   "script did not perform its first bounded retry")) return 1;
+        // Two additional failed attempts exhaust the retry budget and abort.
+        for (int retry = 0; retry < 2; ++retry)
+        {
+            s.now_s = script.state_enter_time_s() + 0.60;
+            script.Update(s);
+            s.now_s += 0.60;
+            script.Update(s);
+            s.now_s += 0.21;
+            script.Update(s);
+        }
+        if (!Check(script.stage() == go2_terrain::TerrainCrawlScriptStage::kAbort &&
+                       script.retry_count() == go2_terrain::TerrainCrawlScript::kMaxRetries,
+                   "script did not abort after the bounded retry budget")) return 1;
+    }
+
     // Transfer-only swing tracking authority reduces measured endpoint lag;
     // the flat-ground defaults remain exactly unchanged.
     {
