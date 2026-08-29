@@ -6,6 +6,7 @@
 
 #include "terrain_feasibility.h"
 #include "terrain_motion_plan.h"
+#include "terrain_crawl_state_machine.h"
 #include "terrain_planner.h"
 #include "terrain_swing_tracking.h"
 
@@ -1226,6 +1227,99 @@ int main()
                             carry_forward_m) < 0.01,
                "stretched touchdown did not travel with the moving body"))
         return 1;
+
+    // Explicit v2 crawl sequencing uses only measured contacts, plan,
+    // endpoint commits and FK reachability.
+    {
+        go2_terrain::TerrainCrawlStateMachine m;
+        go2_terrain::TerrainCrawlSignals x;
+        x.transfer_window_active = true;
+        x.plan_valid = true;
+        x.measured_contact_valid = true;
+        x.measured_contact = {true, true, true, false};
+        x.measured_velocity_mps = 0.30;
+        x.now_s = 1.0;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kDecelerateToCreep,
+                   "crawl machine did not gate deceleration")) return 1;
+        x.measured_velocity_mps = 0.05;
+        x.now_s = 1.1;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kCrawlStep &&
+                       m.ActiveLeg() == 1, "crawl machine did not select FL")) return 1;
+        x.target_valid[1] = true;
+        x.committed[1] = true;
+        x.now_s = 1.2;
+        m.Update(x);
+        if (!Check(m.ActiveLeg() == 0, "crawl machine did not select FR")) return 1;
+        x.target_valid[0] = true;
+        x.committed[0] = true;
+        x.now_s = 1.3;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kAdvanceBody,
+                   "crawl machine skipped body advance")) return 1;
+        x.now_s = 1.4;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kAdvanceBody,
+                   "body advance ignored FK gate")) return 1;
+        x.rear_targets_fk_reachable = true;
+        x.now_s = 1.5;
+        m.Update(x);
+        if (!Check(m.ActiveLeg() == 2, "crawl machine did not select RR")) return 1;
+        x.target_valid[2] = true;
+        x.committed[2] = true;
+        x.now_s = 1.6;
+        m.Update(x);
+        if (!Check(m.ActiveLeg() == 3, "crawl machine did not select RL")) return 1;
+        x.target_valid[3] = true;
+        x.committed[3] = true;
+        x.now_s = 1.7;
+        m.Update(x);
+        x.base_clear = true;
+        x.all_feet_clear = true;
+        x.now_s = 1.8;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kResume,
+                   "crawl machine ignored clear preconditions")) return 1;
+        x.stable = true;
+        x.now_s = 2.24;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kResume,
+                   "crawl machine resumed too early")) return 1;
+        x.now_s = 2.26;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kInactive,
+                   "crawl machine did not finish stable resume")) return 1;
+
+        m.Reset();
+        m.Enter(3.0);
+        x = {};
+        x.transfer_window_active = true;
+        x.plan_valid = true;
+        x.measured_contact_valid = true;
+        x.measured_contact = {true, true, true, false};
+        x.measured_velocity_mps = 0.05;
+        x.target_valid[1] = true;
+        x.now_s = 3.1;
+        m.Update(x);
+        x.now_s = 3.2;
+        m.Update(x);
+        for (int retry = 0; retry < go2_terrain::TerrainCrawlStateMachine::kMaxRetries; ++retry)
+        {
+            x.step_failed = true;
+            x.now_s += 0.1;
+            m.Update(x);
+            x.step_failed = false;
+            if (!Check(m.state() == go2_terrain::TerrainCrawlState::kCrawlStep &&
+                           m.retry_count() == retry + 1,
+                       "crawl machine retry budget failed")) return 1;
+        }
+        x.step_failed = true;
+        x.now_s += 0.1;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kAbort,
+                   "crawl machine did not abort after retries")) return 1;
+    }
 
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";
     return 0;
