@@ -254,3 +254,51 @@ suggestion: |
   RR ROOT CAUSE. The samples diverge at support geometry and phase, not from a demonstrated torque limit: r1 RR actual foot z was 0.0208-0.0526 m against nominal target z=0 (ground/site reference about 0.02 m), and early captured masks excluded RR (0x0 -> 0x9 -> 0xB). Once RR returned to the captured 0xF set, it loaded 50-85 N. No workspace impossibility is proven; evidence supports a nominal swing/above-surface phase explanation rather than a control-side force-weight cause, so no unverified geometry patch was made. Median ID-WBC costs base_lin/base_ang/stance/swing/force_reg/posture/torque were r1 464.8/11.5/269.0/37.7/0.14/801.6/0.03 and r2 303.2/19.3/143.8/89.3/0.15/1262.1/0.02.
 
   FAILURE6 AND GATES. Final r1 completed one required leg at t=8.016 and then hit the hard posture stop. Final r2 completed with required=2/original_required=3 at t=7.504, then emitted failure=6 cancellation at t=8.280 and hit the hard posture stop. failure=6 still occurs. Wrappers returned nonzero from safety/controlled-stop and frozen quantitative analyses; no PASS gate or acceptance conclusion is claimed, and no 30/60 episode sample was used. Both simulations were serialized by flock on /tmp/go2_mujoco_experiment.lock.
+
+---
+timestamp: 2026-08-29T21:30:00+0800
+run_id: b1_var_epoch28_20260828 (+ b1_var_epoch28_20260828_r2)
+trigger: T1
+signature: Order-012 variance isolation completed at HEAD 1718dbe; telemetry OFF, domain 229, serial flock. This is exploratory evidence only; no gate conclusion.
+evidence:
+  controller_log: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/b1_var_epoch28_20260828/controller.log; /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/b1_var_epoch28_20260828_r2/controller.log
+  data_csv: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/b1_var_epoch28_20260828/data.csv; /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/b1_var_epoch28_20260828_r2/data.csv
+  analysis_json: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/b1_var_epoch28_20260828/phase2_terrain_analysis.json; /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/b1_var_epoch28_20260828_r2/phase2_terrain_analysis.json
+  git_head: 1718dbe34f47519b6b8a728ef687704c8419cd0b; git_dirty=false; domain=229
+  telemetry_off: TROT_TERRAIN_DEBUG_FORCE absent from both environment.txt and run_manifest.json
+  serialization: flock /tmp/go2_mujoco_experiment.lock, then existing run_trot.sh domain lock; no parallel simulation
+
+DIFF PROOF. `git diff --name-status 0720df3..d51bcfc` contains only docs/research/PHASE2_B0_WSL_PORT_FACTS.md, ESCALATION_LOG.md, test_inverse_dynamics_wbc.cpp, trot_experiment_diagnostics.cpp, trot_experiment_wbc.cpp, trot_types.h, and inverse_dynamics_wbc.h. There is no terrain planner, gait, motion-plan, or control-logic hunk. The apparent amend-chain change is not behavioral: 0720df3 and 2dc14da are sibling commits with the same parent 087d29e; `git diff 0720df3 2dc14da -- example/cpp/terrain/terrain_motion_plan.h example/cpp/trot/trot_experiment_gait.cpp example/cpp/trot/trot_experiment_wbc.cpp --exit-code` returned 0 (no output). Their identical behavior patch is captured support hold: TerrainTransferHoldSupport retains captured support and monotonically merges scheduled/measured stance, and terrain-hold ID-WBC uses min_normal_n=20 N. The post-0720 source additions are diagnostics only: ID-WBC cost decomposition is computed after solving without changing the objective, and force CSV fields are env-gated. Test additions only assert finite/nonnegative cost terms. Thus (c) is rejected at behavior level; commit identity/amend history is not a causal change.
+
+EPOCH28. The exact prescribed entry point was `LD_PRELOAD=/home/che/dds_base8000_preload.so bash example/cpp/scripts/run_trot.sh 18 <run-id> --headless --wall-clock-motion --wbc-full --gait-pattern running-trot --kernel raibert-trot --period 0.50 --duty 0.75 --step-length 0.15 --foot-lift 0.08 --tau-limit 45 --velocity-max-accel 0.80 --velocity-max-decel 1.20 --velocity-max-jerk 4.0 --velocity-command-script example/cpp/configs/phase2_b1_velocity_0p3.csv --terrain-planner --domain-id 229 --scene-file unitree_robots/go2/phase2_step_5cm.xml --phase2-milestone B1`; each run was wrapped by the experiment flock and the pair was serial. r1: terrain_surface_transition_active began 5.843 s, first measured count<3 at 5.843 s; the full captured hold (mask 0xF) was 5.901-8.929 s, raw >=3 was 1341/1515=88.5%, min/median/max=0/3/4, no 1-rad posture crossing, terminal base_x=0.455 m, failure=6=0. r2: began 5.968 s, first count<3 at 5.968 s; full hold 6.206-7.032 s, raw >=3 was 244/414=58.9%, min/median/max=0/2/4, posture crossing=7.232 s, terminal base_x=0.385 m, failure=6=0. Wrapper statuses were 1/1 because exploratory safety/quality/frozen quantitative analyzers are not acceptance claims; simulation completion/controller/dynamics statuses were 0.
+
+16-RUN AGGREGATION. `t0/deg` is the first active transition sample and first active sample with raw contact_count<3; `req` is maximum required-mask cardinality; age is median terrain_map_age_s over active transition rows; FOV is lidar log cells (all were 320, fixed 32x10, with no FOV-state telemetry). The >=3 column uses the recorded first-transfer window for epochs 25-27 (the prior sections' 29/163, 24/176, 1311/1374, 1445/1626, 53/96, 74/177); epochs 19-24 are recomputed from terrain_surface_transition_active, and epoch28 uses the full 0xF captured-hold rows because telemetry was off.
+
+|run|t0/deg s|req|map age s|>=3 raw|final outcome|
+|---|---|---:|---:|---:|---|
+|e19-r1|5.960/5.972|1|.060|12/153|fall 6.914, x=.423|
+|e19-r2|5.952/5.976|2|.034|103/1765|fall 7.374, x=.351|
+|e20-r1|5.954/5.970|2|.036|1464/1635|no fall, x=.448|
+|e20-r2|5.952/5.976|2|.032|171/1906|fall 7.070, x=.300|
+|e21-r1|5.952/5.970|2|.036|118/1766|fall 7.018, x=.399|
+|e21-r2|5.960/5.970|2|.032|85/1513|fall 6.870, x=.444|
+|e22-r1|5.960/5.960|1|.058|67/230|fall 7.320, x=.463|
+|e22-r2|5.960/5.970|1|.046|43/182|fall 7.230, x=.575|
+|e23-r1|5.902/5.902|2|.038|150/1661|fall 7.376, x=.484|
+|e23-r2|5.904/5.904|1|.056|28/148|no fall, x=.465|
+|e24-r1|5.916/5.916|2|.034|970/1654|no fall, x=.306|
+|e24-r2|5.958/5.976|1|.038|10/119|fall 6.840, x=.417|
+|e25-r1|5.894/5.894|1|.060|29/163|fall 7.572, x=.562|
+|e25-r2|5.892/5.892|2|.058|24/176|no fall, x=.420|
+|e26-r1|5.912/5.912|2|.042|1311/1374|no fall, x=.403|
+|e26-r2|5.956/5.970|1|.040|1445/1626|no fall, x=.446|
+|e27-r1|6.120/6.120|1|.072|53/96|posture stop/fall proxy, x=-.061|
+|e27-r2|5.872/5.878|2|.060|74/177|posture stop/fall 8.276, failure=6, x=.870|
+|e28-r1|5.843/5.843|2|.034|1341/1515|no fall, x=.455|
+|e28-r2|5.968/5.982|2|.062|244/414|fall 7.232, x=.385|
+
+The table has 20 rows because the requested epoch19-28 pair is 20 runs, not 16; the phrase “all 16” in Order-012 is arithmetically inconsistent with ten epoch pairs. No run was silently omitted. FOV/map observability is non-separating: every run reports 320 lidar cells and active map age medians are 0.032-0.072 s. First-transfer timing overlaps good and bad runs (good e20-r1=5.954, e23-r2=5.904, e26-r1=5.912; bad e19-r1=5.960, e21-r1=5.952, e25-r1=5.894); required-mask cardinality is likewise 1-2 in both classes. The first raw-contact loss is therefore an outcome-correlated symptom, not a controllable early predictor.
+
+VARIANCE/CAUSAL VERDICT. (a) Telemetry printing is not proven as the driver: turning it off at HEAD produced one high r1 (88.5%) and one materially lower r2 (58.9%), while telemetry-on epoch27 was 55.2%/41.8%; n=2 off runs cannot identify a printing effect and the within-pair spread remains large. (b) Run-to-run initial-contact/phase variance dominates the observed signal: the same early timing, map age, mask size and fixed lidar FOV occur in both outcomes; pair spread ranges from epoch25 13.6 percentage points to epoch28 29.6 points, while across-run ratios span 0.6%-89.5% in the legacy windows. (c) Amend-chain behavior change is disproven: 0720df3 and 2dc14da have byte-identical behavior hunks and the range to d51bcfc adds only docs/tests/diagnostics. The defensible conclusion is chaotic sensitivity to initial contact timing, with no identified controllable early variable. failure=6 remains rare (only epoch27-r2 in these artifacts; zero in epoch28). Telemetry was not proven perturbing, so the conditional “must reduce/buffer all future telemetry” rule is not triggered; reduced-rate/buffered telemetry remains prudent for any timing-sensitive follow-up.
+
+tests: `wsl -e bash -c "cd /home/che/dev/go2-workspace/current/example/cpp/build && ctest --output-on-failure"` -> 27/27 passed. No source change was made for Order-012; no contract/analyzer/canary definition changed; no commit/amend/push performed.
