@@ -407,3 +407,9 @@ evidence:
     Both latest runs used HEAD e3e1fa1, epoch28 command line, domain 229, LD_PRELOAD=/home/che/dds_base8000_preload.so, and flock -x /tmp/go2_mujoco_experiment.lock. b1_advance_epoch32_20260828: final base_x=.4571; final feet FR (.6148,.3562), FL (.7514,.0752), RR (.2786,.3504), RL (.3787,.0720); no rear swing decision, no rear foot z=.05. b1_advance_epoch32_20260828_r2: final base_x=.5165; FR (.4935,.0200), FL (.8220,.0730), RR (.1080,.0219), RL (.3033,.0237); no rear swing decision, no rear foot z=.05. At the swing-decision point no rear target was accepted, so canary rear radial is N/A; the measured pre-riser reference remains ~.53 m at base_x=.495 (> .426 FK limit). The pair therefore provides mechanism/negative exploratory evidence only, not physical success.
 tests: `ctest --output-on-failure` -> 27/27 passed; `test_terrain_interfaces` passed. No contract/analyzer/canary definition changed.
 git_status: code commits e3e1fa1 (plus its parent implementation commits); this log commit is appended without amending evidence-referenced code; no push.
+
+---
+timestamp: 2026-08-30T00:45:00+0800
+run_id: Order-015 evidence SHA correction
+trigger: T1
+signature: Commit 8fd2d15 follows the canary code commit e3e1fa1 and only restores the TerrainPlanner::Build const-reference API; it does not change runtime behavior. Canary evidence therefore remains behaviorally valid for final HEAD, with the implementation commit chain ending at 8fd2d15.
