@@ -2355,6 +2355,7 @@ bool TrotExperiment::BuildGaitTargets(
             if (terrain_transfer_hold_active_ &&
                 !terrain_target_pending &&
                 terrain_transfer_hold_contact_[leg] &&
+                !crawl_shift_leg &&
                 have_actual_world_feet)
             {
                 // A support foot that was loaded when the terrain transfer
