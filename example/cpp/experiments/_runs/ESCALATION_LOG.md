@@ -846,3 +846,25 @@ evidence: |
   collapse was observed; the remaining failure is post-handoff support/
   COM recovery, not a gate-level conclusion.
 git_status: clean worktree; no staged files; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-30T08:20:00+0800
+run_id: Order-026 b1_sm_epoch43_20260828 (+ _r2)
+trigger: T1
+signature: Epoch42 reconstruction found an inconsistent support plant at SHIFT_COM. The WBC contact override was nested under terrain_transfer_has_target, so before any swing transaction existed the crawl state still fed the running-trot diagonal into WBC. The same interval then injected a centroid COM target as a step reference.
+evidence:
+  epoch42_reconstruction: |
+    b1_sm_epoch42_20260828 SHIFT_COM had WBC shadow mask 9 and scheduled mask 9 at 6.912089 s, then mask 6/6 at 7.006147 s, while active leg was not yet selected and the state was required to be a four-foot stance. Measured contacts were already 3 then 2. The first valid COM target at 6.914146 s jumped from the previous logged target (0,0) to (0.436934,-0.057117) m while measured COM was (0.540636,-0.001062) m and margin was -0.034788 m. At the next MPC refresh, reference x became 0.435965 m and requested x acceleration was -1.809885 m/s2. In r2, the corresponding jump was to (0.441644,-0.048024) m from measured COM (0.567626,0.007488), margin -0.049843 m; WBC mask stayed 9 until 6.964052 s, then 15 briefly, then 6 at 6.982147 s. The first absurd quantity is the contact plant mask: a four-foot SHIFT_COM was solved as a two-foot running-trot plant. The reference jump is the second independent inconsistency.
+  source_fix: |
+    TerrainCrawlWbcContactOverride is now applied after transfer bookkeeping, including SHIFT_COM before a target exists. It forces all four WBC and MPC contact knots during SHIFT_COM; CRAWL_STEP removes only its selected leg. BuildGaitTargets freezes all four commanded feet at measured world anchors during SHIFT_COM, preventing the crawl scheduler from moving feet that WBC declares stance. COM targets now start at measured COM and linearly ramp to the support-triangle centroid over the window-scoped 0.40 s constant. The SHIFT_COM ID-WBC min normal floor is also enabled only in the active v2 window, matching the four-foot stance policy.
+  validation: |
+    cmake --build example/cpp/build -j2 and ctest --test-dir example/cpp/build --output-on-failure passed 27/27. The final B0 fixed pair was run serially with the required lock and preload at HEAD 05fbdfb and returned acceptance_status=PASS, controller/dynamics/safety/quality=0 and planner deadline misses=0. Existing v1 contract, analyzer thresholds, and canary definitions were untouched.
+  canary_command: |
+    Both named runs used HEAD 05fbdfb462d4d1f3040f37eed2992bc76d600060, domain 229, LD_PRELOAD=/home/che/dds_base8000_preload.so, serial flock -x /tmp/go2_mujoco_experiment.lock, and the unchanged epoch28 run_trot command line.
+  canary_r1: |
+    b1_sm_epoch43_20260828 manifest is clean at 05fbdfb. Trace INACTIVE (0.000) -> APPROACH (6.372) -> DECELERATE_TO_CREEP (6.374) -> SHIFT_COM (6.928) -> ABORT (7.038). Per-state minimum measured contacts: INACTIVE=0, APPROACH=2, DECELERATE_TO_CREEP=1, SHIFT_COM=2, ABORT=0. SHIFT_COM WBC mask remained 15; COM margin ranged -0.034179 to -0.026848 m among valid samples; no CRAWL_STEP and commits=0.
+  canary_r2: |
+    b1_sm_epoch43_20260828_r2 manifest is clean at 05fbdfb. Trace INACTIVE (0.000) -> APPROACH (6.366) -> DECELERATE_TO_CREEP (6.368) -> SHIFT_COM (6.896) -> ABORT (7.068). Per-state minimum measured contacts: INACTIVE=0, APPROACH=2, DECELERATE_TO_CREEP=0, SHIFT_COM=1, ABORT=0. SHIFT_COM WBC mask remained 15; COM margin ranged -0.039608 to -0.034092 m among valid samples; no CRAWL_STEP and commits=0.
+verdict: |
+  The absurd quantity is the WBC support mask mismatch, numerically 9 then 6 instead of 15 during a nominal four-foot SHIFT_COM; the 100 mm class COM reference jump amplified it. The source fix makes stance scheduling coherent, anchors commanded stance feet, ramps the COM reference, and scopes the 20 N floor. Epoch43 proves the WBC mask and support policy are corrected, but both stochastic signal canaries still abort before COM readiness and before CRAWL_STEP(FL) measured commit. No gate-level conclusion is claimed.
+git_status: commits 05b5526 and 05fbdfb; clean worktree; no staged files; no push/amend; simulations serialized.
