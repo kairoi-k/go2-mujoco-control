@@ -302,3 +302,72 @@ The table has 20 rows because the requested epoch19-28 pair is 20 runs, not 16; 
 VARIANCE/CAUSAL VERDICT. (a) Telemetry printing is not proven as the driver: turning it off at HEAD produced one high r1 (88.5%) and one materially lower r2 (58.9%), while telemetry-on epoch27 was 55.2%/41.8%; n=2 off runs cannot identify a printing effect and the within-pair spread remains large. (b) Run-to-run initial-contact/phase variance dominates the observed signal: the same early timing, map age, mask size and fixed lidar FOV occur in both outcomes; pair spread ranges from epoch25 13.6 percentage points to epoch28 29.6 points, while across-run ratios span 0.6%-89.5% in the legacy windows. (c) Amend-chain behavior change is disproven: 0720df3 and 2dc14da have byte-identical behavior hunks and the range to d51bcfc adds only docs/tests/diagnostics. The defensible conclusion is chaotic sensitivity to initial contact timing, with no identified controllable early variable. failure=6 remains rare (only epoch27-r2 in these artifacts; zero in epoch28). Telemetry was not proven perturbing, so the conditional “must reduce/buffer all future telemetry” rule is not triggered; reduced-rate/buffered telemetry remains prudent for any timing-sensitive follow-up.
 
 tests: `wsl -e bash -c "cd /home/che/dev/go2-workspace/current/example/cpp/build && ctest --output-on-failure"` -> 27/27 passed. No source change was made for Order-012; no contract/analyzer/canary definition changed; no commit/amend/push performed.
+
+---
+
+## Order-013 — 2026-08-29 (quantification baseline, 30 episodes)
+
+Mode: EXPLORE/quantify; measurement only, no code/contract/analyzer/canary-definition changes.
+
+**Execution.** HEAD at launch and final evidence: `2d4f159887ff8410c18b5042f60a47b10076ba76`; `git_dirty=false`; completed `n=30/30`. Every episode used the exact epoch28 command below, with telemetry OFF (`TROT_TERRAIN_DEBUG_FORCE` unset), domain 229, and the outer exclusive flock held for the complete serial batch. No DDS/lock infrastructure abort occurred; no retry was needed. Wrapper exit was 1 for exploratory frozen safety/quality/quantitative gate failures, while all 30 produced complete CSV, analyzer JSON, and manifest artifacts.
+
+```text
+flock -x /tmp/go2_mujoco_experiment.lock -c 'LD_PRELOAD=/home/che/dds_base8000_preload.so bash example/cpp/scripts/run_trot.sh 18 <run-id> --headless --wall-clock-motion --wbc-full --gait-pattern running-trot --kernel raibert-trot --period 0.50 --duty 0.75 --step-length 0.15 --foot-lift 0.08 --tau-limit 45 --velocity-max-accel 0.80 --velocity-max-decel 1.20 --velocity-max-jerk 4.0 --velocity-command-script example/cpp/configs/phase2_b1_velocity_0p3.csv --terrain-planner --domain-id 229 --scene-file unitree_robots/go2/phase2_step_5cm.xml --phase2-milestone B1'
+```
+
+`flock` was held once around the full serial loop; run_trot.sh also held its per-domain lock. The run IDs were `b1_base_epoch29_20260828_r01` through `_r30`.
+
+**Per-run frozen gates and measurements.** Gate columns are in the requested order: PS=`plan_support`, TX=`surface_transition_transaction`, PH=`posture_hard`, SC=`single_contact`, VT=`velocity_tracking`, LC=`lifecycle_status`. Fall proxy is the first CSV `state_tick_s` with `abs(imu_roll_rad)>1` or `abs(imu_pitch_rad)>1`; `NA` means no crossing. `x` is final CSV `world_base_x_m`. `>=3` is raw `contact_count >= 3` over analyzer active rows with `terrain_surface_transition_active`; `cross` is the analyzer frozen `body_and_all_legs_clear` crossing clause (base and all feet).
+
+|run|PS|TX|PH|SC|VT|LC|fall proxy s|terminal base_x m|failure=6|>=3 raw|cross|
+|---|---|---|---|---|---|---|---:|---:|---:|---:|---|
+|b1_base_epoch29_20260828_r01|FAIL|PASS|FAIL|PASS|PASS|FAIL|9.446|0.671|0|121/231 (52.4%)|N|
+|b1_base_epoch29_20260828_r02|PASS|FAIL|PASS|PASS|PASS|FAIL|8.634|0.374|0|161/377 (42.7%)|N|
+|b1_base_epoch29_20260828_r03|PASS|FAIL|PASS|PASS|PASS|FAIL|8.234|0.612|0|84/144 (58.3%)|N|
+|b1_base_epoch29_20260828_r04|PASS|FAIL|PASS|PASS|PASS|FAIL|NA|0.421|0|61/148 (41.2%)|N|
+|b1_base_epoch29_20260828_r05|PASS|FAIL|FAIL|PASS|FAIL|FAIL|7.952|0.446|0|58/141 (41.1%)|N|
+|b1_base_epoch29_20260828_r06|PASS|PASS|PASS|PASS|PASS|FAIL|9.310|0.322|0|100/358 (27.9%)|N|
+|b1_base_epoch29_20260828_r07|PASS|PASS|FAIL|PASS|PASS|FAIL|8.620|-0.109|0|93/254 (36.6%)|N|
+|b1_base_epoch29_20260828_r08|PASS|FAIL|PASS|PASS|PASS|FAIL|8.256|0.571|0|83/127 (65.4%)|N|
+|b1_base_epoch29_20260828_r09|FAIL|FAIL|FAIL|PASS|PASS|FAIL|8.444|0.385|0|237/506 (46.8%)|N|
+|b1_base_epoch29_20260828_r10|FAIL|FAIL|PASS|PASS|PASS|FAIL|8.352|0.358|0|90/250 (36.0%)|N|
+|b1_base_epoch29_20260828_r11|PASS|FAIL|PASS|PASS|PASS|FAIL|8.210|0.578|0|37/144 (25.7%)|N|
+|b1_base_epoch29_20260828_r12|FAIL|FAIL|PASS|PASS|PASS|FAIL|8.272|0.531|0|90/153 (58.8%)|N|
+|b1_base_epoch29_20260828_r13|PASS|FAIL|PASS|PASS|FAIL|FAIL|8.354|0.332|0|93/359 (25.9%)|N|
+|b1_base_epoch29_20260828_r14|PASS|PASS|PASS|PASS|PASS|FAIL|NA|0.412|0|47/162 (29.0%)|N|
+|b1_base_epoch29_20260828_r15|PASS|FAIL|PASS|PASS|PASS|FAIL|NA|0.449|0|187/477 (39.2%)|N|
+|b1_base_epoch29_20260828_r16|FAIL|PASS|PASS|PASS|PASS|FAIL|8.866|-0.249|0|64/124 (51.6%)|N|
+|b1_base_epoch29_20260828_r17|PASS|FAIL|PASS|PASS|PASS|FAIL|8.430|0.540|0|83/136 (61.0%)|N|
+|b1_base_epoch29_20260828_r18|PASS|FAIL|FAIL|PASS|PASS|FAIL|8.322|0.495|0|89/233 (38.2%)|N|
+|b1_base_epoch29_20260828_r19|PASS|FAIL|PASS|PASS|PASS|FAIL|9.936|0.528|0|67/140 (47.9%)|N|
+|b1_base_epoch29_20260828_r20|PASS|FAIL|PASS|PASS|PASS|FAIL|NA|0.481|0|20/183 (10.9%)|N|
+|b1_base_epoch29_20260828_r21|PASS|PASS|PASS|PASS|PASS|FAIL|NA|0.489|0|92/187 (49.2%)|N|
+|b1_base_epoch29_20260828_r22|PASS|FAIL|PASS|PASS|PASS|FAIL|NA|0.447|0|90/148 (60.8%)|N|
+|b1_base_epoch29_20260828_r23|PASS|PASS|PASS|PASS|PASS|FAIL|7.936|0.300|0|46/259 (17.8%)|N|
+|b1_base_epoch29_20260828_r24|PASS|FAIL|PASS|PASS|PASS|FAIL|NA|0.432|0|47/261 (18.0%)|N|
+|b1_base_epoch29_20260828_r25|PASS|FAIL|PASS|PASS|PASS|FAIL|NA|0.406|0|80/261 (30.7%)|N|
+|b1_base_epoch29_20260828_r26|FAIL|PASS|PASS|PASS|PASS|FAIL|NA|0.419|0|58/167 (34.7%)|N|
+|b1_base_epoch29_20260828_r27|FAIL|PASS|PASS|PASS|PASS|FAIL|8.694|0.849|0|67/219 (30.6%)|N|
+|b1_base_epoch29_20260828_r28|FAIL|PASS|FAIL|PASS|PASS|FAIL|8.824|0.363|0|245/424 (57.8%)|N|
+|b1_base_epoch29_20260828_r29|PASS|FAIL|FAIL|PASS|FAIL|FAIL|8.644|0.405|0|334/629 (53.1%)|N|
+|b1_base_epoch29_20260828_r30|FAIL|PASS|FAIL|PASS|PASS|FAIL|10.008|0.935|0|91/186 (48.9%)|N|
+
+**Statistics (95% Wilson score intervals).**
+
+|gate|pass|rate|95% Wilson interval|
+|---|---:|---:|---:|
+|plan_support|21/30|70.0%|[52.1%, 83.3%]|
+|surface_transition_transaction|11/30|36.7%|[21.9%, 54.5%]|
+|posture_hard|22/30|73.3%|[55.6%, 85.8%]|
+|single_contact|30/30|100.0%|[88.6%, 100.0%]|
+|velocity_tracking|27/30|90.0%|[74.4%, 96.5%]|
+|lifecycle|0/30|0.0%|[0.0%, 11.4%]|
+|**all six gates**|**0/30**|**0.0%**|**[0.0%, 11.4%]**|
+
+All 30 had `body_and_all_legs_clear=FAIL` (0/30), so the contract crossing clause was never satisfied. All had `failure=6` count 0 (0 total).
+
+**Terminal base_x distribution.** min `-0.249`, Q1 `0.377`, median `0.439`, Q3 `0.530`, max `0.935`; mean `0.440`, population SD `0.217`. Shape: broad, mostly 0.30–0.60 m with a mild right tail to 0.935 m and two negative outliers (-0.249, -0.109 m), hence visibly non-compact/non-normal at this n. Sorted values: `-0.249, -0.109, 0.300, 0.322, 0.332, 0.358, 0.363, 0.374, 0.385, 0.405, 0.406, 0.412, 0.419, 0.421, 0.432, 0.446, 0.447, 0.449, 0.481, 0.489, 0.495, 0.528, 0.531, 0.540, 0.571, 0.578, 0.612, 0.671, 0.849, 0.935`.
+
+**First-failure ranking.** Using the requested gate order PS → TX → PH → SC → VT → LC and assigning each run to its first failed gate: TX 16, PS 9, LC 4, PH 1, SC 0, VT 0. Thus the most frequent first failure is `surface_transition_transaction`, followed by `plan_support`, then `lifecycle`; raw failure prevalence was LC 30, TX 19, PH 8, PS 9, VT 3, SC 0. Lifecycle is false in all runs because the frozen analyzer lifecycle aggregate includes wrapper safety/quality/completion statuses; this is not reinterpreted as an analyzer change.
+
+**Evidence paths.** Each run directory under `example/cpp/experiments/_runs/b1_base_epoch29_20260828_r01` … `_r30` contains `data.csv`, `controller.log`, `phase2_terrain_analysis.json`, `phase2_terrain_analysis.log`, `run_manifest.json`, and metadata. The active transition fractions, gate verdicts, crossing verdict, fall proxy, terminal x, and failure=6 counts above were recomputed from those artifacts; no source file was edited. Validation: all 30 manifests report `git_dirty=false`, `git_head=2d4f159...`, domain 229, and telemetry env absent.
