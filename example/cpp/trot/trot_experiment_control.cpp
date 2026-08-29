@@ -213,6 +213,8 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         }
     }
     snapshot.measured_valid = true;
+    snapshot.terrain_transfer_hold_active = terrain_transfer_hold_active_;
+    snapshot.terrain_transfer_hold_contact = terrain_transfer_hold_contact_;
     snapshot.terrain_surface_transition_active =
         terrain_surface_transition_active_;
     snapshot.terrain_surface_transition_required =
@@ -291,6 +293,8 @@ void TrotExperiment::UpdateTerrainRuntime()
         control.have_nominal_touchdown_feet;
     input.contact_schedule.measured_contact = control.measured_contact;
     input.contact_schedule.measured_valid = control.measured_valid;
+    input.terrain_transfer_hold_active = control.terrain_transfer_hold_active;
+    input.terrain_transfer_hold_contact = control.terrain_transfer_hold_contact;
     input.terrain_surface_transition_active =
         control.terrain_surface_transition_active;
     input.terrain_surface_transition_required =

@@ -53,6 +53,17 @@ inline bool TerrainTransitionComplete(
     return has_requirement;
 }
 
+// A transfer hold may be released only after every planned upper-surface
+// endpoint has both measured contact and endpoint confirmation.  Cancellation
+// is intentionally not a release path: it remains a failed transaction.
+inline bool TerrainTransferHoldReleaseReady(
+    const std::array<bool, go2::kLegCount> &required,
+    const std::array<bool, go2::kLegCount> &committed,
+    const std::array<bool, go2::kLegCount> &cancelled)
+{
+    return TerrainTransitionComplete(required, committed, cancelled);
+}
+
 // An endpoint-held target is still the support captured at the transfer
 // boundary. Keep it in the WBC support set until measured touchdown; a
 // transaction that has not committed may not release that set while a

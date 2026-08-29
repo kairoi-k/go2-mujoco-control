@@ -197,6 +197,10 @@ bool TrotExperiment::Init()
         // contact horizon so a foothold can be armed in stance and executed
         // at the next swing without falling back to a late riser handoff.
         terrain_config.plan_validity_s = 0.50;
+        // The rear leg needs a longer preview than the default 24 knots:
+        // with the base before the riser, its elevated foothold becomes
+        // reachable only after the body has advanced onto the platform.
+        terrain_config.horizon_knots = go2_terrain::kTerrainPlanMaxKnots;
     }
     terrain_planner_ = go2_terrain::TerrainPlanner(terrain_config);
 

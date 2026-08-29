@@ -117,7 +117,15 @@ int main()
         if (!Check(
                 !go2_terrain::TerrainTransferSupportMustBeKept(
                     required, all_committed, cancelled, false, false),
-                "committed transition kept stale support"))
+                "committed transition kept stale support") ||
+            !Check(
+                go2_terrain::TerrainTransferHoldReleaseReady(
+                    required, all_committed, cancelled),
+                "fully committed transition did not release hold") ||
+            !Check(
+                !go2_terrain::TerrainTransferHoldReleaseReady(
+                    required, committed, cancelled),
+                "partially committed transition released hold"))
             return 1;
     }
     auto map = FlatMap();

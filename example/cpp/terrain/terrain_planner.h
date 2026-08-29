@@ -101,6 +101,12 @@ struct TerrainPlannerInput
         terrain_surface_transition_source_valid{};
     std::array<double, go2::kLegCount>
         terrain_surface_transition_source_height_m{};
+    // The gait/WBC hold is an observed support snapshot. While an elevated
+    // target is being confirmed, planner support validation must retain those
+    // anchors instead of evaluating only the next nominal diagonal.
+    bool terrain_transfer_hold_active = false;
+    std::array<bool, go2::kLegCount>
+        terrain_transfer_hold_contact{};
     TerrainContactSchedule contact_schedule{};
     // The discrete schedule feeds the MPC horizon, while this optional
     // absolute timestamp keeps swing execution aligned with the continuous
@@ -1101,6 +1107,14 @@ private:
             std::array<go2::Vec3, go2::kLegCount> feet{};
             std::array<bool, go2::kLegCount> contacts =
                 input.contact_schedule.planned_contact[k];
+            std::array<bool, go2::kLegCount> hold_anchor{};
+            if (input.terrain_transfer_hold_active)
+            {
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                    hold_anchor[leg] = input.terrain_transfer_hold_contact[leg];
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                    contacts[leg] = contacts[leg] || hold_anchor[leg];
+            }
             std::array<bool, go2::kLegCount> surface_transition_required{};
             std::array<bool, go2::kLegCount> surface_transition_intent_valid{};
             std::size_t contact_count = 0;
@@ -1118,7 +1132,13 @@ private:
                 const bool use_selected =
                     touchdown_knots[leg] >= 0 &&
                     static_cast<int>(k) >= touchdown_knots[leg];
-                if (use_selected)
+                if (hold_anchor[leg])
+                {
+                    feet[leg] = RotateBaseToWorld(
+                        input.base_position_world, input.base_yaw_rad,
+                        input.current_feet_base[leg]);
+                }
+                else if (use_selected)
                 {
                     surface_transition_intent_valid[leg] =
                         selection[leg].surface_transition_intent_valid;
@@ -1168,7 +1188,7 @@ private:
                     continue;
                 if (!input.contact_schedule.measured_contact[leg])
                     current_confirmed_support = false;
-                if (touchdown_knots[leg] >= 0 &&
+                if (!hold_anchor[leg] && touchdown_knots[leg] >= 0 &&
                     static_cast<int>(k) >= touchdown_knots[leg])
                     current_confirmed_support = false;
             }
@@ -1248,14 +1268,33 @@ private:
             std::size_t contact_count = 0;
             std::array<bool, go2::kLegCount> contacts =
                 result.plan.contact_schedule.planned_contact[k];
+            std::array<bool, go2::kLegCount> hold_anchor{};
+            if (input.terrain_transfer_hold_active)
+            {
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                    hold_anchor[leg] = input.terrain_transfer_hold_contact[leg];
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                    contacts[leg] = contacts[leg] || hold_anchor[leg];
+            }
             std::array<bool, go2::kLegCount> surface_transition_required{};
             std::array<bool, go2::kLegCount> surface_transition_intent_valid{};
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {
+                const bool use_hold_anchor = hold_anchor[leg];
                 if (!contacts[leg] ||
-                    !result.plan.predicted_foothold[k][leg].valid)
+                    (!use_hold_anchor &&
+                     !result.plan.predicted_foothold[k][leg].valid))
                     continue;
                 ++contact_count;
+                if (use_hold_anchor)
+                {
+                    feet[leg] = RotateBaseToWorld(
+                        input.base_position_world, input.base_yaw_rad,
+                        input.current_feet_base[leg]);
+                    surface_transition_intent_valid[leg] =
+                        input.contact_schedule.measured_valid;
+                    continue;
+                }
                 const auto &predicted = result.plan.predicted_foothold[k][leg];
                 feet[leg] = predicted.position_world;
                 surface_transition_intent_valid[leg] =
@@ -1295,7 +1334,8 @@ private:
                 if (!input.contact_schedule.measured_contact[leg])
                     current_confirmed_support = false;
                 const int touchdown = CandidateTouchdownKnot(input, leg);
-                if (touchdown >= 0 && static_cast<int>(k) >= touchdown)
+                if (!hold_anchor[leg] && touchdown >= 0 &&
+                    static_cast<int>(k) >= touchdown)
                     current_confirmed_support = false;
             }
             if (current_confirmed_support && measured_count >= 2)

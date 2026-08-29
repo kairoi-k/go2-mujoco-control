@@ -523,10 +523,25 @@ void TrotExperiment::UpdateWbcFull(
             terrain_surface_transition_last_required_mask_ = required_mask;
             terrain_surface_transition_last_committed_mask_ = committed_mask;
             ++terrain_surface_transition_completions_;
+            const bool release_transfer_hold =
+                go2_terrain::TerrainTransferHoldReleaseReady(
+                    terrain_surface_transition_required_,
+                    terrain_surface_transition_committed_,
+                    terrain_surface_transition_cancelled_);
             terrain_surface_transition_active_ = false;
             terrain_surface_transition_required_.fill(false);
             terrain_surface_transition_committed_.fill(false);
             terrain_surface_transition_source_valid_.fill(false);
+            // The endpoint and live-contact gates above are the release
+            // condition. Do not leave the captured support pinned after the
+            // complete upper-surface set has committed; the next rear
+            // diagonal must be schedulable while normal collapse protection
+            // remains active during an incomplete transfer.
+            if (release_transfer_hold)
+            {
+                terrain_transfer_hold_contact_.fill(false);
+                terrain_transfer_hold_active_ = false;
+            }
         }
     }
 
