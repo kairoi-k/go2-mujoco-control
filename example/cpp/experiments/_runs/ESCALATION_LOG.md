@@ -486,3 +486,19 @@ evidence:
   analyzer: |
     b0_analyzer acceptance_status=PASS. Frozen B0 files and canary definition were untouched. The auxiliary pair diagnostic reports terrain-vs-baseline gait-period/duty and WBC reference differences caused by the existing sensor-only run setup, but the frozen B0 acceptance checks pass and terrain actuation remains disabled.
 git_status: documentation appended for commit; no staged files after commit; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-30T02:20:00+0800
+run_id: b1_crawl_epoch34_20260828 (+ b1_crawl_epoch34_20260828_r2) final HEAD rerun
+trigger: T1
+signature: Final named canary pair rerun at HEAD 3882f4f after adding only transfer-window telemetry; generated artifacts retain the required names and both simulations were serialized.
+evidence:
+  canary_r1: |
+    transfer-window telemetry active 7.608-10.684 s; measured contact count min/median 1/4. Requested v profile in-window .12-.30 m/s, shaped/applied .1465-.30 m/s; regimes continuous-trot and terrain-crawl. No per-leg measured touchdown commit was recorded, transaction completion=0, final base_x=.3201 m. The run ended with cycle-quality rejection, not a complete crossing.
+  canary_r2: |
+    transfer-window telemetry active 7.202-10.996 s; measured contact count min/median 0/0. Requested v profile .12-.30 m/s, shaped/applied 0-.30 m/s; terrain-crawl was observed. FL measured touchdown/commit occurred at 7.500 s and the final committed mask was FL only (mask 2), while FR/RR/RL had no measured commit; transaction completion=0, final base_x=.0730 m. The run ended with safety/cycle-quality rejection.
+  physical_result: |
+    Neither run completed the step crossing or put all four feet beyond the riser. The remaining blocker is reliable front-pair measured platform commit; S1 and rear-transition intent consequently did not reach their physical sequence. This is exploratory negative evidence, not a v2 gate conclusion.
+  artifacts: |
+    controller.log, data.csv, phase2_terrain_analysis.json, phase1_quantitative.json and run_manifest.json are in each named run directory. The final CSV includes terrain_transfer_window_active and terrain_transfer_window_release_s telemetry.
+git_status: final code/documentation HEAD 3882f4f plus evidence commit; clean worktree; no staged files; no push/amend.
