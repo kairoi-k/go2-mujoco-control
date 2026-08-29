@@ -656,5 +656,5 @@ evidence:
     b1_crawl_epoch39_20260828_r2: window 6.320108-15.828118 s, FL launched at t=11.656075 (phase 0), remained in-flight through t=11.702093 (phase 0.291139), target=(0.898661,0.133457,0.049945), then failure=7 at t=11.704073; no commit, final base_x=0.861413.
   validation: |
     cmake --build example/cpp/build -j2 and ctest --output-on-failure passed, 27/27. B0 fixed-pair acceptance_status=PASS at the same commit; its auxiliary non-gate gait diagnostics remain outside the frozen acceptance checks. The epoch39 pair proves post-fix launch/in-flight evidence but did not dual-front commit; no physical-success or gate-level conclusion is claimed.
-git_status: code commit 0d081c5; documentation append pending local commit; no staged files after code commit before this append; no push/amend; simulations serialized.
+git_status: code commit 0d081c5 and documentation commit 71c2232; clean worktree; no staged files; no push/amend; simulations serialized.
 ---
