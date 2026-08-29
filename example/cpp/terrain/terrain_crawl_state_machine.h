@@ -124,6 +124,13 @@ public:
         case TerrainCrawlState::kCrawlStep:
         {
             const std::size_t leg = ActiveLeg();
+            // Losing the three-contact invariant is a state-machine abort,
+            // not permission for the trot scheduler to create a flight phase.
+            if (!three_contacts)
+            {
+                SetState(TerrainCrawlState::kAbort, signals.now_s);
+                break;
+            }
             if (signals.step_failed)
             {
                 if (retry_count_ < kMaxRetries)
