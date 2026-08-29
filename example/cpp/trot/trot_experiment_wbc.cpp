@@ -709,13 +709,25 @@ void TrotExperiment::UpdateWbcFull(
     // cycle can be shorter than that 50 ms hold, so reuse of the old SRBD
     // force plan becomes a visible phase lag.  Refresh at 100 Hz for the
     // high-speed plant while keeping the established rates elsewhere.
-    const int mpc_period_ticks = high_speed_curriculum
-        ? 5
-        : (params_.cartesian_world ? 10 : 25);
     const auto terrain_plan = terrain_contact_plan;
     const bool terrain_crawl_shift = terrain_transfer_window_active_ &&
         terrain_crawl_state_machine_.state() ==
             go2_terrain::TerrainCrawlState::kShiftCom;
+    const bool terrain_crawl_stance = terrain_transfer_window_active_ &&
+        (terrain_crawl_shift ||
+         terrain_crawl_state_machine_.state() ==
+             go2_terrain::TerrainCrawlState::kCrawlStep ||
+         terrain_crawl_state_machine_.state() ==
+             go2_terrain::TerrainCrawlState::kAdvanceBody);
+    // The normal 100 ms refresh leaves SHIFT_COM applying the pre-handoff
+    // forward-acceleration solution for most of its 0.40 s ramp. Refresh the
+    // existing MPC more often only while shifting, so the stance WBC receives
+    // the current COM reference before the measured support can unload.
+    const int mpc_period_ticks = terrain_crawl_stance
+        ? go2_terrain::TerrainCrawlStateMachine::kComShiftMpcPeriodTicks
+        : (high_speed_curriculum
+               ? 5
+               : (params_.cartesian_world ? 10 : 25));
     std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
         terrain_plan_knot{};
     bool terrain_plan_contact_coherent = true;
@@ -1481,8 +1493,9 @@ void TrotExperiment::UpdateWbcFull(
     const int n_contact =
         (qp_contact[0] ? 1 : 0) + (qp_contact[1] ? 1 : 0) +
         (qp_contact[2] ? 1 : 0) + (qp_contact[3] ? 1 : 0);
-    id_params.w_stance_no_slip =
-        params_.cartesian_world ? (50.0 + 90.0 * cart_lock) : 8.0;
+    id_params.w_stance_no_slip = terrain_crawl_stance
+        ? go2_terrain::TerrainCrawlStateMachine::kShiftStanceNoSlipWeight
+        : (params_.cartesian_world ? (50.0 + 90.0 * cart_lock) : 8.0);
     const double w_no_slip_x_ov = Full2EnvDouble("FULL2_WX_X", -1.0);
     if (w_no_slip_x_ov >= 0.0)
         id_params.w_stance_no_slip_x = w_no_slip_x_ov;
@@ -1514,7 +1527,7 @@ void TrotExperiment::UpdateWbcFull(
     // contact-mask request. SHIFT_COM is also a four-foot stance before a
     // foothold transaction exists, so apply the same scoped floor there.
     if ((terrain_transfer_hold_active_ && !terrain_transfer_complete) ||
-        terrain_crawl_shift)
+        terrain_crawl_stance)
         id_params.min_normal_n = 20.0;
     id_params.tau_limit_nm = 35.0;
     const double tau_ov = Full2EnvDouble("FULL2_TAU", -1.0);

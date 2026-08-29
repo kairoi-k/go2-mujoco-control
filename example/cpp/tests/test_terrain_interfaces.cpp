@@ -1263,7 +1263,12 @@ int main()
         if (!Check(!m.aborted(),
                    "crawl support invariant aborted during contact recovery"))
             return 1;
-        x.now_s = 10.4;
+        x.now_s = 10.9;
+        m.Update(x);
+        if (!Check(!m.aborted(),
+                   "crawl support invariant aborted before recovery grace"))
+            return 1;
+        x.now_s = 11.1;
         m.Update(x);
         if (!Check(m.aborted(),
                    "crawl support invariant did not abort after handoff"))
@@ -1297,7 +1302,16 @@ int main()
             return 1;
         if (!Check(
                 go2_terrain::TerrainCrawlStateMachine::kComShiftRampS == 0.40,
-                "COM shift ramp duration changed"))
+                "COM shift ramp duration changed") ||
+            !Check(
+                go2_terrain::TerrainCrawlStateMachine::kComShiftMpcPeriodTicks == 5,
+                "COM shift MPC refresh period changed") ||
+            !Check(
+                go2_terrain::TerrainCrawlStateMachine::kShiftStanceNoSlipWeight == 80.0,
+                "COM shift stance weight changed") ||
+            !Check(
+                go2_terrain::TerrainCrawlStateMachine::kCrawlStepHandoffGraceS == 0.10,
+                "crawl-step handoff grace changed"))
             return 1;
     }
 

@@ -176,8 +176,14 @@ public:
     static constexpr int kMaxRetries = 2;
     static constexpr double kComMarginM = 0.02;
     static constexpr double kComShiftRampS = 0.40;
+    // 250 Hz control tick; keep the shift reference latency below 20 ms.
+    static constexpr int kComShiftMpcPeriodTicks = 5;
+    // The four-foot shift is the only path that asks stance to resist a
+    // moving COM reference; retain ordinary non-transfer weights elsewhere.
+    static constexpr double kShiftStanceNoSlipWeight = 80.0;
     static constexpr double kCreepSpeedMps = 0.12;
-    static constexpr double kContactRecoveryGraceS = 0.10;
+    static constexpr double kContactRecoveryGraceS = 0.80;
+    static constexpr double kCrawlStepHandoffGraceS = 0.10;
 
     void Reset() noexcept
     {
@@ -277,7 +283,15 @@ public:
                 : 0;
             if (support_contacts < 3)
             {
-                SetState(TerrainCrawlState::kAbort, signals.now_s);
+                // The explicit contact override takes one control handoff to
+                // replace the preceding trot schedule. Do not call a
+                // transient boundary sample a failed three-foot stance.
+                const bool crawl_handoff_pending =
+                    std::isfinite(signals.now_s) &&
+                    signals.now_s - state_enter_time_s_ <
+                        kCrawlStepHandoffGraceS;
+                if (!crawl_handoff_pending)
+                    SetState(TerrainCrawlState::kAbort, signals.now_s);
                 break;
             }
             UpdateComTarget(signals);

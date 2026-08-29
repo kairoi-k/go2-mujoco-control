@@ -868,3 +868,24 @@ evidence:
 verdict: |
   The absurd quantity is the WBC support mask mismatch, numerically 9 then 6 instead of 15 during a nominal four-foot SHIFT_COM; the 100 mm class COM reference jump amplified it. The source fix makes stance scheduling coherent, anchors commanded stance feet, ramps the COM reference, and scopes the 20 N floor. Epoch43 proves the WBC mask and support policy are corrected, but both stochastic signal canaries still abort before COM readiness and before CRAWL_STEP(FL) measured commit. No gate-level conclusion is claimed.
 git_status: commits 05b5526 and 05fbdfb; clean worktree; no staged files; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-30T06:00:00+0800
+run_id: Order-027 b1_sm_epoch44_20260828 (+ _r2)
+trigger: T1
+signature: Epoch43 COM stall is reference-tracking-limited, not support-triangle geometry or margin mathematics.
+evidence:
+  epoch43_ref_vs_measured: |
+    b1_sm_epoch43_20260828: valid SHIFT_COM samples 6.952109-7.036157 s; measured COM x 0.550720 -> 0.566163 m while ramp reference x 0.550564 -> 0.525680 m; Euclidean ref error 0.00023 -> 0.04103 m; margin -0.026848..-0.034179 m. The r1 precondition aborts before the 0.40 s ramp can settle.
+    b1_sm_epoch43_20260828_r2: valid samples 6.910162-7.066140 s; measured COM x 0.547584 -> 0.562763 m while ramp reference x 0.547602 -> 0.505716 m; error 0.00003 -> 0.05932 m; margin -0.034092..-0.039608 m. The measured COM initially follows the old forward solution and then lags the backward-moving ramp; it does not track the reference.
+  geometry_and_math: |
+    ComputeTerrainSupportTriangle receives measured_foot_world at terrain_crawl_state_machine.h:371-374, and source construction passes actual_world_feet from FK at trot_experiment_gait.cpp:1658-1662. The centroid target is generated from those three measured feet and MeasureTerrainSupportTriangle applies the same signed edge distance used by the +0.020 m readiness test; no scheduled-foot or inconsistent-margin path was found. Epoch44 r1 later reached +0.019971 m before the next tick, confirming the triangle is not degenerate/unreachable.
+  source_fix: |
+    SHIFT_COM/CRAWL_STEP/ADVANCE_BODY now refresh the existing SRBD MPC every 5 control ticks (20 ms) instead of the ordinary 100 ms period; scoped stance no-slip weight is 80.0 (flat/non-window remains 8.0) and the 20 N normal floor remains window-scoped. SHIFT_COM contact recovery grace is 0.80 s so the 0.40 s ramp can complete; crawl-step boundary gets a 0.10 s schedule handoff grace.
+  validation: |
+    cmake --build example/cpp/build -j2 and ctest --test-dir example/cpp/build --output-on-failure passed 27/27. Named canaries were run serially with flock -x /tmp/go2_mujoco_experiment.lock, domain 229, LD_PRELOAD=/home/che/dds_base8000_preload.so, and the unchanged epoch28 run_trot command line. Final named pair had stochastic outcomes: r1 entered CRAWL_STEP at 7.680 s after SHIFT_COM but no FL commit; r2 did not reach CRAWL_STEP. Earlier same-code retries reached CRAWL_STEP with measured three-contact mask 13 and one retry reached FL in-flight, but no measured commit.
+  canary_command: |
+    flock -x /tmp/go2_mujoco_experiment.lock -c 'for id in b1_sm_epoch44_20260828 b1_sm_epoch44_20260828_r2; do LD_PRELOAD=/home/che/dds_base8000_preload.so bash example/cpp/scripts/run_trot.sh 18 $id --headless --wall-clock-motion --wbc-full --gait-pattern running-trot --kernel raibert-trot --period 0.50 --duty 0.75 --step-length 0.15 --foot-lift 0.08 --tau-limit 45 --velocity-max-accel 0.80 --velocity-max-decel 1.20 --velocity-max-jerk 4.0 --velocity-command-script example/cpp/configs/phase2_b1_velocity_0p3.csv --terrain-planner --domain-id 229 --scene-file unitree_robots/go2/phase2_step_5cm.xml --phase2-milestone B1; done'
+verdict: |
+  Root cause is tracking latency/stance authority: epoch43 applies a stale forward SRBD solution for up to 100 ms, then the four-foot stance is too weak to remove residual momentum before the readiness check. The fix is window-scoped MPC refresh plus stronger stance no-slip and longer recovery/settle allowance. No v1 contract, analyzer threshold, or canary definition changed. This is exploratory signal evidence only; the final pair does not claim the Order-027 physical-success criterion (FL measured commit).
+git_status: local changes pending commit; no staged files; no push/amend; simulations serialized.
