@@ -472,3 +472,17 @@ evidence:
   verdict: |
     The code path does switch into terrain-crawl and preserves the requested 0.05-0.12 m/s authority after the shaper ramp, but the pair exposed a remaining execution blocker: no measured front platform commit was achieved, so S1/rear intent never advanced to a complete transaction. The first run also demonstrates that a hard posture failure can occur before a usable held support set is established. Physical success is not claimed; no gate-level conclusion is made.
 git_status: implementation commit 72a1780; generated canary artifacts ignored; documentation append pending commit; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-30T02:00:00+0800
+run_id: phase2_b0_development_fixed_3mps_r0_20260830_004431_{baseline,terrain}
+trigger: T1
+signature: Post-Order-017 B0 fixed-pair regression completed serially; frozen B0 analyzer acceptance_status=PASS.
+evidence:
+  command: |
+    flock -x /tmp/go2_mujoco_experiment.lock -c 'LD_PRELOAD=/home/che/dds_base8000_preload.so bash example/cpp/scripts/run_phase2_b0_fixed_pair.sh development 0'
+  artifacts: |
+    baseline and terrain run manifests are under example/cpp/experiments/_runs/phase2_b0_development_fixed_3mps_r0_20260830_004431_{baseline,terrain}; terrain_rows=39007, terrain_map_valid_fraction=.9999487272, planner_updates=2633, deadline_misses=0, controller/dynamics/safety/quality statuses=0.
+  analyzer: |
+    b0_analyzer acceptance_status=PASS. Frozen B0 files and canary definition were untouched. The auxiliary pair diagnostic reports terrain-vs-baseline gait-period/duty and WBC reference differences caused by the existing sensor-only run setup, but the frozen B0 acceptance checks pass and terrain actuation remains disabled.
+git_status: documentation appended for commit; no staged files after commit; no push/amend; simulations serialized.
