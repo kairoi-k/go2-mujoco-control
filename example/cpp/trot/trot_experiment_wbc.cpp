@@ -713,6 +713,9 @@ void TrotExperiment::UpdateWbcFull(
         ? 5
         : (params_.cartesian_world ? 10 : 25);
     const auto terrain_plan = terrain_contact_plan;
+    const bool terrain_crawl_shift = terrain_transfer_window_active_ &&
+        terrain_crawl_state_machine_.state() ==
+            go2_terrain::TerrainCrawlState::kShiftCom;
     std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
         terrain_plan_knot{};
     bool terrain_plan_contact_coherent = true;
@@ -965,8 +968,9 @@ void TrotExperiment::UpdateWbcFull(
                             effective_transfer_hold,
                             active_transfer_target);
                 }
-                if (k == 0 && (terrain_transfer_hold_active_ ||
-                               terrain_surface_transition_active_))
+                if (terrain_crawl_shift ||
+                    (k == 0 && (terrain_transfer_hold_active_ ||
+                                terrain_surface_transition_active_)))
                     mpc_in.contact[k] = qp_contact;
                 mpc_in.reference_horizon[static_cast<std::size_t>(k)] =
                     mpc_in.reference;
@@ -1509,9 +1513,6 @@ void TrotExperiment::UpdateWbcFull(
     // A terrain transfer hold is a physical-support request, not merely a
     // contact-mask request. SHIFT_COM is also a four-foot stance before a
     // foothold transaction exists, so apply the same scoped floor there.
-    const bool terrain_crawl_shift = terrain_transfer_window_active_ &&
-        terrain_crawl_state_machine_.state() ==
-            go2_terrain::TerrainCrawlState::kShiftCom;
     if ((terrain_transfer_hold_active_ && !terrain_transfer_complete) ||
         terrain_crawl_shift)
         id_params.min_normal_n = 20.0;
