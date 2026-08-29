@@ -658,3 +658,26 @@ evidence:
     cmake --build example/cpp/build -j2 and ctest --output-on-failure passed, 27/27. B0 fixed-pair acceptance_status=PASS at the same commit; its auxiliary non-gate gait diagnostics remain outside the frozen acceptance checks. The epoch39 pair proves post-fix launch/in-flight evidence but did not dual-front commit; no physical-success or gate-level conclusion is claimed.
 git_status: code commit 0d081c5 and documentation commit 71c2232; clean worktree; no staged files; no push/amend; simulations serialized.
 ---
+
+---
+timestamp: 2026-08-30T03:25:00+0800
+run_id: Order-023 b1_sm_epoch40_20260828 (+ _r2)
+trigger: T1
+signature: Implemented a dedicated sensor-gated v2 crawl state machine. The named canary pair reached CRAWL_STEP and enforced FL-first sequencing, but both runs hit the unchanged hard posture stop before a measured endpoint commit; complete crossing is not claimed.
+evidence:
+  implementation: |
+    example/cpp/terrain/terrain_crawl_state_machine.h defines INACTIVE, APPROACH, DECELERATE_TO_CREEP, CRAWL_STEP, ADVANCE_BODY, CLEAR, RESUME, and ABORT. The fixed leg order is FL,FR,RR,RL (indices 1,0,2,3). Preconditions consume measured contact count, lidar plan validity, measured speed >=0.05, measured endpoint commit, measured base/foot clear, and current FK/radial <=0.40 m. A failed step allows two retries, then controlled abort through the existing velocity shaper.
+  integration: |
+    trot_experiment_gait.cpp gates the transfer-only execution adapter to the sequenced leg and holds non-sequenced legs. Rear target reachability is checked against current measured pose with IK and radial <=0.40 m. WBC commit telemetry counts measured endpoint commits. CSV now reports state, active leg, retry count, state-entry time, minimum measured contacts, and step commits. Window-outside behavior does not read the state machine.
+  canary_command: |
+    Both runs used clean HEAD bd3eaab876f26e8828eb540fee067100d2b727c0, epoch28 arguments, domain 229, LD_PRELOAD=/home/che/dds_base8000_preload.so, and serial flock -x /tmp/go2_mujoco_experiment.lock.
+  canary_r1: |
+    b1_sm_epoch40_20260828: window 6.314148-10.192143 s; trace APPROACH -> DECELERATE_TO_CREEP -> CRAWL_STEP(FL); no step commit, final world_base_x=0.317514 m, minimum measured contacts=0 after collapse, safety_status=1 from hard posture stop.
+  canary_r2: |
+    b1_sm_epoch40_20260828_r2: window 6.338073-9.932228 s; trace APPROACH -> DECELERATE_TO_CREEP -> CRAWL_STEP(FL); no step commit, final world_base_x=0.306343 m, minimum measured contacts=0 after collapse, safety_status=1 from hard posture stop.
+  validation: |
+    cmake --build example/cpp/build -j2 and ctest --output-on-failure passed 27/27. Final B0 fixed pair at HEAD bd3eaab returned acceptance_status=PASS, with frozen B0 checks green. No v1 contract, analyzer threshold, or canary definition changed; simulations were serialized.
+verdict: |
+  The explicit state-machine path and unit coverage are present, but the required physical complete crossing and 0.45 s stable RESUME evidence were not achieved in either named canary. Residual blocker is physical posture collapse before first measured commit; no gate-level conclusion.
+git_status: implementation commits bb15f02 and bd3eaab; this documentation append is pending local commit; no push/amend; generated canary artifacts ignored.
+---
