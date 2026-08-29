@@ -1146,3 +1146,33 @@ verdict: |
   is exploratory non-signal evidence because both runs stopped upstream of a
   swing; no gate-level conclusion is claimed.
 git_status: local implementation commit 6ac88f4; canary artifacts ignored; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-31T04:00:00+0800
+run_id: Order-033 canary rerun with Base=4000 b1_script_epoch59_20260828 (+ _r2)
+trigger: T1
+canary_update: |
+  The first Base=7000 trial exposed a collision at domain 222, so the hardening
+  base was reduced to 4000. Domain scan of harness representatives 200, 220,
+  222, 223, 227, 229, and 230 started cleanly; the Base=4000 B0 fixed pair
+  returned acceptance_status PASS with no DDS allocation failure. The named
+  epoch59 pair was rerun serially under flock on domain 229 with
+  /home/che/dds_base4000_preload.so.
+endpoint_decomposition: |
+  Neither epoch59 run reached CRAWL_STEP or a measured FL touchdown, so the
+  requested post-fix endpoint decomposition is not available: r1 stopped in
+  SHIFT_COM and r2 in DECELERATE_TO_CREEP on the hard posture limit. There is
+  therefore no FL commit in this pair and no claim of the success criterion.
+  The pre-fix comparison remains numeric: epoch46 r1 (-15.411,+3.557,+23.302)
+  mm, norm 28.003 mm, becomes (-15.411,+3.557,+1.302) mm, norm about 15.9 mm
+  when evaluated in site coordinates. Epoch56 and epoch57 r2 had dz +24.200
+  mm and +28.004 mm respectively.
+dds_result: |
+  Both epoch59 controller logs show DDS domain=229 and no DDS participant,
+  allocation, or discovery error. The Base=4000 B0 pair passed its analyzer
+  acceptance report. This removes the Base=8000 collision class without
+  changing the requested domain IDs.
+verdict: |
+  Offset is confirmed and source-fixed; epoch59 is upstream safety-stop
+  evidence, not a successful signal canary and not a gate conclusion.
+git_status: local commits 6ac88f4 (implementation) and 5a512d1 (DDS/docs); no push/amend; simulations serialized.
