@@ -448,15 +448,16 @@ public:
         }
         if (state_ == TerrainCrawlState::kInactive)
             Enter(signals.now_s);
-        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            committed_latched_[leg] = committed_latched_[leg] ||
-                signals.committed[leg];
+        if (!signals.step_failed)
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                committed_latched_[leg] = committed_latched_[leg] ||
+                    signals.committed[leg];
         if (state_ == TerrainCrawlState::kAbort)
             return state_;
         // A commit can arrive on the same tick that a bounded recovery has
         // already returned to SHIFT_COM. Consume the latched fact before
         // selecting another target; otherwise recovery would retry that leg.
-        if (state_ == TerrainCrawlState::kShiftCom) {
+        if (!signals.step_failed && state_ == TerrainCrawlState::kShiftCom) {
             const std::size_t leg = ActiveLegForSupport();
             if (leg < go2::kLegCount && committed_latched_[leg]) {
                 if (order_index_ == 1)
@@ -621,7 +622,8 @@ public:
                 std::isfinite(com_stable_start_time_s_) &&
                 signals.now_s - com_stable_start_time_s_ + 1.0e-9 >=
                     kStableDwellS;
-            const bool shift_ready = geometric_ready && ComShiftReady();
+            const bool shift_ready = geometric_ready && ComShiftReady() &&
+                force_balanced;
             if (signals.plan_valid && (shift_ready || stable_ready) &&
                 target_leg < go2::kLegCount)
             {
@@ -651,6 +653,15 @@ public:
         case TerrainCrawlState::kCrawlStep:
         {
             const std::size_t leg = ActiveLeg();
+            // Failure wins over a same-tick commit latch.
+            if (signals.step_failed)
+            {
+                if (retry_count_ < kMaxRetries)
+                    ++retry_count_;
+                else
+                    SetState(TerrainCrawlState::kAbort, signals.now_s);
+                break;
+            }
             // Scripted swings have a fixed 0.60 s flight and a bounded 0.20 s
             // endpoint confirmation window. A missed measured commit retries
             // from SHIFT_COM instead of waiting on planner timing.
@@ -733,14 +744,6 @@ public:
                 break;
             }
             UpdateComTarget(signals);
-            if (signals.step_failed)
-            {
-                if (retry_count_ < kMaxRetries)
-                    ++retry_count_;
-                else
-                    SetState(TerrainCrawlState::kAbort, signals.now_s);
-                break;
-            }
             if (leg >= go2::kLegCount || !three_contacts ||
                 !signals.plan_valid || !signals.target_valid[leg] ||
                 !committed_latched_[leg])
@@ -900,8 +903,7 @@ private:
     bool ForceBalanceReady(const TerrainCrawlSignals &signals,
                            std::size_t lifted_leg) const noexcept
     {
-        if (!signals.measured_force_valid || !signals.measured_contact_valid ||
-            lifted_leg >= go2::kLegCount)
+        if (!signals.measured_force_valid)
             return false;
         double total = 0.0;
         double minimum = std::numeric_limits<double>::infinity();

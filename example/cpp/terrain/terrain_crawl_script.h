@@ -20,6 +20,8 @@ struct TerrainStagingReference
     bool valid = false;
     double edge_x_m = std::numeric_limits<double>::quiet_NaN();
     double target_world_x_m = std::numeric_limits<double>::quiet_NaN();
+    // Full world-frame target retained for non-zero-yaw staging consumers.
+    go2::Vec3 target_world{};
     double error_m = std::numeric_limits<double>::quiet_NaN();
 };
 
@@ -57,11 +59,18 @@ inline TerrainStagingReference MeasureTerrainStagingReference(
         return result;
     const double c = std::cos(base_yaw_rad);
     const double s = std::sin(base_yaw_rad);
-    const double edge_world_x = base_position_world.x + c * edge_x;
-    result.valid = std::isfinite(edge_world_x);
+    const double forward_error = edge_x - standoff_m - nominal_front_foot_x_m;
+    result.target_world = {
+        base_position_world.x + c * forward_error,
+        base_position_world.y + s * forward_error,
+        base_position_world.z};
+    result.valid = std::isfinite(result.target_world.x) &&
+        std::isfinite(result.target_world.y);
     result.edge_x_m = edge_x;
-    result.target_world_x_m = edge_world_x - standoff_m - nominal_front_foot_x_m;
-    result.error_m = result.target_world_x_m - base_position_world.x;
+    result.target_world_x_m = result.target_world.x;
+    // error_m is signed distance along the measured forward axis, rather
+    // than a world-X difference that changes meaning when yaw is nonzero.
+    result.error_m = forward_error;
     result.valid = result.valid && std::isfinite(result.target_world_x_m) &&
         std::isfinite(result.error_m);
     return result;
@@ -90,6 +99,9 @@ inline TerrainScriptTarget MeasureTerrainScriptTarget(
     // Scan map cells in stable order and rank by forward progress, then
     // lateral displacement, then cell index. This is not the planner stream.
     const double step = terrain.resolution_m;
+    // Reject lateral risers before taking the minimum edge. Otherwise a
+    // side obstacle can become the apparent forward foothold.
+    constexpr double kForwardCorridorHalfWidthM = 0.10;
     const double edge_x = [&]() {
         double edge = std::numeric_limits<double>::quiet_NaN();
         for (std::size_t iy = 0; iy < terrain.height; ++iy)
@@ -98,6 +110,11 @@ inline TerrainScriptTarget MeasureTerrainScriptTarget(
             {
                 const auto *before = terrain.CellAt(ix - 1, iy);
                 const auto *after = terrain.CellAt(ix, iy);
+                const double y = terrain.origin_m[1] +
+                    (static_cast<double>(iy) + 0.5) * step;
+                if (std::abs(y - current_foot_base.y) >
+                        kForwardCorridorHalfWidthM)
+                    continue;
                 if (before == nullptr || after == nullptr || !before->known ||
                     !after->known || after->height_m <= before->height_m + 0.02)
                     continue;
@@ -127,7 +144,8 @@ inline TerrainScriptTarget MeasureTerrainScriptTarget(
                 (static_cast<double>(iy) + 0.5) * step;
             const double progress = x - current_foot_base.x;
             if (progress < stand_off_m || progress > 0.55 ||
-                std::abs(y - current_foot_base.y) > 0.14 ||
+                std::abs(y - current_foot_base.y) >
+                    kForwardCorridorHalfWidthM ||
                 x < edge_x + stand_off_m)
                 continue;
             TerrainPatch patch;
@@ -179,6 +197,8 @@ struct TerrainCrawlScriptSignals
     bool base_clear = false;
     bool all_feet_clear = false;
     bool stable = false;
+    bool measured_force_valid = false;
+    std::array<double, go2::kLegCount> measured_normal_force_n{};
     double now_s = 0.0;
 };
 
@@ -229,7 +249,10 @@ public:
             return stage_;
         const double elapsed = s.now_s - state_enter_s_;
         if (!std::isfinite(elapsed) || elapsed < 0.0)
+        {
+            Set(TerrainCrawlScriptStage::kAbort, s.now_s);
             return stage_;
+        }
         switch (stage_)
         {
         case TerrainCrawlScriptStage::kShiftCom:
@@ -238,13 +261,15 @@ public:
                 Set(TerrainCrawlScriptStage::kSwing, s.now_s);
             break;
         case TerrainCrawlScriptStage::kSwing:
-            if (s.measured_contact && s.endpoint_within_tolerance)
+            if (s.measured_contact && s.endpoint_within_tolerance &&
+                ForceSupported(active_leg(), s))
                 SetNext(s.now_s);
             else if (elapsed + 1.0e-9 >= kSwingDurationS)
                 Set(TerrainCrawlScriptStage::kEndpointHold, s.now_s);
             break;
         case TerrainCrawlScriptStage::kEndpointHold:
-            if (s.measured_contact && s.endpoint_within_tolerance)
+            if (s.measured_contact && s.endpoint_within_tolerance &&
+                ForceSupported(active_leg(), s))
                 SetNext(s.now_s);
             else if (elapsed >= 0.20)
             {
@@ -258,7 +283,8 @@ public:
             }
             break;
         case TerrainCrawlScriptStage::kAdvanceBody:
-            if (s.rear_targets_fk_reachable)
+            if (s.rear_targets_fk_reachable &&
+                ForceSupported(go2::kLegCount, s))
                 Set(TerrainCrawlScriptStage::kShiftCom, s.now_s);
             break;
         case TerrainCrawlScriptStage::kClear:
@@ -290,6 +316,28 @@ public:
     { return start_s + kSwingDurationS; }
 
 private:
+    bool ForceSupported(std::size_t lifted_leg,
+                        const TerrainCrawlScriptSignals &s) const noexcept
+    {
+        if (!s.measured_force_valid)
+            return false;
+        double total = 0.0;
+        double minimum = std::numeric_limits<double>::infinity();
+        double maximum = 0.0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (leg == lifted_leg)
+                continue;
+            const double force = s.measured_normal_force_n[leg];
+            if (!std::isfinite(force) || force < 10.0)
+                return false;
+            total += force;
+            minimum = std::min(minimum, force);
+            maximum = std::max(maximum, force);
+        }
+        return total >= 50.0 && minimum > 0.0 && maximum / minimum <= 4.0;
+    }
+
     void Set(TerrainCrawlScriptStage stage, double now_s) noexcept
     {
         stage_ = stage;

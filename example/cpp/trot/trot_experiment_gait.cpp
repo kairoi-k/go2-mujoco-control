@@ -1833,6 +1833,11 @@ bool TrotExperiment::BuildGaitTargets(
         sequencer_input.measured_contact_valid =
             wbc_shadow_contact_state_valid_;
         sequencer_input.measured_contact = wbc_shadow_contact_state_;
+        sequencer_input.measured_force_valid = have_high_state;
+        if (sequencer_input.measured_force_valid)
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                sequencer_input.measured_normal_force_n[leg] =
+                    state_snapshot.foot_force()[leg];
         sequencer_input.measured_com_valid = have_measured_com_world_;
         sequencer_input.measured_com_world = measured_com_world_;
         sequencer_input.measured_velocity_mps = have_filtered_body_velocity_

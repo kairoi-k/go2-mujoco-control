@@ -66,6 +66,10 @@ int main()
         for (std::size_t iy = 0; iy < model.height; ++iy)
             for (std::size_t ix = 20; ix < model.width; ++ix)
                 model.CellAt(ix, iy)->height_m = 0.05;
+        // A riser outside the forward corridor must not become the minimum edge.
+        for (const std::size_t iy : {std::size_t{7}})
+            for (std::size_t ix = 2; ix < 5; ++ix)
+                model.CellAt(ix, iy)->height_m = 0.05;
         const go2::Vec3 current{0.30, 0.0, -0.25};
         const auto first = go2_terrain::MeasureTerrainScriptTarget(
             model, go2::Leg::FL, current);
@@ -83,6 +87,13 @@ int main()
         if (!Check(fr.valid && fr.position_base.x == first.position_base.x &&
                        fr.position_base.y < 0.0 && fr.edge_margin_m >= 0.025,
                    "FR script target did not receive the same valid map supply"))
+            return 1;
+        const auto yawed = go2_terrain::MeasureTerrainStagingReference(
+            model, {1.0, 2.0, 0.0}, 1.5707963267948966, 0.30);
+        if (!Check(yawed.valid && std::abs(yawed.target_world.x - 1.0) < 1.0e-9 &&
+                       std::abs(yawed.target_world.y - 1.05) < 1.0e-9 &&
+                       std::abs(yawed.error_m + 0.95) < 1.0e-9,
+                   "staging reference did not rotate its world target"))
             return 1;
         // Planner inputs use FK foot-site coordinates, while the map stores
         // the contact-patch plane. A site 22 mm above the flat patch must
@@ -132,6 +143,18 @@ int main()
         if (!Check(script.stage() == go2_terrain::TerrainCrawlScriptStage::kAbort &&
                        script.retry_count() == go2_terrain::TerrainCrawlScript::kMaxRetries,
                    "script did not abort after the bounded retry budget")) return 1;
+        go2_terrain::TerrainCrawlScript invalid_time;
+        s = {};
+        s.transfer_window_active = true;
+        s.support_valid = true;
+        s.support_contacts = 4;
+        s.target_valid = true;
+        s.now_s = 0.0;
+        invalid_time.Update(s);
+        s.now_s = std::numeric_limits<double>::quiet_NaN();
+        if (!Check(invalid_time.Update(s) ==
+                       go2_terrain::TerrainCrawlScriptStage::kAbort,
+                   "script did not fail closed on invalid time")) return 1;
     }
 
     // Transfer-only swing tracking authority reduces measured endpoint lag;
@@ -1371,6 +1394,8 @@ int main()
         x.transfer_window_active = true;
         x.plan_valid = true;
         x.measured_contact_valid = true;
+        x.measured_force_valid = true;
+        x.measured_normal_force_n = {40.0, 40.0, 40.0, 40.0};
         x.measured_contact = {true, true, false, false};
         x.measured_velocity_mps = 0.30;
         x.measured_posture_valid = true;
@@ -1407,6 +1432,7 @@ int main()
                    "crawl execution did not begin after settled creep"))
             return 1;
         x.measured_contact = {true, true, false, false};
+        x.measured_force_valid = false;
         x.now_s = 10.21 + go2_terrain::TerrainCrawlStateMachine::kEntrySettleS;
         m.Update(x);
         if (!Check(!m.aborted(),
@@ -1475,7 +1501,11 @@ int main()
         x.transfer_window_active = true;
         x.plan_valid = true;
         x.measured_contact_valid = true;
+        x.measured_force_valid = true;
+        x.measured_normal_force_n = {40.0, 40.0, 40.0, 40.0};
         x.measured_contact = {true, true, true, true};
+        x.measured_force_valid = true;
+        x.measured_normal_force_n = {40.0, 40.0, 40.0, 40.0};
         x.measured_foot_valid = true;
         x.measured_foot_world = feet;
         x.measured_com_valid = true;
@@ -1552,7 +1582,11 @@ int main()
         x.transfer_window_active = true;
         x.plan_valid = true;
         x.measured_contact_valid = true;
+        x.measured_force_valid = true;
+        x.measured_normal_force_n = {40.0, 40.0, 40.0, 40.0};
         x.measured_contact = {true, true, true, true};
+        x.measured_force_valid = true;
+        x.measured_normal_force_n = {40.0, 40.0, 40.0, 40.0};
         x.measured_foot_valid = true;
         x.measured_foot_world = feet;
         x.measured_com_valid = true;
@@ -1670,7 +1704,11 @@ int main()
         x.transfer_window_active = true;
         x.plan_valid = true;
         x.measured_contact_valid = true;
+        x.measured_force_valid = true;
+        x.measured_normal_force_n = {40.0, 40.0, 40.0, 40.0};
         x.measured_contact = {true, true, true, true};
+        x.measured_force_valid = true;
+        x.measured_normal_force_n = {40.0, 40.0, 40.0, 40.0};
         x.measured_foot_valid = true;
         x.measured_foot_world = feet;
         x.measured_com_valid = true;
@@ -1718,7 +1756,11 @@ int main()
         x.scripted_execution = true;
         x.plan_valid = true;
         x.measured_contact_valid = true;
+        x.measured_force_valid = true;
+        x.measured_normal_force_n = {40.0, 40.0, 40.0, 40.0};
         x.measured_contact = {true, true, true, true};
+        x.measured_force_valid = true;
+        x.measured_normal_force_n = {40.0, 40.0, 40.0, 40.0};
         x.measured_foot_valid = true;
         x.measured_foot_world = feet;
         x.measured_com_valid = true;
@@ -1835,6 +1877,8 @@ int main()
         x.measured_feet_valid = true;
         x.measured_contact = {true, true, true, true};
         x.measured_contact_valid = true;
+        x.measured_force_valid = true;
+        x.measured_normal_force_n = {40.0, 40.0, 40.0, 40.0};
         x.measured_com_world = {0.0, 0.0, -0.25};
         x.measured_com_valid = true;
         x.measured_velocity_mps = 0.0;
@@ -1985,6 +2029,8 @@ int main()
         x.measured_feet_valid = true;
         x.measured_contact = {true, true, true, true};
         x.measured_contact_valid = true;
+        x.measured_force_valid = true;
+        x.measured_normal_force_n = {40.0, 40.0, 40.0, 40.0};
         x.measured_com_world = {0.0, 0.0, -0.25};
         x.measured_com_valid = true;
         x.measured_posture_valid = true;
@@ -2002,21 +2048,42 @@ int main()
                        seq.output().target_world.x > x.measured_feet_world[1].x,
                    "flat sequencer did not generate a forward swing target")) return 1;
         x.measured_feet_world[1] = seq.output().target_world;
-        // Landing and force confirmation are separate events: the swing leg
-        // cannot report contact until COMMIT publishes it back to WBC.
-        x.measured_contact[1] = false;
+        // Position alone must not expose COMMIT without measured force.
+        x.measured_force_valid = false;
         x.now_s = 0.45;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kSwing,
+                   "sequencer accepted endpoint without measured force")) return 1;
+        x.measured_force_valid = true;
+        // COMMIT requires the measured touchdown contact and force witness.
         seq.Update(x);
         if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kCommit &&
                        std::all_of(seq.output().contact_schedule.begin(),
                                    seq.output().contact_schedule.end(),
                                    [](bool contact) { return contact; }),
                    "flat sequencer did not publish landing support")) return 1;
-        x.measured_contact[1] = true;
         x.now_s = 0.46;
         seq.Update(x);
         if (!Check(seq.order_index() == 1 && seq.output().committed[1],
                    "flat sequencer did not retain the measured FL commit")) return 1;
+    }
+
+    {
+        go2_terrain::TerrainCrawlSequencer seq;
+        go2_terrain::TerrainCrawlSequencerInput x;
+        x.transfer_window_active = true;
+        x.measured_contact_valid = true;
+        x.measured_contact = {true, true, true, true};
+        x.trot_full_contact_able = true;
+        x.measured_posture_valid = true;
+        x.now_s = 0.0;
+        seq.Update(x);
+        x.now_s = 0.01;
+        seq.Update(x);
+        x.now_s = go2_terrain::TerrainCrawlSequencer::kStageTimeoutS + 0.1;
+        if (!Check(seq.Update(x) ==
+                       go2_terrain::TerrainCrawlSequencerState::kAbort,
+                   "sequencer did not abort an empty terrain stage")) return 1;
     }
 
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";

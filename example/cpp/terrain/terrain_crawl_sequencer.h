@@ -56,6 +56,8 @@ struct TerrainCrawlSequencerInput
     bool measured_feet_valid = false;
     std::array<bool, go2::kLegCount> measured_contact{};
     bool measured_contact_valid = false;
+    bool measured_force_valid = false;
+    std::array<double, go2::kLegCount> measured_normal_force_n{};
     go2::Vec3 measured_com_world{};
     bool measured_com_valid = false;
     double measured_velocity_mps = 0.0;
@@ -109,6 +111,10 @@ public:
     static constexpr double kSwingDurationS = 0.60;
     static constexpr double kCommitToleranceM = 0.045;
     static constexpr double kResumeDwellS = 0.45;
+    static constexpr double kStageTimeoutS = 4.0;
+    static constexpr double kStableForceMinN = 10.0;
+    static constexpr double kStableForceTotalMinN = 50.0;
+    static constexpr double kStableForceImbalanceRatio = 4.0;
 
     static bool TransferActivationReady(
         const TerrainModel &terrain, const go2::Vec3 &base_position_world,
@@ -229,6 +235,9 @@ public:
             }
             else
                 stage_stable_start_s_ = std::numeric_limits<double>::infinity();
+            if (!finite_time || input.now_s - state_enter_s_ + 1.0e-9 >=
+                    kStageTimeoutS)
+                SetState(TerrainCrawlSequencerState::kAbort, input.now_s);
             break;
         }
         case TerrainCrawlSequencerState::kShift:
@@ -261,8 +270,7 @@ public:
             // publish four-contact support for the next tick to establish
             // the force/contact witness. Terrain targets retain the stricter
             // measured-contact predicate below.
-            if (MeasuredTargetAtEndpoint(input) ||
-                (input.flat_ground_mode && TargetPositionAtEndpoint(input)))
+            if (MeasuredTargetAtEndpoint(input))
                 SetState(TerrainCrawlSequencerState::kCommit, input.now_s);
             else if ((!three_contacts &&
                       (!input.flat_ground_mode || !finite_time ||
@@ -292,7 +300,8 @@ public:
             // caller supplies that reachability through live FK, never via a
             // planner phase.
             if (three_contacts && input.measured_feet_valid &&
-                input.rear_targets_fk_reachable)
+                input.rear_targets_fk_reachable &&
+                ForceSupportReady(input, go2::kLegCount))
             {
                 ++order_index_;
                 SetState(TerrainCrawlSequencerState::kShift, input.now_s);
@@ -437,6 +446,29 @@ private:
         target_valid_ = true;
     }
 
+    bool ForceSupportReady(const TerrainCrawlSequencerInput &input,
+                           std::size_t excluded_leg) const noexcept
+    {
+        if (!input.measured_force_valid)
+            return false;
+        double total = 0.0;
+        double minimum = std::numeric_limits<double>::infinity();
+        double maximum = 0.0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (leg == excluded_leg)
+                continue;
+            const double force = input.measured_normal_force_n[leg];
+            if (!std::isfinite(force) || force < kStableForceMinN)
+                return false;
+            total += force;
+            minimum = std::min(minimum, force);
+            maximum = std::max(maximum, force);
+        }
+        return total >= kStableForceTotalMinN && minimum > 0.0 &&
+            maximum / minimum <= kStableForceImbalanceRatio;
+    }
+
     bool TargetPositionAtEndpoint(const TerrainCrawlSequencerInput &input) const noexcept
     {
         if (!target_valid_ || active_leg() >= go2::kLegCount ||
@@ -450,7 +482,8 @@ private:
     bool MeasuredTargetAtEndpoint(const TerrainCrawlSequencerInput &input) const noexcept
     {
         return TargetPositionAtEndpoint(input) && input.measured_contact_valid &&
-            input.measured_contact[active_leg()];
+            input.measured_contact[active_leg()] &&
+            ForceSupportReady(input, active_leg());
     }
 
     TerrainCrawlSequencerState Publish(
