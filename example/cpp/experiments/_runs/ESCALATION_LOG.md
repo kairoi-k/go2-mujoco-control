@@ -3015,3 +3015,59 @@ validation: |
   Required full 195..215 ratchet and downstream canary were not entered
   because FL did not exceed the 3/21 baseline and B0 3x green precondition
   was unavailable. No downstream run or crossing/confirmation is claimed.
+
+---
+timestamp: 2026-09-02T06:00:00+0800
+run_id: Order-065 staged-start isolation and lifecycle readiness
+trigger: T1
+source_sha: c6574ae01c706548a8bb35c794e476ebd222b697
+implementation: |
+  run_trot.sh now accepts --staged-start as a debug-only harness option,
+  strips it from controller argv, derives the initial x from the measured
+  phase2_step_5cm edge and the observed 94 mm startup settling offset, and
+  arms the terrain transfer window at gait start without the approach brake.
+  The legacy crawl owner enters measured STAGE directly, preserving the
+  existing measured support/posture/force gates and the SHIFT->SWING->COMMIT
+  event owner. Normal callers and the v1 controller contract are unchanged.
+  The simulator readiness marker now follows DDS channel construction and
+  bridge thread launch; previously it was printed before interface->start(),
+  allowing controller lifecycle Init to race DDS publication. This is the
+  root cause of the recurring startup/lifecycle exposure identified by the
+  pre-Order-065 inverted roll=-178 deg signature.
+b0: |
+  Fixed development steps pairs under flock /tmp/go2_mujoco_experiment.lock,
+  Base=4000 preload, serial domains 220/221: r0 PASS, r1 PASS, r2 terrain
+  PASS but baseline quantitative analyzer FAIL on the unchanged steady-state
+  check. The two passing pairs had controller/safety/quality/analysis and
+  b0_analyzer PASS, with no inverted-plant signature. This is 2/3 complete
+  B0 pair passes; no 3/3 claim is made. The earlier accel_1_to_3 probe was
+  rejected only by its pre-existing quantitative steady-state checks and is
+  not counted.
+staged_runs: |
+  Seven staged phase2_step_5cm runs at seed 195 (source/binary code SHA
+  c523364, script calibration then c6574ae), serial domain 229, Base=4000,
+  duration 30 / wall 35. The harness reached STAGE then SHIFT in every
+  completed CSV (STAGE 321-351 rows; SHIFT 2033-2089 rows), proving the
+  approach/deceleration chain is removed. FL commit remained 0/7; no SWING,
+  COMMIT, ADVANCE, CLEAR, RESUME, crossing, or confirmation was claimed.
+  Failure is now isolated to SHIFT COM/support posture: representative
+  measured crawl COM margin started +0.042..+0.044 m and decayed to
+  -0.013..-0.041 m before the preserved hard posture stop. The deepest state
+  is SHIFT_COM / sequencer SHIFT.
+full_runs: |
+  Not launched: staged SHIFT->FL ratchet did not pass, so the Order-065
+  precondition for reconnecting full approach runs was not met. Full-run FL
+  comparison therefore remains the historical 0/7 post-anchor result versus
+  the unshaped 3/21 baseline; no crossing or confirmation is claimed.
+validation: |
+  cmake --build example/cpp/build -j2, cmake --build simulate/build -j2,
+  ctest --test-dir example/cpp/build --output-on-failure: 27/27 PASS;
+  bash -n example/cpp/scripts/run_trot.sh and git diff --check PASS. No v1
+  contract, analyzer threshold, or canary definition changed; no push/amend.
+commit_chain: |
+  d04dfeb readiness/staged entry, 44f1f3d simulator pose rollback,
+  c523364 early staged arm, 72482fc staged simulator preload probe,
+  81a7c2d pose-height probe, 7fe8dc4 preload rollback,
+  63a9e7c harness-only staged control, a8c9922 startup offset probe,
+  c6574ae measured staged alignment; probe commits are retained as normal
+  non-amended history and the current source SHA is c6574ae.
