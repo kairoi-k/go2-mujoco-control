@@ -653,6 +653,14 @@ public:
         ++transition_count_;
     }
 
+    // Harness-only staged-start entry. It preserves the measured STAGE
+    // lifecycle while removing approach/deceleration from crawl isolation.
+    void EnterStaged(double now_s) noexcept
+    {
+        Enter(now_s);
+        state_ = TerrainCrawlState::kStage;
+    }
+
     TerrainCrawlState Update(const TerrainCrawlSignals &signals) noexcept
     {
         if (!signals.transfer_window_active)

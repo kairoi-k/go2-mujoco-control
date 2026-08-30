@@ -146,6 +146,8 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     double requested_mps = params_.velocity_command_profile.Sample(gait_time_s);
     const bool flat_crawl_debug =
         Full2EnvDouble("TROT_TERRAIN_DEBUG_FLAT_CRAWL", 0.0) > 0.5;
+    const bool staged_start_debug =
+        Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) > 0.5;
     // Harness-only isolation: arm the sequencer at gait start without a
     // terrain window or lidar map. The default remains entirely inactive.
     if (flat_crawl_debug && task_.gait_started_ && task_.motion_stage_ == 2 &&
@@ -212,7 +214,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
             const bool approach_braking =
                 terrain_approach_braking_active_ &&
                 !terrain_crawl_sequencer_output_.control_authority_active &&
-                !flat_crawl_debug;
+                !flat_crawl_debug && !staged_start_debug;
             if (approach_braking)
             {
                 // V2-A is an adaptive stopping profile, not a passive wait
@@ -655,6 +657,8 @@ bool TrotExperiment::BuildGaitTargets(
             : nullptr;
     const bool flat_crawl_debug =
         Full2EnvDouble("TROT_TERRAIN_DEBUG_FLAT_CRAWL", 0.0) > 0.5;
+    const bool staged_start_debug =
+        Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) > 0.5;
     const bool terrain_execution_allowed =
         (params_.terrain_actuation && !params_.terrain_sensor_only) ||
         flat_crawl_debug;
@@ -674,7 +678,7 @@ bool TrotExperiment::BuildGaitTargets(
         !terrain_transfer_window_active_ &&
         (flat_crawl_debug || (live_terrain_model && have_high_state)))
     {
-        bool activate = flat_crawl_debug;
+        bool activate = flat_crawl_debug || staged_start_debug;
         if (!activate)
         {
             const auto nominal_feet = go2::AllFootPositions(
@@ -688,14 +692,18 @@ bool TrotExperiment::BuildGaitTargets(
         if (activate)
         {
             terrain_transfer_window_active_ = true;
-            terrain_approach_braking_active_ = !flat_crawl_debug;
+            terrain_approach_braking_active_ =
+                !flat_crawl_debug && !staged_start_debug;
             terrain_approach_staging_error_m_ = std::numeric_limits<double>::quiet_NaN();
             terrain_approach_speed_cap_mps_ =
                 go2_terrain::TerrainCrawlSequencer::kApproachMaxSpeedMps;
             if (!flat_crawl_debug && live_terrain_model)
             {
-                const auto staging =
-                    go2_terrain::MeasureTerrainStagingReference(
+                const auto staging = staged_start_debug
+                    ? go2_terrain::MeasureTerrainBasinStagingReference(
+                          *live_terrain_model, early_pose.base,
+                          early_pose.yaw_rad)
+                    : go2_terrain::MeasureTerrainStagingReference(
                         *live_terrain_model, early_pose.base, early_pose.yaw_rad,
                         0.5 * (go2::AllFootPositions(task_.stand_up_joint_pos_)[0].x +
                                go2::AllFootPositions(task_.stand_up_joint_pos_)[1].x),
@@ -1954,7 +1962,7 @@ bool TrotExperiment::BuildGaitTargets(
         sequencer_input.trot_full_contact_able = std::all_of(
             trot_contacts[0].begin(), trot_contacts[0].end(),
             [](bool contact) { return contact; });
-        sequencer_input.legacy_stage_ready =
+        sequencer_input.legacy_stage_ready = staged_start_debug ||
             terrain_crawl_state_machine_.state() ==
                 go2_terrain::TerrainCrawlState::kShiftCom ||
             terrain_crawl_state_machine_.state() ==
@@ -2063,7 +2071,12 @@ bool TrotExperiment::BuildGaitTargets(
         if (terrain_crawl_control_authority_active &&
             terrain_crawl_state_machine_.state() ==
                 go2_terrain::TerrainCrawlState::kInactive)
-            terrain_crawl_state_machine_.Enter(terrain_now_s);
+        {
+            if (staged_start_debug)
+                terrain_crawl_state_machine_.EnterStaged(terrain_now_s);
+            else
+                terrain_crawl_state_machine_.Enter(terrain_now_s);
+        }
         go2_terrain::TerrainCrawlSignals crawl_signals;
         crawl_signals.transfer_window_active =
             terrain_crawl_control_authority_active;

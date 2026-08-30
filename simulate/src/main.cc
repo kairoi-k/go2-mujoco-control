@@ -1401,6 +1401,12 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
         sim->Load(m, d, filename);
       }
       ConfigureCamera(sim);
+      // Start Go2 experiments from the authored standing keyframe.  The
+      // zero-joint qpos default can settle into an inverted, motionless
+      // plant before the controller participant joins, which makes the
+      // lifecycle readiness check accept a bad initial state.
+      if (m->nkey > 0)
+        mj_resetDataKeyframe(m, d, 0);
       if (std::isfinite(param::config.initial_x_m) && m->nq >= 1)
         d->qpos[0] = param::config.initial_x_m;
       if (std::isfinite(param::config.initial_y_m) && m->nq >= 2)
@@ -1445,8 +1451,6 @@ void *UnitreeSdk2BridgeThread(void *arg)
   }
 
   unitree::robot::ChannelFactory::Instance()->Init(param::config.domain_id, param::config.interface);
-  std::cout << "Unitree DDS bridge ready" << std::endl;
-
 
   int body_id = mj_name2id(m, mjOBJ_BODY, "torso_link");
   if (body_id < 0) {
@@ -1461,6 +1465,10 @@ void *UnitreeSdk2BridgeThread(void *arg)
     interface = std::make_unique<Go2Bridge>(m, d, sim_mutex);
   }
   interface->start();
+  // The harness waits for this marker before starting the controller.  It
+  // must follow channel construction and the bridge thread launch; emitting
+  // it before start leaves a DDS participant/channel startup race.
+  std::cout << "Unitree DDS bridge ready" << std::endl;
   
   while (true)
   {
