@@ -1369,6 +1369,22 @@ void TrotExperiment::UpdateWbcFull(
             wbc_shadow_diagnostics_.full_velocity_target_x_mps = target_vx;
             wbc_in.desired_linear_acc_world.x() = speed_acc;
         }
+        // The terrain approach arrives with residual braking velocity. Keep
+        // that history from becoming a backward impulse at the explicit
+        // shift/swing handoff; flat debug mode intentionally keeps its
+        // established dynamics unchanged.
+        if (terrain_crawl_sequencer_output_.control_authority_active &&
+            !terrain_crawl_sequencer_output_.flat_ground_mode &&
+            (terrain_crawl_state_machine_.state() ==
+                 go2_terrain::TerrainCrawlState::kShiftCom ||
+             terrain_crawl_state_machine_.state() ==
+                 go2_terrain::TerrainCrawlState::kCrawlStep))
+        {
+            wbc_in.desired_linear_acc_world.x() = Clamp(
+                -5.0 * linear_vel_world.x(), -1.5, 1.5);
+            wbc_in.desired_linear_acc_world.y() = Clamp(
+                -5.0 * linear_vel_world.y(), -1.5, 1.5);
+        }
         const bool stop_balance =
             EmergencyStopHoldReady() ||
             WbcStopHoldActive() ||
