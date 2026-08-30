@@ -1466,3 +1466,46 @@ validation: |
   No v1 contract, analyzer threshold, or canary definition changed; no
   gate-level conclusion is made.
 git_status: local implementation commits 51c1b67, ffeeff5 plus docs append; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-31T18:00:00+0800
+run_id: Order-039 commit-ledger epoch73 b1_script_epoch73_20260828 (+ _r2)
+trigger: T1
+implementation: |
+  e28ad60 kept the measured transition commit ledger alive through transaction
+  completion and bounded recovery; it is cleared only when the post-crossing
+  transfer window releases. The crawl sequencer also latches commit facts and
+  the unit test covers a refreshed snapshot with the active mask cleared.
+canary_trace: |
+  Both runs used controller-duration=30, wall timeout=35, domain 229,
+  Base=4000 preload, and serial flock /tmp/go2_mujoco_experiment.lock.
+  r1 reached CRAWL_STEP twice but no measured commit before posture stop at
+  cmd_time 14.088 s. r2 committed FL at 11.904 s (endpoint error 1.4 mm)
+  and FR at 14.516 s (14.7 mm), with committed masks 2 -> 3; no rear step
+  or ADVANCE_BODY was recorded before posture stop at cmd_time 16.098 s.
+  The old FL retry signature did not recur after the durable mask reached 2.
+validation: |
+  test_terrain_interfaces and ctest 27/27 passed before the canary. The
+  exploratory canary analyzers reported incomplete crossing because both
+  runs hit the unchanged posture safety path; this is not a gate conclusion.
+git_status: local commits e28ad60 and 4a1cdc7; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-31T19:00:00+0800
+run_id: Order-039 commit-ledger epoch74 b1_script_epoch74_20260828 (+ _r2)
+trigger: T1
+implementation: |
+  4a1cdc7 consumes a commit latched during SHIFT_COM before choosing another
+  crawl target, so a commit arriving after recovery cannot regress the pointer.
+canary_trace: |
+  Both runs used controller-duration=30, wall timeout=35, domain 229,
+  Base=4000 preload, and serial flock /tmp/go2_mujoco_experiment.lock.
+  r1 stopped in SHIFT_COM at cmd_time 9.564 s with no commit. r2 entered
+  CRAWL_STEP and committed FL at 10.826 s (44.6 mm endpoint error), leaving
+  durable mask 2; it did not retry FL, but did not reach FR before the
+  posture stop at cmd_time 13.494 s. No ADVANCE_BODY/rear/CLEAR/RESUME.
+validation: |
+  ctest 27/27 passed and both artifacts record git_head 4a1cdc7. The
+  incomplete-crossing analyzer failures are expected exploratory evidence;
+  no analyzer threshold or contract was changed.
+git_status: local commits only; no push/amend; simulations serialized.
