@@ -3251,3 +3251,35 @@ validation: |
 commit_chain: |
   f736ac9, 950af46, f107374, 02586b2, 5288174, 7757410, a7ea85c,
   ee27d68. Documentation append is pending its own commit. No push or amend.
+
+Order-070 implementation update — 2026-09-02
+
+source_sha: 5075864048ede04eb8a5f9bec7964b2e53cf322c
+forensics: |
+  The clean Order-069 witness (order069_staged_seed195_fix35) shows FR
+  crossing the riser at x=0.7003 m with foot z=0.1249 m and zero FR
+  ground GRF; it remains above the plateau at x=0.7632,z=0.1048 m.
+  At x=0.7632--0.7675 m the sensor force spikes 191--373 N while
+  FR ground GRF remains zero; RR/RL fall to approximately 39/59 N and
+  41/60 N before the collapse (and later as low as 0/1 N). Base pitch
+  grows from about -0.103 to -0.114 rad while height falls about 0.416
+  to 0.415 m. This is not riser-edge or face contact: it is a descent
+  swing-wrench/attitude impulse that physically unloads the rear stance.
+fix: |
+  Scoped the FR terrain sequencer descent only (active leg 0): ease the
+  endpoint elevation and replace the bell arch with a zero-slope quartic
+  arch, making touchdown vertical velocity zero. FL and flat paths are
+  byte-for-byte retained. No gates, analyzer thresholds, canary, or v1
+  contract changed.
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  Staged runs were serial with flock/domain 229/Base=4000/FULL2_TAU=45,
+  duration 30/wall 35. fix8 reached FL COMMIT then FR SWING but aborted
+  in FR descent; fix9 reached FR phase 0.8667 with rear support collapse;
+  latest fix17 at this SHA failed earlier in FL SWING. Therefore staged
+  full sequence >=3, reconnect full runs, B0 3x, flat 20/20, and crossing
+  confirmation are not claimed.
+commit_chain: |
+  519f308, 60a0717, ae4fa29, 588297a, 8227b4e, 9310a64, b0da420,
+  fa61c4b, 8722c9b, c287ae7, 5caf880, ef2a7e7, 5075864. No push or amend.
