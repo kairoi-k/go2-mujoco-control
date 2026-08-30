@@ -36,6 +36,34 @@ bool CheckRoundTrip(const std::array<double, go2::kJointCount> &source_joints)
     return true;
 }
 
+bool CheckClampedSwingDoesNotMoveStance()
+{
+    const std::array<double, go2::kJointCount> stand_pose = {
+        0.00571868, 0.608813, -1.21763,
+        -0.00571868, 0.608813, -1.21763,
+        0.00571868, 0.608813, -1.21763,
+        -0.00571868, 0.608813, -1.21763};
+    const auto original_feet = go2::AllFootPositions(stand_pose);
+    auto target_feet = original_feet;
+    target_feet[1].x += 0.50;
+    std::array<double, go2::kJointCount> solved_joints{};
+    if (!go2::AllLegInverseKinematicsClamped(target_feet, solved_joints))
+        return false;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (leg == 1)
+            continue;
+        if (!Near(target_feet[leg].x, original_feet[leg].x) ||
+            !Near(target_feet[leg].y, original_feet[leg].y) ||
+            !Near(target_feet[leg].z, original_feet[leg].z))
+        {
+            std::cerr << "Clamped swing target moved a stance foot" << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
+
 bool CheckBodyShiftTargets()
 {
     const std::array<double, go2::kJointCount> stand_pose = {
@@ -82,7 +110,8 @@ int main()
         0.00571868, 0.608813, -1.21763,
         -0.00571868, 0.608813, -1.21763};
 
-    if (!CheckRoundTrip(stand_pose) || !CheckBodyShiftTargets())
+    if (!CheckRoundTrip(stand_pose) || !CheckBodyShiftTargets() ||
+        !CheckClampedSwingDoesNotMoveStance())
     {
         return 1;
     }
