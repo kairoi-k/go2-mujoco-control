@@ -1460,9 +1460,9 @@ validation: |
   test_terrain_interfaces includes the displacement-scaled ramp, force/static
   readiness, and two-recovery-then-abort timeout cases. Full real_trot_go2
   build passed. B0 fixed pair at
-  phase2_b0_development_fixed_3mps_r0_20260830_101248 returned
+  phase2_b0_development_fixed_3mps_r0_20260830_102122 returned
   acceptance_status=PASS with analyzer_hash=true, contract_hash=true,
-  no_terrain_actuation=true, planner_deadline_misses=0, terrain_rows=39015.
+  no_terrain_actuation=true, planner_deadline_misses=0, terrain_rows=18593.
   No v1 contract, analyzer threshold, or canary definition changed; no
   gate-level conclusion is made.
 git_status: local implementation commits 51c1b67, ffeeff5 plus docs append; no push/amend; simulations serialized.
