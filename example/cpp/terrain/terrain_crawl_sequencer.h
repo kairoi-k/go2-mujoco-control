@@ -291,9 +291,10 @@ public:
                           *input.terrain, input.base_position_world,
                           input.base_yaw_rad))
                 : TerrainStagingReference{};
-            const bool at_standoff = input.flat_ground_mode ||
-                (staging.valid &&
-                 std::abs(staging.error_m) <= kBasinHalfWidthM);
+            // The base-x band is an observed correlation, not a causal
+            // gate. The measured support margin below remains the sole
+            // terrain release condition; staging stays edge-anchored.
+            const bool at_standoff = input.flat_ground_mode || staging.valid;
             const bool measured_basin_ready = input.flat_ground_mode ||
                 (input.measured_feet_valid && input.measured_com_valid &&
                  contacts == static_cast<int>(go2::kLegCount) &&
@@ -610,12 +611,19 @@ private:
             ? static_cast<int>(std::count(input.measured_contact.begin(),
                                           input.measured_contact.end(), true))
             : 0;
-        if (output_.active_leg < go2::kLegCount &&
+        if ((output_.active_leg < go2::kLegCount ||
+             state_ == TerrainCrawlSequencerState::kStage) &&
             input.measured_feet_valid && input.measured_com_valid)
         {
+            // STAGE has no lifted leg: publish the full measured support
+            // witness so the state-machine handoff never sees -inf solely
+            // because the sequencer has not selected a swing leg yet.
+            const std::size_t support_lifted_leg =
+                state_ == TerrainCrawlSequencerState::kStage
+                    ? go2::kLegCount : output_.active_leg;
             output_.com_margin_m = TerrainMeasuredSupportMargin(
                 input.measured_feet_world, input.measured_contact,
-                output_.active_leg, input.measured_com_world);
+                support_lifted_leg, input.measured_com_world);
         }
         output_.committed = committed_;
         output_.contact_schedule.fill(true);

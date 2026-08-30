@@ -574,6 +574,9 @@ private:
     // shaping tick so STAGE stops at the edge-relative body target.
     double terrain_staging_error_m_ =
         std::numeric_limits<double>::quiet_NaN();
+    // Signed only for the terrain STAGE basin probe; the Phase 1 velocity
+    // shaper remains non-negative and bit-identical outside this window.
+    double terrain_stage_direction_ = 1.0;
     go2_control::GaitPattern runtime_gait_pattern_ =
         go2_control::GaitPattern::kDiagonalTrot;
     double terrain_surface_transition_target_world_z_ = 0.0;

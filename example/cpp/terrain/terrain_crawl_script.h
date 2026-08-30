@@ -63,11 +63,20 @@ inline TerrainStagingReference MeasureTerrainStagingReferenceWithOffset(
         return result;
     const double c = std::cos(base_yaw_rad);
     const double s = std::sin(base_yaw_rad);
-    const double forward_error = edge_x - forward_offset_m;
-    result.target_world = {
-        base_position_world.x + c * forward_error,
-        base_position_world.y + s * forward_error,
+    // The map edge is local to the measured base pose. Transform both the
+    // observed edge and the desired base point into world coordinates before
+    // deriving the servo error; never compare a local map x with world x.
+    const go2::Vec3 edge_world{
+        base_position_world.x + c * edge_x,
+        base_position_world.y + s * edge_x,
         base_position_world.z};
+    result.target_world = {
+        edge_world.x - c * forward_offset_m,
+        edge_world.y - s * forward_offset_m,
+        base_position_world.z};
+    const double forward_error =
+        c * (result.target_world.x - base_position_world.x) +
+        s * (result.target_world.y - base_position_world.y);
     result.valid = std::isfinite(result.target_world.x) &&
         std::isfinite(result.target_world.y);
     result.edge_x_m = edge_x;

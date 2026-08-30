@@ -629,7 +629,11 @@ public:
                    contacts == static_cast<int>(go2::kLegCount))
                 : ((signals.measured_contact_valid && contacts >= 3) ||
                    (signals.measured_force_valid && force_contacts >= 3));
-            const std::size_t lifted_leg = ActiveLegForSupport();
+            // STAGE retains all four contacts; no swing leg should be
+            // excluded until SHIFT selects the active leg.
+            const std::size_t lifted_leg = state_ ==
+                TerrainCrawlState::kStage ? go2::kLegCount :
+                ActiveLegForSupport();
             stage_basin_margin_m_ = -std::numeric_limits<double>::infinity();
             if (signals.scripted_execution && stage_contact_ready &&
                 signals.measured_foot_valid && signals.measured_com_valid)
@@ -649,9 +653,10 @@ public:
                 signals.staging_error_m < 0.0;
             const bool stage_location_ready = signals.staging_target_valid &&
                 std::isfinite(signals.staging_error_m) &&
+                // Do not turn the empirical base-x band into a hard gate;
+                // measured support margin is the causal pre-SHIFT witness.
                 (signals.scripted_execution
-                    ? std::abs(signals.staging_error_m) <=
-                        kStageBasinHalfWidthM
+                    ? true
                     : (already_past_standoff ||
                        std::abs(signals.staging_error_m) <=
                            kStagePositionToleranceM));

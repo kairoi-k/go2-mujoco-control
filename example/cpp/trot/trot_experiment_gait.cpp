@@ -242,24 +242,30 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
                 // legacy state machine is in STAGE it actively servos the
                 // measured edge-minus-base basin instead of parking at the
                 // old nominal standoff.
-                if (sequencer_staging &&
-                    !terrain_crawl_sequencer_output_.flat_ground_mode &&
-                    terrain_crawl_state_machine_.state() ==
-                        go2_terrain::TerrainCrawlState::kStage)
+                if ((sequencer_staging ||
+                     terrain_crawl_state_machine_.state() ==
+                         go2_terrain::TerrainCrawlState::kStage) &&
+                    !terrain_crawl_sequencer_output_.flat_ground_mode)
                 {
                     if (terrain_crawl_state_machine_.stage_micro_adjust_active(
                             absolute_gait_time_s))
+                    {
+                        terrain_stage_direction_ =
+                            terrain_crawl_state_machine_.stage_micro_adjust_direction();
                         requested_mps =
-                            terrain_crawl_state_machine_.stage_micro_adjust_direction() *
                             go2_terrain::TerrainCrawlStateMachine::
                                 kStageMicroAdjustSpeedMps;
+                    }
                     else if (std::isfinite(terrain_staging_error_m_) &&
                              std::abs(terrain_staging_error_m_) >
                                  go2_terrain::TerrainCrawlStateMachine::
                                      kStageBasinHalfWidthM)
-                        requested_mps = std::copysign(
-                            go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps,
-                            terrain_staging_error_m_);
+                    {
+                        terrain_stage_direction_ =
+                            std::copysign(1.0, terrain_staging_error_m_);
+                        requested_mps =
+                            go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps;
+                    }
                     else
                         requested_mps = 0.0;
                 }
@@ -377,6 +383,16 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
                 "TROT_FLAT_CRAWL_BODY_SPEED", 0.05), 0.0, 0.12)
             : 0.0;
     }
+    if (terrain_window_active && !flat_crawl_debug &&
+        std::isfinite(terrain_staging_error_m_) &&
+        std::abs(terrain_staging_error_m_) >
+            go2_terrain::TerrainCrawlStateMachine::kStageBasinHalfWidthM)
+    {
+        terrain_stage_direction_ =
+            std::copysign(1.0, terrain_staging_error_m_);
+        requested_mps =
+            go2_terrain::TerrainCrawlStateMachine::kStageMicroAdjustSpeedMps;
+    }
     velocity_command_state_ = velocity_command_shaper_.Step(
         requested_mps, dt);
     const bool zero_command_profile_finished =
@@ -445,12 +461,15 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     locomotion_kernel_->SetGaitDuty(schedule.duty_factor);
     locomotion_kernel_->SetGaitStepLength(schedule.step_length_m);
     locomotion_kernel_->SetGaitFootLift(schedule.foot_lift_m);
-    wbc_speed_cmd_mps_ =
-        terrain_crawl_active &&
+    const bool terrain_stage_servo = terrain_window_active &&
+        !flat_crawl_debug && std::isfinite(terrain_staging_error_m_);
+    wbc_speed_cmd_mps_ = terrain_stage_servo
+        ? terrain_stage_direction_ * applied_mps
+        : (terrain_crawl_active &&
             terrain_crawl_state_machine_.state() ==
                 go2_terrain::TerrainCrawlState::kStage
-        ? params_.direction_sign * applied_mps
-        : std::abs(params_.direction_sign) * applied_mps;
+            ? params_.direction_sign * applied_mps
+            : std::abs(params_.direction_sign) * applied_mps);
     runtime_gait_step_length_m_ = schedule.step_length_m;
     runtime_gait_foot_lift_m_ = schedule.foot_lift_m;
     runtime_gait_regime_ = schedule.regime;
