@@ -785,10 +785,15 @@ private:
             const double vertical_progress = u * u * (3.0 - 2.0 * u);
             const double vertical_progress_rate = 6.0 * u * (1.0 - u) /
                 kSwingDurationS;
-            const double arch = output_.swing_lift_m * 16.0 * u * u *
-                (1.0 - u) * (1.0 - u);
-            const double arch_rate = output_.swing_lift_m * 32.0 * u *
-                (1.0 - u) * (1.0 - 2.0 * u) / kSwingDurationS;
+            const double arch = terrain_swing
+                ? output_.swing_lift_m * 16.0 * u * u *
+                    (1.0 - u) * (1.0 - u)
+                : output_.swing_lift_m * 4.0 * u * (1.0 - u);
+            const double arch_rate = terrain_swing
+                ? output_.swing_lift_m * 32.0 * u * (1.0 - u) *
+                    (1.0 - 2.0 * u) / kSwingDurationS
+                : output_.swing_lift_m * 4.0 * (1.0 - 2.0 * u) /
+                    kSwingDurationS;
             output_.swing_position_world = {
                 swing_start_.x + progress * (target_.x - swing_start_.x),
                 swing_start_.y + progress * (target_.y - swing_start_.y),
