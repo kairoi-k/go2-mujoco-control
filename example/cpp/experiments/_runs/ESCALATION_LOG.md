@@ -2052,3 +2052,74 @@ validation: |
   cmake --build example/cpp/build -j2; ctest --test-dir example/cpp/build
   --output-on-failure: 27/27 passed; git diff --check passed.
 git_status: source and evidence commits are local; no push/amend; no staged files.
+
+---
+timestamp: 2026-09-01T16:35:00+0800
+run_id: Order-047 arm-to-seizure verification, V2-A approach brake, and canary epochs 117-122
+trigger: T1
+forensics: |
+  Replayed the committed epoch111-116 CSV artifacts. In all 12 members the
+  arm-to-seizure gap was 2.666-3.478 s (mean 3.119 s), while arm-to-safety-stop
+  was 3.628-4.884 s. During the arm-to-stop interval the front-foot world X
+  reached 0.650-0.701 m and Z was 0.019-0.072 m; contact bit transitions were
+  recorded at X >= 0.65 m (for example epoch111 r1 at t=7.816 s, FL contact,
+  x=0.679 m, z=0.055 m). The riser edge is x ~= 0.70 m. The body advanced
+  0.663-0.711 m (mean 0.694 m) before stop. This confirms front-foot/riser
+  approach contact during the passive arm-to-seizure gap, rather than a
+  post-seizure crawl failure.
+implementation: |
+  Commit 723a3cd538c9efc4f6f2151c82ae8bc5b48b9c99 adds a window-local V2-A
+  adaptive approach envelope while trot retains full authority. The profile
+  uses vmax=0.30 m/s, allowed decel=1.20 m/s^2, braking distance
+  0.30^2/(2*1.20)=0.0375 m, canonical standoff=0.25 m, and margin=0.10 m;
+  TransferActivationReady therefore arms at 0.3875 m. The speed cap is the
+  minimum of the outer sqrt distance profile and sqrt(2*a*remaining), refreshed
+  from the live map staging reference. It starts at arming, before the
+  phase-respecting stand/seizure boundary; 3+ trot contacts and speed <=0.04
+  remain the seizure predicates. Flat debug/default paths do not consume it.
+validation: |
+  cmake --build example/cpp/build -j2 and ctest --test-dir
+  example/cpp/build --output-on-failure passed 27/27. New unit witnesses cover
+  the distance budget, profile reduction, and stopping envelope. A serial B0
+  fixed pair under flock -x /tmp/go2_mujoco_experiment.lock, domain 222/223,
+  Base=4000 preload, built at the exact SHA above, returned acceptance_status
+  PASS with controller/dynamics/quality/safety/analysis status 0. Frozen paired
+  diagnostics retain their known non-gate period/duty/acceleration differences.
+canary_command: |
+  Six serial pairs used flock -x /tmp/go2_mujoco_experiment.lock, domain 229,
+  LD_PRELOAD=/home/che/dds_base4000_preload.so, run_trot.sh 35,
+  --controller-duration 30, --wbc-full, running-trot/raibert-trot,
+  period .50/duty .75/step .15/lift .08, phase2_step_5cm.xml. Every binary
+  was built from exact SHA 723a3cd538c9efc4f6f2151c82ae8bc5b48b9c99.
+canary_cycle_117: |
+  b1_freegait_epoch117 and _r2: arm->seizure 2.660/2.800 s; arm->stop
+  3.366/3.510 s; arm->stop body travel 0.353/0.362 m. Both reached SWING,
+  no measured commit; both ended ABORT (r1 controlled wall completion).
+canary_cycle_118: |
+  b1_freegait_epoch118 and _r2: arm->seizure 2.538/2.680 s; arm->stop
+  3.172/3.432 s; body travel 0.330/0.350 m. Both reached SWING, no commit,
+  then ABORT.
+canary_cycle_119: |
+  b1_freegait_epoch119 and _r2: arm->seizure 2.120/2.122 s; arm->stop
+  3.138/2.686 s; body travel 0.311/0.324 m. Both reached SWING, no commit,
+  then ABORT.
+canary_cycle_120: |
+  b1_freegait_epoch120 and _r2: arm->seizure 2.536/2.262 s; arm->stop
+  3.312/2.908 s; body travel 0.361/0.334 m. Both reached SWING, no commit,
+  then ABORT.
+canary_cycle_121: |
+  b1_freegait_epoch121 and _r2: arm->seizure 2.532/2.120 s; arm->stop
+  3.208/2.760 s; body travel 0.344/0.321 m. Both reached SWING, no commit,
+  then ABORT.
+canary_cycle_122: |
+  b1_freegait_epoch122 and _r2: arm->seizure 2.262/2.680 s; arm->stop
+  2.906/3.314 s; body travel 0.335/0.335 m. Both reached SWING, no commit,
+  then ABORT.
+result: |
+  The approach-gap mechanism is removed quantitatively: new arm-to-stop
+  travel is 0.311-0.362 m, with no front-foot x >= 0.65 m during the
+  arm-to-stop interval in any of the 12 new members; old travel was
+  0.663-0.711 m with riser-near contact transitions. The deepest rung in all
+  new members is SWING; no COMMIT, ADVANCE, CLEAR, RESUME, complete crossing,
+  or confirmation run was observed. No gate conclusion is made.
+git_status: implementation commit and this evidence append are local; no push or amend; no staged files.
