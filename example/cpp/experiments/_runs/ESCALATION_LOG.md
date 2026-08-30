@@ -2037,3 +2037,18 @@ validation: |
   --output-on-failure: 27/27 passed. git diff --check passed. Simulations
   remained serialized; no push or amend.
 git_status: implementation and evidence are committed locally; generated canary runs are ignored; no staged files.
+
+---
+timestamp: 2026-09-01T15:20:00+0800
+run_id: Order-046 post-canary force-gate completion
+trigger: T1
+implementation: |
+  Follow-up commit ab8b382 gates the state-machine SHIFT_COM/CrawlStep
+  commit and ADVANCE paths on the same measured normal-force witness, and
+  ensures a failed step cannot be promoted by a latched commit. This is a
+  narrow in-window predicate hardening after the six canary pairs above;
+  their binary SHA remains recorded as 5adf860a6b238d97d01f1fb88ceca5fae84fbad3.
+validation: |
+  cmake --build example/cpp/build -j2; ctest --test-dir example/cpp/build
+  --output-on-failure: 27/27 passed; git diff --check passed.
+git_status: source and evidence commits are local; no push/amend; no staged files.
