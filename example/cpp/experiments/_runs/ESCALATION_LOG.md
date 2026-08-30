@@ -2252,3 +2252,57 @@ validation: |
   No v1 contract, analyzer threshold, or canary definition changed; no push
   or amend; simulation runs remained serialized.
 git_status: implementation and this evidence append are local; no staged files.
+
+---
+timestamp: 2026-09-01T23:55:00+0800
+run_id: Order-051 frame-consistency audit and staging retune, epochs 150-160
+trigger: T1
+forensics: |
+  The terrain map and planner use base_link/local coordinates, while the
+  sequencer output is world-frame foot-site coordinates. TerrainFootholdPrediction
+  is contact-patch/world, and prepare_terrain_target converts it once to the
+  foot-site center consumed by FK/WBC. Before this order the direct sequencer
+  adapter copied the already-converted site target into the contact-patch type,
+  then applied the 0.022 m site offset again. In addition, a loaded transfer
+  hold could freeze the sequencer active leg before its direct target reached
+  the FK/WBC path. Epoch145 numbers were target FL x=0.8101, measured start
+  x=0.4475 (0.3626 m), measured FL remained x=0.42-0.44 and RR reached 0 N.
+  Added telemetry records the sequencer endpoint and swing start. Epoch153
+  confirmed endpoint x=0.8120, start/first waypoint x=0.4396, z endpoint
+  0.0721; the first waypoint was coincident with the measured foot, proving
+  the waypoint itself was world/site-consistent. Epoch157 showed the remaining
+  hold-path issue: endpoint x=0.8025, first waypoint x=0.4319, execution valid
+  and target x=0.8025 after the hold exemption, but posture still failed.
+implementation: |
+  cda3d5d converts the sequencer site target back to contact-patch coordinates
+  at the direct adapter boundary, so preparation applies the site offset once.
+  ed84954 rebinds a stale planner transaction when the sequencer owns the
+  event and applies signed velocity damping during sequencer SWING/COMMIT.
+  53e69ea logs sequencer target/start endpoints for independent frame audit.
+  3382f76 and d762ecb retain the direct transition witness. b665072 tightens
+  staging standoff from 0.25 m to 0.12 m; with edge x=0.70 and first target
+  edge+0.08, the staged front-foot-to-target horizontal radial is 0.20 m,
+  within the 0.30 m conservative envelope. The direct sequencer target is
+  no longer frozen by the captured support hold; when bookkeeping is pending,
+  the validated world/site trajectory is still applied instead of silently
+  falling back to nominal gait.
+velocity: |
+  Epoch145 terrain SWING entered at body vx=-0.0923 m/s versus flat -0.0010
+  m/s. The terrain request/shaper only clamps nonnegative forward speed and
+  the WBC handoff now commands -5*vx, bounded to +/-1.5 m/s2 during SHIFT,
+  CRAWL_STEP, SWING and COMMIT. Thus the negative sample is post-braking
+  residual/overshoot, not a sign inversion in sequencer target velocity;
+  flat mode remains unchanged. The signed damping covers the sequencer/legacy
+  state lag without changing v1, analyzer thresholds, or canary definitions.
+validation: |
+  Flat epoch150 with TROT_TERRAIN_DEBUG_FLAT_CRAWL=1 recorded 20 COMMIT
+  events and 0 safety/quality failures (67 gait cycles). Terrain epoch158
+  reached SWING with endpoint x=0.8391, first measured/commanded waypoint
+  x=0.5618 and measured x=0.5618; by phase 0.4167 it commanded x=0.6661
+  and measured x=0.6570. Epoch158-160 did not produce a measured terrain
+  COMMIT; support/posture safety stopped the runs. Deepest terrain rung is
+  SWING. Serial runs used flock -x /tmp/go2_mujoco_experiment.lock, domain
+  229, LD_PRELOAD=/home/che/dds_base4000_preload.so, Base=4000, controller
+  duration 30 s and 35 s wall timeout. cmake build and ctest remain 27/27.
+  No gate conclusion is claimed; no push or amend.
+git_status: implementation and evidence are committed; no staged files.
