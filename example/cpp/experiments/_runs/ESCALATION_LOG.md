@@ -3071,3 +3071,43 @@ commit_chain: |
   63a9e7c harness-only staged control, a8c9922 startup offset probe,
   c6574ae measured staged alignment; probe commits are retained as normal
   non-amended history and the current source SHA is c6574ae.
+
+timestamp: 2026-09-02T08:00:00+0800
+run_id: Order-066 SHIFT audit and bounded implementation
+trigger: T1
+source_sha: 950af46
+implementation: |
+  SHIFT now latches the measured three-contact support triangle at the
+  SHIFT_COM entry boundary and keeps its world-frame vertices/incenter
+  stable through the shift. Diagnostics dump the excluded leg, all three
+  triangle vertices, target, measured COM, margin polygon label, and the
+  actual SHIFT servo acceleration. STAGE now receives the same servo path.
+  The sequencer no longer blocks the legacy handoff on its own SHIFT state;
+  staged target validity is retained across planner snapshot expiry for the
+  debug-only staged harness. Flat mode and v1 contract paths are unchanged.
+audit: |
+  Existing Order-065 CSVs show the first staged target for FL (leg index 1)
+  is the FR/RR/RL measured world triangle, with representative incenter
+  (x=0.3506, y=-0.0531), not a stale nominal or wrong-leg triangle. Early
+  SHIFT requests point toward that target (for example COM x=0.4093 to
+  target x=0.3506, then measured COM x=0.3743), so the servo sign is not
+  reversed. The original run's report selected the sequencer scalar first;
+  it could therefore hide the state-machine triangle margin. The report now
+  uses the SHIFT state-machine triangle margin and labels STAGE as the
+  four-contact hull separately. Representative pre-fix data had requested
+  positive recovery acceleration while ID-WBC qdd remained negative
+  (requested +2.40, qdd -2.89, contact-force-x -41.8 N), after stance-foot
+  kinematic drift had changed the recomputed triangle. The fix removes that
+  moving-reference failure by latching the entry triangle.
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  Staged iterations r1-r11 were serialized under flock/domain 229 with
+  Base=4000 and preload. The implementation branch reached STAGE/SHIFT and
+  one iteration reached CRAWL_STEP, but did not complete SWING/COMMIT;
+  therefore no staged reliability, full-run FL rate, crossing, or B0 claim
+  is made here. B0 3x and full reconnect were not launched in this window.
+commit_chain: |
+  f736ac9 (Order-065 evidence), 950af46 (Order-066 implementation and
+  telemetry). No push or amend; this documentation append is pending its
+  own local commit.
