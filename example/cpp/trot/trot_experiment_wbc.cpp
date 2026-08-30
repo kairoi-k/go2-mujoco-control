@@ -635,7 +635,9 @@ void TrotExperiment::UpdateWbcFull(
             terrain_transfer_window_release_s_ = terrain_now_s + 0.45;
             terrain_surface_transition_active_ = false;
             terrain_surface_transition_required_.fill(false);
-            terrain_surface_transition_committed_.fill(false);
+            // Keep measured commits latched for the remainder of the v2
+            // transfer window. The gait sequencer may enter bounded recovery
+            // between this transaction and the next leg.
             terrain_surface_transition_source_valid_.fill(false);
             // The endpoint and live-contact gates above are the release
             // condition. Do not leave the captured support pinned after the

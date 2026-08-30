@@ -1595,6 +1595,18 @@ int main()
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom &&
                        m.order_index() == 1, "crawl machine did not shift before FR")) return 1;
+        // The WBC transaction can publish a fresh snapshot with its active
+        // mask cleared while the sequencer is recovering. A committed FL is
+        // still a sequencer fact, so that refresh must not send the pointer
+        // back to FL.
+        x.committed.fill(false);
+        x.target_valid[1] = false;
+        x.now_s = 1.31;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom &&
+                       m.order_index() == 1 &&
+                       m.PendingTransitionLeg() == 0,
+                   "cleared commit snapshot regressed the crawl pointer")) return 1;
         x.measured_contact = {true, true, true, true};
         // After FL commits, the next FR shift retains FL's raised z in the support geometry and COM reference.
         x.measured_foot_world[1].z = 0.05;

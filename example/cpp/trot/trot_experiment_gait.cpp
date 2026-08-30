@@ -157,6 +157,12 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         terrain_transfer_window_active_ = false;
         terrain_transfer_window_release_s_ =
             -std::numeric_limits<double>::infinity();
+        // A commit ledger is scoped to one terrain transfer window. Clear it
+        // only after the post-crossing stable passage, never at transaction
+        // completion, so recovery and the next leg observe measured commits.
+        terrain_surface_transition_committed_.fill(false);
+        terrain_surface_transition_committed_surface_valid_.fill(false);
+        terrain_surface_transition_committed_surface_world_z_.fill(0.0);
         terrain_crawl_state_machine_.Reset();
         terrain_crawl_min_contact_count_ = go2::kLegCount;
         terrain_crawl_step_commit_count_ = 0;
@@ -2048,7 +2054,9 @@ bool TrotExperiment::BuildGaitTargets(
                     terrain_surface_transition_required_.fill(false);
                     terrain_surface_transition_original_required_.fill(false);
                     terrain_surface_transition_cancelled_.fill(false);
-                    terrain_surface_transition_committed_.fill(false);
+                    // The measured commit ledger spans successive atomic
+                    // transactions in this window. Do not clear it here:
+                    // FL's commit must remain visible while FR is prepared.
                     terrain_surface_transition_source_valid_.fill(false);
                 }
                 else

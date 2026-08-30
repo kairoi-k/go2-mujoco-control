@@ -386,6 +386,7 @@ public:
         com_target_world_ = {};
         com_margin_m_ = -std::numeric_limits<double>::infinity();
         triangle_valid_ = false;
+        committed_latched_.fill(false);
         com_shift_start_world_ = {};
         com_shift_start_time_s_ = 0.0;
         com_shift_start_valid_ = false;
@@ -406,6 +407,7 @@ public:
         com_target_world_ = {};
         com_margin_m_ = -std::numeric_limits<double>::infinity();
         triangle_valid_ = false;
+        committed_latched_.fill(false);
         com_shift_start_world_ = {};
         com_shift_start_time_s_ = 0.0;
         com_shift_start_valid_ = false;
@@ -428,6 +430,9 @@ public:
         }
         if (state_ == TerrainCrawlState::kInactive)
             Enter(signals.now_s);
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            committed_latched_[leg] = committed_latched_[leg] ||
+                signals.committed[leg];
         if (state_ == TerrainCrawlState::kAbort)
             return state_;
 
@@ -581,7 +586,7 @@ public:
             // landed leg can make the old active-leg subtraction report one
             // support and abort before FR SHIFT_COM is entered.
             const bool active_leg_committed = leg < go2::kLegCount &&
-                signals.plan_valid && signals.committed[leg];
+                signals.plan_valid && committed_latched_[leg];
             if (active_leg_committed)
             {
                 retry_count_ = 0;
@@ -651,7 +656,7 @@ public:
             }
             if (leg >= go2::kLegCount || !three_contacts ||
                 !signals.plan_valid || !signals.target_valid[leg] ||
-                !signals.committed[leg])
+                !committed_latched_[leg])
                 break;
             retry_count_ = 0;
             if (order_index_ == 1)
@@ -860,6 +865,10 @@ private:
     }
 
     TerrainCrawlState state_ = TerrainCrawlState::kInactive;
+    // A measured commit is a sequencer fact, not a planner snapshot field.
+    // Keep it through bounded SHIFT_COM recovery so a cleared snapshot
+    // cannot move the active leg backwards.
+    std::array<bool, go2::kLegCount> committed_latched_{};
     std::size_t order_index_ = 0;
     int retry_count_ = 0;
     double state_enter_time_s_ = 0.0;
