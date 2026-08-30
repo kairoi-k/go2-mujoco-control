@@ -2830,3 +2830,51 @@ validation: |
   git diff --check passed. No v1 contract, analyzer threshold, or canary
   definition changed; no push/amend.
 git_status: evidence append pending commit; no staged files.
+
+---
+timestamp: 2026-09-02T00:00:00+0800
+run_id: Order-062 STAGE four-contact polygon servo
+trigger: T1
+configuration: |
+  Source SHA e752f3e; serial flock /tmp/go2_mujoco_experiment.lock,
+  LD_PRELOAD=/home/che/dds_base4000_preload.so, domain 229, Base=4000,
+  phase2_step_5cm.xml, running-trot/wbc-full, controller-duration 30,
+  wall 35, seeds 195..215.
+forensics: |
+  Order-061 SHA 0f5b567 showed STAGE's legacy three-vertex margin rising
+  only +0.005..+0.013 m (seed195 +0.0067..+0.0133; seed204
+  +0.0052..+0.0102), then the two alternating 0.50 s probes exhausted
+  and STAGE aborted. The threshold was being applied to the first three
+  measured contacts even though STAGE still held four; this was not
+  apples-to-apples with the pre-SHIFT four-contact basin.
+implementation: |
+  e752f3e adds a measured XY convex-hull margin and edge-weighted incenter
+  for four-contact STAGE, while lifted FL continues to use the measured
+  3-D triangle. Sequencer and legacy STAGE now consume the same polygon
+  margin; the STAGE target aims for at least +0.030 m when the measured
+  margin is below +0.020. The existing 6/5 COM servo is instrumented and
+  its acceleration clamp is widened from +/-1.5 to +/-4.0 m/s2 only in
+  the terrain transfer servo after the sweep showed saturation. The
+  sequencer/legacy owner handoff is explicitly held until STAGE has
+  settled, and pre-SWING prevents the legacy override from lifting early.
+telemetry: |
+  CSV now records per tick stage_margin_kind (4-contact-polygon vs
+  FL-lifted-triangle), measured and target margins/COM, retry/probe state,
+  servo acceleration and saturation. The representative e752f3e seed204
+  run reached STAGE polygon margins +0.128..+0.137 m (target +0.128..+0.139),
+  with no STAGE probe needed; seed195 representative reached +0.139.
+scan: |
+  The 195..215 serial sweep recorded four-contact STAGE margins
+  +0.122..+0.139 m whenever the stage witness was valid, versus the
+  Order-061 three-vertex +0.005..+0.013 m stall. Authority remained
+  acquired, but no FL terrain commit was confirmed: the next failure was
+  SHIFT_COM/force-witness/posture instability (deepest state CRAWL_STEP
+  or SHIFT_COM, no SWING/COMMIT). Thus FL commit rate in this bounded
+  sweep is 0/21, below the 3/21 unshaped baseline; crossing was not
+  achieved and no gate-level conclusion is made.
+validation: |
+  cmake --build example/cpp/build -j2, ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 passed; git diff --check
+  passed. No v1 contract, analyzer threshold, or canary definition changed;
+  no push/amend.
+git_status: evidence append pending commit; no staged files.
