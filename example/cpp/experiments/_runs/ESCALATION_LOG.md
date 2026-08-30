@@ -1921,7 +1921,7 @@ flat_trace: |
   (0.712 s, far below the required 5 s). It reached STAGE -> SHIFT -> SWING
   for active leg 1, then lost the three-contact witness during the first
   swing and aborted; no COMMIT, ADVANCE, rear-leg, CLEAR, or RESUME event
-  occurred. Across the five runs, no sequencer/legacy commit was recorded.
+  occurred. Across the six runs, no sequencer/legacy commit was recorded.
   In epoch44_r6 SWING telemetry the measured-contact count ranged 1..4;
   the best support COM margin was +0.0510 m. Before the abort, posture
   envelope was |roll| <= 0.00708 rad (0.41 deg), |pitch| <= 0.05785 rad
@@ -1929,7 +1929,7 @@ flat_trace: |
   its post-abort roll is not used as controlled-walk evidence.
 verdict: |
   FLAT CRAWL CANNOT WALK: 0/6 runs reached 5 s, 0/6 recorded a measured
-  commit, and 0/5 reached ADVANCE. The decisive failure is execution-layer
+  commit, and 0/6 reached ADVANCE. The decisive failure is execution-layer
   support retention at the first swing (the controlled witness falls below
   three contacts), not terrain perception or foothold selection. The flat
   path therefore requires execution-layer repair before any terrain canary
@@ -1940,4 +1940,4 @@ validation: |
   B0 fixed pair was attempted serially, but domains 222/223 again failed DDS
   participant allocation before startup; no B0 result is claimed. No v1
   contract, analyzer threshold, or canary definition changed; no push.
-git_status: implementation and this evidence are pending local commit; no amend; simulations serialized.
+git_status: implementation committed as b38c1de plus documentation correction 5a1d303; no push/amend; simulations serialized.
