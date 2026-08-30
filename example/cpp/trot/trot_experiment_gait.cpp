@@ -2377,8 +2377,7 @@ bool TrotExperiment::BuildGaitTargets(
             // fixed script deadline. Dropping it would make the next map
             // snapshot's optional script target a flaky launch dependency.
             if (explicit_crawl_step && execution.valid &&
-                !execution.in_flight && !execution.endpoint_held &&
-                !execution.time_rebased_at_handoff)
+                !execution.in_flight && !execution.endpoint_held)
             {
                 execution.trajectory_start_time_s = terrain_now_s;
                 execution.swing_start_time_s = terrain_now_s;
