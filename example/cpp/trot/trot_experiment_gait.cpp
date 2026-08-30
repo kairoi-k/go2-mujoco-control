@@ -507,11 +507,12 @@ bool TrotExperiment::BuildGaitTargets(
             // its prepared endpoint across asynchronous planner refreshes.
             // Replacing it here reintroduces the old short gait deadline
             // before the next tick can launch the scripted swing.
-            const auto crawl_state = terrain_crawl_state_machine_.state();
+            // Once the transfer window opens, the prepared endpoint is a
+            // scripted transaction even while entry is still settling. Keep
+            // it across map refreshes; the fixed CRAWL_STEP handoff retimes
+            // it before any swing is launched.
             const bool crawl_script_handoff_active =
-                terrain_transfer_window_active_ &&
-                (crawl_state == go2_terrain::TerrainCrawlState::kShiftCom ||
-                 crawl_state == go2_terrain::TerrainCrawlState::kCrawlStep);
+                terrain_transfer_window_active_;
             if (!crawl_script_handoff_active)
             {
                 for (auto &execution : terrain_swing_execution_)
