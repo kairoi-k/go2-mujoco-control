@@ -503,11 +503,22 @@ bool TrotExperiment::BuildGaitTargets(
             // Do not carry a plan-time touchdown into the boundary when a
             // newer S1-retimed knot has arrived. In-flight/held targets are
             // immutable; only the not-yet-started handoff is replaceable.
-            for (auto &execution : terrain_swing_execution_)
-                if (execution.valid && !execution.in_flight &&
-                    !execution.endpoint_held)
-                    execution = {};
-            terrain_swing_pending_ = {};
+            // Once CRAWL_STEP has accepted the fixed script handoff, keep
+            // its prepared endpoint across asynchronous planner refreshes.
+            // Replacing it here reintroduces the old short gait deadline
+            // before the next tick can launch the scripted swing.
+            const bool crawl_script_handoff_active =
+                terrain_transfer_window_active_ &&
+                terrain_crawl_state_machine_.state() ==
+                    go2_terrain::TerrainCrawlState::kCrawlStep;
+            if (!crawl_script_handoff_active)
+            {
+                for (auto &execution : terrain_swing_execution_)
+                    if (execution.valid && !execution.in_flight &&
+                        !execution.endpoint_held)
+                        execution = {};
+                terrain_swing_pending_ = {};
+            }
         }
         // During a crawl shift, a transient planner rejection must not erase
         // the last usable snapshot before the selected leg is prepared. Keep
