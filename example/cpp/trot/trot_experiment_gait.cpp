@@ -2722,7 +2722,16 @@ bool TrotExperiment::BuildGaitTargets(
                 // keeps map quantization from hijacking the Phase 1 gait and
                 // prevents an early world endpoint from becoming an
                 // unreachable held stance before the riser.
+                const bool sequencer_owned_target =
+                    terrain_transfer_window_active_ &&
+                    (terrain_crawl_sequencer_output_.state ==
+                         go2_terrain::TerrainCrawlSequencerState::kSwing ||
+                     terrain_crawl_sequencer_output_.state ==
+                         go2_terrain::TerrainCrawlSequencerState::kCommit) &&
+                    terrain_crawl_sequencer_output_.target_valid &&
+                    terrain_crawl_sequencer_output_.active_leg == leg;
                 execution.terrain_target_required =
+                    sequencer_owned_target ||
                     planned.surface_transition_required ||
                     execution.terrain_height_change;
                 if (!execution.terrain_target_required)
