@@ -2210,3 +2210,45 @@ validation: |
   The post-commit metadata records exact SHA and clean source. ctest
   remains 27/27 passed from the committed source; no push or amend.
 git_status: evidence append is local and will be committed promptly; no staged files after commit.
+
+---
+timestamp: 2026-09-01T21:45:00+0800
+run_id: Order-050 flat-vs-terrain differential, explicit topology repair, epochs 142-149
+trigger: T1
+forensics: |
+  Existing telemetry was compared tick-by-tick for order045_flat_fix17
+  (first SWING 6.022 s) and b1_freegait_epoch141 (first SWING 9.620 s).
+  Flat had sequencer/WBC/MPC mask 13 and no terrain plan/hold; terrain had
+  sequencer/WBC/MPC mask 13 but legacy terrain planned mask 12, captured
+  hold mask 15, and an active surface transition. At terrain SWING the
+  sequencer COM reference was x=0.1921,y=-0.0469 while the measured legacy
+  shift target was x=0.2377,y=-0.0120; body velocity was -0.0923 m/s versus
+  flat -0.0010 m/s. Terrain FL execution target was x=0.8101,z=0.0942,
+  while the foot started x=0.4475,z=0.0228. The first actuator/control
+  divergence was the unreachable terrain target being retained by WBC while
+  AllLegInverseKinematicsClamped retracted stance and swing feet globally.
+  In epoch145 the commanded target remained x=0.8101 while measured FL
+  stayed near x=0.42-0.44; RR then fell to 0 N at t=10.240. This identifies
+  the differential numerically; no gate conclusion.
+implementation: |
+  025872a holds the measured legacy COM target through terrain SHIFT_COM/
+  CRAWL_STEP instead of repeatedly replacing it with the moving support
+  centroid; 9c30147 prevents terrain planner/legacy future contact horizons
+  and terrain-plan WBC metadata from overriding the sequencer-owned topology;
+  a073666 makes clamped IK per-leg and adds a unit witness so an unreachable
+  swing target cannot move stance anchors. Flat mode remains unchanged.
+validation: |
+  cmake --build example/cpp/build -j2 and ctest --test-dir example/cpp/build
+  --output-on-failure: 27/27 passed after the implementation. Flat harness
+  order050_flat_verify recorded 20 successful SWING/COMMIT events before its
+  later harness stop-path abort, with 4 contacts on each successful event.
+  Serial terrain runs used flock -x /tmp/go2_mujoco_experiment.lock, domain
+  229, Base=4000 preload, --controller-duration 30, wall 35, exact source
+  SHAs: epoch142 4fef4c5, epoch143 025872a, epoch144 1c8bf2d, epoch145
+  9c30147, epoch146/147 a073666, epoch148 c4599f1, epoch149 c4599f1.
+  Epochs 142-149 reached SWING only and aborted; no terrain COMMIT,
+  ADVANCE, CLEAR, RESUME, crossing, or confirmation was observed. Deepest
+  rung is SWING. No terrain commit is claimed; investigation remains open.
+  No v1 contract, analyzer threshold, or canary definition changed; no push
+  or amend; simulation runs remained serialized.
+git_status: implementation and this evidence append are local; no staged files.
