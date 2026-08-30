@@ -80,6 +80,9 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_crawl_com_x_m,terrain_crawl_com_y_m"
          << ",terrain_crawl_com_margin_m,terrain_crawl_com_target_x_m"
          << ",terrain_crawl_com_target_y_m,terrain_crawl_com_target_valid"
+         << ",terrain_stance_reference_valid"
+         << ",terrain_stance_reference_roll_rad"
+         << ",terrain_stance_reference_pitch_rad"
          << ",terrain_surface_transition_active"
          << ",terrain_surface_transition_required_mask"
          << ",terrain_surface_transition_original_required_mask"
@@ -583,16 +586,36 @@ bool TrotExperiment::CheckInstantaneousHardLimits(
         return true;
     const double roll = state_snapshot.imu_state().rpy()[0];
     const double pitch = state_snapshot.imu_state().rpy()[1];
-    const double hard_roll =
-        params_.wbc_full ? (22.0 * kPi / 180.0) : kHardMaxRollRad;
-    const double hard_pitch =
-        params_.wbc_full ? (22.0 * kPi / 180.0) : kHardMaxPitchRad;
-    if (std::abs(roll) > hard_roll ||
-        std::abs(pitch) > hard_pitch)
+    const bool crawl_stance_reference = terrain_transfer_window_active_ &&
+        terrain_stance_reference_valid_ &&
+        (terrain_crawl_state_machine_.state() ==
+             go2_terrain::TerrainCrawlState::kShiftCom ||
+         terrain_crawl_state_machine_.state() ==
+             go2_terrain::TerrainCrawlState::kCrawlStep);
+    const double roll_error = crawl_stance_reference
+        ? roll - terrain_stance_reference_roll_rad_ : roll;
+    const double pitch_error = crawl_stance_reference
+        ? pitch - terrain_stance_reference_pitch_rad_ : pitch;
+    // Crawl deliberately tilts with its measured support plane. Only the
+    // deviation from that deliberate reference is a posture hard stop.
+    const double hard_roll = crawl_stance_reference
+        ? go2_terrain::TerrainCrawlStateMachine::kStancePostureDeviationLimitRad
+        : (params_.wbc_full ? (22.0 * kPi / 180.0) : kHardMaxRollRad);
+    const double hard_pitch = crawl_stance_reference
+        ? go2_terrain::TerrainCrawlStateMachine::kStancePostureDeviationLimitRad
+        : (params_.wbc_full ? (22.0 * kPi / 180.0) : kHardMaxPitchRad);
+    if (std::abs(roll_error) > hard_roll ||
+        std::abs(pitch_error) > hard_pitch)
     {
         std::cerr << "Trot hard posture limit: roll="
                   << roll * 180.0 / kPi << " deg, pitch="
-                  << pitch * 180.0 / kPi << " deg\n";
+                  << pitch * 180.0 / kPi << " deg, reference_roll="
+                  << (crawl_stance_reference
+                          ? terrain_stance_reference_roll_rad_ : 0.0)
+                  << " rad, reference_pitch="
+                  << (crawl_stance_reference
+                          ? terrain_stance_reference_pitch_rad_ : 0.0)
+                  << " rad, deviation_limit=" << hard_roll << " rad" << std::endl;
         return false;
     }
     // WBC 主控激活时:q 目标=实际位置且命令扭矩已限幅,
@@ -954,6 +977,9 @@ void TrotExperiment::LogSample(
          << "," << terrain_crawl_state_machine_.com_target_world().x
          << "," << terrain_crawl_state_machine_.com_target_world().y
          << "," << (terrain_crawl_state_machine_.com_target_valid() ? 1 : 0)
+         << "," << (terrain_stance_reference_valid_ ? 1 : 0)
+         << "," << terrain_stance_reference_roll_rad_
+         << "," << terrain_stance_reference_pitch_rad_
          << "," << (terrain_surface_transition_active_ ? 1 : 0)
          << "," << terrain_surface_transition_required_mask
          << "," << terrain_surface_transition_original_required_mask

@@ -539,6 +539,11 @@ private:
     go2_terrain::TerrainCrawlStateMachine terrain_crawl_state_machine_{};
     int terrain_crawl_min_contact_count_ = go2::kLegCount;
     std::uint64_t terrain_crawl_step_commit_count_ = 0;
+    // Cached for the hard-limit check, which runs before the WBC update in
+    // the control tick. It is valid only for the active crawl stance window.
+    bool terrain_stance_reference_valid_ = false;
+    double terrain_stance_reference_roll_rad_ = 0.0;
+    double terrain_stance_reference_pitch_rad_ = 0.0;
     // The transfer window decelerates while retaining the configured trot;
     // this target is deliberately window-local and reset at each handoff.
     bool terrain_deceleration_active_ = false;

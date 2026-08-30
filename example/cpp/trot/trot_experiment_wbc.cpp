@@ -171,6 +171,32 @@ void TrotExperiment::UpdateWbcFull(
     }
     measured_com_world_ = {dyn.com_world.x(), dyn.com_world.y(), dyn.com_world.z()};
     have_measured_com_world_ = dyn.com_world.allFinite();
+    // A raised committed foot makes the remaining stance a tilted 3-D
+    // support plane. Cache its deliberate attitude reference before the
+    // hard-limit check on the next control tick; flat ground computes exact
+    // zero angles and therefore retains the existing path.
+    terrain_stance_reference_valid_ = false;
+    const auto crawl_state = terrain_crawl_state_machine_.state();
+    const bool crawl_stance_reference = terrain_transfer_window_active_ &&
+        (crawl_state == go2_terrain::TerrainCrawlState::kShiftCom ||
+         crawl_state == go2_terrain::TerrainCrawlState::kCrawlStep);
+    if (crawl_stance_reference)
+    {
+        const auto triangle = go2_terrain::ComputeTerrainSupportTriangle(
+            {go2::Vec3{dyn.foot_pos_world[0].x(), dyn.foot_pos_world[0].y(), dyn.foot_pos_world[0].z()},
+             go2::Vec3{dyn.foot_pos_world[1].x(), dyn.foot_pos_world[1].y(), dyn.foot_pos_world[1].z()},
+             go2::Vec3{dyn.foot_pos_world[2].x(), dyn.foot_pos_world[2].y(), dyn.foot_pos_world[2].z()},
+             go2::Vec3{dyn.foot_pos_world[3].x(), dyn.foot_pos_world[3].y(), dyn.foot_pos_world[3].z()}},
+            terrain_crawl_state_machine_.com_target_leg());
+        const auto plane = go2_terrain::ComputeTerrainStancePlane(
+            triangle, static_cast<double>(state_snapshot.imu_state().rpy()[2]));
+        terrain_stance_reference_valid_ = plane.valid;
+        if (plane.valid)
+        {
+            terrain_stance_reference_roll_rad_ = plane.roll_rad;
+            terrain_stance_reference_pitch_rad_ = plane.pitch_rad;
+        }
+    }
     if (!dynamics_logged_)
     {
         dynamics_logged_ = true;
@@ -781,6 +807,11 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.reference[0] = 0.0;
         mpc_in.reference[1] = 0.0;
         mpc_in.reference[4] = 0.0;
+        if (terrain_stance_reference_valid_)
+        {
+            mpc_in.reference[0] = terrain_stance_reference_roll_rad_;
+            mpc_in.reference[1] = terrain_stance_reference_pitch_rad_;
+        }
         const double base_height_ref =
             (high_speed_curriculum &&
              Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0) > 0.0)
@@ -1354,19 +1385,24 @@ void TrotExperiment::UpdateWbcFull(
             const double gyro_x =
                 static_cast<double>(
                     state_snapshot.imu_state().gyroscope()[0]);
+            const double roll_reference = terrain_stance_reference_valid_
+                ? terrain_stance_reference_roll_rad_ : 0.0;
+            const double pitch_reference = terrain_stance_reference_valid_
+                ? terrain_stance_reference_pitch_rad_ : 0.0;
             double roll_kp = params_.cartesian_world ? 40.0 : 20.0;
             const double roll_ov = Full2EnvDouble("FULL2_ROLL", -1.0);
             if (roll_ov > 0.0)
                 roll_kp = roll_ov;
             wbc_in.desired_angular_acc_body.x() +=
-                -roll_kp * roll -
+                -roll_kp * (roll - roll_reference) -
                 (params_.cartesian_world ? 5.0 : 2.5) * gyro_x;
             double pitch_kp = 12.0;
             const double pitch_ov = Full2EnvDouble("FULL2_PITCH", -1.0);
             if (pitch_ov > 0.0)
                 pitch_kp = pitch_ov;
             wbc_in.desired_angular_acc_body.y() +=
-                -pitch_kp * pitch - 1.5 * gyro_y - 0.25 * ax_body;
+                -pitch_kp * (pitch - pitch_reference) - 1.5 * gyro_y -
+                0.25 * ax_body;
             if (params_.cartesian_world)
             {
                 const double yaw_err = WrapAngle(

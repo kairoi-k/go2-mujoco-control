@@ -1288,3 +1288,58 @@ verdict: |
   and this is not a gate conclusion.
 
 git_status: implementation commits d512f89, 525aaf1, a01186c, d84ea35, 28ade28; docs append pending commit; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-31T09:40:00+0800
+run_id: Order-036 asymmetric-stance SHIFT_COM b1_script_epoch70_20260828 (+ _r2)
+trigger: T1
+implementation: |
+  Added a window-scoped 3-D stance-plane attitude reference. The support
+  triangle is the three feet excluding the pending crawl leg; its measured
+  world normal is yaw-aligned and converted to Rz(yaw) Ry(pitch) Rx(roll)
+  reference in terrain_crawl_state_machine.h:113-200. The COM ramp now also
+  interpolates the triangle z (terrain_crawl_state_machine.h:704-708).
+  During SHIFT_COM/CRAWL_STEP, WBC SRBD-MPC receives this roll/pitch and the
+  auxiliary posture task uses deviation from the same reference. The hard
+  posture stop uses the 0.20 rad deviation envelope only in this active
+  window (trot_experiment_diagnostics.cpp:589-618); outside it the prior
+  flat-ground limits are unchanged. Reference roll/pitch are CSV telemetry.
+
+reconstruction: |
+  Epoch68 r1 after FL commit: FL force was 17 -> 0 N; RR was the first
+  remaining support leg to fall below 20 N (25 -> 18 N at the next sample),
+  while FR/RL initially remained 54/53 N. The 3-D support was FL(z=0.05),
+  RR/RL(z=0), with measured COM support margin reaching -0.0021 m.
+  Epoch69 r1: FL 13 -> 0 N and RR 25 -> 12 N; margin reached -0.0855 m,
+  actual roll/pitch about 0.012/-0.200 rad. Epoch69 r2: RR was already 0 N
+  at the first post-commit sample, FL 9 -> 0 N, and the margin was -0.1015 m;
+  actual roll/pitch was about 0.13/-0.05 rad. These are foot_force_* sensor
+  columns; WBC logs expose the corresponding normal-force diagnostics.
+  The old code set mpc_in.reference[0/1] = 0 at trot_experiment_wbc.cpp:807-809
+  while MeasureTerrainSupportTriangle already used the mixed-z plane. Thus the
+  controller held level torso against a tilted FL/RR/RL stance. The old hard
+  stop was absolute 22 deg for wbc-full (diagnostics.cpp:587-606), so it
+  treated deliberate tilt and fall identically. The mixed support triangle is
+  the actual FL/RR/RL 3-D triangle, not an XY projection.
+
+canary_command: |
+  Both runs used serial flock -x /tmp/go2_mujoco_experiment.lock, domain 229,
+  LD_PRELOAD=/home/che/dds_base4000_preload.so, and the unchanged epoch28
+  command line with phase2_step_5cm.xml. b1_script_epoch70 reached FR
+  CRAWL_STEP repeatedly (296 samples, 0.60 s fixed attempts) with reference
+  roll/pitch approximately 0.03/-0.10 rad and measured forces 14-70 N, but
+  no FR target commit before the run ended. _r2 reached FR CRAWL_STEP for
+  301 samples with reference about -0.01/-0.09 rad, then diverged to the
+  existing inverted-roll failure; no FR commit. The new telemetry is present
+  in both data.csv files. Therefore the requested FR-commit success criterion
+  is NOT achieved; this is exploratory evidence, not a gate conclusion.
+
+validation: |
+  ctest --output-on-failure: 27/27 passed. Full build produced real_trot_go2.
+  run_phase2_b0_fixed_pair.sh development 0 with Base=4000 returned
+  acceptance_status PASS (paired diagnostic differences are the expected
+  terrain-vs-flat differences). No analyzer, v1 contract, or canary definition
+  was changed. Epoch70 target preparation remained flaky (FR target_valid=0),
+  so ADVANCE_BODY and rear progress were not reached.
+
+git_status: local implementation/docs append pending commit; no push/amend; simulations serialized.

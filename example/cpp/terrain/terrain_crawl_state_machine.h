@@ -110,6 +110,14 @@ struct TerrainSupportTriangleMetrics
     std::array<double, 3> edge_margin_m{};
 };
 
+struct TerrainStancePlane
+{
+    bool valid = false;
+    go2::Vec3 normal{0.0, 0.0, 1.0};
+    double roll_rad = 0.0;
+    double pitch_rad = 0.0;
+};
+
 inline TerrainSupportTriangle ComputeTerrainSupportTriangle(
     const std::array<go2::Vec3, go2::kLegCount> &feet,
     std::size_t lifted_leg) noexcept
@@ -144,6 +152,51 @@ inline TerrainSupportTriangle ComputeTerrainSupportTriangle(
         cross.x * cross.x + cross.y * cross.y + cross.z * cross.z);
     triangle.valid = triangle.valid && twice_area_3d > 1.0e-6;
     return triangle;
+}
+
+// Return the body attitude whose z axis is normal to the measured support
+// triangle. The plane is kept in world coordinates, then expressed in the
+// yaw-aligned body frame so non-zero heading is handled correctly.
+inline TerrainStancePlane ComputeTerrainStancePlane(
+    const TerrainSupportTriangle &triangle, double base_yaw_rad) noexcept
+{
+    TerrainStancePlane plane;
+    if (!triangle.valid || !std::isfinite(base_yaw_rad))
+        return plane;
+    const go2::Vec3 e01{
+        triangle.vertex[1].x - triangle.vertex[0].x,
+        triangle.vertex[1].y - triangle.vertex[0].y,
+        triangle.vertex[1].z - triangle.vertex[0].z};
+    const go2::Vec3 e02{
+        triangle.vertex[2].x - triangle.vertex[0].x,
+        triangle.vertex[2].y - triangle.vertex[0].y,
+        triangle.vertex[2].z - triangle.vertex[0].z};
+    go2::Vec3 normal{
+        e01.y * e02.z - e01.z * e02.y,
+        e01.z * e02.x - e01.x * e02.z,
+        e01.x * e02.y - e01.y * e02.x};
+    const double length = std::sqrt(
+        normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+    if (!(length > 1.0e-6))
+        return plane;
+    if (normal.z < 0.0)
+    {
+        normal.x = -normal.x;
+        normal.y = -normal.y;
+        normal.z = -normal.z;
+    }
+    plane.normal = {normal.x / length, normal.y / length, normal.z / length};
+    const double c = std::cos(base_yaw_rad);
+    const double s = std::sin(base_yaw_rad);
+    // Rz(yaw) Ry(pitch) Rx(roll) * [0,0,1] = plane.normal.
+    const double body_x = c * plane.normal.x + s * plane.normal.y;
+    const double body_y = -s * plane.normal.x + c * plane.normal.y;
+    plane.roll_rad = std::atan2(-body_y, plane.normal.z);
+    plane.pitch_rad = std::atan2(body_x,
+        std::hypot(body_y, plane.normal.z));
+    plane.valid = std::isfinite(plane.roll_rad) &&
+        std::isfinite(plane.pitch_rad);
+    return plane;
 }
 
 inline TerrainSupportTriangleMetrics MeasureTerrainSupportTriangle(
@@ -290,6 +343,9 @@ public:
     // falling trot from waiting for a noisy velocity estimate to reach it.
     static constexpr double kEntryVelocityGuardMps = 0.50;
     static constexpr double kEntryPostureLimitRad = 0.20;
+    // During crawl, posture safety is measured from the deliberate stance
+    // plane reference; this is not an absolute flat-ground angle limit.
+    static constexpr double kStancePostureDeviationLimitRad = 0.20;
     static constexpr double kContactRecoveryGraceS = 0.80;
     static constexpr double kCrawlStepHandoffGraceS = 0.10;
     // Allow the endpoint confirmation to arrive after the first force sample
@@ -648,7 +704,8 @@ private:
                 alpha * (centroid.x - com_shift_start_world_.x),
             com_shift_start_world_.y +
                 alpha * (centroid.y - com_shift_start_world_.y),
-            0.0};
+            com_shift_start_world_.z +
+                alpha * (centroid.z - com_shift_start_world_.z)};
     }
 
     bool ComShiftReady() const noexcept

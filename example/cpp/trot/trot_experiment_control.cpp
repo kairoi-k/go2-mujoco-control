@@ -1158,6 +1158,9 @@ bool TrotExperiment::PhaseStartGait(
     terrain_crawl_state_machine_.Reset();
     terrain_crawl_min_contact_count_ = go2::kLegCount;
     terrain_crawl_step_commit_count_ = 0;
+    terrain_stance_reference_valid_ = false;
+    terrain_stance_reference_roll_rad_ = 0.0;
+    terrain_stance_reference_pitch_rad_ = 0.0;
     runtime_gait_pattern_ = params_.gait_pattern;
     terrain_surface_transition_required_.fill(false);
     terrain_surface_transition_original_required_.fill(false);

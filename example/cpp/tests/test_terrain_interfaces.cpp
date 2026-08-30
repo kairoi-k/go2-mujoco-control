@@ -1508,12 +1508,17 @@ int main()
             triangle);
         const auto metrics = go2_terrain::MeasureTerrainSupportTriangle(
             triangle, centroid);
+        const auto plane = go2_terrain::ComputeTerrainStancePlane(
+            triangle, 0.0);
         if (!Check(triangle.valid && metrics.valid && metrics.inside,
                    "mixed-height support triangle was invalid") ||
             !Check(std::abs(centroid.z - 0.0166666667) < 1.0e-9,
                    "support centroid discarded raised-foot height") ||
             !Check(metrics.signed_margin_m >= 0.02,
-                   "mixed-height support margin was too small"))
+                   "mixed-height support margin was too small") ||
+            !Check(plane.valid && plane.pitch_rad < -0.07 &&
+                       std::abs(plane.roll_rad) < 1.0e-9,
+                   "stance plane did not produce the expected pitch reference"))
             return 1;
     }
 
@@ -1585,11 +1590,14 @@ int main()
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom &&
                        m.order_index() == 1, "crawl machine did not shift before FR")) return 1;
         x.measured_contact = {true, true, true, true};
+        // After FL commits, the next FR shift retains FL's raised z in the support geometry and COM reference.
+        x.measured_foot_world[1].z = 0.05;
+        x.measured_com_world = {-0.05, 0.0, 0.01};
         x.target_valid[0] = true;
         x.now_s = 1.4;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kCrawlStep &&
-                       m.ActiveLeg() == 0, "crawl machine did not select FR")) return 1;
+                       m.ActiveLeg() == 0 && m.com_target_world().z > 0.0, "crawl machine did not select FR on the 3-D COM target")) return 1;
         x.target_valid[0] = true;
         x.committed[0] = true;
         x.now_s = 1.5;
