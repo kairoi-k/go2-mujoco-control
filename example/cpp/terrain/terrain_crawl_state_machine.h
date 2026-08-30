@@ -1188,6 +1188,12 @@ private:
             std::abs(triangle.vertex[1].z - triangle.vertex[2].z) > 1.0e-4 ||
             std::abs(triangle.vertex[2].z - triangle.vertex[0].z) > 1.0e-4;
         com_margin_m_ = metrics.signed_margin_m;
+        // CRAWL_STEP owns the already-prepared swing. Do not replace the
+        // measured incenter with a new ramp origin when the swing wrench
+        // briefly carries COM below the readiness margin; that makes the
+        // target follow the drifting body across the support edge.
+        if (state_ == TerrainCrawlState::kCrawlStep)
+            return;
         if (metrics.signed_margin_m >= kComMarginM)
         {
             // The measured support is already safe, but retain the computed

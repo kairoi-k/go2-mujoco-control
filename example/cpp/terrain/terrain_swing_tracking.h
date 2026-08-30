@@ -18,7 +18,7 @@ constexpr TerrainSwingTrackingParameters TerrainSwingTrackingForTransfer(
     bool transfer_window_active)
 {
     return transfer_window_active
-        ? TerrainSwingTrackingParameters{240.0, 20.0, 70.0}
+        ? TerrainSwingTrackingParameters{180.0, 16.0, 50.0}
         : TerrainSwingTrackingParameters{180.0, 16.0, 50.0};
 }
 

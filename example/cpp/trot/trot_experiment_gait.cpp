@@ -2054,6 +2054,27 @@ bool TrotExperiment::BuildGaitTargets(
                         measured.position_base);
                     terrain_staged_target_world_ = go2_control::BodyToWorld(
                         pose.base, pose.quaternion, target_base);
+                    // The lidar target is a safe landing site, but its
+                    // 0.21 m staged reach lets the swing wrench carry COM
+                    // across the front-support edge. Keep the debug staged
+                    // swing on the plateau while bounding that displacement.
+                    constexpr double kStagedSwingReachLimitM = 0.16;
+                    constexpr double kStagedStepHeightM = 0.04;
+                    terrain_staged_target_world_.z =
+                        actual_world_feet[leg].z + kStagedStepHeightM;
+                    const double reach_x = terrain_staged_target_world_.x -
+                        actual_world_feet[leg].x;
+                    const double reach_y = terrain_staged_target_world_.y -
+                        actual_world_feet[leg].y;
+                    const double reach = std::hypot(reach_x, reach_y);
+                    if (std::isfinite(reach) && reach > kStagedSwingReachLimitM)
+                    {
+                        const double scale = kStagedSwingReachLimitM / reach;
+                        terrain_staged_target_world_.x =
+                            actual_world_feet[leg].x + scale * reach_x;
+                        terrain_staged_target_world_.y =
+                            actual_world_feet[leg].y + scale * reach_y;
+                    }
                     terrain_staged_target_valid_ =
                         std::isfinite(terrain_staged_target_world_.x) &&
                         std::isfinite(terrain_staged_target_world_.y) &&

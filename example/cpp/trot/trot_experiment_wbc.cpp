@@ -1407,17 +1407,21 @@ void TrotExperiment::UpdateWbcFull(
                 terrain_crawl_state_machine_.state() ==
                     go2_terrain::TerrainCrawlState::kStage &&
                 terrain_crawl_state_machine_.stage_com_target_valid();
-            if (measured_shift || measured_stage)
+            const bool measured_swing_hold =
+                sequencer_swing_hold &&
+                terrain_crawl_state_machine_.com_target_valid();
+            if (measured_shift || measured_stage || measured_swing_hold)
             {
                 // The old SHIFT override was velocity-only, so a settled
                 // body received zero COM acceleration even with a target
-                // outside the measured support triangle. Apply a bounded
-                // world-frame position servo only during measured SHIFT;
-                // SWING/CRAWL_STEP retain the braking damper.
+                // outside the measured support triangle. Keep the bounded
+                // world-frame position servo through SWING: the swing-leg
+                // wrench otherwise drives the front stance COM across its
+                // support edge before the measured touchdown witness.
                 const auto com_target =
                     terrain_crawl_state_machine_.com_target_world();
-                constexpr double kComPositionGain = 6.0;
-                constexpr double kComVelocityGain = 5.0;
+                constexpr double kComPositionGain = 20.0;
+                constexpr double kComVelocityGain = 10.0;
                 const double raw_acc_x = kComPositionGain *
                         (com_target.x - dyn.com_world.x()) -
                     kComVelocityGain * linear_vel_world.x();
@@ -1426,9 +1430,12 @@ void TrotExperiment::UpdateWbcFull(
                     kComVelocityGain * linear_vel_world.y();
                 terrain_stage_servo_acc_x_mps2_ = measured_stage ? raw_acc_x : 0.0;
                 terrain_stage_servo_acc_y_mps2_ = measured_stage ? raw_acc_y : 0.0;
-                terrain_shift_servo_acc_x_mps2_ = measured_shift ? raw_acc_x : 0.0;
-                terrain_shift_servo_acc_y_mps2_ = measured_shift ? raw_acc_y : 0.0;
-                terrain_stage_servo_saturated_ = (measured_stage || measured_shift) &&
+                terrain_shift_servo_acc_x_mps2_ =
+                    (measured_shift || measured_swing_hold) ? raw_acc_x : 0.0;
+                terrain_shift_servo_acc_y_mps2_ =
+                    (measured_shift || measured_swing_hold) ? raw_acc_y : 0.0;
+                terrain_stage_servo_saturated_ =
+                    (measured_stage || measured_shift || measured_swing_hold) &&
                     (std::abs(raw_acc_x) > 4.0 || std::abs(raw_acc_y) > 4.0);
                 wbc_in.desired_linear_acc_world.x() = Clamp(
                     raw_acc_x, -4.0, 4.0);
@@ -1699,9 +1706,9 @@ void TrotExperiment::UpdateWbcFull(
     const double w_lin_x_ov = Full2EnvDouble("FULL2_W_LIN_X", -1.0);
     if (w_lin_x_ov >= 0.0)
         id_params.w_base_lin_x = w_lin_x_ov;
-    id_params.w_base_ang = params_.cartesian_world
-        ? (80.0 + 30.0 * cart_lock)
-        : 40.0;
+    id_params.w_base_ang = terrain_crawl_stance
+        ? 80.0
+        : (params_.cartesian_world ? (80.0 + 30.0 * cart_lock) : 40.0);
     const double w_ang_ov = Full2EnvDouble("FULL2_W_ANG", -1.0);
     if (w_ang_ov > 0.0)
         id_params.w_base_ang = w_ang_ov;

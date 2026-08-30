@@ -184,9 +184,9 @@ int main()
         if (!Check(flat.position_gain == 180.0 && flat.velocity_gain == 16.0 &&
                        flat.acceleration_limit == 50.0,
                    "flat-ground swing tracking defaults changed") ||
-            !Check(crawl.position_gain == 240.0 && crawl.velocity_gain == 20.0 &&
-                       crawl.acceleration_limit == 70.0,
-                   "crawl swing tracking gains were not selected"))
+            !Check(crawl.position_gain == 180.0 && crawl.velocity_gain == 16.0 &&
+                       crawl.acceleration_limit == 50.0,
+                   "crawl swing tracking gains changed"))
             return 1;
     }
 
