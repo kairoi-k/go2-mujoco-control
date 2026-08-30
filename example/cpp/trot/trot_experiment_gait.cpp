@@ -588,6 +588,8 @@ bool TrotExperiment::BuildGaitTargets(
             : nullptr;
     const bool flat_crawl_debug =
         Full2EnvDouble("TROT_TERRAIN_DEBUG_FLAT_CRAWL", 0.0) > 0.5;
+    const double terrain_crawl_swing_duration_s = flat_crawl_debug
+        ? go2_terrain::TerrainCrawlScript::kSwingDurationS : 0.75;
     const bool terrain_execution_allowed =
         (params_.terrain_actuation && !params_.terrain_sensor_only) ||
         flat_crawl_debug;
@@ -1944,6 +1946,7 @@ bool TrotExperiment::BuildGaitTargets(
         const auto sequencer_rpy = state_snapshot.imu_state().rpy();
         sequencer_input.measured_posture_valid =
             std::isfinite(sequencer_rpy[0]) && std::isfinite(sequencer_rpy[1]);
+        sequencer_input.swing_duration_s = terrain_crawl_swing_duration_s;
         sequencer_input.measured_roll_rad = sequencer_rpy[0];
         sequencer_input.measured_pitch_rad = sequencer_rpy[1];
         // Flat mode has no terrain planner to provide the rear-workspace and
@@ -2394,9 +2397,9 @@ bool TrotExperiment::BuildGaitTargets(
                     scripted_target.swing_lift_m = 0.03;
                     scripted_target.edge_margin_m = 0.03;
                     scripted_target.touchdown_time_s = terrain_now_s +
-                        go2_terrain::TerrainCrawlScript::kSwingDurationS;
+                        terrain_crawl_swing_duration_s;
                     scripted_target.swing_duration_s =
-                        go2_terrain::TerrainCrawlScript::kSwingDurationS;
+                        terrain_crawl_swing_duration_s;
                     scripted_target.swing_peak_phase =
                         go2_terrain::TerrainCrawlScript::kSwingApexPhase;
                     scripted_target.swing_leading_edge_phase =
@@ -2928,11 +2931,11 @@ bool TrotExperiment::BuildGaitTargets(
                 execution.trajectory_start_time_s = terrain_now_s;
                 execution.swing_start_time_s = terrain_now_s;
                 execution.nominal_touchdown_time_s = terrain_now_s +
-                    go2_terrain::TerrainCrawlScript::kSwingDurationS;
+                    terrain_crawl_swing_duration_s;
                 execution.touchdown_time_s =
                     execution.nominal_touchdown_time_s;
                 execution.swing_duration_s =
-                    go2_terrain::TerrainCrawlScript::kSwingDurationS;
+                    terrain_crawl_swing_duration_s;
                 execution.terrain_swing_duration_s =
                     execution.swing_duration_s;
                 execution.planned_swing_duration_s =
