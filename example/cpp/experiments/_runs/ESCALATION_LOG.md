@@ -1982,3 +1982,19 @@ validation: |
   off; v1 contract, analyzer thresholds, canary definitions, and B0 command
   bits were not changed. No push or amend.
 git_status: implementation and evidence changes are unstaged; simulations serialized.
+
+---
+timestamp: 2026-09-01T03:35:00+0800
+run_id: Order-045 B0 cleanup verification (development steps reruns)
+trigger: T1
+validation: |
+  Two serial B0 development steps runs were launched with the Base=4000
+  preload after the new /dev/shm cleanup. Both allocated DDS participants and
+  started the controller (no participant-index exhaustion); the first ran to
+  94.8 s with controller/safety status 0 and strict legacy pass, but the
+  frozen quantitative analyzer rejected steady-state error. The second hit an
+  unrelated stochastic posture/safety failure at 31.7 s (roll ~180 deg).
+  Thus the participant-index failure is mitigated, but B0 green-on-demand is
+  not claimed from these two runs; the frozen B0 analyzer/contract was not
+  changed.
+git_status: documentation update is unstaged; no push or amend; simulations serialized.
