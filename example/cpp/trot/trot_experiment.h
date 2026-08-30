@@ -554,6 +554,12 @@ private:
     // this target is deliberately window-local and reset at each handoff.
     bool terrain_deceleration_active_ = false;
     double terrain_deceleration_target_mps_ = 0.30;
+    // V2-A starts at map arming, before crawl authority is seized. The
+    // profile is consumed only by the in-window trot command path.
+    bool terrain_approach_braking_active_ = false;
+    double terrain_approach_staging_error_m_ =
+        std::numeric_limits<double>::quiet_NaN();
+    double terrain_approach_speed_cap_mps_ = 0.0;
     // Last measured canonical staging error; consumed by the next command
     // shaping tick so STAGE stops at the edge-relative body target.
     double terrain_staging_error_m_ =

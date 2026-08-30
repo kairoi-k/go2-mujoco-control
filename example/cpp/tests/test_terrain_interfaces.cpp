@@ -1839,6 +1839,34 @@ int main()
             return 1;
     }
 
+    // Order-047 V2-A entry profile: arming leaves the trot in authority,
+    // but its speed envelope is already tied to the staging distance and
+    // includes the full-speed stopping-distance budget.
+    {
+        const double braking =
+            go2_terrain::TerrainCrawlSequencer::kApproachBrakingDistanceM;
+        const double activation =
+            go2_terrain::TerrainCrawlSequencer::kTransferActivationDistanceM;
+        if (!Check(std::abs(braking - 0.0375) < 1.0e-9 &&
+                       std::abs(activation - 0.3875) < 1.0e-9,
+                   "V2-A activation budget is not braking distance + standoff + margin"))
+            return 1;
+        const double at_arm =
+            go2_terrain::TerrainCrawlSequencer::ApproachSpeedCapMps(activation);
+        const double near_target =
+            go2_terrain::TerrainCrawlSequencer::ApproachSpeedCapMps(0.03);
+        if (!Check(std::abs(at_arm - 0.30) < 1.0e-9 &&
+                       near_target < at_arm && near_target > 0.0,
+                   "V2-A approach profile did not reduce speed toward staging"))
+            return 1;
+        const double stop_cap = std::sqrt(2.0 *
+            go2_terrain::TerrainCrawlSequencer::kApproachAllowedDecelMps2 *
+            0.03);
+        if (!Check(near_target <= stop_cap + 1.0e-9,
+                   "V2-A approach profile exceeds its stopping envelope"))
+            return 1;
+    }
+
     // Order-042 sequencer transitions are driven by measured contact and
     // endpoint events, while targets are sampled directly from the live map.
     {

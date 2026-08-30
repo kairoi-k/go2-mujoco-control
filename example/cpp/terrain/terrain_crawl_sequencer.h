@@ -105,6 +105,20 @@ public:
     // FL, FR, ADVANCE, RR, RL. Leg indices use the existing Go2 order.
     static constexpr std::array<std::size_t, 4> kLegOrder = {1, 0, 2, 3};
     static constexpr double kStandoffM = 0.25;
+    // V2-A entry braking remains under the running trot authority. The
+    // deceleration is deliberately below the command shaper limit so the
+    // measured three-contact stance can remain reachable while speed falls.
+    static constexpr double kApproachMaxSpeedMps = 0.30;
+    static constexpr double kApproachAllowedDecelMps2 = 1.20;
+    static constexpr double kApproachSafetyMarginM = 0.10;
+    static constexpr double kApproachBrakingDistanceM =
+        kApproachMaxSpeedMps * kApproachMaxSpeedMps /
+        (2.0 * kApproachAllowedDecelMps2);
+    // TransferActivationReady receives distance to the staging target. Keep
+    // enough distance for a full-speed stop, the canonical standoff, and a
+    // map/foot measurement margin before the leading feet reach the riser.
+    static constexpr double kTransferActivationDistanceM =
+        kApproachBrakingDistanceM + kStandoffM + kApproachSafetyMarginM;
     static constexpr double kStageToleranceM = 0.015;
     static constexpr double kStageDwellS = 0.30;
     static constexpr double kShiftDwellS = 0.12;
@@ -116,10 +130,25 @@ public:
     static constexpr double kStableForceTotalMinN = 50.0;
     static constexpr double kStableForceImbalanceRatio = 4.0;
 
+    // Adaptive speed envelope for the approach leg. The outer envelope
+    // starts bleeding speed as soon as the window arms; the stopping envelope
+    // guarantees that the remaining distance can absorb the current speed.
+    static double ApproachSpeedCapMps(double staging_error_m) noexcept
+    {
+        if (!std::isfinite(staging_error_m) || staging_error_m <= 0.0)
+            return 0.0;
+        const double profile_cap = kApproachMaxSpeedMps * std::sqrt(
+            std::min(1.0, staging_error_m /
+                kTransferActivationDistanceM));
+        const double stopping_cap = std::sqrt(
+            2.0 * kApproachAllowedDecelMps2 * staging_error_m);
+        return std::min({kApproachMaxSpeedMps, profile_cap, stopping_cap});
+    }
+
     static bool TransferActivationReady(
         const TerrainModel &terrain, const go2::Vec3 &base_position_world,
         double base_yaw_rad, double nominal_front_foot_x_m,
-        double activation_distance_m = 0.45) noexcept
+        double activation_distance_m = kTransferActivationDistanceM) noexcept
     {
         const auto staging = MeasureTerrainStagingReference(
             terrain, base_position_world, base_yaw_rad,

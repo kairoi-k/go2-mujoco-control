@@ -167,6 +167,10 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         absolute_gait_time_s >= terrain_transfer_window_release_s_)
     {
         terrain_transfer_window_active_ = false;
+        terrain_approach_braking_active_ = false;
+        terrain_approach_staging_error_m_ =
+            std::numeric_limits<double>::quiet_NaN();
+        terrain_approach_speed_cap_mps_ = 0.0;
         terrain_transfer_window_release_s_ =
             -std::numeric_limits<double>::infinity();
         // A commit ledger is scoped to one terrain transfer window. Clear it
@@ -205,6 +209,28 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         if (terrain_window_active)
         {
             const auto crawl_state = terrain_crawl_state_machine_.state();
+            const bool approach_braking =
+                terrain_approach_braking_active_ &&
+                !terrain_crawl_sequencer_output_.control_authority_active &&
+                !flat_crawl_debug;
+            if (approach_braking)
+            {
+                // V2-A is an adaptive stopping profile, not a passive wait
+                // for the seizure predicates. Keep trot authority and shape
+                // the requested speed toward the live staging target.
+                terrain_approach_speed_cap_mps_ =
+                    go2_terrain::TerrainCrawlSequencer::ApproachSpeedCapMps(
+                        terrain_approach_staging_error_m_);
+                requested_mps = std::min(
+                    std::max(0.0, requested_mps),
+                    terrain_approach_speed_cap_mps_);
+                terrain_deceleration_active_ = true;
+                terrain_deceleration_target_mps_ =
+                    terrain_approach_speed_cap_mps_;
+                runtime_gait_regime_ = "terrain-approach-brake";
+            }
+            else
+            {
             const bool sequencer_staging =
                 terrain_crawl_sequencer_output_.control_authority_active &&
                 terrain_crawl_sequencer_output_.state ==
@@ -285,6 +311,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
                 }
                 else
                     requested_mps = 0.0;
+            }
             }
         }
         else
@@ -571,6 +598,8 @@ bool TrotExperiment::BuildGaitTargets(
         std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
         live_terrain_model = terrain_model_;
     }
+    const auto early_pose = ComputeWorldPose(
+        state_snapshot, high_state_snapshot);
     // Arm the v2 window from the measured map edge, before the trot
     // transition intent. This is deliberately early: STAGE must be able to
     // settle at the edge-relative standoff rather than inherit an overshoot.
@@ -585,8 +614,6 @@ bool TrotExperiment::BuildGaitTargets(
                 task_.stand_up_joint_pos_);
             const double nominal_front_x =
                 0.5 * (nominal_feet[0].x + nominal_feet[1].x);
-            const auto early_pose = ComputeWorldPose(
-                state_snapshot, high_state_snapshot);
             activate = go2_terrain::TerrainCrawlSequencer::TransferActivationReady(
                 *live_terrain_model, early_pose.base, early_pose.yaw_rad,
                 nominal_front_x);
@@ -594,6 +621,21 @@ bool TrotExperiment::BuildGaitTargets(
         if (activate)
         {
             terrain_transfer_window_active_ = true;
+            terrain_approach_braking_active_ = !flat_crawl_debug;
+            terrain_approach_staging_error_m_ = std::numeric_limits<double>::quiet_NaN();
+            terrain_approach_speed_cap_mps_ =
+                go2_terrain::TerrainCrawlSequencer::kApproachMaxSpeedMps;
+            if (!flat_crawl_debug && live_terrain_model)
+            {
+                const auto staging =
+                    go2_terrain::MeasureTerrainStagingReference(
+                        *live_terrain_model, early_pose.base, early_pose.yaw_rad,
+                        0.5 * (go2::AllFootPositions(task_.stand_up_joint_pos_)[0].x +
+                               go2::AllFootPositions(task_.stand_up_joint_pos_)[1].x),
+                        go2_terrain::TerrainCrawlSequencer::kStandoffM);
+                if (staging.valid)
+                    terrain_approach_staging_error_m_ = staging.error_m;
+            }
             terrain_transfer_window_release_s_ =
                 -std::numeric_limits<double>::infinity();
             terrain_crawl_sequencer_.Reset();
@@ -625,6 +667,10 @@ bool TrotExperiment::BuildGaitTargets(
         terrain_transfer_hold_active_ = false;
         terrain_surface_transition_active_ = false;
         terrain_transfer_window_active_ = false;
+        terrain_approach_braking_active_ = false;
+        terrain_approach_staging_error_m_ =
+            std::numeric_limits<double>::quiet_NaN();
+        terrain_approach_speed_cap_mps_ = 0.0;
         terrain_transfer_window_release_s_ =
             -std::numeric_limits<double>::infinity();
         terrain_crawl_sequencer_.Reset();
@@ -1796,6 +1842,24 @@ bool TrotExperiment::BuildGaitTargets(
     {
         attitude_feedback_x_m_ = 0.0;
         attitude_feedback_y_m_ = 0.0;
+    }
+
+    // Refresh the approach target from the live map while the trot still
+    // owns authority; this keeps the adaptive envelope tied to the measured
+    // edge rather than an arming-time snapshot.
+    if (terrain_transfer_window_active_ && !flat_crawl_debug &&
+        !terrain_crawl_sequencer_output_.control_authority_active &&
+        live_terrain_model && have_high_state)
+    {
+        const auto approach_pose = ComputeWorldPose(
+            state_snapshot, high_state_snapshot);
+        const auto staging = go2_terrain::MeasureTerrainStagingReference(
+            *live_terrain_model, approach_pose.base, approach_pose.yaw_rad,
+            0.5 * (go2::AllFootPositions(task_.stand_up_joint_pos_)[0].x +
+                   go2::AllFootPositions(task_.stand_up_joint_pos_)[1].x),
+            go2_terrain::TerrainCrawlSequencer::kStandoffM);
+        if (staging.valid)
+            terrain_approach_staging_error_m_ = staging.error_m;
     }
 
     // Drive terrain execution from the explicit v2 sequencer. All inputs

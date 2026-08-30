@@ -1153,6 +1153,10 @@ bool TrotExperiment::PhaseStartGait(
     terrain_transfer_hold_active_ = false;
     terrain_surface_transition_active_ = false;
     terrain_transfer_window_active_ = false;
+    terrain_approach_braking_active_ = false;
+    terrain_approach_staging_error_m_ =
+        std::numeric_limits<double>::quiet_NaN();
+    terrain_approach_speed_cap_mps_ = 0.0;
     terrain_transfer_window_release_s_ =
         -std::numeric_limits<double>::infinity();
     terrain_crawl_state_machine_.Reset();
