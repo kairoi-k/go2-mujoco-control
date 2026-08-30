@@ -150,10 +150,14 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) > 0.5;
     // Harness-only isolation: arm the sequencer at gait start without a
     // terrain window or lidar map. The default remains entirely inactive.
-    if (flat_crawl_debug && task_.gait_started_ && task_.motion_stage_ == 2 &&
+    if ((flat_crawl_debug ||
+         (staged_start_debug && params_.terrain_actuation &&
+          !params_.terrain_sensor_only)) &&
+        task_.gait_started_ && task_.motion_stage_ == 2 &&
         !terrain_transfer_window_active_)
     {
         terrain_transfer_window_active_ = true;
+        terrain_approach_braking_active_ = false;
         terrain_transfer_window_release_s_ =
             -std::numeric_limits<double>::infinity();
         terrain_crawl_sequencer_.Reset();

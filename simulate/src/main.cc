@@ -1401,6 +1401,31 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
         sim->Load(m, d, filename);
       }
       ConfigureCamera(sim);
+      if (param::config.staged_start && param::config.robot == "go2")
+      {
+        // The authored stand pose is the staging lifecycle boundary. Set it
+        // before the first physics tick to avoid a stand-up transient.
+        const std::array<std::pair<const char *, double>, 12> joints = {{
+            {"FR_hip_joint", 0.00571868},
+            {"FR_thigh_joint", 0.608813},
+            {"FR_calf_joint", -1.21763},
+            {"FL_hip_joint", -0.00571868},
+            {"FL_thigh_joint", 0.608813},
+            {"FL_calf_joint", -1.21763},
+            {"RR_hip_joint", 0.00571868},
+            {"RR_thigh_joint", 0.608813},
+            {"RR_calf_joint", -1.21763},
+            {"RL_hip_joint", -0.00571868},
+            {"RL_thigh_joint", 0.608813},
+            {"RL_calf_joint", -1.21763}}};
+        for (const auto &[name, value] : joints)
+        {
+          const int joint_id = mj_name2id(m, mjOBJ_JOINT, name);
+          if (joint_id >= 0)
+            d->qpos[m->jnt_qposadr[joint_id]] = value;
+        }
+        std::fill(d->qvel, d->qvel + m->nv, 0.0);
+      }
       if (std::isfinite(param::config.initial_x_m) && m->nq >= 1)
         d->qpos[0] = param::config.initial_x_m;
       if (std::isfinite(param::config.initial_y_m) && m->nq >= 2)

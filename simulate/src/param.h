@@ -36,6 +36,8 @@ inline struct SimulationConfig
     // Publish simulated terrain sensing only for terrain-enabled runs.  The
     // default keeps the accepted Phase 1 simulator path unchanged.
     bool terrain_lidar = false;
+    // Harness-only pose: authored standing joints with zero velocity.
+    bool staged_start = false;
     double initial_x_m = 0.0;
     double initial_y_m = 0.0;
 
@@ -92,6 +94,7 @@ inline po::variables_map helper(int argc, char** argv)
         ("headless", po::bool_switch(&config.headless), "Run without a GUI window (no GLFW)")
         ("camera-follow", po::bool_switch(&config.camera_follow), "Track the Go2 base body with the GUI camera")
         ("terrain-lidar", po::bool_switch(&config.terrain_lidar), "Publish simulated terrain sensor maps")
+        ("staged-start", po::bool_switch(&config.staged_start), "Harness-only standing staging pose")
         ("initial-x", po::value<double>(&config.initial_x_m), "Initial base world x (harness only)")
         ("initial-y", po::value<double>(&config.initial_y_m), "Initial base world y (harness only)")
         ("push-time", po::value<double>(&config.push_time_s), "Disturbance push start time (s); <0 disables")

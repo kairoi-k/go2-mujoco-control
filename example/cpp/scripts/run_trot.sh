@@ -196,7 +196,7 @@ print(f"{pos[0] - size[0] - float(sys.argv[2]):.6f}")
 PY2
 )" || exit 2
   fi
-  sim_initial_args+=(--initial-x "$staged_start_x")
+  sim_initial_args+=(--initial-x "$staged_start_x" --staged-start)
   export TROT_TERRAIN_DEBUG_STAGED_START=1
   export TROT_STAGED_START_BASE_X_M="$staged_start_x"
   export TROT_STAGED_START_EDGE_MINUS_BASE_M="$staged_edge_minus_base"
