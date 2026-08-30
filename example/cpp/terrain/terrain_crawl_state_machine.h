@@ -455,7 +455,7 @@ public:
         0.5 * (0.330 - 0.318);
     static constexpr int kMaxStageRetries = 2;
     static constexpr double kStageMicroAdjustSpeedMps = 0.03;
-    static constexpr double kStageMicroAdjustDurationS = 0.25;
+    static constexpr double kStageMicroAdjustDurationS = 0.50;
     static constexpr double kCanonicalStandoffM = 0.25;
     // The command ramp is still driven to kCreepSpeedMps; this guard keeps a
     // falling trot from waiting for a noisy velocity estimate to reach it.
