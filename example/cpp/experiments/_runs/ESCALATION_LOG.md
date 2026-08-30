@@ -2180,3 +2180,17 @@ validation: |
   example/cpp/build --output-on-failure: 27/27 passed. git diff --check
   passed before commit. Simulations were serialized; no push or amend.
 git_status: implementation committed locally at 67338e3; evidence append is unstaged; no staged files.
+
+---
+timestamp: 2026-09-01T20:10:00+0800
+run_id: Order-049 map dump and sequencer target handoff
+trigger: T1
+forensics: |
+  STAGE dump from b1_freegait_epoch134 (controller built from d6a600a): TerrainModel source=lidar, frame=base_link, origin=(-0.45,-0.225), resolution=0.05, dims=32x10, known=320/320, height range [-0.375251,-0.325251] m. The map contains the plateau: local cells x=0.475..0.925 carry the +0.050 m surface; x>0.70 has 45 elevated cells in that snapshot (b1_freegait_epoch135: 50 cells). The window is therefore not missing the step: the 1.60 m forward local map covers the world riser and its 1.5 s world-cell memory retains it.
+implementation: |
+  The event sequencer's measured platform target was being published while an older planner foothold remained prepared and the legacy SHIFT_COM execution gate suppressed the new target. The handoff now replaces only a not-in-flight pending target at the SWING/COMMIT boundary and lets the sequencer's measured target drive the terrain transaction. Sequencer SWING waits for the measured legacy COM/force readiness witness (COM margin >= 0.020 m and three-leg force support: each >=10 N, total >=50 N, imbalance <=4x); fixed flat behavior is bypassed.
+canary_cycle_131_139: |
+  Epoch131 dump confirmed platform (50 elevated x>0.70 cells), but remained on the pre-fix path. Epoch132-133 captured direct platform targets (world x=0.823/0.817, z=0.074/0.095) but stale execution/SHIFT_COM prevented usable swing. Epoch134-135 verified the pending-target handoff (execution target world x=0.831/0.830, z=0.094) and reached SWING; no commit, because measured alternate support dropped below force balance (e.g. FR=84 N, RR=0 N, RL=46 N). Epoch136 stalled before SWING while waiting for readiness. Epoch137-140 reached SWING after the measured gate; deepest rung remains SWING, no COMMIT/ADVANCE/CLEAR/RESUME/crossing/confirmation.
+validation: |
+  Serial lock/domain discipline used: flock -x /tmp/go2_mujoco_experiment.lock, domain 229, Base=4000 DDS preload, run_trot.sh 35, --controller-duration 30. cmake --build example/cpp/build -j2 passed; ctest --test-dir example/cpp/build --output-on-failure: 27/27 passed. No push/amend.
+git_status: implementation and this evidence append are local and will be committed together; no staged files after commit.

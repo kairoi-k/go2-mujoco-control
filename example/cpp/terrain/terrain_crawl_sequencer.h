@@ -48,6 +48,10 @@ struct TerrainCrawlSequencerInput
     // The window is armed before this boundary. Authority is granted only
     // when the running trot reports a four-contact-able phase.
     bool trot_full_contact_able = false;
+    // Terrain SWING must wait for the measured legacy COM-shift completion
+    // witness. The caller sets this only after force balance and COM margin
+    // have passed; flat isolation does not use the terrain gate.
+    bool legacy_shift_ready = false;
     const TerrainModel *terrain = nullptr;
     go2::Vec3 base_position_world{};
     double base_yaw_rad = 0.0;
@@ -282,6 +286,7 @@ public:
                 if (metrics.valid &&
                     (metrics.signed_margin_m >= 0.0 ||
                      input.flat_ground_mode) &&
+                    (input.flat_ground_mode || input.legacy_shift_ready) &&
                     finite_time && input.now_s - state_enter_s_ + 1e-9 >=
                         kShiftDwellS)
                 {
@@ -291,20 +296,24 @@ public:
             }
             break;
         case TerrainCrawlSequencerState::kSwing:
+        {
             if (active_leg() >= go2::kLegCount)
                 break;
             // COMMIT is a measured event: endpoint position and the
             // active-leg contact bit are insufficient without a force-backed
             // three-leg support witness. The same rule applies to flat mode.
+            const bool force_supported =
+                ForceSupportReady(input, active_leg());
             if (MeasuredTargetAtEndpoint(input))
                 SetState(TerrainCrawlSequencerState::kCommit, input.now_s);
-            else if ((!three_contacts &&
+            else if ((!three_contacts && !force_supported &&
                       (!input.flat_ground_mode || !finite_time ||
                        input.now_s - state_enter_s_ + 1e-9 >= 0.20)) ||
                      (finite_time &&
                       input.now_s - state_enter_s_ + 1e-9 >= kSwingDurationS))
                 SetState(TerrainCrawlSequencerState::kAbort, input.now_s);
             break;
+        }
         case TerrainCrawlSequencerState::kCommit:
             if (MeasuredTargetAtEndpoint(input))
             {

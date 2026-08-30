@@ -1910,6 +1910,7 @@ int main()
         x.measured_contact_valid = true;
         x.measured_force_valid = true;
         x.measured_normal_force_n = {40.0, 40.0, 40.0, 40.0};
+        x.legacy_shift_ready = true;
         x.measured_com_world = {0.0, 0.0, -0.25};
         x.measured_com_valid = true;
         x.measured_velocity_mps = 0.0;

@@ -1885,6 +1885,41 @@ bool TrotExperiment::BuildGaitTargets(
         sequencer_input.trot_full_contact_able = std::all_of(
             trot_contacts[0].begin(), trot_contacts[0].end(),
             [](bool contact) { return contact; });
+        // Gate terrain SWING on the legacy SHIFT_COM witness itself, not a
+        // fixed sequencer dwell. This mirrors the state machine's measured
+        // COM-margin and three-leg force-balance predicates while avoiding a
+        // circular wait for CRAWL_STEP (which is entered after this update).
+        bool legacy_shift_ready = terrain_crawl_state_machine_.state() ==
+            go2_terrain::TerrainCrawlState::kCrawlStep;
+        if (!legacy_shift_ready && !flat_crawl_debug &&
+            terrain_crawl_state_machine_.state() ==
+                go2_terrain::TerrainCrawlState::kShiftCom &&
+            terrain_crawl_state_machine_.com_target_valid() &&
+            terrain_crawl_state_machine_.com_margin_m() >= 0.02 &&
+            have_high_state)
+        {
+            const std::size_t lifted_leg =
+                terrain_crawl_state_machine_.com_target_leg();
+            double force_total = 0.0;
+            double force_min = std::numeric_limits<double>::infinity();
+            double force_max = 0.0;
+            bool force_ready = lifted_leg < go2::kLegCount;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                if (leg == lifted_leg)
+                    continue;
+                const double force = state_snapshot.foot_force()[leg];
+                force_ready = force_ready && std::isfinite(force) &&
+                    force >= 10.0;
+                force_total += force;
+                force_min = std::min(force_min, force);
+                force_max = std::max(force_max, force);
+            }
+            legacy_shift_ready = force_ready && force_total >= 50.0 &&
+                force_min > 0.0 && force_max <= 4.0 * force_min;
+        }
+        sequencer_input.legacy_shift_ready = flat_crawl_debug ||
+            legacy_shift_ready;
         sequencer_input.terrain = live_terrain_model.get();
         sequencer_input.base_position_world = pose.base;
         sequencer_input.base_yaw_rad = pose.yaw_rad;
@@ -1972,6 +2007,70 @@ bool TrotExperiment::BuildGaitTargets(
                 state_snapshot, high_state_snapshot);
             if (live_terrain_model)
             {
+                // STAGE is the map/target handoff boundary. Keep this dump
+                // opt-in and one-shot so evidence records the exact model
+                // consumed at that boundary without changing planning.
+                static bool terrain_stage_map_dumped = false;
+                if (!terrain_stage_map_dumped &&
+                    Full2EnvDouble("TROT_TERRAIN_DEBUG_MAP", 0.0) > 0.5)
+                {
+                    const auto &map = *live_terrain_model;
+                    std::size_t known_cells = 0;
+                    std::size_t elevated_cells = 0;
+                    double min_height = std::numeric_limits<double>::infinity();
+                    double max_height = -std::numeric_limits<double>::infinity();
+                    for (const auto &cell : map.cells)
+                    {
+                        if (!cell.known || !std::isfinite(cell.height_m))
+                            continue;
+                        ++known_cells;
+                        min_height = std::min(min_height, cell.height_m);
+                        max_height = std::max(max_height, cell.height_m);
+                    }
+                    for (std::size_t iy = 0; iy < map.height; ++iy)
+                    {
+                        for (std::size_t ix = 0; ix < map.width; ++ix)
+                        {
+                            const auto *cell = map.CellAt(ix, iy);
+                            if (cell == nullptr || !cell->known ||
+                                !std::isfinite(cell->height_m))
+                                continue;
+                            const double x = map.origin_m[0] +
+                                (static_cast<double>(ix) + 0.5) * map.resolution_m;
+                            if (x > 0.70 && std::isfinite(min_height) &&
+                                cell->height_m >= min_height + 0.030)
+                                ++elevated_cells;
+                        }
+                    }
+                    std::cout << "Terrain STAGE map dump state="
+                              << terrain_now_s << " epoch=" << map.epoch
+                              << " stamp=" << map.map_stamp_s
+                              << " age=" << map.age_s << " frame="
+                              << map.frame_id << " origin=(" << map.origin_m[0]
+                              << "," << map.origin_m[1] << ") resolution="
+                              << map.resolution_m << " dims=" << map.width
+                              << "x" << map.height << " known=" << known_cells
+                              << " height_range=[" << min_height << ","
+                              << max_height << "] plateau_cells_x_gt_070="
+                              << elevated_cells << "\n";
+                    for (std::size_t iy = 0; iy < map.height; ++iy)
+                    {
+                        std::cout << "Terrain STAGE map row iy=" << iy << ":";
+                        for (std::size_t ix = 0; ix < map.width; ++ix)
+                        {
+                            const auto *cell = map.CellAt(ix, iy);
+                            const double x = map.origin_m[0] +
+                                (static_cast<double>(ix) + 0.5) * map.resolution_m;
+                            std::cout << " " << x << ":" <<
+                                (cell != nullptr && cell->known &&
+                                 std::isfinite(cell->height_m)
+                                     ? cell->height_m
+                                     : std::numeric_limits<double>::quiet_NaN());
+                        }
+                        std::cout << "\n";
+                    }
+                    terrain_stage_map_dumped = true;
+                }
                 const auto staging = go2_terrain::MeasureTerrainStagingReference(
                     *live_terrain_model, staging_pose.base, staging_pose.yaw_rad,
                     0.5 * (go2::AllFootPositions(task_.stand_up_joint_pos_)[0].x + go2::AllFootPositions(task_.stand_up_joint_pos_)[1].x));
@@ -2249,19 +2348,20 @@ bool TrotExperiment::BuildGaitTargets(
                     std::numeric_limits<double>::infinity();
                 if (leg >= go2::kLegCount || !terrain_timeline_valid)
                     return false;
-                const auto crawl_state =
-                    terrain_crawl_state_machine_.state();
+                // The sequencer is the event owner. Its measured target is
+                // authoritative as soon as SWING/COMMIT publishes it; do not
+                // gate this handoff on the legacy state machine's one-tick
+                // COM/SWING phase, or an old planner target can win.
+                const auto sequencer_state = sequencer_output.state;
+                const bool sequencer_swing =
+                    sequencer_state ==
+                        go2_terrain::TerrainCrawlSequencerState::kSwing ||
+                    sequencer_state ==
+                        go2_terrain::TerrainCrawlSequencerState::kCommit;
                 const bool scripted_step =
                     terrain_transfer_window_active_ &&
-                    sequencer_output.target_valid &&
-                    sequencer_output.active_leg == leg &&
-                    (crawl_state ==
-                         go2_terrain::TerrainCrawlState::kCrawlStep
-                         ? terrain_crawl_state_machine_.ActiveLeg() == leg
-                         : crawl_state ==
-                               go2_terrain::TerrainCrawlState::kShiftCom &&
-                           terrain_crawl_state_machine_.com_target_leg() ==
-                               leg);
+                    sequencer_swing && sequencer_output.target_valid &&
+                    sequencer_output.active_leg == leg;
                 if (scripted_step)
                 {
                     // Direct measured-map target; planner candidates are not
@@ -2747,6 +2847,24 @@ bool TrotExperiment::BuildGaitTargets(
                 terrain_crawl_state_machine_.com_target_leg() == leg;
             auto &execution = terrain_swing_execution_[leg];
             auto &pending = terrain_swing_pending_[leg];
+            const bool sequencer_direct_target =
+                terrain_transfer_window_active_ &&
+                (terrain_crawl_sequencer_output_.state ==
+                     go2_terrain::TerrainCrawlSequencerState::kSwing ||
+                 terrain_crawl_sequencer_output_.state ==
+                     go2_terrain::TerrainCrawlSequencerState::kCommit) &&
+                terrain_crawl_sequencer_output_.target_valid &&
+                terrain_crawl_sequencer_output_.active_leg == leg;
+            if (sequencer_direct_target && execution.valid &&
+                !execution.in_flight && !execution.endpoint_held)
+            {
+                // A planner foothold may have been prepared before the
+                // measured sequencer target existed. Replace that pending
+                // snapshot at the event boundary; once in flight it remains
+                // immutable through touchdown.
+                execution = {};
+                pending = {};
+            }
             // A scripted timeout owns a bounded retract/retry. Clear only
             // the uncommitted active endpoint; committed feet remain anchors.
             if (terrain_crawl_control_authority_active &&
@@ -2827,10 +2945,13 @@ bool TrotExperiment::BuildGaitTargets(
                 std::isfinite(execution.touchdown_time_s) &&
                 terrain_now_s + terrain_time_tolerance_s <
                     execution.touchdown_time_s;
-            const bool effective_leg_in_swing = explicit_crawl_step
-                ? explicit_active_leg
-                : (crawl_shift_leg ? false
-                                    : (leg_in_swing || terrain_extended_swing));
+            const bool effective_leg_in_swing = sequencer_direct_target
+                ? true
+                : (explicit_crawl_step
+                       ? explicit_active_leg
+                       : (crawl_shift_leg ? false
+                                           : (leg_in_swing ||
+                                              terrain_extended_swing)));
             const bool terrain_target_pending = execution.valid &&
                 execution.terrain_target_required &&
                 !execution.measured_touchdown;
@@ -3047,7 +3168,8 @@ bool TrotExperiment::BuildGaitTargets(
 
             if (terrain_crawl_control_authority_active)
                 begin_terrain_transfer_hold(leg);
-            if (terrain_crawl_control_authority_active && !explicit_crawl_step)
+            if (terrain_crawl_control_authority_active &&
+                !explicit_crawl_step && !sequencer_direct_target)
             {
                 // Scripted targets are prepared ahead of the fixed swing, but
                 // must not inherit a nominal trot flight during entry or COM
