@@ -2887,3 +2887,78 @@ post_validation: |
   quantitative status was consequently false. The new 27-test flat
   interface harness remains green. This is a residual B0 campaign risk,
   not claimed as a new Order-062 pass.
+
+---
+timestamp: 2026-09-02T00:00:00+0800
+run_id: Order-063 SHIFT attribution and bounded stuck report
+trigger: T1
+source_sha: 3bbb661cdd4e8233544ce0bf2255c819cfff6a97
+现场评估: |
+  Recovered HEAD 2f6935c with one coherent 8-line unstaged change in
+  terrain_crawl_sequencer.h; no partial state-machine edit was present.
+  It was retained, built, and committed as 3bbb661. No rollback was needed.
+B0: |
+  The prescribed development/0 fixed pair was run serially under
+  flock /tmp/go2_mujoco_experiment.lock, Base=4000 preload, domains
+  222/223, three attempts. Attempt 1 and 3 reached controller/safety
+  status 1 on the terrain member with hard posture roll=-178.401 deg
+  (attempt 1) and the same pre-existing inverted-plant signature (attempt
+  3); attempt 2 was a complete b0_analyzer PASS. The initial no-preload
+  attempt failed before DDS readiness from participant allocation and is
+  excluded. This is 1/3 pass plus environment/plant flake, not a claimed
+  current B0 regression. Historical 90bd1f0 evidence has three PASS pairs;
+  the only Order-063 source delta is window-local sequencer flat release.
+shift_attribution: |
+  Existing Order-062 per-tick CSVs and the fresh 3bbb661 sweep were read
+  through SHIFT. At first SHIFT, the measured four-contact STAGE margin was
+  positive (+0.122..+0.139 m), but selecting FL changes the witness to the
+  measured FL-lifted triangle. Representative Order-062 seed196 at
+  t=7.382084 s: COM=(0.389849,-0.002043) m, target=(0.366989,-0.014503)
+  m, margin=-0.010423 m, forces=(36.17,39.76,38.68,42.49) N, roll=.00814,
+  pitch=.00170 rad. The existing incenter/distance-proportional ramp then
+  moved the target to (0.284256,-.047945) m by t=8.480071 s and measured
+  margin to +.030249 m; support WBC remained feasible/wrench-satisfied.
+  The first non-flat divergence is therefore not STAGE or force balance,
+  but the SHIFT_COM measured-triangle margin/target tracking and the
+  planner handoff. Failed Order-062 examples plateaued below release:
+  seed198 max margin +.015640 m and seed208 +.001966 m; both had valid
+  support force witnesses (approximately 30 N minimum) before planner
+  failure. The exact downstream named checks were terrain_plan_failure=4
+  (swing_clearance; e.g. seed196 1397 CRAWL_STEP rows) and
+  terrain_plan_failure=5 (support-infeasible; seed198 1182 rows), not a
+  force-gate failure. In the fresh sweep, the hard posture gate in
+  trot_experiment_diagnostics.cpp fired at the 0.20-rad crawl-reference
+  deviation (e.g. seed195 t=9.452076 s pitch=-.201551 rad,
+  margin=-.086160 m, contacts=3, forces 28.69/28.83/29.91/29.88 N;
+  seed196 t=10.228070 s pitch=-.200371 rad, margin=-.091124 m).
+  Terrain plan failure 4/swing_clearance was co-observed. Sequencer's
+  unchanged measured gates were not weakened.
+minimal_fix: |
+  The recovered flat-only fix removes the unreachable legacy_stage_ready
+  dependency in flat isolation while preserving measured four-contact,
+  posture, and velocity dwell. Flat current run order063_flat_current
+  passed with controller/safety/quality/analysis/dynamics/contact statuses 0.
+  A bounded terrain hypothesis probe changing only the terrain SHIFT floor
+  from 30 N to the legacy 20 N was built and run at seeds195/204, but it
+  produced no FL commit and retained plan/posture failure; that edit was
+  reverted, so terrain safety remains unchanged.
+scan: |
+  Fresh serial b1_order063_seed195..215, domain229, Base=4000 preload,
+  phase2_step_5cm.xml, TROT_SEED, --controller-duration 30 and wall35,
+  exact source SHA 2f6935c binary, produced STAGE->SHIFT on 20/21 seeds
+  (195..214) and no SHIFT on 215; FL commit was 0/21, below the unshaped
+  3/21 baseline. The deepest fresh states were SHIFT_COM (most seeds) and
+  ABORT (202,208); no SWING/COMMIT, downstream canary, crossing, or
+  confirmation was claimed. The run set is a precise stuck report, not a
+  gate-level conclusion. The historical flat reference remains 20/20.
+downstream: |
+  Not launched: the required FL rate ratchet was not met (0/21 < 3/21),
+  and the three-cycle downstream budget condition could not be entered.
+validation: |
+  cmake --build example/cpp/build -j2 and ctest --test-dir
+  example/cpp/build --output-on-failure passed 27/27 after the recovered
+  change and after the floor hypothesis was reverted; git diff --check
+  passed. No v1 contract, analyzer threshold, or canary definition changed;
+  no push or amend. Generated run artifacts are ignored.
+git_status: |
+  Evidence append is pending commit; no staged files before this append.
