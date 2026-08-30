@@ -2526,3 +2526,53 @@ validation: |
   passed. No v1 contract, analyzer threshold, or canary definition changed;
   no push or amend.
 git_status: implementation and this evidence append are to be committed; no staged files.
+
+---
+timestamp: 2026-09-02T04:30:00+0800
+run_id: Order-056 SHIFT tracking audit and measured-incenter handoff
+trigger: T1
+forensics: |
+  Epoch197/198 data.csv show the v2 reference was world-frame and the
+  measured-foot support triangle was used (not nominal feet), but the
+  state-machine target was the measured triangle centroid: epoch197 SHIFT
+  target x 0.3243 m versus measured COM x 0.3668 m at the last SHIFT tick,
+  margin +0.0142 m; epoch198 target x 0.3349 m versus COM x 0.3814 m,
+  margin -0.0167 m. Both runs remained in SHIFT/SHIFT_COM; no ramp/dwell
+  expiry moved the sequencer to SWING. WBC equality/task witnesses were
+  satisfied (epoch197 residual 8e-9..1.2e-8, max tau 20.64 Nm; epoch198
+  residual 3e-9..4e-9, max tau 5.40 Nm), while the terrain SHIFT path
+  overwrote the MPC result with velocity-only acceleration damping
+  (-5*v, +/-1.5 m/s2). Thus the stop is (b), a COM tracking-layer issue,
+  not (a) nominal-foot geometry or (c) timeout; the nominal 80 base-linear
+  and 80 stance no-slip weights, 5-tick SHIFT refresh, and 30 N terrain
+  floor were not saturated at the solver/equality level.
+fix: |
+  3825e82 adds the measured 3-D support-triangle incenter target and holds
+  that interior reference after the +0.020 m readiness boundary, preventing
+  raised-leg mass shift from immediately erasing the margin. d3f124f adds a
+  bounded world-frame COM position/velocity servo during legacy SHIFT_COM
+  (gain 6/5, acceleration clamp +/-1.5); SWING/CRAWL_STEP retain the old
+  braking damper and flat mode is untouched. Direct map target search keeps
+  its ordering/edge stand-off and now permits the measured post-braking foot
+  to be up to 0.65 m from its anchor. The pre-swing measured-margin gate is
+  retained.
+canary: |
+  Serialized under flock -x /tmp/go2_mujoco_experiment.lock, domain 229,
+  Base=4000 preload, --controller-duration 30, wall timeout 35. Fresh
+  terrain epochs 200-208 were run as an 8-pair budget batch. Epoch201
+  recorded the first terrain step commit at t=10.850 s with measured COM
+  (0.368185,-0.012481,...) and measured support margin +0.023459 m;
+  forces were FR/FL/RR/RL=12/26/41/33 N and max WBC torque 34.994 Nm.
+  Other fresh terrain runs reached measured positive margins up to
+  +0.075659 m (epochs204) and +0.071494 m (epoch201) but did not complete
+  a full crossing. Flat epoch210, without terrain-planner, retained 33
+  healthy cycles in its 12 s harness, no safety/quality rejection, and
+  controller_status=0. This is progress evidence, not a gate conclusion.
+validation: |
+  cmake --build example/cpp/build -j2 passed; ctest --test-dir
+  example/cpp/build --output-on-failure passed 27/27; git diff --check
+  passed. Flat epoch210 status and 33 health records are clean. No v1
+  contract, analyzer threshold, or canary definition changed; no push or
+  amend.
+git_status: implementation commits are  d3f124f and 3825e82; this evidence
+  append is the only unstaged change; no staged files.
