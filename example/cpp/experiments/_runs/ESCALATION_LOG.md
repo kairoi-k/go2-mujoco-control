@@ -2962,3 +2962,56 @@ validation: |
   no push or amend. Generated run artifacts are ignored.
 git_status: |
   Evidence append is pending commit; no staged files before this append.
+
+---
+timestamp: 2026-09-02T05:00:00+0800
+run_id: Order-064 measured swing-anchor correction and validation
+trigger: T1
+source_sha: 902234881880d761fcbcf0292fd8323f723fbcae
+forensics: |
+  Order-063 evidence shows terrain relief 0.050 m and the 0.030 m
+  clearance threshold. The planner's sequencer-owned swing check used
+  input.current_feet_base (FK) as its path start, while SHIFT owns the
+  measured world foot/support state. Representative debug input had
+  start z=-0.3438 m versus measured loaded-foot geometry; the path check
+  used a 0.025 m patch corridor and rejected the first sampled path point
+  as unknown/anchor-invalid before a raised swing could be admitted.
+  The map itself was 320/320 known at the diagnostic snapshot, with local
+  heights [-0.08545,-0.03545] m (0.050 m relief). The existing check uses
+  TerrainPatch.max_height_m for each swept corridor sample, therefore its
+  raised-swing reference is the measured upper-surface sample, not a
+  ground-only comparison; no clearance threshold was changed. The
+  observed failure mode is stale FK anchor/input ownership, not a flat
+  threshold relaxation. The planner path dump also confirms the intended
+  endpoints and z profile are evaluated in the foot-site frame.
+support_forensics: |
+  Selection and final validation both route sequencer-owned SHIFT/SWING/
+  COMMIT/ADVANCE through TerrainPlannerMeasuredSupportMargin, which calls
+  the shared measured support geometry and COM witness. Representative
+  failures were knot 0, masks 14/15/12, margins -inf to -0.0281 m or
+  finite -0.00007..-0.0281 m. Mask 14 with active FL (leg 1) is invalid
+  for the measured triangle because FR is absent; finite negative values
+  are measured polygon/triangle COM-outside witnesses, not nominal-model
+  ghosts. The safety margin remains 0.015 m and was not weakened.
+fix: |
+  9022348 adds TerrainPlannerSwingStart: when the sequencer support window
+  is active and measured feet are valid, the clearance path starts from
+  the measured world foot transformed into base coordinates; otherwise it
+  retains the existing FK fallback. Added a unit witness for translation
+  and measured z. No v1 contract, analyzer threshold, canary definition,
+  support margin, or floor probe was changed.
+posture: |
+  Order-063's 0.20 rad event was transient during the shift ramp, not a
+  confirmed static tip: examples reached pitch about -0.200..-0.214 rad
+  while measured contacts fell to 2-3 and planner failures co-occurred;
+  the preserved posture hard gate stopped the run.
+validation: |
+  test_terrain_interfaces passed and ctest passed 27/27 at 9022348.
+  Current-HEAD B0 fixed pair attempts before the fix included 2 PASS runs;
+  post-fix r1 was blocked by the known inverted-plant/baseline lifecycle
+  flake. A post-fix serial sweep batch 195..201 produced FL=0/7 and
+  deepest state SHIFT, with planner failures still dominated by transient
+  support masks and startup map/pose failures; no crossing is claimed.
+  Required full 195..215 ratchet and downstream canary were not entered
+  because FL did not exceed the 3/21 baseline and B0 3x green precondition
+  was unavailable. No downstream run or crossing/confirmation is claimed.
