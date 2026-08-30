@@ -309,7 +309,12 @@ public:
             // The base-x band is an observed correlation, not a causal
             // gate. The measured support margin below remains the sole
             // terrain release condition; staging stays edge-anchored.
-            const bool at_standoff = input.flat_ground_mode || staging.valid;
+            // Once authority owns a measured four-foot stand, a transient
+            // map-edge invalidation must not strand STAGE. The measured basin
+            // margin remains the release witness below.
+            const bool at_standoff = input.flat_ground_mode || staging.valid ||
+                (input.measured_feet_valid && contacts ==
+                     static_cast<int>(go2::kLegCount));
             const bool measured_basin_ready = input.flat_ground_mode ||
                 (input.measured_feet_valid && input.measured_com_valid &&
                  contacts == static_cast<int>(go2::kLegCount) &&
