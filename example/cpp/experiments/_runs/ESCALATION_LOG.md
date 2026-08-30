@@ -2348,3 +2348,91 @@ validation: |
   preceding implementation. No gate conclusion is claimed.
 git_status: implementation and evidence are committed locally; no staged files.
 
+
+---
+timestamp: 2026-09-02T00:00:00+0800
+run_id: Order-053 ratchet repair, exact stop attribution, epoch178 terrain canary
+trigger: T1
+ratchet: |
+  The flat harness was bisected at cf9f261, cf1fc65, and b883c76. The
+  Order-052 implementation commits were reverted in 9bb9941, 110027d,
+  and 6eadb25, respectively. This restores the source tree byte-for-byte
+  to b8fe41c for terrain/trot/test implementation files; the Order-052
+  evidence document remains. The flat harness uses
+  TROT_TERRAIN_DEBUG_FLAT_CRAWL=1, TROT_SEED=150,
+  TROT_FLAT_CRAWL_BODY_SPEED=0.05, domain 229, Base=4000 preload.
+  Existing accepted order051_flat_epoch150 is the 20/20 reference. Fresh
+  post-revert execution reached 29 event commits before a nondeterministic
+  later abort; no source delta remains versus b8fe41c, so this is not used
+  as a new gate claim.
+stop_attribution: |
+  Epochs 161-164, 166-168, 170, 172-173, and 175 terminate the sequencer
+  in SWING -> ABORT at terrain_crawl_sequencer.h:316-321. The exact
+  predicate is !three_contacts && !ForceSupportReady after the flat-only
+  0.20 s grace; ForceSupportReady is terrain_crawl_sequencer.h:497-518:
+  every non-swing leg force >=10 N, total >=50 N, and max/min <=4.0.
+  Trigger rows: E161 t=9.230, elapsed=.308, forces 54/0/0/73 N;
+  E162 9.280/.272, 77/0/0/67; E163 9.368/.200, 58/0/3/75;
+  E164 8.488/.268, 56/0/0/78; E166 9.220/.234, 70/0/0/74;
+  E167 9.364/.178, 66/0/2/74; E168 9.292/.162, 140/0/0/20;
+  E170 9.674/.276, 56/0/0/74; E172 8.400/.264, 68/0/0/67;
+  E173 9.196/.196, 82/0/0/54; E175 9.030/.190, 115/0/0/22.
+  The event abort sets terrain_safe_stop_requested at
+  trot_experiment_gait.cpp:1975-1977.
+  Epochs 165, 171, 174, and 176 terminate through the planner
+
+---
+timestamp: 2026-09-02T00:00:00+0800
+run_id: Order-053 ratchet repair, exact stop attribution, epoch178 terrain canary
+trigger: T1
+ratchet: |
+  The flat harness was bisected at cf9f261, cf1fc65, and b883c76. The
+  Order-052 implementation commits were reverted in 9bb9941, 110027d,
+  and 6eadb25, respectively. This restores the source tree byte-for-byte
+  to b8fe41c for terrain/trot/test implementation files; the Order-052
+  evidence document remains. The flat harness uses
+  TROT_TERRAIN_DEBUG_FLAT_CRAWL=1, TROT_SEED=150,
+  TROT_FLAT_CRAWL_BODY_SPEED=0.05, domain 229, Base=4000 preload.
+  Existing accepted order051_flat_epoch150 is the 20/20 reference. Fresh
+  post-revert execution reached 29 event commits before a nondeterministic
+  later abort; no source delta remains versus b8fe41c, so this is not used
+  as a new gate claim.
+stop_attribution: |
+  Epochs 161-164, 166-168, 170, 172-173, and 175 terminate the sequencer
+  in SWING -> ABORT at terrain_crawl_sequencer.h:316-321. The exact
+  predicate is !three_contacts && !ForceSupportReady after the flat-only
+  0.20 s grace; ForceSupportReady is terrain_crawl_sequencer.h:497-518:
+  every non-swing leg force >=10 N, total >=50 N, and max/min <=4.0.
+  Trigger rows: E161 t=9.230, elapsed=.308, forces 54/0/0/73 N;
+  E162 9.280/.272, 77/0/0/67; E163 9.368/.200, 58/0/3/75;
+  E164 8.488/.268, 56/0/0/78; E166 9.220/.234, 70/0/0/74;
+  E167 9.364/.178, 66/0/2/74; E168 9.292/.162, 140/0/0/20;
+  E170 9.674/.276, 56/0/0/74; E172 8.400/.264, 68/0/0/67;
+  E173 9.196/.196, 82/0/0/54; E175 9.030/.190, 115/0/0/22.
+  The event abort sets terrain_safe_stop_requested at
+  trot_experiment_gait.cpp:1975-1977.
+  Epochs 165, 171, 174, and 176 terminate through the planner
+  no-usable-previous-plan safe-stop at trot_experiment_control.cpp:804-812
+  (TerrainPlanFailure::kSupportInfeasible=5; margins at trigger were
+  -0.037279, -0.180090, -0.189390, and -0.008110 m). Their sequencer was
+  still SHIFT/CRAWL_STEP, so this is not a sequencer SWING timeout.
+  Epoch169 has no safe-stop latch/ABORT; its initiating hard posture check
+  is trot_experiment_diagnostics.cpp:606-646, deviation threshold 0.20 rad
+  in the crawl stance reference, first logged roll=-11.7743 deg,
+  pitch=4.93292 deg, reference roll=-0.004003 rad, pitch=0.002112 rad.
+terrain: |
+  After the ratchet repair, serialized epoch178 (Base=4000 preload, domain
+  229, controller 30 s, wall 35 s) reached SWING at t=8.450 and ABORT at
+  t=8.736 (elapsed .286 s), active FL. Forces were 54/0/0/78 N and
+  terrain planner support margin was -0.141967 m. This is a precise stuck
+  report: the remaining blocker is the same named ForceSupportReady
+  support-witness failure, not a claimed physical-fall conclusion. No
+  terrain COMMIT was observed.
+validation: |
+  cmake --build example/cpp/build -j2 passed; ctest --test-dir
+  example/cpp/build --output-on-failure passed 27/27. Fresh flat and
+  terrain executions were serialized with flock -x
+  /tmp/go2_mujoco_experiment.lock and used domain 229 and
+  /home/che/dds_base4000_preload.so. No v1 contract, analyzer threshold,
+  or canary definition changed. No push or amend.
+git_status: source/evidence implementation and this report are committed; no staged files.
