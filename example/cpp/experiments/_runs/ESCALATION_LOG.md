@@ -1998,3 +1998,42 @@ validation: |
   not claimed from these two runs; the frozen B0 analyzer/contract was not
   changed.
 git_status: documentation update is unstaged; no push or amend; simulations serialized.
+
+---
+timestamp: 2026-09-01T15:15:00+0800
+run_id: Order-046 reviewer remediation, B0 triple rerun, and terrain transfer epochs 111-116
+trigger: T1
+implementation: |
+  Commit 5adf860a6b238d97d01f1fb88ceca5fae84fbad3 requires measured normal
+  force support for crawl commit/advance predicates in the script, state
+  machine, and sequencer; shift readiness now also requires force support.
+  Failed steps take precedence over commit latching. Script invalid time and
+  sequencer STAGE timeout fail closed. Staging now exposes a rotated full
+  world target and script foothold edge detection is constrained to a forward
+  corridor. Sequencer force observations are populated from measured foot
+  forces. Existing contract, analyzer thresholds, and canary definitions are
+  unchanged.
+b0_fixed_pair: |
+  Three serial runs under flock -x /tmp/go2_mujoco_experiment.lock with
+  LD_PRELOAD=/home/che/dds_base4000_preload.so, development 0, domains 222/223,
+  all built from exact SHA 90bd1f0b67d4a07f9737cb6c0d85d9614e3276b1:
+  2026-08-30T14:43:43+08:00 run 144343 PASS;
+  2026-08-30T14:46:35+08:00 run 144635 PASS;
+  2026-08-30T14:49:25+08:00 run 144925 PASS. Each frozen b0_analyzer
+  acceptance_status=PASS and controller/dynamics/quality/safety/analysis=0.
+terrain_canary: |
+  Six serialized pairs on domain 229, Base=4000, --controller-duration 30,
+  wall timeout 35, scene phase2_step_5cm.xml, exact binary source SHA
+  5adf860a6b238d97d01f1fb88ceca5fae84fbad3. Monotonic start timestamps and
+  run directories: epoch111 15:08:52/15:09:32; epoch112 15:09:44/15:10:25;
+  epoch113 15:10:37/15:10:50; epoch114 15:11:30/15:11:42; epoch115
+  15:11:55/15:12:09; epoch116 15:12:49/15:13:04 (r1/r2). Outcomes were
+  stochastic: controlled-stop members reached 30 s, other members stopped on
+  safety/motion rejection. The deepest sequencer rung was SHIFT/SWING entry
+  (epoch115_r2); no measured terrain commit, ADVANCE, CLEAR, RESUME, or
+  complete crossing was observed. No confirmation run exists.
+validation: |
+  cmake --build example/cpp/build -j2; ctest --test-dir example/cpp/build
+  --output-on-failure: 27/27 passed. git diff --check passed. Simulations
+  remained serialized; no push or amend.
+git_status: implementation and evidence are committed locally; generated canary runs are ignored; no staged files.

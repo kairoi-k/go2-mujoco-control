@@ -264,12 +264,9 @@ public:
         case TerrainCrawlSequencerState::kSwing:
             if (active_leg() >= go2::kLegCount)
                 break;
-            // On flat ground the endpoint is a landing event: the lifted
-            // leg cannot produce a force measurement while WBC still
-            // declares it swing. Enter COMMIT on measured pose first, then
-            // publish four-contact support for the next tick to establish
-            // the force/contact witness. Terrain targets retain the stricter
-            // measured-contact predicate below.
+            // COMMIT is a measured event: endpoint position and the
+            // active-leg contact bit are insufficient without a force-backed
+            // three-leg support witness. The same rule applies to flat mode.
             if (MeasuredTargetAtEndpoint(input))
                 SetState(TerrainCrawlSequencerState::kCommit, input.now_s);
             else if ((!three_contacts &&
