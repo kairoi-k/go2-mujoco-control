@@ -1566,6 +1566,15 @@ int main()
                        m.ActiveLeg() == 1 && m.com_margin_m() >= 0.02,
                    "crawl machine did not gate FL on COM margin")) return 1;
         x.target_valid[1] = true;
+        // Endpoint holding can briefly precede the filtered active-leg
+        // contact bit. The bounded commit grace must not abort the crawl
+        // during that handoff.
+        x.measured_contact = {false, true, true, false};
+        x.now_s = 1.5;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kCrawlStep,
+                   "crawl machine aborted during endpoint contact handoff"))
+            return 1;
         x.committed[1] = true;
         // The old active leg may still be the only front force sample at
         // touchdown. Commit must advance first; subtracting FL from this

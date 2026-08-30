@@ -482,9 +482,11 @@ public:
                 // while endpoint confirmation catches up. Give this bounded
                 // interval to the commit path; once it expires, enforce the
                 // three-foot invariant for a genuinely unsupported swing.
+                // Endpoint promotion and the force-filter contact bit do
+                // not arrive on the same tick. Keep the captured stance for
+                // the bounded commit interval even when the active leg's
+                // contact bit briefly drops while WBC settles the endpoint.
                 const bool touchdown_boundary_pending =
-                    signals.measured_contact_valid &&
-                    leg < go2::kLegCount && signals.measured_contact[leg] &&
                     std::isfinite(signals.now_s) &&
                     signals.now_s - state_enter_time_s_ <
                         kCrawlStepHandoffGraceS + kCrawlStepCommitGraceS;
