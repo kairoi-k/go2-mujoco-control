@@ -1283,9 +1283,16 @@ private:
                     static_cast<int>(k) >= touchdown_knots[leg])
                     current_confirmed_support = false;
             }
-            if (current_confirmed_support && measured_count >= 2)
+            const bool transfer_measured_support =
+                input.contact_schedule.measured_valid &&
+                (input.terrain_transfer_hold_active || measured_count >= 3);
+            if ((current_confirmed_support || transfer_measured_support) &&
+                measured_count >= 2)
             {
-                // Keep pending transition intent while replacing planned
+                // During an active transfer the measured hold is the physical
+                // support polygon, even when the nominal schedule has already
+                // advanced to a different diagonal. Keep pending transition
+                // intent while replacing planned
                 // geometry with measured support; only committed legs clear
                 // their required bit.
                 contacts = input.contact_schedule.measured_contact;
@@ -1444,9 +1451,16 @@ private:
                     static_cast<int>(k) >= touchdown)
                     current_confirmed_support = false;
             }
-            if (current_confirmed_support && measured_count >= 2)
+            const bool transfer_measured_support =
+                input.contact_schedule.measured_valid &&
+                (input.terrain_transfer_hold_active || measured_count >= 3);
+            if ((current_confirmed_support || transfer_measured_support) &&
+                measured_count >= 2)
             {
-                // Preserve an uncommitted leg transition across this
+                // During an active transfer the measured hold is the physical
+                // support polygon, even when the nominal schedule has already
+                // advanced to a different diagonal. Preserve an uncommitted
+                // leg transition across this
                 // measured-support replacement; committed measured legs
                 // retain valid geometry but no longer require the corridor.
                 contacts = input.contact_schedule.measured_contact;

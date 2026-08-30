@@ -444,6 +444,27 @@ int main()
             return 1;
     }
 
+    // The abort geometry is a measured world-frame triangle: FL (index 1)
+    // is lifted, while FR/RR/RL remain vertices.  This pins the signed
+    // margin convention and guards against using the nominal front pair.
+    {
+        std::array<go2::Vec3, go2::kLegCount> feet{
+            go2::Vec3{0.531, -0.091, 0.021},
+            go2::Vec3{0.682, 0.090, 0.125},
+            go2::Vec3{0.172, -0.113, 0.024},
+            go2::Vec3{0.178, 0.117, 0.023}};
+        const auto triangle = go2_terrain::ComputeTerrainSupportTriangle(feet, 1);
+        const auto metrics = go2_terrain::MeasureTerrainSupportTriangle(
+            triangle, {0.389, 0.008, 0.367});
+        if (!Check(triangle.valid && metrics.valid,
+                   "measured support triangle is invalid") ||
+            !Check(metrics.signed_margin_m < -0.005 && metrics.signed_margin_m > -0.030,
+                   "measured triangle margin changed unexpectedly") ||
+            !Check(!metrics.inside,
+                   "outside COM was reported inside measured triangle"))
+            return 1;
+    }
+
     // Two-contact support capsule semantics, pinned against the epoch11
     // crux geometry: a mid-crossing straddle (front foot on the plateau,
     // rear foot still on flat ground) forces the diagonal support line

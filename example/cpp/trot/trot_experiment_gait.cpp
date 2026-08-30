@@ -1920,6 +1920,13 @@ bool TrotExperiment::BuildGaitTargets(
         }
         sequencer_input.legacy_shift_ready = flat_crawl_debug ||
             legacy_shift_ready;
+        // Recheck the exact measured triangle at the sequencer handoff. The
+        // legacy state can remain CRAWL_STEP after its prior tick's witness
+        // has decayed; force balance alone must not launch an unsafe swing.
+        if (!flat_crawl_debug && sequencer_input.legacy_shift_ready)
+            sequencer_input.legacy_shift_ready =
+                std::isfinite(sequencer_output.com_margin_m) &&
+                sequencer_output.com_margin_m >= 0.02;
         sequencer_input.terrain = live_terrain_model.get();
         sequencer_input.base_position_world = pose.base;
         sequencer_input.base_yaw_rad = pose.yaw_rad;

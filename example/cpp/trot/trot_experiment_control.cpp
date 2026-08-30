@@ -661,6 +661,32 @@ void TrotExperiment::TerrainPlannerWorker()
                           << result.plan.body_reference[knot].position.y
                           << ","
                           << result.plan.body_reference[knot].position.z;
+                if (std::getenv("TROT_TERRAIN_DEBUG_SUPPORT_POLYGON") != nullptr)
+                {
+                    const auto &com = result.plan.body_reference[knot].position;
+                    std::cout << " polygon_audit frame=world com_frame=world"
+                              << " margin_sign=positive_inside";
+                    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                    {
+                        if ((result.support_failure_contact_mask &
+                             static_cast<std::uint8_t>(1u << leg)) == 0)
+                            continue;
+                        const auto &vertex = result.plan.predicted_foothold[
+                            knot][leg];
+                        if (vertex.valid)
+                            std::cout << " " << go2_trot::kLegNames[leg] << "="
+                                      << vertex.position_world.x << ","
+                                      << vertex.position_world.y << ","
+                                      << vertex.position_world.z;
+                    }
+                    std::cout << " support_mask="
+                              << static_cast<int>(
+                                     result.support_failure_contact_mask)
+                              << " signed_margin_m="
+                              << result.support_failure_margin_m
+                              << " com_used=" << com.x << "," << com.y << ","
+                              << com.z;
+                }
             }
             std::cout << "\n";
             ++terrain_support_debug_prints;

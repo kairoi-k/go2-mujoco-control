@@ -2483,3 +2483,62 @@ validation: |
   changed; no push or amend.
 git_status: implementation committed as 95e2998; evidence append is the
   only unstaged change; no staged files.
+
+---
+timestamp: 2026-09-02T03:30:00+0800
+run_id: Order-055 support polygon audit and RR liftoff guard
+trigger: T1
+forensics: |
+  Existing epoch196 data (controller t=8.960) has measured world feet
+  FR=(0.531,-0.091,0.021), FL=(0.682,0.090,0.125),
+  RR=(0.172,-0.113,0.024), RL=(0.178,0.117,0.023), and whole-body
+  COM=(0.389,0.008,0.367). The FL-lifted support triangle is therefore
+  {FR,RR,RL}; its manually recomputed inward edge distances are about
+  -0.014, +0.214, +0.108 m, margin=-0.014 m (positive means inside).
+  Epoch178 GT at t=10.022 gives FR=(0.590,-0.146,0.024),
+  RR=(0.186,-0.121,0.024), RL=(0.211,0.140,0.021), COM=(0.359,0.031,0.036),
+  with XY edge distances approximately -0.002,+0.158,+0.163 m.
+  Coordinates are world-frame; the planners
+
+---
+timestamp: 2026-09-02T03:30:00+0800
+run_id: Order-055 support polygon audit and RR liftoff guard
+trigger: T1
+forensics: |
+  Existing epoch196 data (controller t=8.960) has measured world feet
+  FR=(0.531,-0.091,0.021), FL=(0.682,0.090,0.125),
+  RR=(0.172,-0.113,0.024), RL=(0.178,0.117,0.023), and whole-body
+  COM=(0.389,0.008,0.367). The FL-lifted support triangle is therefore
+  {FR,RR,RL}; its manually recomputed inward edge distances are about
+  -0.014, +0.214, +0.108 m, margin=-0.014 m (positive means inside).
+  Epoch178 GT at t=10.022 gives FR=(0.590,-0.146,0.024),
+  RR=(0.186,-0.121,0.024), RL=(0.211,0.140,0.021), COM=(0.359,0.031,0.380),
+  with XY edge distances approximately -0.002,+0.158,+0.163 m.
+  Coordinates are world-frame; the planner's large -0.20 m records are
+  nominal front-pair masks (3), not the measured FL-lifted triangle.
+  During epoch196's corresponding raised FL swing, RR foot z stayed
+  0.0224-0.0237 m while measured RR force fell 34->0 N; GT confirms
+  physical unloading without RR vertical liftoff. COM drift to the
+  FR/RR/RL edge is the mechanism.
+fix: |
+  terrain_planner.h now replaces a stale nominal schedule with the measured
+  support set whenever an active transfer hold exists (or >=3 measured
+  supports), in both selection and validation. control.cpp adds the opt-in
+  TROT_TERRAIN_DEBUG_SUPPORT_POLYGON audit with included feet, world COM,
+  mask, sign convention and margin. gait.cpp rechecks the exact current
+  measured triangle margin >=0.020 m before allowing terrain SWING; flat
+  isolation bypass is unchanged.
+canary: |
+  Epoch197 and epoch198 were serialized with flock -x
+  /tmp/go2_mujoco_experiment.lock, domain 229, Base=4000 preload,
+  run_trot.sh 35 and --controller-duration 30. Both remained in SHIFT
+  with measured margin about -0.0095 m and stopped on inherited posture
+  safety before SWING; no terrain COMMIT. Polygon audit output is present
+  in epoch197/198 controller.log. This is a precise stuck report, not a
+  gate conclusion.
+validation: |
+  cmake --build example/cpp/build -j2 passed; ctest --test-dir
+  example/cpp/build --output-on-failure passed 27/27; git diff --check
+  passed. No v1 contract, analyzer threshold, or canary definition changed;
+  no push or amend.
+git_status: implementation and this evidence append are to be committed; no staged files.
