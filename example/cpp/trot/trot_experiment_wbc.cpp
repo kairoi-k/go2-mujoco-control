@@ -1724,13 +1724,8 @@ void TrotExperiment::UpdateWbcFull(
         terrain_crawl_sequencer_output_.state ==
             go2_terrain::TerrainCrawlSequencerState::kSwing &&
         terrain_crawl_sequencer_output_.active_leg < go2::kLegCount;
-    const bool terrain_fr_descent = terrain_raised_support &&
-        terrain_crawl_sequencer_output_.active_leg == 0 &&
-        terrain_crawl_sequencer_output_.swing_phase >= 0.70;
-    // Keep the front swing authoritative through the edge, then reduce its
-    // descent wrench so the captured three-foot preload remains realizable.
     id_params.w_swing = terrain_raised_support
-        ? (terrain_fr_descent ? 15.0 : 35.0)
+        ? 35.0
         : (params_.cartesian_world ? 80.0 : 80.0);
     const double w_sw_ov = Full2EnvDouble("FULL2_W_SWING", -1.0);
     if (w_sw_ov > 0.0)
@@ -1829,7 +1824,7 @@ void TrotExperiment::UpdateWbcFull(
             // enough to prevent the QP from jumping to a torque-saturating
             // solution when the swinging foot passes its apex.
             id_params.w_force_track = terrain_stance_reference_valid_
-                ? 0.50 : 0.10;
+                ? (swing_leg == 0 ? 1.0 : 0.50) : 0.10;
         }
     }
     bool solved =
