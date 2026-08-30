@@ -1736,8 +1736,8 @@ void TrotExperiment::UpdateWbcFull(
     const double w_sw_x_ov = Full2EnvDouble("FULL2_W_SWING_X", -1.0);
     if (w_sw_x_ov >= 0.0)
         id_params.w_swing_x = w_sw_x_ov;
-    if (terrain_fr_descent && id_params.w_swing_x < 0.0)
-        id_params.w_swing_x = 10.0;
+    if (terrain_fr_descent)
+        id_params.w_stance_no_slip = 200.0;
     const double force_track_ov = Full2EnvDouble(
         "TROT_HS_FORCE_TRACK", 0.0);
     if (high_speed_curriculum && force_track_ov > 0.0)
