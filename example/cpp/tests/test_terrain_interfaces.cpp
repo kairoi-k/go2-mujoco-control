@@ -1362,6 +1362,9 @@ int main()
     // The running-trot approach/deceleration phases may report two contacts
     // (or a flight phase). The >=3 invariant starts at SHIFT_COM only.
     {
+        if (!Check(
+                go2_terrain::TerrainCrawlStateMachine::kAdvanceBodySpeedMps == 0.12,
+                "body advance speed is not the bounded crawl speed")) return 1;
         go2_terrain::TerrainCrawlStateMachine m;
         go2_terrain::TerrainCrawlSignals x;
         x.transfer_window_active = true;

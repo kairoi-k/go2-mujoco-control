@@ -356,6 +356,9 @@ public:
     // A lower handoff speed leaves the trot controller enough authority to
     // settle without transferring a residual stride into SHIFT_COM.
     static constexpr double kCreepSpeedMps = 0.08;
+    // Body advance is a bounded, window-scoped creep rather than a stop:
+    // rear-target reachability is evaluated at the moving measured pose.
+    static constexpr double kAdvanceBodySpeedMps = 0.12;
     static constexpr double kEntrySettleS = 0.24;
     // The command ramp is still driven to kCreepSpeedMps; this guard keeps a
     // falling trot from waiting for a noisy velocity estimate to reach it.

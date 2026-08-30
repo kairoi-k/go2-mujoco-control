@@ -220,11 +220,18 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
             }
             else if (terrain_crawl_active)
             {
-                // SHIFT_COM, each crawl step, and body advance are
-                // quasi-static: stop the base while the existing WBC shifts
-                // the measured COM or executes the selected foot.
-                requested_mps = 0.0;
-                terrain_velocity_cap_mps_.store(0.12);
+                terrain_velocity_cap_mps_.store(
+                    go2_terrain::TerrainCrawlStateMachine::kAdvanceBodySpeedMps);
+                if (crawl_state == go2_terrain::TerrainCrawlState::kAdvanceBody)
+                {
+                    // Rear targets are checked at the measured pose. A bounded
+                    // creep is required to bring them inside the FK envelope;
+                    // stopping here would make ADVANCE_BODY self-blocking.
+                    requested_mps =
+                        go2_terrain::TerrainCrawlStateMachine::kAdvanceBodySpeedMps;
+                }
+                else
+                    requested_mps = 0.0;
             }
         }
         else
