@@ -2701,7 +2701,7 @@ replay: |
   and margin +0.023459 m was not reproduced by the current HEAD. The
   sequencer reached CRAWL_STEP in all five; first STAGE times were
   5.472,5.488,5.514,5.540,5.552 s and first SHIFT times were
-  7.148,7.420,7.754,7.148,7.420 s (r1..r5). A same-seed tick diff
+  7.148,7.420,7.626,7.420,7.754 s (r1..r5). A same-seed tick diff
   (r1 versus r2) diverged at row/tick 1, cmd_time=0.000 s: state_tick_s
   was 1.184 versus 1.688 s. The first physical state difference at that
   tick was world_base_x=-0.091091800 versus -0.091081289 m (10.511 um)
