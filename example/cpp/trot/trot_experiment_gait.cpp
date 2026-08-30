@@ -1872,12 +1872,18 @@ bool TrotExperiment::BuildGaitTargets(
                     terrain_surface_transition_cancelled_[leg] ||
                     !terrain_timeline_valid)
                     return false;
+                const auto crawl_state =
+                    terrain_crawl_state_machine_.state();
                 const bool scripted_step =
                     terrain_transfer_window_active_ &&
-                    terrain_crawl_state_machine_.state() ==
-                        go2_terrain::TerrainCrawlState::kCrawlStep &&
-                    terrain_crawl_state_machine_.ActiveLeg() == leg &&
-                    active_terrain_plan->scripted_target[leg].valid;
+                    active_terrain_plan->scripted_target[leg].valid &&
+                    (crawl_state ==
+                         go2_terrain::TerrainCrawlState::kCrawlStep
+                         ? terrain_crawl_state_machine_.ActiveLeg() == leg
+                         : crawl_state ==
+                               go2_terrain::TerrainCrawlState::kShiftCom &&
+                           terrain_crawl_state_machine_.com_target_leg() ==
+                               leg);
                 if (scripted_step)
                 {
                     scripted_target = active_terrain_plan->scripted_target[leg];
