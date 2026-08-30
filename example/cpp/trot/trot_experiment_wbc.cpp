@@ -951,10 +951,10 @@ void TrotExperiment::UpdateWbcFull(
             // legacy terrain COM target.
             const bool terrain_swing_hold =
                 !terrain_crawl_sequencer_output_.flat_ground_mode &&
-                (terrain_crawl_sequencer_output_.state ==
-                     go2_terrain::TerrainCrawlSequencerState::kSwing ||
-                 terrain_crawl_sequencer_output_.state ==
-                     go2_terrain::TerrainCrawlSequencerState::kCommit) &&
+                (terrain_crawl_state_machine_.state() ==
+                     go2_terrain::TerrainCrawlState::kShiftCom ||
+                 terrain_crawl_state_machine_.state() ==
+                     go2_terrain::TerrainCrawlState::kCrawlStep) &&
                 terrain_crawl_state_machine_.com_target_valid();
             const auto target = terrain_swing_hold
                 ? terrain_crawl_state_machine_.com_target_world()
