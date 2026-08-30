@@ -228,15 +228,26 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         snapshot.measured_feet_valid = true;
     }
     const auto sequencer_state = terrain_crawl_sequencer_output_.state;
+    const auto legacy_crawl_state = terrain_crawl_state_machine_.state();
+    const bool sequencer_support_state =
+        sequencer_state == go2_terrain::TerrainCrawlSequencerState::kShift ||
+        sequencer_state == go2_terrain::TerrainCrawlSequencerState::kSwing ||
+        sequencer_state == go2_terrain::TerrainCrawlSequencerState::kCommit ||
+        sequencer_state == go2_terrain::TerrainCrawlSequencerState::kAdvance;
+    const bool legacy_support_state =
+        legacy_crawl_state == go2_terrain::TerrainCrawlState::kShiftCom ||
+        legacy_crawl_state == go2_terrain::TerrainCrawlState::kCrawlStep ||
+        legacy_crawl_state == go2_terrain::TerrainCrawlState::kAdvanceBody;
     snapshot.terrain_crawl_support_window_active =
         terrain_transfer_window_active_ &&
-        terrain_crawl_sequencer_output_.control_authority_active &&
-        (sequencer_state == go2_terrain::TerrainCrawlSequencerState::kShift ||
-         sequencer_state == go2_terrain::TerrainCrawlSequencerState::kSwing ||
-         sequencer_state == go2_terrain::TerrainCrawlSequencerState::kCommit ||
-         sequencer_state == go2_terrain::TerrainCrawlSequencerState::kAdvance);
+        ((terrain_crawl_sequencer_output_.control_authority_active &&
+          sequencer_support_state) || legacy_support_state);
     snapshot.terrain_crawl_support_lifted_leg =
         terrain_crawl_sequencer_output_.active_leg;
+    if (snapshot.terrain_crawl_support_lifted_leg >= go2::kLegCount &&
+        legacy_support_state)
+        snapshot.terrain_crawl_support_lifted_leg =
+            terrain_crawl_state_machine_.com_target_leg();
     snapshot.terrain_transfer_hold_active = terrain_transfer_hold_active_;
     snapshot.terrain_transfer_hold_contact = terrain_transfer_hold_contact_;
     snapshot.terrain_surface_transition_active =
