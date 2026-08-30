@@ -2206,9 +2206,7 @@ int main()
         seq.Update(x);
         x.now_s = 0.31;
         seq.Update(x);
-        x.now_s = 0.62;
-        seq.Update(x);
-        x.now_s = 0.75;
+        x.now_s = 0.44;
         seq.Update(x);
         if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kSwing &&
                        seq.output().target_valid &&
