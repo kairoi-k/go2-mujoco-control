@@ -113,6 +113,18 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_crawl_com_x_m,terrain_crawl_com_y_m"
          << ",terrain_crawl_com_margin_m,terrain_crawl_com_target_x_m"
          << ",terrain_crawl_com_target_y_m,terrain_crawl_com_target_valid"
+         << ",terrain_crawl_stage_margin_kind"
+         << ",terrain_crawl_stage_basin_margin_m"
+         << ",terrain_crawl_stage_target_margin_m"
+         << ",terrain_crawl_stage_target_x_m"
+         << ",terrain_crawl_stage_target_y_m"
+         << ",terrain_crawl_stage_target_valid"
+         << ",terrain_crawl_stage_retry_count"
+         << ",terrain_crawl_stage_probe_active"
+         << ",terrain_crawl_stage_probe_direction"
+         << ",terrain_crawl_stage_servo_acc_x_mps2"
+         << ",terrain_crawl_stage_servo_acc_y_mps2"
+         << ",terrain_crawl_stage_servo_saturated"
          << ",terrain_stance_reference_valid"
          << ",terrain_stance_reference_roll_rad"
          << ",terrain_stance_reference_pitch_rad"
@@ -1066,6 +1078,20 @@ void TrotExperiment::LogSample(
          << "," << terrain_crawl_state_machine_.com_target_world().x
          << "," << terrain_crawl_state_machine_.com_target_world().y
          << "," << (terrain_crawl_state_machine_.com_target_valid() ? 1 : 0)
+         << "," << (terrain_crawl_state_machine_.state() ==
+                          go2_terrain::TerrainCrawlState::kStage ? "4-contact-polygon" :
+                          "FL-lifted-triangle")
+         << "," << terrain_crawl_state_machine_.stage_basin_margin_m()
+         << "," << terrain_crawl_state_machine_.stage_target_margin_m()
+         << "," << terrain_crawl_state_machine_.com_target_world().x
+         << "," << terrain_crawl_state_machine_.com_target_world().y
+         << "," << (terrain_crawl_state_machine_.stage_com_target_valid() ? 1 : 0)
+         << "," << terrain_crawl_state_machine_.stage_retry_count()
+         << "," << (terrain_crawl_state_machine_.stage_micro_adjust_active(running_time_) ? 1 : 0)
+         << "," << terrain_crawl_state_machine_.stage_micro_adjust_direction()
+         << "," << terrain_stage_servo_acc_x_mps2_
+         << "," << terrain_stage_servo_acc_y_mps2_
+         << "," << (terrain_stage_servo_saturated_ ? 1 : 0)
          << "," << (terrain_stance_reference_valid_ ? 1 : 0)
          << "," << terrain_stance_reference_roll_rad_
          << "," << terrain_stance_reference_pitch_rad_

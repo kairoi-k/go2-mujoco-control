@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <vector>
 
 #include "go2_forward_kinematics.h"
 
@@ -72,6 +73,11 @@ struct TerrainCrawlSignals
     // Order-032 enables fixed timing only inside the scripted window.
     bool scripted_execution = false;
     bool plan_valid = false;
+    // Sequencer STAGE must finish before the legacy machine can launch SWING.
+    bool sequencer_stage_pending = false;
+    // Keep the legacy contact override from lifting FL while the sequencer
+    // is still in SHIFT; SWING owns the topology handoff.
+    bool sequencer_pre_swing_pending = false;
     bool measured_contact_valid = false;
     std::array<bool, go2::kLegCount> measured_contact{};
     double measured_velocity_mps = 0.0;
@@ -366,6 +372,115 @@ inline go2::Vec3 TerrainSupportTriangleIncenter(
 // Canonical measured support margin shared by the sequencer and planner.
 // A valid lifted leg selects the other three measured feet; ADVANCE passes
 // kLegCount and uses the three currently measured contacts.
+// Four-contact STAGE uses the measured convex support polygon. The lifted
+// leg path remains the measured 3-D triangle used by SHIFT_COM.
+inline double TerrainMeasuredSupportPolygonMargin(
+    const std::array<go2::Vec3, go2::kLegCount> &feet,
+    const std::array<bool, go2::kLegCount> &contact,
+    const go2::Vec3 &com) noexcept
+{
+    std::vector<go2::Vec3> points;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        if (contact[leg] && std::isfinite(feet[leg].x) &&
+            std::isfinite(feet[leg].y))
+            points.push_back(feet[leg]);
+    if (points.size() < 3)
+        return -std::numeric_limits<double>::infinity();
+    std::sort(points.begin(), points.end(), [](const go2::Vec3 &a,
+                                               const go2::Vec3 &b) {
+        return a.x != b.x ? a.x < b.x : a.y < b.y;
+    });
+    const auto cross = [](const go2::Vec3 &a, const go2::Vec3 &b,
+                          const go2::Vec3 &p) {
+        return (b.x - a.x) * (p.y - a.y) -
+               (b.y - a.y) * (p.x - a.x);
+    };
+    std::vector<go2::Vec3> hull;
+    for (const auto &point : points) {
+        while (hull.size() >= 2 &&
+               cross(hull[hull.size() - 2], hull.back(), point) <= 0.0)
+            hull.pop_back();
+        hull.push_back(point);
+    }
+    const std::size_t lower = hull.size();
+    for (std::size_t i = points.size(); i-- > 0;) {
+        const auto &point = points[i];
+        while (hull.size() > lower &&
+               cross(hull[hull.size() - 2], hull.back(), point) <= 0.0)
+            hull.pop_back();
+        hull.push_back(point);
+    }
+    if (hull.size() > 1)
+        hull.pop_back();
+    if (hull.size() < 3 || !std::isfinite(com.x) || !std::isfinite(com.y))
+        return -std::numeric_limits<double>::infinity();
+    double margin = std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < hull.size(); ++i) {
+        const auto &a = hull[i];
+        const auto &b = hull[(i + 1) % hull.size()];
+        const double length = std::hypot(b.x - a.x, b.y - a.y);
+        if (!(length > 1.0e-9))
+            return -std::numeric_limits<double>::infinity();
+        margin = std::min(margin, cross(a, b, com) / length);
+    }
+    return margin;
+}
+
+inline go2::Vec3 TerrainMeasuredSupportPolygonIncenter(
+    const std::array<go2::Vec3, go2::kLegCount> &feet,
+    const std::array<bool, go2::kLegCount> &contact) noexcept
+{
+    std::vector<go2::Vec3> points;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        if (contact[leg] && std::isfinite(feet[leg].x) &&
+            std::isfinite(feet[leg].y))
+            points.push_back(feet[leg]);
+    if (points.size() < 3)
+        return {};
+    std::sort(points.begin(), points.end(), [](const go2::Vec3 &a,
+                                               const go2::Vec3 &b) {
+        return a.x != b.x ? a.x < b.x : a.y < b.y;
+    });
+    const auto cross = [](const go2::Vec3 &a, const go2::Vec3 &b,
+                          const go2::Vec3 &p) {
+        return (b.x - a.x) * (p.y - a.y) -
+               (b.y - a.y) * (p.x - a.x);
+    };
+    std::vector<go2::Vec3> hull;
+    for (const auto &point : points) {
+        while (hull.size() >= 2 &&
+               cross(hull[hull.size() - 2], hull.back(), point) <= 0.0)
+            hull.pop_back();
+        hull.push_back(point);
+    }
+    const std::size_t lower = hull.size();
+    for (std::size_t i = points.size(); i-- > 0;) {
+        const auto &point = points[i];
+        while (hull.size() > lower &&
+               cross(hull[hull.size() - 2], hull.back(), point) <= 0.0)
+            hull.pop_back();
+        hull.push_back(point);
+    }
+    if (hull.size() > 1)
+        hull.pop_back();
+    if (hull.size() < 3)
+        return {};
+    double sum = 0.0;
+    go2::Vec3 result{};
+    for (std::size_t i = 0; i < hull.size(); ++i) {
+        const auto &a = hull[i];
+        const auto &b = hull[(i + 1) % hull.size()];
+        const double weight = std::hypot(b.x - a.x, b.y - a.y);
+        sum += weight;
+        result.x += weight * a.x;
+        result.y += weight * a.y;
+        result.z += weight * a.z;
+    }
+    if (!(sum > 1.0e-9))
+        return {};
+    return {result.x / sum, result.y / sum, result.z / sum};
+}
+
 inline double TerrainMeasuredSupportMargin(
     const std::array<go2::Vec3, go2::kLegCount> &feet,
     const std::array<bool, go2::kLegCount> &contact,
@@ -406,6 +521,8 @@ inline double TerrainMeasuredSupportMargin(
                           cross.z * cross.z) > 1.0e-6;
         }
     }
+    if (lifted_leg >= go2::kLegCount)
+        return TerrainMeasuredSupportPolygonMargin(feet, contact, com);
     return triangle.valid
         ? MeasureTerrainSupportTriangle(triangle, com).signed_margin_m
         : -std::numeric_limits<double>::infinity();
@@ -451,6 +568,7 @@ public:
     // Order-060 requires the measured pre-SHIFT basin, not merely an edge
     // standoff. Failed basin checks get two small alternating creep probes.
     static constexpr double kStageBasinMarginM = 0.020;
+    static constexpr double kStageTargetMarginM = 0.030;
     static constexpr double kStageBasinHalfWidthM =
         0.5 * (0.330 - 0.318);
     static constexpr int kMaxStageRetries = 2;
@@ -501,6 +619,8 @@ public:
         stage_micro_adjust_until_s_ =
             -std::numeric_limits<double>::infinity();
         stage_basin_margin_m_ = -std::numeric_limits<double>::infinity();
+        stage_target_margin_m_ = -std::numeric_limits<double>::infinity();
+        stage_com_target_valid_ = false;
     }
 
     void Enter(double now_s) noexcept
@@ -528,6 +648,8 @@ public:
         stage_micro_adjust_until_s_ =
             -std::numeric_limits<double>::infinity();
         stage_basin_margin_m_ = -std::numeric_limits<double>::infinity();
+        stage_target_margin_m_ = -std::numeric_limits<double>::infinity();
+        stage_com_target_valid_ = false;
         ++transition_count_;
     }
 
@@ -635,12 +757,28 @@ public:
                 TerrainCrawlState::kStage ? go2::kLegCount :
                 ActiveLegForSupport();
             stage_basin_margin_m_ = -std::numeric_limits<double>::infinity();
+            stage_com_target_valid_ = false;
+            stage_target_margin_m_ = -std::numeric_limits<double>::infinity();
             if (signals.scripted_execution && stage_contact_ready &&
                 signals.measured_foot_valid && signals.measured_com_valid)
             {
                 stage_basin_margin_m_ = TerrainMeasuredSupportMargin(
                     signals.measured_foot_world, signals.measured_contact,
                     lifted_leg, signals.measured_com_world);
+                const auto target = TerrainMeasuredSupportPolygonIncenter(
+                    signals.measured_foot_world, signals.measured_contact);
+                stage_target_margin_m_ =
+                    TerrainMeasuredSupportPolygonMargin(
+                        signals.measured_foot_world, signals.measured_contact,
+                        target);
+                if (std::isfinite(stage_target_margin_m_) &&
+                    stage_basin_margin_m_ < kStageBasinMarginM &&
+                    stage_target_margin_m_ >= kStageTargetMarginM)
+                {
+                    com_target_world_ = target;
+                    com_target_world_.z = signals.measured_com_world.z;
+                    stage_com_target_valid_ = true;
+                }
             }
             const bool basin_ready = !signals.scripted_execution ||
                 (std::isfinite(stage_basin_margin_m_) &&
@@ -764,7 +902,9 @@ public:
                     kStableDwellS;
             const bool shift_ready = geometric_ready && ComShiftReady() &&
                 force_balanced;
-            if (signals.plan_valid && (shift_ready || stable_ready) &&
+            if (signals.plan_valid && !signals.sequencer_stage_pending &&
+                !signals.sequencer_pre_swing_pending &&
+                (shift_ready || (!signals.scripted_execution && stable_ready)) &&
                 target_leg < go2::kLegCount)
             {
                 // The gait adapter prepares the selected target after this
@@ -972,6 +1112,8 @@ public:
     int shift_recovery_count() const noexcept { return shift_recovery_count_; }
     int stage_retry_count() const noexcept { return stage_retry_count_; }
     double stage_basin_margin_m() const noexcept { return stage_basin_margin_m_; }
+    double stage_target_margin_m() const noexcept { return stage_target_margin_m_; }
+    bool stage_com_target_valid() const noexcept { return stage_com_target_valid_; }
     bool stage_micro_adjust_active(double now_s) const noexcept
     {
         return state_ == TerrainCrawlState::kStage &&
@@ -1149,6 +1291,8 @@ private:
     double stage_micro_adjust_until_s_ =
         -std::numeric_limits<double>::infinity();
     double stage_basin_margin_m_ = -std::numeric_limits<double>::infinity();
+    double stage_target_margin_m_ = -std::numeric_limits<double>::infinity();
+    bool stage_com_target_valid_ = false;
 };
 
 }  // namespace go2_terrain

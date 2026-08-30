@@ -577,6 +577,9 @@ private:
     // Signed only for the terrain STAGE basin probe; the Phase 1 velocity
     // shaper remains non-negative and bit-identical outside this window.
     double terrain_stage_direction_ = 1.0;
+    double terrain_stage_servo_acc_x_mps2_ = 0.0;
+    double terrain_stage_servo_acc_y_mps2_ = 0.0;
+    bool terrain_stage_servo_saturated_ = false;
     go2_control::GaitPattern runtime_gait_pattern_ =
         go2_control::GaitPattern::kDiagonalTrot;
     double terrain_surface_transition_target_world_z_ = 0.0;

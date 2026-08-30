@@ -48,6 +48,9 @@ struct TerrainCrawlSequencerInput
     // The running-trot phase is retained as an attribution witness. After
     // staging stops the gait, measured stance is the equivalent boundary.
     bool trot_full_contact_able = false;
+    // The legacy state machine enters STAGE after authority. Keep the two
+    // owners from launching the first swing on different ticks.
+    bool legacy_stage_ready = true;
     // Terrain SWING must wait for the measured legacy COM-shift completion
     // witness. The caller sets this only after force balance and COM margin
     // have passed; flat isolation does not use the terrain gate.
@@ -173,6 +176,8 @@ public:
     static constexpr double kTransferActivationDistanceM =
         kApproachBrakingDistanceM + kStandoffM + kApproachSafetyMarginM;
     static constexpr double kStageToleranceM = 0.015;
+    // Leave one legacy state-machine entry dwell after authority handoff so
+    // both owners observe the same four-contact STAGE before SHIFT.
     static constexpr double kStageDwellS = 0.30;
     static constexpr double kShiftDwellS = 0.12;
     static constexpr double kSwingDurationS = 0.60;
@@ -279,6 +284,9 @@ public:
                 std::abs(input.measured_pitch_rad) <= 0.08)
             {
                 authority_active_ = true;
+                // STAGE dwell starts at authority handoff, not while the
+                // window is merely armed under running-trot authority.
+                stage_stable_start_s_ = std::numeric_limits<double>::infinity();
                 if (input.measured_com_valid &&
                     std::isfinite(input.measured_com_world.x) &&
                     std::isfinite(input.measured_com_world.y) &&
@@ -315,19 +323,18 @@ public:
             const bool at_standoff = input.flat_ground_mode || staging.valid ||
                 (input.measured_feet_valid && contacts ==
                      static_cast<int>(go2::kLegCount));
+            // STAGE retains all four measured contacts. Its basin witness is
+            // the same convex polygon used by the state machine; FL's
+            // lifted triangle is selected only after SHIFT chooses a leg.
             const bool measured_basin_ready = input.flat_ground_mode ||
                 (input.measured_feet_valid && input.measured_com_valid &&
                  contacts == static_cast<int>(go2::kLegCount) &&
                  std::isfinite(TerrainMeasuredSupportMargin(
                      input.measured_feet_world, input.measured_contact,
-                     order_index_ < kLegOrder.size()
-                         ? kLegOrder[order_index_] : go2::kLegCount,
-                     input.measured_com_world)) &&
+                     go2::kLegCount, input.measured_com_world)) &&
                  TerrainMeasuredSupportMargin(
                      input.measured_feet_world, input.measured_contact,
-                     order_index_ < kLegOrder.size()
-                         ? kLegOrder[order_index_] : go2::kLegCount,
-                     input.measured_com_world) >= kBasinMarginM);
+                     go2::kLegCount, input.measured_com_world) >= kBasinMarginM);
             const bool settled = at_standoff && measured_basin_ready &&
                 (input.flat_ground_mode || contacts ==
                     static_cast<int>(go2::kLegCount)) &&
@@ -337,12 +344,14 @@ public:
                 input.measured_posture_valid &&
                 std::abs(input.measured_roll_rad) <= 0.08 &&
                 std::abs(input.measured_pitch_rad) <= 0.08;
-            if (settled)
+            if (settled && input.legacy_stage_ready)
             {
                 if (!std::isfinite(stage_stable_start_s_))
                     stage_stable_start_s_ = input.now_s;
+                const double stage_dwell_s = input.flat_ground_mode
+                    ? 0.30 : kStageDwellS;
                 if (finite_time && input.now_s - stage_stable_start_s_ + 1e-9 >=
-                        kStageDwellS)
+                        stage_dwell_s)
                     SetState(TerrainCrawlSequencerState::kShift, input.now_s);
             }
             else

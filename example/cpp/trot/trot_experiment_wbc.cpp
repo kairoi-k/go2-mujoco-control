@@ -115,6 +115,9 @@ void TrotExperiment::UpdateWbcFull(
 {
     wbc_shadow_diagnostics_.enabled = true;
     wbc_shadow_contact_state_valid_ = false;
+    terrain_stage_servo_acc_x_mps2_ = 0.0;
+    terrain_stage_servo_acc_y_mps2_ = 0.0;
+    terrain_stage_servo_saturated_ = false;
     if (!rigid_body_ || !rigid_body_->loaded())
         return;
     const double pitch_abs = std::abs(
@@ -956,7 +959,11 @@ void TrotExperiment::UpdateWbcFull(
                  terrain_crawl_state_machine_.state() ==
                      go2_terrain::TerrainCrawlState::kCrawlStep) &&
                 terrain_crawl_state_machine_.com_target_valid();
-            const auto target = terrain_swing_hold
+            const bool terrain_stage_hold =
+                terrain_crawl_state_machine_.state() ==
+                    go2_terrain::TerrainCrawlState::kStage &&
+                terrain_crawl_state_machine_.stage_com_target_valid();
+            const auto target = terrain_swing_hold || terrain_stage_hold
                 ? terrain_crawl_state_machine_.com_target_world()
                 : (terrain_crawl_sequencer_output_.com_reference_valid
                     ? terrain_crawl_sequencer_output_.com_reference_world
@@ -1392,7 +1399,11 @@ void TrotExperiment::UpdateWbcFull(
                 terrain_crawl_state_machine_.state() ==
                     go2_terrain::TerrainCrawlState::kShiftCom &&
                 terrain_crawl_state_machine_.com_target_valid();
-            if (measured_shift)
+            const bool measured_stage =
+                terrain_crawl_state_machine_.state() ==
+                    go2_terrain::TerrainCrawlState::kStage &&
+                terrain_crawl_state_machine_.stage_com_target_valid();
+            if (measured_shift || measured_stage)
             {
                 // The old SHIFT override was velocity-only, so a settled
                 // body received zero COM acceleration even with a target
@@ -1403,14 +1414,20 @@ void TrotExperiment::UpdateWbcFull(
                     terrain_crawl_state_machine_.com_target_world();
                 constexpr double kComPositionGain = 6.0;
                 constexpr double kComVelocityGain = 5.0;
-                wbc_in.desired_linear_acc_world.x() = Clamp(
-                    kComPositionGain *
+                const double raw_acc_x = kComPositionGain *
                         (com_target.x - dyn.com_world.x()) -
-                    kComVelocityGain * linear_vel_world.x(), -1.5, 1.5);
-                wbc_in.desired_linear_acc_world.y() = Clamp(
-                    kComPositionGain *
+                    kComVelocityGain * linear_vel_world.x();
+                const double raw_acc_y = kComPositionGain *
                         (com_target.y - dyn.com_world.y()) -
-                    kComVelocityGain * linear_vel_world.y(), -1.5, 1.5);
+                    kComVelocityGain * linear_vel_world.y();
+                terrain_stage_servo_acc_x_mps2_ = measured_stage ? raw_acc_x : 0.0;
+                terrain_stage_servo_acc_y_mps2_ = measured_stage ? raw_acc_y : 0.0;
+                terrain_stage_servo_saturated_ = (measured_stage || measured_shift) &&
+                    (std::abs(raw_acc_x) > 4.0 || std::abs(raw_acc_y) > 4.0);
+                wbc_in.desired_linear_acc_world.x() = Clamp(
+                    raw_acc_x, -4.0, 4.0);
+                wbc_in.desired_linear_acc_world.y() = Clamp(
+                    raw_acc_y, -4.0, 4.0);
             }
             else
             {

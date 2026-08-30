@@ -247,6 +247,17 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
                          go2_terrain::TerrainCrawlState::kStage) &&
                     !terrain_crawl_sequencer_output_.flat_ground_mode)
                 {
+                    // The measured four-contact COM target is the primary
+                    // STAGE servo. Base creep remains only as a fallback
+                    // while geometry is unavailable, avoiding a body command
+                    // that fights the support-polygon correction.
+                    if (terrain_crawl_state_machine_.stage_com_target_valid())
+                    {
+                        requested_mps = 0.0;
+                        terrain_stage_direction_ = 1.0;
+                    }
+                    else
+                    {
                     if (terrain_crawl_state_machine_.stage_micro_adjust_active(
                             absolute_gait_time_s))
                     {
@@ -268,6 +279,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
                     }
                     else
                         requested_mps = 0.0;
+                    }
                 }
                 else
                     requested_mps = 0.0;
@@ -1942,6 +1954,17 @@ bool TrotExperiment::BuildGaitTargets(
         sequencer_input.trot_full_contact_able = std::all_of(
             trot_contacts[0].begin(), trot_contacts[0].end(),
             [](bool contact) { return contact; });
+        sequencer_input.legacy_stage_ready =
+            terrain_crawl_state_machine_.state() ==
+                go2_terrain::TerrainCrawlState::kShiftCom ||
+            terrain_crawl_state_machine_.state() ==
+                go2_terrain::TerrainCrawlState::kCrawlStep ||
+            terrain_crawl_state_machine_.state() ==
+                go2_terrain::TerrainCrawlState::kAdvanceBody ||
+            terrain_crawl_state_machine_.state() ==
+                go2_terrain::TerrainCrawlState::kClear ||
+            terrain_crawl_state_machine_.state() ==
+                go2_terrain::TerrainCrawlState::kResume;
         // Gate terrain SWING on the legacy SHIFT_COM witness itself, not a
         // fixed sequencer dwell. This mirrors the state machine's measured
         // COM-margin and three-leg force-balance predicates while avoiding a
@@ -2050,6 +2073,14 @@ bool TrotExperiment::BuildGaitTargets(
             ? sequencer_output.target_valid
             : ((active_terrain_plan && active_terrain_plan->valid()) ||
                sequencer_output.target_valid);
+        crawl_signals.sequencer_stage_pending = !flat_crawl_debug &&
+            sequencer_output.state ==
+                go2_terrain::TerrainCrawlSequencerState::kStage;
+        crawl_signals.sequencer_pre_swing_pending = !flat_crawl_debug &&
+            (sequencer_output.state ==
+                 go2_terrain::TerrainCrawlSequencerState::kStage ||
+             sequencer_output.state ==
+                 go2_terrain::TerrainCrawlSequencerState::kShift);
         crawl_signals.measured_contact_valid = wbc_shadow_contact_state_valid_;
         crawl_signals.measured_contact = wbc_shadow_contact_state_;
         crawl_signals.measured_com_valid = have_measured_com_world_;

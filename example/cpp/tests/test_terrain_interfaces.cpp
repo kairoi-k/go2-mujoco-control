@@ -1856,6 +1856,10 @@ int main()
         x.now_s += go2_terrain::TerrainCrawlStateMachine::kStageSettleS;
         m.Update(x);
         x.target_valid[1] = true;
+        // This unit fixture exercises the asymmetric recovery arithmetic;
+        // scripted terrain windows additionally require the strict +20 mm
+        // measured release before launching a swing.
+        x.scripted_execution = false;
         // Keep the STAGE witness inside the measured basin, then exercise
         // the asymmetric SHIFT recovery from a disturbed COM sample.
         x.measured_com_world = {0.30, -0.19, 0.0};
@@ -2025,7 +2029,7 @@ int main()
         x.measured_contact = {true, true, true, true};
         x.now_s = 0.31;
         seq.Update(x);
-        x.now_s = 0.62;
+        x.now_s = 0.32 + go2_terrain::TerrainCrawlSequencer::kStageDwellS;
         seq.Update(x);
         if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kShift,
                    "sequencer did not finish STAGE dwell")) return 1;
@@ -2053,7 +2057,8 @@ int main()
                     go2_terrain::TerrainCrawlSequencerState::kAbort)
                 return 1;
         }
-        x.now_s = 0.75;
+        x.now_s = 0.32 + go2_terrain::TerrainCrawlSequencer::kStageDwellS +
+            go2_terrain::TerrainCrawlSequencer::kShiftDwellS + 0.01;
         seq.Update(x);
         if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kSwing &&
                        seq.active_leg() == 1 && seq.output().target_valid &&
@@ -2223,6 +2228,29 @@ int main()
         if (!Check(seq.Update(x) ==
                        go2_terrain::TerrainCrawlSequencerState::kAbort,
                    "sequencer did not abort an empty terrain stage")) return 1;
+    }
+
+    // Order-062: STAGE's +20 mm gate is the measured four-contact polygon;
+    // FL's post-lift witness remains a separate three-contact triangle.
+    {
+        const std::array<go2::Vec3, go2::kLegCount> feet{
+            go2::Vec3{0.30, -0.20, 0.0}, go2::Vec3{0.30, 0.20, 0.0},
+            go2::Vec3{-0.30, -0.20, 0.0}, go2::Vec3{-0.30, 0.20, 0.0}};
+        const std::array<bool, go2::kLegCount> contacts{true, true, true, true};
+        const double stage_margin = go2_terrain::TerrainMeasuredSupportMargin(
+            feet, contacts, go2::kLegCount, go2::Vec3{0.0, 0.0, 0.0});
+        const auto target = go2_terrain::TerrainMeasuredSupportPolygonIncenter(
+            feet, contacts);
+        if (!Check(std::abs(stage_margin - 0.20) < 1.0e-9 &&
+                       go2_terrain::TerrainMeasuredSupportPolygonMargin(
+                           feet, contacts, target) >= 0.030,
+                   "STAGE did not use the four-contact polygon margin")) return 1;
+        const auto triangle = go2_terrain::ComputeTerrainSupportTriangle(feet, 1);
+        const double fl_margin = go2_terrain::MeasureTerrainSupportTriangle(
+            triangle, go2::Vec3{0.0, 0.0, 0.0}).signed_margin_m;
+        if (!Check(std::isfinite(fl_margin) &&
+                       std::abs(fl_margin - stage_margin) > 1.0e-9,
+                   "FL triangle witness was not distinct from STAGE polygon")) return 1;
     }
 
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";
