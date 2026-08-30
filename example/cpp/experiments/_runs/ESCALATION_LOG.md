@@ -1593,3 +1593,122 @@ validation: |
   ADVANCE_BODY; final repeated failure is FL CRAWL_STEP/recovery with zero
   commit in epoch79-80. No gate-level conclusion.
 git_status: local docs commit pending; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-09-01T05:00:00+0800
+run_id: Order-040 cycle-1 ADVANCE_BODY attack b1_script_epoch81_20260828 (+ _r2)
+trigger: T1
+reliability_table: |
+  Recomputed from all 82 on-record b1_sm/b1_script data.csv runs epoch40+
+  (including retries), using state transitions and the measured surface
+  transition committed mask (FR=1, FL=2, RR=4, RL=8). Window entry is
+  DECELERATE_TO_CREEP; each later denominator is the preceding rung.
+  window entry 82/82=100.0% (failure 0.0%); survive DECEL|entry
+  67/82=81.7% (18.3%); SHIFT converge|DECEL 46/67=68.7% (31.3%);
+  FL commit|SHIFT 12/46=26.1% (73.9%); FR SHIFT converge|FL
+  4/12=33.3% (66.7%); FR commit|FR SHIFT 1/4=25.0% (75.0%);
+  ADVANCE|FR 0/1=0.0% (100.0%); RR|ADVANCE N/A (0/0);
+  RL|RR N/A (0/0); CLEAR+RESUME|RL N/A (0/0). Ranked measurable
+  conditional failures: ADVANCE 100.0%, FR commit 75.0%, FL commit
+  73.9%, FR SHIFT 66.7%, SHIFT 31.3%, DECEL 18.3%, entry 0.0%.
+  Rear/CLEAR rates are unestimable, not zero-rate claims.
+implementation: |
+  8a3c607 changes only v2 terrain-window ADVANCE_BODY behavior. The
+  previous branch commanded 0.0 m/s while waiting for rear_targets_fk_reachable,
+  making measured FK reachability self-blocking. It now commands the bounded
+  0.12 m/s crawl during ADVANCE_BODY; SHIFT_COM/CRAWL_STEP remain stopped.
+  No alternate leg order was prototyped because ADVANCE_BODY, not alternating
+  COM shift, is the worst measured rung.
+canary_command: |
+  Serial flock -x /tmp/go2_mujoco_experiment.lock; domain 229;
+  LD_PRELOAD=/home/che/dds_base4000_preload.so; run_trot.sh 35;
+  unchanged epoch28 arguments, --controller-duration 30, phase2_step_5cm.xml.
+canary_trace: |
+  b1_script_epoch81_20260828 entered APPROACH 6.328, DECEL 6.330,
+  SHIFT_COM 6.574, CRAWL_STEP(FL) 8.214; no commit before last
+  cmd_time 11.482, base_x=0.641. _r2 entered APPROACH 6.270, DECEL
+  6.272, SHIFT_COM 6.964, CRAWL_STEP(FL) 9.228, retried FL at 9.990,
+  then committed FL at 10.582 (mask=2, step_commits=1); no FR or
+  ADVANCE_BODY before last cmd_time 14.644, base_x=0.424. Neither
+  reached the attacked rung. These are exploratory outcomes, not a gate.
+validation: |
+  cmake --build example/cpp/build -j2 and ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 passed. No analyzer,
+  v1 contract, or canary definition changed; source/test commit is 8a3c607.
+git_status: implementation committed; docs append pending commit; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-09-01T07:30:00+0800
+run_id: Order-040 cycle-2 ADVANCE_BODY attack b1_script_epoch82_20260828 (+ _r2)
+trigger: T1
+implementation: 8a3c607 unchanged; no source change because cycle-1 did not reach ADVANCE_BODY.
+canary_command: |
+  Serial flock -x /tmp/go2_mujoco_experiment.lock; domain 229;
+  LD_PRELOAD=/home/che/dds_base4000_preload.so; unchanged epoch28
+  run_trot command with --controller-duration 30 and wall timeout 35.
+canary_trace: |
+  r1: APPROACH 6.354, DECEL 6.356, SHIFT_COM 6.598,
+  CRAWL_STEP(FL) 9.000; no FL/FR commit, ADVANCE_BODY absent;
+  last cmd_time 12.184, base_x=0.503. r2: APPROACH 6.290, DECEL
+  6.292, SHIFT_COM 6.710, CRAWL_STEP(FL) 7.870; no commit or
+  ADVANCE_BODY; last cmd_time 10.716, base_x=0.355. No attacked-rung
+  observation; exploratory only.
+validation: ctest 27/27 passed at 8a3c607; no analyzer/v1/canary changes.
+git_status: implementation committed; docs append pending commit; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-09-01T10:00:00+0800
+run_id: Order-040 cycle-3 ADVANCE_BODY attack b1_script_epoch83_20260828 (+ _r2)
+trigger: T1
+implementation: 8a3c607 unchanged; no source change because ADVANCE_BODY remained unobserved.
+canary_command: Serial flock/domain 229, Base=4000 preload, --controller-duration 30, wall timeout 35, unchanged B1 command.
+canary_trace: |
+  r1 reached APPROACH 6.350, DECEL 6.352, SHIFT_COM 6.594 and
+  CRAWL_STEP(FL) 9.730; no commit or ADVANCE_BODY, last cmd_time
+  12.984, base_x=0.500. r2 reached APPROACH 6.382, DECEL 6.384,
+  SHIFT_COM 6.626 and stopped before CRAWL_STEP at cmd_time 10.172,
+  base_x=0.507. The attack was not exercised; exploratory only.
+validation: ctest 27/27 passed at 8a3c607; no analyzer/v1/canary changes.
+git_status: implementation committed; docs append pending commit; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-09-01T12:30:00+0800
+run_id: Order-040 cycle-4 ADVANCE_BODY attack b1_script_epoch84_20260828 (+ _r2)
+trigger: T1
+implementation: 8a3c607 unchanged; no source change because the predecessor FR rung did not commit.
+canary_command: Serial flock/domain 229, Base=4000 preload, --controller-duration 30, wall timeout 35, unchanged B1 command.
+canary_trace: |
+  r1 reached APPROACH 6.322, DECEL 6.324, SHIFT_COM 6.568,
+  FL CRAWL_STEP 7.916, retried into SHIFT_COM 8.160 and FL
+  CRAWL_STEP 9.700, with no FL commit/FR/ADVANCE; last cmd_time
+  13.004, base_x=0.492. r2 reached APPROACH 6.292, DECEL 6.294,
+  SHIFT_COM 7.100 but no CRAWL_STEP; last cmd_time 10.630,
+  base_x=0.425. Attack not exercised; exploratory only.
+validation: ctest 27/27 passed at 8a3c607; no analyzer/v1/canary changes.
+git_status: implementation committed; docs append pending commit; no push/amend; simulations serialized.
+
+b0: |
+  Required B0 fixed pair was attempted serially after 8a3c607. Both
+  baseline domain 222 and terrain domain 223 aborted before DDS bridge
+  readiness with 'Failed to find a free participant index'; no analyzer
+  result exists. This is an environment/DDS allocation failure, not a
+  B0 regression result. Existing recorded B0 PASS remains the prior
+  fixed-pair evidence; no B0 conclusion is inferred from this attempt.
+
+---
+timestamp: 2026-09-01T14:00:00+0800
+run_id: Order-040 stuck report after cycle-4 (3 same-signature cycles)
+trigger: T1
+verdict: |
+  Stopped under the three-cycle same-signature rule. The worst measured
+  conditional rung is ADVANCE_BODY|FR: 0/1=0.0%, failure 100.0%; only
+  one FR-commit predecessor reached it, so the estimate is sparse. The
+  attacked change 8a3c607 makes ADVANCE_BODY issue a bounded 0.12 m/s
+  creep instead of the previous 0.0 m/s self-blocking command, but all
+  four new pairs stopped before ADVANCE_BODY (three at FL/no commit or
+  retry, one before CRAWL_STEP). The next measured failures are FR
+  commit|FR SHIFT 1/4=25.0% (75.0%) and FL commit|SHIFT 13/52=25.0%
+  (75.0%) over the updated 90-run table. RR/RL/CLEAR+RESUME remain
+  N/A (zero reached denominators), not zero-rate claims. No complete
+  crossing or confirmation was achieved; no gate conclusion.
+git_status: implementation commit 8a3c607; docs append pending commit; no push/amend; simulations serialized.
