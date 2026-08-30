@@ -3208,3 +3208,46 @@ validation: |
   No staged full-sequence, full reconnect, B0, or flat 20/20 claim is made.
 commit_chain: |
   f736ac9, 950af46, f107374, 02586b2, 5288174, 7757410. No push or amend.
+
+---
+
+Order-069 implementation update — 2026-09-02
+
+source_sha: ee27d68f630b70800f4fc45913fd4fbe8d09074c
+forensics: |
+  Historical staged fix29 remains the clean FR-swing witness: after FL
+  committed at z≈0.0735 m on the 0.05 m plateau, FR SWING used the
+  {FL,RR,RL} support plane (reference pitch about -0.099 rad), while the
+  measured COM margin stayed +0.0723 m. FR's commanded/ID-WBC force was
+  near 0 while its foot rose from z≈0.023 m to z≈0.126 m, so FR=0 is the
+  swing-leg command, not an intentional support unload. The failure witness
+  was the remaining stance collapse: front/rear sensor forces could fall to
+  about 2/2/68/35 N even while the ID-WBC requested a loaded stance and the
+  COM witness remained positive. The mixed-height support was therefore
+  exposed to a discontinuous force allocation when the swing wrench crossed
+  its apex; the raised FL geometry was present in the measured plane, but
+  force tracking was too weak to keep one bounded three-foot allocation.
+fix: |
+  In the terrain-only FR SWING with a valid raised-support stance plane,
+  reduce ID-WBC swing-task weight from 80 to 35 so swing acceleration does
+  not spend the three-foot torque budget. In the same scoped handoff,
+  increase captured three-foot preload force tracking from 0.10 to 0.50;
+  the normal-force floors and existing 30 N terrain floor remain unchanged.
+  This keeps the Order-068 COM latch, bounded servo, touchdown height, and
+  stance-plane reference intact. Flat WBC, v1 contract, analyzer thresholds,
+  canary, and safety gates were not changed.
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  Post-fix staged runs were serial under /tmp/go2_mujoco_experiment.lock,
+  domain 229, LD_PRELOAD=/home/che/dds_base4000_preload.so,
+  FULL2_TAU=45, duration 30, wall 35: fix34 and fix35 both reached
+  FL COMMIT then FR SHIFT->SWING with COM margin +0.075..+0.085 m,
+  ID forces approximately FR/FL/RR/RL=0/47..51/57..60/50..52 N,
+  raised FL foot z≈0.073 m, and FR foot z≈0.126 m; both later lost
+  physical rear support during FR descent and aborted before FR COMMIT.
+  fix36 stopped before FL COMMIT. Thus staged full sequence >=3,
+  full reconnect, B0 3x, and flat 20/20 were not achieved in this window.
+commit_chain: |
+  f736ac9, 950af46, f107374, 02586b2, 5288174, 7757410, a7ea85c,
+  ee27d68. Documentation append is pending its own commit. No push or amend.
