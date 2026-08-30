@@ -2194,3 +2194,19 @@ canary_cycle_131_139: |
 validation: |
   Serial lock/domain discipline used: flock -x /tmp/go2_mujoco_experiment.lock, domain 229, Base=4000 DDS preload, run_trot.sh 35, --controller-duration 30. cmake --build example/cpp/build -j2 passed; ctest --test-dir example/cpp/build --output-on-failure: 27/27 passed. No push/amend.
 git_status: implementation and this evidence append are local and will be committed together; no staged files after commit.
+
+---
+timestamp: 2026-09-01T20:55:00+0800
+run_id: Order-049 canary epoch141 post-commit
+trigger: T1
+canary_cycle_141: |
+  Serial flock lock, domain 229, Base=4000 preload, run_trot.sh 35,
+  --controller-duration 30; exact implementation SHA
+  bd2d7348813e7b42f419fc0f775ebba585043f0e, git_dirty=false. The
+  run reached STAGE->SHIFT->SWING at state tick 9.620, then ABORT at
+  10.046; committed mask remained 0. No complete crossing or
+  confirmation. This is a stuck report, not a gate conclusion.
+validation: |
+  The post-commit metadata records exact SHA and clean source. ctest
+  remains 27/27 passed from the committed source; no push or amend.
+git_status: evidence append is local and will be committed promptly; no staged files after commit.
