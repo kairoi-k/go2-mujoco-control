@@ -1343,3 +1343,63 @@ validation: |
   so ADVANCE_BODY and rear progress were not reached.
 
 git_status: local implementation/docs append pending commit; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-31T12:30:00+0800
+run_id: Order-037 FR target-validity + runtime budget b1_script_epoch71_20260828 (+ _r2)
+trigger: T1
+implementation: |
+  FR target_validity=0 was a handoff race, not a right-side map starvation.
+  MeasureTerrainScriptTarget supplied both sides from the lidar grid; epoch70
+  planner candidate counts were FR 23-124 versus FL 21-128, and epoch71 were
+  FR 0-124 versus FL 0-128 (swing candidates reached 8 on both). The target
+  itself was prepared during entry/SHIFT_COM but was erased by each newer
+  planner snapshot because only an in-flight/held transaction was retained;
+  when CRAWL_STEP began, find_planned_foothold only accepted scripted_target
+  in CRAWL_STEP, leaving target_valid=0. A nominal FR target could also enter
+  the trot swing before the fixed handoff and be rejected at the leading edge.
+  The fix keeps prepared targets for the active transfer window, recognizes
+  the scripted target during the selected SHIFT_COM, suppresses pre-handoff
+  nominal flight, and always retimes the prepared endpoint at CRAWL_STEP.
+  The unit fixture confirms FR and FL receive deterministic edge-safe supply.
+
+runtime: |
+  Script canary duration was extended at harness invocation only from 20 s
+  (epoch70 metadata) to controller-duration=30 with wall timeout 35 s. No
+  analyzer threshold, contract, or canary definition changed. Both epoch71
+  manifests record controller_duration_s=30; analyzer was invoked unchanged
+  by run_trot.sh and emitted the normal JSON status. The B0 fixed-pair analyzer
+  compatibility/hash checks passed with the same analyzer and contract hashes.
+
+canary_command: |
+  Serial flock -x /tmp/go2_mujoco_experiment.lock; LD_PRELOAD=
+  /home/che/dds_base4000_preload.so; domain 229; phase2_step_5cm.xml;
+  unchanged epoch28 controller arguments; --controller-duration 30.
+
+canary_trace: |
+  b1_script_epoch71_20260828: 5861 rows, last cmd_time 11.720 s before
+  posture stop. APPROACH 6.310; DECELERATE_TO_CREEP 6.312-6.710;
+  SHIFT_COM 6.712-11.720; CRAWL_STEP active FL(index 1) 7.350-7.590 and
+  8.190-8.780; no FR(index 0) CRAWL_STEP. FR execution valid 2706 rows,
+  candidate count 0-124, swing candidates reached 8; FL valid 2504 rows,
+  candidate count 0-128, swing candidates reached 8. FL measured touchdown
+  1471 rows and committed mask=2; FR measured/commit=0. No ADVANCE_BODY.
+  b1_script_epoch71_20260828_r2: 5519 rows, last cmd_time 11.036 s before
+  posture stop. APPROACH 6.274; DECELERATE_TO_CREEP 6.276-6.988;
+  SHIFT_COM 6.990-7.840; ABORT 7.842-11.036; no CRAWL_STEP. FR valid
+  2382 rows, candidate count 0-124, swing candidates reached 8; FL valid
+  2024 rows, candidate count 0-128; no measured FR/FL commit. Runtime was
+  sufficient to attempt the sequence; FR commit success criterion remains
+  NOT achieved and no gate conclusion is made.
+
+validation: |
+  ctest --output-on-failure: 27/27 passed. B0 fixed pair at
+  phase2_b0_development_fixed_3mps_r0_20260830_094801: acceptance_status PASS,
+  analyzer_hash=true, contract_hash=true, no_terrain_actuation=true,
+  planner_updated=true, planner_deadline_misses=0. Epoch71 analyzer reports
+  completion false because the canaries stopped before FR, which is expected
+  exploratory evidence rather than a threshold change.
+
+git_status: |
+  local commits f308674, 25b939a, 8561a7b, 996ffb4, 891aebb, 7285da3;
+  no push/amend; simulations serialized; final tree clean.
