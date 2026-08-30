@@ -72,9 +72,6 @@ struct TerrainCrawlSequencerInput
     bool base_clear = false;
     bool all_feet_clear = false;
     bool stable = false;
-    // Terrain uses a longer flight; flat isolation keeps the established
-    // 0.60 s timing through its default.
-    double swing_duration_s = 0.60;
     double now_s = 0.0;
 };
 
@@ -300,10 +297,6 @@ public:
             break;
         case TerrainCrawlSequencerState::kSwing:
         {
-            const double swing_duration_s =
-                std::isfinite(input.swing_duration_s) &&
-                    input.swing_duration_s > 1.0e-3
-                ? input.swing_duration_s : kSwingDurationS;
             if (active_leg() >= go2::kLegCount)
                 break;
             // COMMIT is a measured event: endpoint position and the
@@ -317,7 +310,7 @@ public:
                       (!input.flat_ground_mode || !finite_time ||
                        input.now_s - state_enter_s_ + 1e-9 >= 0.20)) ||
                      (finite_time &&
-                      input.now_s - state_enter_s_ + 1e-9 >= swing_duration_s))
+                      input.now_s - state_enter_s_ + 1e-9 >= kSwingDurationS))
                 SetState(TerrainCrawlSequencerState::kAbort, input.now_s);
             break;
         }
@@ -616,19 +609,15 @@ private:
         }
         if (finite(input.now_s) && state_ == TerrainCrawlSequencerState::kSwing)
         {
-            const double swing_duration_s =
-                std::isfinite(input.swing_duration_s) &&
-                    input.swing_duration_s > 1.0e-3
-                ? input.swing_duration_s : kSwingDurationS;
             output_.swing_phase = std::clamp(
-                (input.now_s - state_enter_s_) / swing_duration_s, 0.0, 1.0);
+                (input.now_s - state_enter_s_) / kSwingDurationS, 0.0, 1.0);
             const double u = output_.swing_phase;
             const double progress = u * u * (3.0 - 2.0 * u);
             const double progress_rate = 6.0 * u * (1.0 - u) /
-                swing_duration_s;
+                kSwingDurationS;
             const double arch = output_.swing_lift_m * 4.0 * u * (1.0 - u);
             const double arch_rate = output_.swing_lift_m * 4.0 *
-                (1.0 - 2.0 * u) / swing_duration_s;
+                (1.0 - 2.0 * u) / kSwingDurationS;
             output_.swing_position_world = {
                 swing_start_.x + progress * (target_.x - swing_start_.x),
                 swing_start_.y + progress * (target_.y - swing_start_.y),
