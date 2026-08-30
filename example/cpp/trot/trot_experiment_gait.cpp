@@ -2364,14 +2364,32 @@ bool TrotExperiment::BuildGaitTargets(
                 pending = {};
             }
             // A target prepared during SHIFT_COM belongs to the emergent
-            // gait timeline. Once the state machine grants CRAWL_STEP, the
-            // scripted target must own the handoff and its fixed 0.60 s
-            // deadline; otherwise the old short window is immediately
-            // rejected by the swing-boundary rebase (failure=6).
+            // gait timeline. Once the state machine grants CRAWL_STEP, keep
+            // its already validated endpoint but retime the handoff to the
+            // fixed script deadline. Dropping it would make the next map
+            // snapshot's optional script target a flaky launch dependency.
             if (explicit_crawl_step && execution.valid &&
-                !execution.in_flight && !execution.endpoint_held)
+                !execution.in_flight && !execution.endpoint_held &&
+                !execution.time_rebased_at_handoff)
             {
-                execution = {};
+                execution.trajectory_start_time_s = terrain_now_s;
+                execution.swing_start_time_s = terrain_now_s;
+                execution.nominal_touchdown_time_s = terrain_now_s +
+                    go2_terrain::TerrainCrawlScript::kSwingDurationS;
+                execution.touchdown_time_s =
+                    execution.nominal_touchdown_time_s;
+                execution.swing_duration_s =
+                    go2_terrain::TerrainCrawlScript::kSwingDurationS;
+                execution.terrain_swing_duration_s =
+                    execution.swing_duration_s;
+                execution.planned_swing_duration_s =
+                    execution.swing_duration_s;
+                execution.swing_peak_phase =
+                    go2_terrain::TerrainCrawlScript::kSwingApexPhase;
+                execution.swing_leading_edge_phase =
+                    go2_terrain::TerrainCrawlScript::kSwingApexPhase;
+                execution.swing_leading_edge_phase_valid = true;
+                execution.time_rebased_at_handoff = true;
                 pending = {};
             }
             const bool explicit_active_leg =
