@@ -2789,3 +2789,44 @@ validation: |
   ctest was 27/27. Implementation commit 6263c35 is clean before evidence
   append. No v1 contract, analyzer threshold, or canary definition changed.
 git_status: evidence append is to be committed; no staged files.
+
+---
+timestamp: 2026-09-02T00:00:00+0800
+run_id: Order-061 authority attribution and measured-stand handoff
+trigger: T1
+configuration: |
+  HEADs 0baf659, 54ae228, a5394ae, 0a49bba, 774003e; serial flock
+  /tmp/go2_mujoco_experiment.lock, LD_PRELOAD=/home/che/dds_base4000_preload.so,
+  domain 229, Base=4000, phase2_step_5cm.xml, controller-duration 30,
+  wall 35, running-trot/wbc-full, seeds 195..215.
+attribution: |
+  The authority boundary was blocked by the trot_full_contact_able phase
+  predicate after braking: STAGE rows commonly had 4 measured contacts,
+  speed below 0.04 m/s, and roll/pitch within 0.08 rad, while the sampled
+  trot phase flag was 0. The new per-tick CSV witness records contacts,
+  speed, roll, pitch, trot flag, block reason (1=trot, 2=contacts,
+  3=speed, 4=posture), and stage abort reason. After the one-tick measured
+  stance boundary, authority became active; the remaining stop was the
+  legacy STAGE measured basin/settle path, not authority acquisition.
+implementation: |
+  0baf659 adds the authority witness telemetry and removes the second-tick
+  trot-phase dependency, making authority reachable from a measured
+  >=3-contact standstill. 54ae228 refreshes the edge target while STAGE
+  owns authority. a5394ae permits the measured STAGE servo after map-edge
+  expiry. 0a49bba extends its bounded probe to 0.50 s. 774003e permits
+  measured four-contact basin release when the transient map edge is invalid;
+  the +0.020 m measured basin gate remains unchanged.
+scan: |
+  b1_order061_final_seed195..215 completed 21 serial runs. Authority was
+  observed in all 21 runs, but FL terrain commits were 0/21; deepest
+  sequencer state was STAGE then ABORT. Representative final STAGE measured
+  margins were +0.0067..+0.0134 m (seed195) and +0.0052..+0.0102 m
+  (seed204), below the unchanged +0.020 m basin release. Thus the 3/21
+  unshaped baseline was not exceeded and downstream epoch244+ canary was
+  not run.
+validation: |
+  cmake --build example/cpp/build -j2 and ctest --test-dir
+  example/cpp/build --output-on-failure passed 27/27 after each code round;
+  git diff --check passed. No v1 contract, analyzer threshold, or canary
+  definition changed; no push/amend.
+git_status: evidence append pending commit; no staged files.
