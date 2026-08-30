@@ -1388,10 +1388,37 @@ void TrotExperiment::UpdateWbcFull(
                  go2_terrain::TerrainCrawlState::kCrawlStep ||
              sequencer_swing_hold))
         {
-            wbc_in.desired_linear_acc_world.x() = Clamp(
-                -5.0 * linear_vel_world.x(), -1.5, 1.5);
-            wbc_in.desired_linear_acc_world.y() = Clamp(
-                -5.0 * linear_vel_world.y(), -1.5, 1.5);
+            const bool measured_shift =
+                terrain_crawl_state_machine_.state() ==
+                    go2_terrain::TerrainCrawlState::kShiftCom &&
+                terrain_crawl_state_machine_.com_target_valid();
+            if (measured_shift)
+            {
+                // The old SHIFT override was velocity-only, so a settled
+                // body received zero COM acceleration even with a target
+                // outside the measured support triangle. Apply a bounded
+                // world-frame position servo only during measured SHIFT;
+                // SWING/CRAWL_STEP retain the braking damper.
+                const auto com_target =
+                    terrain_crawl_state_machine_.com_target_world();
+                constexpr double kComPositionGain = 6.0;
+                constexpr double kComVelocityGain = 5.0;
+                wbc_in.desired_linear_acc_world.x() = Clamp(
+                    kComPositionGain *
+                        (com_target.x - dyn.com_world.x()) -
+                    kComVelocityGain * linear_vel_world.x(), -1.5, 1.5);
+                wbc_in.desired_linear_acc_world.y() = Clamp(
+                    kComPositionGain *
+                        (com_target.y - dyn.com_world.y()) -
+                    kComVelocityGain * linear_vel_world.y(), -1.5, 1.5);
+            }
+            else
+            {
+                wbc_in.desired_linear_acc_world.x() = Clamp(
+                    -5.0 * linear_vel_world.x(), -1.5, 1.5);
+                wbc_in.desired_linear_acc_world.y() = Clamp(
+                    -5.0 * linear_vel_world.y(), -1.5, 1.5);
+            }
         }
         const bool stop_balance =
             EmergencyStopHoldReady() ||

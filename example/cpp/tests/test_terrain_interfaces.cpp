@@ -1530,8 +1530,9 @@ int main()
             return 1;
     }
 
-    // An outside COM must approach the support-triangle centroid gradually;
-    // the first valid target remains at the measured COM instead of jumping.
+    // An outside COM must approach the measured support-triangle incenter
+    // gradually; the first valid target remains at the measured COM instead
+    // of jumping.
     {
         const std::array<go2::Vec3, go2::kLegCount> feet{
             go2::Vec3{0.30, -0.20, 0.0}, go2::Vec3{0.30, 0.20, 0.0},
@@ -1588,14 +1589,21 @@ int main()
             triangle);
         const auto metrics = go2_terrain::MeasureTerrainSupportTriangle(
             triangle, centroid);
+        const auto incenter = go2_terrain::TerrainSupportTriangleIncenter(
+            triangle);
+        const auto interior_metrics = go2_terrain::MeasureTerrainSupportTriangle(
+            triangle, incenter);
         const auto plane = go2_terrain::ComputeTerrainStancePlane(
             triangle, 0.0);
         if (!Check(triangle.valid && metrics.valid && metrics.inside,
                    "mixed-height support triangle was invalid") ||
             !Check(std::abs(centroid.z - 0.0166666667) < 1.0e-9,
                    "support centroid discarded raised-foot height") ||
-            !Check(metrics.signed_margin_m >= 0.02,
-                   "mixed-height support margin was too small") ||
+            !Check(interior_metrics.valid && interior_metrics.inside &&
+                       interior_metrics.signed_margin_m >=
+                           metrics.signed_margin_m &&
+                       interior_metrics.signed_margin_m >= 0.02,
+                   "support incenter did not provide positive interior margin") ||
             !Check(plane.valid && plane.pitch_rad < -0.07 &&
                        std::abs(plane.roll_rad) < 1.0e-9,
                    "stance plane did not produce the expected pitch reference"))

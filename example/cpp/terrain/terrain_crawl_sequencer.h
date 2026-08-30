@@ -625,7 +625,7 @@ private:
                 if (triangle.valid)
                 {
                     output_.com_reference_world =
-                        TerrainSupportTriangleCentroid(triangle);
+                        TerrainSupportTriangleIncenter(triangle);
                     output_.com_reference_valid = true;
                 }
             }

@@ -335,6 +335,34 @@ inline go2::Vec3 TerrainSupportTriangleCentroid(
             (triangle.vertex[0].z + triangle.vertex[1].z + triangle.vertex[2].z) / 3.0};
 }
 
+// The incenter is the measured support triangle's most interior point.
+// Weighting vertices by their opposite 3-D edge lengths keeps the target on
+// the measured support plane, including a raised terrain vertex.
+inline go2::Vec3 TerrainSupportTriangleIncenter(
+    const TerrainSupportTriangle &triangle) noexcept
+{
+    if (!triangle.valid)
+        return {};
+    const auto edge_length = [](const go2::Vec3 &a, const go2::Vec3 &b) {
+        return std::hypot(std::hypot(a.x - b.x, a.y - b.y), a.z - b.z);
+    };
+    const double weight0 = edge_length(triangle.vertex[1], triangle.vertex[2]);
+    const double weight1 = edge_length(triangle.vertex[0], triangle.vertex[2]);
+    const double weight2 = edge_length(triangle.vertex[0], triangle.vertex[1]);
+    const double perimeter = weight0 + weight1 + weight2;
+    if (!std::isfinite(perimeter) || perimeter <= 1.0e-9)
+        return {};
+    return {(weight0 * triangle.vertex[0].x +
+             weight1 * triangle.vertex[1].x +
+             weight2 * triangle.vertex[2].x) / perimeter,
+            (weight0 * triangle.vertex[0].y +
+             weight1 * triangle.vertex[1].y +
+             weight2 * triangle.vertex[2].y) / perimeter,
+            (weight0 * triangle.vertex[0].z +
+             weight1 * triangle.vertex[1].z +
+             weight2 * triangle.vertex[2].z) / perimeter};
+}
+
 class TerrainCrawlStateMachine
 {
 public:
@@ -344,7 +372,7 @@ public:
     static constexpr double kComMarginM = 0.02;
     static constexpr double kComShiftRampS = 0.40;
     // Asymmetric support can need more than the symmetric 0.40 s ramp. The
-    // duration is selected from measured COM-to-centroid displacement.
+    // duration is selected from measured COM-to-incenter displacement.
     static constexpr double kComShiftRampMaxS = 1.20;
     static constexpr double kComShiftDistanceRateMps = 0.10;
     static constexpr double kStableComMarginM = -0.040;
@@ -866,19 +894,21 @@ private:
             return;
         }
 
-        // A centroid target can be about 100 mm from the measured COM at
-        // handoff. Start at the measured point and ramp the existing WBC
-        // reference, rather than injecting that displacement in one MPC
-        // update and unloading the stance legs. Asymmetric shifts get a
-        // displacement-proportional ramp, capped to keep recovery bounded.
-        const auto centroid = TerrainSupportTriangleCentroid(triangle);
+        // The centroid can leave the measured COM close to an edge on an
+        // asymmetric triangle. Use the measured triangle's incenter so the
+        // final reference has a positive inward edge margin. Start at the
+        // measured point and ramp the existing WBC reference, rather than
+        // injecting that displacement in one MPC update and unloading the
+        // stance legs. Asymmetric shifts get a displacement-proportional
+        // ramp, capped to keep recovery bounded.
+        const auto interior = TerrainSupportTriangleIncenter(triangle);
         if (!com_shift_start_valid_)
         {
             com_shift_start_world_ = signals.measured_com_world;
             com_shift_start_time_s_ = signals.now_s;
             const double distance = std::hypot(
-                centroid.x - com_shift_start_world_.x,
-                centroid.y - com_shift_start_world_.y);
+                interior.x - com_shift_start_world_.x,
+                interior.y - com_shift_start_world_.y);
             com_shift_duration_s_ = asymmetric_shift_
                 ? std::clamp(
                       kComShiftRampS + distance / kComShiftDistanceRateMps,
@@ -891,11 +921,11 @@ private:
             elapsed / com_shift_duration_s_, 0.0, 1.0);
         com_target_world_ = {
             com_shift_start_world_.x +
-                alpha * (centroid.x - com_shift_start_world_.x),
+                alpha * (interior.x - com_shift_start_world_.x),
             com_shift_start_world_.y +
-                alpha * (centroid.y - com_shift_start_world_.y),
+                alpha * (interior.y - com_shift_start_world_.y),
             com_shift_start_world_.z +
-                alpha * (centroid.z - com_shift_start_world_.z)};
+                alpha * (interior.z - com_shift_start_world_.z)};
     }
 
     bool ComShiftReady() const noexcept
