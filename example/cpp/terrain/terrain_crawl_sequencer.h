@@ -79,6 +79,8 @@ struct TerrainCrawlSequencerInput
     bool base_clear = false;
     bool all_feet_clear = false;
     bool stable = false;
+    // Measured support margin from the legacy SHIFT_COM witness.
+    double com_margin_m = -std::numeric_limits<double>::infinity();
     double now_s = 0.0;
 };
 
@@ -185,6 +187,10 @@ public:
     static constexpr double kStageDwellS = 0.30;
     static constexpr double kShiftDwellS = 0.12;
     static constexpr double kSwingDurationS = 0.60;
+    // A force-filter contact bit can drop briefly as the unloaded leg clears
+    // the stance. Keep the existing fixed swing deadline as the safety bound;
+    // a persistent loss still aborts at that deadline.
+    static constexpr double kSwingSupportLossDeadlineS = kSwingDurationS;
     static constexpr double kCommitToleranceM = 0.045;
     static constexpr double kResumeDwellS = 0.45;
     static constexpr double kStageTimeoutS = 4.0;
@@ -387,8 +393,7 @@ public:
                 if (measured_margin_valid &&
                     (measured_margin >= 0.0 ||
                      input.flat_ground_mode) &&
-                    (input.flat_ground_mode || input.legacy_shift_ready ||
-                     input.staged_target_valid) &&
+                    (input.flat_ground_mode || input.legacy_shift_ready) &&
                     finite_time && input.now_s - state_enter_s_ + 1e-9 >=
                         kShiftDwellS)
                 {
@@ -410,7 +415,8 @@ public:
                 SetState(TerrainCrawlSequencerState::kCommit, input.now_s);
             else if ((!three_contacts && !force_supported &&
                       (!input.flat_ground_mode || !finite_time ||
-                       input.now_s - state_enter_s_ + 1e-9 >= 0.20)) ||
+                       input.now_s - state_enter_s_ + 1e-9 >=
+                           kSwingSupportLossDeadlineS)) ||
                      (finite_time &&
                       input.now_s - state_enter_s_ + 1e-9 >= kSwingDurationS))
                 SetState(TerrainCrawlSequencerState::kAbort, input.now_s);

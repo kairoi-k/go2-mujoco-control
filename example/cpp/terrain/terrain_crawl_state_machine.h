@@ -78,6 +78,10 @@ struct TerrainCrawlSignals
     // Keep the legacy contact override from lifting FL while the sequencer
     // is still in SHIFT; SWING owns the topology handoff.
     bool sequencer_pre_swing_pending = false;
+    // The event sequencer owns the measured SWING boundary. Once it has
+    // passed its own shift margin/force gates, synchronize the legacy state
+    // in the same tick so its four-foot override cannot mask the swing.
+    bool sequencer_swing_active = false;
     bool measured_contact_valid = false;
     std::array<bool, go2::kLegCount> measured_contact{};
     double measured_velocity_mps = 0.0;
@@ -916,7 +920,8 @@ public:
                 force_balanced;
             if (signals.plan_valid && !signals.sequencer_stage_pending &&
                 !signals.sequencer_pre_swing_pending &&
-                (shift_ready || (!signals.scripted_execution && stable_ready)) &&
+                (shift_ready || signals.sequencer_swing_active ||
+                 (!signals.scripted_execution && stable_ready)) &&
                 target_leg < go2::kLegCount)
             {
                 // The gait adapter prepares the selected target after this

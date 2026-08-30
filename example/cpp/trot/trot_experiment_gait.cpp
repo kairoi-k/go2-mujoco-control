@@ -620,7 +620,7 @@ bool TrotExperiment::BuildGaitTargets(
     if (!locomotion_kernel_->Compute(gait_request, gait_result))
     {
         std::cerr << "Locomotion kernel failed at gait_time="
-                  << gait_time_s << "\n";
+                  << gait_time_s << std::endl;
         return false;
     }
     kernel_footstep_plan_valid_ = gait_result.footstep_plan_valid;
@@ -2011,9 +2011,17 @@ bool TrotExperiment::BuildGaitTargets(
                 force_min = std::min(force_min, force);
                 force_max = std::max(force_max, force);
             }
+            const double shift_elapsed = terrain_now_s -
+                terrain_crawl_state_machine_.state_enter_time_s();
+            const bool shift_geometry_ready = std::isfinite(shift_elapsed) &&
+                shift_elapsed + 1.0e-9 >=
+                    terrain_crawl_state_machine_.com_shift_duration_s() + 0.20;
             legacy_shift_ready = force_ready && force_total >= 50.0 &&
-                force_min > 0.0 && force_max <= 4.0 * force_min;
+                force_min > 0.0 && force_max <= 4.0 * force_min &&
+                shift_geometry_ready;
         }
+        sequencer_input.com_margin_m =
+            terrain_crawl_state_machine_.com_margin_m();
         sequencer_input.legacy_shift_ready = flat_crawl_debug ||
             legacy_shift_ready;
         // Recheck the exact measured triangle at the sequencer handoff. The
@@ -2021,21 +2029,36 @@ bool TrotExperiment::BuildGaitTargets(
         // has decayed; force balance alone must not launch an unsafe swing.
         if (!flat_crawl_debug && sequencer_input.legacy_shift_ready)
             sequencer_input.legacy_shift_ready =
-                std::isfinite(sequencer_output.com_margin_m) &&
-                sequencer_output.com_margin_m >= 0.02;
+                std::isfinite(sequencer_input.com_margin_m) &&
+                sequencer_input.com_margin_m >= 0.02;
         sequencer_input.terrain = live_terrain_model.get();
         if (staged_start_debug &&
             terrain_crawl_state_machine_.com_target_leg() < go2::kLegCount)
         {
             const auto leg = terrain_crawl_state_machine_.com_target_leg();
-            const auto &execution = terrain_swing_execution_[leg];
-            if (!terrain_staged_target_valid_ && execution.valid &&
-                std::isfinite(execution.target_world.x) &&
-                std::isfinite(execution.target_world.y) &&
-                std::isfinite(execution.target_world.z))
+            // The planner may have prepared a future-pose foothold before
+            // staged authority. Do not freeze that stale endpoint: at the
+            // event boundary derive the fixed target from the measured foot
+            // and current lidar edge, then retain that measured world target.
+            if (!terrain_staged_target_valid_ && live_terrain_model &&
+                have_actual_world_feet)
             {
-                terrain_staged_target_valid_ = true;
-                terrain_staged_target_world_ = execution.target_world;
+                const auto current_base = go2_control::WorldToBody(
+                    pose.base, pose.quaternion, actual_world_feet[leg]);
+                const auto measured = go2_terrain::MeasureTerrainScriptTarget(
+                    *live_terrain_model, static_cast<go2::Leg>(leg),
+                    current_base);
+                if (measured.valid)
+                {
+                    const auto target_base = go2::ContactPatchToFootSite(
+                        measured.position_base);
+                    terrain_staged_target_world_ = go2_control::BodyToWorld(
+                        pose.base, pose.quaternion, target_base);
+                    terrain_staged_target_valid_ =
+                        std::isfinite(terrain_staged_target_world_.x) &&
+                        std::isfinite(terrain_staged_target_world_.y) &&
+                        std::isfinite(terrain_staged_target_world_.z);
+                }
             }
             sequencer_input.staged_target_valid = terrain_staged_target_valid_;
             sequencer_input.staged_target_world = terrain_staged_target_world_;
@@ -2126,6 +2149,13 @@ bool TrotExperiment::BuildGaitTargets(
         crawl_signals.sequencer_pre_swing_pending = !flat_crawl_debug &&
             sequencer_output.state ==
                 go2_terrain::TerrainCrawlSequencerState::kStage;
+        crawl_signals.sequencer_swing_active = !flat_crawl_debug &&
+            (sequencer_output.state ==
+                 go2_terrain::TerrainCrawlSequencerState::kSwing ||
+             sequencer_output.state ==
+                 go2_terrain::TerrainCrawlSequencerState::kCommit) &&
+            sequencer_output.target_valid &&
+            sequencer_output.active_leg < go2::kLegCount;
         crawl_signals.measured_contact_valid = wbc_shadow_contact_state_valid_;
         crawl_signals.measured_contact = wbc_shadow_contact_state_;
         crawl_signals.measured_com_valid = have_measured_com_world_;
@@ -3020,7 +3050,11 @@ bool TrotExperiment::BuildGaitTargets(
                     go2_terrain::TerrainCrawlState::kStage;
             const bool explicit_crawl_step = terrain_crawl_execution &&
                 terrain_crawl_state_machine_.state() ==
-                    go2_terrain::TerrainCrawlState::kCrawlStep;
+                    go2_terrain::TerrainCrawlState::kCrawlStep &&
+                (terrain_crawl_sequencer_output_.state ==
+                     go2_terrain::TerrainCrawlSequencerState::kSwing ||
+                 terrain_crawl_sequencer_output_.state ==
+                     go2_terrain::TerrainCrawlSequencerState::kCommit);
             const bool crawl_shift_leg =
                 terrain_crawl_execution && !explicit_crawl_step &&
                 terrain_crawl_state_machine_.com_target_leg() == leg;
@@ -3042,14 +3076,22 @@ bool TrotExperiment::BuildGaitTargets(
                     std::hypot(execution.target_world.x - sequencer_target.x,
                                execution.target_world.y - sequencer_target.y),
                     execution.target_world.z - sequencer_target.z);
-                if (target_frame_error > 1.0e-6)
+                const auto &sequencer_start =
+                    terrain_crawl_sequencer_output_.swing_start_world;
+                const double start_frame_error = std::hypot(
+                    std::hypot(execution.start_world.x - sequencer_start.x,
+                               execution.start_world.y - sequencer_start.y),
+                    execution.start_world.z - sequencer_start.z);
+                if (target_frame_error > 1.0e-6 ||
+                    start_frame_error > 1.0e-3)
                 {
                     // The sequencer owns this event. A planner foothold may
-                    // have been prepared before the event target existed;
-                    // retaining it would leave the execution ledger and the
-                    // WBC trajectory in different world frames/targets.
-                    // Rebind the transaction at the explicit event boundary
-                    // so the target is converted exactly once below.
+                    // have been prepared before the event boundary; retaining
+                    // even an equal endpoint with an old start would make the
+                    // WBC corner-catch test evaluate the old timeline and
+                    // reject the first event tick as a false early touchdown.
+                    // Rebind both endpoint and origin at the explicit event
+                    // boundary so the target is converted exactly once below.
                     execution = {};
                     pending = {};
                 }
@@ -3543,13 +3585,13 @@ bool TrotExperiment::BuildGaitTargets(
     {
         if (!go2::AllLegInverseKinematicsClamped(feet, joint_targets))
         {
-            std::cerr << "Trot IK failed at gait_time=" << gait_time_s << "\n";
+            std::cerr << "Trot IK failed at gait_time=" << gait_time_s << std::endl;
             return false;
         }
     }
     else if (!go2::AllLegInverseKinematics(feet, joint_targets))
     {
-        std::cerr << "Trot IK failed at gait_time=" << gait_time_s << "\n";
+        std::cerr << "Trot IK failed at gait_time=" << gait_time_s << std::endl;
         return false;
     }
     if (have_commanded_body_feet_ && last_motion_dt_s_ > 1.0e-5)
