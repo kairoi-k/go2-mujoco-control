@@ -117,6 +117,8 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_contact_state_valid_ = false;
     terrain_stage_servo_acc_x_mps2_ = 0.0;
     terrain_stage_servo_acc_y_mps2_ = 0.0;
+    terrain_shift_servo_acc_x_mps2_ = 0.0;
+    terrain_shift_servo_acc_y_mps2_ = 0.0;
     terrain_stage_servo_saturated_ = false;
     if (!rigid_body_ || !rigid_body_->loaded())
         return;
@@ -1393,6 +1395,8 @@ void TrotExperiment::UpdateWbcFull(
                  go2_terrain::TerrainCrawlState::kShiftCom ||
              terrain_crawl_state_machine_.state() ==
                  go2_terrain::TerrainCrawlState::kCrawlStep ||
+             terrain_crawl_state_machine_.state() ==
+                 go2_terrain::TerrainCrawlState::kStage ||
              sequencer_swing_hold))
         {
             const bool measured_shift =
@@ -1422,6 +1426,8 @@ void TrotExperiment::UpdateWbcFull(
                     kComVelocityGain * linear_vel_world.y();
                 terrain_stage_servo_acc_x_mps2_ = measured_stage ? raw_acc_x : 0.0;
                 terrain_stage_servo_acc_y_mps2_ = measured_stage ? raw_acc_y : 0.0;
+                terrain_shift_servo_acc_x_mps2_ = measured_shift ? raw_acc_x : 0.0;
+                terrain_shift_servo_acc_y_mps2_ = measured_shift ? raw_acc_y : 0.0;
                 terrain_stage_servo_saturated_ = (measured_stage || measured_shift) &&
                     (std::abs(raw_acc_x) > 4.0 || std::abs(raw_acc_y) > 4.0);
                 wbc_in.desired_linear_acc_world.x() = Clamp(

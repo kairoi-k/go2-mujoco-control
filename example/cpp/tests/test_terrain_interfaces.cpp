@@ -1607,9 +1607,19 @@ int main()
         x.now_s = 4.6;
         m.Update(x);
         const double ramped_x = m.com_target_world().x;
+        // Once SHIFT has selected FL, later kinematic foot drift must not
+        // move the support triangle or its incenter reference.
+        x.measured_foot_world[0].x += 0.40;
+        x.now_s = 4.7;
+        m.Update(x);
+        const auto &latched = m.com_support_triangle();
         if (!Check(start_x == 0.30 && ramped_x < start_x &&
                        ramped_x > -0.10,
-                   "COM shift target jumped instead of ramping"))
+                   "COM shift target jumped instead of ramping") ||
+            !Check(latched.valid && std::abs(latched.vertex[0].x - 0.30) < 1.0e-12 &&
+                       std::abs(latched.vertex[1].x + 0.30) < 1.0e-12 &&
+                       std::abs(latched.vertex[2].x + 0.30) < 1.0e-12,
+                   "SHIFT support triangle was refreshed from drifting feet"))
             return 1;
     }
 

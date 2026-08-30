@@ -604,6 +604,8 @@ public:
         com_target_world_ = {};
         com_margin_m_ = -std::numeric_limits<double>::infinity();
         triangle_valid_ = false;
+        support_triangle_ = {};
+        support_triangle_latched_ = false;
         committed_latched_.fill(false);
         com_shift_start_world_ = {};
         com_shift_start_time_s_ = 0.0;
@@ -633,6 +635,8 @@ public:
         com_target_world_ = {};
         com_margin_m_ = -std::numeric_limits<double>::infinity();
         triangle_valid_ = false;
+        support_triangle_ = {};
+        support_triangle_latched_ = false;
         committed_latched_.fill(false);
         com_shift_start_world_ = {};
         com_shift_start_time_s_ = 0.0;
@@ -1116,6 +1120,17 @@ public:
     bool com_target_valid() const noexcept { return triangle_valid_; }
     go2::Vec3 com_target_world() const noexcept { return com_target_world_; }
     double com_margin_m() const noexcept { return com_margin_m_; }
+    // SHIFT owns one measured support snapshot. Keeping this geometry fixed
+    // prevents kinematic foot drift from moving the incenter while the WBC
+    // is already transferring the body toward it.
+    const TerrainSupportTriangle &com_support_triangle() const noexcept
+    {
+        return support_triangle_;
+    }
+    std::size_t com_support_lifted_leg() const noexcept
+    {
+        return ActiveLegForSupport();
+    }
     double com_shift_duration_s() const noexcept { return com_shift_duration_s_; }
     int shift_recovery_count() const noexcept { return shift_recovery_count_; }
     int stage_retry_count() const noexcept { return stage_retry_count_; }
@@ -1143,10 +1158,19 @@ private:
     void UpdateComTarget(const TerrainCrawlSignals &signals) noexcept
     {
         const std::size_t leg = ActiveLegForSupport();
-        const auto triangle = ComputeTerrainSupportTriangle(
-            signals.measured_foot_world, leg);
-        triangle_valid_ = signals.measured_foot_valid && triangle.valid &&
-            signals.measured_com_valid;
+        if (!support_triangle_latched_ && signals.measured_foot_valid)
+        {
+            const auto measured_triangle = ComputeTerrainSupportTriangle(
+                signals.measured_foot_world, leg);
+            if (measured_triangle.valid)
+            {
+                support_triangle_ = measured_triangle;
+                support_triangle_latched_ = true;
+            }
+        }
+        const auto &triangle = support_triangle_;
+        triangle_valid_ = support_triangle_latched_ && triangle.valid &&
+            signals.measured_foot_valid && signals.measured_com_valid;
         if (!triangle_valid_)
         {
             com_margin_m_ = -std::numeric_limits<double>::infinity();
@@ -1161,17 +1185,14 @@ private:
         com_margin_m_ = metrics.signed_margin_m;
         if (metrics.signed_margin_m >= kComMarginM)
         {
-            // Keep the reference at the measured support incenter after
-            // crossing the readiness boundary. Replacing it with the COM at
-            // the boundary leaves only the minimum margin for the raised-leg
-            // mass shift that follows immediately in SWING.
+            // The measured support is already safe, but retain the computed
+            // incenter as the explicit handoff target so SHIFT and its
+            // diagnostics use one triangle-derived reference.
             const auto interior = TerrainSupportTriangleIncenter(triangle);
             const auto interior_metrics = MeasureTerrainSupportTriangle(
                 triangle, interior);
-            if (interior_metrics.valid && interior_metrics.inside)
-                com_target_world_ = interior;
-            else
-                com_target_world_ = signals.measured_com_world;
+            com_target_world_ = interior_metrics.valid && interior_metrics.inside
+                ? interior : signals.measured_com_world;
             com_shift_start_valid_ = false;
             return;
         }
@@ -1248,6 +1269,8 @@ private:
         asymmetric_shift_ = false;
         com_stable_start_time_s_ = std::numeric_limits<double>::infinity();
         triangle_valid_ = false;
+        support_triangle_ = {};
+        support_triangle_latched_ = false;
         com_margin_m_ = -std::numeric_limits<double>::infinity();
         ++transition_count_;
     }
@@ -1266,6 +1289,8 @@ private:
             com_shift_start_valid_ = false;
             com_shift_duration_s_ = kComShiftRampS;
             com_stable_start_time_s_ = std::numeric_limits<double>::infinity();
+            support_triangle_ = {};
+            support_triangle_latched_ = false;
             shift_recovery_count_ = 0;
         }
         state_ = state;
@@ -1285,6 +1310,8 @@ private:
     go2::Vec3 com_target_world_{};
     double com_margin_m_ = -std::numeric_limits<double>::infinity();
     bool triangle_valid_ = false;
+    TerrainSupportTriangle support_triangle_{};
+    bool support_triangle_latched_ = false;
     go2::Vec3 com_shift_start_world_{};
     double com_shift_start_time_s_ = 0.0;
     bool com_shift_start_valid_ = false;

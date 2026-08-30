@@ -188,6 +188,8 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         terrain_crawl_state_machine_.Reset();
         terrain_crawl_sequencer_.Reset();
         terrain_crawl_sequencer_output_ = {};
+        terrain_staged_target_valid_ = false;
+        terrain_staged_target_world_ = {};
         terrain_crawl_min_contact_count_ = go2::kLegCount;
         terrain_crawl_step_commit_count_ = 0;
     }
@@ -717,6 +719,8 @@ bool TrotExperiment::BuildGaitTargets(
             }
             terrain_transfer_window_release_s_ =
                 -std::numeric_limits<double>::infinity();
+            terrain_staged_target_valid_ = false;
+            terrain_staged_target_world_ = {};
             terrain_crawl_sequencer_.Reset();
         }
     }
@@ -2020,6 +2024,22 @@ bool TrotExperiment::BuildGaitTargets(
                 std::isfinite(sequencer_output.com_margin_m) &&
                 sequencer_output.com_margin_m >= 0.02;
         sequencer_input.terrain = live_terrain_model.get();
+        if (staged_start_debug &&
+            terrain_crawl_state_machine_.com_target_leg() < go2::kLegCount)
+        {
+            const auto leg = terrain_crawl_state_machine_.com_target_leg();
+            const auto &execution = terrain_swing_execution_[leg];
+            if (!terrain_staged_target_valid_ && execution.valid &&
+                std::isfinite(execution.target_world.x) &&
+                std::isfinite(execution.target_world.y) &&
+                std::isfinite(execution.target_world.z))
+            {
+                terrain_staged_target_valid_ = true;
+                terrain_staged_target_world_ = execution.target_world;
+            }
+            sequencer_input.staged_target_valid = terrain_staged_target_valid_;
+            sequencer_input.staged_target_world = terrain_staged_target_world_;
+        }
         sequencer_input.base_position_world = pose.base;
         sequencer_input.base_yaw_rad = pose.yaw_rad;
         const auto nominal_feet = go2::AllFootPositions(
@@ -2090,14 +2110,22 @@ bool TrotExperiment::BuildGaitTargets(
             ? sequencer_output.target_valid
             : ((active_terrain_plan && active_terrain_plan->valid()) ||
                sequencer_output.target_valid);
+        // Staged isolation owns one fixed target prepared at SHIFT entry;
+        // do not let the asynchronous planner expiry hide that immutable
+        // handoff before the legacy state machine can enter CRAWL_STEP.
+        if (staged_start_debug &&
+            terrain_crawl_state_machine_.com_target_leg() < go2::kLegCount)
+        {
+            const auto leg = terrain_crawl_state_machine_.com_target_leg();
+            crawl_signals.plan_valid = crawl_signals.plan_valid ||
+                terrain_swing_execution_[leg].valid;
+        }
         crawl_signals.sequencer_stage_pending = !flat_crawl_debug &&
             sequencer_output.state ==
                 go2_terrain::TerrainCrawlSequencerState::kStage;
         crawl_signals.sequencer_pre_swing_pending = !flat_crawl_debug &&
-            (sequencer_output.state ==
-                 go2_terrain::TerrainCrawlSequencerState::kStage ||
-             sequencer_output.state ==
-                 go2_terrain::TerrainCrawlSequencerState::kShift);
+            sequencer_output.state ==
+                go2_terrain::TerrainCrawlSequencerState::kStage;
         crawl_signals.measured_contact_valid = wbc_shadow_contact_state_valid_;
         crawl_signals.measured_contact = wbc_shadow_contact_state_;
         crawl_signals.measured_com_valid = have_measured_com_world_;
@@ -2253,6 +2281,14 @@ bool TrotExperiment::BuildGaitTargets(
             crawl_signals.target_valid[leg] =
                 crawl_target_is_live(terrain_swing_execution_[leg]) ||
                 crawl_target_is_live(terrain_swing_pending_[leg]);
+        if (staged_start_debug &&
+            terrain_crawl_state_machine_.com_target_leg() < go2::kLegCount)
+        {
+            const auto leg = terrain_crawl_state_machine_.com_target_leg();
+            crawl_signals.target_valid[leg] =
+                crawl_signals.target_valid[leg] ||
+                terrain_swing_execution_[leg].valid;
+        }
         // The event owner samples the live lidar map directly. Do not make
         // the planner's candidate publication a prerequisite for a swing.
         if (sequencer_output.target_valid &&

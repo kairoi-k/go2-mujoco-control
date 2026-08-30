@@ -113,6 +113,10 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_crawl_com_x_m,terrain_crawl_com_y_m"
          << ",terrain_crawl_com_margin_m,terrain_crawl_com_target_x_m"
          << ",terrain_crawl_com_target_y_m,terrain_crawl_com_target_valid"
+         << ",terrain_crawl_shift_support_lifted_leg"
+         << ",terrain_crawl_shift_triangle_v0_x_m,terrain_crawl_shift_triangle_v0_y_m,terrain_crawl_shift_triangle_v0_z_m"
+         << ",terrain_crawl_shift_triangle_v1_x_m,terrain_crawl_shift_triangle_v1_y_m,terrain_crawl_shift_triangle_v1_z_m"
+         << ",terrain_crawl_shift_triangle_v2_x_m,terrain_crawl_shift_triangle_v2_y_m,terrain_crawl_shift_triangle_v2_z_m"
          << ",terrain_crawl_stage_margin_kind"
          << ",terrain_crawl_stage_basin_margin_m"
          << ",terrain_crawl_stage_target_margin_m"
@@ -124,6 +128,8 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_crawl_stage_probe_direction"
          << ",terrain_crawl_stage_servo_acc_x_mps2"
          << ",terrain_crawl_stage_servo_acc_y_mps2"
+         << ",terrain_crawl_shift_servo_acc_x_mps2"
+         << ",terrain_crawl_shift_servo_acc_y_mps2"
          << ",terrain_crawl_stage_servo_saturated"
          << ",terrain_stance_reference_valid"
          << ",terrain_stance_reference_roll_rad"
@@ -1072,12 +1078,20 @@ void TrotExperiment::LogSample(
          << "," << terrain_crawl_step_commit_count_
          << "," << (have_measured_com_world_ ? measured_com_world_.x : 0.0)
          << "," << (have_measured_com_world_ ? measured_com_world_.y : 0.0)
-         << "," << (std::isfinite(terrain_crawl_sequencer_output_.com_margin_m)
-                 ? terrain_crawl_sequencer_output_.com_margin_m
-                 : terrain_crawl_state_machine_.com_margin_m())
+         << "," << terrain_crawl_state_machine_.com_margin_m()
          << "," << terrain_crawl_state_machine_.com_target_world().x
          << "," << terrain_crawl_state_machine_.com_target_world().y
          << "," << (terrain_crawl_state_machine_.com_target_valid() ? 1 : 0)
+         << "," << terrain_crawl_state_machine_.com_support_lifted_leg()
+         << "," << terrain_crawl_state_machine_.com_support_triangle().vertex[0].x
+         << "," << terrain_crawl_state_machine_.com_support_triangle().vertex[0].y
+         << "," << terrain_crawl_state_machine_.com_support_triangle().vertex[0].z
+         << "," << terrain_crawl_state_machine_.com_support_triangle().vertex[1].x
+         << "," << terrain_crawl_state_machine_.com_support_triangle().vertex[1].y
+         << "," << terrain_crawl_state_machine_.com_support_triangle().vertex[1].z
+         << "," << terrain_crawl_state_machine_.com_support_triangle().vertex[2].x
+         << "," << terrain_crawl_state_machine_.com_support_triangle().vertex[2].y
+         << "," << terrain_crawl_state_machine_.com_support_triangle().vertex[2].z
          << "," << (terrain_crawl_state_machine_.state() ==
                           go2_terrain::TerrainCrawlState::kStage ? "4-contact-polygon" :
                           "FL-lifted-triangle")
@@ -1091,6 +1105,8 @@ void TrotExperiment::LogSample(
          << "," << terrain_crawl_state_machine_.stage_micro_adjust_direction()
          << "," << terrain_stage_servo_acc_x_mps2_
          << "," << terrain_stage_servo_acc_y_mps2_
+         << "," << terrain_shift_servo_acc_x_mps2_
+         << "," << terrain_shift_servo_acc_y_mps2_
          << "," << (terrain_stage_servo_saturated_ ? 1 : 0)
          << "," << (terrain_stance_reference_valid_ ? 1 : 0)
          << "," << terrain_stance_reference_roll_rad_

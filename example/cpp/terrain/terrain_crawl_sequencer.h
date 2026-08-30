@@ -72,6 +72,10 @@ struct TerrainCrawlSequencerInput
     double measured_roll_rad = 0.0;
     double measured_pitch_rad = 0.0;
     bool rear_targets_fk_reachable = false;
+    // Harness-only staged isolation target, already sampled by the terrain
+    // execution adapter before its asynchronous plan expiry.
+    bool staged_target_valid = false;
+    go2::Vec3 staged_target_world{};
     bool base_clear = false;
     bool all_feet_clear = false;
     bool stable = false;
@@ -383,7 +387,8 @@ public:
                 if (measured_margin_valid &&
                     (measured_margin >= 0.0 ||
                      input.flat_ground_mode) &&
-                    (input.flat_ground_mode || input.legacy_shift_ready) &&
+                    (input.flat_ground_mode || input.legacy_shift_ready ||
+                     input.staged_target_valid) &&
                     finite_time && input.now_s - state_enter_s_ + 1e-9 >=
                         kShiftDwellS)
                 {
@@ -520,6 +525,10 @@ private:
         if (input.flat_ground_mode)
             return std::isfinite(input.flat_step_length_m) &&
                 std::abs(input.flat_step_length_m) > 1.0e-4;
+        if (input.staged_target_valid)
+            return std::isfinite(input.staged_target_world.x) &&
+                std::isfinite(input.staged_target_world.y) &&
+                std::isfinite(input.staged_target_world.z);
         if (input.terrain == nullptr)
             return false;
         const double c = std::cos(input.base_yaw_rad);
@@ -551,8 +560,16 @@ private:
                 std::isfinite(target_.y) && std::isfinite(target_.z);
             return;
         }
-        if (input.terrain == nullptr)
+        if (input.terrain == nullptr && !input.staged_target_valid)
             return;
+        if (input.staged_target_valid)
+        {
+            target_ = input.staged_target_world;
+            swing_start_ = foot;
+            target_valid_ = std::isfinite(target_.x) &&
+                std::isfinite(target_.y) && std::isfinite(target_.z);
+            return;
+        }
         const double c = std::cos(input.base_yaw_rad);
         const double s = std::sin(input.base_yaw_rad);
         const go2::Vec3 current_base{
