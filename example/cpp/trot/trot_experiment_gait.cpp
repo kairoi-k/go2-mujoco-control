@@ -2647,6 +2647,16 @@ bool TrotExperiment::BuildGaitTargets(
                 continue;
 
             begin_terrain_transfer_hold(leg);
+            if (terrain_transfer_window_active_ && !explicit_crawl_step)
+            {
+                // Scripted targets are prepared ahead of the fixed swing, but
+                // must not inherit a nominal trot flight during entry or COM
+                // shift. Preserve the validated endpoint for the explicit
+                // CRAWL_STEP handoff instead of invalidating it at the riser.
+                execution.in_flight = false;
+                execution.endpoint_held = false;
+                continue;
+            }
             if (terrain_transfer_hold_active_ &&
                 terrain_transfer_hold_contact_[leg])
             {
