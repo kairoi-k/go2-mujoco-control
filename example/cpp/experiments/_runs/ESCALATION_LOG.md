@@ -2306,3 +2306,45 @@ validation: |
   duration 30 s and 35 s wall timeout. cmake build and ctest remain 27/27.
   No gate conclusion is claimed; no push or amend.
 git_status: implementation and evidence are committed; no staged files.
+
+---
+timestamp: 2026-09-02T00:00:00+0800
+run_id: Order-052 raised-swing COM drift and mass-compensated handoff, epochs 158-177
+trigger: T1
+forensics: |
+  The per-tick measured whole-body COM is the subtree COM telemetry (not base
+  pose) in data.csv terrain_crawl_com_x/y_m; the independent simulator
+  contact_ground_truth.csv also exposes subtree_com_world_x/y/z_m. In the
+  clean sequencer SWING intervals, epoch158 phase 0.00->0.42 moved COM x
+  0.36549->0.37279 m (+7.30 mm), while FL foot x moved 0.56178->0.65699 m;
+  the measured support-triangle margin fell 7.67->-1.20 mm. Epoch160 phase
+  0.00->0.27 moved COM x 0.39120->0.39524 m (+4.03 mm), FL x
+  0.60340->0.63595 m, and margin fell 7.80->3.60 mm. Epoch159 never exposed
+  a sequencer SWING interval (it remained STAGE/SHIFT), so it is recorded as
+  a negative control rather than interpolated. IMU pitch increased smoothly
+  in epoch158 (-0.00425->+0.00285 rad) and epoch160 (-0.00744->+0.00394
+  rad); no contact-event jump preceded the margin loss. The signature is
+  therefore monotone swing-phase mass/COM drift, with safety stopping before
+  the 0.60 s endpoint.
+implementation: |
+  cf9f261 adds a terrain-only pre-bias to the legacy SHIFT_COM target using
+  the Go2 XML complete-leg mass 2.071352 kg / whole-body mass 15.206408 kg =
+  0.136216, applied to the captured horizontal swing displacement. cf1fc65
+  refines this to use the current measured swing-foot displacement each tick,
+  retaining the endpoint prediction as fallback; flat mode is disabled. b883c76
+  makes the raised terrain swing 0.75 s (flat remains the established 0.60 s)
+  so WBC has more quasi-static tracking time. No v1 contract, analyzer
+  threshold, or canary definition changed.
+validation: |
+  test_terrain_interfaces explicitly checks the mass-ratio prediction and the
+  complete ctest suite passed 27/27 after each implementation stage. Terrain
+  canaries were serialized with flock -x /tmp/go2_mujoco_experiment.lock,
+  domain 229, Base=4000 preload, --controller-duration 30, wall 35. Epochs
+  161-166 used cf9f261, 167-174 used cf1fc65, and 175-176 used b883c76.
+  All these exploratory canaries reached at most SWING and had no terrain
+  COMMIT; same-signature stop was observed. Epoch177 flat harness at b883c76
+  produced one COMMIT before safety termination, so it is not a 20/20 green
+  flat confirmation. Existing epoch150 flat evidence remains 20/20 at the
+  preceding implementation. No gate conclusion is claimed.
+git_status: implementation and evidence are committed locally; no staged files.
+
