@@ -2750,3 +2750,42 @@ validation: |
   healthy cycle records with no rejection. No v1 contract, analyzer
   threshold, or canary definition changed; no push/amend.
 git_status: evidence append is to be committed; no staged files.
+
+---
+timestamp: 2026-08-30T23:00:00+0800
+run_id: Order-060 measured-STAGE witness scan
+trigger: T1
+configuration: |
+  Implementation commit 6263c35 (parent bebe8a9), serial TROT_SEED=195..215,
+  LD_PRELOAD=/home/che/dds_base4000_preload.so, domain 229, flock
+  /tmp/go2_mujoco_experiment.lock, wall 35 s, controller-duration 30 s,
+  phase2_step_5cm.xml, terrain planner, running-trot/wbc-full and the
+  phase2_b1_velocity_0p3.csv profile. No push or amend.
+implementation: |
+  Expanded measured feet/COM/support-margin publication to STAGE, using all
+  measured contacts (no lifted leg) until SHIFT selects one. Made basin edge
+  conversion explicitly map-local to world coordinates and removed the
+  empirical base-x band as a hard staging gate. Existing signed STAGE probe
+  remains scoped to the terrain window.
+scan: |
+  Artifacts b1_order060_post6263_seed195..215. All 21 runs completed with
+  analyzer artifacts. Every run reached INACTIVE/STAGE/ABORT, committed mask
+  remained 0, and no FL commit or downstream traversal occurred. Return codes
+  were nonzero only for seeds 198,202,211,214 (safety/controlled-stop checks);
+  other runs returned zero. Post-fix terrain COM margins became finite and
+  reached +0.02488..+0.03978 m maxima across seeds, versus the prior STAGE
+  -inf witness; however the authority boundary remained unavailable in the
+  observed runs, so STAGE timed out before SHIFT. The measured-contact field
+  varied during trot scheduling (2..4), with representative first STAGE
+  margin +0.00628 m and 3 contacts for seed195.
+comparison: |
+  Order-059 no-shaping baseline was 3/21 FL commits (14.3%). Order-060
+  post-6263 measured-STAGE scan was 0/21 FL commits (0%); deepest state was
+  STAGE for all seeds (then ABORT), so the requested 10-pair downstream
+  canary from b1_freegait_epoch234 was not run.
+validation: |
+  cmake --build example/cpp/build -j2, ctest --test-dir
+  example/cpp/build --output-on-failure, and git diff --check passed;
+  ctest was 27/27. Implementation commit 6263c35 is clean before evidence
+  append. No v1 contract, analyzer threshold, or canary definition changed.
+git_status: evidence append is to be committed; no staged files.
