@@ -2878,3 +2878,12 @@ validation: |
   passed. No v1 contract, analyzer threshold, or canary definition changed;
   no push/amend.
 git_status: evidence append pending commit; no staged files.
+
+post_validation: |
+  SHA a7d4330 B0 accel_1_to_3 pair was run serially. Terrain legacy
+  status and analyzer completed, but the paired baseline itself failed
+  the pre-existing 3 m/s flat-run quantitative/safety health checks
+  (baseline roll 179.6 deg p95, controller safety=1); terrain strict
+  quantitative status was consequently false. The new 27-test flat
+  interface harness remains green. This is a residual B0 campaign risk,
+  not claimed as a new Order-062 pass.
