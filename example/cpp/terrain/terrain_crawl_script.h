@@ -29,19 +29,8 @@ struct TerrainStagingReference
 // canonical body target relative to that edge. Map cells are base-frame
 // observations; rotating the edge into world coordinates makes the reference
 // independent of the asynchronous map/detection timestamp.
-inline TerrainStagingReference MeasureTerrainStagingReference(
-    const TerrainModel &terrain,
-    const go2::Vec3 &base_position_world,
-    double base_yaw_rad,
-    double nominal_front_foot_x_m,
-    double standoff_m = 0.25)
+inline double MeasureTerrainEdgeX(const TerrainModel &terrain) noexcept
 {
-    TerrainStagingReference result;
-    if (!terrain.valid() || !std::isfinite(base_position_world.x) ||
-        !std::isfinite(base_position_world.y) ||
-        !std::isfinite(base_yaw_rad) || !std::isfinite(nominal_front_foot_x_m) ||
-        !std::isfinite(standoff_m) || standoff_m < 0.0)
-        return result;
     double edge_x = std::numeric_limits<double>::quiet_NaN();
     for (std::size_t iy = 0; iy < terrain.height; ++iy)
         for (std::size_t ix = 1; ix < terrain.width; ++ix)
@@ -55,11 +44,26 @@ inline TerrainStagingReference MeasureTerrainStagingReference(
                 static_cast<double>(ix) * terrain.resolution_m;
             edge_x = std::isfinite(edge_x) ? std::min(edge_x, x) : x;
         }
+    return edge_x;
+}
+
+inline TerrainStagingReference MeasureTerrainStagingReferenceWithOffset(
+    const TerrainModel &terrain,
+    const go2::Vec3 &base_position_world,
+    double base_yaw_rad,
+    double forward_offset_m)
+{
+    TerrainStagingReference result;
+    if (!terrain.valid() || !std::isfinite(base_position_world.x) ||
+        !std::isfinite(base_position_world.y) ||
+        !std::isfinite(base_yaw_rad) || !std::isfinite(forward_offset_m))
+        return result;
+    const double edge_x = MeasureTerrainEdgeX(terrain);
     if (!std::isfinite(edge_x))
         return result;
     const double c = std::cos(base_yaw_rad);
     const double s = std::sin(base_yaw_rad);
-    const double forward_error = edge_x - standoff_m - nominal_front_foot_x_m;
+    const double forward_error = edge_x - forward_offset_m;
     result.target_world = {
         base_position_world.x + c * forward_error,
         base_position_world.y + s * forward_error,
@@ -74,6 +78,40 @@ inline TerrainStagingReference MeasureTerrainStagingReference(
     result.valid = result.valid && std::isfinite(result.target_world_x_m) &&
         std::isfinite(result.error_m);
     return result;
+}
+
+inline TerrainStagingReference MeasureTerrainStagingReference(
+    const TerrainModel &terrain,
+    const go2::Vec3 &base_position_world,
+    double base_yaw_rad,
+    double nominal_front_foot_x_m,
+    double standoff_m = 0.25)
+{
+    if (!std::isfinite(nominal_front_foot_x_m) ||
+        !std::isfinite(standoff_m) || standoff_m < 0.0)
+        return {};
+    return MeasureTerrainStagingReferenceWithOffset(
+        terrain, base_position_world, base_yaw_rad,
+        standoff_m + nominal_front_foot_x_m);
+}
+
+// Order-060's entry basin is an observed body pose band relative to the
+// measured edge, not a nominal foot standoff. Keep this helper separate from
+// the legacy staging reference so planner/v1 callers retain their arithmetic.
+inline constexpr double kMeasuredBasinEdgeMinusBaseMinM = 0.318;
+inline constexpr double kMeasuredBasinEdgeMinusBaseMaxM = 0.330;
+inline constexpr double kMeasuredBasinEdgeMinusBaseTargetM =
+    0.5 * (kMeasuredBasinEdgeMinusBaseMinM +
+           kMeasuredBasinEdgeMinusBaseMaxM);
+
+inline TerrainStagingReference MeasureTerrainBasinStagingReference(
+    const TerrainModel &terrain,
+    const go2::Vec3 &base_position_world,
+    double base_yaw_rad)
+{
+    return MeasureTerrainStagingReferenceWithOffset(
+        terrain, base_position_world, base_yaw_rad,
+        kMeasuredBasinEdgeMinusBaseTargetM);
 }
 
 struct TerrainScriptTarget

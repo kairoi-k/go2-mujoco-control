@@ -448,6 +448,14 @@ public:
     static constexpr double kStageVelocityToleranceMps = 0.04;
     static constexpr double kStagePostureLimitRad = 0.08;
     static constexpr double kStageTimeoutS = 4.0;
+    // Order-060 requires the measured pre-SHIFT basin, not merely an edge
+    // standoff. Failed basin checks get two small alternating creep probes.
+    static constexpr double kStageBasinMarginM = 0.020;
+    static constexpr double kStageBasinHalfWidthM =
+        0.5 * (0.330 - 0.318);
+    static constexpr int kMaxStageRetries = 2;
+    static constexpr double kStageMicroAdjustSpeedMps = 0.03;
+    static constexpr double kStageMicroAdjustDurationS = 0.25;
     static constexpr double kCanonicalStandoffM = 0.25;
     // The command ramp is still driven to kCreepSpeedMps; this guard keeps a
     // falling trot from waiting for a noisy velocity estimate to reach it.
@@ -488,6 +496,11 @@ public:
         shift_recovery_count_ = 0;
         decel_stable_start_time_s_ = std::numeric_limits<double>::infinity();
         stage_stable_start_time_s_ = std::numeric_limits<double>::infinity();
+        stage_retry_count_ = 0;
+        stage_micro_adjust_direction_ = 1.0;
+        stage_micro_adjust_until_s_ =
+            -std::numeric_limits<double>::infinity();
+        stage_basin_margin_m_ = -std::numeric_limits<double>::infinity();
     }
 
     void Enter(double now_s) noexcept
@@ -510,6 +523,11 @@ public:
         shift_recovery_count_ = 0;
         decel_stable_start_time_s_ = std::numeric_limits<double>::infinity();
         stage_stable_start_time_s_ = std::numeric_limits<double>::infinity();
+        stage_retry_count_ = 0;
+        stage_micro_adjust_direction_ = 1.0;
+        stage_micro_adjust_until_s_ =
+            -std::numeric_limits<double>::infinity();
+        stage_basin_margin_m_ = -std::numeric_limits<double>::infinity();
         ++transition_count_;
     }
 
@@ -606,20 +624,38 @@ public:
                 for (const double force : signals.measured_normal_force_n)
                     if (std::isfinite(force) && force >= kStableForceMinN)
                         ++force_contacts;
-            const bool stage_contact_ready =
-                (signals.measured_contact_valid && contacts >= 3) ||
-                (signals.measured_force_valid && force_contacts >= 3);
+            const bool stage_contact_ready = signals.scripted_execution
+                ? (signals.measured_contact_valid &&
+                   contacts == static_cast<int>(go2::kLegCount))
+                : ((signals.measured_contact_valid && contacts >= 3) ||
+                   (signals.measured_force_valid && force_contacts >= 3));
+            const std::size_t lifted_leg = ActiveLegForSupport();
+            stage_basin_margin_m_ = -std::numeric_limits<double>::infinity();
+            if (signals.scripted_execution && stage_contact_ready &&
+                signals.measured_foot_valid && signals.measured_com_valid)
+            {
+                stage_basin_margin_m_ = TerrainMeasuredSupportMargin(
+                    signals.measured_foot_world, signals.measured_contact,
+                    lifted_leg, signals.measured_com_world);
+            }
+            const bool basin_ready = !signals.scripted_execution ||
+                (std::isfinite(stage_basin_margin_m_) &&
+                 stage_basin_margin_m_ >= kStageBasinMarginM);
             // If transfer detection is early enough to see the edge after
             // the body has crossed the canonical point, settling in place is
             // valid; reversing would reintroduce the late-trot failure.
             const bool already_past_standoff =
                 std::isfinite(signals.staging_error_m) &&
                 signals.staging_error_m < 0.0;
-            const bool stage_ready = signals.staging_target_valid &&
+            const bool stage_location_ready = signals.staging_target_valid &&
                 std::isfinite(signals.staging_error_m) &&
-                (already_past_standoff ||
-                 std::abs(signals.staging_error_m) <=
-                     kStagePositionToleranceM) && stage_contact_ready &&
+                (signals.scripted_execution
+                    ? std::abs(signals.staging_error_m) <=
+                        kStageBasinHalfWidthM
+                    : (already_past_standoff ||
+                       std::abs(signals.staging_error_m) <=
+                           kStagePositionToleranceM));
+            const bool stage_ready = stage_location_ready && stage_contact_ready &&
                 std::isfinite(signals.measured_velocity_mps) &&
                 signals.measured_velocity_mps <= kStageVelocityToleranceMps &&
                 signals.measured_posture_valid &&
@@ -631,9 +667,27 @@ public:
             {
                 if (!std::isfinite(stage_stable_start_time_s_))
                     stage_stable_start_time_s_ = signals.now_s;
-                if (signals.now_s - stage_stable_start_time_s_ + 1.0e-9 >=
-                    kStageSettleS)
+                const bool stage_dwell_complete =
+                    signals.now_s - stage_stable_start_time_s_ + 1.0e-9 >=
+                        kStageSettleS;
+                if (basin_ready && stage_dwell_complete)
                     SetState(TerrainCrawlState::kShiftCom, signals.now_s);
+                else if (!basin_ready && signals.scripted_execution &&
+                         stage_dwell_complete)
+                {
+                    if (stage_retry_count_ < kMaxStageRetries)
+                    {
+                        ++stage_retry_count_;
+                        stage_micro_adjust_direction_ =
+                            -stage_micro_adjust_direction_;
+                        stage_micro_adjust_until_s_ = signals.now_s +
+                            kStageMicroAdjustDurationS;
+                        stage_stable_start_time_s_ =
+                            std::numeric_limits<double>::infinity();
+                    }
+                    else
+                        SetState(TerrainCrawlState::kAbort, signals.now_s);
+                }
             }
             else
                 stage_stable_start_time_s_ =
@@ -907,6 +961,17 @@ public:
     double com_margin_m() const noexcept { return com_margin_m_; }
     double com_shift_duration_s() const noexcept { return com_shift_duration_s_; }
     int shift_recovery_count() const noexcept { return shift_recovery_count_; }
+    int stage_retry_count() const noexcept { return stage_retry_count_; }
+    double stage_basin_margin_m() const noexcept { return stage_basin_margin_m_; }
+    bool stage_micro_adjust_active(double now_s) const noexcept
+    {
+        return state_ == TerrainCrawlState::kStage &&
+            std::isfinite(now_s) && now_s < stage_micro_adjust_until_s_;
+    }
+    double stage_micro_adjust_direction() const noexcept
+    {
+        return stage_micro_adjust_direction_;
+    }
     std::size_t com_target_leg() const noexcept { return ActiveLegForSupport(); }
 
 private:
@@ -1070,6 +1135,11 @@ private:
     bool asymmetric_shift_ = false;
     double decel_stable_start_time_s_ = 0.0;
     double stage_stable_start_time_s_ = std::numeric_limits<double>::infinity();
+    int stage_retry_count_ = 0;
+    double stage_micro_adjust_direction_ = 1.0;
+    double stage_micro_adjust_until_s_ =
+        -std::numeric_limits<double>::infinity();
+    double stage_basin_margin_m_ = -std::numeric_limits<double>::infinity();
 };
 
 }  // namespace go2_terrain

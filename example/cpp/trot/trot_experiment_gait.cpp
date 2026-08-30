@@ -238,9 +238,33 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
             if (sequencer_staging ||
                 terrain_crawl_sequencer_output_.stand_transition_requested)
             {
-                // Keep the running-trot contact schedule and let its shaper
-                // bleed speed down at the current phase before seizure.
-                requested_mps = 0.0;
+                // STAGE retains the trot contact schedule, but once the
+                // legacy state machine is in STAGE it actively servos the
+                // measured edge-minus-base basin instead of parking at the
+                // old nominal standoff.
+                if (sequencer_staging &&
+                    !terrain_crawl_sequencer_output_.flat_ground_mode &&
+                    terrain_crawl_state_machine_.state() ==
+                        go2_terrain::TerrainCrawlState::kStage)
+                {
+                    if (terrain_crawl_state_machine_.stage_micro_adjust_active(
+                            absolute_gait_time_s))
+                        requested_mps =
+                            terrain_crawl_state_machine_.stage_micro_adjust_direction() *
+                            go2_terrain::TerrainCrawlStateMachine::
+                                kStageMicroAdjustSpeedMps;
+                    else if (std::isfinite(terrain_staging_error_m_) &&
+                             std::abs(terrain_staging_error_m_) >
+                                 go2_terrain::TerrainCrawlStateMachine::
+                                     kStageBasinHalfWidthM)
+                        requested_mps = std::copysign(
+                            go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps,
+                            terrain_staging_error_m_);
+                    else
+                        requested_mps = 0.0;
+                }
+                else
+                    requested_mps = 0.0;
                 terrain_deceleration_active_ = false;
             }
             else if (terrain_crawl_state_machine_.aborted())
@@ -292,9 +316,21 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
                     // reference. It never starts a crawl swing; stopping at
                     // the target lets the subsequent settle dwell establish
                     // a repeatable phase and posture.
-                    if (std::isfinite(terrain_staging_error_m_) &&
-                        std::abs(terrain_staging_error_m_) >
-                            go2_terrain::TerrainCrawlStateMachine::kStagePositionToleranceM)
+                    if (terrain_crawl_state_machine_.stage_micro_adjust_active(
+                            absolute_gait_time_s))
+                    {
+                        // Once the edge-relative basin target is reached,
+                        // probe a bounded forward/backward creep while the
+                        // measured four-contact margin is still below +20 mm.
+                        requested_mps =
+                            terrain_crawl_state_machine_.stage_micro_adjust_direction() *
+                            go2_terrain::TerrainCrawlStateMachine::
+                                kStageMicroAdjustSpeedMps;
+                    }
+                    else if (std::isfinite(terrain_staging_error_m_) &&
+                             std::abs(terrain_staging_error_m_) >
+                                 go2_terrain::TerrainCrawlStateMachine::
+                                     kStagePositionToleranceM)
                         requested_mps = std::copysign(
                             go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps,
                             terrain_staging_error_m_);
@@ -2078,9 +2114,19 @@ bool TrotExperiment::BuildGaitTargets(
                     }
                     terrain_stage_map_dumped = true;
                 }
-                const auto staging = go2_terrain::MeasureTerrainStagingReference(
-                    *live_terrain_model, staging_pose.base, staging_pose.yaw_rad,
-                    0.5 * (go2::AllFootPositions(task_.stand_up_joint_pos_)[0].x + go2::AllFootPositions(task_.stand_up_joint_pos_)[1].x));
+                const auto staging =
+                    terrain_crawl_state_machine_.state() ==
+                            go2_terrain::TerrainCrawlState::kStage
+                        ? go2_terrain::MeasureTerrainBasinStagingReference(
+                              *live_terrain_model, staging_pose.base,
+                              staging_pose.yaw_rad)
+                        : go2_terrain::MeasureTerrainStagingReference(
+                              *live_terrain_model, staging_pose.base,
+                              staging_pose.yaw_rad,
+                              0.5 * (go2::AllFootPositions(
+                                  task_.stand_up_joint_pos_)[0].x +
+                                  go2::AllFootPositions(
+                                      task_.stand_up_joint_pos_)[1].x));
                 crawl_signals.staging_target_valid = staging.valid;
                 crawl_signals.staging_error_m = staging.error_m;
             }

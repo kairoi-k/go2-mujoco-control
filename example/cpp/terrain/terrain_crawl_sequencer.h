@@ -167,6 +167,12 @@ public:
     static constexpr double kCommitToleranceM = 0.045;
     static constexpr double kResumeDwellS = 0.45;
     static constexpr double kStageTimeoutS = 4.0;
+    // Order-060 measured entry basin: edge-minus-base target is the
+    // midpoint of the observed 0.318--0.330 m band.
+    static constexpr double kBasinMarginM = 0.020;
+    static constexpr double kBasinHalfWidthM =
+        0.5 * (kMeasuredBasinEdgeMinusBaseMaxM -
+               kMeasuredBasinEdgeMinusBaseMinM);
     static constexpr double kStableForceMinN = 10.0;
     static constexpr double kStableForceTotalMinN = 50.0;
     static constexpr double kStableForceImbalanceRatio = 4.0;
@@ -279,16 +285,31 @@ public:
         case TerrainCrawlSequencerState::kStage:
         {
             const auto staging = input.terrain != nullptr
-                ? MeasureTerrainStagingReference(
-                      *input.terrain, input.base_position_world,
-                      input.base_yaw_rad, input.nominal_front_foot_x_m,
-                      kStandoffM)
+                ? (input.flat_ground_mode
+                    ? TerrainStagingReference{}
+                    : MeasureTerrainBasinStagingReference(
+                          *input.terrain, input.base_position_world,
+                          input.base_yaw_rad))
                 : TerrainStagingReference{};
-            const bool already_past = staging.valid && staging.error_m < 0.0;
             const bool at_standoff = input.flat_ground_mode ||
                 (staging.valid &&
-                 (already_past || std::abs(staging.error_m) <= kStageToleranceM));
-            const bool settled = at_standoff && three_contacts &&
+                 std::abs(staging.error_m) <= kBasinHalfWidthM);
+            const bool measured_basin_ready = input.flat_ground_mode ||
+                (input.measured_feet_valid && input.measured_com_valid &&
+                 contacts == static_cast<int>(go2::kLegCount) &&
+                 std::isfinite(TerrainMeasuredSupportMargin(
+                     input.measured_feet_world, input.measured_contact,
+                     order_index_ < kLegOrder.size()
+                         ? kLegOrder[order_index_] : go2::kLegCount,
+                     input.measured_com_world)) &&
+                 TerrainMeasuredSupportMargin(
+                     input.measured_feet_world, input.measured_contact,
+                     order_index_ < kLegOrder.size()
+                         ? kLegOrder[order_index_] : go2::kLegCount,
+                     input.measured_com_world) >= kBasinMarginM);
+            const bool settled = at_standoff && measured_basin_ready &&
+                (input.flat_ground_mode || contacts ==
+                    static_cast<int>(go2::kLegCount)) &&
                 std::isfinite(input.measured_velocity_mps) &&
                 input.measured_velocity_mps <=
                     (input.flat_ground_mode ? 0.12 : 0.04) &&

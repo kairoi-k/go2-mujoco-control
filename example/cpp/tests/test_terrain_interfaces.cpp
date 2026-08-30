@@ -1838,7 +1838,7 @@ int main()
         x.measured_foot_valid = true;
         x.measured_foot_world = feet;
         x.measured_com_valid = true;
-        x.measured_com_world = {0.30, -0.19, 0.0};
+        x.measured_com_world = {0.0, -0.15, 0.0};
         x.measured_velocity_mps = 0.05;
         x.measured_posture_valid = true;
         x.now_s = 10.0;
@@ -1856,6 +1856,9 @@ int main()
         x.now_s += go2_terrain::TerrainCrawlStateMachine::kStageSettleS;
         m.Update(x);
         x.target_valid[1] = true;
+        // Keep the STAGE witness inside the measured basin, then exercise
+        // the asymmetric SHIFT recovery from a disturbed COM sample.
+        x.measured_com_world = {0.30, -0.19, 0.0};
         x.now_s += 0.01;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom &&
@@ -1884,6 +1887,7 @@ int main()
         x.target_valid.fill(false);
         x.measured_force_valid = false;
         x.measured_com_velocity_valid = false;
+        x.measured_com_world = {0.0, -0.15, 0.0};
         x.now_s = 20.0;
         timeout.Update(x);
         x.now_s = 20.1;
@@ -1952,7 +1956,9 @@ int main()
         model.age_s = 0.0;
         model.epoch = 2;
         model.resolution_m = 0.05;
-        model.origin_m = {-0.50, -0.20};
+        // Edge .325 m makes the Order-060 basin target (.324 m)
+        // reachable in this measured sequencer fixture.
+        model.origin_m = {-0.525, -0.20};
         model.width = 30;
         model.height = 8;
         model.source = go2_terrain::TerrainSource::kTestFixture;
@@ -1966,7 +1972,7 @@ int main()
             cell.variance_m2 = 0.0;
         }
         for (std::size_t iy = 0; iy < model.height; ++iy)
-            for (std::size_t ix = 20; ix < model.width; ++ix)
+            for (std::size_t ix = 17; ix < model.width; ++ix)
                 model.CellAt(ix, iy)->height_m = 0.05;
         go2_terrain::TerrainCrawlSequencerInput x;
         x.transfer_window_active = true;
@@ -1983,7 +1989,7 @@ int main()
         x.measured_force_valid = true;
         x.measured_normal_force_n = {40.0, 40.0, 40.0, 40.0};
         x.legacy_shift_ready = true;
-        x.measured_com_world = {0.0, 0.0, -0.25};
+        x.measured_com_world = {-0.10, -0.05, -0.25};
         x.measured_com_valid = true;
         x.measured_velocity_mps = 0.0;
         x.measured_posture_valid = true;
@@ -2019,6 +2025,30 @@ int main()
         seq.Update(x);
         if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kShift,
                    "sequencer did not finish STAGE dwell")) return 1;
+        // A four-contact but out-of-basin COM must not open SHIFT; the
+        // sequencer eventually fails closed at its bounded STAGE timeout.
+        {
+            auto blocked_input = x;
+            blocked_input.measured_com_world = {0.30, 0.20, -0.25};
+            blocked_input.trot_full_contact_able = true;
+            blocked_input.now_s = 0.0;
+            go2_terrain::TerrainCrawlSequencer blocked;
+            blocked.Update(blocked_input);
+            blocked_input.now_s = 0.01;
+            blocked.Update(blocked_input);
+            blocked_input.now_s = 0.02;
+            blocked.Update(blocked_input);
+            blocked_input.now_s = 0.31;
+            blocked.Update(blocked_input);
+            if (blocked.state() !=
+                    go2_terrain::TerrainCrawlSequencerState::kStage)
+                return 1;
+            blocked_input.now_s =
+                go2_terrain::TerrainCrawlSequencer::kStageTimeoutS + 0.1;
+            if (blocked.Update(blocked_input) !=
+                    go2_terrain::TerrainCrawlSequencerState::kAbort)
+                return 1;
+        }
         x.now_s = 0.75;
         seq.Update(x);
         if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kSwing &&
