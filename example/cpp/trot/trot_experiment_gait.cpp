@@ -164,6 +164,8 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         terrain_surface_transition_committed_surface_valid_.fill(false);
         terrain_surface_transition_committed_surface_world_z_.fill(0.0);
         terrain_crawl_state_machine_.Reset();
+        terrain_crawl_sequencer_.Reset();
+        terrain_crawl_sequencer_output_ = {};
         terrain_crawl_min_contact_count_ = go2::kLegCount;
         terrain_crawl_step_commit_count_ = 0;
     }
@@ -171,8 +173,13 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     const auto terrain_state = terrain_crawl_state_machine_.state();
     // Use crawl support as soon as DECELERATE starts, while retaining the
     // continuous velocity ramp. SHIFT_COM remains gated on settled posture.
+    const bool event_crawl_active =
+        terrain_crawl_sequencer_output_.state !=
+            go2_terrain::TerrainCrawlSequencerState::kInactive &&
+        terrain_crawl_sequencer_output_.state !=
+            go2_terrain::TerrainCrawlSequencerState::kAbort;
     const bool terrain_crawl_active = terrain_window_active &&
-        (terrain_crawl_state_machine_.UsesCrawlExecution() ||
+        (event_crawl_active || terrain_crawl_state_machine_.UsesCrawlExecution() ||
          terrain_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep);
     if (params_.terrain_actuation && !params_.terrain_sensor_only)
     {
@@ -370,8 +377,13 @@ bool TrotExperiment::BuildGaitTargets(
     const auto terrain_state = terrain_crawl_state_machine_.state();
     // Keep the crawl support pattern through DECELERATE while the state
     // machine holds SHIFT_COM behind the measured speed/posture dwell.
+    const bool event_crawl_active =
+        terrain_crawl_sequencer_output_.state !=
+            go2_terrain::TerrainCrawlSequencerState::kInactive &&
+        terrain_crawl_sequencer_output_.state !=
+            go2_terrain::TerrainCrawlSequencerState::kAbort;
     const bool terrain_crawl_active = terrain_transfer_window_active_ &&
-        (terrain_crawl_state_machine_.UsesCrawlExecution() ||
+        (event_crawl_active || terrain_crawl_state_machine_.UsesCrawlExecution() ||
          terrain_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep);
     runtime_gait_pattern_ = terrain_crawl_active
         ? go2_control::GaitPattern::kCrawl
@@ -493,6 +505,35 @@ bool TrotExperiment::BuildGaitTargets(
     const bool terrain_execution_allowed =
         params_.terrain_actuation && !params_.terrain_sensor_only &&
         task_.gait_started_ && task_.motion_stage_ == 2;
+    std::shared_ptr<const go2_terrain::TerrainModel> live_terrain_model;
+    {
+        std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
+        live_terrain_model = terrain_model_;
+    }
+    // Arm the v2 window from the measured map edge, before the trot
+    // transition intent. This is deliberately early: STAGE must be able to
+    // settle at the edge-relative standoff rather than inherit an overshoot.
+    if (terrain_execution_allowed && !terrain_transfer_window_active_ &&
+        live_terrain_model && have_high_state)
+    {
+        const auto nominal_feet = go2::AllFootPositions(
+            task_.stand_up_joint_pos_);
+        const double nominal_front_x =
+            0.5 * (nominal_feet[0].x + nominal_feet[1].x);
+        const auto early_pose = ComputeWorldPose(
+            state_snapshot, high_state_snapshot);
+        if (go2_terrain::TerrainCrawlSequencer::TransferActivationReady(
+                *live_terrain_model, early_pose.base, early_pose.yaw_rad,
+                nominal_front_x))
+        {
+            terrain_transfer_window_active_ = true;
+            terrain_transfer_window_release_s_ =
+                -std::numeric_limits<double>::infinity();
+            terrain_crawl_sequencer_.Reset();
+            terrain_crawl_state_machine_.Enter(terrain_now_s);
+        }
+    }
+    go2_terrain::TerrainCrawlSequencerOutput sequencer_output{};
     // A prepared-but-not-started target is not yet an execution snapshot.
     // Permit a newer planner publication to replace it, because that is where
     // S1's retimed touchdown knot becomes visible to the execution rebase.
@@ -519,6 +560,8 @@ bool TrotExperiment::BuildGaitTargets(
         terrain_transfer_window_active_ = false;
         terrain_transfer_window_release_s_ =
             -std::numeric_limits<double>::infinity();
+        terrain_crawl_sequencer_.Reset();
+        terrain_crawl_sequencer_output_ = {};
         runtime_gait_pattern_ = params_.gait_pattern;
         terrain_surface_transition_required_.fill(false);
         terrain_surface_transition_original_required_.fill(false);
@@ -1693,14 +1736,45 @@ bool TrotExperiment::BuildGaitTargets(
     // and measured body/foot pose; no scene or XML truth is consulted.
     if (terrain_transfer_window_active_)
     {
+        go2_terrain::TerrainCrawlSequencerInput sequencer_input;
+        sequencer_input.transfer_window_active = true;
+        sequencer_input.terrain = live_terrain_model.get();
+        sequencer_input.base_position_world = pose.base;
+        sequencer_input.base_yaw_rad = pose.yaw_rad;
+        const auto nominal_feet = go2::AllFootPositions(
+            task_.stand_up_joint_pos_);
+        sequencer_input.nominal_front_foot_x_m =
+            0.5 * (nominal_feet[0].x + nominal_feet[1].x);
+        sequencer_input.measured_feet_world = actual_world_feet;
+        sequencer_input.measured_feet_valid = have_actual_world_feet;
+        sequencer_input.measured_contact_valid =
+            wbc_shadow_contact_state_valid_;
+        sequencer_input.measured_contact = wbc_shadow_contact_state_;
+        sequencer_input.measured_com_valid = have_measured_com_world_;
+        sequencer_input.measured_com_world = measured_com_world_;
+        sequencer_input.measured_velocity_mps = have_filtered_body_velocity_
+            ? std::abs(latest_filtered_body_velocity_[0]) : 0.0;
+        const auto sequencer_rpy = state_snapshot.imu_state().rpy();
+        sequencer_input.measured_posture_valid =
+            std::isfinite(sequencer_rpy[0]) && std::isfinite(sequencer_rpy[1]);
+        sequencer_input.measured_roll_rad = sequencer_rpy[0];
+        sequencer_input.measured_pitch_rad = sequencer_rpy[1];
+        sequencer_input.now_s = terrain_now_s;
+        (void)terrain_crawl_sequencer_.Update(sequencer_input);
+        sequencer_output = terrain_crawl_sequencer_.output();
+        terrain_crawl_sequencer_output_ = sequencer_output;
+        if (sequencer_output.state ==
+                go2_terrain::TerrainCrawlSequencerState::kAbort)
+            terrain_safe_stop_requested_.store(true);
+
         if (terrain_crawl_state_machine_.state() ==
                 go2_terrain::TerrainCrawlState::kInactive)
             terrain_crawl_state_machine_.Enter(terrain_now_s);
         go2_terrain::TerrainCrawlSignals crawl_signals;
         crawl_signals.transfer_window_active = true;
         crawl_signals.scripted_execution = true;
-        crawl_signals.plan_valid = active_terrain_plan &&
-            active_terrain_plan->valid();
+        crawl_signals.plan_valid = (active_terrain_plan &&
+            active_terrain_plan->valid()) || sequencer_output.target_valid;
         crawl_signals.measured_contact_valid = wbc_shadow_contact_state_valid_;
         crawl_signals.measured_contact = wbc_shadow_contact_state_;
         crawl_signals.measured_com_valid = have_measured_com_world_;
@@ -1716,16 +1790,29 @@ bool TrotExperiment::BuildGaitTargets(
         crawl_signals.measured_pitch_rad = measured_rpy[1];
         if (terrain_crawl_state_machine_.state() ==
                 go2_terrain::TerrainCrawlState::kStage &&
-            have_high_state && active_terrain_plan &&
-            active_terrain_plan->staging_target_valid)
+            have_high_state)
         {
             const auto staging_pose = ComputeWorldPose(
                 state_snapshot, high_state_snapshot);
-            crawl_signals.staging_target_valid = true;
-            crawl_signals.staging_error_m =
-                active_terrain_plan->staging_target_world_x_m -
-                staging_pose.base.x;
-            terrain_staging_error_m_ = crawl_signals.staging_error_m;
+            if (live_terrain_model)
+            {
+                const auto staging = go2_terrain::MeasureTerrainStagingReference(
+                    *live_terrain_model, staging_pose.base, staging_pose.yaw_rad,
+                    0.5 * (go2::AllFootPositions(task_.stand_up_joint_pos_)[0].x + go2::AllFootPositions(task_.stand_up_joint_pos_)[1].x));
+                crawl_signals.staging_target_valid = staging.valid;
+                crawl_signals.staging_error_m = staging.error_m;
+            }
+            else if (active_terrain_plan &&
+                     active_terrain_plan->staging_target_valid)
+            {
+                crawl_signals.staging_target_valid = true;
+                crawl_signals.staging_error_m =
+                    active_terrain_plan->staging_target_world_x_m -
+                    staging_pose.base.x;
+            }
+            terrain_staging_error_m_ = crawl_signals.staging_target_valid
+                ? crawl_signals.staging_error_m
+                : std::numeric_limits<double>::quiet_NaN();
         }
         else
             terrain_staging_error_m_ =
@@ -1762,6 +1849,12 @@ bool TrotExperiment::BuildGaitTargets(
             crawl_signals.target_valid[leg] =
                 crawl_target_is_live(terrain_swing_execution_[leg]) ||
                 crawl_target_is_live(terrain_swing_pending_[leg]);
+        // The event owner samples the live lidar map directly. Do not make
+        // the planner's candidate publication a prerequisite for a swing.
+        if (sequencer_output.target_valid &&
+            terrain_crawl_state_machine_.ActiveLeg() ==
+                sequencer_output.active_leg)
+            crawl_signals.target_valid[sequencer_output.active_leg] = true;
         crawl_signals.rear_targets_fk_reachable = false;
         if (active_terrain_plan && have_high_state)
         {
@@ -1934,15 +2027,14 @@ bool TrotExperiment::BuildGaitTargets(
                 planned = nullptr;
                 swing_start_time_s =
                     std::numeric_limits<double>::infinity();
-                if (leg >= go2::kLegCount ||
-                    terrain_surface_transition_cancelled_[leg] ||
-                    !terrain_timeline_valid)
+                if (leg >= go2::kLegCount || !terrain_timeline_valid)
                     return false;
                 const auto crawl_state =
                     terrain_crawl_state_machine_.state();
                 const bool scripted_step =
                     terrain_transfer_window_active_ &&
-                    active_terrain_plan->scripted_target[leg].valid &&
+                    sequencer_output.target_valid &&
+                    sequencer_output.active_leg == leg &&
                     (crawl_state ==
                          go2_terrain::TerrainCrawlState::kCrawlStep
                          ? terrain_crawl_state_machine_.ActiveLeg() == leg
@@ -1952,7 +2044,14 @@ bool TrotExperiment::BuildGaitTargets(
                                leg);
                 if (scripted_step)
                 {
-                    scripted_target = active_terrain_plan->scripted_target[leg];
+                    // Direct measured-map target; planner candidates are not
+                    // consulted for this event-driven crawl leg.
+                    scripted_target.valid = true;
+                    scripted_target.touchdown = true;
+                    scripted_target.position_world =
+                        sequencer_output.target_world;
+                    scripted_target.swing_lift_m = 0.03;
+                    scripted_target.edge_margin_m = 0.03;
                     scripted_target.touchdown_time_s = terrain_now_s +
                         go2_terrain::TerrainCrawlScript::kSwingDurationS;
                     scripted_target.swing_duration_s =
@@ -2814,7 +2913,13 @@ bool TrotExperiment::BuildGaitTargets(
                 path_progress_rate *
                     (execution.target_world.z - execution.start_world.z) +
                     swing_arch_rate};
-            apply_world_target(leg, path_world, path_velocity);
+            if (sequencer_output.state ==
+                    go2_terrain::TerrainCrawlSequencerState::kSwing &&
+                sequencer_output.active_leg == leg)
+                apply_world_target(leg, sequencer_output.swing_position_world,
+                                   sequencer_output.swing_velocity_world);
+            else
+                apply_world_target(leg, path_world, path_velocity);
         }
         if (terrain_transfer_hold_active_ && have_actual_world_feet)
         {

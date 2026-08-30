@@ -531,10 +531,17 @@ public:
             const bool stage_contact_ready =
                 (signals.measured_contact_valid && contacts >= 3) ||
                 (signals.measured_force_valid && force_contacts >= 3);
+            // If transfer detection is early enough to see the edge after
+            // the body has crossed the canonical point, settling in place is
+            // valid; reversing would reintroduce the late-trot failure.
+            const bool already_past_standoff =
+                std::isfinite(signals.staging_error_m) &&
+                signals.staging_error_m < 0.0;
             const bool stage_ready = signals.staging_target_valid &&
                 std::isfinite(signals.staging_error_m) &&
-                std::abs(signals.staging_error_m) <=
-                    kStagePositionToleranceM && stage_contact_ready &&
+                (already_past_standoff ||
+                 std::abs(signals.staging_error_m) <=
+                     kStagePositionToleranceM) && stage_contact_ready &&
                 std::isfinite(signals.measured_velocity_mps) &&
                 signals.measured_velocity_mps <= kStageVelocityToleranceMps &&
                 signals.measured_posture_valid &&

@@ -268,6 +268,16 @@ void TrotExperiment::UpdateWbcFull(
                     .planned_contact[plan_contact_index[0]];
         }
     }
+    // The in-window sequencer is the contact authority. Its schedule is
+    // derived from measured support and an explicit swing event, rather than
+    // from the running trot phase or a planner snapshot.
+    if (terrain_transfer_window_active_ &&
+        terrain_crawl_sequencer_output_.state !=
+            go2_terrain::TerrainCrawlSequencerState::kInactive &&
+        terrain_crawl_sequencer_output_.state !=
+            go2_terrain::TerrainCrawlSequencerState::kAbort &&
+        terrain_crawl_sequencer_output_.measured_contact_count >= 3)
+        scheduled_contact = terrain_crawl_sequencer_output_.contact_schedule;
     // During the brake, keep the scheduled running contacts.  The body is
     // still carrying sprint momentum, so declaring all four feet fixed after
     // an arbitrary 0.40 s creates the same hidden plant switch we are trying
@@ -546,6 +556,8 @@ void TrotExperiment::UpdateWbcFull(
         (void)go2_terrain::TerrainCrawlWbcContactOverride(
             terrain_crawl_state_machine_.state(),
             terrain_crawl_state_machine_.ActiveLeg(), qp_contact);
+        if (terrain_crawl_sequencer_output_.measured_contact_count >= 3)
+            qp_contact = terrain_crawl_sequencer_output_.contact_schedule;
     }
 
     bool terrain_surface_transition_complete =
@@ -909,9 +921,12 @@ void TrotExperiment::UpdateWbcFull(
         }
         mpc_in.reference[11] = 0.0;
         if (terrain_transfer_window_active_ &&
-            terrain_crawl_state_machine_.com_target_valid())
+            (terrain_crawl_sequencer_output_.com_reference_valid ||
+             terrain_crawl_state_machine_.com_target_valid()))
         {
-            const auto target = terrain_crawl_state_machine_.com_target_world();
+            const auto target = terrain_crawl_sequencer_output_.com_reference_valid
+                ? terrain_crawl_sequencer_output_.com_reference_world
+                : terrain_crawl_state_machine_.com_target_world();
             if (std::isfinite(target.x) && std::isfinite(target.y))
             {
                 // SHIFT_COM and the swing hold are a reference change to the

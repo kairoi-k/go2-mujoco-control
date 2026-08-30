@@ -10,6 +10,7 @@
 #include "terrain_planner.h"
 #include "terrain_swing_tracking.h"
 #include "terrain_crawl_script.h"
+#include "terrain_crawl_sequencer.h"
 
 namespace
 {
@@ -1794,6 +1795,164 @@ int main()
         timeout.Update(x);
         if (!Check(timeout.aborted(), "SHIFT_COM recovery exceeded its bound"))
             return 1;
+    }
+
+    // Order-042 sequencer transitions are driven by measured contact and
+    // endpoint events, while targets are sampled directly from the live map.
+    {
+        go2_terrain::TerrainModel model;
+        model.frame_id = "base_link";
+        model.state_stamp_s = 1.0;
+        model.map_stamp_s = 1.0;
+        model.age_s = 0.0;
+        model.epoch = 2;
+        model.resolution_m = 0.05;
+        model.origin_m = {-0.50, -0.20};
+        model.width = 30;
+        model.height = 8;
+        model.source = go2_terrain::TerrainSource::kTestFixture;
+        model.cells.resize(model.width * model.height);
+        for (auto &cell : model.cells)
+        {
+            cell.known = true;
+            cell.height_m = -0.25;
+            cell.slope_rad = 0.0;
+            cell.roughness_m = 0.0;
+            cell.variance_m2 = 0.0;
+        }
+        for (std::size_t iy = 0; iy < model.height; ++iy)
+            for (std::size_t ix = 20; ix < model.width; ++ix)
+                model.CellAt(ix, iy)->height_m = 0.05;
+        go2_terrain::TerrainCrawlSequencerInput x;
+        x.transfer_window_active = true;
+        x.terrain = &model;
+        x.base_position_world = {0.0, 0.0, 0.0};
+        x.nominal_front_foot_x_m = 0.30;
+        x.measured_feet_world = {go2::Vec3{0.30, -0.20, -0.25},
+                                  go2::Vec3{0.30, 0.20, -0.25},
+                                  go2::Vec3{-0.30, -0.20, -0.25},
+                                  go2::Vec3{-0.30, 0.20, -0.25}};
+        x.measured_feet_valid = true;
+        x.measured_contact = {true, true, true, true};
+        x.measured_contact_valid = true;
+        x.measured_com_world = {0.0, 0.0, -0.25};
+        x.measured_com_valid = true;
+        x.measured_velocity_mps = 0.0;
+        x.measured_posture_valid = true;
+        go2_terrain::TerrainCrawlSequencer seq;
+        x.now_s = 0.0;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kStage,
+                   "sequencer did not enter STAGE")) return 1;
+        x.measured_contact = {true, true, false, false};
+        x.now_s = 0.1;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kStage,
+                   "sequencer violated the three-contact stage precondition")) return 1;
+        x.measured_contact = {true, true, true, true};
+        x.now_s = 0.31;
+        seq.Update(x);
+        x.now_s = 0.62;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kShift,
+                   "sequencer did not finish STAGE dwell")) return 1;
+        x.now_s = 0.75;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kSwing &&
+                       seq.active_leg() == 1 && seq.output().target_valid &&
+                       !seq.output().contact_schedule[1] &&
+                       seq.output().measured_contact_count >= 3,
+                   "sequencer did not launch measured FL swing")) return 1;
+        x.measured_feet_world[1] = seq.output().target_world;
+        x.now_s = 1.0;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kCommit,
+                   "sequencer did not expose FL COMMIT event")) return 1;
+        x.now_s = 1.01;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kShift &&
+                       seq.order_index() == 1,
+                   "sequencer did not advance to FR after measured commit")) return 1;
+        // Continue through the measured FR, ADVANCE, RR, RL, CLEAR and
+        // RESUME events; each transition has an explicit live precondition.
+        x.now_s = 1.20;
+        seq.Update(x);
+        x.now_s = 1.33;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kSwing &&
+                       seq.active_leg() == 0,
+                   "sequencer did not enter FR SWING")) return 1;
+        x.measured_feet_world[0] = seq.output().target_world;
+        x.now_s = 1.93;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kCommit,
+                   "sequencer did not expose FR COMMIT event")) return 1;
+        x.now_s = 1.94;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kAdvance,
+                   "sequencer did not enter ADVANCE")) return 1;
+        x.now_s = 1.95;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kAdvance,
+                   "sequencer advanced without measured FK reachability")) return 1;
+        x.rear_targets_fk_reachable = true;
+        x.now_s = 1.96;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kShift &&
+                       seq.order_index() == 2,
+                   "sequencer did not gate ADVANCE on measured FK reachability")) return 1;
+        // The live lidar map may refresh as the body advances. Move the
+        // observed edge for the rear-leg event; no target snapshot is kept.
+        for (auto &cell : model.cells)
+            cell.height_m = -0.25;
+        for (std::size_t iy = 0; iy < model.height; ++iy)
+            for (std::size_t ix = 10; ix < model.width; ++ix)
+                model.CellAt(ix, iy)->height_m = 0.05;
+        x.measured_com_world.x = 0.40;
+        x.now_s = 2.08;
+        seq.Update(x);
+        x.measured_feet_world[2] = seq.output().target_world;
+        x.now_s = 2.70;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kCommit,
+                   "sequencer did not commit RR from measured endpoint")) return 1;
+        x.now_s = 2.71;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kShift &&
+                       seq.order_index() == 3,
+                   "sequencer did not advance from RR to RL")) return 1;
+        x.now_s = 2.85;
+        seq.Update(x);
+        x.measured_feet_world[3] = seq.output().target_world;
+        x.now_s = 3.47;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kCommit,
+                   "sequencer did not commit RL from measured endpoint")) return 1;
+        x.now_s = 3.48;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kClear,
+                   "sequencer did not enter CLEAR after RL commit")) return 1;
+        x.now_s = 3.49;
+        seq.Update(x);
+        x.base_clear = true;
+        x.all_feet_clear = true;
+        x.now_s = 3.50;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kResume,
+                   "sequencer did not enter CLEAR/RESUME")) return 1;
+        x.stable = true;
+        x.now_s = 3.94;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kResume,
+                   "sequencer resumed before stable dwell")) return 1;
+        x.now_s = 3.96;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kInactive,
+                   "sequencer did not complete RESUME dwell")) return 1;
+        x.transfer_window_active = false;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kInactive,
+                   "sequencer was not window gated")) return 1;
     }
 
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";

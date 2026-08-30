@@ -35,6 +35,7 @@
 #include "terrain_model.h"
 #include "terrain_motion_plan.h"
 #include "terrain_crawl_state_machine.h"
+#include "terrain_crawl_sequencer.h"
 #include "terrain_planner.h"
 
 using unitree::robot::ChannelPublisherPtr;
@@ -537,6 +538,11 @@ private:
     // sensor-derived transfer window is active; the Phase 1 path never reads
     // it and therefore remains bit-identical outside the window.
     go2_terrain::TerrainCrawlStateMachine terrain_crawl_state_machine_{};
+    // The event-driven owner supplies live-map targets and explicit contact
+    // topology inside the v2 window; the legacy machine remains diagnostics
+    // compatible for the out-of-window path.
+    go2_terrain::TerrainCrawlSequencer terrain_crawl_sequencer_{};
+    go2_terrain::TerrainCrawlSequencerOutput terrain_crawl_sequencer_output_{};
     int terrain_crawl_min_contact_count_ = go2::kLegCount;
     std::uint64_t terrain_crawl_step_commit_count_ = 0;
     // Cached for the hard-limit check, which runs before the WBC update in
