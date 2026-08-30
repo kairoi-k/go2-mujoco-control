@@ -1373,12 +1373,20 @@ void TrotExperiment::UpdateWbcFull(
         // that history from becoming a backward impulse at the explicit
         // shift/swing handoff; flat debug mode intentionally keeps its
         // established dynamics unchanged.
+        const bool sequencer_swing_hold =
+            terrain_crawl_sequencer_output_.control_authority_active &&
+            !terrain_crawl_sequencer_output_.flat_ground_mode &&
+            (terrain_crawl_sequencer_output_.state ==
+                 go2_terrain::TerrainCrawlSequencerState::kSwing ||
+             terrain_crawl_sequencer_output_.state ==
+                 go2_terrain::TerrainCrawlSequencerState::kCommit);
         if (terrain_crawl_sequencer_output_.control_authority_active &&
             !terrain_crawl_sequencer_output_.flat_ground_mode &&
             (terrain_crawl_state_machine_.state() ==
                  go2_terrain::TerrainCrawlState::kShiftCom ||
              terrain_crawl_state_machine_.state() ==
-                 go2_terrain::TerrainCrawlState::kCrawlStep))
+                 go2_terrain::TerrainCrawlState::kCrawlStep ||
+             sequencer_swing_hold))
         {
             wbc_in.desired_linear_acc_world.x() = Clamp(
                 -5.0 * linear_vel_world.x(), -1.5, 1.5);

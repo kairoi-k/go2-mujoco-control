@@ -2861,15 +2861,25 @@ bool TrotExperiment::BuildGaitTargets(
                      go2_terrain::TerrainCrawlSequencerState::kCommit) &&
                 terrain_crawl_sequencer_output_.target_valid &&
                 terrain_crawl_sequencer_output_.active_leg == leg;
-            if (sequencer_direct_target && execution.valid &&
-                !execution.in_flight && !execution.endpoint_held)
+            if (sequencer_direct_target && execution.valid)
             {
-                // A planner foothold may have been prepared before the
-                // measured sequencer target existed. Replace that pending
-                // snapshot at the event boundary; once in flight it remains
-                // immutable through touchdown.
-                execution = {};
-                pending = {};
+                const auto &sequencer_target =
+                    terrain_crawl_sequencer_output_.target_world;
+                const double target_frame_error = std::hypot(
+                    std::hypot(execution.target_world.x - sequencer_target.x,
+                               execution.target_world.y - sequencer_target.y),
+                    execution.target_world.z - sequencer_target.z);
+                if (target_frame_error > 1.0e-6)
+                {
+                    // The sequencer owns this event. A planner foothold may
+                    // have been prepared before the event target existed;
+                    // retaining it would leave the execution ledger and the
+                    // WBC trajectory in different world frames/targets.
+                    // Rebind the transaction at the explicit event boundary
+                    // so the target is converted exactly once below.
+                    execution = {};
+                    pending = {};
+                }
             }
             // A scripted timeout owns a bounded retract/retry. Clear only
             // the uncommitted active endpoint; committed feet remain anchors.
