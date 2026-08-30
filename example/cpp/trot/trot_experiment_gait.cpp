@@ -2508,6 +2508,7 @@ bool TrotExperiment::BuildGaitTargets(
 
             if (execution.endpoint_held &&
                 terrain_transfer_hold_active_ &&
+                !explicit_crawl_step &&
                 execution.terrain_target_required &&
                 !execution.measured_touchdown)
             {

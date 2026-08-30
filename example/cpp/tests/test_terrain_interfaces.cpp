@@ -77,6 +77,12 @@ int main()
                        first.position_base.x >= 0.58,
                    "script target was not deterministic or edge-stand-off safe"))
             return 1;
+        const auto fr = go2_terrain::MeasureTerrainScriptTarget(
+            model, go2::Leg::FR, {0.30, -0.10, -0.25});
+        if (!Check(fr.valid && fr.position_base.x == first.position_base.x &&
+                       fr.position_base.y < 0.0 && fr.edge_margin_m >= 0.025,
+                   "FR script target did not receive the same valid map supply"))
+            return 1;
         // Planner inputs use FK foot-site coordinates, while the map stores
         // the contact-patch plane. A site 22 mm above the flat patch must
         // still recognize the elevated script target.
