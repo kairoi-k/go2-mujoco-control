@@ -93,13 +93,6 @@ struct TerrainCrawlSignals
     double measured_com_velocity_mps = 0.0;
     bool measured_com_valid = false;
     go2::Vec3 measured_com_world{};
-    // The sequencer supplies captured terrain swing endpoints so SHIFT_COM
-    // can reserve the swing leg's predicted COM contribution. Flat mode
-    // leaves this disabled.
-    bool swing_com_bias_enabled = false;
-    bool swing_trajectory_valid = false;
-    go2::Vec3 swing_start_world{};
-    go2::Vec3 swing_target_world{};
     bool measured_foot_valid = false;
     std::array<go2::Vec3, go2::kLegCount> measured_foot_world{};
     bool rear_targets_fk_reachable = false;
@@ -354,19 +347,6 @@ public:
     // duration is selected from measured COM-to-centroid displacement.
     static constexpr double kComShiftRampMaxS = 1.20;
     static constexpr double kComShiftDistanceRateMps = 0.10;
-    // Go2 XML masses: one complete leg (hip, thigh, calf) over the measured
-    // whole-body mass. This first-order inertia surrogate predicts the
-    // horizontal COM displacement from the captured swing trajectory.
-    static constexpr double kSwingLegMassKg = 2.071352;
-    static constexpr double kWholeBodyMassKg = 15.206408;
-    static constexpr double kSwingLegMassRatio =
-        kSwingLegMassKg / kWholeBodyMassKg;
-    static go2::Vec3 PredictedSwingComDisplacement(
-        const go2::Vec3 &start, const go2::Vec3 &target) noexcept
-    {
-        return {kSwingLegMassRatio * (target.x - start.x),
-                kSwingLegMassRatio * (target.y - start.y), 0.0};
-    }
     static constexpr double kStableComMarginM = -0.040;
     static constexpr double kStableComVelocityMps = 0.08;
     static constexpr double kStableForceMinN = 10.0;
@@ -882,7 +862,6 @@ private:
         if (metrics.signed_margin_m >= kComMarginM)
         {
             com_target_world_ = signals.measured_com_world;
-            ApplySwingComBias(signals, com_target_world_);
             com_shift_start_valid_ = false;
             return;
         }
@@ -893,15 +872,13 @@ private:
         // update and unloading the stance legs. Asymmetric shifts get a
         // displacement-proportional ramp, capped to keep recovery bounded.
         const auto centroid = TerrainSupportTriangleCentroid(triangle);
-        go2::Vec3 shift_target = centroid;
-        ApplySwingComBias(signals, shift_target);
         if (!com_shift_start_valid_)
         {
             com_shift_start_world_ = signals.measured_com_world;
             com_shift_start_time_s_ = signals.now_s;
             const double distance = std::hypot(
-                shift_target.x - com_shift_start_world_.x,
-                shift_target.y - com_shift_start_world_.y);
+                centroid.x - com_shift_start_world_.x,
+                centroid.y - com_shift_start_world_.y);
             com_shift_duration_s_ = asymmetric_shift_
                 ? std::clamp(
                       kComShiftRampS + distance / kComShiftDistanceRateMps,
@@ -914,26 +891,11 @@ private:
             elapsed / com_shift_duration_s_, 0.0, 1.0);
         com_target_world_ = {
             com_shift_start_world_.x +
-                alpha * (shift_target.x - com_shift_start_world_.x),
+                alpha * (centroid.x - com_shift_start_world_.x),
             com_shift_start_world_.y +
-                alpha * (shift_target.y - com_shift_start_world_.y),
+                alpha * (centroid.y - com_shift_start_world_.y),
             com_shift_start_world_.z +
-                alpha * (shift_target.z - com_shift_start_world_.z)};
-    }
-
-    void ApplySwingComBias(const TerrainCrawlSignals &signals,
-                           go2::Vec3 &target) const noexcept
-    {
-        if (!signals.scripted_execution || !signals.swing_com_bias_enabled ||
-            !signals.swing_trajectory_valid)
-            return;
-        const auto displacement = PredictedSwingComDisplacement(
-            signals.swing_start_world, signals.swing_target_world);
-        if (std::isfinite(displacement.x) && std::isfinite(displacement.y))
-        {
-            target.x -= displacement.x;
-            target.y -= displacement.y;
-        }
+                alpha * (centroid.z - com_shift_start_world_.z)};
     }
 
     bool ComShiftReady() const noexcept

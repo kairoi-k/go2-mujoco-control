@@ -1565,21 +1565,6 @@ int main()
             return 1;
     }
 
-    // Raised terrain swings reserve the measured leg-mass contribution in
-    // the COM target, while the flat harness remains opt-out by its signal.
-    {
-        const go2::Vec3 start{0.44, 0.14, 0.02};
-        const go2::Vec3 target{0.84, 0.19, 0.095};
-        const auto predicted =
-            go2_terrain::TerrainCrawlStateMachine::PredictedSwingComDisplacement(
-                start, target);
-        if (!Check(std::abs(predicted.x - 0.0544863) < 1.0e-6 &&
-                       std::abs(predicted.y - 0.0068108) < 1.0e-6 &&
-                       predicted.z == 0.0,
-                   "swing COM prediction did not use Go2 leg mass ratio"))
-            return 1;
-    }
-
     // Explicit v2 crawl sequencing uses measured support and a COM margin.
     {
         std::array<go2::Vec3, go2::kLegCount> feet{
