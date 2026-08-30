@@ -2640,3 +2640,39 @@ validation: |
   harness were not rerun for this evidence-only append. No v1 contract,
   analyzer threshold, or canary definition changed; no push or amend.
 git_status: evidence append is to be committed; no staged files.
+
+---
+timestamp: 2026-09-02T07:30:00+0800
+run_id: Order-058 measured planner/sequencer support unification and canary report
+trigger: T1
+implementation: |
+  Commits e055ac07230141bdaff5dc1300d6bc3486c71017 and
+  64b68c417985fffd9fcc78e64a2e1081d7de1783 add the canonical
+  TerrainMeasuredSupportMargin helper. Sequencer SHIFT/PUBLISH and the
+  planner's in-window selection/final SupportFeasible path now call the same
+  measured-foot/COM calculation. TerrainControlSnapshot carries the actual
+  world feet, COM, and raw sequencer contact witness only while the sequencer
+  owns SHIFT/SWING/COMMIT/ADVANCE; trot and out-of-window planner geometry is
+  unchanged. The strict measured margin gate was not weakened.
+unit_witness: |
+  test_terrain_interfaces compares planner and sequencer on identical raised
+  measured vertices, contact mask, lifted leg, and COM; margins match within
+  1e-12 m and the non-negative decision agrees. Full ctest remains 27/27.
+canary: |
+  Ten serial pairs b1_freegait_epoch221-230 (domain 229, Base=4000 preload,
+  --controller-duration 30, wall 35, flock lock) ran at e055ac0; the first
+  follow-up at 64b68c4 ran pairs 231-233 with the same command. All manifests
+  record git_dirty=false. No new FL terrain commit was observed in these
+  canaries; the inherited reference remains epoch201 at t=10.850 s,
+  margin +23.459 mm. The runs reached at most the existing terrain planning /
+  posture-stop path; no FR commit, ADVANCE, RR, RL, CLEAR, RESUME, complete
+  crossing, or confirmation was observed. This is a stuck report, not a gate
+  conclusion; the canary budget was not used to claim a crossing.
+validation: |
+  cmake --build example/cpp/build -j2 passed; ctest --test-dir
+  example/cpp/build --output-on-failure passed 27/27; git diff --check passed.
+  Flat harness order058_flat_epoch221 at e055ac0 and order058_flat_epoch231
+  at 64b68c4 both completed with generated manifests and no source change to
+  the flat contract. No v1 contract, analyzer threshold, or canary definition
+  changed; no push or amend.
+git_status: evidence append is committed locally; no staged files.
