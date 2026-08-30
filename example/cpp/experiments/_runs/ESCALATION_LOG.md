@@ -1538,3 +1538,16 @@ canary_trace: |
   commit, FR, ADVANCE_BODY, rear legs, CLEAR, or RESUME occurred.
 validation: ctest 27/27 passed before this canary; no red-line thresholds or contract definitions changed.
 git_status: local docs commit pending; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-31T23:30:00+0800
+run_id: Order-039 commit-ledger epoch77 b1_script_epoch77_20260828 (+ _r2)
+trigger: T1
+canary_trace: |
+  Serial domain-229 runs used Base=4000 preload and controller-duration=30.
+  r1 reached SHIFT_COM at 6.628 s, exhausted two bounded recoveries, and
+  entered ABORT at 9.368 s with no commit. r2 reached SHIFT_COM at 6.964 s
+  (required mask 1 then 3) and stopped at 12.064 s without CRAWL_STEP or a
+  commit. Neither reached FR, ADVANCE_BODY, rear legs, CLEAR, or RESUME.
+validation: ctest 27/27 passed; this cycle made no source change.
+git_status: local docs commit pending; no push/amend; simulations serialized.
