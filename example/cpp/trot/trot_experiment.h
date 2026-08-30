@@ -368,6 +368,9 @@ private:
     go2_control::SrbdMpcOutput last_srbd_{};
     go2_control::IdWbcOutput last_id_wbc_{};
     bool have_last_id_wbc_ = false;
+    std::array<double, go2::kLegCount> terrain_force_handoff_reference_{};
+    std::size_t terrain_force_handoff_swing_leg_ = go2::kLegCount;
+    bool terrain_force_handoff_reference_valid_ = false;
     int wbc_full_ticks_ = 0;
     bool dynamics_logged_ = false;
     double current_phase_ = 0.0;

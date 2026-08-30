@@ -23,6 +23,8 @@ struct IdWbcParams
 {
     double friction_mu = 0.8;
     double min_normal_n = 1.0;
+    // Optional per-leg terrain handoff floors. Zero keeps min_normal_n.
+    std::array<double, go2::kLegCount> min_normal_n_by_leg{};
     double max_normal_n = 180.0;
     double tau_limit_nm = 35.0;
     double w_base_lin = 80.0;
@@ -267,7 +269,11 @@ inline bool SolveInverseDynamicsWbc(
             continue;
         }
         Aineq(row, c + 2) = -1.0;
-        bineq[row] = -params.min_normal_n;
+        const double per_leg_floor = params.min_normal_n_by_leg[leg];
+        bineq[row] = -std::max(
+            params.min_normal_n,
+            std::isfinite(per_leg_floor) && per_leg_floor > 0.0
+                ? per_leg_floor : params.min_normal_n);
         ++row;
         Aineq(row, c + 2) = 1.0;
         bineq[row] = params.max_normal_n;

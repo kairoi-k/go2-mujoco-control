@@ -40,6 +40,22 @@ unitree_go::msg::dds_::HeightMap_ FlatMap()
 
 int main()
 {
+    // The terrain SWING handoff must project the four-foot preload onto the
+    // three stance legs before the swing leg is removed from WBC contact.
+    {
+        const auto handoff =
+            go2_terrain::TerrainStanceForceHandoffReference(
+                {30.0, 34.0, 46.0, 47.0}, 1);
+        if (!Check(handoff[1] == 0.0 &&
+                       std::abs(handoff[0] - 157.0 * 30.0 / 123.0) < 1.0e-9 &&
+                       std::abs(handoff[2] - 157.0 * 46.0 / 123.0) < 1.0e-9 &&
+                       std::abs(handoff[3] - 157.0 * 47.0 / 123.0) < 1.0e-9,
+                   "terrain force handoff did not preserve preload shares"))
+            return 1;
+        if (!Check(handoff[3] / handoff[0] < 4.0,
+                   "terrain force handoff produced an imbalanced stance"))
+            return 1;
+    }
 
     // Order-032 script targets are direct, deterministic lidar measurements.
     {

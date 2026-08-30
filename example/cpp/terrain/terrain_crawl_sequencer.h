@@ -75,6 +75,43 @@ struct TerrainCrawlSequencerInput
     double now_s = 0.0;
 };
 
+// Project the four-contact preload onto the three stance legs before a
+// terrain swing.  Keeping the total normal load and each stance leg's
+// share avoids a contact-mask switch from asking one diagonal leg to
+// absorb the entire unloaded leg in a single WBC solve.
+inline std::array<double, go2::kLegCount>
+TerrainStanceForceHandoffReference(
+    const std::array<double, go2::kLegCount> &preload_n,
+    std::size_t swing_leg) noexcept
+{
+    std::array<double, go2::kLegCount> reference{};
+    if (swing_leg >= go2::kLegCount)
+        return reference;
+    double total = 0.0;
+    double stance_total = 0.0;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const double force = preload_n[leg];
+        if (!std::isfinite(force) || force <= 0.0)
+            continue;
+        total += force;
+        if (leg != swing_leg)
+            stance_total += force;
+    }
+    if (!(total > 0.0) || !(stance_total > 0.0))
+        return reference;
+    const double scale = total / stance_total;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (leg == swing_leg)
+            continue;
+        const double force = preload_n[leg];
+        if (std::isfinite(force) && force > 0.0)
+            reference[leg] = force * scale;
+    }
+    return reference;
+}
+
 struct TerrainCrawlSequencerOutput
 {
     TerrainCrawlSequencerState state = TerrainCrawlSequencerState::kInactive;

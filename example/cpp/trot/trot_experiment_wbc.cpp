@@ -1682,6 +1682,22 @@ void TrotExperiment::UpdateWbcFull(
     const double tau_ov = Full2EnvDouble("FULL2_TAU", -1.0);
     if (tau_ov > 0.0)
         id_params.tau_limit_nm = tau_ov;
+    const bool terrain_force_handoff_window =
+        !terrain_crawl_sequencer_output_.flat_ground_mode &&
+        terrain_crawl_sequencer_output_.control_authority_active &&
+        (terrain_crawl_sequencer_output_.state ==
+             go2_terrain::TerrainCrawlSequencerState::kShift ||
+         terrain_crawl_sequencer_output_.state ==
+             go2_terrain::TerrainCrawlSequencerState::kSwing) &&
+        terrain_crawl_sequencer_output_.active_leg < go2::kLegCount &&
+        have_last_id_wbc_;
+    const bool terrain_swing_force_handoff =
+        terrain_force_handoff_window &&
+        terrain_crawl_sequencer_output_.state ==
+            go2_terrain::TerrainCrawlSequencerState::kSwing;
+    if (!terrain_force_handoff_window)
+        terrain_force_handoff_reference_valid_ = false;
+
     if (params_.cartesian_world)
     {
         // Original cartesian-world: soft no-slip only. Hard equality
@@ -1694,6 +1710,45 @@ void TrotExperiment::UpdateWbcFull(
         {
             wbc_in.have_force_ref = true;
             wbc_in.force_ref = last_srbd_.first_force;
+        }
+    }
+    if (terrain_force_handoff_window)
+    {
+        const std::size_t swing_leg =
+            terrain_crawl_sequencer_output_.active_leg;
+        // Refresh during SHIFT, then hold the final three-stance projection
+        // across the contact-mask switch into SWING.
+        if (terrain_crawl_sequencer_output_.state ==
+                go2_terrain::TerrainCrawlSequencerState::kShift ||
+            !terrain_force_handoff_reference_valid_ ||
+            terrain_force_handoff_swing_leg_ != swing_leg)
+        {
+            std::array<double, go2::kLegCount> preload_n{};
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                preload_n[leg] = last_id_wbc_.force[
+                    3 * static_cast<int>(leg) + 2];
+            terrain_force_handoff_reference_ =
+                go2_terrain::TerrainStanceForceHandoffReference(
+                    preload_n, swing_leg);
+            terrain_force_handoff_swing_leg_ = swing_leg;
+            terrain_force_handoff_reference_valid_ = true;
+        }
+        if (terrain_swing_force_handoff)
+        {
+            wbc_in.have_force_ref = true;
+            wbc_in.force_ref.setZero();
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                wbc_in.force_ref[3 * static_cast<int>(leg) + 2] =
+                    terrain_force_handoff_reference_[leg];
+                if (leg != swing_leg)
+                    id_params.min_normal_n_by_leg[leg] =
+                        0.80 * terrain_force_handoff_reference_[leg];
+            }
+            // The preload reference is stronger than the tiny regularizer
+            // but scoped to terrain SWING. The 30 N floor remains a
+            // feasibility floor rather than a competing target.
+            id_params.w_force_track = 0.10;
         }
     }
     bool solved =
