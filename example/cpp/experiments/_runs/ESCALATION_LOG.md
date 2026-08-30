@@ -1511,3 +1511,17 @@ validation: |
 git_status: local commits only; no push/amend; simulations serialized.
 
 B0 regression for the ledger diff: phase2_b0_development_fixed_3mps_r0_20260830_103636 returned acceptance_status=PASS with controller_status=0, quality_status=0, safety_status=0, no_terrain_actuation=true, planner_deadline_misses=0, analyzer_hash=true, contract_hash=true, and terrain_rows=39086. The paired diagnostic report contains its existing non-gating command-profile comparison warnings; fixed analyzer acceptance remained PASS.
+
+---
+timestamp: 2026-08-31T20:30:00+0800
+run_id: Order-039 commit-ledger epoch75 b1_script_epoch75_20260828 (+ _r2)
+trigger: T1
+canary_trace: |
+  Serial domain-229 runs used Base=4000 preload, controller-duration=30,
+  wall timeout=35, and flock /tmp/go2_mujoco_experiment.lock. r1 reached
+  SHIFT_COM at 6.960 s, exhausted two bounded shift recoveries, and entered
+  ABORT at 9.844 s with no commit. r2 reached SHIFT_COM at 6.580 s but
+  stopped before CRAWL_STEP at cmd_time 9.736 s; neither run reached FR,
+  ADVANCE_BODY, rear legs, CLEAR, or RESUME.
+validation: ctest remained green (27/27); failures are unchanged posture/safety exploratory outcomes, with no analyzer or contract edits.
+git_status: local docs commit pending; no push/amend; simulations serialized.
