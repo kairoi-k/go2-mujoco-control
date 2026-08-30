@@ -102,26 +102,41 @@ inline TerrainScriptTarget MeasureTerrainScriptTarget(
     // Reject lateral risers before taking the minimum edge. Otherwise a
     // side obstacle can become the apparent forward foothold.
     constexpr double kForwardCorridorHalfWidthM = 0.10;
+    // Edge estimation may use a wider lateral consensus than foothold
+    // selection: the raised platform is broad, while a side obstacle must
+    // not win unless it appears across multiple rows.
+    constexpr double kEdgeConsensusHalfWidthM = 0.30;
     const double edge_x = [&]() {
         double edge = std::numeric_limits<double>::quiet_NaN();
-        for (std::size_t iy = 0; iy < terrain.height; ++iy)
+        constexpr std::size_t kEdgeConsensusRows = 2;
+        for (std::size_t ix = 1; ix + 1 < terrain.width; ++ix)
         {
-            for (std::size_t ix = 1; ix < terrain.width; ++ix)
+            std::size_t transition_rows = 0;
+            for (std::size_t iy = 0; iy < terrain.height; ++iy)
             {
-                const auto *before = terrain.CellAt(ix - 1, iy);
-                const auto *after = terrain.CellAt(ix, iy);
                 const double y = terrain.origin_m[1] +
                     (static_cast<double>(iy) + 0.5) * step;
                 if (std::abs(y - current_foot_base.y) >
                         kForwardCorridorHalfWidthM)
                     continue;
-                if (before == nullptr || after == nullptr || !before->known ||
-                    !after->known || after->height_m <= before->height_m + 0.02)
-                    continue;
-                const double x = terrain.origin_m[0] +
-                    static_cast<double>(ix) * step;
-                edge = std::isfinite(edge) ? std::min(edge, x) : x;
+                const auto *before = terrain.CellAt(ix - 1, iy);
+                const auto *after = terrain.CellAt(ix, iy);
+                const auto *following = terrain.CellAt(ix + 1, iy);
+                // A single blended/quantized cell or isolated ray cannot
+                // define an edge. Require a persistent elevated run with
+                // lateral consensus inside the forward corridor.
+                if (before != nullptr && after != nullptr &&
+                    following != nullptr && before->known && after->known &&
+                    following->known &&
+                    after->height_m > before->height_m + 0.02 &&
+                    following->height_m >= after->height_m - 0.01)
+                    ++transition_rows;
             }
+            if (transition_rows < kEdgeConsensusRows)
+                continue;
+            const double x = terrain.origin_m[0] +
+                static_cast<double>(ix) * step;
+            edge = std::isfinite(edge) ? std::min(edge, x) : x;
         }
         return edge;
     }();

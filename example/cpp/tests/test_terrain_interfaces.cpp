@@ -70,6 +70,9 @@ int main()
         for (const std::size_t iy : {std::size_t{7}})
             for (std::size_t ix = 2; ix < 5; ++ix)
                 model.CellAt(ix, iy)->height_m = 0.05;
+        // A one-cell forward spike is a map blending/quantization artifact,
+        // not an edge; the target must still use the persistent upper run.
+        model.CellAt(10, 3)->height_m = 0.05;
         const go2::Vec3 current{0.30, 0.0, -0.25};
         const auto first = go2_terrain::MeasureTerrainScriptTarget(
             model, go2::Leg::FL, current);
@@ -1948,8 +1951,9 @@ int main()
         if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kSwing &&
                        seq.active_leg() == 1 && seq.output().target_valid &&
                        !seq.output().contact_schedule[1] &&
-                       seq.output().measured_contact_count >= 3,
-                   "sequencer did not launch measured FL swing")) return 1;
+                       seq.output().measured_contact_count >= 3 &&
+                       std::abs(seq.output().target_world.z - 0.072) < 1.0e-9,
+                   "sequencer did not launch a foot-site-corrected FL swing")) return 1;
         x.measured_feet_world[1] = seq.output().target_world;
         x.now_s = 1.0;
         seq.Update(x);

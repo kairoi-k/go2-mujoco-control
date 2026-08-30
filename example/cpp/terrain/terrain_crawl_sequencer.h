@@ -462,12 +462,18 @@ private:
             target_valid_ = false;
             return;
         }
+        // Lidar elevations are contact-patch coordinates; the sequencer
+        // output is consumed by FK/WBC as the foot-site center.  Apply the
+        // calibrated patch-to-site offset at this direct handoff, matching
+        // the planner execution path without changing flat mode.
+        const auto measured_site = go2::ContactPatchToFootSite(
+            measured.position_base);
         target_ = {
-            input.base_position_world.x + c * measured.position_base.x -
-                s * measured.position_base.y,
-            input.base_position_world.y + s * measured.position_base.x +
-                c * measured.position_base.y,
-            input.base_position_world.z + measured.position_base.z};
+            input.base_position_world.x + c * measured_site.x -
+                s * measured_site.y,
+            input.base_position_world.y + s * measured_site.x +
+                c * measured_site.y,
+            input.base_position_world.z + measured_site.z};
         swing_start_ = foot;
         target_valid_ = true;
     }
@@ -529,7 +535,10 @@ private:
                        input.measured_contact.end(), true) >= 3;
         output_.swing_start_world = swing_start_;
         output_.target_world = target_;
-        output_.swing_lift_m = input.flat_ground_mode ? 0.015 : 0.03;
+        // The terrain target is a foot-site point above a contact patch.
+        // Keep flat isolation unchanged, but lift the transfer apex above
+        // the 5 cm surface step plus the calibrated foot-site offset.
+        output_.swing_lift_m = input.flat_ground_mode ? 0.015 : 0.08;
         output_.measured_contact_count = input.measured_contact_valid
             ? static_cast<int>(std::count(input.measured_contact.begin(),
                                           input.measured_contact.end(), true))

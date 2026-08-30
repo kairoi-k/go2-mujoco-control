@@ -1627,7 +1627,13 @@ void TrotExperiment::UpdateWbcFull(
     // foothold transaction exists, so apply the same scoped floor there.
     if ((terrain_transfer_hold_active_ && !terrain_transfer_complete) ||
         terrain_crawl_stance || sequencer_crawl_execution)
-        id_params.min_normal_n = 20.0;
+    {
+        // The raised transfer swing has an asymmetric 3-foot support
+        // triangle; keep its rear support from unloading below the measured
+        // contact gate. Flat isolation retains the established 20 N floor.
+        id_params.min_normal_n =
+            terrain_crawl_sequencer_output_.flat_ground_mode ? 20.0 : 30.0;
+    }
     id_params.tau_limit_nm = 35.0;
     const double tau_ov = Full2EnvDouble("FULL2_TAU", -1.0);
     if (tau_ov > 0.0)
