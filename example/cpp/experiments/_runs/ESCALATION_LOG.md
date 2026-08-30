@@ -2436,3 +2436,50 @@ validation: |
   /home/che/dds_base4000_preload.so. No v1 contract, analyzer threshold,
   or canary definition changed. No push or amend.
 git_status: source/evidence implementation and this report are committed; no staged files.
+
+---
+timestamp: 2026-09-02T00:00:00+0800
+run_id: Order-054 stance force handoff implementation and canary evidence
+trigger: T1
+force_forensics: |
+  Epoch178's FL SWING starts at t=8.450 (elapsed 0.000): measured
+  FR/FL/RR/RL=28/32/44/46 N, ID-WBC=44.36/-0.00/30.00/61.05 N,
+  and WBC/MPC/sequencer masks are 13/13/13. At t=8.734 (elapsed
+  0.284), measured=54/0/0/78 N while ID-WBC=47.18/0.03/29.90/83.87 N;
+  the sequencer aborts at 8.736 with 54/0/0/78 N and planner margin
+  -0.141967 m. Epoch179 reproduces it: at t=9.484 (elapsed .388),
+  measured=56/0/0/68 N and ID-WBC=67.12/0.18/29.70/78.24 N.
+  The active FL and diagonal RR are therefore both physically unloaded;
+  the WBC desired RR floor is not a physical-force guarantee. The 30 N
+  floor is active on the three declared contacts, but its RR request is
+  pinned near 30 while FR/RL carry the moment, rather than providing a
+  balanced handoff. MPC k0 follows the sequencer mask when refreshed
+  (mask 13), with intervening stale diagnostic rows showing 0 due the
+  100 Hz refresh; this is not an old-topology WBC override. The planner
+  margin is the signed COM/support-triangle margin in metres, not a force
+  margin; -0.141967 is COM outside the predicted support polygon.
+fix: |
+  95e2998 adds TerrainStanceForceHandoffReference, refreshes a projected
+  three-stance normal-force reference throughout SHIFT, latches it across
+  the SHIFT->SWING mask switch, and applies scoped per-leg WBC floors at
+  80% of the projected reference while retaining the terrain 30 N base
+  floor. Flat mode is untouched. The projected example {30,34,46,47} N
+  with FL active is {38.293,0,58.699,59.999} N, total preserved and
+  max/min=1.567. Added a direct unit check for this invariant.
+canary: |
+  E178 and E179 are d348fd7 baseline reproductions. E180-E195 were
+  serialized under flock -x /tmp/go2_mujoco_experiment.lock, domain 229,
+  Base=4000 preload, 30 s controller/35 s wall; exploratory intermediate
+  edits were not evidence commits. The first clean post-commit canary
+  E196 ran at exact SHA 95e2998 with the same command and reached SWING
+  (8.674-8.962 s), but aborted with measured 45/0/0/49 N; no terrain
+  COMMIT. The canary budget was exhausted without a same-signature stop.
+validation: |
+  cmake --build example/cpp/build -j2 passed; ctest --test-dir
+  example/cpp/build --output-on-failure passed 27/27. A fresh flat
+  harness run at order054_flat_epoch150 retained flat-only execution;
+  the accepted b8fe41c-equivalent 20/20 evidence remains the gate
+  reference. No v1 contract, analyzer threshold, or canary definition
+  changed; no push or amend.
+git_status: implementation committed as 95e2998; evidence append is the
+  only unstaged change; no staged files.
