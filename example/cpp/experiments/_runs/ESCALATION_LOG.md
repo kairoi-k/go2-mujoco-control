@@ -1525,3 +1525,16 @@ canary_trace: |
   ADVANCE_BODY, rear legs, CLEAR, or RESUME.
 validation: ctest remained green (27/27); failures are unchanged posture/safety exploratory outcomes, with no analyzer or contract edits.
 git_status: local docs commit pending; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-31T22:00:00+0800
+run_id: Order-039 commit-ledger epoch76 b1_script_epoch76_20260828 (+ _r2)
+trigger: T1
+canary_trace: |
+  Serial domain-229 runs used Base=4000 preload and controller-duration=30.
+  r1 reached SHIFT_COM at 6.604 s and stopped before CRAWL_STEP at 9.734 s.
+  r2 reached FL CRAWL_STEP at 8.840 s, recovered to SHIFT_COM at 9.084 s
+  with required mask reduced to 1, then stopped at 13.432 s. No measured
+  commit, FR, ADVANCE_BODY, rear legs, CLEAR, or RESUME occurred.
+validation: ctest 27/27 passed before this canary; no red-line thresholds or contract definitions changed.
+git_status: local docs commit pending; no push/amend; simulations serialized.
