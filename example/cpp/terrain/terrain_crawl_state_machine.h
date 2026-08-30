@@ -98,7 +98,6 @@ struct TerrainCrawlSignals
     // leaves this disabled.
     bool swing_com_bias_enabled = false;
     bool swing_trajectory_valid = false;
-    std::size_t swing_active_leg = go2::kLegCount;
     go2::Vec3 swing_start_world{};
     go2::Vec3 swing_target_world{};
     bool measured_foot_valid = false;
@@ -928,17 +927,8 @@ private:
         if (!signals.scripted_execution || !signals.swing_com_bias_enabled ||
             !signals.swing_trajectory_valid)
             return;
-        go2::Vec3 displacement;
-        if (signals.measured_foot_valid &&
-            signals.swing_active_leg < go2::kLegCount)
-        {
-            displacement = PredictedSwingComDisplacement(
-                signals.swing_start_world,
-                signals.measured_foot_world[signals.swing_active_leg]);
-        }
-        else
-            displacement = PredictedSwingComDisplacement(
-                signals.swing_start_world, signals.swing_target_world);
+        const auto displacement = PredictedSwingComDisplacement(
+            signals.swing_start_world, signals.swing_target_world);
         if (std::isfinite(displacement.x) && std::isfinite(displacement.y))
         {
             target.x -= displacement.x;
