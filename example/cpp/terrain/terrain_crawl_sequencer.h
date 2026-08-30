@@ -108,7 +108,7 @@ class TerrainCrawlSequencer
 public:
     // FL, FR, ADVANCE, RR, RL. Leg indices use the existing Go2 order.
     static constexpr std::array<std::size_t, 4> kLegOrder = {1, 0, 2, 3};
-    static constexpr double kStandoffM = 0.25;
+    static constexpr double kStandoffM = 0.12;
     // V2-A entry braking remains under the running trot authority. The
     // deceleration is deliberately below the command shaper limit so the
     // measured three-contact stance can remain reachable while speed falls.

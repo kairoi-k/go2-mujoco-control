@@ -1851,7 +1851,8 @@ int main()
         const double activation =
             go2_terrain::TerrainCrawlSequencer::kTransferActivationDistanceM;
         if (!Check(std::abs(braking - 0.0375) < 1.0e-9 &&
-                       std::abs(activation - 0.3875) < 1.0e-9,
+                       std::abs(activation - 0.2575) < 1.0e-9 &&
+                       std::abs((0.70 + 0.08) - (0.70 - go2_terrain::TerrainCrawlSequencer::kStandoffM)) <= 0.30 ,
                    "V2-A activation budget is not braking distance + standoff + margin"))
             return 1;
         const double at_arm =
@@ -1900,7 +1901,7 @@ int main()
         x.transfer_window_active = true;
         x.terrain = &model;
         x.base_position_world = {0.0, 0.0, 0.0};
-        x.nominal_front_foot_x_m = 0.30;
+        x.nominal_front_foot_x_m = 0.38;
         x.measured_feet_world = {go2::Vec3{0.30, -0.20, -0.25},
                                   go2::Vec3{0.30, 0.20, -0.25},
                                   go2::Vec3{-0.30, -0.20, -0.25},

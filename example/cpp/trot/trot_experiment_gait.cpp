@@ -2997,6 +2997,7 @@ bool TrotExperiment::BuildGaitTargets(
                 !terrain_target_pending &&
                 terrain_transfer_hold_contact_[leg] &&
                 !crawl_shift_leg &&
+                !sequencer_direct_target &&
                 have_actual_world_feet)
             {
                 // A support foot that was loaded when the terrain transfer
@@ -3195,7 +3196,21 @@ bool TrotExperiment::BuildGaitTargets(
             if (!execution.valid || !execution.terrain_target_required ||
                 terrain_now_s + terrain_time_tolerance_s <
                     execution.swing_start_time_s)
+            {
+                // The explicit sequencer trajectory is already a validated
+                // foot-site/world target. Do not silently fall back to the
+                // nominal gait while its bookkeeping transaction is waiting
+                // for a planner snapshot; that was the immobile-leg failure.
+                if (sequencer_direct_target &&
+                    terrain_crawl_sequencer_output_.state ==
+                        go2_terrain::TerrainCrawlSequencerState::kSwing)
+                {
+                    apply_world_target(
+                        leg, terrain_crawl_sequencer_output_.swing_position_world,
+                        terrain_crawl_sequencer_output_.swing_velocity_world);
+                }
                 continue;
+            }
 
             if (terrain_crawl_control_authority_active)
                 begin_terrain_transfer_hold(leg);
