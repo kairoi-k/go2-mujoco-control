@@ -2123,3 +2123,60 @@ result: |
   new members is SWING; no COMMIT, ADVANCE, CLEAR, RESUME, complete crossing,
   or confirmation run was observed. No gate conclusion is made.
 git_status: implementation commit and this evidence append are local; no push or amend; no staged files.
+
+---
+timestamp: 2026-09-01T18:30:00+0800
+run_id: Order-048 terrain SWING/COMMIT isolation, patch and support hardening
+trigger: T1
+forensics: |
+  Order-047's 12 exact-SHA members (epochs 117-122, binary SHA
+  723a3cd538c9efc4f6f2151c82ae8bc5b48b9c99) all entered SWING with FL
+  active and committed_mask=0, then ABORT; no COMMIT/ADVANCE/CLEAR was
+  observed. The map-selected FL target was x=0.4160-0.4709,
+  y=0.1334-0.1465, z=0.02180-0.02248 m. The true platform contact patch
+  is z=0.050 m, hence the expected FK/WBC foot-site endpoint is 0.072 m;
+  the observed target was 49.5-50.2 mm low. Active-foot contact was still
+  present at swing entry, then first fell at t=+0.004 to +0.058 s at
+  x=0.4338-0.4684, z=0.0223-0.0242, force=0-4 N; any re-rise was only
+  0.004-0.058 s later at 5-52 N. Endpoint samples stopped at
+  x=0.4326-0.4664, y=0.1068-0.1395, z=0.0224-0.0291, leaving horizontal
+  errors -16.6..+32.5 mm and vertical errors +0.4..+6.8 mm versus the
+  (wrong) commanded target. The commit predicates therefore failed on
+  measured endpoint/contact/force, not on flat execution.
+comparison: |
+  Order-045 flat fix17 has 10 consecutive SWING events at 6.022-7.276 s,
+  min measured contacts=4, max |roll|=0.0485 rad, max |pitch|=0.0238 rad,
+  and +0.0408 m body progress. Flat targets remained on the measured
+  support z (~0.023 m), while terrain targets were map-selected and had
+  the elevated-surface mismatch above.
+implementation: |
+  Commit 67338e3299821d135bcffdd90bbb8e9687da4adb applies the calibrated
+  ContactPatchToFootSite conversion at the direct sequencer handoff;
+  requires a persistent, two-row lateral-consensus edge (with a wider
+  edge-observation band but unchanged narrow foothold corridor); raises
+  terrain-only sequencer lift to 0.08 m while flat remains 0.015 m; and
+  uses a terrain-only 30 N ID-WBC stance floor (flat remains 20 N).
+  Added unit witnesses for isolated map cells and the 0.050->0.072 m
+  patch/site conversion. v1 contract, analyzer thresholds, and canary
+  definitions were untouched.
+canary_cycle_130: |
+  Two serial runs b1_freegait_epoch130 and _r2 used flock -x
+  /tmp/go2_mujoco_experiment.lock, domain 229, Base=4000 preload,
+  run_trot.sh 35, --controller-duration 30, and were both built from
+  exact SHA 67338e3299821d135bcffdd90bbb8e9687da4adb. Both reached
+  STAGE->SHIFT->SWING only, then ABORT at t=8.462/8.936 s; targets were
+  z=0.02262/0.02279 m and commit count stayed 0. Neither crossed.
+result: |
+  Terrain SWING commit remains precisely stuck: all 14 post-change
+  attempts (epochs 123-130) have zero terrain commits and no complete
+  crossing or confirmation. The repeated signature is active-leg FL,
+  map target near z=0.022-0.023 m, support/contact loss within 0.3 s,
+  and no COMMIT; three same-signature cycles were stopped. The likely
+  remaining dominant term is lidar target selection/content (map target
+  is still ground-level and x~0.44-0.46 while the scene riser begins
+  x=0.70), not apex or the commit force predicate. No gate conclusion.
+validation: |
+  cmake --build example/cpp/build -j2; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 passed. git diff --check
+  passed before commit. Simulations were serialized; no push or amend.
+git_status: implementation committed locally at 67338e3; evidence append is unstaged; no staged files.
