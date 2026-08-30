@@ -493,7 +493,16 @@ public:
                     signals.now_s - state_enter_time_s_ <
                         kContactRecoveryGraceS;
                 if (!gait_handoff_pending)
-                    SetState(TerrainCrawlState::kAbort, signals.now_s);
+                {
+                    if (signals.scripted_execution &&
+                        shift_recovery_count_ < kMaxShiftRecoveries)
+                    {
+                        ++shift_recovery_count_;
+                        RestartShift(signals.now_s);
+                    }
+                    else
+                        SetState(TerrainCrawlState::kAbort, signals.now_s);
+                }
                 break;
             }
             UpdateComTarget(signals);
