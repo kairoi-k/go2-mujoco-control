@@ -1727,10 +1727,8 @@ void TrotExperiment::UpdateWbcFull(
     const bool terrain_fr_descent = terrain_raised_support &&
         terrain_crawl_sequencer_output_.active_leg == 0 &&
         terrain_crawl_sequencer_output_.swing_phase >= 0.70;
-    // Smoothly reduce the descending swing wrench after the edge crossing;
-    // the captured stance preload remains the authoritative support request.
     id_params.w_swing = terrain_raised_support
-        ? (terrain_fr_descent ? 25.0 : 35.0)
+        ? 35.0
         : (params_.cartesian_world ? 80.0 : 80.0);
     const double w_sw_ov = Full2EnvDouble("FULL2_W_SWING", -1.0);
     if (w_sw_ov > 0.0)
@@ -1738,6 +1736,8 @@ void TrotExperiment::UpdateWbcFull(
     const double w_sw_x_ov = Full2EnvDouble("FULL2_W_SWING_X", -1.0);
     if (w_sw_x_ov >= 0.0)
         id_params.w_swing_x = w_sw_x_ov;
+    if (terrain_fr_descent && id_params.w_swing_x < 0.0)
+        id_params.w_swing_x = 10.0;
     const double force_track_ov = Full2EnvDouble(
         "TROT_HS_FORCE_TRACK", 0.0);
     if (high_speed_curriculum && force_track_ov > 0.0)
