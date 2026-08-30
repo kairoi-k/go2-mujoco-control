@@ -1228,3 +1228,63 @@ verdict: |
   offset-corrected FL commit observed. Signal pair remains exploratory pending a
   repeat in which both named runs also commit FL. No gate conclusion.
 git_status: local implementation/docs append pending commit; no push/amend; simulations serialized.
+
+
+---
+timestamp: 2026-08-31T12:00:00+0800
+run_id: Order-035 b1_script_epoch61..69 (serial domain-229 canary pairs)
+trigger: T1
+implementation: |
+  Ratchet-locked fixes were limited to the planner/script handoff and the
+  post-handoff endpoint lifecycle. d512f89 applies the calibrated
+  foot-site/contact-patch conversion to direct script target measurement and
+  adds a regression test. 525aaf1 retains the captured support during the
+  short endpoint/contact-filter handoff. a01186c retimes a prepared
+  emergent endpoint to the fixed 0.60 s script deadline at CRAWL_STEP.
+  d84ea35 prevents asynchronous plan refreshes from erasing an accepted
+  scripted endpoint. 28ade28 keeps the captured support through 0.70 s,
+  immediately before the fixed 0.80 s retry boundary; the commit predicate,
+  tolerance, entry, COM shift, and edge-clearance logic are unchanged.
+
+canary_command: |
+  Every named run used the unchanged epoch28 command line, scene
+  phase2_step_5cm.xml, domain 229, LD_PRELOAD=/home/che/dds_base4000_preload.so,
+  and serial flock -x /tmp/go2_mujoco_experiment.lock. Epochs 61..69 were
+  b1_script_epochNN_20260828 (+ _r2). Wrapper/analyzer status is exploratory
+  FAIL because these runs safety-stop before the frozen B1 gate tail.
+
+progress: |
+  epoch61 r2 reached CRAWL_STEP at 7.460 s but stopped on support before
+  commit; r1 stopped in DECELERATE. epoch62 r1 stopped in SHIFT_COM and r2
+  in DECELERATE. epoch63 both reached CRAWL_STEP; r1 reached endpoint hold
+  (55.1 mm residual) and r2 repeatedly hit the handoff rebase boundary.
+  epoch64 r2 reached CRAWL_STEP but exhausted retries; r1 stopped in DECELERATE.
+  epoch65 r2 reached CRAWL_STEP and hit the frozen leading-edge corner-catch
+  rejection (failure=7); r1 stopped in DECELERATE. epoch66 r2 reached
+  CRAWL_STEP once, but both members stopped before commit. epoch67 r2 reached
+  CRAWL_STEP and held FL at 30.7 mm residual, then stopped at the support
+  boundary; r1 stopped in DECELERATE. epoch68 r1 reached CRAWL_STEP and
+  committed FL (committed mask=2, endpoint error 1.49 mm), then stopped in
+  the following SHIFT_COM with measured support falling to 1; r2 stopped in
+  DECELERATE. epoch69 r1 and r2 both reached CRAWL_STEP and each recorded a
+  measured FL commit (r1 2.01 mm, r2 4.09 mm), but neither entered FR
+  CRAWL_STEP before the following SHIFT_COM support/posture stop.
+
+b0: |
+  run_phase2_b0_fixed_pair.sh development 0 with Base=4000 returned
+  acceptance_status PASS at HEAD 28ade28. The fixed analyzer reported the
+  expected terrain-vs-flat diagnostic differences; frozen B0 acceptance
+  checks passed.
+
+verdict: |
+  The direct script target flake was identified as a foot-site/contact-patch
+  z-frame mismatch and fixed; the accepted target is now retained and retimed
+  across planner refreshes. The deepest Order-035 evidence is FL commit in
+  both members of epoch69 (and once in epoch68), followed by the next
+  SHIFT_COM. FR commit, ADVANCE_BODY, rear steps, CLEAR, RESUME, and 0.45 s
+  stable passage were not achieved. Full crossing and confirmation therefore
+  remain NOT achieved. The exploratory budget is exhausted (the eight planned
+  pairs are epochs 61..68; epoch69 was a final same-HEAD diagnostic pair),
+  and this is not a gate conclusion.
+
+git_status: implementation commits d512f89, 525aaf1, a01186c, d84ea35, 28ade28; docs append pending commit; no push/amend; simulations serialized.
