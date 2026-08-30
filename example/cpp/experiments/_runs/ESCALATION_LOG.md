@@ -2676,3 +2676,77 @@ validation: |
   the flat contract. No v1 contract, analyzer threshold, or canary definition
   changed; no push or amend.
 git_status: evidence append is committed locally; no staged files.
+
+---
+timestamp: 2026-08-30T21:20:00+0800
+run_id: Order-059 determinism probe replay201 and seed sweep
+trigger: T1
+configuration: |
+  Epoch201 manifest b1_freegait_epoch201 specifies TROT_SEED=201;
+  --headless --wbc-full --gait-pattern running-trot --kernel raibert-trot
+  --period 0.50 --duty 0.75 --step-length 0.15 --foot-lift 0.08
+  --tau-limit 45 --velocity-command-script
+  example/cpp/configs/phase2_b1_velocity_0p3.csv --terrain-planner
+  --domain-id 229 --scene-file unitree_robots/go2/phase2_step_5cm.xml
+  --controller-duration 30. The scene is phase2_step_5cm.xml; the
+  manifest's CPU snapshot is bridge=2,lidar=5,physics=2,terrain=6,writer=3.
+  All runs below used HEAD 8f6cbf48cbe7a7668d8137dc51f931f79e1d04cd
+  (the 64b68c4 source plus this evidence commit), git_dirty=false,
+  LD_PRELOAD=/home/che/dds_base4000_preload.so, domain 229, flock
+  /tmp/go2_mujoco_experiment.lock, controller-duration 30 and run_trot
+  wall argument 35. No wall-clock-motion was added, matching epoch201.
+replay: |
+  Exact seed-201 replay runs b1_order059_replay201_r1..r5 produced no
+  terrain_crawl_step_commits (0/5), so the epoch201 FL commit at t=9.162 s
+  and margin +0.023459 m was not reproduced by the current HEAD. The
+  sequencer reached CRAWL_STEP in all five; first STAGE times were
+  5.472,5.488,5.514,5.540,5.552 s and first SHIFT times were
+  7.148,7.420,7.754,7.148,7.420 s (r1..r5). A same-seed tick diff
+  (r1 versus r2) diverged at row/tick 1, cmd_time=0.000 s: state_tick_s
+  was 1.184 versus 1.688 s. The first physical state difference at that
+  tick was world_base_x=-0.091091800 versus -0.091081289 m (10.511 um)
+  and imu_pitch=-0.150354654 versus -0.150234655 rad (0.000120 rad).
+  This is a hidden startup/DDS timing sensitivity, not a seeded random
+  difference; controller behavior is not deterministic for identical
+  nominal configuration.
+seed_sweep: |
+  One run per TROT_SEED 195..215, artifacts b1_order059_seed195..215:
+  195 FL_COMMIT; 196 CRAWL_STEP; 197 CRAWL_STEP; 198 CRAWL_STEP;
+  199 CRAWL_STEP; 200 CRAWL_STEP; 201 CRAWL_STEP; 202 CRAWL_STEP;
+  203 CRAWL_STEP; 204 FL_COMMIT; 205 CRAWL_STEP; 206 CRAWL_STEP;
+  207 CRAWL_STEP; 208 CRAWL_STEP; 209 CRAWL_STEP; 210 FL_COMMIT;
+  211 CRAWL_STEP; 212 CRAWL_STEP; 213 CRAWL_STEP; 214 CRAWL_STEP;
+  215 CRAWL_STEP. Basin probe: 3/21 reached the FL step commit
+  (14.3%); 18/21 reached CRAWL_STEP but did not commit. FL commits were
+  seed195 at t=9.758 s, margin +0.027240 m; seed204 at t=9.604 s,
+  +0.022417 m; seed210 at t=9.348 s, +0.016579 m. These are three
+  deliberate current-HEAD FL commits, including two confirmations.
+basin_characterization: |
+  The three successful entries share the useful launch structure at first
+  CRAWL_STEP: base x=0.3702..0.3818 m, base z=0.4137..0.4150 m,
+  COM margin=+0.0218..+0.0281 m, four measured contacts, and FL target
+  x=0.5955..0.5998 m,y=0.1321..0.1447 m. At commit, FL measured touchdown
+  and endpoint-held were both 1; endpoint errors were 20.8..40.2 mm.
+  Failing CRAWL_STEP entries span base x=0.2815..0.3772 m, base
+  z=0.3893..0.4205 m, margin +0.0042..+0.0621 m, 3..4 contacts, and
+  FL target x=0.5410..0.8730 m. Thus positive margin alone is not enough;
+  the repeatable favorable band is the compact x/z, four-contact,
+  ~22-28 mm margin entry with FL target near x=.60/y=.14. This is a
+  basin measurement, not a gate conclusion. The inherited epoch201 STAGE
+  entry was base=(.15649,-.00319,.36641) m, edge margin=.08566 m,
+  support margin=.09741 m, map epoch=256, four measured contacts, and
+  staging target x=.26020 m; current seed-201 replay STAGE entries varied
+  base z=.37254..37398 m, contacts=2..4, map epoch=263..264, support
+  margin=.08712.. .11087 m, and staging target x=.23039.. .25879 m.
+validation: |
+  cmake --build example/cpp/build -j2 and ctest --test-dir
+  example/cpp/build --output-on-failure passed 27/27; git diff --check
+  passed. B0 fixed pair phase2_b0_development_fixed_3mps_r0_20260830_211151
+  at this HEAD, serial/preload, returned acceptance_status=PASS,
+  controller/dynamics/quality/safety=0, terrain_rows=39072,
+  terrain_map_valid_fraction=0.9999744062, planner_deadline_misses=0.
+  Flat harness order059_flat_epoch231 at this HEAD used
+  TROT_TERRAIN_DEBUG_FLAT_CRAWL=1 and phase2_flat.xml and completed 34
+  healthy cycle records with no rejection. No v1 contract, analyzer
+  threshold, or canary definition changed; no push/amend.
+git_status: evidence append is to be committed; no staged files.
