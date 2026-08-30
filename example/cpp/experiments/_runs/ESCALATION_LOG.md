@@ -2496,22 +2496,6 @@ forensics: |
   {FR,RR,RL}; its manually recomputed inward edge distances are about
   -0.014, +0.214, +0.108 m, margin=-0.014 m (positive means inside).
   Epoch178 GT at t=10.022 gives FR=(0.590,-0.146,0.024),
-  RR=(0.186,-0.121,0.024), RL=(0.211,0.140,0.021), COM=(0.359,0.031,0.036),
-  with XY edge distances approximately -0.002,+0.158,+0.163 m.
-  Coordinates are world-frame; the planners
-
----
-timestamp: 2026-09-02T03:30:00+0800
-run_id: Order-055 support polygon audit and RR liftoff guard
-trigger: T1
-forensics: |
-  Existing epoch196 data (controller t=8.960) has measured world feet
-  FR=(0.531,-0.091,0.021), FL=(0.682,0.090,0.125),
-  RR=(0.172,-0.113,0.024), RL=(0.178,0.117,0.023), and whole-body
-  COM=(0.389,0.008,0.367). The FL-lifted support triangle is therefore
-  {FR,RR,RL}; its manually recomputed inward edge distances are about
-  -0.014, +0.214, +0.108 m, margin=-0.014 m (positive means inside).
-  Epoch178 GT at t=10.022 gives FR=(0.590,-0.146,0.024),
   RR=(0.186,-0.121,0.024), RL=(0.211,0.140,0.021), COM=(0.359,0.031,0.380),
   with XY edge distances approximately -0.002,+0.158,+0.163 m.
   Coordinates are world-frame; the planner's large -0.20 m records are
