@@ -1424,6 +1424,10 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
           if (joint_id >= 0)
             d->qpos[m->jnt_qposadr[joint_id]] = value;
         }
+        // The authored pose uses the lower body height that places its feet
+        // on the floor; retaining the scene qpos0 height leaves the feet
+        // unsupported and lets the first physics tick tip the plant.
+        d->qpos[2] = 0.27;
         std::fill(d->qvel, d->qvel + m->nv, 0.0);
       }
       if (std::isfinite(param::config.initial_x_m) && m->nq >= 1)
