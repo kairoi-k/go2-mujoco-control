@@ -344,7 +344,13 @@ public:
                 input.measured_posture_valid &&
                 std::abs(input.measured_roll_rad) <= 0.08 &&
                 std::abs(input.measured_pitch_rad) <= 0.08;
-            if (settled && input.legacy_stage_ready)
+            // Flat isolation has no terrain plan to break the legacy
+            // APPROACH wait (its plan_valid is the sequencer target that is
+            // only published after STAGE), so the legacy_stage_ready
+            // handshake is unreachable there; keep the measured STAGE dwell
+            // as the flat release instead of the Order-061 legacy gate.
+            if (settled &&
+                (input.flat_ground_mode || input.legacy_stage_ready))
             {
                 if (!std::isfinite(stage_stable_start_s_))
                     stage_stable_start_s_ = input.now_s;
