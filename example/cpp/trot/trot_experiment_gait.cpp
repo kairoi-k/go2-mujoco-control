@@ -2352,6 +2352,17 @@ bool TrotExperiment::BuildGaitTargets(
                 execution = {};
                 pending = {};
             }
+            // A target prepared during SHIFT_COM belongs to the emergent
+            // gait timeline. Once the state machine grants CRAWL_STEP, the
+            // scripted target must own the handoff and its fixed 0.60 s
+            // deadline; otherwise the old short window is immediately
+            // rejected by the swing-boundary rebase (failure=6).
+            if (explicit_crawl_step && execution.valid &&
+                !execution.in_flight && !execution.endpoint_held)
+            {
+                execution = {};
+                pending = {};
+            }
             const bool explicit_active_leg =
                 go2_terrain::TerrainCrawlSwingStillInFlight(
                     explicit_crawl_step,
