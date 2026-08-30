@@ -10,10 +10,9 @@ struct TerrainSwingTrackingParameters
     double acceleration_limit;
 };
 
-// The crawl transfer has a longer, slower endpoint trajectory than the
-// nominal trot, but it still needs enough closed-loop authority to reject the
-// body-motion lag seen at the immutable touchdown boundary. Flat-ground and
-// non-transfer paths retain the established gains bit-for-bit.
+// The crawl transfer uses the flat tracking gains so the raised swing does not
+// inject a large wrench into the three-foot support handoff. The branch
+// remains explicit so flat and transfer callers retain separate contracts.
 constexpr TerrainSwingTrackingParameters TerrainSwingTrackingForTransfer(
     bool transfer_window_active)
 {
