@@ -2368,6 +2368,12 @@ bool TrotExperiment::BuildGaitTargets(
                     // consulted for this event-driven crawl leg.
                     scripted_target.valid = true;
                     scripted_target.touchdown = true;
+                    // This event was selected by the terrain sequencer as a
+                    // raised-surface transfer. Preserve that transaction
+                    // witness when adapting the site-frame target back into
+                    // the planner prediction type; otherwise preparation
+                    // rejects the valid target as a non-transition foothold.
+                    scripted_target.surface_transition_required = true;
                     // TerrainFootholdPrediction carries contact-patch
                     // coordinates, while the sequencer publishes the
                     // foot-site center consumed by FK/WBC. Convert back at
