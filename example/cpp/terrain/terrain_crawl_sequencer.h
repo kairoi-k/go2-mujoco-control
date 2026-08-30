@@ -798,6 +798,14 @@ private:
                 progress_rate * (target_.y - swing_start_.y),
                 vertical_progress_rate * (target_.z - swing_start_.z) +
                     arch_rate};
+            if (terrain_swing && u >= 0.70)
+            {
+                // Position remains monotonic, but remove horizontal
+                // feed-forward in descent so touchdown cannot excite the
+                // captured rear stance through a swing-wrench impulse.
+                output_.swing_velocity_world.x = 0.0;
+                output_.swing_velocity_world.y = 0.0;
+            }
         }
         return state_;
     }
