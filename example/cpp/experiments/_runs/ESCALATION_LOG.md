@@ -1551,3 +1551,45 @@ canary_trace: |
   commit. Neither reached FR, ADVANCE_BODY, rear legs, CLEAR, or RESUME.
 validation: ctest 27/27 passed; this cycle made no source change.
 git_status: local docs commit pending; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-09-01T00:30:00+0800
+run_id: Order-039 commit-ledger epoch78 b1_script_epoch78_20260828 (+ _r2)
+trigger: T1
+canary_trace: |
+  Serial domain-229/Base=4000/controller-duration=30 pair. r1 reached FL
+  CRAWL_STEP at 7.864 s and committed FL at 9.714 s (2.5 mm), durable mask
+  2; it stopped at 11.264 s before FR. r2 stopped after two shift recoveries
+  at 12.596 s with no commit. No ADVANCE_BODY/rear/CLEAR/RESUME.
+validation: ctest 27/27 passed; no analyzer thresholds or contracts changed.
+git_status: local docs commit pending; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-09-01T01:45:00+0800
+run_id: Order-039 commit-ledger epoch79 b1_script_epoch79_20260828 (+ _r2)
+trigger: T1
+canary_trace: |
+  Serial domain-229/Base=4000/controller-duration=30 pair. r1 reached FL
+  CRAWL_STEP at 9.144 s, recovered, retried FL CRAWL_STEP at 9.986 s, and
+  stopped at 12.874 s without commit. r2 reached FL CRAWL_STEP at 8.242 s
+  and stopped at 11.592 s without commit. No FR/ADVANCE_BODY/rear/CLEAR/RESUME.
+validation: ctest 27/27 passed; no source change this cycle.
+git_status: local docs commit pending; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-09-01T03:00:00+0800
+run_id: Order-039 commit-ledger epoch80 b1_script_epoch80_20260828 (+ _r2)
+trigger: T1
+canary_trace: |
+  Final budget pair, serial domain-229/Base=4000/controller-duration=30. r1
+  reached FL CRAWL_STEP at 8.730 s, recovered to SHIFT_COM at 8.972 s, and
+  stopped at 11.838 s with mask 0. r2 reached FL CRAWL_STEP at 8.932 s,
+  recovered at 9.188 s, and stopped at 12.876 s with mask 0. Neither run
+  committed FL or reached FR/ADVANCE_BODY/rear/CLEAR/RESUME.
+validation: |
+  ctest 27/27 passed; B0 fixed pair PASS is recorded above. Budget exhausted
+  at 8/8 pairs. Exact stuck report: deepest observed rung is FR CRAWL_STEP
+  only as a post-FL target in epoch73 r2, with masks 2 -> 3 and no stable
+  ADVANCE_BODY; final repeated failure is FL CRAWL_STEP/recovery with zero
+  commit in epoch79-80. No gate-level conclusion.
+git_status: local docs commit pending; no push/amend; simulations serialized.
