@@ -192,7 +192,10 @@ if match is None:
     raise SystemExit("unable to derive staged pose from phase2_step_5cm geometry")
 pos = [float(value) for value in match.group(1).split()]
 size = [float(value) for value in match.group(2).split()]
-print(f"{pos[0] - size[0] - float(sys.argv[2]):.6f}")
+# Account for the measured 50 mm startup settling translation before
+# controller lifecycle begins; the resulting observed base is at the
+# edge-minus-base basin target.
+print(f"{pos[0] - size[0] - float(sys.argv[2]) + 0.050:.6f}")
 PY2
 )" || exit 2
   fi
