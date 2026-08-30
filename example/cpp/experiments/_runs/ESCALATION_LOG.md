@@ -2559,7 +2559,8 @@ fix: |
 canary: |
   Serialized under flock -x /tmp/go2_mujoco_experiment.lock, domain 229,
   Base=4000 preload, --controller-duration 30, wall timeout 35. Fresh
-  terrain epochs 200-208 were run as an 8-pair budget batch. Epoch201
+  terrain epochs 200-208 were run serially (one baseline plus eight
+  follow-on canaries; no overlapping simulator processes). Epoch201
   recorded the first terrain step commit at t=10.850 s with measured COM
   (0.368185,-0.012481,...) and measured support margin +0.023459 m;
   forces were FR/FL/RR/RL=12/26/41/33 N and max WBC torque 34.994 Nm.
