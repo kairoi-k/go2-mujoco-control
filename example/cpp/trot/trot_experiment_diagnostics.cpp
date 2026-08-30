@@ -89,6 +89,12 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_event_sequencer_swing_target_x_m"
          << ",terrain_event_sequencer_swing_target_y_m"
          << ",terrain_event_sequencer_swing_target_z_m"
+         << ",terrain_event_sequencer_target_world_x_m"
+         << ",terrain_event_sequencer_target_world_y_m"
+         << ",terrain_event_sequencer_target_world_z_m"
+         << ",terrain_event_sequencer_swing_start_world_x_m"
+         << ",terrain_event_sequencer_swing_start_world_y_m"
+         << ",terrain_event_sequencer_swing_start_world_z_m"
          << ",terrain_staging_target_valid,terrain_staging_error_m"
          << ",terrain_staging_target_world_x_m"
          << ",terrain_crawl_retry_count,terrain_crawl_state_enter_s"
@@ -1015,6 +1021,12 @@ void TrotExperiment::LogSample(
          << "," << terrain_crawl_sequencer_output_.swing_position_world.x
          << "," << terrain_crawl_sequencer_output_.swing_position_world.y
          << "," << terrain_crawl_sequencer_output_.swing_position_world.z
+         << "," << terrain_crawl_sequencer_output_.target_world.x
+         << "," << terrain_crawl_sequencer_output_.target_world.y
+         << "," << terrain_crawl_sequencer_output_.target_world.z
+         << "," << terrain_crawl_sequencer_output_.swing_start_world.x
+         << "," << terrain_crawl_sequencer_output_.swing_start_world.y
+         << "," << terrain_crawl_sequencer_output_.swing_start_world.z
          << "," << (terrain_execution_plan &&
                           terrain_execution_plan->staging_target_valid ? 1 : 0)
          << "," << terrain_staging_error_m_
