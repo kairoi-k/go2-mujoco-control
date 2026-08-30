@@ -1176,3 +1176,55 @@ verdict: |
   Offset is confirmed and source-fixed; epoch59 is upstream safety-stop
   evidence, not a successful signal canary and not a gate conclusion.
 git_status: local commits 6ac88f4 (implementation) and 5a512d1 (DDS/docs); no push/amend; simulations serialized.
+
+---
+timestamp: 2026-08-31T09:00:00+0800
+run_id: Order-034 b1_script_epoch60_20260828 (+ _r2)
+trigger: T1
+entry_analysis: |
+  Aggregated existing telemetry from epoch34-59 (all available state-machine and
+  scripted runs; epoch34-39 predates the state trace and was retained as the
+  approach-only reference). The discriminating table is:
+
+  cohort | entry outcome | DECEL/SHIFT time | measured v range | max |roll|/|pitch| | base-z range | map age
+  40-43 (8 runs) | 2/8 reached CRAWL_STEP; 6 posture-stop | 6.32-7.07 s | 0.04-0.48 m/s before stop | stable 0.018-0.073 rad, stop then diverges | 0.360-0.396 m stable | 0.006-0.108 s
+  44-51 (16 runs) | 16/16 reached CRAWL_STEP | 6.27-7.78 s | -0.29..0.40 m/s (filtered sign reversals) | 0.026-0.167 rad | 0.366-0.425 m | 0.004-0.106 s
+  52-55 (8 runs) | 1/8 reached CRAWL_STEP; 7 posture-stop | 6.29-7.60 s | -1.02..0.72 m/s on failures | up to pi/1.08 rad | 0.071-0.454 m | 0.000-0.106 s
+  56-59 (6 available runs) | 2/6 reached CRAWL_STEP; epoch59 0/2 | 6.21-7.08 s | -0.75..0.76 m/s on failures | up to 1.72/1.31 rad | 0.174-0.535 m | 0.004-0.102 s
+
+  Survivor separator is posture/base-height stability, not map age: survivors
+  remain near |roll|,|pitch|<0.12 rad and z=0.366-0.425 m through handoff;
+  posture-stop traces leave that band before or during the 0.30->0.12 command
+  ramp. Entry velocity is noisy and can reverse sign, while map ages overlap.
+  Epoch59 r1 stopped in SHIFT_COM and r2 in DECELERATE, confirming the same
+  upstream failure. The historical ramp was 0.80 s; the successful 44-51
+  cohort still had transient gait handoff sensitivity.
+fix: |
+  In the terrain transfer window only, the command ramp is lengthened to 1.20 s
+  and its target is lowered to 0.08 m/s. DECELERATE now uses the crawl support
+  pattern while preserving the continuous ramp, and SHIFT_COM is gated by a
+  0.24 s dwell with finite measured posture (|roll|,|pitch| <= 0.20 rad),
+  measured contact count >=2, and the entry velocity guard <=0.50 m/s. The
+  state-owned plan is no longer required to be valid on the exact handoff tick;
+  planner/target validation remains at execution. No v1 path or analyzer/canary
+  definition changed. Unit tests cover posture rejection and settle dwell.
+canary: |
+  Named pair was run serially under flock /tmp/go2_mujoco_experiment.lock,
+  domain 229, LD_PRELOAD=/home/che/dds_base4000_preload.so, and the epoch28
+  command line. Repeated evidence is exploratory: both runs repeatedly survived
+  DECEL/SHIFT and reached CRAWL_STEP; FL committed in r2 in the successful
+  attempts (offset-corrected endpoint error 7.9-16.4 mm class, dz removed),
+  while r1's planner/target handoff remained flaky and did not produce a paired
+  FL commit in the final overwrite. DDS logs had no participant/allocation error.
+  The pair therefore does not meet the BOTH+FL signal success criterion yet;
+  no gate conclusion is claimed.
+b0: |
+  run_phase2_b0_fixed_pair.sh development 0 with Base=4000 preload returned
+  acceptance_status PASS. The paired diagnostic has expected terrain-vs-flat
+  gait telemetry differences, but all B0 acceptance checks passed.
+verdict: |
+  Entry repair is implemented and materially moves the failure upstream rung:
+  CRAWL_STEP is reached in both members across successful attempts, with one
+  offset-corrected FL commit observed. Signal pair remains exploratory pending a
+  repeat in which both named runs also commit FL. No gate conclusion.
+git_status: local implementation/docs append pending commit; no push/amend; simulations serialized.

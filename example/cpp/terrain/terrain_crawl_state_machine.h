@@ -73,6 +73,9 @@ struct TerrainCrawlSignals
     bool measured_contact_valid = false;
     std::array<bool, go2::kLegCount> measured_contact{};
     double measured_velocity_mps = 0.0;
+    bool measured_posture_valid = false;
+    double measured_roll_rad = 0.0;
+    double measured_pitch_rad = 0.0;
     std::array<bool, go2::kLegCount> target_valid{};
     std::array<bool, go2::kLegCount> committed{};
     bool measured_com_valid = false;
@@ -279,9 +282,14 @@ public:
     // The four-foot shift is the only path that asks stance to resist a
     // moving COM reference; retain ordinary non-transfer weights elsewhere.
     static constexpr double kShiftStanceNoSlipWeight = 80.0;
-    // Keep the established crawl handoff speed; the deceleration ramp has
-    // already removed the approach momentum before sequencing begins.
-    static constexpr double kCreepSpeedMps = 0.12;
+    // A lower handoff speed leaves the trot controller enough authority to
+    // settle without transferring a residual stride into SHIFT_COM.
+    static constexpr double kCreepSpeedMps = 0.08;
+    static constexpr double kEntrySettleS = 0.24;
+    // The command ramp is still driven to kCreepSpeedMps; this guard keeps a
+    // falling trot from waiting for a noisy velocity estimate to reach it.
+    static constexpr double kEntryVelocityGuardMps = 0.50;
+    static constexpr double kEntryPostureLimitRad = 0.20;
     static constexpr double kContactRecoveryGraceS = 0.80;
     static constexpr double kCrawlStepHandoffGraceS = 0.10;
     // Allow the endpoint confirmation to arrive after the first force sample
@@ -303,6 +311,7 @@ public:
         com_shift_start_world_ = {};
         com_shift_start_time_s_ = 0.0;
         com_shift_start_valid_ = false;
+        decel_stable_start_time_s_ = std::numeric_limits<double>::infinity();
     }
 
     void Enter(double now_s) noexcept
@@ -318,6 +327,7 @@ public:
         com_shift_start_world_ = {};
         com_shift_start_time_s_ = 0.0;
         com_shift_start_valid_ = false;
+        decel_stable_start_time_s_ = std::numeric_limits<double>::infinity();
         ++transition_count_;
     }
 
@@ -350,14 +360,35 @@ public:
                          signals.now_s);
             break;
         case TerrainCrawlState::kDecelerateToCreep:
-            // Keep trot in charge while slowing to creep; SHIFT_COM owns the
-            // measured-contact invariant after this speed handoff.
-            if (signals.plan_valid && three_contacts &&
+        {
+            // Keep the moving body in the support pattern until bounded entry
+            // speed and posture have settled for a complete dwell. This
+            // prevents a transient low velocity during a fall from entering
+            // SHIFT_COM.
+            const bool posture_settled = signals.measured_posture_valid &&
+                std::isfinite(signals.measured_roll_rad) &&
+                std::isfinite(signals.measured_pitch_rad) &&
+                std::abs(signals.measured_roll_rad) <= kEntryPostureLimitRad &&
+                std::abs(signals.measured_pitch_rad) <= kEntryPostureLimitRad;
+            const bool entry_settled = signals.measured_contact_valid &&
+                contacts >= 2 &&
+                posture_settled &&
                 std::isfinite(signals.measured_velocity_mps) &&
-                signals.measured_velocity_mps >= 0.05 &&
-                signals.measured_velocity_mps <= kCreepSpeedMps)
+                signals.measured_velocity_mps >= 0.0 &&
+                signals.measured_velocity_mps <= kEntryVelocityGuardMps;
+            if (!entry_settled)
+            {
+                decel_stable_start_time_s_ = std::numeric_limits<double>::infinity();
+                break;
+            }
+            if (!std::isfinite(decel_stable_start_time_s_))
+                decel_stable_start_time_s_ = signals.now_s;
+            if (std::isfinite(signals.now_s) &&
+                signals.now_s - decel_stable_start_time_s_ + 1.0e-9 >=
+                    kEntrySettleS)
                 SetState(TerrainCrawlState::kShiftCom, signals.now_s);
             break;
+        }
         case TerrainCrawlState::kShiftCom:
         {
             if (!three_contacts)
@@ -647,6 +678,7 @@ private:
     go2::Vec3 com_shift_start_world_{};
     double com_shift_start_time_s_ = 0.0;
     bool com_shift_start_valid_ = false;
+    double decel_stable_start_time_s_ = 0.0;
 };
 
 }  // namespace go2_terrain

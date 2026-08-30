@@ -162,8 +162,12 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         terrain_crawl_step_commit_count_ = 0;
     }
     const bool terrain_window_active = terrain_transfer_window_active_;
+    const auto terrain_state = terrain_crawl_state_machine_.state();
+    // Use crawl support as soon as DECELERATE starts, while retaining the
+    // continuous velocity ramp. SHIFT_COM remains gated on settled posture.
     const bool terrain_crawl_active = terrain_window_active &&
-        terrain_crawl_state_machine_.UsesCrawlExecution();
+        (terrain_crawl_state_machine_.UsesCrawlExecution() ||
+         terrain_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep);
     if (params_.terrain_actuation && !params_.terrain_sensor_only)
     {
         if (terrain_window_active)
@@ -180,11 +184,10 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
             }
             else if (crawl_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep)
             {
-                // Do not hand a 0.12 m/s cap directly to the 2 m/s^2 shaper:
-                // the observed epoch41 collapse occurred during that sharp
-                // transition. Spread 0.30 -> 0.12 over 0.80 s while trot
-                // timing remains unchanged, then hand off to crawl.
-                constexpr double kDecelRampS = 0.80;
+                // Keep trot timing unchanged while spreading the handoff:
+                // the longer ramp removes residual stride momentum before
+                // the measured settle dwell permits SHIFT_COM.
+                constexpr double kDecelRampS = 1.20;
                 constexpr double kApproachSpeedMps = 0.30;
                 constexpr double kCreepSpeedMps =
                     go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps;
@@ -333,17 +336,11 @@ bool TrotExperiment::BuildGaitTargets(
     if (runtime_velocity_command)
         UpdateRuntimeVelocityCommand(gait_time_s);
     const auto terrain_state = terrain_crawl_state_machine_.state();
-    const bool measured_creep_speed = have_filtered_body_velocity_ &&
-        std::abs(latest_filtered_body_velocity_[0]) <=
-            go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps;
-    // The state update runs after gait target generation. Start the crawl
-    // schedule on the same tick that measured speed reaches creep, so the
-    // first SHIFT_COM sample is already from crawl timing rather than the
-    // preceding trot flight phase.
+    // Keep the crawl support pattern through DECELERATE while the state
+    // machine holds SHIFT_COM behind the measured speed/posture dwell.
     const bool terrain_crawl_active = terrain_transfer_window_active_ &&
         (terrain_crawl_state_machine_.UsesCrawlExecution() ||
-         (terrain_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep &&
-          measured_creep_speed));
+         terrain_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep);
     runtime_gait_pattern_ = terrain_crawl_active
         ? go2_control::GaitPattern::kCrawl
         : params_.gait_pattern;
@@ -1667,6 +1664,11 @@ bool TrotExperiment::BuildGaitTargets(
         crawl_signals.measured_foot_world = actual_world_feet;
         crawl_signals.measured_velocity_mps = have_filtered_body_velocity_
             ? std::abs(latest_filtered_body_velocity_[0]) : 0.0;
+        const auto measured_rpy = state_snapshot.imu_state().rpy();
+        crawl_signals.measured_posture_valid =
+            std::isfinite(measured_rpy[0]) && std::isfinite(measured_rpy[1]);
+        crawl_signals.measured_roll_rad = measured_rpy[0];
+        crawl_signals.measured_pitch_rad = measured_rpy[1];
         crawl_signals.committed = terrain_surface_transition_committed_;
         const double crawl_target_time_guard_s = 0.5 * std::max(
             1.0e-4, terrain_planner_.config().knot_dt_s);

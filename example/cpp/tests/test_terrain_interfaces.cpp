@@ -1355,6 +1355,7 @@ int main()
         x.measured_contact_valid = true;
         x.measured_contact = {true, true, false, false};
         x.measured_velocity_mps = 0.30;
+        x.measured_posture_valid = true;
         x.now_s = 10.0;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kDecelerateToCreep &&
@@ -1363,6 +1364,7 @@ int main()
                    "crawl intent was not latched for the front leg"))
             return 1;
         x.measured_velocity_mps = 0.20;
+        x.measured_roll_rad = 0.20;
         x.now_s = 10.1;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kDecelerateToCreep,
@@ -1370,17 +1372,24 @@ int main()
             return 1;
         x.measured_velocity_mps =
             go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps;
-        // A crawl handoff is allowed only after the measured support has
-        // recovered to the three-contact invariant.
+        x.measured_roll_rad = 0.0;
+        // A crawl handoff is allowed only after the measured support and
+        // posture have recovered to the three-contact invariant for the
+        // complete entry settle dwell.
         x.measured_contact = {true, true, true, true};
         x.now_s = 10.2;
         m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kDecelerateToCreep,
+                   "crawl handoff skipped entry settle dwell"))
+            return 1;
+        x.now_s = 10.2 + go2_terrain::TerrainCrawlStateMachine::kEntrySettleS;
+        m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom &&
                        m.UsesCrawlExecution(),
-                   "crawl execution did not begin at creep speed"))
+                   "crawl execution did not begin after settled creep"))
             return 1;
         x.measured_contact = {true, true, false, false};
-        x.now_s = 10.21;
+        x.now_s = 10.21 + go2_terrain::TerrainCrawlStateMachine::kEntrySettleS;
         m.Update(x);
         if (!Check(!m.aborted(),
                    "crawl support invariant aborted during contact recovery"))
@@ -1390,7 +1399,7 @@ int main()
         if (!Check(!m.aborted(),
                    "crawl support invariant aborted before recovery grace"))
             return 1;
-        x.now_s = 11.1;
+        x.now_s = 11.3;
         m.Update(x);
         if (!Check(m.aborted(),
                    "crawl support invariant did not abort after handoff"))
@@ -1454,6 +1463,7 @@ int main()
         x.measured_com_valid = true;
         x.measured_com_world = {0.30, 0.0, 0.0};
         x.measured_velocity_mps = 0.30;
+        x.measured_posture_valid = true;
         x.now_s = 4.0;
         m.Update(x);
         x.measured_velocity_mps = 0.05;
@@ -1461,8 +1471,14 @@ int main()
         m.Update(x);
         x.now_s = 4.2;
         m.Update(x);
-        const double start_x = m.com_target_world().x;
         x.now_s = 4.3;
+        m.Update(x);
+        x.now_s = 4.4;
+        m.Update(x);
+        x.now_s = 4.5;
+        m.Update(x);
+        const double start_x = m.com_target_world().x;
+        x.now_s = 4.6;
         m.Update(x);
         const double ramped_x = m.com_target_world().x;
         if (!Check(start_x == 0.30 && ramped_x < start_x &&
@@ -1519,18 +1535,24 @@ int main()
         x.measured_com_valid = true;
         x.measured_com_world = {0.30, 0.0, 0.0};
         x.measured_velocity_mps = 0.30;
+        x.measured_posture_valid = true;
         x.now_s = 1.0;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kDecelerateToCreep,
                    "crawl machine did not gate deceleration")) return 1;
-        x.measured_velocity_mps = 0.05;
+        x.measured_velocity_mps = go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps;
         x.now_s = 1.1;
         m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kDecelerateToCreep,
+                   "crawl machine skipped entry posture guard")) return 1;
+        x.measured_roll_rad = 0.0;
+        x.now_s = 1.1 + go2_terrain::TerrainCrawlStateMachine::kEntrySettleS;
+        m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom,
-                   "crawl machine did not enter COM shift")) return 1;
+                   "crawl machine did not enter COM shift after settling")) return 1;
         x.measured_com_world = {-0.05, 0.0, 0.0};
         x.target_valid[1] = true;
-        x.now_s = 1.2;
+        x.now_s = 1.2 + go2_terrain::TerrainCrawlStateMachine::kEntrySettleS;
         m.Update(x);
         if (!Check(m.state() == go2_terrain::TerrainCrawlState::kCrawlStep &&
                        m.ActiveLeg() == 1 && m.com_margin_m() >= 0.02,
@@ -1610,12 +1632,17 @@ int main()
         x.measured_com_valid = true;
         x.measured_com_world = {-0.05, 0.0, 0.0};
         x.measured_velocity_mps = 0.05;
+        x.measured_posture_valid = true;
         x.target_valid[1] = true;
         x.now_s = 3.1;
         m.Update(x);
         x.now_s = 3.2;
         m.Update(x);
         x.now_s = 3.3;
+        m.Update(x);
+        x.now_s = 3.3 + go2_terrain::TerrainCrawlStateMachine::kEntrySettleS;
+        m.Update(x);
+        x.now_s += 0.1;
         m.Update(x);
         for (int retry = 0; retry < go2_terrain::TerrainCrawlStateMachine::kMaxRetries; ++retry)
         {
