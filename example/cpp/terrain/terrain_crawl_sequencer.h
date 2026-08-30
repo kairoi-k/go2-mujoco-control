@@ -45,8 +45,8 @@ struct TerrainCrawlSequencerInput
     // dependency and is disabled for every normal caller.
     bool flat_ground_mode = false;
     double flat_step_length_m = 0.08;
-    // The window is armed before this boundary. Authority is granted only
-    // when the running trot reports a four-contact-able phase.
+    // The running-trot phase is retained as an attribution witness. After
+    // staging stops the gait, measured stance is the equivalent boundary.
     bool trot_full_contact_able = false;
     // Terrain SWING must wait for the measured legacy COM-shift completion
     // witness. The caller sets this only after force balance and COM margin
@@ -259,9 +259,8 @@ public:
         // contacts and the measured plant still has at least three anchors.
         if (!authority_active_)
         {
-            const bool stand_boundary =
-                (input.trot_full_contact_able || input.flat_ground_mode) &&
-                input.measured_contact_valid && contacts >= 3;
+            const bool stand_boundary = input.flat_ground_mode ||
+                (input.measured_contact_valid && contacts >= 3);
             if (stand_boundary && !stand_transition_seen_)
             {
                 // Give the running trot one complete boundary tick to accept
@@ -646,7 +645,7 @@ private:
         }
         output_.stage_abort_reason = stage_abort_reason_;
         output_.stand_transition_requested = !output_.control_authority_active &&
-            input.trot_full_contact_able && input.measured_contact_valid &&
+            input.measured_contact_valid &&
             std::count(input.measured_contact.begin(),
                        input.measured_contact.end(), true) >= 3;
         output_.swing_start_world = swing_start_;

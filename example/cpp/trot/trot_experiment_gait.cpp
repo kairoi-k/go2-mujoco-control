@@ -1903,8 +1903,10 @@ bool TrotExperiment::BuildGaitTargets(
     // owns authority; this keeps the adaptive envelope tied to the measured
     // edge rather than an arming-time snapshot.
     if (terrain_transfer_window_active_ && !flat_crawl_debug &&
-        !terrain_crawl_sequencer_output_.control_authority_active &&
-        live_terrain_model && have_high_state)
+        live_terrain_model && have_high_state &&
+        (!terrain_crawl_sequencer_output_.control_authority_active ||
+         terrain_crawl_sequencer_output_.state ==
+             go2_terrain::TerrainCrawlSequencerState::kStage))
     {
         const auto approach_pose = ComputeWorldPose(
             state_snapshot, high_state_snapshot);
