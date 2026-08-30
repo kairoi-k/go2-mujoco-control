@@ -1724,9 +1724,6 @@ void TrotExperiment::UpdateWbcFull(
         terrain_crawl_sequencer_output_.state ==
             go2_terrain::TerrainCrawlSequencerState::kSwing &&
         terrain_crawl_sequencer_output_.active_leg < go2::kLegCount;
-    const bool terrain_fr_descent = terrain_raised_support &&
-        terrain_crawl_sequencer_output_.active_leg == 0 &&
-        terrain_crawl_sequencer_output_.swing_phase >= 0.70;
     id_params.w_swing = terrain_raised_support
         ? 35.0
         : (params_.cartesian_world ? 80.0 : 80.0);
