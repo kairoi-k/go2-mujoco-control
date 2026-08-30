@@ -102,6 +102,10 @@ inline TerrainScriptTarget MeasureTerrainScriptTarget(
     // Reject lateral risers before taking the minimum edge. Otherwise a
     // side obstacle can become the apparent forward foothold.
     constexpr double kForwardCorridorHalfWidthM = 0.10;
+    // The measured foot can be behind the nominal body anchor after terrain
+    // braking. Keep the bounded direct target search reachable without
+    // changing its edge stand-off or candidate ordering.
+    constexpr double kMaximumProgressM = 0.65;
     // Edge estimation may use a wider lateral consensus than foothold
     // selection: the raised platform is broad, while a side obstacle must
     // not win unless it appears across multiple rows.
@@ -158,7 +162,7 @@ inline TerrainScriptTarget MeasureTerrainScriptTarget(
             const double y = terrain.origin_m[1] +
                 (static_cast<double>(iy) + 0.5) * step;
             const double progress = x - current_foot_base.x;
-            if (progress < stand_off_m || progress > 0.55 ||
+            if (progress < stand_off_m || progress > kMaximumProgressM ||
                 std::abs(y - current_foot_base.y) >
                     kForwardCorridorHalfWidthM ||
                 x < edge_x + stand_off_m)

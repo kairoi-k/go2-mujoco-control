@@ -889,7 +889,17 @@ private:
         com_margin_m_ = metrics.signed_margin_m;
         if (metrics.signed_margin_m >= kComMarginM)
         {
-            com_target_world_ = signals.measured_com_world;
+            // Keep the reference at the measured support incenter after
+            // crossing the readiness boundary. Replacing it with the COM at
+            // the boundary leaves only the minimum margin for the raised-leg
+            // mass shift that follows immediately in SWING.
+            const auto interior = TerrainSupportTriangleIncenter(triangle);
+            const auto interior_metrics = MeasureTerrainSupportTriangle(
+                triangle, interior);
+            if (interior_metrics.valid && interior_metrics.inside)
+                com_target_world_ = interior;
+            else
+                com_target_world_ = signals.measured_com_world;
             com_shift_start_valid_ = false;
             return;
         }
