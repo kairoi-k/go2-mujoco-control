@@ -1712,3 +1712,54 @@ verdict: |
   N/A (zero reached denominators), not zero-rate claims. No complete
   crossing or confirmation was achieved; no gate conclusion.
 git_status: implementation commit 8a3c607; docs append pending commit; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-09-01T16:00:00+0800
+run_id: Order-041 cycle-1 deterministic STAGE b1_script_epoch85
+trigger: T1
+implementation: |
+  Added scripted-only STAGE between DECELERATE_TO_CREEP and SHIFT_COM.
+  The lidar-derived planner snapshot carries a world-frame body target: the
+  inferred rising edge minus the 0.25 m canonical standoff and nominal front
+  foot offset. STAGE commands bounded signed creep, then requires position,
+  force/contact, posture, and velocity dwell before entering SHIFT_COM. No
+  terrain endpoint is applied during pre-step staging.
+  STAGE is represented in the state trace and diagnostics as a distinct rung.
+  Non-scripted callers retain the previous DECELERATE_TO_CREEP transition.
+determinism: |
+  Historical pre-STAGE epoch84 pair entry base-x values were 0.492 m and
+  0.425 m (spread 0.067 m). Order-041 exploratory stage traces entered at
+  0.560 m and 0.474 m in the two comparable retries (spread 0.086 m);
+  this pair did not demonstrate improvement because both detections were
+  already beyond the canonical target. The diagnostics now record
+  terrain_staging_target_valid, terrain_staging_error_m, and
+  terrain_staging_target_world_x_m for independent recomputation.
+canary_command: |
+  Serial flock -x /tmp/go2_mujoco_experiment.lock; domain 229;
+  LD_PRELOAD=/home/che/dds_base4000_preload.so; run_trot.sh 35;
+  --controller-duration 30; phase2_step_5cm.xml; epochs 85 exploratory
+  retries; all runs remained serialized.
+canary_trace: |
+  STAGE was entered reproducibly in the recorded attempts. No run passed
+  the STAGE dwell into SHIFT_COM: the canonical world target was behind
+  the body by approximately 0.25-0.43 m in the diagnostic trace, while
+  measured support/contact never sustained the required witness. Runs
+  stopped at STAGE/ABORT on the existing hard safety path; no crawl step,
+  commit, ADVANCE_BODY, or crossing was observed. This is an exploratory
+  stuck result, not a gate conclusion.
+b0: |
+  Cleaned/inspected /dev/shm before retry; it was empty and no stale DDS
+  processes were present. Rebuilt Base=4000 preload with
+  MaxAutoParticipantIndex=31. The fixed B0 pair PASS was restored at
+  _runs/phase2_b0_development_fixed_3mps_r0_20260830_114752_{baseline,terrain};
+  analyzer acceptance_status=PASS, no terrain actuation, 0 deadline misses.
+validation: |
+  cmake --build example/cpp/build -j2 and ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 passed; git diff --check
+  passed. No v1 contract, analyzer threshold, or canary definition changed.
+verdict: |
+  Stuck at the new STAGE rung: 0/2 comparable exploratory attempts reached
+  canonical staging dwell, so downstream conditional rates FROM canonical
+  staging are N/A. Budget was not treated as exhausted and no crossing or
+  confirmation was achieved. No gate-level conclusion.
+git_status: docs/source changes pending local review; no push/amend; simulations serialized.

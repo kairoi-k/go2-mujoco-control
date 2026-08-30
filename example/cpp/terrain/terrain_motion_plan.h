@@ -345,6 +345,10 @@ struct TerrainMotionPlan
     // this field fixes only the script's where, not MPC/WBC consumption.
     std::array<TerrainFootholdPrediction, go2::kLegCount>
         scripted_target{};
+    // World-frame body target for the canonical pre-crawl staging pose.
+    // It is derived from the lidar edge in the planner snapshot.
+    bool staging_target_valid = false;
+    double staging_target_world_x_m = 0.0;
     // Keep the sensor-derived terrain reference separate from the measured
     // kinematic foot anchors used for support and MPC lever arms.
     std::array<double, go2::kLegCount>

@@ -75,6 +75,8 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_transfer_hold_active,terrain_transfer_hold_mask"
          << ",terrain_transfer_window_active,terrain_transfer_window_release_s"
          << ",terrain_crawl_state,terrain_crawl_active_leg"
+         << ",terrain_staging_target_valid,terrain_staging_error_m"
+         << ",terrain_staging_target_world_x_m"
          << ",terrain_crawl_retry_count,terrain_crawl_state_enter_s"
          << ",terrain_crawl_shift_duration_s,terrain_crawl_shift_recovery_count"
          << ",terrain_crawl_min_contacts,terrain_crawl_step_commits"
@@ -968,6 +970,11 @@ void TrotExperiment::LogSample(
          << "," << terrain_transfer_window_release_s_
          << "," << go2_terrain::TerrainCrawlStateName(terrain_crawl_state)
          << "," << terrain_crawl_active_leg
+         << "," << (terrain_execution_plan &&
+                          terrain_execution_plan->staging_target_valid ? 1 : 0)
+         << "," << terrain_staging_error_m_
+         << "," << (terrain_execution_plan
+                          ? terrain_execution_plan->staging_target_world_x_m : 0.0)
          << "," << terrain_crawl_state_machine_.retry_count()
          << "," << terrain_crawl_state_machine_.state_enter_time_s()
          << "," << terrain_crawl_state_machine_.com_shift_duration_s()

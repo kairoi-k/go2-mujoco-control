@@ -1731,6 +1731,13 @@ int main()
         m.Update(x);
         x.now_s = 10.1 + go2_terrain::TerrainCrawlStateMachine::kEntrySettleS;
         m.Update(x);
+        x.staging_target_valid = true;
+        x.staging_error_m = 0.0;
+        x.measured_velocity_mps = 0.0;
+        x.now_s += 0.01;
+        m.Update(x);
+        x.now_s += go2_terrain::TerrainCrawlStateMachine::kStageSettleS;
+        m.Update(x);
         x.target_valid[1] = true;
         x.now_s += 0.01;
         m.Update(x);
@@ -1753,6 +1760,11 @@ int main()
             return 1;
 
         go2_terrain::TerrainCrawlStateMachine timeout;
+        x.scripted_execution = true;
+        x.staging_target_valid = true;
+        x.staging_error_m = 0.0;
+        x.measured_velocity_mps = 0.0;
+        x.target_valid.fill(false);
         x.measured_force_valid = false;
         x.measured_com_velocity_valid = false;
         x.now_s = 20.0;
@@ -1760,6 +1772,10 @@ int main()
         x.now_s = 20.1;
         timeout.Update(x);
         x.now_s = 20.1 + go2_terrain::TerrainCrawlStateMachine::kEntrySettleS;
+        timeout.Update(x);
+        x.now_s += 0.01;
+        timeout.Update(x);
+        x.now_s += go2_terrain::TerrainCrawlStateMachine::kStageSettleS;
         timeout.Update(x);
         x.now_s += 0.01;
         timeout.Update(x);

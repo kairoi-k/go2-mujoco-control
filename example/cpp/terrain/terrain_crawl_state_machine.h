@@ -17,6 +17,7 @@ enum class TerrainCrawlState : std::uint8_t
     kInactive = 0,
     kApproach,
     kDecelerateToCreep,
+    kStage,
     kShiftCom,
     kCrawlStep,
     kAdvanceBody,
@@ -31,6 +32,7 @@ inline const char *TerrainCrawlStateName(TerrainCrawlState state) noexcept
     {
     case TerrainCrawlState::kApproach: return "APPROACH";
     case TerrainCrawlState::kDecelerateToCreep: return "DECELERATE_TO_CREEP";
+    case TerrainCrawlState::kStage: return "STAGE";
     case TerrainCrawlState::kShiftCom: return "SHIFT_COM";
     case TerrainCrawlState::kCrawlStep: return "CRAWL_STEP";
     case TerrainCrawlState::kAdvanceBody: return "ADVANCE_BODY";
@@ -76,6 +78,11 @@ struct TerrainCrawlSignals
     bool measured_posture_valid = false;
     double measured_roll_rad = 0.0;
     double measured_pitch_rad = 0.0;
+    // Canonical entry is measured from the lidar edge in the current map.
+    // The state machine receives only this relative error, never a scene
+    // coordinate or a detection timestamp.
+    bool staging_target_valid = false;
+    double staging_error_m = 0.0;
     std::array<bool, go2::kLegCount> target_valid{};
     std::array<bool, go2::kLegCount> committed{};
     // Force balance and COM stillness are used only as a transfer-window
@@ -360,6 +367,12 @@ public:
     // rear-target reachability is evaluated at the moving measured pose.
     static constexpr double kAdvanceBodySpeedMps = 0.12;
     static constexpr double kEntrySettleS = 0.24;
+    static constexpr double kStageSettleS = 0.30;
+    static constexpr double kStagePositionToleranceM = 0.015;
+    static constexpr double kStageVelocityToleranceMps = 0.04;
+    static constexpr double kStagePostureLimitRad = 0.08;
+    static constexpr double kStageTimeoutS = 4.0;
+    static constexpr double kCanonicalStandoffM = 0.25;
     // The command ramp is still driven to kCreepSpeedMps; this guard keeps a
     // falling trot from waiting for a noisy velocity estimate to reach it.
     static constexpr double kEntryVelocityGuardMps = 0.50;
@@ -398,6 +411,7 @@ public:
         com_stable_start_time_s_ = std::numeric_limits<double>::infinity();
         shift_recovery_count_ = 0;
         decel_stable_start_time_s_ = std::numeric_limits<double>::infinity();
+        stage_stable_start_time_s_ = std::numeric_limits<double>::infinity();
     }
 
     void Enter(double now_s) noexcept
@@ -419,6 +433,7 @@ public:
         com_stable_start_time_s_ = std::numeric_limits<double>::infinity();
         shift_recovery_count_ = 0;
         decel_stable_start_time_s_ = std::numeric_limits<double>::infinity();
+        stage_stable_start_time_s_ = std::numeric_limits<double>::infinity();
         ++transition_count_;
     }
 
@@ -496,7 +511,53 @@ public:
             if (std::isfinite(signals.now_s) &&
                 signals.now_s - decel_stable_start_time_s_ + 1.0e-9 >=
                     kEntrySettleS)
-                SetState(TerrainCrawlState::kShiftCom, signals.now_s);
+            {
+                // Scripted v2 entry always passes through canonical STAGE;
+                // non-scripted callers retain the pre-Order-041 transition.
+                SetState(signals.scripted_execution
+                             ? TerrainCrawlState::kStage
+                             : TerrainCrawlState::kShiftCom,
+                         signals.now_s);
+            }
+            break;
+        }
+        case TerrainCrawlState::kStage:
+        {
+            int force_contacts = 0;
+            if (signals.measured_force_valid)
+                for (const double force : signals.measured_normal_force_n)
+                    if (std::isfinite(force) && force >= kStableForceMinN)
+                        ++force_contacts;
+            const bool stage_contact_ready =
+                (signals.measured_contact_valid && contacts >= 3) ||
+                (signals.measured_force_valid && force_contacts >= 3);
+            const bool stage_ready = signals.staging_target_valid &&
+                std::isfinite(signals.staging_error_m) &&
+                std::abs(signals.staging_error_m) <=
+                    kStagePositionToleranceM && stage_contact_ready &&
+                std::isfinite(signals.measured_velocity_mps) &&
+                signals.measured_velocity_mps <= kStageVelocityToleranceMps &&
+                signals.measured_posture_valid &&
+                std::isfinite(signals.measured_roll_rad) &&
+                std::isfinite(signals.measured_pitch_rad) &&
+                std::abs(signals.measured_roll_rad) <= kStagePostureLimitRad &&
+                std::abs(signals.measured_pitch_rad) <= kStagePostureLimitRad;
+            if (stage_ready)
+            {
+                if (!std::isfinite(stage_stable_start_time_s_))
+                    stage_stable_start_time_s_ = signals.now_s;
+                if (signals.now_s - stage_stable_start_time_s_ + 1.0e-9 >=
+                    kStageSettleS)
+                    SetState(TerrainCrawlState::kShiftCom, signals.now_s);
+            }
+            else
+                stage_stable_start_time_s_ =
+                    std::numeric_limits<double>::infinity();
+            if (signals.scripted_execution &&
+                std::isfinite(signals.now_s) &&
+                signals.now_s - state_enter_time_s_ + 1.0e-9 >=
+                    kStageTimeoutS)
+                SetState(TerrainCrawlState::kAbort, signals.now_s);
             break;
         }
         case TerrainCrawlState::kShiftCom:
@@ -718,7 +779,8 @@ public:
     TerrainCrawlState state() const noexcept { return state_; }
     bool UsesCrawlExecution() const noexcept
     {
-        return state_ == TerrainCrawlState::kShiftCom ||
+        return state_ == TerrainCrawlState::kStage ||
+            state_ == TerrainCrawlState::kShiftCom ||
             state_ == TerrainCrawlState::kCrawlStep ||
             state_ == TerrainCrawlState::kAdvanceBody ||
             state_ == TerrainCrawlState::kClear ||
@@ -741,6 +803,7 @@ public:
     {
         const bool pending = state_ == TerrainCrawlState::kApproach ||
             state_ == TerrainCrawlState::kDecelerateToCreep ||
+            state_ == TerrainCrawlState::kStage ||
             state_ == TerrainCrawlState::kShiftCom ||
             state_ == TerrainCrawlState::kCrawlStep ||
             state_ == TerrainCrawlState::kAdvanceBody;
@@ -869,6 +932,9 @@ private:
     {
         if (state_ != state)
             ++transition_count_;
+        if (state == TerrainCrawlState::kStage)
+            stage_stable_start_time_s_ =
+                std::numeric_limits<double>::infinity();
         if (state == TerrainCrawlState::kShiftCom)
         {
             com_shift_start_world_ = {};
@@ -903,6 +969,7 @@ private:
     int shift_recovery_count_ = 0;
     bool asymmetric_shift_ = false;
     double decel_stable_start_time_s_ = 0.0;
+    double stage_stable_start_time_s_ = std::numeric_limits<double>::infinity();
 };
 
 }  // namespace go2_terrain

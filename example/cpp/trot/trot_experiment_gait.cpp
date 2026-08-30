@@ -222,7 +222,22 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
             {
                 terrain_velocity_cap_mps_.store(
                     go2_terrain::TerrainCrawlStateMachine::kAdvanceBodySpeedMps);
-                if (crawl_state == go2_terrain::TerrainCrawlState::kAdvanceBody)
+                if (crawl_state == go2_terrain::TerrainCrawlState::kStage)
+                {
+                    // Stage regulates the body to the sensor-derived edge
+                    // reference. It never starts a crawl swing; stopping at
+                    // the target lets the subsequent settle dwell establish
+                    // a repeatable phase and posture.
+                    if (std::isfinite(terrain_staging_error_m_) &&
+                        std::abs(terrain_staging_error_m_) >
+                            go2_terrain::TerrainCrawlStateMachine::kStagePositionToleranceM)
+                        requested_mps = std::copysign(
+                            go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps,
+                            terrain_staging_error_m_);
+                    else
+                        requested_mps = 0.0;
+                }
+                else if (crawl_state == go2_terrain::TerrainCrawlState::kAdvanceBody)
                 {
                     // Rear targets are checked at the measured pose. A bounded
                     // creep is required to bring them inside the FK envelope;
@@ -315,7 +330,11 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     locomotion_kernel_->SetGaitStepLength(schedule.step_length_m);
     locomotion_kernel_->SetGaitFootLift(schedule.foot_lift_m);
     wbc_speed_cmd_mps_ =
-        std::abs(params_.direction_sign) * applied_mps;
+        terrain_crawl_active &&
+            terrain_crawl_state_machine_.state() ==
+                go2_terrain::TerrainCrawlState::kStage
+        ? params_.direction_sign * applied_mps
+        : std::abs(params_.direction_sign) * applied_mps;
     runtime_gait_step_length_m_ = schedule.step_length_m;
     runtime_gait_foot_lift_m_ = schedule.foot_lift_m;
     runtime_gait_regime_ = schedule.regime;
@@ -1695,6 +1714,22 @@ bool TrotExperiment::BuildGaitTargets(
             std::isfinite(measured_rpy[0]) && std::isfinite(measured_rpy[1]);
         crawl_signals.measured_roll_rad = measured_rpy[0];
         crawl_signals.measured_pitch_rad = measured_rpy[1];
+        if (terrain_crawl_state_machine_.state() ==
+                go2_terrain::TerrainCrawlState::kStage &&
+            have_high_state && active_terrain_plan &&
+            active_terrain_plan->staging_target_valid)
+        {
+            const auto staging_pose = ComputeWorldPose(
+                state_snapshot, high_state_snapshot);
+            crawl_signals.staging_target_valid = true;
+            crawl_signals.staging_error_m =
+                active_terrain_plan->staging_target_world_x_m -
+                staging_pose.base.x;
+            terrain_staging_error_m_ = crawl_signals.staging_error_m;
+        }
+        else
+            terrain_staging_error_m_ =
+                std::numeric_limits<double>::quiet_NaN();
         crawl_signals.committed = terrain_surface_transition_committed_;
         crawl_signals.measured_force_valid = true;
         if (crawl_signals.measured_force_valid)
@@ -2382,6 +2417,9 @@ bool TrotExperiment::BuildGaitTargets(
             const bool terrain_crawl_execution =
                 terrain_transfer_window_active_ &&
                 terrain_crawl_state_machine_.UsesCrawlExecution();
+            const bool terrain_crawl_staging = terrain_crawl_execution &&
+                terrain_crawl_state_machine_.state() ==
+                    go2_terrain::TerrainCrawlState::kStage;
             const bool explicit_crawl_step = terrain_crawl_execution &&
                 terrain_crawl_state_machine_.state() ==
                     go2_terrain::TerrainCrawlState::kCrawlStep;
@@ -2437,6 +2475,8 @@ bool TrotExperiment::BuildGaitTargets(
                     execution.valid, execution.in_flight, terrain_now_s,
                     execution.touchdown_time_s, terrain_time_tolerance_s);
             const auto crawl_state = terrain_crawl_state_machine_.state();
+            if (terrain_crawl_staging)
+                continue;
             if (terrain_crawl_execution && !explicit_crawl_step &&
                 !crawl_shift_leg)
             {

@@ -465,6 +465,16 @@ public:
             std::isfinite(input.base_position_world.y) &&
             std::isfinite(input.base_position_world.z))
         {
+            const auto nominal_feet = input.nominal_touchdown_feet_valid
+                ? input.nominal_touchdown_feet_base : input.nominal_feet_base;
+            const double nominal_front_x = 0.5 *
+                (nominal_feet[0].x + nominal_feet[1].x);
+            const auto staging = MeasureTerrainStagingReference(
+                *input.terrain, input.base_position_world,
+                input.base_yaw_rad, nominal_front_x,
+                TerrainCrawlStateMachine::kCanonicalStandoffM);
+            result.plan.staging_target_valid = staging.valid;
+            result.plan.staging_target_world_x_m = staging.target_world_x_m;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {
                 const auto measured = MeasureTerrainScriptTarget(

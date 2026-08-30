@@ -57,3 +57,7 @@ example/cpp/scripts/dds_base4000_preload.c; the generated WSL artifact is
 It injects CycloneDDS Ports Base=4000 while preserving the requested domain ID
 and loopback interface. Use LD_PRELOAD with both B0 fixed-pair domains and the
 serial B1 canary; no parallel simulation is permitted.
+
+## Order-041 DDS cleanup and participant-index ceiling
+
+Before the Order-041 B0 retry, the WSL /dev/shm directory was inspected after the aborted runs; it contained no CycloneDDS shared-memory segment and no stale DDS processes were running. The Failed to find a free participant index symptom therefore cannot be attributed to a surviving shared-memory owner on this WSL instance. The Base=4000 preload was rebuilt with MaxAutoParticipantIndex=31 (up from 9), retaining ParticipantIndex=auto and the same port base, interface, and domain mapping. This removes the bounded participant-index ceiling while preserving the B0 port workaround.

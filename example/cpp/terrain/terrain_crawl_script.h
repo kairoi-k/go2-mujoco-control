@@ -14,6 +14,59 @@ namespace go2_terrain
 
 // The script fixes sequencing and deadlines only. Terrain geometry remains
 // an observation: this helper never contains a scene/world coordinate.
+
+struct TerrainStagingReference
+{
+    bool valid = false;
+    double edge_x_m = std::numeric_limits<double>::quiet_NaN();
+    double target_world_x_m = std::numeric_limits<double>::quiet_NaN();
+    double error_m = std::numeric_limits<double>::quiet_NaN();
+};
+
+// Estimate the first observed rising edge in the lidar map and express the
+// canonical body target relative to that edge. Map cells are base-frame
+// observations; rotating the edge into world coordinates makes the reference
+// independent of the asynchronous map/detection timestamp.
+inline TerrainStagingReference MeasureTerrainStagingReference(
+    const TerrainModel &terrain,
+    const go2::Vec3 &base_position_world,
+    double base_yaw_rad,
+    double nominal_front_foot_x_m,
+    double standoff_m = 0.25)
+{
+    TerrainStagingReference result;
+    if (!terrain.valid() || !std::isfinite(base_position_world.x) ||
+        !std::isfinite(base_position_world.y) ||
+        !std::isfinite(base_yaw_rad) || !std::isfinite(nominal_front_foot_x_m) ||
+        !std::isfinite(standoff_m) || standoff_m < 0.0)
+        return result;
+    double edge_x = std::numeric_limits<double>::quiet_NaN();
+    for (std::size_t iy = 0; iy < terrain.height; ++iy)
+        for (std::size_t ix = 1; ix < terrain.width; ++ix)
+        {
+            const auto *before = terrain.CellAt(ix - 1, iy);
+            const auto *after = terrain.CellAt(ix, iy);
+            if (before == nullptr || after == nullptr || !before->known ||
+                !after->known || after->height_m <= before->height_m + 0.02)
+                continue;
+            const double x = terrain.origin_m[0] +
+                static_cast<double>(ix) * terrain.resolution_m;
+            edge_x = std::isfinite(edge_x) ? std::min(edge_x, x) : x;
+        }
+    if (!std::isfinite(edge_x))
+        return result;
+    const double c = std::cos(base_yaw_rad);
+    const double s = std::sin(base_yaw_rad);
+    const double edge_world_x = base_position_world.x + c * edge_x;
+    result.valid = std::isfinite(edge_world_x);
+    result.edge_x_m = edge_x;
+    result.target_world_x_m = edge_world_x - standoff_m - nominal_front_foot_x_m;
+    result.error_m = result.target_world_x_m - base_position_world.x;
+    result.valid = result.valid && std::isfinite(result.target_world_x_m) &&
+        std::isfinite(result.error_m);
+    return result;
+}
+
 struct TerrainScriptTarget
 {
     bool valid = false;

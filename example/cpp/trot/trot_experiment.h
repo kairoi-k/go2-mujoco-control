@@ -548,6 +548,10 @@ private:
     // this target is deliberately window-local and reset at each handoff.
     bool terrain_deceleration_active_ = false;
     double terrain_deceleration_target_mps_ = 0.30;
+    // Last measured canonical staging error; consumed by the next command
+    // shaping tick so STAGE stops at the edge-relative body target.
+    double terrain_staging_error_m_ =
+        std::numeric_limits<double>::quiet_NaN();
     go2_control::GaitPattern runtime_gait_pattern_ =
         go2_control::GaitPattern::kDiagonalTrot;
     double terrain_surface_transition_target_world_z_ = 0.0;
