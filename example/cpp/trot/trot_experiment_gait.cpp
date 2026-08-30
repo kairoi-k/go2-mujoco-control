@@ -1683,6 +1683,22 @@ bool TrotExperiment::BuildGaitTargets(
         crawl_signals.measured_roll_rad = measured_rpy[0];
         crawl_signals.measured_pitch_rad = measured_rpy[1];
         crawl_signals.committed = terrain_surface_transition_committed_;
+        crawl_signals.measured_force_valid = true;
+        if (crawl_signals.measured_force_valid)
+        {
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                crawl_signals.measured_normal_force_n[leg] =
+                    state_snapshot.foot_force()[leg];
+        }
+        crawl_signals.measured_com_velocity_valid = have_filtered_body_velocity_ &&
+            std::isfinite(latest_filtered_body_velocity_[0]) &&
+            std::isfinite(latest_filtered_body_velocity_[1]) &&
+            std::isfinite(latest_filtered_body_velocity_[2]);
+        if (crawl_signals.measured_com_velocity_valid)
+            crawl_signals.measured_com_velocity_mps = std::sqrt(
+                latest_filtered_body_velocity_[0] * latest_filtered_body_velocity_[0] +
+                latest_filtered_body_velocity_[1] * latest_filtered_body_velocity_[1] +
+                latest_filtered_body_velocity_[2] * latest_filtered_body_velocity_[2]);
         const double crawl_target_time_guard_s = 0.5 * std::max(
             1.0e-4, terrain_planner_.config().knot_dt_s);
         const auto crawl_target_is_live = [&](const TerrainSwingExecution &target) {

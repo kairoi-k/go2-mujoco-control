@@ -1692,6 +1692,82 @@ int main()
                    "crawl machine did not abort after retries")) return 1;
     }
 
+    // Asymmetric SHIFT_COM uses a displacement-scaled ramp and may accept
+    // a small geometric deficit only when measured support forces are
+    // balanced and the COM is static. A stalled shift is recovered twice,
+    // then bounded-aborted rather than waiting for the posture stop.
+    {
+        const std::array<go2::Vec3, go2::kLegCount> feet{
+            go2::Vec3{0.30, -0.20, 0.05}, go2::Vec3{0.30, 0.20, 0.0},
+            go2::Vec3{-0.30, -0.20, 0.0}, go2::Vec3{-0.30, 0.20, 0.0}};
+        go2_terrain::TerrainCrawlSignals x;
+        x.transfer_window_active = true;
+        x.scripted_execution = true;
+        x.plan_valid = true;
+        x.measured_contact_valid = true;
+        x.measured_contact = {true, true, true, true};
+        x.measured_foot_valid = true;
+        x.measured_foot_world = feet;
+        x.measured_com_valid = true;
+        x.measured_com_world = {0.30, -0.19, 0.0};
+        x.measured_velocity_mps = 0.05;
+        x.measured_posture_valid = true;
+        x.now_s = 10.0;
+        go2_terrain::TerrainCrawlStateMachine m;
+        m.Update(x);
+        x.now_s = 10.1;
+        m.Update(x);
+        x.now_s = 10.1 + go2_terrain::TerrainCrawlStateMachine::kEntrySettleS;
+        m.Update(x);
+        x.target_valid[1] = true;
+        x.now_s += 0.01;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom &&
+                       m.com_shift_duration_s() ==
+                           go2_terrain::TerrainCrawlStateMachine::kComShiftRampMaxS,
+                   "asymmetric COM shift did not select the bounded long ramp"))
+            return 1;
+        x.measured_force_valid = true;
+        x.measured_normal_force_n = {40.0, 0.0, 40.0, 40.0};
+        x.measured_com_velocity_valid = true;
+        x.measured_com_velocity_mps = 0.0;
+        x.now_s = m.state_enter_time_s() +
+            go2_terrain::TerrainCrawlStateMachine::kComShiftRampMaxS + 0.01;
+        m.Update(x);
+        x.now_s += go2_terrain::TerrainCrawlStateMachine::kStableDwellS;
+        m.Update(x);
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kCrawlStep,
+                   "balanced static asymmetric shift did not become ready"))
+            return 1;
+
+        go2_terrain::TerrainCrawlStateMachine timeout;
+        x.measured_force_valid = false;
+        x.measured_com_velocity_valid = false;
+        x.now_s = 20.0;
+        timeout.Update(x);
+        x.now_s = 20.1;
+        timeout.Update(x);
+        x.now_s = 20.1 + go2_terrain::TerrainCrawlStateMachine::kEntrySettleS;
+        timeout.Update(x);
+        x.now_s += 0.01;
+        timeout.Update(x);
+        for (int recovery = 1; recovery <= 2; ++recovery)
+        {
+            x.now_s = timeout.state_enter_time_s() +
+                go2_terrain::TerrainCrawlStateMachine::kComShiftTimeoutS + 0.01;
+            timeout.Update(x);
+            if (!Check(timeout.state() == go2_terrain::TerrainCrawlState::kShiftCom &&
+                           timeout.shift_recovery_count() == recovery,
+                       "SHIFT_COM timeout did not perform bounded recovery"))
+                return 1;
+        }
+        x.now_s = timeout.state_enter_time_s() +
+            go2_terrain::TerrainCrawlStateMachine::kComShiftTimeoutS + 0.01;
+        timeout.Update(x);
+        if (!Check(timeout.aborted(), "SHIFT_COM recovery exceeded its bound"))
+            return 1;
+    }
+
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";
     return 0;
 }

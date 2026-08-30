@@ -78,6 +78,12 @@ struct TerrainCrawlSignals
     double measured_pitch_rad = 0.0;
     std::array<bool, go2::kLegCount> target_valid{};
     std::array<bool, go2::kLegCount> committed{};
+    // Force balance and COM stillness are used only as a transfer-window
+    // readiness witness; flat-ground callers leave these fields invalid.
+    bool measured_force_valid = false;
+    std::array<double, go2::kLegCount> measured_normal_force_n{};
+    bool measured_com_velocity_valid = false;
+    double measured_com_velocity_mps = 0.0;
     bool measured_com_valid = false;
     go2::Vec3 measured_com_world{};
     bool measured_foot_valid = false;
@@ -330,6 +336,18 @@ public:
     static constexpr int kMaxRetries = 2;
     static constexpr double kComMarginM = 0.02;
     static constexpr double kComShiftRampS = 0.40;
+    // Asymmetric support can need more than the symmetric 0.40 s ramp. The
+    // duration is selected from measured COM-to-centroid displacement.
+    static constexpr double kComShiftRampMaxS = 1.20;
+    static constexpr double kComShiftDistanceRateMps = 0.10;
+    static constexpr double kStableComMarginM = -0.040;
+    static constexpr double kStableComVelocityMps = 0.08;
+    static constexpr double kStableForceMinN = 10.0;
+    static constexpr double kStableForceTotalMinN = 50.0;
+    static constexpr double kStableForceImbalanceRatio = 4.0;
+    static constexpr double kStableDwellS = 0.12;
+    static constexpr double kComShiftTimeoutS = 2.50;
+    static constexpr int kMaxShiftRecoveries = 2;
     // 250 Hz control tick; keep the shift reference latency below 20 ms.
     static constexpr int kComShiftMpcPeriodTicks = 5;
     // The four-foot shift is the only path that asks stance to resist a
@@ -371,6 +389,10 @@ public:
         com_shift_start_world_ = {};
         com_shift_start_time_s_ = 0.0;
         com_shift_start_valid_ = false;
+        com_shift_duration_s_ = kComShiftRampS;
+        asymmetric_shift_ = false;
+        com_stable_start_time_s_ = std::numeric_limits<double>::infinity();
+        shift_recovery_count_ = 0;
         decel_stable_start_time_s_ = std::numeric_limits<double>::infinity();
     }
 
@@ -387,6 +409,10 @@ public:
         com_shift_start_world_ = {};
         com_shift_start_time_s_ = 0.0;
         com_shift_start_valid_ = false;
+        com_shift_duration_s_ = kComShiftRampS;
+        asymmetric_shift_ = false;
+        com_stable_start_time_s_ = std::numeric_limits<double>::infinity();
+        shift_recovery_count_ = 0;
         decel_stable_start_time_s_ = std::numeric_limits<double>::infinity();
         ++transition_count_;
     }
@@ -451,7 +477,13 @@ public:
         }
         case TerrainCrawlState::kShiftCom:
         {
-            if (!three_contacts)
+            const std::size_t target_leg = ActiveLegForSupport();
+            // The hysteretic contact bit can lag a quiet 10 N-class support
+            // load. Treat a measured, balanced three-leg force plant as
+            // equivalent for SHIFT_COM; this is the stability witness, not
+            // a generic contact bypass.
+            const bool force_supported = ForceBalanceReady(signals, target_leg);
+            if (!three_contacts && !force_supported)
             {
                 // Update() runs after target generation. Allow one control
                 // tick for the newly selected crawl schedule to replace the
@@ -465,12 +497,31 @@ public:
                 break;
             }
             UpdateComTarget(signals);
-            const std::size_t target_leg = ActiveLegForSupport();
             const double shift_elapsed = signals.now_s - state_enter_time_s_;
-            const bool fixed_shift_ready = !signals.scripted_execution ||
-                (std::isfinite(shift_elapsed) && shift_elapsed + 1.0e-9 >=
-                    kComShiftRampS + 0.20);
-            if (signals.plan_valid && ComShiftReady() && fixed_shift_ready &&
+            const bool finite_shift_elapsed = std::isfinite(shift_elapsed) &&
+                shift_elapsed >= 0.0;
+            const bool ramp_ready = !signals.scripted_execution ||
+                (finite_shift_elapsed && shift_elapsed + 1.0e-9 >=
+                    com_shift_duration_s_);
+            const bool geometric_ready = !signals.scripted_execution ||
+                (finite_shift_elapsed && shift_elapsed + 1.0e-9 >=
+                    com_shift_duration_s_ + 0.20);
+            const bool force_balanced = ForceBalanceReady(signals, target_leg);
+            const bool com_static = signals.measured_com_velocity_valid &&
+                std::isfinite(signals.measured_com_velocity_mps) &&
+                signals.measured_com_velocity_mps <= kStableComVelocityMps;
+            const bool stability_ready = ramp_ready && force_balanced &&
+                com_static && com_margin_m_ >= kStableComMarginM;
+            if (stability_ready && !std::isfinite(com_stable_start_time_s_))
+                com_stable_start_time_s_ = signals.now_s;
+            if (!stability_ready)
+                com_stable_start_time_s_ = std::numeric_limits<double>::infinity();
+            const bool stable_ready = stability_ready && finite_shift_elapsed &&
+                std::isfinite(com_stable_start_time_s_) &&
+                signals.now_s - com_stable_start_time_s_ + 1.0e-9 >=
+                    kStableDwellS;
+            const bool shift_ready = geometric_ready && ComShiftReady();
+            if (signals.plan_valid && (shift_ready || stable_ready) &&
                 target_leg < go2::kLegCount)
             {
                 // The gait adapter prepares the selected target after this
@@ -478,6 +529,21 @@ public:
                 // can perform that same-tick handoff; a missing target is
                 // returned to SHIFT_COM on the next update without swinging.
                 SetState(TerrainCrawlState::kCrawlStep, signals.now_s);
+            }
+            // Do not wait indefinitely for a geometric margin after the
+            // stance has stopped carrying the COM. Re-start the measured
+            // ramp (a bounded re-shift/re-square) before the existing abort.
+            if (state_ == TerrainCrawlState::kShiftCom &&
+                signals.scripted_execution && finite_shift_elapsed &&
+                shift_elapsed + 1.0e-9 >= kComShiftTimeoutS)
+            {
+                if (shift_recovery_count_ < kMaxShiftRecoveries)
+                {
+                    ++shift_recovery_count_;
+                    RestartShift(signals.now_s);
+                }
+                else
+                    SetState(TerrainCrawlState::kAbort, signals.now_s);
             }
             break;
         }
@@ -654,6 +720,8 @@ public:
     bool com_target_valid() const noexcept { return triangle_valid_; }
     go2::Vec3 com_target_world() const noexcept { return com_target_world_; }
     double com_margin_m() const noexcept { return com_margin_m_; }
+    double com_shift_duration_s() const noexcept { return com_shift_duration_s_; }
+    int shift_recovery_count() const noexcept { return shift_recovery_count_; }
     std::size_t com_target_leg() const noexcept { return ActiveLegForSupport(); }
 
 private:
@@ -677,6 +745,10 @@ private:
         }
         const auto metrics = MeasureTerrainSupportTriangle(
             triangle, signals.measured_com_world);
+        asymmetric_shift_ = std::abs(triangle.vertex[0].z - triangle.vertex[1].z) >
+                1.0e-4 ||
+            std::abs(triangle.vertex[1].z - triangle.vertex[2].z) > 1.0e-4 ||
+            std::abs(triangle.vertex[2].z - triangle.vertex[0].z) > 1.0e-4;
         com_margin_m_ = metrics.signed_margin_m;
         if (metrics.signed_margin_m >= kComMarginM)
         {
@@ -688,17 +760,26 @@ private:
         // A centroid target can be about 100 mm from the measured COM at
         // handoff. Start at the measured point and ramp the existing WBC
         // reference, rather than injecting that displacement in one MPC
-        // update and unloading the stance legs.
+        // update and unloading the stance legs. Asymmetric shifts get a
+        // displacement-proportional ramp, capped to keep recovery bounded.
+        const auto centroid = TerrainSupportTriangleCentroid(triangle);
         if (!com_shift_start_valid_)
         {
             com_shift_start_world_ = signals.measured_com_world;
             com_shift_start_time_s_ = signals.now_s;
+            const double distance = std::hypot(
+                centroid.x - com_shift_start_world_.x,
+                centroid.y - com_shift_start_world_.y);
+            com_shift_duration_s_ = asymmetric_shift_
+                ? std::clamp(
+                      kComShiftRampS + distance / kComShiftDistanceRateMps,
+                      kComShiftRampS, kComShiftRampMaxS)
+                : kComShiftRampS;
             com_shift_start_valid_ = std::isfinite(com_shift_start_time_s_);
         }
         const double elapsed = signals.now_s - com_shift_start_time_s_;
         const double alpha = std::clamp(
-            elapsed / kComShiftRampS, 0.0, 1.0);
-        const auto centroid = TerrainSupportTriangleCentroid(triangle);
+            elapsed / com_shift_duration_s_, 0.0, 1.0);
         com_target_world_ = {
             com_shift_start_world_.x +
                 alpha * (centroid.x - com_shift_start_world_.x),
@@ -713,6 +794,43 @@ private:
         return triangle_valid_ && com_margin_m_ >= kComMarginM;
     }
 
+    bool ForceBalanceReady(const TerrainCrawlSignals &signals,
+                           std::size_t lifted_leg) const noexcept
+    {
+        if (!signals.measured_force_valid || !signals.measured_contact_valid ||
+            lifted_leg >= go2::kLegCount)
+            return false;
+        double total = 0.0;
+        double minimum = std::numeric_limits<double>::infinity();
+        double maximum = 0.0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (leg == lifted_leg)
+                continue;
+            const double force = signals.measured_normal_force_n[leg];
+            if (!std::isfinite(force) || force < kStableForceMinN)
+                return false;
+            total += force;
+            minimum = std::min(minimum, force);
+            maximum = std::max(maximum, force);
+        }
+        return total >= kStableForceTotalMinN && minimum > 0.0 &&
+            maximum / minimum <= kStableForceImbalanceRatio;
+    }
+
+    void RestartShift(double now_s) noexcept
+    {
+        state_enter_time_s_ = now_s;
+        com_shift_start_world_ = {};
+        com_shift_start_time_s_ = 0.0;
+        com_shift_start_valid_ = false;
+        com_shift_duration_s_ = kComShiftRampS;
+        asymmetric_shift_ = false;
+        com_stable_start_time_s_ = std::numeric_limits<double>::infinity();
+        triangle_valid_ = false;
+        com_margin_m_ = -std::numeric_limits<double>::infinity();
+        ++transition_count_;
+    }
 
     void SetState(TerrainCrawlState state, double now_s) noexcept
     {
@@ -724,6 +842,9 @@ private:
             com_shift_start_world_ = {};
             com_shift_start_time_s_ = 0.0;
             com_shift_start_valid_ = false;
+            com_shift_duration_s_ = kComShiftRampS;
+            com_stable_start_time_s_ = std::numeric_limits<double>::infinity();
+            shift_recovery_count_ = 0;
         }
         state_ = state;
         state_enter_time_s_ = now_s;
@@ -741,6 +862,10 @@ private:
     go2::Vec3 com_shift_start_world_{};
     double com_shift_start_time_s_ = 0.0;
     bool com_shift_start_valid_ = false;
+    double com_shift_duration_s_ = kComShiftRampS;
+    double com_stable_start_time_s_ = std::numeric_limits<double>::infinity();
+    int shift_recovery_count_ = 0;
+    bool asymmetric_shift_ = false;
     double decel_stable_start_time_s_ = 0.0;
 };
 

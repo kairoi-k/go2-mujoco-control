@@ -1403,3 +1403,64 @@ validation: |
 git_status: |
   local commits f308674, 25b939a, 8561a7b, 996ffb4, 891aebb, 7285da3;
   no push/amend; simulations serialized; final tree clean.
+
+---
+timestamp: 2026-08-31T15:30:00+0800
+run_id: Order-038 asymmetric FR-directed SHIFT_COM b1_script_epoch72_20260828 (+ _r2)
+trigger: T1
+reconstruction: |
+  Epoch71 r1's requested post-FL interval (6.712-11.720 s) contains 2090
+  SHIFT_COM rows. Before divergence (6.712-8.5 s), measured COM was
+  x=0.480..0.522 m and y=-0.027..0.037 m; the COM reference ramp stayed
+  near x=0.447..0.504 m/y=-0.047..0.032 m. The measured support margin
+  moved from -0.019 m to +0.043 m, so the target is reachable in the
+  horizontal support geometry while the machine remains upright. The
+  planner's reachability margin was non-negative (0..0.068 m) in the
+  same trace; no FK workspace impossibility was evidenced.
+
+  The pre-failure support forces were FR/FL/RR/RL median approximately
+  20/64/24/38 N in 7.8-8.5 s (earlier 6.712-7.8 s: 46/39/32/15 N).
+  The support set for the FR shift is FL/RR/RL, with RL the weakest
+  support; this explains the old 20 N hysteresis contact loss despite
+  non-zero load. COM movement then became divergent: by 8.5-9.5 s,
+  measured y=0.224..0.506 m and margin=-0.164..-0.110 m, while the
+  stance-plane reference roll/pitch reached [-1.563,1.561]/[-0.160,0.251]
+  rad. This is post-failure posture divergence, not a stable unreachable
+  target. The 0.40 s + 0.8 s fixed timing was too short for the asymmetric
+  force transfer, and the fixed +0.020 m readiness gate did not encode
+  force/static stability.
+implementation: |
+  terrain_crawl_state_machine.h now keeps the flat 0.40 s ramp unchanged,
+  but for mixed-height support triangles selects a displacement-driven
+  0.40..1.20 s ramp. SHIFT_COM readiness may use a bounded -0.040 m margin
+  only with three finite support loads >=10 N, total >=50 N, max/min <=4,
+  and measured COM speed <=0.08 m/s for a 0.12 s dwell. The same force
+  witness covers hysteretic contact-bit lag; non-window and flat arithmetic
+  remain unchanged. A scripted SHIFT_COM timeout at 2.50 s restarts the
+  measured ramp/re-square at most twice, then enters the existing bounded
+  ABORT path. Diagnostics record selected ramp duration and recovery count.
+  No foot micro-step was added because FK/reachability was not the cause.
+canary_command: |
+  Both named runs were serialized with flock -x /tmp/go2_mujoco_experiment.lock,
+  domain 229, LD_PRELOAD=/home/che/dds_base4000_preload.so, phase2_step_5cm.xml,
+  unchanged epoch28 arguments, --controller-duration 30 (wall timeout 35 s).
+canary_trace: |
+  b1_script_epoch72_20260828: stochastic entry reached SHIFT_COM at
+  6.790 s but stopped before FL CRAWL_STEP; no FR/FL commit. The run ended
+  at 10.054 s in the safety path. The repeated run after the final rebuild
+  had the same upstream entry outcome. _r2 reached SHIFT_COM at 6.496 s
+  and aborted in the pre-FL segment at 9.624 s; no commit. These are
+  accepted stochastic pre-FL outcomes and do not support a door-level
+  conclusion. The epoch71 r1 reconstruction remains the FR-directed
+  mechanism evidence.
+validation: |
+  ctest --test-dir example/cpp/build --output-on-failure: 27/27 passed.
+  test_terrain_interfaces includes the displacement-scaled ramp, force/static
+  readiness, and two-recovery-then-abort timeout cases. Full real_trot_go2
+  build passed. B0 fixed pair at
+  phase2_b0_development_fixed_3mps_r0_20260830_101248 returned
+  acceptance_status=PASS with analyzer_hash=true, contract_hash=true,
+  no_terrain_actuation=true, planner_deadline_misses=0, terrain_rows=39015.
+  No v1 contract, analyzer threshold, or canary definition changed; no
+  gate-level conclusion is made.
+git_status: local implementation/docs commit pending; no push/amend; simulations serialized.
