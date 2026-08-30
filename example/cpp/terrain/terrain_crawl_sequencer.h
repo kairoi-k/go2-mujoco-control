@@ -782,9 +782,11 @@ private:
             // Ease the endpoint elevation as well as the lift arch. This
             // makes touchdown velocity zero instead of carrying the linear
             // height delta into the captured support.
-            const double vertical_progress = u * u * (3.0 - 2.0 * u);
-            const double vertical_progress_rate = 6.0 * u * (1.0 - u) /
-                kSwingDurationS;
+            const double vertical_progress = terrain_swing
+                ? u * u * (3.0 - 2.0 * u) : u;
+            const double vertical_progress_rate = terrain_swing
+                ? 6.0 * u * (1.0 - u) / kSwingDurationS :
+                1.0 / kSwingDurationS;
             const double arch = terrain_swing
                 ? output_.swing_lift_m * 16.0 * u * u *
                     (1.0 - u) * (1.0 - u)
