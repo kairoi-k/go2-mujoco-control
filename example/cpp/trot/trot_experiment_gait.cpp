@@ -1990,6 +1990,14 @@ bool TrotExperiment::BuildGaitTargets(
         crawl_signals.measured_contact = wbc_shadow_contact_state_;
         crawl_signals.measured_com_valid = have_measured_com_world_;
         crawl_signals.measured_com_world = measured_com_world_;
+        crawl_signals.swing_com_bias_enabled = !flat_crawl_debug;
+        crawl_signals.swing_trajectory_valid =
+            sequencer_output.state ==
+                go2_terrain::TerrainCrawlSequencerState::kSwing &&
+            sequencer_output.target_valid &&
+            sequencer_output.active_leg < go2::kLegCount;
+        crawl_signals.swing_start_world = sequencer_output.swing_start_world;
+        crawl_signals.swing_target_world = sequencer_output.target_world;
         crawl_signals.measured_foot_valid = have_actual_world_feet;
         crawl_signals.measured_foot_world = actual_world_feet;
         crawl_signals.measured_velocity_mps = have_filtered_body_velocity_
