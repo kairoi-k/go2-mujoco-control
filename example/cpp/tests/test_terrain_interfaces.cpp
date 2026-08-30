@@ -1530,6 +1530,32 @@ int main()
             return 1;
     }
 
+    // Planner and sequencer must witness the same measured polygon/COM
+    // arithmetic before the sequencer swing gate is allowed to open.
+    {
+        const std::array<go2::Vec3, go2::kLegCount> feet{
+            go2::Vec3{0.30, -0.20, 0.0}, go2::Vec3{0.30, 0.20, 0.05},
+            go2::Vec3{-0.30, -0.20, 0.0}, go2::Vec3{-0.30, 0.20, 0.0}};
+        const std::array<bool, go2::kLegCount> contacts{true, true, true, true};
+        const go2::Vec3 com{0.0, 0.0, 0.01};
+        const double sequencer_margin =
+            go2_terrain::TerrainMeasuredSupportMargin(feet, contacts, 1, com);
+        go2_terrain::TerrainPlannerInput planner_input;
+        planner_input.terrain_crawl_support_window_active = true;
+        planner_input.terrain_crawl_support_lifted_leg = 1;
+        planner_input.measured_support_geometry_valid = true;
+        planner_input.measured_support_feet_world = feet;
+        planner_input.measured_support_contact = contacts;
+        planner_input.measured_com_valid = true;
+        planner_input.measured_com_world = com;
+        const double planner_margin =
+            go2_terrain::TerrainPlannerMeasuredSupportMargin(planner_input);
+        if (!(std::isfinite(sequencer_margin) &&
+              std::abs(planner_margin - sequencer_margin) < 1.0e-12 &&
+              (planner_margin >= 0.0) == (sequencer_margin >= 0.0)))
+            return 1;
+    }
+
     // An outside COM must approach the measured support-triangle incenter
     // gradually; the first valid target remains at the measured COM instead
     // of jumping.

@@ -363,6 +363,54 @@ inline go2::Vec3 TerrainSupportTriangleIncenter(
              weight2 * triangle.vertex[2].z) / perimeter};
 }
 
+// Canonical measured support margin shared by the sequencer and planner.
+// A valid lifted leg selects the other three measured feet; ADVANCE passes
+// kLegCount and uses the three currently measured contacts.
+inline double TerrainMeasuredSupportMargin(
+    const std::array<go2::Vec3, go2::kLegCount> &feet,
+    const std::array<bool, go2::kLegCount> &contact,
+    std::size_t lifted_leg, const go2::Vec3 &com) noexcept
+{
+    TerrainSupportTriangle triangle;
+    if (lifted_leg < go2::kLegCount)
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            if (leg != lifted_leg && !contact[leg])
+                return -std::numeric_limits<double>::infinity();
+        triangle = ComputeTerrainSupportTriangle(feet, lifted_leg);
+    }
+    else
+    {
+        std::size_t out = 0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            if (contact[leg] && out < triangle.vertex.size())
+                triangle.vertex[out++] = feet[leg];
+        triangle.valid = out == triangle.vertex.size();
+        if (triangle.valid)
+        {
+            const go2::Vec3 edge01{
+                triangle.vertex[1].x - triangle.vertex[0].x,
+                triangle.vertex[1].y - triangle.vertex[0].y,
+                triangle.vertex[1].z - triangle.vertex[0].z};
+            const go2::Vec3 edge02{
+                triangle.vertex[2].x - triangle.vertex[0].x,
+                triangle.vertex[2].y - triangle.vertex[0].y,
+                triangle.vertex[2].z - triangle.vertex[0].z};
+            const go2::Vec3 cross{
+                edge01.y * edge02.z - edge01.z * edge02.y,
+                edge01.z * edge02.x - edge01.x * edge02.z,
+                edge01.x * edge02.y - edge01.y * edge02.x};
+            triangle.valid = std::isfinite(cross.x) &&
+                std::isfinite(cross.y) && std::isfinite(cross.z) &&
+                std::sqrt(cross.x * cross.x + cross.y * cross.y +
+                          cross.z * cross.z) > 1.0e-6;
+        }
+    }
+    return triangle.valid
+        ? MeasureTerrainSupportTriangle(triangle, com).signed_margin_m
+        : -std::numeric_limits<double>::infinity();
+}
+
 class TerrainCrawlStateMachine
 {
 public:

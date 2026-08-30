@@ -193,6 +193,10 @@ void TrotExperiment::PublishTerrainControlSnapshot(
             snapshot.measured_contact[leg] =
                 state_snapshot.foot_force()[leg] >= kContactForceThreshold;
     }
+    // Preserve the exact contact witness consumed by the sequencer. The
+    // planner's legacy schedule below may mask a late trot swing, but that
+    // nominal filtering must not change measured support geometry.
+    snapshot.measured_support_contact = snapshot.measured_contact;
     // The force sensor is a loaded-contact observation only when the leg is
     // in its scheduled stance interval.  MuJoCo keeps a large foot force for
     // part of lift-off, so passing that hysteresis state directly to the
@@ -213,6 +217,26 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         }
     }
     snapshot.measured_valid = true;
+    snapshot.measured_com_valid = have_measured_com_world_;
+    snapshot.measured_com_world = measured_com_world_;
+    if (have_high_state)
+    {
+        const auto measured_pose = ComputeWorldPose(
+            state_snapshot, high_state_snapshot);
+        snapshot.measured_feet_world = ComputeWorldFeet(
+            state_snapshot, measured_pose);
+        snapshot.measured_feet_valid = true;
+    }
+    const auto sequencer_state = terrain_crawl_sequencer_output_.state;
+    snapshot.terrain_crawl_support_window_active =
+        terrain_transfer_window_active_ &&
+        terrain_crawl_sequencer_output_.control_authority_active &&
+        (sequencer_state == go2_terrain::TerrainCrawlSequencerState::kShift ||
+         sequencer_state == go2_terrain::TerrainCrawlSequencerState::kSwing ||
+         sequencer_state == go2_terrain::TerrainCrawlSequencerState::kCommit ||
+         sequencer_state == go2_terrain::TerrainCrawlSequencerState::kAdvance);
+    snapshot.terrain_crawl_support_lifted_leg =
+        terrain_crawl_sequencer_output_.active_leg;
     snapshot.terrain_transfer_hold_active = terrain_transfer_hold_active_;
     snapshot.terrain_transfer_hold_contact = terrain_transfer_hold_contact_;
     snapshot.terrain_surface_transition_active =
@@ -319,6 +343,15 @@ void TrotExperiment::UpdateTerrainRuntime()
         control.have_nominal_touchdown_feet;
     input.contact_schedule.measured_contact = control.measured_contact;
     input.contact_schedule.measured_valid = control.measured_valid;
+    input.terrain_crawl_support_window_active =
+        control.terrain_crawl_support_window_active;
+    input.terrain_crawl_support_lifted_leg =
+        control.terrain_crawl_support_lifted_leg;
+    input.measured_support_geometry_valid = control.measured_feet_valid;
+    input.measured_support_feet_world = control.measured_feet_world;
+    input.measured_support_contact = control.measured_support_contact;
+    input.measured_com_valid = control.measured_com_valid;
+    input.measured_com_world = control.measured_com_world;
     input.terrain_transfer_hold_active = control.terrain_transfer_hold_active;
     input.terrain_transfer_hold_contact = control.terrain_transfer_hold_contact;
     input.terrain_surface_transition_active =

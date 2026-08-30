@@ -108,6 +108,15 @@ struct TerrainPlannerInput
     bool terrain_transfer_hold_active = false;
     std::array<bool, go2::kLegCount>
         terrain_transfer_hold_contact{};
+    // During sequencer-owned SHIFT/SWING/COMMIT/ADVANCE, support validation
+    // consumes the same measured feet and COM as the pre-swing margin gate.
+    bool terrain_crawl_support_window_active = false;
+    std::size_t terrain_crawl_support_lifted_leg = go2::kLegCount;
+    bool measured_support_geometry_valid = false;
+    std::array<go2::Vec3, go2::kLegCount> measured_support_feet_world{};
+    std::array<bool, go2::kLegCount> measured_support_contact{};
+    bool measured_com_valid = false;
+    go2::Vec3 measured_com_world{};
     TerrainContactSchedule contact_schedule{};
     // The discrete schedule feeds the MPC horizon, while this optional
     // absolute timestamp keeps swing execution aligned with the continuous
@@ -307,6 +316,19 @@ inline double SupportMargin2D(
         minimum = std::min(minimum, cross);
     }
     return minimum >= min_margin ? minimum : minimum;
+}
+
+inline double TerrainPlannerMeasuredSupportMargin(
+    const TerrainPlannerInput &input) noexcept
+{
+    if (!input.terrain_crawl_support_window_active ||
+        !input.measured_support_geometry_valid || !input.measured_com_valid)
+        return -std::numeric_limits<double>::infinity();
+    return TerrainMeasuredSupportMargin(
+        input.measured_support_feet_world,
+        input.measured_support_contact,
+        input.terrain_crawl_support_lifted_leg,
+        input.measured_com_world);
 }
 
 // Lateral line-error bound for a two-contact support set.  The support
@@ -1195,6 +1217,29 @@ private:
         }
         for (std::size_t k = 0; k < support_horizon; ++k)
         {
+            if (input.terrain_crawl_support_window_active)
+            {
+                const double margin = TerrainPlannerMeasuredSupportMargin(input);
+                result.plan.min_support_margin_m = std::min(
+                    result.plan.min_support_margin_m, margin);
+                result.plan.min_uncertainty_inflated_support_margin_m =
+                    std::min(result.plan.min_uncertainty_inflated_support_margin_m,
+                             margin - result.plan.uncertainty_m);
+                ++support_knots;
+                if (!std::isfinite(margin) ||
+                    margin < config_.min_support_margin_m)
+                {
+                    result.support_failure_knot = static_cast<int>(k);
+                    result.support_failure_contact_mask = 0;
+                    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                        if (input.measured_support_contact[leg])
+                            result.support_failure_contact_mask |=
+                                static_cast<std::uint8_t>(1u << leg);
+                    result.support_failure_margin_m = margin;
+                    return false;
+                }
+                continue;
+            }
             std::array<go2::Vec3, go2::kLegCount> feet{};
             std::array<bool, go2::kLegCount> contacts =
                 input.contact_schedule.planned_contact[k];
@@ -1377,6 +1422,29 @@ private:
         }
         for (std::size_t k = 0; k < support_horizon; ++k)
         {
+            if (input.terrain_crawl_support_window_active)
+            {
+                const double margin = TerrainPlannerMeasuredSupportMargin(input);
+                result.plan.min_support_margin_m = std::min(
+                    result.plan.min_support_margin_m, margin);
+                result.plan.min_uncertainty_inflated_support_margin_m =
+                    std::min(result.plan.min_uncertainty_inflated_support_margin_m,
+                             margin - result.plan.uncertainty_m);
+                ++support_knots;
+                if (!std::isfinite(margin) ||
+                    margin < config_.min_support_margin_m)
+                {
+                    result.support_failure_knot = static_cast<int>(k);
+                    result.support_failure_contact_mask = 0;
+                    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                        if (input.measured_support_contact[leg])
+                            result.support_failure_contact_mask |=
+                                static_cast<std::uint8_t>(1u << leg);
+                    result.support_failure_margin_m = margin;
+                    return false;
+                }
+                continue;
+            }
             std::array<go2::Vec3, go2::kLegCount> feet{};
             std::size_t contact_count = 0;
             std::array<bool, go2::kLegCount> contacts =

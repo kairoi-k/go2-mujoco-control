@@ -314,14 +314,14 @@ public:
             if (three_contacts && input.measured_feet_valid &&
                 input.measured_com_valid && CurrentTarget(input))
             {
-                const auto triangle = ComputeTerrainSupportTriangle(
-                    input.measured_feet_world, active_leg());
-                const auto metrics = triangle.valid
-                    ? MeasureTerrainSupportTriangle(triangle,
-                                                     input.measured_com_world)
-                    : TerrainSupportTriangleMetrics{};
-                if (metrics.valid &&
-                    (metrics.signed_margin_m >= 0.0 ||
+                const double measured_margin =
+                    TerrainMeasuredSupportMargin(
+                        input.measured_feet_world, input.measured_contact,
+                        active_leg(), input.measured_com_world);
+                const bool measured_margin_valid =
+                    std::isfinite(measured_margin);
+                if (measured_margin_valid &&
+                    (measured_margin >= 0.0 ||
                      input.flat_ground_mode) &&
                     (input.flat_ground_mode || input.legacy_shift_ready) &&
                     finite_time && input.now_s - state_enter_s_ + 1e-9 >=
@@ -592,11 +592,9 @@ private:
         if (output_.active_leg < go2::kLegCount &&
             input.measured_feet_valid && input.measured_com_valid)
         {
-            const auto triangle = ComputeTerrainSupportTriangle(
-                input.measured_feet_world, output_.active_leg);
-            if (triangle.valid)
-                output_.com_margin_m = MeasureTerrainSupportTriangle(
-                    triangle, input.measured_com_world).signed_margin_m;
+            output_.com_margin_m = TerrainMeasuredSupportMargin(
+                input.measured_feet_world, input.measured_contact,
+                output_.active_leg, input.measured_com_world);
         }
         output_.committed = committed_;
         output_.contact_schedule.fill(true);

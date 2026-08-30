@@ -234,6 +234,13 @@ private:
         std::array<go2::Vec3, go2::kLegCount>
             nominal_touchdown_feet_base{};
         std::array<bool, go2::kLegCount> measured_contact{};
+        std::array<bool, go2::kLegCount> measured_support_contact{};
+        bool measured_feet_valid = false;
+        std::array<go2::Vec3, go2::kLegCount> measured_feet_world{};
+        bool measured_com_valid = false;
+        go2::Vec3 measured_com_world{};
+        bool terrain_crawl_support_window_active = false;
+        std::size_t terrain_crawl_support_lifted_leg = go2::kLegCount;
         bool terrain_transfer_hold_active = false;
         std::array<bool, go2::kLegCount>
             terrain_transfer_hold_contact{};
