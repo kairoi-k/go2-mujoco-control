@@ -224,20 +224,14 @@ public:
         lowcmd = std::make_shared<LowCmd_t>("rt/lowcmd");
         if (param::config.staged_start && param::config.robot == "go2")
         {
-            // Hold the authored staging pose while the controller participant
-            // starts. Without this preload, gravity can move the robot before
-            // lifecycle initialization observes its first settled state.
-            constexpr std::array<double, 12> kStagedJointPosition = {
-                0.00571868, 0.608813, -1.21763,
-                -0.00571868, 0.608813, -1.21763,
-                0.00571868, 0.608813, -1.21763,
-                -0.00571868, 0.608813, -1.21763};
-            for (std::size_t motor = 0; motor < kStagedJointPosition.size();
-                 ++motor)
+            // Hold the simulator authored zero-joint standing preload while
+            // the controller participant starts. This prevents gravity from
+            // changing the measured staging pose before lifecycle init.
+            for (std::size_t motor = 0; motor < 12; ++motor)
             {
                 auto &command = lowcmd->msg_.motor_cmd()[motor];
                 command.mode() = 0x01;
-                command.q() = kStagedJointPosition[motor];
+                command.q() = 0.0;
                 command.kp() = 80.0;
                 command.dq() = 0.0;
                 command.kd() = 4.5;
