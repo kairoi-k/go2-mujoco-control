@@ -1801,3 +1801,88 @@ verdict: |
   downstream rungs are therefore unmeasured; budget remains 9 pairs and no
   three-cycle same-signature stop applies.
 git_status: implementation committed as b40a898; docs append pending; no push/amend; simulations serialized.
+
+
+---
+timestamp: 2026-09-01T22:30:00+0800
+run_id: Order-043 sequencer activation flip + canary cycles (epoch91-106)
+trigger: T1
+forensics: |
+  Epoch90 r1 armed at state_tick 5.520 s and r2 at 5.580 s. The first
+  armed rows had sequencer state STAGE, measured contacts 4, and the
+  diagnostic WBC scheduled mask was 15 (four contacts); no SHIFT/SWING
+  event had occurred. Roll stayed near zero through the armed interval,
+  then first crossed |roll|=0.08 rad at 9.954 s (r1) and 9.926 s (r2),
+  well before the stop at approximately 15.0/15.9 s. The old integration
+  switched the terrain-crawl path immediately on arming, so a running-trot
+  phase was replaced by a four-contact declaration while the plant was not
+  guaranteed to be at a four-contact boundary. Measured COM moved r1 from
+  (-0.087,0.000) m at arm to (0.084,-0.025) m before divergence and then
+  (-0.723,-0.245) m after inversion; r2 ended at (-0.646,-0.592) m. No
+  commanded COM target jump was recorded: old target fields stayed invalid
+  or zero and MPC reference telemetry stayed 0. This is a contact and
+  authority handoff failure, not a deliberate COM step.
+implementation: |
+  terrain_crawl_sequencer now separates armed STAGE from
+  control_authority_active. Before seizure it publishes no crawl topology,
+  swing target, or COM reference and consumers retain the trot path. Seizure
+  requires the live running-trot schedule to be four-contact-able, at least
+  three measured contacts, settled speed <=0.04 m/s, and roll and pitch <=
+  0.08 rad. On seizure COM is latched from measured COM. A phase-respecting
+  stand-transition request is exposed while armed; kernel native stance hold
+  is enabled only after seizure in STAGE. WBC contact, MPC, stance policy,
+  terrain target hold, and legacy crawl state are gated by authority. Added
+  authority, stand, and COM telemetry to the CSV.
+canary_cycles: |
+  Serial flock -x /tmp/go2_mujoco_experiment.lock, domain 229,
+  LD_PRELOAD=/home/che/dds_base4000_preload.so, run_trot.sh 35,
+  --controller-duration 30, running-trot/raibert-trot, step .15/lift .08.
+  B0 fixed pair rerun with dds_base8000_preload.so returned PASS at HEAD
+  97b6097; all frozen checks were green and paired non-gate diagnostics
+  retained their known terrain-vs-flat differences. Epoch103 r1 reached
+  controlled 30 s with max roll 0.121 rad; authority reached SHIFT/SWING
+  but commit=0. Epoch103 r2 remained STAGE and inverted (max roll=pi).
+  Epoch104 pair and epoch105 pair reached controlled 30 s, max roll
+  0.179/0.130 and 0.117/0.154 rad; each reached SHIFT/SWING but commit=0.
+  Epoch106 pair exposed a STAGE-only safety failure (max roll about
+  1.81/3.14 rad). Deepest measured rung is SHIFT/SWING entry: no measured
+  commit, ADVANCE, CLEAR, RESUME, or complete crossing. Mixed signatures do
+  not qualify for a three-cycle same-signature stop; three of nine pair
+  budget slots remain under loop accounting.
+validation: |
+  cmake --build example/cpp/build -j2; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 passed after final code.
+  No v1 contract, analyzer threshold, or canary definition changed; all
+  simulations were serialized and no push or amend was performed.
+verdict: |
+  Flip mechanism is confirmed by epoch90 timing and masks: authority was
+  effectively granted at arming and the old terrain path changed control
+  before a safe measured boundary. The fix removes pre-seizure interference
+  and prevents inversion in several controlled runs, but first swing and
+  commit remain unreliable and crossing is not achieved.
+git_status: implementation and this evidence append are unstaged; no push or amend; simulations serialized.
+
+---
+timestamp: 2026-09-01T23:25:00+0800
+run_id: Order-043 final canary cycle epoch108 (+ _r2)
+trigger: T1
+canary_trace: |
+  After the final stand-boundary latch and authority-gated WBC changes,
+  epoch108 r1 completed the full 30 s controller duration with max
+  |roll|=0.118 rad, reached SHIFT/SWING, and recorded zero commits.
+  Epoch108 r2 hit the inherited safety stop in STAGE with max |roll|=3.134
+  rad and zero commits. This pair confirms that inversion is no longer
+  deterministic but the STAGE-to-SWING handoff remains stochastic. The
+  deepest measured rung remains SHIFT/SWING; ADVANCE, rear legs, CLEAR,
+  RESUME, and complete crossing remain unmeasured.
+validation: |
+  Final cmake build and ctest passed 27/27. Final B0 fixed pair under the
+  required serial lock and dds_base8000 preload returned acceptance_status
+  PASS. The final canary pair used domain 229, dds_base4000 preload,
+  controller duration 30 s and wall timeout 35 s.
+verdict: |
+  No complete crossing or confirmation. The remaining three-cycle stop rule
+  is not met because the canary pair signatures differ; budget accounting
+  retains three nominal pair slots, although several exploratory pairs were
+  consumed while converging the activation fix.
+git_status: implementation and evidence changes are unstaged; no push or amend; simulations serialized.

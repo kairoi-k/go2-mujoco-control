@@ -174,19 +174,37 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     // Use crawl support as soon as DECELERATE starts, while retaining the
     // continuous velocity ramp. SHIFT_COM remains gated on settled posture.
     const bool event_crawl_active =
+        terrain_crawl_sequencer_output_.control_authority_active &&
         terrain_crawl_sequencer_output_.state !=
-            go2_terrain::TerrainCrawlSequencerState::kInactive &&
-        terrain_crawl_sequencer_output_.state !=
-            go2_terrain::TerrainCrawlSequencerState::kAbort;
+            go2_terrain::TerrainCrawlSequencerState::kStage;
     const bool terrain_crawl_active = terrain_window_active &&
-        (event_crawl_active || terrain_crawl_state_machine_.UsesCrawlExecution() ||
-         terrain_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep);
+        (event_crawl_active ||
+         (terrain_crawl_sequencer_output_.control_authority_active &&
+          terrain_crawl_sequencer_output_.state !=
+              go2_terrain::TerrainCrawlSequencerState::kStage &&
+          terrain_crawl_state_machine_.UsesCrawlExecution()) ||
+         (terrain_crawl_sequencer_output_.control_authority_active &&
+          terrain_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep &&
+          terrain_crawl_sequencer_output_.state !=
+              go2_terrain::TerrainCrawlSequencerState::kStage));
     if (params_.terrain_actuation && !params_.terrain_sensor_only)
     {
         if (terrain_window_active)
         {
             const auto crawl_state = terrain_crawl_state_machine_.state();
-            if (terrain_crawl_state_machine_.aborted())
+            const bool sequencer_staging =
+                terrain_crawl_sequencer_output_.control_authority_active &&
+                terrain_crawl_sequencer_output_.state ==
+                    go2_terrain::TerrainCrawlSequencerState::kStage;
+            if (sequencer_staging ||
+                terrain_crawl_sequencer_output_.stand_transition_requested)
+            {
+                // Keep the running-trot contact schedule and let its shaper
+                // bleed speed down at the current phase before seizure.
+                requested_mps = 0.0;
+                terrain_deceleration_active_ = false;
+            }
+            else if (terrain_crawl_state_machine_.aborted())
             {
                 // Abort is a controlled v2 window stop. Let the existing
                 // shaper ramp to zero; do not enter the v1 stop-brake path.
@@ -378,17 +396,28 @@ bool TrotExperiment::BuildGaitTargets(
     // Keep the crawl support pattern through DECELERATE while the state
     // machine holds SHIFT_COM behind the measured speed/posture dwell.
     const bool event_crawl_active =
+        terrain_crawl_sequencer_output_.control_authority_active &&
         terrain_crawl_sequencer_output_.state !=
-            go2_terrain::TerrainCrawlSequencerState::kInactive &&
-        terrain_crawl_sequencer_output_.state !=
-            go2_terrain::TerrainCrawlSequencerState::kAbort;
+            go2_terrain::TerrainCrawlSequencerState::kStage;
     const bool terrain_crawl_active = terrain_transfer_window_active_ &&
-        (event_crawl_active || terrain_crawl_state_machine_.UsesCrawlExecution() ||
-         terrain_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep);
+        (event_crawl_active ||
+         (terrain_crawl_sequencer_output_.control_authority_active &&
+          terrain_crawl_sequencer_output_.state !=
+              go2_terrain::TerrainCrawlSequencerState::kStage &&
+          terrain_crawl_state_machine_.UsesCrawlExecution()) ||
+         (terrain_crawl_sequencer_output_.control_authority_active &&
+          terrain_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep &&
+          terrain_crawl_sequencer_output_.state !=
+              go2_terrain::TerrainCrawlSequencerState::kStage));
     runtime_gait_pattern_ = terrain_crawl_active
         ? go2_control::GaitPattern::kCrawl
         : params_.gait_pattern;
     locomotion_kernel_->SetGaitPattern(runtime_gait_pattern_);
+    const bool sequencer_staging =
+        terrain_crawl_sequencer_output_.control_authority_active &&
+        terrain_crawl_sequencer_output_.state ==
+            go2_terrain::TerrainCrawlSequencerState::kStage;
+    locomotion_kernel_->SetStanceHold(sequencer_staging, gait_time_s);
     const double requested_speed = runtime_velocity_command
         ? velocity_command_state_.shaped_mps
         : std::abs(
@@ -530,10 +559,10 @@ bool TrotExperiment::BuildGaitTargets(
             terrain_transfer_window_release_s_ =
                 -std::numeric_limits<double>::infinity();
             terrain_crawl_sequencer_.Reset();
-            terrain_crawl_state_machine_.Enter(terrain_now_s);
         }
     }
     go2_terrain::TerrainCrawlSequencerOutput sequencer_output{};
+    bool terrain_crawl_control_authority_active = false;
     // A prepared-but-not-started target is not yet an execution snapshot.
     // Permit a newer planner publication to replace it, because that is where
     // S1's retimed touchdown knot becomes visible to the execution rebase.
@@ -1738,6 +1767,18 @@ bool TrotExperiment::BuildGaitTargets(
     {
         go2_terrain::TerrainCrawlSequencerInput sequencer_input;
         sequencer_input.transfer_window_active = true;
+        const double trot_period = gait_result.period_s > 0.05
+            ? gait_result.period_s : params_.period_s;
+        const double trot_duty = gait_result.duty_factor > 0.05
+            ? gait_result.duty_factor : params_.duty_factor;
+        std::array<std::array<bool, go2::kLegCount>,
+                   go2_control::kSrbdMaxHorizon> trot_contacts{};
+        go2_control::FillTrotContactSchedulePhase(
+            gait_result.phase, trot_period, trot_duty, 1, 0.0,
+            trot_contacts, params_.gait_pattern);
+        sequencer_input.trot_full_contact_able = std::all_of(
+            trot_contacts[0].begin(), trot_contacts[0].end(),
+            [](bool contact) { return contact; });
         sequencer_input.terrain = live_terrain_model.get();
         sequencer_input.base_position_world = pose.base;
         sequencer_input.base_yaw_rad = pose.yaw_rad;
@@ -1763,16 +1804,21 @@ bool TrotExperiment::BuildGaitTargets(
         (void)terrain_crawl_sequencer_.Update(sequencer_input);
         sequencer_output = terrain_crawl_sequencer_.output();
         terrain_crawl_sequencer_output_ = sequencer_output;
+        terrain_crawl_control_authority_active =
+            sequencer_output.control_authority_active;
         if (sequencer_output.state ==
                 go2_terrain::TerrainCrawlSequencerState::kAbort)
             terrain_safe_stop_requested_.store(true);
 
-        if (terrain_crawl_state_machine_.state() ==
+        if (terrain_crawl_control_authority_active &&
+            terrain_crawl_state_machine_.state() ==
                 go2_terrain::TerrainCrawlState::kInactive)
             terrain_crawl_state_machine_.Enter(terrain_now_s);
         go2_terrain::TerrainCrawlSignals crawl_signals;
-        crawl_signals.transfer_window_active = true;
-        crawl_signals.scripted_execution = true;
+        crawl_signals.transfer_window_active =
+            terrain_crawl_control_authority_active;
+        crawl_signals.scripted_execution =
+            terrain_crawl_control_authority_active;
         crawl_signals.plan_valid = (active_terrain_plan &&
             active_terrain_plan->valid()) || sequencer_output.target_valid;
         crawl_signals.measured_contact_valid = wbc_shadow_contact_state_valid_;
@@ -2514,7 +2560,7 @@ bool TrotExperiment::BuildGaitTargets(
                 ? !terrain_contact_now[leg]
                 : nominal_leg_in_swing;
             const bool terrain_crawl_execution =
-                terrain_transfer_window_active_ &&
+                terrain_crawl_control_authority_active &&
                 terrain_crawl_state_machine_.UsesCrawlExecution();
             const bool terrain_crawl_staging = terrain_crawl_execution &&
                 terrain_crawl_state_machine_.state() ==
@@ -2529,7 +2575,7 @@ bool TrotExperiment::BuildGaitTargets(
             auto &pending = terrain_swing_pending_[leg];
             // A scripted timeout owns a bounded retract/retry. Clear only
             // the uncommitted active endpoint; committed feet remain anchors.
-            if (terrain_transfer_window_active_ &&
+            if (terrain_crawl_control_authority_active &&
                 terrain_crawl_state_machine_.state() ==
                     go2_terrain::TerrainCrawlState::kShiftCom &&
                 terrain_crawl_state_machine_.retry_count() > 0 &&
@@ -2587,7 +2633,8 @@ bool TrotExperiment::BuildGaitTargets(
             }
             // Before the creep handoff, leave all terrain transactions alone
             // and let the configured trot generate its ordinary swing.
-            if (terrain_transfer_window_active_ && !terrain_crawl_execution)
+            if (terrain_transfer_window_active_ &&
+                !terrain_crawl_control_authority_active)
                 continue;
             if (explicit_crawl_step &&
                 terrain_crawl_state_machine_.ActiveLeg() != leg)
@@ -2824,8 +2871,9 @@ bool TrotExperiment::BuildGaitTargets(
                     execution.swing_start_time_s)
                 continue;
 
-            begin_terrain_transfer_hold(leg);
-            if (terrain_transfer_window_active_ && !explicit_crawl_step)
+            if (terrain_crawl_control_authority_active)
+                begin_terrain_transfer_hold(leg);
+            if (terrain_crawl_control_authority_active && !explicit_crawl_step)
             {
                 // Scripted targets are prepared ahead of the fixed swing, but
                 // must not inherit a nominal trot flight during entry or COM

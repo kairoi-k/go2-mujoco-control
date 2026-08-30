@@ -1840,10 +1840,25 @@ int main()
         x.measured_velocity_mps = 0.0;
         x.measured_posture_valid = true;
         go2_terrain::TerrainCrawlSequencer seq;
+        x.trot_full_contact_able = false;
         x.now_s = 0.0;
         seq.Update(x);
-        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kStage,
-                   "sequencer did not enter STAGE")) return 1;
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kStage &&
+                       !seq.output().control_authority_active &&
+                       seq.output().measured_contact_count == 4 &&
+                       !seq.output().contact_schedule[0] &&
+                       !seq.output().com_reference_valid,
+                   "sequencer armed without preserving trot authority")) return 1;
+        x.trot_full_contact_able = true;
+        x.now_s = 0.01;
+        seq.Update(x);
+        x.now_s = 0.02;
+        seq.Update(x);
+        if (!Check(seq.output().control_authority_active &&
+                       seq.output().com_reference_valid &&
+                       std::abs(seq.output().com_reference_world.x -
+                                x.measured_com_world.x) < 1.0e-9,
+                   "sequencer did not seize at the four-contact boundary from measured COM")) return 1;
         x.measured_contact = {true, true, false, false};
         x.now_s = 0.1;
         seq.Update(x);

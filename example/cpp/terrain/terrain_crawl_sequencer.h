@@ -41,6 +41,9 @@ inline const char *TerrainCrawlSequencerStateName(
 struct TerrainCrawlSequencerInput
 {
     bool transfer_window_active = false;
+    // The window is armed before this boundary. Authority is granted only
+    // when the running trot reports a four-contact-able phase.
+    bool trot_full_contact_able = false;
     const TerrainModel *terrain = nullptr;
     go2::Vec3 base_position_world{};
     double base_yaw_rad = 0.0;
@@ -75,6 +78,12 @@ struct TerrainCrawlSequencerOutput
     double swing_lift_m = 0.03;
     go2::Vec3 com_reference_world{};
     bool com_reference_valid = false;
+    // False while the window is merely armed; consumers must keep trot
+    // contacts, swing targets, and COM authority unchanged in that phase.
+    bool control_authority_active = false;
+    // A phase-respecting stop may be requested while still armed; this is
+    // the trot pipeline slowing down, not sequencer contact ownership.
+    bool stand_transition_requested = false;
     std::array<bool, go2::kLegCount> contact_schedule{};
     int measured_contact_count = 0;
 };
@@ -117,6 +126,10 @@ public:
         swing_start_ = {};
         target_valid_ = false;
         output_ = {};
+        authority_active_ = false;
+        authority_com_reference_ = {};
+        authority_com_reference_valid_ = false;
+        stand_transition_seen_ = false;
     }
 
     TerrainCrawlSequencerState Update(
@@ -132,12 +145,46 @@ public:
             state_ = TerrainCrawlSequencerState::kStage;
             state_enter_s_ = input.now_s;
         }
-        if (state_ == TerrainCrawlSequencerState::kAbort)
-            return Publish(input);
         const int contacts = input.measured_contact_valid
             ? static_cast<int>(std::count(input.measured_contact.begin(),
                                           input.measured_contact.end(), true))
             : 0;
+        // Arming is deliberately side-effect free. Do not publish a crawl
+        // topology or COM target until the trot phase itself can carry four
+        // contacts and the measured plant still has at least three anchors.
+        if (!authority_active_)
+        {
+            const bool stand_boundary = input.trot_full_contact_able &&
+                input.measured_contact_valid && contacts >= 3;
+            if (stand_boundary && !stand_transition_seen_)
+            {
+                // Give the running trot one complete boundary tick to accept
+                // the zero-velocity stand request before ownership changes.
+                stand_transition_seen_ = true;
+                return Publish(input);
+            }
+            if (stand_boundary && stand_transition_seen_ &&
+                std::isfinite(input.measured_velocity_mps) &&
+                input.measured_velocity_mps <= 0.04 &&
+                input.measured_posture_valid &&
+                std::abs(input.measured_roll_rad) <= 0.08 &&
+                std::abs(input.measured_pitch_rad) <= 0.08)
+            {
+                authority_active_ = true;
+                if (input.measured_com_valid &&
+                    std::isfinite(input.measured_com_world.x) &&
+                    std::isfinite(input.measured_com_world.y) &&
+                    std::isfinite(input.measured_com_world.z))
+                {
+                    authority_com_reference_ = input.measured_com_world;
+                    authority_com_reference_valid_ = true;
+                }
+            }
+            else
+                return Publish(input);
+        }
+        if (state_ == TerrainCrawlSequencerState::kAbort)
+            return Publish(input);
         const bool three_contacts = input.measured_contact_valid && contacts >= 3;
         const bool finite_time = std::isfinite(input.now_s);
         switch (state_)
@@ -333,6 +380,13 @@ private:
         output_.state = state_;
         output_.active_leg = active_leg();
         output_.target_valid = target_valid_;
+        output_.control_authority_active = authority_active_ &&
+            state_ != TerrainCrawlSequencerState::kInactive &&
+            state_ != TerrainCrawlSequencerState::kAbort;
+        output_.stand_transition_requested = !output_.control_authority_active &&
+            input.trot_full_contact_able && input.measured_contact_valid &&
+            std::count(input.measured_contact.begin(),
+                       input.measured_contact.end(), true) >= 3;
         output_.swing_start_world = swing_start_;
         output_.target_world = target_;
         output_.measured_contact_count = input.measured_contact_valid
@@ -340,13 +394,23 @@ private:
                                           input.measured_contact.end(), true))
             : 0;
         output_.contact_schedule.fill(true);
+        if (!output_.control_authority_active)
+            output_.contact_schedule.fill(false);
         if (state_ == TerrainCrawlSequencerState::kSwing &&
             output_.active_leg < go2::kLegCount)
             output_.contact_schedule[output_.active_leg] = false;
         if (state_ == TerrainCrawlSequencerState::kInactive ||
             state_ == TerrainCrawlSequencerState::kAbort)
             output_.contact_schedule.fill(false);
-        if (input.measured_feet_valid)
+        if (output_.control_authority_active &&
+            authority_com_reference_valid_ &&
+            (state_ == TerrainCrawlSequencerState::kStage ||
+             state_ == TerrainCrawlSequencerState::kAdvance))
+        {
+            output_.com_reference_world = authority_com_reference_;
+            output_.com_reference_valid = true;
+        }
+        else if (output_.control_authority_active && input.measured_feet_valid)
         {
             if (output_.active_leg < go2::kLegCount)
             {
@@ -407,6 +471,10 @@ private:
     go2::Vec3 swing_start_{};
     go2::Vec3 target_{};
     bool target_valid_ = false;
+    bool authority_active_ = false;
+    go2::Vec3 authority_com_reference_{};
+    bool authority_com_reference_valid_ = false;
+    bool stand_transition_seen_ = false;
     TerrainCrawlSequencerOutput output_{};
 };
 

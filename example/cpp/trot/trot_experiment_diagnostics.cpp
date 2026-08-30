@@ -76,6 +76,12 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_transfer_window_active,terrain_transfer_window_release_s"
          << ",terrain_crawl_state,terrain_crawl_active_leg"
          << ",terrain_event_sequencer_state,terrain_event_sequencer_active_leg"
+         << ",terrain_event_sequencer_control_authority"
+         << ",terrain_event_sequencer_stand_transition_requested"
+         << ",terrain_event_sequencer_com_reference_valid"
+         << ",terrain_event_sequencer_com_reference_x_m"
+         << ",terrain_event_sequencer_com_reference_y_m"
+         << ",terrain_event_sequencer_com_reference_z_m"
          << ",terrain_event_sequencer_measured_contacts"
          << ",terrain_staging_target_valid,terrain_staging_error_m"
          << ",terrain_staging_target_world_x_m"
@@ -976,6 +982,12 @@ void TrotExperiment::LogSample(
                 terrain_crawl_sequencer_output_.state)
          << "," << (terrain_crawl_sequencer_output_.active_leg < go2::kLegCount
                 ? static_cast<int>(terrain_crawl_sequencer_output_.active_leg) : -1)
+         << "," << (terrain_crawl_sequencer_output_.control_authority_active ? 1 : 0)
+         << "," << (terrain_crawl_sequencer_output_.stand_transition_requested ? 1 : 0)
+         << "," << (terrain_crawl_sequencer_output_.com_reference_valid ? 1 : 0)
+         << "," << terrain_crawl_sequencer_output_.com_reference_world.x
+         << "," << terrain_crawl_sequencer_output_.com_reference_world.y
+         << "," << terrain_crawl_sequencer_output_.com_reference_world.z
          << "," << terrain_crawl_sequencer_output_.measured_contact_count
          << "," << (terrain_execution_plan &&
                           terrain_execution_plan->staging_target_valid ? 1 : 0)

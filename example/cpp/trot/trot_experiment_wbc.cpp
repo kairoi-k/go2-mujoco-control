@@ -177,7 +177,8 @@ void TrotExperiment::UpdateWbcFull(
     // zero angles and therefore retains the existing path.
     terrain_stance_reference_valid_ = false;
     const auto crawl_state = terrain_crawl_state_machine_.state();
-    const bool crawl_stance_reference = terrain_transfer_window_active_ &&
+    const bool crawl_stance_reference =
+        terrain_crawl_sequencer_output_.control_authority_active &&
         (crawl_state == go2_terrain::TerrainCrawlState::kShiftCom ||
          crawl_state == go2_terrain::TerrainCrawlState::kCrawlStep);
     if (crawl_stance_reference)
@@ -272,11 +273,10 @@ void TrotExperiment::UpdateWbcFull(
     // derived from measured support and an explicit swing event, rather than
     // from the running trot phase or a planner snapshot.
     if (terrain_transfer_window_active_ &&
-        terrain_crawl_sequencer_output_.state !=
-            go2_terrain::TerrainCrawlSequencerState::kInactive &&
-        terrain_crawl_sequencer_output_.state !=
-            go2_terrain::TerrainCrawlSequencerState::kAbort &&
-        terrain_crawl_sequencer_output_.measured_contact_count >= 3)
+        terrain_crawl_sequencer_output_.control_authority_active &&
+        (terrain_crawl_sequencer_output_.measured_contact_count >= 3 ||
+         terrain_crawl_sequencer_output_.state ==
+             go2_terrain::TerrainCrawlSequencerState::kStage))
         scheduled_contact = terrain_crawl_sequencer_output_.contact_schedule;
     // During the brake, keep the scheduled running contacts.  The body is
     // still carrying sprint momentum, so declaring all four feet fixed after
@@ -551,12 +551,15 @@ void TrotExperiment::UpdateWbcFull(
     // particular, SHIFT_COM has no swing transaction yet, so nesting this
     // override under terrain_transfer_has_target lets the trot schedule
     // (often a two-foot diagonal) unload the standing robot.
-    if (terrain_transfer_window_active_)
+    if (terrain_crawl_sequencer_output_.control_authority_active)
     {
         (void)go2_terrain::TerrainCrawlWbcContactOverride(
             terrain_crawl_state_machine_.state(),
             terrain_crawl_state_machine_.ActiveLeg(), qp_contact);
-        if (terrain_crawl_sequencer_output_.measured_contact_count >= 3)
+        if (terrain_crawl_sequencer_output_.control_authority_active &&
+            (terrain_crawl_sequencer_output_.measured_contact_count >= 3 ||
+             terrain_crawl_sequencer_output_.state ==
+                 go2_terrain::TerrainCrawlSequencerState::kStage))
             qp_contact = terrain_crawl_sequencer_output_.contact_schedule;
     }
 
@@ -712,7 +715,7 @@ void TrotExperiment::UpdateWbcFull(
         mpc_params.w_vel_xy = 80.0;
         mpc_params.w_pos_xy = 20.0;
     }
-    if (terrain_transfer_window_active_ &&
+    if (terrain_crawl_sequencer_output_.control_authority_active &&
         terrain_crawl_state_machine_.state() ==
             go2_terrain::TerrainCrawlState::kShiftCom)
     {
@@ -753,10 +756,12 @@ void TrotExperiment::UpdateWbcFull(
     // force plan becomes a visible phase lag.  Refresh at 100 Hz for the
     // high-speed plant while keeping the established rates elsewhere.
     const auto terrain_plan = terrain_contact_plan;
-    const bool terrain_crawl_shift = terrain_transfer_window_active_ &&
+    const bool terrain_crawl_shift =
+        terrain_crawl_sequencer_output_.control_authority_active &&
         terrain_crawl_state_machine_.state() ==
             go2_terrain::TerrainCrawlState::kShiftCom;
-    const bool terrain_crawl_stance = terrain_transfer_window_active_ &&
+    const bool terrain_crawl_stance =
+        terrain_crawl_sequencer_output_.control_authority_active &&
         (terrain_crawl_shift ||
          terrain_crawl_state_machine_.state() ==
              go2_terrain::TerrainCrawlState::kCrawlStep ||
@@ -920,7 +925,7 @@ void TrotExperiment::UpdateWbcFull(
             }
         }
         mpc_in.reference[11] = 0.0;
-        if (terrain_transfer_window_active_ &&
+        if (terrain_crawl_sequencer_output_.control_authority_active &&
             (terrain_crawl_sequencer_output_.com_reference_valid ||
              terrain_crawl_state_machine_.com_target_valid()))
         {
@@ -1148,6 +1153,21 @@ void TrotExperiment::UpdateWbcFull(
             }
             else
                 mpc_in.contact = fallback_mpc_contact;
+        }
+        // The safe handoff is a static four-foot plant. Do not let an old
+        // planner horizon or a transient force-filter bit reintroduce a
+        // diagonal contact set while STAGE is holding measured feet.
+        const bool sequencer_staging =
+            terrain_crawl_sequencer_output_.control_authority_active &&
+            terrain_crawl_sequencer_output_.state ==
+                go2_terrain::TerrainCrawlSequencerState::kStage;
+        if (sequencer_staging)
+        {
+            for (int k = 0; k < mpc_params.horizon; ++k)
+                mpc_in.contact[k].fill(true);
+            mpc_in.has_time_indexed_footholds = false;
+            mpc_in.has_time_indexed_reference = false;
+            mpc_in.has_terrain_plan = false;
         }
         wbc_shadow_diagnostics_.mpc_update_count =
             ++terrain_mpc_update_count_;
@@ -1531,7 +1551,7 @@ void TrotExperiment::UpdateWbcFull(
             const Eigen::Vector3d p = dyn.foot_pos_world[leg];
             const auto terrain_swing_tracking =
                 go2_terrain::TerrainSwingTrackingForTransfer(
-                    terrain_transfer_window_active_);
+                    terrain_crawl_sequencer_output_.control_authority_active);
             const double swing_kp = Full2EnvDouble(
                 "FULL2_SWING_KP", terrain_swing_tracking.position_gain);
             const double swing_kd = Full2EnvDouble(
