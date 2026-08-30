@@ -296,6 +296,10 @@ public:
     // that still contains the active leg, without weakening the three-foot
     // invariant for a genuinely unsupported swing.
     static constexpr double kCrawlStepCommitGraceS = 0.30;
+    // Endpoint holding can trail the fixed flight deadline while the force
+    // filter settles. Keep the captured support until just before the
+    // scripted 0.80 s retry boundary without changing the commit predicate.
+    static constexpr double kCrawlStepEndpointGraceS = 0.70;
 
     void Reset() noexcept
     {
@@ -489,7 +493,7 @@ public:
                 const bool touchdown_boundary_pending =
                     std::isfinite(signals.now_s) &&
                     signals.now_s - state_enter_time_s_ <
-                        kCrawlStepHandoffGraceS + kCrawlStepCommitGraceS;
+                        kCrawlStepEndpointGraceS;
                 if (touchdown_boundary_pending)
                 {
                     break;
