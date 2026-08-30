@@ -82,7 +82,9 @@ inline TerrainScriptTarget MeasureTerrainScriptTarget(
                 !patch.all_known || patch.HasUnknownInside() ||
                 patch.map_edge_margin_m < patch_radius_m ||
                 !std::isfinite(patch.center_height_m) ||
-                patch.center_height_m <= current_foot_base.z + 0.02)
+                patch.center_height_m <=
+                    go2::FootSiteToContactPatch(current_foot_base).z +
+                        0.02)
                 continue;
             const double lateral = std::abs(y - current_foot_base.y);
             const bool better = !have_best || progress < best_progress ||
