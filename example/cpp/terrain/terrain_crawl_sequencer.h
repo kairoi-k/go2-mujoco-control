@@ -187,9 +187,6 @@ public:
     static constexpr double kStageDwellS = 0.30;
     static constexpr double kShiftDwellS = 0.12;
     static constexpr double kSwingDurationS = 0.60;
-    // Keep the descent over the plateau, not over the riser corner: the
-    // horizontal endpoint is reached before the final vertical drop.
-    static constexpr double kTerrainHorizontalCompletionPhase = 0.85;
     // A force-filter contact bit can drop briefly as the unloaded leg clears
     // the stance. Keep the existing fixed swing deadline as the safety bound;
     // a persistent loss still aborts at that deadline.
@@ -769,16 +766,11 @@ private:
             // the proven FL transfer path and change only this descent.
             const bool terrain_swing = !input.flat_ground_mode &&
                 active_leg() == 0;
-            const double horizontal_phase = terrain_swing
-                ? kTerrainHorizontalCompletionPhase : 1.0;
-            const double horizontal_u = std::clamp(
-                u / horizontal_phase, 0.0, 1.0);
-            const double progress = horizontal_u * horizontal_u *
-                (3.0 - 2.0 * horizontal_u);
-            const double progress_rate = horizontal_u >= 1.0
-                ? 0.0
-                : 6.0 * horizontal_u * (1.0 - horizontal_u) /
-                    (horizontal_phase * kSwingDurationS);
+            // Keep horizontal progress unchanged: the measured failure was
+            // a touchdown wrench impulse, not an edge-corner collision.
+            const double progress = u * u * (3.0 - 2.0 * u);
+            const double progress_rate = 6.0 * u * (1.0 - u) /
+                kSwingDurationS;
             // Ease the endpoint elevation as well as the lift arch. This
             // makes touchdown velocity zero instead of carrying the linear
             // height delta into the captured support.
