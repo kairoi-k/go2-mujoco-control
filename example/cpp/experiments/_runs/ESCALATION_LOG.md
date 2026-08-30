@@ -2577,3 +2577,66 @@ validation: |
   amend.
 git_status: implementation commits are  d3f124f and 3825e82; this evidence
   append is the only unstaged change; no staged files.
+
+---
+timestamp: 2026-09-02T05:45:00+0800
+run_id: Order-057 canary extension epochs211-220 (stuck report)
+trigger: T1
+forensics: |
+  All ten canaries were serialized under flock -x
+  /tmp/go2_mujoco_experiment.lock with domain 229, Base=4000 preload,
+  TROT_SEED=NN, --controller-duration 30, wall timeout 35, and the
+  unchanged B1 terrain signature. Every run was recorded at exact HEAD
+  05bd977b0f904aadaa600394729103387668bcee (git_dirty=false).
+  None emitted Terrain transaction event=commit. The sequencer only
+  reached INACTIVE -> STAGE -> SHIFT, with active_leg=1 (FL), and never
+  entered FR SHIFT/SWING or ADVANCE_BODY; committed_mask stayed 0.
+  The first terrain commit therefore remains the inherited epoch201 FL
+  commit at t=10.850 s (margin +23.459 mm); the prior observed maximum
+  margin remains +75.659 mm (epoch204), not a new crossing result.
+stop_attribution: |
+  The primary named planner stop was TerrainPlanner::SupportFeasible,
+  terrain_planner.h:1339-1349 (margin < config_.min_support_margin_m),
+  returned as kSupportInfeasible at terrain_planner.h:961-963. The B1
+  lifecycle config sets min_support_margin_m=0.0 (trot_experiment_lifecycle.cpp:206),
+  so this is a strict positive-margin requirement, not a relaxed gate.
+  Observed first support failures were: epoch211 plan323 knot1 mask14
+  margin -0.000127010 m; epoch212 plan334 knot0 mask7 -0.0000723374 m;
+  epoch213 plan350 knot0 mask7 -0.0120341 m; epoch214 plan315 knot0
+  mask7 -0.00453079 m; epoch215 plan304 knot0 mask14 -0.0174286 m;
+  epoch216 plan303 knot0 mask14 -0.00755860 m; epoch217 plan259
+  knot0 mask14 -0.0161667 m; epoch218 plan260 knot0 mask14 -0.0239428 m;
+  epoch219 plan302 knot0 mask14 -0.0155009 m; epoch220 plan300 knot0
+  mask14 -0.0211736 m. The selected COM/support horizon is therefore
+  rejected before the active FL swing can arm a measured commit.
+  Secondary planner diagnostics also identify the candidate-level named
+  checks: terrain_planner.h:816 kNoSafeFoothold after empty options,
+  with epoch212 failed leg FL swing_clearance and epoch215 failed leg FL
+  reachability (the remaining runs show support infeasibility first).
+  After the invalid-plan loop, the physical terminal stop is the existing
+  CheckInstantaneousHardLimits predicate at trot_experiment_diagnostics.cpp:634-646:
+  abs(roll_error) or abs(pitch_error) > hard limit. The first logged
+  observed violations were epoch211 roll=-11.6147 deg/pitch=2.14408 deg
+  at 0.2 rad; epoch212 roll=9.3539/pitch=-11.5508 deg at 0.2 rad;
+  epoch213 roll=-1.71619/pitch=-11.9741 deg at 0.2 rad; epoch214
+  roll=5.29729/pitch=-22.1029 deg at 0.383972 rad; epochs215-220
+  likewise violated the existing 0.2 or 0.383972 rad limit. These are
+  consequences of the planner-invalid/no-commit condition, not a new
+  sequencer gate.
+canary: |
+  Per-round progression: 211 support-infeasible at 8.550 s then posture
+  stop; 212 support-infeasible at 8.374 s plus FL swing-clearance
+  diagnostics; 213 support-infeasible at 8.642 s; 214 at 7.956 s;
+  215 at 7.684 s with FL reachability; 216 at 7.722 s; 217 at 6.748 s;
+  218 at 6.704 s; 219 at 7.602 s; 220 at 7.980 s. Transaction waits
+  showed required masks 0/3/2 but committed=0 in every run. No run
+  obtained an FR target, FR swing, FR commit, ADVANCE_BODY, RR, RL,
+  CLEAR, or RESUME state. All ten manifests report controller_status=0,
+  safety_status=1, completion_status=1, terrain_analysis_status=0.
+validation: |
+  cmake --build example/cpp/build -j2 passed; ctest --test-dir
+  example/cpp/build --output-on-failure passed 27/27; git diff --check
+  passed. No source/shared crawl code was changed, so B0 and the flat
+  harness were not rerun for this evidence-only append. No v1 contract,
+  analyzer threshold, or canary definition changed; no push or amend.
+git_status: evidence append is to be committed; no staged files.
