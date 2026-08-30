@@ -187,6 +187,9 @@ public:
     static constexpr double kStageDwellS = 0.30;
     static constexpr double kShiftDwellS = 0.12;
     static constexpr double kSwingDurationS = 0.60;
+    // Keep the descent over the plateau, not over the riser corner: the
+    // horizontal endpoint is reached before the final vertical drop.
+    static constexpr double kTerrainHorizontalCompletionPhase = 0.85;
     // A force-filter contact bit can drop briefly as the unloaded leg clears
     // the stance. Keep the existing fixed swing deadline as the safety bound;
     // a persistent loss still aborts at that deadline.
@@ -762,20 +765,37 @@ private:
             output_.swing_phase = std::clamp(
                 (input.now_s - state_enter_s_) / kSwingDurationS, 0.0, 1.0);
             const double u = output_.swing_phase;
-            const double progress = u * u * (3.0 - 2.0 * u);
-            const double progress_rate = 6.0 * u * (1.0 - u) /
+            const bool terrain_swing = !input.flat_ground_mode;
+            const double horizontal_phase = terrain_swing
+                ? kTerrainHorizontalCompletionPhase : 1.0;
+            const double horizontal_u = std::clamp(
+                u / horizontal_phase, 0.0, 1.0);
+            const double progress = horizontal_u * horizontal_u *
+                (3.0 - 2.0 * horizontal_u);
+            const double progress_rate = horizontal_u >= 1.0
+                ? 0.0
+                : 6.0 * horizontal_u * (1.0 - horizontal_u) /
+                    (horizontal_phase * kSwingDurationS);
+            // Ease the endpoint elevation as well as the lift arch. This
+            // makes touchdown velocity zero instead of carrying the linear
+            // height delta into the captured support.
+            const double vertical_progress = u * u * (3.0 - 2.0 * u);
+            const double vertical_progress_rate = 6.0 * u * (1.0 - u) /
                 kSwingDurationS;
-            const double arch = output_.swing_lift_m * 4.0 * u * (1.0 - u);
-            const double arch_rate = output_.swing_lift_m * 4.0 *
-                (1.0 - 2.0 * u) / kSwingDurationS;
+            const double arch = output_.swing_lift_m * 16.0 * u * u *
+                (1.0 - u) * (1.0 - u);
+            const double arch_rate = output_.swing_lift_m * 32.0 * u *
+                (1.0 - u) * (1.0 - 2.0 * u) / kSwingDurationS;
             output_.swing_position_world = {
                 swing_start_.x + progress * (target_.x - swing_start_.x),
                 swing_start_.y + progress * (target_.y - swing_start_.y),
-                swing_start_.z + progress * (target_.z - swing_start_.z) + arch};
+                swing_start_.z + vertical_progress *
+                    (target_.z - swing_start_.z) + arch};
             output_.swing_velocity_world = {
                 progress_rate * (target_.x - swing_start_.x),
                 progress_rate * (target_.y - swing_start_.y),
-                progress_rate * (target_.z - swing_start_.z) + arch_rate};
+                vertical_progress_rate * (target_.z - swing_start_.z) +
+                    arch_rate};
         }
         return state_;
     }
