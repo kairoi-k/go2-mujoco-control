@@ -1763,3 +1763,41 @@ verdict: |
   staging are N/A. Budget was not treated as exhausted and no crossing or
   confirmation was achieved. No gate-level conclusion.
 git_status: docs/source changes pending local review; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-09-01T18:30:00+0800
+run_id: Order-042 cycle-1 clean event-driven crawl b1_freegait_epoch90 (+ _r2)
+trigger: T1
+implementation: |
+  b40a898 adds terrain/terrain_crawl_sequencer.h. The window-gated owner
+  samples the live lidar TerrainModel, generates measured-state-to-map
+  targets and a smooth swing trajectory, publishes explicit contact topology,
+  and computes the support-polygon COM reference. Transfer activation uses a
+  map edge distance threshold before trot transition intent. Legacy Phase 1
+  code and v1/analyzer/canary definitions are unchanged.
+canary_command: |
+  Serial flock -x /tmp/go2_mujoco_experiment.lock; domain 229;
+  LD_PRELOAD=/home/che/dds_base4000_preload.so; run_trot.sh 35;
+  --headless --wall-clock-motion --controller-duration 30 --wbc-full;
+  running-trot/raibert-trot, period 0.50, duty 0.75, step 0.15, lift 0.08;
+  phase2_b1_velocity_0p3.csv; phase2_step_5cm.xml; epochs 90 and 90_r2.
+canary_trace: |
+  Both serialized runs armed the transfer path but stopped on the existing
+  safety path before a crawl commit. The final CSV rows report old diagnostic
+  state ABORT, active leg 4, and event-sequencer state STAGE. Sequencer
+  measured-contact counts were 0 (r1) and 1 (r2), below the required 3-foot
+  staging witness; no SHIFT/SWING/COMMIT/ADVANCE/CLEAR/RESUME event occurred.
+  The safety log reports roll approximately -179.73 deg and the existing
+  0.20-rad deviation hard stop. No complete crossing or confirmation.
+validation: |
+  cmake --build example/cpp/build -j2; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 passed. Both canaries ran
+  serially under the required lock/domain/preload and ended with nonzero
+  harness analysis because the controller safety stop prevented controlled
+  completion; this is exploratory evidence, not a gate conclusion.
+verdict: |
+  Precise stuck report: STAGE precondition (>=3 measured contacts) was not
+  met before the inherited posture safety stop in 2/2 runs. The rewrite's
+  downstream rungs are therefore unmeasured; budget remains 9 pairs and no
+  three-cycle same-signature stop applies.
+git_status: implementation committed as b40a898; docs append pending; no push/amend; simulations serialized.
