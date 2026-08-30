@@ -275,6 +275,7 @@ void TrotExperiment::UpdateWbcFull(
     if (terrain_transfer_window_active_ &&
         terrain_crawl_sequencer_output_.control_authority_active &&
         (terrain_crawl_sequencer_output_.measured_contact_count >= 3 ||
+         terrain_crawl_sequencer_output_.flat_ground_mode ||
          terrain_crawl_sequencer_output_.state ==
              go2_terrain::TerrainCrawlSequencerState::kStage))
         scheduled_contact = terrain_crawl_sequencer_output_.contact_schedule;
@@ -558,6 +559,7 @@ void TrotExperiment::UpdateWbcFull(
             terrain_crawl_state_machine_.ActiveLeg(), qp_contact);
         if (terrain_crawl_sequencer_output_.control_authority_active &&
             (terrain_crawl_sequencer_output_.measured_contact_count >= 3 ||
+             terrain_crawl_sequencer_output_.flat_ground_mode ||
              terrain_crawl_sequencer_output_.state ==
                  go2_terrain::TerrainCrawlSequencerState::kStage))
             qp_contact = terrain_crawl_sequencer_output_.contact_schedule;

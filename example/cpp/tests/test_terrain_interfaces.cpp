@@ -1970,6 +1970,46 @@ int main()
                    "sequencer was not window gated")) return 1;
     }
 
+    // Order-044 isolation harness: the sequencer must produce a forward
+    // target without a TerrainModel and retain the measured commit.
+    {
+        go2_terrain::TerrainCrawlSequencerInput x;
+        x.transfer_window_active = true;
+        x.flat_ground_mode = true;
+        x.flat_step_length_m = 0.08;
+        x.trot_full_contact_able = true;
+        x.measured_feet_world = {go2::Vec3{0.30, -0.20, -0.25},
+                                  go2::Vec3{0.30, 0.20, -0.25},
+                                  go2::Vec3{-0.30, -0.20, -0.25},
+                                  go2::Vec3{-0.30, 0.20, -0.25}};
+        x.measured_feet_valid = true;
+        x.measured_contact = {true, true, true, true};
+        x.measured_contact_valid = true;
+        x.measured_com_world = {0.0, 0.0, -0.25};
+        x.measured_com_valid = true;
+        x.measured_posture_valid = true;
+        go2_terrain::TerrainCrawlSequencer seq;
+        x.now_s = 0.0;
+        seq.Update(x);
+        x.now_s = 0.01;
+        seq.Update(x);
+        x.now_s = 0.31;
+        seq.Update(x);
+        x.now_s = 0.44;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kSwing &&
+                       seq.output().target_valid &&
+                       seq.output().target_world.x > x.measured_feet_world[1].x,
+                   "flat sequencer did not generate a forward swing target")) return 1;
+        x.measured_feet_world[1] = seq.output().target_world;
+        x.now_s = 0.45;
+        seq.Update(x);
+        x.now_s = 0.46;
+        seq.Update(x);
+        if (!Check(seq.order_index() == 1 && seq.output().committed[1],
+                   "flat sequencer did not retain the measured FL commit")) return 1;
+    }
+
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";
     return 0;
 }

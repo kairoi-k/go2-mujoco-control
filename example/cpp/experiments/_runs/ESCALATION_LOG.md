@@ -1886,3 +1886,58 @@ verdict: |
   retains three nominal pair slots, although several exploratory pairs were
   consumed while converging the activation fix.
 git_status: implementation and evidence changes are unstaged; no push or amend; simulations serialized.
+
+
+---
+timestamp: 2026-09-01T00:30:00+0800
+run_id: Order-044 decisive flat-ground crawl isolation (epoch44 + r2-r6)
+trigger: T1
+housekeeping: |
+  HEAD abd5c10 already contained the Order-043 implementation and evidence;
+  git status was clean before this order, so no prior evidence was amended.
+  The new isolation implementation and this section are committed separately.
+implementation: |
+  Added the contract-invisible environment harness flag
+  TROT_TERRAIN_DEBUG_FLAT_CRAWL (default off). When enabled after gait start,
+  the terrain sequencer is armed from t=0 on phase2_flat.xml without lidar,
+  planner, window activation, or terrain targets. Flat targets are measured
+  foot plus 0.08 m in the yaw-forward direction; measured commits are latched
+  in sequencer telemetry. The flat path holds measured support feet and sends
+  only the sequencer swing target to the gait/WBC. Existing terrain callers
+  retain the map path. Added a flat sequencer unit witness and telemetry for
+  flat mode, commit mask, and support COM margin.
+canary_command: |
+  Serial flock -x /tmp/go2_mujoco_experiment.lock; domain 229;
+  TROT_TERRAIN_DEBUG_FLAT_CRAWL=1 run_trot.sh 18 --headless
+  --wall-clock-motion --controller-duration 12 --wbc-full
+  --gait-pattern running-trot --kernel raibert-trot --period 0.50 --duty 0.75
+  --step-length 0.15 --foot-lift 0.08 --tau-limit 45
+  --velocity-command-script configs/phase2_b1_velocity_0p3.csv
+  --scene-file unitree_robots/go2/phase2_flat.xml --domain-id 229.
+  Five serial exploratory runs were recorded: epoch44, _r2, _r3, _r4, _r6.
+flat_trace: |
+  The final post-fix run epoch44_r6 produced 9,953 CSV rows and a controlled
+  flat sequencer interval from t=4.300 s to the first ABORT at t=5.012 s
+  (0.712 s, far below the required 5 s). It reached STAGE -> SHIFT -> SWING
+  for active leg 1, then lost the three-contact witness during the first
+  swing and aborted; no COMMIT, ADVANCE, rear-leg, CLEAR, or RESUME event
+  occurred. Across the five runs, no sequencer/legacy commit was recorded.
+  In epoch44_r6 SWING telemetry the measured-contact count ranged 1..4;
+  the best support COM margin was +0.0510 m. Before the abort, posture
+  envelope was |roll| <= 0.00708 rad (0.41 deg), |pitch| <= 0.05785 rad
+  (3.32 deg). After abort the inherited stop path eventually inverted, so
+  its post-abort roll is not used as controlled-walk evidence.
+verdict: |
+  FLAT CRAWL CANNOT WALK: 0/5 runs reached 5 s, 0/5 recorded a measured
+  commit, and 0/5 reached ADVANCE. The decisive failure is execution-layer
+  support retention at the first swing (the controlled witness falls below
+  three contacts), not terrain perception or foothold selection. The flat
+  path therefore requires execution-layer repair before any terrain canary
+  migration or gate interpretation.
+validation: |
+  cmake --build example/cpp/build -j2; ctest --test-dir example/cpp/build
+  --output-on-failure: 27/27 passed. Flat unit witness passed. The required
+  B0 fixed pair was attempted serially, but domains 222/223 again failed DDS
+  participant allocation before startup; no B0 result is claimed. No v1
+  contract, analyzer threshold, or canary definition changed; no push.
+git_status: implementation and this evidence are pending local commit; no amend; simulations serialized.

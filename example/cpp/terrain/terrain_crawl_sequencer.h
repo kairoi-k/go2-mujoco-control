@@ -41,6 +41,10 @@ inline const char *TerrainCrawlSequencerStateName(
 struct TerrainCrawlSequencerInput
 {
     bool transfer_window_active = false;
+    // Harness-only isolation mode. It deliberately has no terrain/map
+    // dependency and is disabled for every normal caller.
+    bool flat_ground_mode = false;
+    double flat_step_length_m = 0.08;
     // The window is armed before this boundary. Authority is granted only
     // when the running trot reports a four-contact-able phase.
     bool trot_full_contact_able = false;
@@ -81,11 +85,16 @@ struct TerrainCrawlSequencerOutput
     // False while the window is merely armed; consumers must keep trot
     // contacts, swing targets, and COM authority unchanged in that phase.
     bool control_authority_active = false;
+    // Identifies the non-contract flat-ground isolation harness.
+    bool flat_ground_mode = false;
     // A phase-respecting stop may be requested while still armed; this is
     // the trot pipeline slowing down, not sequencer contact ownership.
     bool stand_transition_requested = false;
     std::array<bool, go2::kLegCount> contact_schedule{};
     int measured_contact_count = 0;
+    double com_margin_m = -std::numeric_limits<double>::infinity();
+    // Measured endpoint commits, retained across the following leg event.
+    std::array<bool, go2::kLegCount> committed{};
 };
 
 class TerrainCrawlSequencer
@@ -130,6 +139,7 @@ public:
         authority_com_reference_ = {};
         authority_com_reference_valid_ = false;
         stand_transition_seen_ = false;
+        committed_.fill(false);
     }
 
     TerrainCrawlSequencerState Update(
@@ -154,7 +164,8 @@ public:
         // contacts and the measured plant still has at least three anchors.
         if (!authority_active_)
         {
-            const bool stand_boundary = input.trot_full_contact_able &&
+            const bool stand_boundary =
+                (input.trot_full_contact_able || input.flat_ground_mode) &&
                 input.measured_contact_valid && contacts >= 3;
             if (stand_boundary && !stand_transition_seen_)
             {
@@ -198,8 +209,9 @@ public:
                       kStandoffM)
                 : TerrainStagingReference{};
             const bool already_past = staging.valid && staging.error_m < 0.0;
-            const bool at_standoff = staging.valid &&
-                (already_past || std::abs(staging.error_m) <= kStageToleranceM);
+            const bool at_standoff = input.flat_ground_mode ||
+                (staging.valid &&
+                 (already_past || std::abs(staging.error_m) <= kStageToleranceM));
             const bool settled = at_standoff && three_contacts &&
                 std::isfinite(input.measured_velocity_mps) &&
                 input.measured_velocity_mps <= 0.04 &&
@@ -242,13 +254,17 @@ public:
                 break;
             if (MeasuredTargetAtEndpoint(input))
                 SetState(TerrainCrawlSequencerState::kCommit, input.now_s);
-            else if (!three_contacts || (finite_time &&
-                     input.now_s - state_enter_s_ + 1e-9 >= kSwingDurationS))
+            else if ((!three_contacts &&
+                      (!input.flat_ground_mode || !finite_time ||
+                       input.now_s - state_enter_s_ + 1e-9 >= 0.20)) ||
+                     (finite_time &&
+                      input.now_s - state_enter_s_ + 1e-9 >= kSwingDurationS))
                 SetState(TerrainCrawlSequencerState::kAbort, input.now_s);
             break;
         case TerrainCrawlSequencerState::kCommit:
             if (MeasuredTargetAtEndpoint(input))
             {
+                committed_[active_leg()] = true;
                 if (order_index_ == 1)
                     SetState(TerrainCrawlSequencerState::kAdvance, input.now_s);
                 else if (order_index_ + 1 < kLegOrder.size())
@@ -315,8 +331,13 @@ private:
 
     bool CurrentTarget(const TerrainCrawlSequencerInput &input) noexcept
     {
-        if (active_leg() >= go2::kLegCount || input.terrain == nullptr ||
+        if (active_leg() >= go2::kLegCount ||
             !input.measured_feet_valid)
+            return false;
+        if (input.flat_ground_mode)
+            return std::isfinite(input.flat_step_length_m) &&
+                std::abs(input.flat_step_length_m) > 1.0e-4;
+        if (input.terrain == nullptr)
             return false;
         const double c = std::cos(input.base_yaw_rad);
         const double s = std::sin(input.base_yaw_rad);
@@ -333,12 +354,24 @@ private:
 
     void CaptureTarget(const TerrainCrawlSequencerInput &input) noexcept
     {
-        if (active_leg() >= go2::kLegCount || input.terrain == nullptr ||
-            !input.measured_feet_valid)
+        if (active_leg() >= go2::kLegCount || !input.measured_feet_valid)
+            return;
+        const auto &foot = input.measured_feet_world[active_leg()];
+        if (input.flat_ground_mode)
+        {
+            const double c = std::cos(input.base_yaw_rad);
+            const double s = std::sin(input.base_yaw_rad);
+            target_ = {foot.x + c * input.flat_step_length_m,
+                       foot.y + s * input.flat_step_length_m, foot.z};
+            swing_start_ = foot;
+            target_valid_ = std::isfinite(target_.x) &&
+                std::isfinite(target_.y) && std::isfinite(target_.z);
+            return;
+        }
+        if (input.terrain == nullptr)
             return;
         const double c = std::cos(input.base_yaw_rad);
         const double s = std::sin(input.base_yaw_rad);
-        const auto &foot = input.measured_feet_world[active_leg()];
         const go2::Vec3 current_base{
             c * (foot.x - input.base_position_world.x) +
                 s * (foot.y - input.base_position_world.y),
@@ -383,16 +416,28 @@ private:
         output_.control_authority_active = authority_active_ &&
             state_ != TerrainCrawlSequencerState::kInactive &&
             state_ != TerrainCrawlSequencerState::kAbort;
+        output_.flat_ground_mode = input.flat_ground_mode;
         output_.stand_transition_requested = !output_.control_authority_active &&
             input.trot_full_contact_able && input.measured_contact_valid &&
             std::count(input.measured_contact.begin(),
                        input.measured_contact.end(), true) >= 3;
         output_.swing_start_world = swing_start_;
         output_.target_world = target_;
+        output_.swing_lift_m = input.flat_ground_mode ? 0.015 : 0.03;
         output_.measured_contact_count = input.measured_contact_valid
             ? static_cast<int>(std::count(input.measured_contact.begin(),
                                           input.measured_contact.end(), true))
             : 0;
+        if (output_.active_leg < go2::kLegCount &&
+            input.measured_feet_valid && input.measured_com_valid)
+        {
+            const auto triangle = ComputeTerrainSupportTriangle(
+                input.measured_feet_world, output_.active_leg);
+            if (triangle.valid)
+                output_.com_margin_m = MeasureTerrainSupportTriangle(
+                    triangle, input.measured_com_world).signed_margin_m;
+        }
+        output_.committed = committed_;
         output_.contact_schedule.fill(true);
         if (!output_.control_authority_active)
             output_.contact_schedule.fill(false);
@@ -475,6 +520,7 @@ private:
     go2::Vec3 authority_com_reference_{};
     bool authority_com_reference_valid_ = false;
     bool stand_transition_seen_ = false;
+    std::array<bool, go2::kLegCount> committed_{};
     TerrainCrawlSequencerOutput output_{};
 };
 

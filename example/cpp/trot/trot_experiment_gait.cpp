@@ -144,6 +144,18 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         ? last_motion_dt_s_
         : dt_;
     double requested_mps = params_.velocity_command_profile.Sample(gait_time_s);
+    const bool flat_crawl_debug =
+        Full2EnvDouble("TROT_TERRAIN_DEBUG_FLAT_CRAWL", 0.0) > 0.5;
+    // Harness-only isolation: arm the sequencer at gait start without a
+    // terrain window or lidar map. The default remains entirely inactive.
+    if (flat_crawl_debug && task_.gait_started_ && task_.motion_stage_ == 2 &&
+        !terrain_transfer_window_active_)
+    {
+        terrain_transfer_window_active_ = true;
+        terrain_transfer_window_release_s_ =
+            -std::numeric_limits<double>::infinity();
+        terrain_crawl_sequencer_.Reset();
+    }
     // V2-A: the declared terrain window owns a bounded creep request. Keep
     // the Phase 1 shaper as the sole command writer, but do not let an
     // asynchronous planner snapshot restore the approach command while the
@@ -187,7 +199,8 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
           terrain_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep &&
           terrain_crawl_sequencer_output_.state !=
               go2_terrain::TerrainCrawlSequencerState::kStage));
-    if (params_.terrain_actuation && !params_.terrain_sensor_only)
+    if ((params_.terrain_actuation && !params_.terrain_sensor_only) ||
+        flat_crawl_debug)
     {
         if (terrain_window_active)
         {
@@ -286,6 +299,10 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
             }
         }
     }
+    // Flat isolation removes body-command momentum; forward progress is
+    // produced only by the measured crawl swing/commit loop.
+    if (flat_crawl_debug)
+        requested_mps = 0.0;
     velocity_command_state_ = velocity_command_shaper_.Step(
         requested_mps, dt);
     const bool zero_command_profile_finished =
@@ -531,8 +548,12 @@ bool TrotExperiment::BuildGaitTargets(
         params_.terrain_actuation && !params_.terrain_sensor_only
             ? terrain_plan_store_.LoadUsable(terrain_now_s)
             : nullptr;
+    const bool flat_crawl_debug =
+        Full2EnvDouble("TROT_TERRAIN_DEBUG_FLAT_CRAWL", 0.0) > 0.5;
     const bool terrain_execution_allowed =
-        params_.terrain_actuation && !params_.terrain_sensor_only &&
+        (params_.terrain_actuation && !params_.terrain_sensor_only) ||
+        flat_crawl_debug;
+    const bool gait_execution_started =
         task_.gait_started_ && task_.motion_stage_ == 2;
     std::shared_ptr<const go2_terrain::TerrainModel> live_terrain_model;
     {
@@ -542,18 +563,24 @@ bool TrotExperiment::BuildGaitTargets(
     // Arm the v2 window from the measured map edge, before the trot
     // transition intent. This is deliberately early: STAGE must be able to
     // settle at the edge-relative standoff rather than inherit an overshoot.
-    if (terrain_execution_allowed && !terrain_transfer_window_active_ &&
-        live_terrain_model && have_high_state)
+    if (terrain_execution_allowed && gait_execution_started &&
+        !terrain_transfer_window_active_ &&
+        (flat_crawl_debug || (live_terrain_model && have_high_state)))
     {
-        const auto nominal_feet = go2::AllFootPositions(
-            task_.stand_up_joint_pos_);
-        const double nominal_front_x =
-            0.5 * (nominal_feet[0].x + nominal_feet[1].x);
-        const auto early_pose = ComputeWorldPose(
-            state_snapshot, high_state_snapshot);
-        if (go2_terrain::TerrainCrawlSequencer::TransferActivationReady(
+        bool activate = flat_crawl_debug;
+        if (!activate)
+        {
+            const auto nominal_feet = go2::AllFootPositions(
+                task_.stand_up_joint_pos_);
+            const double nominal_front_x =
+                0.5 * (nominal_feet[0].x + nominal_feet[1].x);
+            const auto early_pose = ComputeWorldPose(
+                state_snapshot, high_state_snapshot);
+            activate = go2_terrain::TerrainCrawlSequencer::TransferActivationReady(
                 *live_terrain_model, early_pose.base, early_pose.yaw_rad,
-                nominal_front_x))
+                nominal_front_x);
+        }
+        if (activate)
         {
             terrain_transfer_window_active_ = true;
             terrain_transfer_window_release_s_ =
@@ -1767,6 +1794,9 @@ bool TrotExperiment::BuildGaitTargets(
     {
         go2_terrain::TerrainCrawlSequencerInput sequencer_input;
         sequencer_input.transfer_window_active = true;
+        sequencer_input.flat_ground_mode = flat_crawl_debug;
+        sequencer_input.flat_step_length_m =
+            params_.direction_sign * 0.08;
         const double trot_period = gait_result.period_s > 0.05
             ? gait_result.period_s : params_.period_s;
         const double trot_duty = gait_result.duty_factor > 0.05
@@ -1819,8 +1849,10 @@ bool TrotExperiment::BuildGaitTargets(
             terrain_crawl_control_authority_active;
         crawl_signals.scripted_execution =
             terrain_crawl_control_authority_active;
-        crawl_signals.plan_valid = (active_terrain_plan &&
-            active_terrain_plan->valid()) || sequencer_output.target_valid;
+        crawl_signals.plan_valid = flat_crawl_debug
+            ? sequencer_output.target_valid
+            : ((active_terrain_plan && active_terrain_plan->valid()) ||
+               sequencer_output.target_valid);
         crawl_signals.measured_contact_valid = wbc_shadow_contact_state_valid_;
         crawl_signals.measured_contact = wbc_shadow_contact_state_;
         crawl_signals.measured_com_valid = have_measured_com_world_;
@@ -1861,9 +1893,16 @@ bool TrotExperiment::BuildGaitTargets(
                 : std::numeric_limits<double>::quiet_NaN();
         }
         else
-            terrain_staging_error_m_ =
-                std::numeric_limits<double>::quiet_NaN();
-        crawl_signals.committed = terrain_surface_transition_committed_;
+            terrain_staging_error_m_ = flat_crawl_debug
+                ? 0.0 : std::numeric_limits<double>::quiet_NaN();
+        if (flat_crawl_debug)
+        {
+            crawl_signals.staging_target_valid = true;
+            crawl_signals.staging_error_m = 0.0;
+        }
+        crawl_signals.committed = flat_crawl_debug
+            ? sequencer_output.committed
+            : terrain_surface_transition_committed_;
         crawl_signals.measured_force_valid = true;
         if (crawl_signals.measured_force_valid)
         {
@@ -1901,8 +1940,8 @@ bool TrotExperiment::BuildGaitTargets(
             terrain_crawl_state_machine_.ActiveLeg() ==
                 sequencer_output.active_leg)
             crawl_signals.target_valid[sequencer_output.active_leg] = true;
-        crawl_signals.rear_targets_fk_reachable = false;
-        if (active_terrain_plan && have_high_state)
+        crawl_signals.rear_targets_fk_reachable = flat_crawl_debug;
+        if (!flat_crawl_debug && active_terrain_plan && have_high_state)
         {
             const WorldPose crawl_pose = ComputeWorldPose(
                 state_snapshot, high_state_snapshot);
@@ -1970,13 +2009,14 @@ bool TrotExperiment::BuildGaitTargets(
             minimum_committed_target_x = std::min(
                 minimum_committed_target_x, execution.target_world.x);
         }
-        crawl_signals.all_feet_clear = committed_targets_observed &&
-            std::isfinite(minimum_committed_target_x);
-        crawl_signals.base_clear = crawl_signals.all_feet_clear &&
-            have_high_state &&
+        crawl_signals.all_feet_clear = flat_crawl_debug ||
+            (committed_targets_observed &&
+             std::isfinite(minimum_committed_target_x));
+        crawl_signals.base_clear = flat_crawl_debug ||
+            (crawl_signals.all_feet_clear && have_high_state &&
             std::isfinite(ComputeWorldPose(state_snapshot, high_state_snapshot).base.x) &&
             ComputeWorldPose(state_snapshot, high_state_snapshot).base.x >=
-                minimum_committed_target_x - 0.40;
+                minimum_committed_target_x - 0.40);
         crawl_signals.now_s = terrain_now_s;
         const auto crawl_state = terrain_crawl_state_machine_.Update(crawl_signals);
         if (crawl_state == go2_terrain::TerrainCrawlState::kResume &&
@@ -1999,6 +2039,32 @@ bool TrotExperiment::BuildGaitTargets(
     // trajectory transaction: prepare it in stance, execute it through the
     // actual gait swing boundary, then hold its world endpoint.  Planner
     // refreshes cannot make an in-flight target disappear mid-swing.
+    // Flat isolation bypasses the terrain planner entirely. Keep every
+    // support foot at its measured anchor and drive only the sequencer target.
+    if (flat_crawl_debug && terrain_crawl_sequencer_output_.control_authority_active &&
+        have_actual_world_feet)
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            feet[leg] = go2_control::WorldToBody(
+                pose.base, pose.quaternion, actual_world_feet[leg]);
+        if (terrain_crawl_sequencer_output_.state ==
+                go2_terrain::TerrainCrawlSequencerState::kSwing &&
+            terrain_crawl_sequencer_output_.active_leg < go2::kLegCount &&
+            terrain_crawl_sequencer_output_.target_valid)
+        {
+            const std::size_t leg = terrain_crawl_sequencer_output_.active_leg;
+            const auto &target = terrain_crawl_sequencer_output_.swing_position_world;
+            const auto &velocity = terrain_crawl_sequencer_output_.swing_velocity_world;
+            feet[leg] = go2_control::WorldToBody(
+                pose.base, pose.quaternion, target);
+            if (params_.cartesian_world && have_commanded_world_feet_)
+            {
+                commanded_world_feet_[leg] = target;
+                cartesian_state_.target_world_vel[leg] = velocity;
+            }
+        }
+    }
+
     const bool terrain_target_adapter_enabled =
         Full2EnvDouble("TROT_TERRAIN_TARGET_ADAPTER", 1.0) > 0.5;
     if (terrain_target_adapter_enabled && active_terrain_plan &&
@@ -2994,6 +3060,8 @@ bool TrotExperiment::BuildGaitTargets(
     if (terrain_transfer_window_active_ &&
         terrain_crawl_state_machine_.state() ==
             go2_terrain::TerrainCrawlState::kShiftCom &&
+        !(flat_crawl_debug && terrain_crawl_sequencer_output_.state ==
+          go2_terrain::TerrainCrawlSequencerState::kSwing) &&
         have_actual_world_feet)
     {
         // SHIFT_COM has no active swing. Freeze every commanded foot at its

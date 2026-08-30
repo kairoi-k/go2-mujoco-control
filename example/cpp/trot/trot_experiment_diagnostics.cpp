@@ -83,6 +83,8 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_event_sequencer_com_reference_y_m"
          << ",terrain_event_sequencer_com_reference_z_m"
          << ",terrain_event_sequencer_measured_contacts"
+         << ",terrain_event_sequencer_flat_ground_mode"
+         << ",terrain_event_sequencer_committed_mask"
          << ",terrain_staging_target_valid,terrain_staging_error_m"
          << ",terrain_staging_target_world_x_m"
          << ",terrain_crawl_retry_count,terrain_crawl_state_enter_s"
@@ -789,6 +791,10 @@ void TrotExperiment::LogSample(
         terrain_crawl_state_machine_.ActiveLeg());
     const int terrain_crawl_min_contacts = terrain_crawl_min_contact_count_ ==
             go2::kLegCount ? 0 : terrain_crawl_min_contact_count_;
+    int terrain_event_sequencer_committed_mask = 0;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        if (terrain_crawl_sequencer_output_.committed[leg])
+            terrain_event_sequencer_committed_mask |= 1 << static_cast<int>(leg);
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model;
     double terrain_last_map_age_s = std::numeric_limits<double>::infinity();
     double terrain_last_solver_us = 0.0;
@@ -989,6 +995,8 @@ void TrotExperiment::LogSample(
          << "," << terrain_crawl_sequencer_output_.com_reference_world.y
          << "," << terrain_crawl_sequencer_output_.com_reference_world.z
          << "," << terrain_crawl_sequencer_output_.measured_contact_count
+         << "," << (terrain_crawl_sequencer_output_.flat_ground_mode ? 1 : 0)
+         << "," << terrain_event_sequencer_committed_mask
          << "," << (terrain_execution_plan &&
                           terrain_execution_plan->staging_target_valid ? 1 : 0)
          << "," << terrain_staging_error_m_
@@ -1002,7 +1010,9 @@ void TrotExperiment::LogSample(
          << "," << terrain_crawl_step_commit_count_
          << "," << (have_measured_com_world_ ? measured_com_world_.x : 0.0)
          << "," << (have_measured_com_world_ ? measured_com_world_.y : 0.0)
-         << "," << terrain_crawl_state_machine_.com_margin_m()
+         << "," << (std::isfinite(terrain_crawl_sequencer_output_.com_margin_m)
+                 ? terrain_crawl_sequencer_output_.com_margin_m
+                 : terrain_crawl_state_machine_.com_margin_m())
          << "," << terrain_crawl_state_machine_.com_target_world().x
          << "," << terrain_crawl_state_machine_.com_target_world().y
          << "," << (terrain_crawl_state_machine_.com_target_valid() ? 1 : 0)
