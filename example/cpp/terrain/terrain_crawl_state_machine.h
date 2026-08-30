@@ -651,15 +651,19 @@ public:
             const bool already_past_standoff =
                 std::isfinite(signals.staging_error_m) &&
                 signals.staging_error_m < 0.0;
-            const bool stage_location_ready = signals.staging_target_valid &&
-                std::isfinite(signals.staging_error_m) &&
-                // Do not turn the empirical base-x band into a hard gate;
-                // measured support margin is the causal pre-SHIFT witness.
-                (signals.scripted_execution
-                    ? true
-                    : (already_past_standoff ||
-                       std::abs(signals.staging_error_m) <=
-                           kStagePositionToleranceM));
+            // Scripted STAGE already has sequencer authority and a measured
+            // support witness. The transient map-edge target may be invalid
+            // after the body reaches the edge, so it cannot gate the bounded
+            // settle/micro-adjust servo; the measured basin gate below does.
+            const bool stage_location_ready = signals.scripted_execution
+                ? true
+                : (signals.staging_target_valid &&
+                   std::isfinite(signals.staging_error_m) &&
+                   // Do not turn the empirical base-x band into a hard gate;
+                   // measured support margin is the causal pre-SHIFT witness.
+                   (already_past_standoff ||
+                    std::abs(signals.staging_error_m) <=
+                        kStagePositionToleranceM));
             const bool stage_ready = stage_location_ready && stage_contact_ready &&
                 std::isfinite(signals.measured_velocity_mps) &&
                 signals.measured_velocity_mps <= kStageVelocityToleranceMps &&
