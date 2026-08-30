@@ -3165,3 +3165,46 @@ validation: |
 commit_chain: |
   f736ac9, 950af46, f107374, 02586b2. Documentation append is pending
   its own commit.
+
+---
+
+Order-068 implementation update — 2026-09-02
+
+source_sha: 7757410d46ff0c1321d3c8d9021d0ae7e12a7560
+forensics: |
+  The clean pre-fix staged artifact order067_staged_seed195_fix10 gives the
+  mechanism. At SWING entry the latched FL-lifted target was COM target
+  (0.350467,-0.053768) m and measured COM was (0.382946,-0.016465) m with
+  triangle margin +0.066791 m. The body then ran forward to
+  (0.424131,0.009996) m at t=13.404, margin +0.020175 m; the next update
+  crossed the readiness branch and replaced the target with
+  (0.424519,0.010215) m. At t=13.588 the witness was FR/FL/RR/RL
+  force=0/0/82/51 N, contact=0/0/1/1. FR foot z stayed about 0.0239 m
+  against the 0.023 m ground-site level, while base pitch was only -0.0244
+  rad. ID-WBC still requested FR=97.98 N (FL=-0.045, RR=88.52, RL=75.54),
+  so this is not WBC intentionally zeroing FR and is not knee extension.
+  It is the forward swing wrench/COM drift crossing the FR-RR/RL edge,
+  amplified by the target replacement: (a), with physical support loss from
+  (c) as the swing task fights the stance plant.
+fix: |
+  5288174 adds a CRAWL_STEP target latch (margin updates no longer replace
+  the prepared incenter), keeps the bounded world COM servo active through
+  SWING, bounds staged target reach to 0.16 m and staged touchdown height to
+  measured foot z + 0.040 m, lowers transfer swing tracking to 180/16/50,
+  and uses terrain-scoped base angular WBC weight 80. No v1 contract,
+  analyzer threshold, canary definition, or safety gate changed.
+validation: |
+  cmake --build example/cpp/build -j2 and ctest --test-dir
+  example/cpp/build --output-on-failure passed 27/27 at source content later
+  committed as 7757410; git diff --check passed. Staged fix29 at this same
+  source content reached first FL COMMIT: target=(0.773406,0.063328) m,
+  measured touchdown=1, endpoint error=0.006573 m. It then entered the next
+  FR swing with asymmetric raised-support reference pitch=-0.0978 rad and
+  measured pitch=-0.1107 rad; COM margin was +0.0723 m, but at t=14.730
+  FR/FL fell to 2/2 N while RR/RL remained 68/35 N and contacts became
+  0/0/1/1. Thus the original FL swing mechanism is fixed/attributed, but
+  the subsequent FR swing is not yet reliable. Fix30 reached the same
+  first-swing boundary with COM margin +0.07 m but no measured commit.
+  No staged full-sequence, full reconnect, B0, or flat 20/20 claim is made.
+commit_chain: |
+  f736ac9, 950af46, f107374, 02586b2, 5288174, 7757410. No push or amend.
