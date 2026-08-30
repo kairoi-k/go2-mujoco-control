@@ -547,7 +547,7 @@ private:
         // The terrain target is a foot-site point above a contact patch.
         // Keep flat isolation unchanged, but lift the transfer apex above
         // the 5 cm surface step plus the calibrated foot-site offset.
-        output_.swing_lift_m = input.flat_ground_mode ? 0.015 : 0.05;
+        output_.swing_lift_m = input.flat_ground_mode ? 0.015 : 0.08;
         output_.measured_contact_count = input.measured_contact_valid
             ? static_cast<int>(std::count(input.measured_contact.begin(),
                                           input.measured_contact.end(), true))

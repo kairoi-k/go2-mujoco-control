@@ -1012,7 +1012,8 @@ void TrotExperiment::UpdateWbcFull(
 
         if (terrain_plan && terrain_plan_contact_coherent &&
             task_.gait_started_ &&
-            task_.motion_stage_ == 2 && !WbcStopHoldActive())
+            task_.motion_stage_ == 2 && !WbcStopHoldActive() &&
+            !terrain_crawl_sequencer_output_.control_authority_active)
         {
             // The accepted planner snapshot is the sole source for future
             // terrain contacts.  A partial snapshot is rejected rather than
@@ -1183,11 +1184,13 @@ void TrotExperiment::UpdateWbcFull(
             else
                 mpc_in.contact = fallback_mpc_contact;
         }
-        // In flat isolation there is no terrain plan to replace the trot
-        // preview. Keep the MPC force solution on the same explicit support
-        // topology as the event sequencer, including its lifted leg.
-        if (sequencer_crawl_execution &&
-            terrain_crawl_sequencer_output_.flat_ground_mode)
+        // Keep the MPC force solution on the same explicit support topology
+        // as the event sequencer, including its lifted leg. Once the explicit
+        // window owns the event, the terrain planner and
+        // legacy trot horizon must not reintroduce future contact switches.
+        // Keep the same measured topology for the whole MPC preview; flat
+        // isolation already used this rule, and terrain now follows it too.
+        if (sequencer_crawl_execution)
         {
             for (int k = 0; k < mpc_params.horizon; ++k)
                 mpc_in.contact[k] =
@@ -1253,7 +1256,8 @@ void TrotExperiment::UpdateWbcFull(
     go2_control::IdWbcInput wbc_in;
     wbc_in.dynamics = dyn;
     wbc_in.contact = qp_contact;
-    if (terrain_plan_active && terrain_plan_contact_coherent)
+    if (terrain_plan_active && terrain_plan_contact_coherent &&
+        !terrain_crawl_sequencer_output_.control_authority_active)
     {
         wbc_in.has_terrain_plan = true;
         wbc_in.terrain_plan.plan_id = terrain_plan->plan_id;
