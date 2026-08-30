@@ -3331,6 +3331,23 @@ bool TrotExperiment::BuildGaitTargets(
         for (auto &foot : feet)
             foot.z -= sprint_foot_slope * foot.x;
     }
+    // Keep the WBC swing task consistent with the joint target. Clamped IK
+    // is needed for a map target beyond the current body pose; if the
+    // unclamped terrain point is stored first, WBC pursues an unreachable
+    // foot while the actuator command silently retracts it.
+    if (params_.wbc_full)
+    {
+        if (!go2::AllLegInverseKinematicsClamped(feet, joint_targets))
+        {
+            std::cerr << "Trot IK failed at gait_time=" << gait_time_s << "\n";
+            return false;
+        }
+    }
+    else if (!go2::AllLegInverseKinematics(feet, joint_targets))
+    {
+        std::cerr << "Trot IK failed at gait_time=" << gait_time_s << "\n";
+        return false;
+    }
     if (have_commanded_body_feet_ && last_motion_dt_s_ > 1.0e-5)
     {
         const double inv_dt = 1.0 / last_motion_dt_s_;
@@ -3355,18 +3372,5 @@ bool TrotExperiment::BuildGaitTargets(
     }
     commanded_body_feet_ = feet;
     have_commanded_body_feet_ = true;
-    if (params_.wbc_full)
-    {
-        if (!go2::AllLegInverseKinematicsClamped(feet, joint_targets))
-        {
-            std::cerr << "Trot IK failed at gait_time=" << gait_time_s << "\n";
-            return false;
-        }
-    }
-    else if (!go2::AllLegInverseKinematics(feet, joint_targets))
-    {
-        std::cerr << "Trot IK failed at gait_time=" << gait_time_s << "\n";
-        return false;
-    }
     return true;
 }
