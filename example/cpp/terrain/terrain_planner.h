@@ -331,6 +331,31 @@ inline double TerrainPlannerMeasuredSupportMargin(
         input.measured_com_world);
 }
 
+// Sequencer-owned terrain swings must start at the measured foot site. The
+// kinematic FK foot can lag the loaded contact during SHIFT, and using that
+// stale point makes the clearance anchor appear below the measured terrain.
+inline go2::Vec3 TerrainPlannerSwingStart(
+    const TerrainPlannerInput &input, std::size_t leg) noexcept
+{
+    if (input.terrain_crawl_support_window_active &&
+        input.measured_support_geometry_valid && leg < go2::kLegCount)
+    {
+        const auto &measured = input.measured_support_feet_world[leg];
+        if (std::isfinite(measured.x) && std::isfinite(measured.y) &&
+            std::isfinite(measured.z) &&
+            std::isfinite(input.base_position_world.x) &&
+            std::isfinite(input.base_position_world.y) &&
+            std::isfinite(input.base_position_world.z))
+        {
+            return RotateWorldVectorToBase(input.base_yaw_rad, {
+                measured.x - input.base_position_world.x,
+                measured.y - input.base_position_world.y,
+                measured.z - input.base_position_world.z});
+        }
+    }
+    return input.current_feet_base[leg];
+}
+
 // Lateral line-error bound for a two-contact support set.  The support
 // gate consumes planner-owned transition intent, not the z values of the
 // support feet: riser-edge map cells may blend the measured height by an
@@ -760,8 +785,10 @@ public:
                 candidate.support_margin_m = region.support_margin_m;
                 FootholdRejectReason swing_reject_reason =
                     FootholdRejectReason::kSwingClearance;
+                const go2::Vec3 swing_start =
+                    TerrainPlannerSwingStart(input, leg);
                 if (!CheckSwingClearance(
-                        *input.terrain, input.current_feet_base[leg],
+                        *input.terrain, swing_start,
                         go2::ContactPatchToFootSite(candidate.foot_position),
                         config_.swing_clearance_m,
                         candidate.swing_clearance_m, &swing_reject_reason,

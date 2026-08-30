@@ -1554,6 +1554,17 @@ int main()
               std::abs(planner_margin - sequencer_margin) < 1.0e-12 &&
               (planner_margin >= 0.0) == (sequencer_margin >= 0.0)))
             return 1;
+
+        planner_input.current_feet_base[1].z = -0.34;
+        planner_input.base_position_world = {1.0, 2.0, 0.4};
+        planner_input.measured_support_feet_world[1] = {1.2, 2.1, 0.15};
+        const auto measured_start = go2_terrain::TerrainPlannerSwingStart(
+            planner_input, 1);
+        if (!Check(std::abs(measured_start.x - 0.2) < 1.0e-12 &&
+                       std::abs(measured_start.y - 0.1) < 1.0e-12 &&
+                       std::abs(measured_start.z + 0.25) < 1.0e-12,
+                   "sequencer-owned swing did not use measured start"))
+            return 1;
     }
 
     // An outside COM must approach the measured support-triangle incenter
