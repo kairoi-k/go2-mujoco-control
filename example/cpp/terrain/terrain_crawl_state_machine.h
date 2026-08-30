@@ -435,6 +435,22 @@ public:
                 signals.committed[leg];
         if (state_ == TerrainCrawlState::kAbort)
             return state_;
+        // A commit can arrive on the same tick that a bounded recovery has
+        // already returned to SHIFT_COM. Consume the latched fact before
+        // selecting another target; otherwise recovery would retry that leg.
+        if (state_ == TerrainCrawlState::kShiftCom) {
+            const std::size_t leg = ActiveLegForSupport();
+            if (leg < go2::kLegCount && committed_latched_[leg]) {
+                if (order_index_ == 1)
+                    SetState(TerrainCrawlState::kAdvanceBody, signals.now_s);
+                else if (order_index_ + 1 < kLegOrder.size()) {
+                    ++order_index_;
+                    SetState(TerrainCrawlState::kShiftCom, signals.now_s);
+                } else
+                    SetState(TerrainCrawlState::kClear, signals.now_s);
+                return state_;
+            }
+        }
 
         const int contacts = signals.measured_contact_valid
             ? TerrainCrawlContactCount(signals.measured_contact) : 0;
@@ -850,8 +866,7 @@ private:
     {
         if (state_ != state)
             ++transition_count_;
-        if (state == TerrainCrawlState::kShiftCom &&
-            state_ != TerrainCrawlState::kShiftCom)
+        if (state == TerrainCrawlState::kShiftCom)
         {
             com_shift_start_world_ = {};
             com_shift_start_time_s_ = 0.0;
