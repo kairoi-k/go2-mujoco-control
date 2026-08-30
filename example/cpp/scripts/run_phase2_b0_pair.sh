@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# A killed simulator can leave CycloneDDS shared-memory bookkeeping behind.
+# B0 is serial, so it is safe to remove only known DDS/iceoryx objects at
+# each harness boundary and on exit; never touch unrelated /dev/shm entries.
+cleanup_cyclonedds_shm() {
+  find /dev/shm -maxdepth 1 -mindepth 1     \( -name 'cdds*' -o -name 'cyclonedds*' -o -name 'iceoryx*' \)     -exec rm -rf -- {} + 2>/dev/null || true
+}
+cleanup_cyclonedds_shm
+trap cleanup_cyclonedds_shm EXIT INT TERM
+
 # Reproducible B0 pair runner. The no-terrain member and sensor-only member
 # use identical non-terrain arguments and a common flat scene. The baseline
 # domain is separate only to avoid DDS collision; both runs are sequential.
@@ -70,6 +79,7 @@ set +e
 TROT_CPU_AUTOPIN=1 bash "$cpp_dir/scripts/run_trot.sh" 140 "$baseline_name" \
   "${common_args[@]}" --domain-id "$baseline_domain"
 baseline_status=$?
+cleanup_cyclonedds_shm
 TROT_CPU_AUTOPIN=1 bash "$cpp_dir/scripts/run_trot.sh" 140 "$terrain_name" \
   "${common_args[@]}" --terrain-sensor-only --domain-id "$terrain_domain"
 terrain_status=$?

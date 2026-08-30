@@ -61,3 +61,11 @@ serial B1 canary; no parallel simulation is permitted.
 ## Order-041 DDS cleanup and participant-index ceiling
 
 Before the Order-041 B0 retry, the WSL /dev/shm directory was inspected after the aborted runs; it contained no CycloneDDS shared-memory segment and no stale DDS processes were running. The Failed to find a free participant index symptom therefore cannot be attributed to a surviving shared-memory owner on this WSL instance. The Base=4000 preload was rebuilt with MaxAutoParticipantIndex=31 (up from 9), retaining ParticipantIndex=auto and the same port base, interface, and domain mapping. This removes the bounded participant-index ceiling while preserving the B0 port workaround.
+
+## Order-045 DDS cleanup
+
+The B0 harness now removes only stale CycloneDDS/iceoryx shared-memory
+objects (cdds*, cyclonedds*, and iceoryx*) under /dev/shm before each
+run and at process exit. This is safe because B0 members are serialized and
+prevents killed runs from consuming participant bookkeeping on the next
+attempt. No B0 command, domain, or acceptance bit was changed.

@@ -1941,3 +1941,44 @@ validation: |
   participant allocation before startup; no B0 result is claimed. No v1
   contract, analyzer threshold, or canary definition changed; no push.
 git_status: implementation committed as b38c1de plus documentation correction 5a1d303; no push/amend; simulations serialized.
+
+---
+timestamp: 2026-09-01T03:00:00+0800
+run_id: Order-045 flat execution repair (fix1-fix17) plus terrain canary epoch108/r2
+trigger: T1
+implementation: |
+  Flat SWING now keeps the explicit sequencer topology through MPC and ID-WBC
+  even while the legacy crawl state machine is still in DECELERATE_TO_CREEP.
+  The ID-WBC stance floor is therefore 20 N on the three declared stance legs,
+  instead of the 1 N default that previously unloaded RR/RL during FL SWING.
+  Flat landing separates pose arrival from force confirmation: SWING enters
+  COMMIT at the measured endpoint, COMMIT publishes four contacts, and the
+  next force-filter sample confirms touchdown. Support feet remain at measured
+  anchors while the landing leg is held at its endpoint. Flat mode gets a
+  measured four-leg continuous-cycle witness and harness-local body creep;
+  ordinary gait defaults are unchanged. Added per-leg final ID-WBC normal
+  force and sequencer contact schedule telemetry.
+  B0 wrappers now clean stale cdds*, cyclonedds*, and iceoryx* objects in
+  /dev/shm before start, between pair members, and on exit.
+flat_iterations: |
+  fix1-r2: support floor fixed the first SWING allocation (stance Fz >=20 N),
+  but endpoint had no force witness; fix2-fix4 separated landing/commit and
+  corrected landing hold. fix5-fix7 completed the first multi-leg sequence;
+  fix8-fix16 tuned the flat-only continuous cycle and body creep; fix17 is the
+  acceptance witness. In fix17, the first 10 consecutive SWING events span
+  state ticks 6.022-7.276 s, min measured contacts=4, max |roll|=0.0485 rad,
+  max |pitch|=0.0238 rad, and base x advanced -0.0957 to -0.0548 m
+  (+0.0408 m). The full run recorded 30 SWING/COMMIT events and no controlled
+  support loss before the later harness stop-path inversion.
+terrain_canary: |
+  b1_freegait_epoch108 and epoch108_r2 were serialized on domain 229 with
+  Base=4000 and 30 s controller/35 s wall limits. Both migrated into STAGE;
+  r2 reached SHIFT/SWING before the inherited terrain-side posture failure
+  (roll about -179.7 deg, pitch about -7.2 deg). No terrain success is claimed.
+validation: |
+  cmake --build example/cpp/build -j2; ctest --test-dir example/cpp/build
+  --output-on-failure: 27/27 passed. bash -n passed for both B0 wrappers;
+  git diff --check passed. Flat harness remained environment-gated and default
+  off; v1 contract, analyzer thresholds, canary definitions, and B0 command
+  bits were not changed. No push or amend.
+git_status: implementation and evidence changes are unstaged; simulations serialized.

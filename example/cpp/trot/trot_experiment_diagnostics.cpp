@@ -85,6 +85,10 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_event_sequencer_measured_contacts"
          << ",terrain_event_sequencer_flat_ground_mode"
          << ",terrain_event_sequencer_committed_mask"
+         << ",terrain_event_sequencer_contact_schedule_mask"
+         << ",terrain_event_sequencer_swing_target_x_m"
+         << ",terrain_event_sequencer_swing_target_y_m"
+         << ",terrain_event_sequencer_swing_target_z_m"
          << ",terrain_staging_target_valid,terrain_staging_error_m"
          << ",terrain_staging_target_world_x_m"
          << ",terrain_crawl_retry_count,terrain_crawl_state_enter_s"
@@ -180,6 +184,10 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_shadow_max_axis_friction_ratio"
          << ",wbc_shadow_max_radial_friction_ratio"
          << ",wbc_shadow_min_contact_normal_force_n"
+         << ",wbc_shadow_id_wbc_normal_force_fr_n"
+         << ",wbc_shadow_id_wbc_normal_force_fl_n"
+         << ",wbc_shadow_id_wbc_normal_force_rr_n"
+         << ",wbc_shadow_id_wbc_normal_force_rl_n"
          << ",terrain_hold_force_telemetry";
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         csv_ << ",terrain_hold_" << kLegNames[leg]
@@ -792,9 +800,15 @@ void TrotExperiment::LogSample(
     const int terrain_crawl_min_contacts = terrain_crawl_min_contact_count_ ==
             go2::kLegCount ? 0 : terrain_crawl_min_contact_count_;
     int terrain_event_sequencer_committed_mask = 0;
+    int terrain_event_sequencer_contact_schedule_mask = 0;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
         if (terrain_crawl_sequencer_output_.committed[leg])
             terrain_event_sequencer_committed_mask |= 1 << static_cast<int>(leg);
+        if (terrain_crawl_sequencer_output_.contact_schedule[leg])
+            terrain_event_sequencer_contact_schedule_mask |=
+                1 << static_cast<int>(leg);
+    }
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model;
     double terrain_last_map_age_s = std::numeric_limits<double>::infinity();
     double terrain_last_solver_us = 0.0;
@@ -997,6 +1011,10 @@ void TrotExperiment::LogSample(
          << "," << terrain_crawl_sequencer_output_.measured_contact_count
          << "," << (terrain_crawl_sequencer_output_.flat_ground_mode ? 1 : 0)
          << "," << terrain_event_sequencer_committed_mask
+         << "," << terrain_event_sequencer_contact_schedule_mask
+         << "," << terrain_crawl_sequencer_output_.swing_position_world.x
+         << "," << terrain_crawl_sequencer_output_.swing_position_world.y
+         << "," << terrain_crawl_sequencer_output_.swing_position_world.z
          << "," << (terrain_execution_plan &&
                           terrain_execution_plan->staging_target_valid ? 1 : 0)
          << "," << terrain_staging_error_m_
@@ -1150,6 +1168,10 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.max_axis_friction_ratio
          << "," << wbc_shadow_diagnostics_.max_radial_friction_ratio
          << "," << wbc_shadow_diagnostics_.min_contact_normal_force_n
+         << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[0]
+         << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[1]
+         << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[2]
+         << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[3]
          << "," << (terrain_force_telemetry ? 1 : 0);
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {

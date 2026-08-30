@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# A killed simulator can leave CycloneDDS shared-memory bookkeeping behind.
+# B0 is serial, so it is safe to remove only known DDS/iceoryx objects at
+# each harness boundary and on exit; never touch unrelated /dev/shm entries.
+cleanup_cyclonedds_shm() {
+  find /dev/shm -maxdepth 1 -mindepth 1     \( -name 'cdds*' -o -name 'cyclonedds*' -o -name 'iceoryx*' \)     -exec rm -rf -- {} + 2>/dev/null || true
+}
+cleanup_cyclonedds_shm
+trap cleanup_cyclonedds_shm EXIT INT TERM
+
 # B0 runner: development and holdout use the same frozen command contract;
 # only the pre-declared domain/repeat membership differs.
 script_dir="$(cd "$(dirname "$0")" && pwd)"

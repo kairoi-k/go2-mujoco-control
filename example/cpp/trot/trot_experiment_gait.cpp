@@ -162,7 +162,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     // body is crossing the riser. This is a creep, not a full brake.
     const double absolute_gait_time_s = gait_time_s +
         task_.gait_start_time_s_;
-    if (terrain_transfer_window_active_ &&
+    if (terrain_transfer_window_active_ && !flat_crawl_debug &&
         std::isfinite(terrain_transfer_window_release_s_) &&
         absolute_gait_time_s >= terrain_transfer_window_release_s_)
     {
@@ -299,10 +299,21 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
             }
         }
     }
-    // Flat isolation removes body-command momentum; forward progress is
-    // produced only by the measured crawl swing/commit loop.
+    // Flat isolation uses a small, harness-local body creep in addition to
+    // the measured swing/commit loop. The default stays zero so the debug
+    // switch cannot alter ordinary gait behavior.
     if (flat_crawl_debug)
-        requested_mps = 0.0;
+    {
+        const auto flat_state = terrain_crawl_sequencer_output_.state;
+        const bool flat_body_creep_allowed =
+            terrain_crawl_sequencer_output_.control_authority_active &&
+            flat_state != go2_terrain::TerrainCrawlSequencerState::kStage &&
+            flat_state != go2_terrain::TerrainCrawlSequencerState::kResume;
+        requested_mps = flat_body_creep_allowed
+            ? std::clamp(Full2EnvDouble(
+                "TROT_FLAT_CRAWL_BODY_SPEED", 0.05), 0.0, 0.12)
+            : 0.0;
+    }
     velocity_command_state_ = velocity_command_shaper_.Step(
         requested_mps, dt);
     const bool zero_command_profile_finished =
@@ -1796,7 +1807,8 @@ bool TrotExperiment::BuildGaitTargets(
         sequencer_input.transfer_window_active = true;
         sequencer_input.flat_ground_mode = flat_crawl_debug;
         sequencer_input.flat_step_length_m =
-            params_.direction_sign * 0.08;
+            params_.direction_sign * std::clamp(Full2EnvDouble(
+                "TROT_FLAT_CRAWL_STEP_M", 0.04), 0.02, 0.08);
         const double trot_period = gait_result.period_s > 0.05
             ? gait_result.period_s : params_.period_s;
         const double trot_duty = gait_result.duty_factor > 0.05
@@ -1830,6 +1842,23 @@ bool TrotExperiment::BuildGaitTargets(
             std::isfinite(sequencer_rpy[0]) && std::isfinite(sequencer_rpy[1]);
         sequencer_input.measured_roll_rad = sequencer_rpy[0];
         sequencer_input.measured_pitch_rad = sequencer_rpy[1];
+        // Flat mode has no terrain planner to provide the rear-workspace and
+        // clear witnesses. Supply only harness-local measured predicates so
+        // the event sequence can complete all four legs.
+        if (flat_crawl_debug)
+        {
+            sequencer_input.rear_targets_fk_reachable = true;
+            sequencer_input.base_clear = true;
+            sequencer_input.all_feet_clear = true;
+            sequencer_input.stable =
+                sequencer_input.measured_contact_valid &&
+                std::count(sequencer_input.measured_contact.begin(),
+                           sequencer_input.measured_contact.end(), true) >= 3 &&
+                sequencer_input.measured_posture_valid &&
+                std::abs(sequencer_input.measured_roll_rad) <= 0.08 &&
+                std::abs(sequencer_input.measured_pitch_rad) <= 0.08 &&
+                sequencer_input.measured_velocity_mps <= 0.12;
+        }
         sequencer_input.now_s = terrain_now_s;
         (void)terrain_crawl_sequencer_.Update(sequencer_input);
         sequencer_output = terrain_crawl_sequencer_.output();
@@ -2047,20 +2076,30 @@ bool TrotExperiment::BuildGaitTargets(
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             feet[leg] = go2_control::WorldToBody(
                 pose.base, pose.quaternion, actual_world_feet[leg]);
-        if (terrain_crawl_sequencer_output_.state ==
-                go2_terrain::TerrainCrawlSequencerState::kSwing &&
+        const auto sequencer_state =
+            terrain_crawl_sequencer_output_.state;
+        if ((sequencer_state ==
+                 go2_terrain::TerrainCrawlSequencerState::kSwing ||
+             sequencer_state ==
+                 go2_terrain::TerrainCrawlSequencerState::kCommit) &&
             terrain_crawl_sequencer_output_.active_leg < go2::kLegCount &&
             terrain_crawl_sequencer_output_.target_valid)
         {
             const std::size_t leg = terrain_crawl_sequencer_output_.active_leg;
-            const auto &target = terrain_crawl_sequencer_output_.swing_position_world;
+            const bool landing = sequencer_state ==
+                go2_terrain::TerrainCrawlSequencerState::kCommit;
+            const auto &target = landing
+                ? terrain_crawl_sequencer_output_.target_world
+                : terrain_crawl_sequencer_output_.swing_position_world;
             const auto &velocity = terrain_crawl_sequencer_output_.swing_velocity_world;
             feet[leg] = go2_control::WorldToBody(
                 pose.base, pose.quaternion, target);
             if (params_.cartesian_world && have_commanded_world_feet_)
             {
                 commanded_world_feet_[leg] = target;
-                cartesian_state_.target_world_vel[leg] = velocity;
+                cartesian_state_.target_world_vel[leg] = landing
+                    ? go2::Vec3{}
+                    : velocity;
             }
         }
     }

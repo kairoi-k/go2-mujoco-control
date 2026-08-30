@@ -177,7 +177,16 @@ void TrotExperiment::UpdateWbcFull(
     // zero angles and therefore retains the existing path.
     terrain_stance_reference_valid_ = false;
     const auto crawl_state = terrain_crawl_state_machine_.state();
+    // The event sequencer is the authority during both the flat isolation
+    // harness and the terrain transfer. The legacy state machine can lag it
+    // while it is still in DECELERATE_TO_CREEP; using that stale state leaves
+    // stance legs with only the 1 N default floor during SWING.
+    const bool sequencer_crawl_execution =
+        terrain_crawl_sequencer_output_.control_authority_active &&
+        terrain_crawl_sequencer_output_.state !=
+            go2_terrain::TerrainCrawlSequencerState::kAbort;
     const bool crawl_stance_reference =
+        !terrain_crawl_sequencer_output_.flat_ground_mode &&
         terrain_crawl_sequencer_output_.control_authority_active &&
         (crawl_state == go2_terrain::TerrainCrawlState::kShiftCom ||
          crawl_state == go2_terrain::TerrainCrawlState::kCrawlStep);
@@ -763,17 +772,19 @@ void TrotExperiment::UpdateWbcFull(
         terrain_crawl_state_machine_.state() ==
             go2_terrain::TerrainCrawlState::kShiftCom;
     const bool terrain_crawl_stance =
-        terrain_crawl_sequencer_output_.control_authority_active &&
-        (terrain_crawl_shift ||
-         terrain_crawl_state_machine_.state() ==
-             go2_terrain::TerrainCrawlState::kCrawlStep ||
-         terrain_crawl_state_machine_.state() ==
-             go2_terrain::TerrainCrawlState::kAdvanceBody);
+        sequencer_crawl_execution ||
+        (terrain_crawl_sequencer_output_.control_authority_active &&
+         (terrain_crawl_shift ||
+          terrain_crawl_state_machine_.state() ==
+              go2_terrain::TerrainCrawlState::kCrawlStep ||
+          terrain_crawl_state_machine_.state() ==
+              go2_terrain::TerrainCrawlState::kAdvanceBody));
     // The normal 100 ms refresh leaves SHIFT_COM applying the pre-handoff
     // forward-acceleration solution for most of its 0.40 s ramp. Refresh the
     // existing MPC more often only while shifting, so the stance WBC receives
     // the current COM reference before the measured support can unload.
-    const int mpc_period_ticks = terrain_crawl_stance
+    const int mpc_period_ticks = (terrain_crawl_stance ||
+                                  sequencer_crawl_execution)
         ? go2_terrain::TerrainCrawlStateMachine::kComShiftMpcPeriodTicks
         : (high_speed_curriculum
                ? 5
@@ -1155,6 +1166,16 @@ void TrotExperiment::UpdateWbcFull(
             }
             else
                 mpc_in.contact = fallback_mpc_contact;
+        }
+        // In flat isolation there is no terrain plan to replace the trot
+        // preview. Keep the MPC force solution on the same explicit support
+        // topology as the event sequencer, including its lifted leg.
+        if (sequencer_crawl_execution &&
+            terrain_crawl_sequencer_output_.flat_ground_mode)
+        {
+            for (int k = 0; k < mpc_params.horizon; ++k)
+                mpc_in.contact[k] =
+                    terrain_crawl_sequencer_output_.contact_schedule;
         }
         // The safe handoff is a static four-foot plant. Do not let an old
         // planner horizon or a transient force-filter bit reintroduce a
@@ -1605,7 +1626,7 @@ void TrotExperiment::UpdateWbcFull(
     // contact-mask request. SHIFT_COM is also a four-foot stance before a
     // foothold transaction exists, so apply the same scoped floor there.
     if ((terrain_transfer_hold_active_ && !terrain_transfer_complete) ||
-        terrain_crawl_stance)
+        terrain_crawl_stance || sequencer_crawl_execution)
         id_params.min_normal_n = 20.0;
     id_params.tau_limit_nm = 35.0;
     const double tau_ov = Full2EnvDouble("FULL2_TAU", -1.0);
@@ -1850,6 +1871,7 @@ void TrotExperiment::UpdateWbcFull(
             wbc_shadow_candidate_torques_[leg][j] =
                 (joint_row >= 0 && joint_row < 12) ? wbc_out.tau[joint_row] : 0.0;
         }
+        wbc_shadow_diagnostics_.id_wbc_normal_force_n[leg] = f.z();
         if (qp_contact[leg])
             min_fz = std::min(min_fz, f.z());
     }

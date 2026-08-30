@@ -214,7 +214,8 @@ public:
                  (already_past || std::abs(staging.error_m) <= kStageToleranceM));
             const bool settled = at_standoff && three_contacts &&
                 std::isfinite(input.measured_velocity_mps) &&
-                input.measured_velocity_mps <= 0.04 &&
+                input.measured_velocity_mps <=
+                    (input.flat_ground_mode ? 0.12 : 0.04) &&
                 input.measured_posture_valid &&
                 std::abs(input.measured_roll_rad) <= 0.08 &&
                 std::abs(input.measured_pitch_rad) <= 0.08;
@@ -240,7 +241,9 @@ public:
                     ? MeasureTerrainSupportTriangle(triangle,
                                                      input.measured_com_world)
                     : TerrainSupportTriangleMetrics{};
-                if (metrics.valid && metrics.signed_margin_m >= 0.0 &&
+                if (metrics.valid &&
+                    (metrics.signed_margin_m >= 0.0 ||
+                     input.flat_ground_mode) &&
                     finite_time && input.now_s - state_enter_s_ + 1e-9 >=
                         kShiftDwellS)
                 {
@@ -252,7 +255,14 @@ public:
         case TerrainCrawlSequencerState::kSwing:
             if (active_leg() >= go2::kLegCount)
                 break;
-            if (MeasuredTargetAtEndpoint(input))
+            // On flat ground the endpoint is a landing event: the lifted
+            // leg cannot produce a force measurement while WBC still
+            // declares it swing. Enter COMMIT on measured pose first, then
+            // publish four-contact support for the next tick to establish
+            // the force/contact witness. Terrain targets retain the stricter
+            // measured-contact predicate below.
+            if (MeasuredTargetAtEndpoint(input) ||
+                (input.flat_ground_mode && TargetPositionAtEndpoint(input)))
                 SetState(TerrainCrawlSequencerState::kCommit, input.now_s);
             else if ((!three_contacts &&
                       (!input.flat_ground_mode || !finite_time ||
@@ -291,14 +301,46 @@ public:
         case TerrainCrawlSequencerState::kClear:
             if (input.base_clear && input.all_feet_clear)
             {
-                stable_start_s_ = input.now_s;
-                SetState(TerrainCrawlSequencerState::kResume, input.now_s);
+                if (input.flat_ground_mode)
+                {
+                    // Flat isolation is a continuous gait, not a transfer
+                    // transaction. Re-arm the first leg directly while the
+                    // four-foot landing support is still authoritative;
+                    // RESUME would unnecessarily hand control back to the
+                    // stochastic trot boundary between crawl cycles.
+                    order_index_ = 0;
+                    committed_.fill(false);
+                    SetState(TerrainCrawlSequencerState::kShift, input.now_s);
+                }
+                else
+                {
+                    stable_start_s_ = input.now_s;
+                    SetState(TerrainCrawlSequencerState::kResume, input.now_s);
+                }
             }
             break;
         case TerrainCrawlSequencerState::kResume:
             if (input.stable && finite_time &&
                 input.now_s - stable_start_s_ + 1e-9 >= kResumeDwellS)
-                Reset();
+            {
+                if (input.flat_ground_mode)
+                {
+                    // Start the next flat cycle without dropping authority
+                    // for one tick. A full Reset re-enters the running trot
+                    // boundary and can lose the force/contact witness.
+                    state_ = TerrainCrawlSequencerState::kStage;
+                    order_index_ = 0;
+                    state_enter_s_ = input.now_s;
+                    stable_start_s_ = std::numeric_limits<double>::infinity();
+                    stage_stable_start_s_ = std::numeric_limits<double>::infinity();
+                    target_ = {};
+                    swing_start_ = {};
+                    target_valid_ = false;
+                    committed_.fill(false);
+                }
+                else
+                    Reset();
+            }
             break;
         default: break;
         }
@@ -395,15 +437,20 @@ private:
         target_valid_ = true;
     }
 
-    bool MeasuredTargetAtEndpoint(const TerrainCrawlSequencerInput &input) const noexcept
+    bool TargetPositionAtEndpoint(const TerrainCrawlSequencerInput &input) const noexcept
     {
         if (!target_valid_ || active_leg() >= go2::kLegCount ||
-            !input.measured_feet_valid || !input.measured_contact_valid ||
-            !input.measured_contact[active_leg()])
+            !input.measured_feet_valid)
             return false;
         const auto &p = input.measured_feet_world[active_leg()];
         return std::hypot(std::hypot(p.x - target_.x, p.y - target_.y),
                           p.z - target_.z) <= kCommitToleranceM;
+    }
+
+    bool MeasuredTargetAtEndpoint(const TerrainCrawlSequencerInput &input) const noexcept
+    {
+        return TargetPositionAtEndpoint(input) && input.measured_contact_valid &&
+            input.measured_contact[active_leg()];
     }
 
     TerrainCrawlSequencerState Publish(

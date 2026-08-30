@@ -281,6 +281,10 @@ struct WbcShadowDiagnostics
     double task_residual_norm = 0.0;
     double max_radial_friction_ratio = 0.0;
     double min_contact_normal_force_n = 0.0;
+    // Final ID-WBC normal-force allocation, retained per leg so crawl
+    // telemetry can distinguish a declared swing from a stance leg that the
+    // optimizer has effectively unloaded.
+    std::array<double, go2::kLegCount> id_wbc_normal_force_n{};
     double elapsed_us = 0.0;
     bool within_budget = true;
     double max_abs_tau = 0.0;

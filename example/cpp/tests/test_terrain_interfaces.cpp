@@ -2002,8 +2002,17 @@ int main()
                        seq.output().target_world.x > x.measured_feet_world[1].x,
                    "flat sequencer did not generate a forward swing target")) return 1;
         x.measured_feet_world[1] = seq.output().target_world;
+        // Landing and force confirmation are separate events: the swing leg
+        // cannot report contact until COMMIT publishes it back to WBC.
+        x.measured_contact[1] = false;
         x.now_s = 0.45;
         seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kCommit &&
+                       std::all_of(seq.output().contact_schedule.begin(),
+                                   seq.output().contact_schedule.end(),
+                                   [](bool contact) { return contact; }),
+                   "flat sequencer did not publish landing support")) return 1;
+        x.measured_contact[1] = true;
         x.now_s = 0.46;
         seq.Update(x);
         if (!Check(seq.order_index() == 1 && seq.output().committed[1],
