@@ -1712,7 +1712,21 @@ void TrotExperiment::UpdateWbcFull(
     const double w_ang_ov = Full2EnvDouble("FULL2_W_ANG", -1.0);
     if (w_ang_ov > 0.0)
         id_params.w_base_ang = w_ang_ov;
-    id_params.w_swing = params_.cartesian_world ? 80.0 : 80.0;
+    // With one front support already raised, the second front swing is a
+    // mixed-height three-foot problem. Keep the stance force handoff and
+    // plane reference authoritative; a full-strength swing acceleration task
+    // otherwise spends the available torque on the lifted-leg wrench and
+    // unloads the raised front support. This branch is terrain-only and does
+    // not alter the validated flat WBC task.
+    const bool terrain_raised_support =
+        terrain_stance_reference_valid_ && have_last_id_wbc_ &&
+        terrain_crawl_sequencer_output_.control_authority_active &&
+        terrain_crawl_sequencer_output_.state ==
+            go2_terrain::TerrainCrawlSequencerState::kSwing &&
+        terrain_crawl_sequencer_output_.active_leg < go2::kLegCount;
+    id_params.w_swing = terrain_raised_support
+        ? 35.0
+        : (params_.cartesian_world ? 80.0 : 80.0);
     const double w_sw_ov = Full2EnvDouble("FULL2_W_SWING", -1.0);
     if (w_sw_ov > 0.0)
         id_params.w_swing = w_sw_ov;
@@ -1805,7 +1819,12 @@ void TrotExperiment::UpdateWbcFull(
             // The preload reference is stronger than the tiny regularizer
             // but scoped to terrain SWING. The 30 N floor remains a
             // feasibility floor rather than a competing target.
-            id_params.w_force_track = 0.10;
+            // A mixed-height support can have several feasible force
+            // distributions. Prefer the captured three-foot preload strongly
+            // enough to prevent the QP from jumping to a torque-saturating
+            // solution when the swinging foot passes its apex.
+            id_params.w_force_track = terrain_stance_reference_valid_
+                ? 0.50 : 0.10;
         }
     }
     bool solved =
