@@ -942,9 +942,25 @@ void TrotExperiment::UpdateWbcFull(
             (terrain_crawl_sequencer_output_.com_reference_valid ||
              terrain_crawl_state_machine_.com_target_valid()))
         {
-            const auto target = terrain_crawl_sequencer_output_.com_reference_valid
-                ? terrain_crawl_sequencer_output_.com_reference_world
-                : terrain_crawl_state_machine_.com_target_world();
+            // Once SWING owns the explicit topology, keep the COM target that
+            // completed the measured legacy shift. Replacing it every tick
+            // with the freshly recomputed support-triangle centroid moves the
+            // target when the lifted terrain foot is far ahead; the terrain
+            // run then brakes/reverses the body during the swing. Flat mode
+            // deliberately retains its sequencer reference because it has no
+            // legacy terrain COM target.
+            const bool terrain_swing_hold =
+                !terrain_crawl_sequencer_output_.flat_ground_mode &&
+                (terrain_crawl_sequencer_output_.state ==
+                     go2_terrain::TerrainCrawlSequencerState::kSwing ||
+                 terrain_crawl_sequencer_output_.state ==
+                     go2_terrain::TerrainCrawlSequencerState::kCommit) &&
+                terrain_crawl_state_machine_.com_target_valid();
+            const auto target = terrain_swing_hold
+                ? terrain_crawl_state_machine_.com_target_world()
+                : (terrain_crawl_sequencer_output_.com_reference_valid
+                    ? terrain_crawl_sequencer_output_.com_reference_world
+                    : terrain_crawl_state_machine_.com_target_world());
             if (std::isfinite(target.x) && std::isfinite(target.y))
             {
                 // SHIFT_COM and the swing hold are a reference change to the
