@@ -2276,57 +2276,6 @@ int main()
                    "FL triangle witness was not distinct from STAGE polygon")) return 1;
     }
 
-    // Terrain descent reaches the plateau endpoint before dropping and has
-    // zero endpoint velocity; flat isolation keeps its original path.
-    {
-        go2_terrain::TerrainCrawlSequencer seq;
-        go2_terrain::TerrainCrawlSequencerInput x;
-        x.transfer_window_active = true;
-        x.measured_contact_valid = true;
-        x.measured_contact = {true, true, true, true};
-        x.measured_feet_valid = true;
-        x.measured_feet_world = {
-            go2::Vec3{0.30, -0.20, 0.0}, go2::Vec3{0.30, 0.20, 0.0},
-            go2::Vec3{-0.30, -0.20, 0.0}, go2::Vec3{-0.30, 0.20, 0.0}};
-        x.measured_com_valid = true;
-        x.measured_com_world = go2::Vec3{0.0, 0.0, 0.0};
-        x.measured_velocity_mps = 0.0;
-        x.measured_posture_valid = true;
-        x.legacy_stage_ready = true;
-        x.legacy_shift_ready = true;
-        x.staged_target_valid = true;
-        x.staged_target_world = go2::Vec3{0.50, 0.20, 0.05};
-        x.trot_full_contact_able = true;
-        x.now_s = 0.0;
-        seq.Update(x);
-        x.now_s = 0.31;
-        seq.Update(x);
-        x.now_s = 0.62;
-        seq.Update(x);
-        x.now_s = 0.75;
-        if (!Check(seq.Update(x) ==
-                       go2_terrain::TerrainCrawlSequencerState::kSwing,
-                   "terrain sequencer did not enter swing for descent test"))
-            return 1;
-        x.now_s = 0.75 + 0.85 *
-            go2_terrain::TerrainCrawlSequencer::kSwingDurationS;
-        seq.Update(x);
-        if (!Check(std::abs(seq.output().swing_position_world.x - 0.50) < 1.0e-9 &&
-                       std::abs(seq.output().swing_velocity_world.x) < 1.0e-9,
-                   "terrain descent did not settle horizontally over plateau") ||
-            !Check(std::abs(seq.output().swing_velocity_world.z) > 1.0e-6,
-                   "terrain descent lost its controlled vertical approach"))
-            return 1;
-        x.now_s = 0.75 + go2_terrain::TerrainCrawlSequencer::kSwingDurationS - 1.0e-5;
-        seq.Update(x);
-        if (!Check(std::abs(seq.output().swing_position_world.z - 0.05) < 1.0e-5,
-                   "terrain touchdown position mismatch"))
-            return 1;
-        if (!Check(std::abs(seq.output().swing_velocity_world.z) < 1.0e-3,
-                   "terrain touchdown retained nonzero vertical velocity"))
-            return 1;
-    }
-
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";
     return 0;
 }

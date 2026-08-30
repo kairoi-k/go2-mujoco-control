@@ -765,7 +765,10 @@ private:
             output_.swing_phase = std::clamp(
                 (input.now_s - state_enter_s_) / kSwingDurationS, 0.0, 1.0);
             const double u = output_.swing_phase;
-            const bool terrain_swing = !input.flat_ground_mode;
+            // The FR event is the mixed-height touchdown crux; preserve
+            // the proven FL transfer path and change only this descent.
+            const bool terrain_swing = !input.flat_ground_mode &&
+                active_leg() == 0;
             const double horizontal_phase = terrain_swing
                 ? kTerrainHorizontalCompletionPhase : 1.0;
             const double horizontal_u = std::clamp(
