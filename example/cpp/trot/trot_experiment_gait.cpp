@@ -2368,8 +2368,14 @@ bool TrotExperiment::BuildGaitTargets(
                     // consulted for this event-driven crawl leg.
                     scripted_target.valid = true;
                     scripted_target.touchdown = true;
+                    // TerrainFootholdPrediction carries contact-patch
+                    // coordinates, while the sequencer publishes the
+                    // foot-site center consumed by FK/WBC. Convert back at
+                    // this typed boundary so prepare_terrain_target applies
+                    // the site offset exactly once.
                     scripted_target.position_world =
-                        sequencer_output.target_world;
+                        go2::FootSiteToContactPatch(
+                            sequencer_output.target_world);
                     scripted_target.swing_lift_m = 0.03;
                     scripted_target.edge_margin_m = 0.03;
                     scripted_target.touchdown_time_s = terrain_now_s +
