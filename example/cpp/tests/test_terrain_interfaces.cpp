@@ -1587,18 +1587,15 @@ int main()
                    "crawl machine aborted during endpoint contact handoff"))
             return 1;
         x.committed[1] = true;
-        // The old active leg may still be the only front force sample at
-        // touchdown. Commit must advance first; subtracting FL from this
-        // transient mask would otherwise abort before FR SHIFT_COM.
+        // A commit can be latched just before the planner snapshot is
+        // refreshed. It must survive that refresh and advance the pointer.
+        x.plan_valid = false;
         x.measured_contact = {false, true, true, false};
         x.now_s = 1.3;
         m.Update(x);
-        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kShiftCom &&
-                       m.order_index() == 1, "crawl machine did not shift before FR")) return 1;
-        // The WBC transaction can publish a fresh snapshot with its active
-        // mask cleared while the sequencer is recovering. A committed FL is
-        // still a sequencer fact, so that refresh must not send the pointer
-        // back to FL.
+        if (!Check(m.state() == go2_terrain::TerrainCrawlState::kCrawlStep,
+                   "commit latch changed state without a valid plan")) return 1;
+        x.plan_valid = true;
         x.committed.fill(false);
         x.target_valid[1] = false;
         x.now_s = 1.31;
