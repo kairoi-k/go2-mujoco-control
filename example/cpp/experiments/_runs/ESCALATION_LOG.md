@@ -3111,3 +3111,57 @@ commit_chain: |
   f736ac9 (Order-065 evidence), 950af46 (Order-066 implementation and
   telemetry). No push or amend; this documentation append is pending its
   own local commit.
+
+---
+
+Order-067 implementation update — 2026-09-02
+
+source_sha: 02586b250020d924be3338ae6e72caaef66d8871
+implementation: |
+  Synchronized the legacy crawl owner with the event sequencer at the
+  measured SWING boundary. A planner-prepared endpoint with an old start
+  frame no longer reaches the WBC corner-catch check as the new event;
+  both endpoint and origin are rebound at the sequencer boundary. The
+  legacy four-foot SHIFT override is released only when the sequencer
+  publishes SWING/COMMIT. Terrain staged targets are sampled from the
+  current measured foot and lidar map rather than a future-pose planner
+  endpoint. The sequencer receives the current measured COM margin before
+  its handoff recheck and retains the fixed swing deadline for support loss.
+
+crawl_step_swing_attribution: |
+  Order-067 diag2 at SHA f1073745 reached sequencer SWING while the legacy
+  state remained SHIFT_COM. The old FL transaction was start=(0.594689,
+  0.117536,0.013969), target=(0.890479,0.117535,0.071995), phase=0.481;
+  the measured foot was (0.611769,0.115989,0.022924). The unchanged
+  leading-edge/corner-catch check therefore observed contact before its
+  inferred edge and recorded failure=7, then SWING had no committed
+  transaction. Fix1 rebound the mismatched start frame. Fix2 reached
+  CRAWL_STEP/SWING but retained the four-foot WBC mask; fix5 showed the
+  sequencer handoff was 0.120 s before the existing 0.40+0.20 s geometric
+  witness. Fix6 tightened the sequencer handoff to that witness but exposed
+  a readiness deadlock: com_margin was assigned after the recheck. Fix7
+  repaired ordering; diag6 confirmed measured target valid=1 for FL at
+  base-frame foot=(0.209084,0.113114,-0.349739). The resulting target was
+  x=0.823705,z=0.106805 and SWING began at t=11.432082 after CRAWL_STEP
+  at t=11.432082. It still stopped on measured support loss: at t=11.834078
+  FR/FL/RR/RL forces were 0/0/82/51 N and contacts 0/0/1/1, before the
+  fixed 0.60 s swing deadline. No gate/analyzer/canary threshold changed.
+
+evidence: |
+  Commands used serial flock on /tmp/go2_mujoco_experiment.lock, domain
+  229, LD_PRELOAD=/home/che/dds_base4000_preload.so, duration=30, wall=35.
+  order067_staged_seed195_diag2: failure=7 corner catch at the stale
+  timeline; order067_staged_seed195_fix2: CRAWL_STEP/SWING, support loss;
+  order067_staged_seed195_fix4: measured target x=0.824104,z=0.106832,
+  support loss at t=12.580066; order067_staged_seed195_fix10:
+  CRAWL_STEP/SWING, target x=0.823705,z=0.106805, support contacts
+  FR/FL/RR/RL=0/0/1/1 at abort. Full staged FL/FR/RR/RL commits,
+  ADVANCE/CLEAR/RESUME were not achieved. Full reconnect, B0 3x and flat
+  20/20 were not launched in this window.
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  Worktree clean after source commit; no push and no amend.
+commit_chain: |
+  f736ac9, 950af46, f107374, 02586b2. Documentation append is pending
+  its own commit.
