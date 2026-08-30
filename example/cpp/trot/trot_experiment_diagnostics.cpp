@@ -77,6 +77,16 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_crawl_state,terrain_crawl_active_leg"
          << ",terrain_event_sequencer_state,terrain_event_sequencer_active_leg"
          << ",terrain_event_sequencer_control_authority"
+         << ",terrain_event_sequencer_authority_trot_full_contact_able"
+         << ",terrain_event_sequencer_authority_contacts_ready"
+         << ",terrain_event_sequencer_authority_velocity_ready"
+         << ",terrain_event_sequencer_authority_posture_ready"
+         << ",terrain_event_sequencer_authority_stand_transition_seen"
+         << ",terrain_event_sequencer_authority_block_reason"
+         << ",terrain_event_sequencer_authority_velocity_mps"
+         << ",terrain_event_sequencer_authority_roll_rad"
+         << ",terrain_event_sequencer_authority_pitch_rad"
+         << ",terrain_event_sequencer_stage_abort_reason"
          << ",terrain_event_sequencer_stand_transition_requested"
          << ",terrain_event_sequencer_com_reference_valid"
          << ",terrain_event_sequencer_com_reference_x_m"
@@ -1009,6 +1019,16 @@ void TrotExperiment::LogSample(
          << "," << (terrain_crawl_sequencer_output_.active_leg < go2::kLegCount
                 ? static_cast<int>(terrain_crawl_sequencer_output_.active_leg) : -1)
          << "," << (terrain_crawl_sequencer_output_.control_authority_active ? 1 : 0)
+         << "," << (terrain_crawl_sequencer_output_.authority_trot_full_contact_able ? 1 : 0)
+         << "," << (terrain_crawl_sequencer_output_.authority_measured_contacts_ready ? 1 : 0)
+         << "," << (terrain_crawl_sequencer_output_.authority_velocity_ready ? 1 : 0)
+         << "," << (terrain_crawl_sequencer_output_.authority_posture_ready ? 1 : 0)
+         << "," << (terrain_crawl_sequencer_output_.authority_stand_transition_seen ? 1 : 0)
+         << "," << terrain_crawl_sequencer_output_.authority_block_reason
+         << "," << terrain_crawl_sequencer_output_.authority_velocity_mps
+         << "," << terrain_crawl_sequencer_output_.authority_roll_rad
+         << "," << terrain_crawl_sequencer_output_.authority_pitch_rad
+         << "," << terrain_crawl_sequencer_output_.stage_abort_reason
          << "," << (terrain_crawl_sequencer_output_.stand_transition_requested ? 1 : 0)
          << "," << (terrain_crawl_sequencer_output_.com_reference_valid ? 1 : 0)
          << "," << terrain_crawl_sequencer_output_.com_reference_world.x

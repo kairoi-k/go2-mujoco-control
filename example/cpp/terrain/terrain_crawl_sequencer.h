@@ -128,6 +128,18 @@ struct TerrainCrawlSequencerOutput
     // False while the window is merely armed; consumers must keep trot
     // contacts, swing targets, and COM authority unchanged in that phase.
     bool control_authority_active = false;
+    // Per-tick authority witness. These fields make the handoff boundary
+    // attributable without inferring predicates from downstream behavior.
+    bool authority_trot_full_contact_able = false;
+    bool authority_measured_contacts_ready = false;
+    bool authority_velocity_ready = false;
+    bool authority_posture_ready = false;
+    bool authority_stand_transition_seen = false;
+    int authority_block_reason = 0; // 1=trot phase, 2=contacts, 3=speed, 4=posture
+    double authority_velocity_mps = 0.0;
+    double authority_roll_rad = 0.0;
+    double authority_pitch_rad = 0.0;
+    int stage_abort_reason = 0; // 1=STAGE timeout
     // Identifies the non-contract flat-ground isolation harness.
     bool flat_ground_mode = false;
     // A phase-respecting stop may be requested while still armed; this is
@@ -219,6 +231,7 @@ public:
         output_ = {};
         authority_active_ = false;
         authority_com_reference_ = {};
+        stage_abort_reason_ = 0;
         authority_com_reference_valid_ = false;
         stand_transition_seen_ = false;
         committed_.fill(false);
@@ -256,8 +269,11 @@ public:
                 stand_transition_seen_ = true;
                 return Publish(input);
             }
-            if (stand_boundary && stand_transition_seen_ &&
-                std::isfinite(input.measured_velocity_mps) &&
+            // After the one-tick running-trot boundary request, staging owns
+            // a measured standstill. Requiring the trot phase again is
+            // unreachable when braking has already stopped that gait.
+            if (stand_transition_seen_ && input.measured_contact_valid &&
+                contacts >= 3 && std::isfinite(input.measured_velocity_mps) &&
                 input.measured_velocity_mps <= 0.04 &&
                 input.measured_posture_valid &&
                 std::abs(input.measured_roll_rad) <= 0.08 &&
@@ -329,7 +345,10 @@ public:
                 stage_stable_start_s_ = std::numeric_limits<double>::infinity();
             if (!finite_time || input.now_s - state_enter_s_ + 1.0e-9 >=
                     kStageTimeoutS)
+            {
+                stage_abort_reason_ = 1;
                 SetState(TerrainCrawlSequencerState::kAbort, input.now_s);
+            }
             break;
         }
         case TerrainCrawlSequencerState::kShift:
@@ -597,6 +616,35 @@ private:
             state_ != TerrainCrawlSequencerState::kInactive &&
             state_ != TerrainCrawlSequencerState::kAbort;
         output_.flat_ground_mode = input.flat_ground_mode;
+        output_.measured_contact_count = input.measured_contact_valid
+            ? static_cast<int>(std::count(input.measured_contact.begin(),
+                                          input.measured_contact.end(), true))
+            : 0;
+        output_.authority_trot_full_contact_able = input.trot_full_contact_able;
+        output_.authority_measured_contacts_ready = input.measured_contact_valid &&
+            output_.measured_contact_count >= 3;
+        output_.authority_velocity_mps = input.measured_velocity_mps;
+        output_.authority_velocity_ready = std::isfinite(input.measured_velocity_mps) &&
+            input.measured_velocity_mps <= 0.04;
+        output_.authority_roll_rad = input.measured_roll_rad;
+        output_.authority_pitch_rad = input.measured_pitch_rad;
+        output_.authority_posture_ready = input.measured_posture_valid &&
+            std::isfinite(input.measured_roll_rad) &&
+            std::isfinite(input.measured_pitch_rad) &&
+            std::abs(input.measured_roll_rad) <= 0.08 &&
+            std::abs(input.measured_pitch_rad) <= 0.08;
+        output_.authority_stand_transition_seen = stand_transition_seen_;
+        if (!authority_active_ && !input.flat_ground_mode) {
+            if (!stand_transition_seen_ && !input.trot_full_contact_able)
+                output_.authority_block_reason = 1;
+            else if (!output_.authority_measured_contacts_ready)
+                output_.authority_block_reason = 2;
+            else if (!output_.authority_velocity_ready)
+                output_.authority_block_reason = 3;
+            else if (!output_.authority_posture_ready)
+                output_.authority_block_reason = 4;
+        }
+        output_.stage_abort_reason = stage_abort_reason_;
         output_.stand_transition_requested = !output_.control_authority_active &&
             input.trot_full_contact_able && input.measured_contact_valid &&
             std::count(input.measured_contact.begin(),
@@ -607,10 +655,6 @@ private:
         // Keep flat isolation unchanged, but lift the transfer apex above
         // the 5 cm surface step plus the calibrated foot-site offset.
         output_.swing_lift_m = input.flat_ground_mode ? 0.015 : 0.08;
-        output_.measured_contact_count = input.measured_contact_valid
-            ? static_cast<int>(std::count(input.measured_contact.begin(),
-                                          input.measured_contact.end(), true))
-            : 0;
         if ((output_.active_leg < go2::kLegCount ||
              state_ == TerrainCrawlSequencerState::kStage) &&
             input.measured_feet_valid && input.measured_com_valid)
@@ -708,6 +752,7 @@ private:
     go2::Vec3 authority_com_reference_{};
     bool authority_com_reference_valid_ = false;
     bool stand_transition_seen_ = false;
+    int stage_abort_reason_ = 0;
     std::array<bool, go2::kLegCount> committed_{};
     TerrainCrawlSequencerOutput output_{};
 };

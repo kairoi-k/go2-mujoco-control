@@ -2006,6 +2006,10 @@ int main()
         x.trot_full_contact_able = true;
         x.now_s = 0.01;
         seq.Update(x);
+        // The stand request is the only trot-phase boundary. Once staging
+        // has seen it, authority must be reachable from a stopped measured
+        // stance even when the trot phase is no longer four-contact-able.
+        x.trot_full_contact_able = false;
         x.now_s = 0.02;
         seq.Update(x);
         if (!Check(seq.output().control_authority_active &&
