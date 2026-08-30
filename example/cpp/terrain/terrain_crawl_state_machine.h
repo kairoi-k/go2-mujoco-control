@@ -459,7 +459,8 @@ public:
         // selecting another target; otherwise recovery would retry that leg.
         if (!signals.step_failed && state_ == TerrainCrawlState::kShiftCom) {
             const std::size_t leg = ActiveLegForSupport();
-            if (leg < go2::kLegCount && committed_latched_[leg]) {
+            if (leg < go2::kLegCount && committed_latched_[leg] &&
+                ForceBalanceReady(signals, leg)) {
                 if (order_index_ == 1)
                     SetState(TerrainCrawlState::kAdvanceBody, signals.now_s);
                 else if (order_index_ + 1 < kLegOrder.size()) {
@@ -684,7 +685,8 @@ public:
             // landed leg can make the old active-leg subtraction report one
             // support and abort before FR SHIFT_COM is entered.
             const bool active_leg_committed = leg < go2::kLegCount &&
-                signals.plan_valid && committed_latched_[leg];
+                signals.plan_valid && committed_latched_[leg] &&
+                ForceBalanceReady(signals, leg);
             if (active_leg_committed)
             {
                 retry_count_ = 0;
@@ -746,7 +748,7 @@ public:
             UpdateComTarget(signals);
             if (leg >= go2::kLegCount || !three_contacts ||
                 !signals.plan_valid || !signals.target_valid[leg] ||
-                !committed_latched_[leg])
+                !committed_latched_[leg] || !ForceBalanceReady(signals, leg))
                 break;
             retry_count_ = 0;
             if (order_index_ == 1)
@@ -762,7 +764,8 @@ public:
         }
         case TerrainCrawlState::kAdvanceBody:
             if (signals.plan_valid && three_contacts &&
-                signals.rear_targets_fk_reachable)
+                signals.rear_targets_fk_reachable &&
+                ForceBalanceReady(signals, go2::kLegCount))
             {
                 ++order_index_;
                 SetState(TerrainCrawlState::kShiftCom, signals.now_s);
