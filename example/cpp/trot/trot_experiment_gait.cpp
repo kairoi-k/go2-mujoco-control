@@ -1996,6 +1996,7 @@ bool TrotExperiment::BuildGaitTargets(
                 go2_terrain::TerrainCrawlSequencerState::kSwing &&
             sequencer_output.target_valid &&
             sequencer_output.active_leg < go2::kLegCount;
+        crawl_signals.swing_active_leg = sequencer_output.active_leg;
         crawl_signals.swing_start_world = sequencer_output.swing_start_world;
         crawl_signals.swing_target_world = sequencer_output.target_world;
         crawl_signals.measured_foot_valid = have_actual_world_feet;
