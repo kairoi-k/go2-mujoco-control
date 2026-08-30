@@ -2554,7 +2554,8 @@ bool TrotExperiment::BuildGaitTargets(
             }
             if (execution.valid && !execution.endpoint_held &&
                 !execution.in_flight &&
-                !execution.time_rebased_at_handoff)
+                !execution.time_rebased_at_handoff &&
+                !terrain_transfer_window_active_)
             {
                 // A plan may be prepared while the leg is in stance, but
                 // the body and the loaded foot can move before the actual
