@@ -1914,7 +1914,7 @@ canary_command: |
   --step-length 0.15 --foot-lift 0.08 --tau-limit 45
   --velocity-command-script configs/phase2_b1_velocity_0p3.csv
   --scene-file unitree_robots/go2/phase2_flat.xml --domain-id 229.
-  Five serial exploratory runs were recorded: epoch44, _r2, _r3, _r4, _r6.
+  Six serial exploratory runs were recorded: epoch44, _r2, _r3, _r4, _r5, _r6.
 flat_trace: |
   The final post-fix run epoch44_r6 produced 9,953 CSV rows and a controlled
   flat sequencer interval from t=4.300 s to the first ABORT at t=5.012 s
@@ -1928,7 +1928,7 @@ flat_trace: |
   (3.32 deg). After abort the inherited stop path eventually inverted, so
   its post-abort roll is not used as controlled-walk evidence.
 verdict: |
-  FLAT CRAWL CANNOT WALK: 0/5 runs reached 5 s, 0/5 recorded a measured
+  FLAT CRAWL CANNOT WALK: 0/6 runs reached 5 s, 0/6 recorded a measured
   commit, and 0/5 reached ADVANCE. The decisive failure is execution-layer
   support retention at the first swing (the controlled witness falls below
   three contacts), not terrain perception or foothold selection. The flat
