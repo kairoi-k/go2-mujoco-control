@@ -1509,3 +1509,5 @@ validation: |
   incomplete-crossing analyzer failures are expected exploratory evidence;
   no analyzer threshold or contract was changed.
 git_status: local commits only; no push/amend; simulations serialized.
+
+B0 regression for the ledger diff: phase2_b0_development_fixed_3mps_r0_20260830_103636 returned acceptance_status=PASS with controller_status=0, quality_status=0, safety_status=0, no_terrain_actuation=true, planner_deadline_misses=0, analyzer_hash=true, contract_hash=true, and terrain_rows=39086. The paired diagnostic report contains its existing non-gating command-profile comparison warnings; fixed analyzer acceptance remained PASS.
