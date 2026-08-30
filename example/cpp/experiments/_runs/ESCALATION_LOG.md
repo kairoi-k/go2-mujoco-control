@@ -1445,14 +1445,16 @@ canary_command: |
   domain 229, LD_PRELOAD=/home/che/dds_base4000_preload.so, phase2_step_5cm.xml,
   unchanged epoch28 arguments, --controller-duration 30 (wall timeout 35 s).
 canary_trace: |
-  b1_script_epoch72_20260828: stochastic entry reached SHIFT_COM at
-  6.790 s but stopped before FL CRAWL_STEP; no FR/FL commit. The run ended
-  at 10.054 s in the safety path. The repeated run after the final rebuild
-  had the same upstream entry outcome. _r2 reached SHIFT_COM at 6.496 s
-  and aborted in the pre-FL segment at 9.624 s; no commit. These are
-  accepted stochastic pre-FL outcomes and do not support a door-level
-  conclusion. The epoch71 r1 reconstruction remains the FR-directed
-  mechanism evidence.
+  Final-code b1_script_epoch72_20260828: entry reached SHIFT_COM at
+  6.750 s, FL CRAWL_STEP at 8.186 s, and recorded one FL commit. Its
+  bounded recovery is visible as SHIFT_COM recovery_count=1 at 8.436 s;
+  it retried FL CRAWL_STEP at 9.814 s and then returned to SHIFT_COM at
+  10.404 s without FR commit before safety termination. _r2 reached
+  SHIFT_COM at 6.790 s, FL CRAWL_STEP at 8.110 s, then one bounded
+  recovery at 8.354 s and stopped before a commit. Both runs were
+  controller-duration=30 attempts, serialized on domain 229. The required
+  FR commit/ADVANCE_BODY success criterion remains unmet; these are
+  exploratory stochastic results, not a door-level conclusion.
 validation: |
   ctest --test-dir example/cpp/build --output-on-failure: 27/27 passed.
   test_terrain_interfaces includes the displacement-scaled ramp, force/static
@@ -1463,4 +1465,4 @@ validation: |
   no_terrain_actuation=true, planner_deadline_misses=0, terrain_rows=39015.
   No v1 contract, analyzer threshold, or canary definition changed; no
   gate-level conclusion is made.
-git_status: local implementation/docs commit pending; no push/amend; simulations serialized.
+git_status: local implementation commits 51c1b67, ffeeff5 plus docs append; no push/amend; simulations serialized.
