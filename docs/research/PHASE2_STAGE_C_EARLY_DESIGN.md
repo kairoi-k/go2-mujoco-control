@@ -103,7 +103,7 @@ phase_offset[leg] = wrap((t_touch[i] - t_now) / T)  # derived telemetry only
 
 这是执行期的硬门禁，不是 analyzer 软指标。每个控制 tick 重新计算 `measured_contact`：沿用现有 `HystereticContactParams` 和 `UpdateHystereticContact`（`example/cpp/contact/contact_state_filter.h:8-38`），当前运行参数为 engage `>=5 N`、release `<=3 N`（`example/cpp/trot/trot_types.h:55-56`，调用于 `trot_experiment_wbc.cpp:264-278`）。力值非有限或参数非法即判定观测无效并走回退。kinematic 判据不新造阈值：touchdown promotion 只能复用 `TerrainTouchdownTolerance`（`terrain_motion_plan.h:15-29`，窗口内下限 45 mm）及现有 endpoint error 检查（`trot_experiment_wbc.cpp:445-459`）；仅有位置接近、没有 filter contact bit，永远不能算支撑。
 
-定义 `M(t)=count(measured_contact[t])`。当任一控制 tick `N` 检出 `M(N)<3`，在同一 tick 锁存 `support_guard`：禁止新的 swing、禁止 touchdown commit、禁止扩展/推进 contact schedule；已在途 swing 的目标与起点不再漂移，只允许执行适配器在下一 tick 以内（`N+1`，当前 500 Hz 环境即不超过约 2 ms）冻结其计划进度并进入 recovery。适配器职责是计划生命周期：按以下固定链执行，而不把计划接触伪装成测量接触：
+定义 `M(t)=count(measured_contact[t])`，其中输入必须是 WBC 控制线程 `UpdateHystereticContact` 的输出（`trot_experiment_wbc.cpp:264-278`）；不得使用 `PublishTerrainControlSnapshot` 中随后按 gait phase 屏蔽的 planner 观测副本（`trot_experiment_control.cpp:206-217`）来伪造接触恢复。当任一控制 tick `N` 检出 `M(N)<3`，在同一 tick 锁存 `support_guard`：禁止新的 swing、禁止 touchdown commit、禁止扩展/推进 contact schedule；已在途 swing 的目标与起点不再漂移，只允许执行适配器在下一 tick 以内（`N+1`，当前 500 Hz 环境即不超过约 2 ms）冻结其计划进度并进入 recovery。适配器职责是计划生命周期：按以下固定链执行，而不把计划接触伪装成测量接触：
 
 1. `N`：保留当前 measured mask，停止新事件；向现有 v_cmd shaper 提交带 `plan_id` 的减速至零/安全 cap 请求。
 2. `N+1`：尝试加载 `latest-valid plan` 的 bounded recovery segment；只允许保持当前已测支撑并把已有在途腿导向该计划中已验证的 touchdown，不能发明落点。期间最多保持一个预冻结的 filter latency grace；WBC 的实际 contact mask 仍是 measured/fused mask。
