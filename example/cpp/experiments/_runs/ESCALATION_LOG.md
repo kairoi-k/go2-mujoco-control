@@ -4699,3 +4699,72 @@ rollback: |
 acceptance: |
   End-to-end staged adapter evidence >=3: PASS. Unit/ctest: PASS. B0 flag-off:
   PASS. No full B1 campaign and no C-004. Commit and push remain required.
+
+---
+timestamp: 2026-09-01T02:20:00+0800
+run_id: Order-099 C-004 coherent SRBD horizon runtime closure
+source_sha: 741eda7d4072e06b660b785c40dbcbac74f6601e
+scope: |
+  C-004 only.  Starting from 8186a01, the diagnostics-only follow-up exposes
+  one machine-readable C004_SRBD_WITNESS per MPC update when
+  TROT_TERRAIN_C004_DIAGNOSTICS=1.  It records gait-adopted and SRBD plan/map/
+  input identities, status/deadline/latency, per-knot contact masks and lever
+  arms, full body references, measured mask, rejection and measured-support
+  fallback.  It does not alter SolveSrbdMpc, first acceleration, ID-WBC, or
+  safety policy.  The adapter exposes its exact adopted immutable snapshot so
+  MPC cannot consume a newer store plan than gait.
+commands: |
+  B0 flag-off fixed pair (serial, domains 222/223, base4000 preload):
+  TROT_CPU_AUTOPIN=1 SUSTAINED_SPRINT_DURATION_S=40
+  SUSTAINED_SPRINT_WALL_TIMEOUT_S=75 bash
+  example/cpp/scripts/run_phase2_b0_fixed_pair.sh development 0
+  Result: analyzer acceptance_status=PASS, git_head=8186a01; no_terrain_actuation=true,
+  no_plan_consumer=true, no_plan_publish=true, planner_deadline_misses=0,
+  planner_updates=2588, legacy_status_pass=true.  Paired period/duty and WBC
+  requested-acceleration/velocity-target differences were diagnostic-only
+  non-gating differences (period max 0.020 s, duty max 0.096392648,
+  requested-acc max 2.76441776 m/s2, velocity-target max 1.342743626 m/s).
+  No B0 gate threshold was changed.
+  Probe S (staged-start, domain 229, base4000 preload, shadow diagnostics,
+  source 8186a01): immediate hard posture safety failure (roll about 85.98 deg,
+  safety_status=1); stopped without more staged-start runs.  All 856 shadow
+  records had chosen_shadow_hash=0 and v2-b feasible=0, and no C004 witness
+  existed, so this was not coherent SRBD-consumption failure.  The harness
+  conclusion is staged-start unsuitable: sensor-derived map/safe-region was
+  not warmed for a feasible plan.
+  Probes A/B used normal full approach (no --staged-start), serial domains
+  231/232, phase2_step_5cm.xml, --terrain-planner --stage-c-execution,
+  TROT_TERRAIN_SHADOW_DIAGNOSTICS=1, TROT_TERRAIN_C004_DIAGNOSTICS=1,
+  LD_PRELOAD=/home/che/dds_base4000_preload.so, and the existing CPU affinity
+  and process locks.  They were development/no-gate probes, not B1 campaign.
+probe_validation: |
+  |run|source|shadow records|map/safe-region first|consumed witness|gait plan_id/map/input_hash|SRBD plan_id/epoch/map/input_hash|identity mismatches|MPC p50/p95/max us|deadline misses|contact mask horizon|fallback|safety|ID-WBC|
+  |order099_c004_approach_2|741eda7|736|true/true|2|329/329/14287103836424179167|329/329/329/14287103836424179167|0|258.712/290.561/1186.738|0|15,14,14,14,14,14,14,14 or 14,14,14,14,14,14,14,15|measured-support:N+1/N+5/N+25|PASS|unchanged, wbc_full_id_ok=1|
+  |order099_c004_approach_3|741eda7|736|true/true|2|314/314/976540492821469563|314/314/314/976540492821469563|0|243.894/277.141/1207.932|0|15,14,14,14,14,14,14,14 or 14,14,14,14,14,14,14,15|measured-support:N+5/N+25|PASS|unchanged, wbc_full_id_ok=1|
+  Both consumptive rows in each successful run carried complete full-state body
+  references and finite contact lever arms; measured-contact mask remained a
+  separate safety input.  CSV rows show SRBD/ID-WBC status 1.  Adapter rejects
+  were not mixed into MPC: rejection was not_at_event_boundary_or_in_flight;
+  post-expiry path was measured-support:N+25.  Probe S had no coherent
+  consumption and is retained only as the stop/rollback witness.
+rollback: |
+  On Probe S, stopped immediately and did not continue staged-start.  The
+  feature rollback remains --stage-c-execution omitted/false; no code rollback
+  was made because no coherent plan was consumed and supervisor directed that
+  8186a01 be retained.  No C-005, full B1, or NMPC work was performed.
+artifacts: |
+  B0: _runs/phase2_b0_development_fixed_3mps_r0_20260901_020144_{baseline,terrain}
+  Stop witness: _runs/order099_c004_probe_1
+  Successful no-gate probes: _runs/order099_c004_approach_{2,3}
+  C004 witness lines are in each controller.log; data.csv and run_manifest.json
+  preserve measured safety, planner, gait, MPC, and ID-WBC fields.
+validation: |
+  cmake --build example/cpp/build -j2 --target real_trot_go2 test_srbd_mpc: PASS.
+  ctest --test-dir example/cpp/build --output-on-failure: 27/27 PASS.
+  git diff --check: PASS; working tree clean before this log append.
+acceptance: |
+  B0 flag-off analyzer PASS.  One unsuitable staged-start probe stopped on
+  safety before consumption.  Two normal full-approach no-gate probes reached
+  coherent consumption with zero identity mismatches, complete knot witnesses,
+  no MPC deadline misses, no immediate safety failure, and unchanged ID-WBC.
+  This is runtime evidence only; no B1 acceptance claim.
