@@ -4471,3 +4471,17 @@ rollback: |
 acceptance: |
   Shadow output remains observer-only; B0 PASS/no actuation evidence and the
   four-run A/B table are recorded above. No contract amendment was made.
+
+final_replay: |
+  After rebuilding real_trot_go2 at final source SHA
+  ad63a738dee4dcd222246f297ce287140b7169d3, four additional serial
+  shadow-only 5-cm runs used the same domain-229/base4000/preload command.
+  |run|A cand/feas|B cand/feas|B dominant reject|latency us|deadline miss|
+  |order094_b1_shadow_ad63_0|729/0|729/0|aerial=729|1171.5|false|
+  |order094_b1_shadow_ad63_1|729/0|729/0|aerial=729|1125.6|false|
+  |order094_b1_shadow_ad63_2|729/0|729/0|aerial=729|1192.2|false|
+  |order094_b1_shadow_ad63_3|729/0|729/0|aerial=729|1164.1|false|
+  These remain development smoke results: the 8-second wrapper is too short
+  for the inherited quantitative analyzers, and no actuation/gate claim is
+  made. The B rejection is specifically the no-aerial check, so the rule is
+  still NOT TRIGGERED.
