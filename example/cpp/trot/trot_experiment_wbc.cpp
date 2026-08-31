@@ -1747,9 +1747,19 @@ void TrotExperiment::UpdateWbcFull(
     const double w_lin_x_ov = Full2EnvDouble("FULL2_W_LIN_X", -1.0);
     if (w_lin_x_ov >= 0.0)
         id_params.w_base_lin_x = w_lin_x_ov;
-    id_params.w_base_ang = terrain_crawl_stance
-        ? 80.0
-        : (params_.cartesian_world ? (80.0 + 30.0 * cart_lock) : 40.0);
+    // A committed raised FL changes the support plane before the second
+    // SHIFT. Give that sequencer-owned stance orientation enough authority
+    // to arrest the measured roll excursion; keep the first FL transfer at
+    // the established weight and leave flat WBC weights unchanged.
+    const bool terrain_fl_committed =
+        terrain_crawl_sequencer_output_.control_authority_active &&
+        terrain_crawl_sequencer_output_.committed[
+            static_cast<std::size_t>(go2::Leg::FL)];
+    id_params.w_base_ang = terrain_fl_committed
+        ? 240.0
+        : (terrain_crawl_stance
+               ? 80.0
+               : (params_.cartesian_world ? (80.0 + 30.0 * cart_lock) : 40.0));
     const double w_ang_ov = Full2EnvDouble("FULL2_W_ANG", -1.0);
     if (w_ang_ov > 0.0)
         id_params.w_base_ang = w_ang_ov;

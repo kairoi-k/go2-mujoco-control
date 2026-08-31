@@ -128,14 +128,14 @@ int main()
                        first.position_base.x == repeat.position_base.x &&
                        first.position_base.y == repeat.position_base.y &&
                        first.position_base.z == repeat.position_base.z &&
-                       first.position_base.x >= 0.58,
-                   "script target was not deterministic or edge-stand-off safe"))
+                       first.position_base.x >= 0.66,
+                   "FL script target was not deterministic or plateau-safe"))
             return 1;
         const auto fr = go2_terrain::MeasureTerrainScriptTarget(
             model, go2::Leg::FR, {0.30, -0.10, -0.25});
-        if (!Check(fr.valid && fr.position_base.x == first.position_base.x &&
+        if (!Check(fr.valid && fr.position_base.x < first.position_base.x &&
                        fr.position_base.y < 0.0 && fr.edge_margin_m >= 0.025,
-                   "FR script target did not receive the same valid map supply"))
+                   "FL/FR script targets did not preserve leg-specific stand-off"))
             return 1;
         const auto yawed = go2_terrain::MeasureTerrainStagingReference(
             model, {1.0, 2.0, 0.0}, 1.5707963267948966, 0.30);
@@ -149,7 +149,7 @@ int main()
         // still recognize the elevated script target.
         const auto site_height = go2_terrain::MeasureTerrainScriptTarget(
             model, go2::Leg::FL, {0.30, 0.0, -0.228});
-        if (!Check(site_height.valid && site_height.position_base.z == 0.05,
+        if (!Check(site_height.valid && std::abs(site_height.position_base.z - 0.05) < 1.0e-9,
                    "script target did not apply the foot-site offset"))
             return 1;
 

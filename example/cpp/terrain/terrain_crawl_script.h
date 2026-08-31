@@ -220,6 +220,12 @@ inline TerrainScriptTarget MeasureTerrainScriptTarget(
     if (!std::isfinite(edge_x))
         return result;
 
+    // The first raised foothold is the roll-sensitive FL corner. Keep its
+    // contact patch farther onto the plateau than the generic edge stand-off;
+    // a near-edge touchdown can transmit an unmodeled riser moment into roll.
+    const double effective_stand_off_m =
+        leg == go2::Leg::FL ? std::max(stand_off_m, 0.160) : stand_off_m;
+
     bool have_best = false;
     double best_progress = std::numeric_limits<double>::infinity();
     double best_lateral = std::numeric_limits<double>::infinity();
@@ -235,10 +241,11 @@ inline TerrainScriptTarget MeasureTerrainScriptTarget(
             const double y = terrain.origin_m[1] +
                 (static_cast<double>(iy) + 0.5) * step;
             const double progress = x - current_foot_base.x;
-            if (progress < stand_off_m || progress > kMaximumProgressM ||
+            if (progress < effective_stand_off_m ||
+                progress > kMaximumProgressM ||
                 std::abs(y - current_foot_base.y) >
                     kForwardCorridorHalfWidthM ||
-                x < edge_x + stand_off_m)
+                x < edge_x + effective_stand_off_m)
                 continue;
             TerrainPatch patch;
             if (!terrain.SamplePatch(x, y, patch_radius_m, patch) ||
