@@ -402,13 +402,21 @@ inline bool SolveInverseDynamicsWbc(
             if (normal.z() < 0.0)
                 normal = -normal;
         }
+        if (!input.contact[leg])
+            continue;
         const Eigen::Vector3d force =
             output.force.segment<3>(3 * static_cast<int>(leg));
         const double fn = normal.dot(force);
-        const double tangent = (force - fn * normal).norm();
+        const Eigen::Vector3d tangent_x =
+            std::abs(normal.z()) < 0.9
+                ? normal.cross(Eigen::Vector3d::UnitZ()).normalized()
+                : Eigen::Vector3d::UnitX();
+        const Eigen::Vector3d tangent_y = normal.cross(tangent_x).normalized();
+        const double axis_limit = params.friction_mu / std::sqrt(2.0) * fn;
         output.normal_force[leg] = fn;
-        output.friction_ratio[leg] = fn > 1.0e-9
-            ? tangent / (params.friction_mu * fn) : 0.0;
+        output.friction_ratio[leg] = axis_limit > 1.0e-9
+            ? std::max(std::abs(tangent_x.dot(force)),
+                       std::abs(tangent_y.dot(force))) / axis_limit : 0.0;
     }
     if (output.eq_residual >= 5.0)
         return false;
