@@ -3416,3 +3416,50 @@ commit_chain: |
 
 Order-073 correction — source_sha: d3ba55e0099940ecf0fb7a23134feb896be191bd
 The fix6 serial staged artifact did reach the mixed-height FR SWING (t=14.362--14.862 s), not merely the first FL boundary. At entry ID-WBC requested FR≈0, FL=(2.0,-1.2,47.4), RR=(3.1,-1.7,59.3), RL=(3.8,-1.7,54.7) N, with FL cone activity 0 and QP cost 326.5; measured forces were 26/28/42/52 N. Near t=14.772 the requested stance was FL=(0.5,-2.2,47.7), RR=(2.0,-3.0,57.2), RL=(4.1,-3.0,51.4) N while measured was 45/53/50 N. Collapse at t=14.854 showed requested FL=(17.0,0.1,29.8), RR=(0.5,-3.2,46.1), RL=(10.4,-3.6,51.0) N but measured RR=1 and RL=19 N; QP residual was 7.7e-6, cost 9.04e5, max tau 155.5 N·m, and FL cone ratio 0.71 (not active). Thus classification is (c): the nominal QP equality residual is small but the realized torque/plant diverges. This run did not complete the sequence; no crossing/full-run/B0/flat claims.
+
+---
+
+Order-074 implementation update — 2026-09-02
+
+source_sha: 261abd6388c18672e20b9cd395fce7cefe4ae125
+forensics: |
+  Re-read the corrected Order-073 evidence: at t=14.854 s the ID-WBC
+  equality residual was 7.7e-6 while RR/RL measured force fell to 1/19 N;
+  the aggregate WBC torque diagnostic reached 155.5 N m. The historical
+  CSV has no per-joint ID-WBC torque vector, so that artifact cannot safely
+  attribute 155.5 N m to one joint. It does show the QP was already
+  physically diverging at the same tick, rather than a friction-cone
+  activation (FL ratio 0.71, inactive). Joint state telemetry remained
+  inside the XML ranges at the available pre-collapse samples (knee
+  range -2.7227..-0.83776 rad; observed q about -1.04 rad).
+
+  New per-tick telemetry was added for the next probe. In
+  order074_staged_seed195_guard05, the largest accepted ID-WBC joint was
+  RL_calf at 35.0008789 N m (t=20.040 s), with the other joints below it;
+  the bounded FL swing task acceleration was (-0.497,-0.743,0.078) m/s2
+  there. The physical failure began after FL COMMIT: at t=17.858 s the
+  SHIFT(leg=FR) sample changed from roll 0.146 rad to 0.183 rad while
+  FL/RR forces were already 0 N (FR/RL 55/73 N), then crossed 0.203 rad at
+  t=17.866 s; base z fell 0.4082 to 0.4068 m. Thus support liftoff/body
+  motion precedes the later hard posture stop, not a mid-swing FR/riser
+  collision (the swing foot was above the 0.05 m plateau by about 0.05 m).
+
+implementation: |
+  SolveInverseDynamicsWbc now validates the realized tau vector against
+  every torque inequality and rejects an equality-accurate ADMM iterate
+  with a violation greater than 0.05 N m; the caller retains the last
+  validated solution. This specifically blocks the 155 N m numerical
+  iterate from reaching the plant without changing v1, analyzer, canary,
+  or safety gates. CSV now records each ID-WBC joint torque and each swing
+  task acceleration per tick.
+
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest: 27/27 PASS;
+  git diff --check: PASS. Three serial staged probes with domain 229,
+  DDS preload, Base=4000, duration 30/wall 35 and --staged-start all
+  avoided the 155 N m iterate but stopped before a full sequence. The
+  best probe order074_staged_seed195_guard05 reached FL COMMIT once, then
+  failed in FR SHIFT; no staged >=3, full reconnect, fresh flat 20/20,
+  fresh B0 3x, crossing, or confirmation claim is made.
+commit_chain: |
+  4bcb5a5, 588f325, 261abd6. No push or amend.
