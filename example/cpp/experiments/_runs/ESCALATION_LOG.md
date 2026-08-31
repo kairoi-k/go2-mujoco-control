@@ -3746,3 +3746,56 @@ validation: |
 commit_chain: |
   5107827, b9c898e, d447719, cc3dbbc, 9d7caca, b088e90, c6515e6,
   6902b8b, 8de45e5, 1a06b68. No push or amend.
+
+---
+
+Order-080 implementation update — 2026-09-02
+
+source_sha: f029efac5ca8ec1eb1b88f3a0be4496fb622161b
+forensics: |
+  Rebuilt from the clean Order-079 source and ran serial staged-start probes
+  under /tmp/go2_mujoco_experiment.lock, domain 229, Base=4000 preload,
+  30 s controller/35 s wall. The named stop was downstream of SHIFT only in
+  the sense that the current source still cannot retain the FL witness:
+  264 reached COMMIT with target=(0.871431,0.073323) and final foot
+  (0.634012,0.227578), contact=0; 265 reached COMMIT then ABORT with target
+  x=0.920673 and foot=(0.940015,0.160776), contact=0. 269 reached COMMIT then
+  ABORT at target=(0.920021,0.073318), foot=(0.942306,0.088301), contact=0.
+  271 likewise COMMIT->ABORT at target=(0.871729,0.073321), foot=(0.762479,
+  0.172126), contact=0. 274-278 all reached COMMIT and then ABORT where
+  endpoint/contact was not simultaneously witnessed. No run reached FR,
+  ADVANCE_BODY, RR, RL, CLEAR, or RESUME. This is not counted as a staged
+  sequence completion.
+fix: |
+  In the terrain execution adapter, COMMIT now sends the sequencer-owned
+  final endpoint with zero velocity, rather than continuing the planner path.
+  This preserves the measured endpoint observation semantics and does not
+  change the endpoint target, COMMIT predicates, analyzer thresholds, v1
+  contract, canary definition, or safety gates. The patch is intentionally
+  narrow; the observed post-patch runs above show endpoint/contact remains
+  unresolved and require another Order-080 iteration.
+unit_validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  B0 fixed pair repeats 1/2/3 at source f029efa each returned
+  acceptance_status=PASS, completion_status=0, planner deadline misses=0,
+  terrain map valid fraction 0.9999744082/0.9999743688/0.9999743603.
+flat_validation: |
+  Serial TROT_TERRAIN_DEBUG_FLAT_CRAWL harness probes order080_flat20_1..20
+  were run with domain 229 and Base=4000 preload. The local metadata
+  completion_status counter was 3/20, therefore no flat 20/20 claim is made
+  and prior flat evidence is not reattributed to f029efa.
+full_validation: |
+  b1_freegait_epoch279_order080_full01 was run serially from the full approach
+  path; it remained INACTIVE->STAGE (no staged transfer, no commit), so no
+  crossing or confirmation claim is made. The requested ten-pair full campaign
+  was not completed in this window.
+acceptance: |
+  Staged full sequence >=3: NOT ACHIEVED. Four-leg commits: none in new runs.
+  Crossing/confirmation: none. B0: three fixed pairs green. No gate-level
+  conclusion is made. Remaining blocker is physical endpoint/contact witness
+  reliability after COMMIT, not a weakened predicate.
+commit_chain: |
+  5107827, b9c898e, d447719, cc3dbbc, 9d7caca, b088e90, c6515e6,
+  6902b8b, 8de45e5, 1a06b68, 0e406fd, f029efa. No push or amend; all
+  simulations serialized.
