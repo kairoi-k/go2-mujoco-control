@@ -808,13 +808,19 @@ private:
             const double vertical_progress_rate = terrain_swing
                 ? 6.0 * u * (1.0 - u) / kSwingDurationS :
                 1.0 / kSwingDurationS;
+            // Peak clearance at u=0.4, then a faster descent leaves the
+            // endpoint near the plateau instead of carrying the arch into
+            // the commit window.  The normalized polynomial is zero-slope
+            // at both ends and retains the riser clearance at the edge.
+            constexpr double kRaisedArchNormalization = 28.935185185185;
             const double arch = terrain_swing
-                ? output_.swing_lift_m * 16.0 * u * u *
-                    (1.0 - u) * (1.0 - u)
+                ? output_.swing_lift_m * kRaisedArchNormalization * u * u *
+                    (1.0 - u) * (1.0 - u) * (1.0 - u)
                 : output_.swing_lift_m * 4.0 * u * (1.0 - u);
             const double arch_rate = terrain_swing
-                ? output_.swing_lift_m * 32.0 * u * (1.0 - u) *
-                    (1.0 - 2.0 * u) / kSwingDurationS
+                ? output_.swing_lift_m * kRaisedArchNormalization * u *
+                    (1.0 - u) * (1.0 - u) * (2.0 - 5.0 * u) /
+                    kSwingDurationS
                 : output_.swing_lift_m * 4.0 * (1.0 - 2.0 * u) /
                     kSwingDurationS;
             output_.swing_position_world = {
