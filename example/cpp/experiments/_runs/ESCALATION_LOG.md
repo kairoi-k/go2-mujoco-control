@@ -4419,6 +4419,7 @@ acceptance: |
 timestamp: 2026-08-31T23:00:00+0800
 run_id: Order-094 C-002 shadow hybrid contact-timing + body planner
 source_sha: dbaf3bedc5864539f3cd549e6adc60aa640d1527
+final_source_sha: ad63a738dee4dcd222246f297ce287140b7169d3
 scope: |
   Implemented the deterministic, bounded C-002 shadow path only. It searches
   period/duty, independent per-leg touchdown offsets, sensor SafeFootholdRegion
