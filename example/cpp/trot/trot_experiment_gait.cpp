@@ -2054,13 +2054,10 @@ bool TrotExperiment::BuildGaitTargets(
                         measured.position_base);
                     terrain_staged_target_world_ = go2_control::BodyToWorld(
                         pose.base, pose.quaternion, target_base);
-                    // Preserve the measured-map stand-off target.  The
-                    // planner has already checked the same endpoint for FK
-                    // reachability; a second fixed reach clamp here would
-                    // silently move FL back toward the riser edge.
-                    constexpr double kStagedStepHeightM = 0.04;
-                    terrain_staged_target_world_.z =
-                        actual_world_feet[leg].z + kStagedStepHeightM;
+                    // Preserve the measured-map stand-off and elevation
+                    // target.  The planner has already checked the same
+                    // endpoint for FK reachability; a second fixed clamp or
+                    // site-height override would change the contact patch.
                     terrain_staged_target_valid_ =
                         std::isfinite(terrain_staged_target_world_.x) &&
                         std::isfinite(terrain_staged_target_world_.y) &&
