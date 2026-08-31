@@ -605,6 +605,12 @@ private:
     // across planner expiry and the sequencer/state-machine tick boundary.
     bool terrain_staged_target_valid_ = false;
     go2::Vec3 terrain_staged_target_world_{};
+    // STAGE may reposition one already-loaded support foot away from a
+    // measured riser lip before SHIFT. Completion requires that leg's
+    // measured contact to remain present; the other three stay anchored.
+    std::size_t terrain_stage_reposition_leg_ = go2::kLegCount;
+    go2::Vec3 terrain_stage_reposition_target_world_{};
+    std::array<bool, go2::kLegCount> terrain_stage_repositioned_{};
     go2_control::GaitPattern runtime_gait_pattern_ =
         go2_control::GaitPattern::kDiagonalTrot;
     double terrain_surface_transition_target_world_z_ = 0.0;

@@ -751,6 +751,9 @@ bool TrotExperiment::BuildGaitTargets(
                 -std::numeric_limits<double>::infinity();
             terrain_staged_target_valid_ = false;
             terrain_staged_target_world_ = {};
+            terrain_stage_reposition_leg_ = go2::kLegCount;
+            terrain_stage_reposition_target_world_ = {};
+            terrain_stage_repositioned_.fill(false);
             terrain_crawl_sequencer_.Reset();
         }
     }
@@ -3203,7 +3206,78 @@ bool TrotExperiment::BuildGaitTargets(
                     execution.touchdown_time_s, terrain_time_tolerance_s);
             const auto crawl_state = terrain_crawl_state_machine_.state();
             if (terrain_crawl_staging)
+            {
+                // The approach gait may have loaded a front support foot
+                // inside the lip buffer before the crawl owner had a target.
+                // Relocate one loaded foot at a time in STAGE; hold the other
+                // three at measured anchors so the >=3-contact invariant is
+                // preserved throughout this corrective step.
+                if (terrain_stage_reposition_leg_ >= go2::kLegCount &&
+                    live_terrain_model && have_actual_world_feet &&
+                    terrain_contact_now_valid &&
+                    std::count(terrain_contact_now.begin(),
+                               terrain_contact_now.end(), true) >= 3)
+                {
+                    for (std::size_t candidate_leg = 0;
+                         candidate_leg < go2::kLegCount; ++candidate_leg)
+                    {
+                        if (terrain_stage_repositioned_[candidate_leg] ||
+                            !terrain_contact_now[candidate_leg])
+                            continue;
+                        const go2::Vec3 current_base =
+                            go2_control::WorldToBody(
+                                terrain_pose.base, terrain_pose.quaternion,
+                                actual_world_feet[candidate_leg]);
+                        const double edge_x =
+                            go2_terrain::ForwardRiserEdgeX(
+                                *live_terrain_model, current_base, 0.025);
+                        const double target_x = std::isfinite(edge_x)
+                            ? edge_x - 2.0 * terrain_planner_.config().feasibility.
+                                  support_edge_standoff_m
+                            : current_base.x;
+                        if (!std::isfinite(edge_x) ||
+                            current_base.x <= target_x + 0.005)
+                            continue;
+                        terrain_stage_reposition_leg_ = candidate_leg;
+                        terrain_stage_reposition_target_world_ = {
+                            terrain_pose.base.x + std::cos(terrain_pose.yaw_rad) *
+                                target_x - std::sin(terrain_pose.yaw_rad) * current_base.y,
+                            terrain_pose.base.y + std::sin(terrain_pose.yaw_rad) *
+                                target_x + std::cos(terrain_pose.yaw_rad) * current_base.y,
+                            actual_world_feet[candidate_leg].z};
+                        break;
+                    }
+                }
+                if (terrain_stage_reposition_leg_ < go2::kLegCount)
+                {
+                    const std::size_t moved_leg = terrain_stage_reposition_leg_;
+                    if (leg == moved_leg)
+                    {
+                        const go2::Vec3 target_base = go2_control::WorldToBody(
+                            terrain_pose.base, terrain_pose.quaternion,
+                            terrain_stage_reposition_target_world_);
+                        feet[leg] = target_base;
+                        const go2::Vec3 &measured = actual_world_feet[leg];
+                        const auto &target = terrain_stage_reposition_target_world_;
+                        const bool contact_witness = terrain_contact_now_valid &&
+                            terrain_contact_now[leg] &&
+                            std::hypot(std::hypot(measured.x - target.x,
+                                                   measured.y - target.y),
+                                       measured.z - target.z) <= 0.015;
+                        if (contact_witness)
+                        {
+                            terrain_stage_repositioned_[leg] = true;
+                            terrain_stage_reposition_leg_ = go2::kLegCount;
+                            terrain_stage_reposition_target_world_ = {};
+                        }
+                    }
+                    else if (have_actual_world_feet)
+                        feet[leg] = go2_control::WorldToBody(
+                            terrain_pose.base, terrain_pose.quaternion,
+                            actual_world_feet[leg]);
+                }
                 continue;
+            }
             if (terrain_crawl_execution && !explicit_crawl_step &&
                 !crawl_shift_leg)
             {
