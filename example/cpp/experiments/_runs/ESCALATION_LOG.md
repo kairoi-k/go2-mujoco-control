@@ -4798,3 +4798,47 @@ closure: |
   before any coherent C-004 consumption.  Normal approach probes 2, 3 and C
   provide three safe no-gate consumptive runtime probes; each has zero gait/MPC
   identity mismatch.  No full B1, C-005, NMPC, or threshold change occurred.
+
+---
+timestamp: 2026-09-01T04:20:00+0800
+run_id: Order-100 C-005 fault-injection, B0, and runtime probe closeout
+source_sha: ccde8917acb8b263005938b88ff28c88b99d7757
+scope: |
+  C-005 acceptance closure only. No full B1, C-006, frozen analyzer, or
+  threshold changes. Added the deterministic contact-fusion harness and
+  explicit measured_fk_* diagnostics evidence.
+fault_harness: |
+  test_contact_fusion_fault_harness emits the tracked CSV evidence with
+  raw/filtered/planned/fused masks, reason, fallback stage, guard and grace.
+  It covers dropout, noisy-off, early/late touchdown, reset, identity-mismatch
+  fallback, <3 support, N/N+1/N+5/N+25 and planned-only input. The planned-only
+  row is raw=8, filtered=0, planned=8, fused=0. Across emitted rows,
+  fused & ~(filtered|robust_support) == 0; planned never promotes measured.
+  test_terrain_interfaces separately validates adapter provenance mismatch.
+b0: |
+  Fixed pair development run used domains 222/223 and Base=4000 preload.
+  The wrapper observation timed out after both raw runs; direct analyzer rerun
+  returned 0 and acceptance_status=PASS. no_terrain_actuation=true,
+  no_plan_consumer=true, no_plan_publish=true, planner_deadline_misses=0,
+  planner_updates=2606, both safety_status=0.
+probes: |
+  Three serial normal full-approach no-gate probes used domains 229/231/232,
+  phase2_step_5cm.xml, 30 s controller duration, --terrain-planner,
+  --stage-c-execution, C004/C005 diagnostics, and Base=4000 preload. Runs
+  order100_c005_approach_{4,5,6}_long each completed with safety PASS and one
+  coherent C004 consumed witness. Gait and MPC plan/map/input_hash identities
+  matched respectively: 222/222/9217295673002494915,
+  226/226/18014457394627927319, and 229/229/651264811586172209. All C005
+  measured FK samples were valid with source state_q+base_pose_fk. The N-chain,
+  promotions/demotions, ID-WBC equality/RNE, friction ratios, torque, and status
+  summary is in docs/research/ORDER100_C005_ACCEPTANCE_20260901.md.
+validation: |
+  Full build PASS; ctest 28/28 PASS including test_contact_fusion_fault_harness;
+  git diff --check PASS. No immediate unsafe outcome followed first real C005
+  fusion in the selected probes.
+rollback: |
+  Omit --stage-c-execution (default flag-off) to retain legacy behavior.
+acceptance: |
+  Fault harness, B0 flag-off fixed pair, and three serial no-gate runtime probes
+  are recorded. Runtime raw artifacts remain ignored; deterministic CSV and
+  acceptance report are tracked.

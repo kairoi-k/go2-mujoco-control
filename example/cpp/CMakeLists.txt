@@ -107,6 +107,8 @@ go2_add_ctest(test_velocity_command)
 add_executable(test_trot_task tests/test_trot_task.cpp trot/trot_task.cpp)
 
 add_executable(test_contact_state_filter tests/test_contact_state_filter.cpp)
+add_executable(test_contact_fusion_fault_harness tests/test_contact_fusion_fault_harness.cpp)
+go2_add_ctest(test_contact_fusion_fault_harness)
 
 set(CMAKE_BUILD_TYPE Release)
 
