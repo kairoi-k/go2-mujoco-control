@@ -1672,6 +1672,8 @@ int main()
             triangle, incenter);
         const auto plane = go2_terrain::ComputeTerrainStancePlane(
             triangle, 0.0);
+        const auto four_foot_plane =
+            go2_terrain::ComputeTerrainStancePlaneFromFeet(mixed_feet, 0.0);
         if (!Check(triangle.valid && metrics.valid && metrics.inside,
                    "mixed-height support triangle was invalid") ||
             !Check(std::abs(centroid.z - 0.0166666667) < 1.0e-9,
@@ -1683,7 +1685,9 @@ int main()
                    "support incenter did not provide positive interior margin") ||
             !Check(plane.valid && plane.pitch_rad < -0.07 &&
                        std::abs(plane.roll_rad) < 1.0e-9,
-                   "stance plane did not produce the expected pitch reference"))
+                   "stance plane did not produce the expected pitch reference") ||
+            !Check(four_foot_plane.valid && four_foot_plane.roll_rad > 0.01,
+                   "four-foot support plane did not lean toward raised foot"))
             return 1;
     }
 

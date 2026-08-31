@@ -1238,6 +1238,7 @@ bool TrotExperiment::PhaseStartGait(
     terrain_stance_reference_roll_rad_ = 0.0;
     terrain_stance_reference_pitch_rad_ = 0.0;
     terrain_stance_reference_normal_ = Eigen::Vector3d::UnitZ();
+    terrain_stance_reference_commit_mask_ = 0xff;
     runtime_gait_pattern_ = params_.gait_pattern;
     terrain_surface_transition_required_.fill(false);
     terrain_surface_transition_original_required_.fill(false);

@@ -206,31 +206,36 @@ void TrotExperiment::UpdateWbcFull(
     {
         terrain_stance_reference_valid_ = false;
         terrain_stance_reference_normal_ = Eigen::Vector3d::UnitZ();
+        terrain_stance_reference_commit_mask_ = 0xff;
     }
     else
     {
-        const std::size_t active_leg =
-            terrain_crawl_sequencer_output_.active_leg < go2::kLegCount
-                ? terrain_crawl_sequencer_output_.active_leg
-                : terrain_crawl_state_machine_.com_target_leg();
-        const auto triangle = go2_terrain::ComputeTerrainSupportTriangle(
-            {go2::Vec3{dyn.foot_pos_world[0].x(), dyn.foot_pos_world[0].y(), dyn.foot_pos_world[0].z()},
-             go2::Vec3{dyn.foot_pos_world[1].x(), dyn.foot_pos_world[1].y(), dyn.foot_pos_world[1].z()},
-             go2::Vec3{dyn.foot_pos_world[2].x(), dyn.foot_pos_world[2].y(), dyn.foot_pos_world[2].z()},
-             go2::Vec3{dyn.foot_pos_world[3].x(), dyn.foot_pos_world[3].y(), dyn.foot_pos_world[3].z()}},
-            active_leg);
-        const auto plane = go2_terrain::ComputeTerrainStancePlane(
-            triangle, static_cast<double>(state_snapshot.imu_state().rpy()[2]));
-        // Keep the last measured plane for one transient invalid FK sample;
-        // falling back to absolute level there would turn a deliberate tilt
-        // into a false 0.20 rad stop.
-        if (plane.valid)
+        const auto feet = std::array<go2::Vec3, go2::kLegCount>{
+            go2::Vec3{dyn.foot_pos_world[0].x(), dyn.foot_pos_world[0].y(), dyn.foot_pos_world[0].z()},
+            go2::Vec3{dyn.foot_pos_world[1].x(), dyn.foot_pos_world[1].y(), dyn.foot_pos_world[1].z()},
+            go2::Vec3{dyn.foot_pos_world[2].x(), dyn.foot_pos_world[2].y(), dyn.foot_pos_world[2].z()},
+            go2::Vec3{dyn.foot_pos_world[3].x(), dyn.foot_pos_world[3].y(), dyn.foot_pos_world[3].z()}};
+        std::uint8_t commit_mask = 0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            if (terrain_crawl_sequencer_output_.committed[leg])
+                commit_mask |= static_cast<std::uint8_t>(1u << leg);
+        // Recompute exactly once at each measured commit. During SWING the
+        // active foot is moving, so refitting the four points every tick
+        // would make the posture target follow the swing leg instead of the
+        // committed mixed support. SHIFT is still four-contact measured data.
+        if (commit_mask != terrain_stance_reference_commit_mask_)
         {
-            terrain_stance_reference_valid_ = true;
-            terrain_stance_reference_roll_rad_ = plane.roll_rad;
-            terrain_stance_reference_pitch_rad_ = plane.pitch_rad;
-            terrain_stance_reference_normal_ = Eigen::Vector3d(
-                plane.normal.x, plane.normal.y, plane.normal.z);
+            const auto plane = go2_terrain::ComputeTerrainStancePlaneFromFeet(
+                feet, static_cast<double>(state_snapshot.imu_state().rpy()[2]));
+            if (plane.valid)
+            {
+                terrain_stance_reference_valid_ = true;
+                terrain_stance_reference_roll_rad_ = plane.roll_rad;
+                terrain_stance_reference_pitch_rad_ = plane.pitch_rad;
+                terrain_stance_reference_normal_ = Eigen::Vector3d(
+                    plane.normal.x, plane.normal.y, plane.normal.z);
+                terrain_stance_reference_commit_mask_ = commit_mask;
+            }
         }
     }
     if (!dynamics_logged_)

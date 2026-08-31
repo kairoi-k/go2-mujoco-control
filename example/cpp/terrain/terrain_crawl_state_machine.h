@@ -270,6 +270,87 @@ inline TerrainStancePlane ComputeTerrainStancePlane(
     return plane;
 }
 
+// Fit the measured four-foot support surface after a leg commit. A
+// committed raised foot and the three remaining contact feet are generally
+// not exactly coplanar in the plant, so use the least-squares plane z=ax+by+c
+// rather than silently discarding the fourth measured support point.
+inline TerrainStancePlane ComputeTerrainStancePlaneFromFeet(
+    const std::array<go2::Vec3, go2::kLegCount> &feet,
+    double base_yaw_rad) noexcept
+{
+    TerrainStancePlane plane;
+    if (!std::isfinite(base_yaw_rad))
+        return plane;
+    double normal_matrix[3][3]{};
+    double rhs[3]{};
+    for (const auto &foot : feet)
+    {
+        if (!std::isfinite(foot.x) || !std::isfinite(foot.y) ||
+            !std::isfinite(foot.z))
+            return plane;
+        const double feature[3] = {foot.x, foot.y, 1.0};
+        for (int row = 0; row < 3; ++row)
+        {
+            rhs[row] += feature[row] * foot.z;
+            for (int column = 0; column < 3; ++column)
+                normal_matrix[row][column] +=
+                    feature[row] * feature[column];
+        }
+    }
+    for (int pivot = 0; pivot < 3; ++pivot)
+    {
+        int best = pivot;
+        for (int row = pivot + 1; row < 3; ++row)
+            if (std::abs(normal_matrix[row][pivot]) >
+                std::abs(normal_matrix[best][pivot]))
+                best = row;
+        if (std::abs(normal_matrix[best][pivot]) <= 1.0e-9)
+            return plane;
+        if (best != pivot)
+        {
+            for (int column = pivot; column < 3; ++column)
+                std::swap(normal_matrix[pivot][column],
+                          normal_matrix[best][column]);
+            std::swap(rhs[pivot], rhs[best]);
+        }
+        for (int row = pivot + 1; row < 3; ++row)
+        {
+            const double scale = normal_matrix[row][pivot] /
+                normal_matrix[pivot][pivot];
+            for (int column = pivot; column < 3; ++column)
+                normal_matrix[row][column] -=
+                    scale * normal_matrix[pivot][column];
+            rhs[row] -= scale * rhs[pivot];
+        }
+    }
+    double coefficient[3]{};
+    for (int row = 2; row >= 0; --row)
+    {
+        coefficient[row] = rhs[row];
+        for (int column = row + 1; column < 3; ++column)
+            coefficient[row] -= normal_matrix[row][column] *
+                coefficient[column];
+        coefficient[row] /= normal_matrix[row][row];
+    }
+    go2::Vec3 normal{-coefficient[0], -coefficient[1], 1.0};
+    const double length = std::sqrt(
+        normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+    if (!(length > 1.0e-6) || !std::isfinite(length))
+        return plane;
+    plane.normal = {normal.x / length, normal.y / length,
+                    normal.z / length};
+    const double c = std::cos(base_yaw_rad);
+    const double sine = std::sin(base_yaw_rad);
+    const double body_x = c * plane.normal.x + sine * plane.normal.y;
+    const double body_y = -sine * plane.normal.x + c * plane.normal.y;
+    plane.roll_rad = std::atan2(-body_y, plane.normal.z);
+    plane.pitch_rad = std::atan2(body_x,
+        std::hypot(body_y, plane.normal.z));
+    plane.valid = std::isfinite(plane.roll_rad) &&
+        std::isfinite(plane.pitch_rad);
+    return plane;
+}
+
 inline TerrainSupportTriangleMetrics MeasureTerrainSupportTriangle(
     const TerrainSupportTriangle &triangle, const go2::Vec3 &point) noexcept
 {
