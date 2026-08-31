@@ -1038,7 +1038,7 @@ void TrotExperiment::UpdateWbcFull(
                     // four-foot plant advances to the endpoint envelope.
                     const double advance_v = params_.direction_sign *
                         go2_terrain::TerrainCrawlStateMachine::
-                            kAdvanceBodySpeedMps;
+                            kCreepSpeedMps;
                     mpc_in.reference[3] = dyn.com_world.x() + advance_v *
                         mpc_params.dt_s * 0.5 * mpc_params.horizon;
                     mpc_in.reference[9] = advance_v;
@@ -1530,9 +1530,9 @@ void TrotExperiment::UpdateWbcFull(
                     // physical base motion.
                     const double advance_v = params_.direction_sign *
                         go2_terrain::TerrainCrawlStateMachine::
-                            kAdvanceBodySpeedMps;
+                            kCreepSpeedMps;
                     const double advance_acc = Clamp(
-                        8.0 * (advance_v - linear_vel_world.x()), -4.0, 4.0);
+                        4.0 * (advance_v - linear_vel_world.x()), -1.5, 1.5);
                     terrain_shift_servo_acc_x_mps2_ = advance_acc;
                     wbc_in.desired_linear_acc_world.x() = advance_acc;
                 }
@@ -1557,9 +1557,9 @@ void TrotExperiment::UpdateWbcFull(
             // v2 reachability request. Keep the request authoritative for
             // the longitudinal ID-WBC task across that handoff boundary.
             const double advance_v = params_.direction_sign *
-                go2_terrain::TerrainCrawlStateMachine::kAdvanceBodySpeedMps;
+                go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps;
             const double advance_acc = Clamp(
-                8.0 * (advance_v - linear_vel_world.x()), -4.0, 4.0);
+                4.0 * (advance_v - linear_vel_world.x()), -1.5, 1.5);
             terrain_shift_servo_acc_x_mps2_ = advance_acc;
             wbc_in.desired_linear_acc_world.x() = advance_acc;
         }
