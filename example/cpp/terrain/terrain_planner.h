@@ -2862,6 +2862,9 @@ inline void TerrainPlanner::BuildShadow(
             if (count < 3)
                 reject(TerrainShadowFamily::kV2B,
                        TerrainShadowRejectReason::kMinimumContacts);
+            if (count == 1)
+                reject(TerrainShadowFamily::kV3CDraft,
+                       TerrainShadowRejectReason::kDynamicInfeasible);
             if (count == 2 && (mask == 0x6 || mask == 0x9)) {
                 ++two_run;
                 if (static_cast<double>(two_run) * config_.knot_dt_s >
