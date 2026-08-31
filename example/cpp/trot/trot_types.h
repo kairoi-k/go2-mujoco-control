@@ -187,6 +187,8 @@ struct TrotParams
     bool terrain_enabled = false;
     bool terrain_sensor_only = false;
     bool terrain_actuation = false;
+    // C-003 execution is deliberately opt-in and V2-B only.
+    bool stage_c_execution = false;
     go2_terrain::TerrainCrawlLegOrder terrain_leg_order =
         go2_terrain::TerrainCrawlLegOrder::kLegacyFrontFirst;
     go2_terrain::TerrainCrawlAdvancePolicy terrain_advance_policy =

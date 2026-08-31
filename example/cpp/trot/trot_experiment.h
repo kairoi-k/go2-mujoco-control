@@ -37,6 +37,7 @@
 #include "terrain_crawl_state_machine.h"
 #include "terrain_crawl_sequencer.h"
 #include "terrain_planner.h"
+#include "terrain_plan_execution_adapter.h"
 
 using unitree::robot::ChannelPublisherPtr;
 using unitree::robot::ChannelSubscriberPtr;
@@ -486,6 +487,7 @@ private:
 
     go2_terrain::TerrainPlanner terrain_planner_{};
     go2_terrain::TerrainPlanStore terrain_plan_store_{};
+    go2_terrain::TerrainPlanExecutionAdapter terrain_plan_execution_adapter_{};
     // A committed terrain foothold is a trajectory transaction.  It is
     // prepared from the measured stance anchor, executed through the actual
     // gait swing boundary, and held at its endpoint after that boundary.
@@ -687,6 +689,10 @@ private:
     std::uint64_t terrain_gait_target_override_count_ = 0;
     std::uint64_t terrain_mpc_plan_consumed_count_ = 0;
     std::uint64_t terrain_mpc_update_count_ = 0;
+    std::uint64_t terrain_execution_adopted_plan_id_ = 0;
+    std::uint64_t terrain_execution_rejected_plan_id_ = 0;
+    std::string terrain_execution_fallback_reason_;
+
     std::atomic<std::uint64_t> terrain_plan_contact_rejections_{0};
     std::uint64_t terrain_target_prepare_attempt_count_ = 0;
     std::uint64_t terrain_target_prepared_count_ = 0;

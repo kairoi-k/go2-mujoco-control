@@ -34,7 +34,7 @@ void PrintTrotCliUsage()
            " [--forever] [--stop-file path]"
            " [--auto-environment]"
            " [--gait-phase-offset fraction]"
-           " [--terrain-sensor-only|--terrain-planner]"
+           " [--terrain-sensor-only|--terrain-planner] [--stage-c-execution]"
            " [--terrain-leg-order lateral|legacy]"
            " [--terrain-advance-body-before-second]"
            " [--impact-to-emergency-stop-delay s]"
@@ -118,6 +118,13 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.params.terrain_enabled = true;
                 cfg.params.terrain_sensor_only = true;
                 cfg.params.terrain_actuation = false;
+            }
+            else if (option == "--stage-c-execution")
+            {
+                cfg.params.stage_c_execution = true;
+                cfg.params.terrain_enabled = true;
+                cfg.params.terrain_sensor_only = false;
+                cfg.params.terrain_actuation = true;
             }
             else if (option == "--terrain-planner")
             {
@@ -504,6 +511,8 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << (params.terrain_sensor_only ? "on" : "off") << "\n"
               << "  terrain_actuation="
               << (params.terrain_actuation ? "on" : "off") << "\n"
+              << "  stage_c_execution="
+              << (params.stage_c_execution ? "on" : "off") << "\n"
               << "  terrain_leg_order="
               << go2_terrain::TerrainCrawlLegOrderName(
                      params.terrain_leg_order) << "\n"

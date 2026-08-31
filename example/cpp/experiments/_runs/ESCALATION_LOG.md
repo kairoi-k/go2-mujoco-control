@@ -4624,3 +4624,28 @@ rollback: |
   Revert the diagnostics-only commit or leave
   TROT_TERRAIN_SHADOW_DIAGNOSTICS unset. Legacy behavior and all consumers
   remain unchanged.
+
+---
+timestamp: 2026-09-01T00:00:00+0800
+run_id: Order-097 C-003 V2-B gait execution adapter
+source_sha: edc40b8
+scope: |
+  Added opt-in stage_c_execution (default false), complete GaitExecutionRequest,
+  and the sole TerrainPlanExecutionAdapter. Requests carry plan/map/input identity,
+  validity, phase origin, period/duty, absolute touchdown/liftoff/stance intervals,
+  immutable endpoint identities, and fallback reason. V2-B plans require >=3
+  planned contacts per knot; v3_c_shadow is rejected. Planner remains free of
+  gait setter calls; flag-off retains the Phase-1 path.
+validation: |
+  Adapter unit evidence covers atomic adoption, event-boundary rejection,
+  V3-C rejection, expiry measured-support fallback, and continuous timed swing.
+  B0 flag-off probe ran at 40 s. The analyzer reported acceptance_status=PASS
+  and all no-actuation checks passed; the wrapper exited 1 because its paired
+  period/duty quantitative comparison was false under this short worker run.
+  No staged execution probe or crossing/gate claim was made.
+residual_risks: |
+  Runtime staged evidence still needs the parent-controlled hardware/WSL probe,
+  including adopted/rejected IDs, planned/measured masks, timing error, and
+  fallback reason. No B1 campaign was run.
+rollback: |
+  Leave --stage-c-execution unset (default false) or set stage_c_execution=false.

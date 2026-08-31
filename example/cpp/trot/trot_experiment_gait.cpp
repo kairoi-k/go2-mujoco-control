@@ -675,6 +675,37 @@ bool TrotExperiment::BuildGaitTargets(
     // has accepted the brake completion.
     if (high_speed_stop_hold_active_)
         locomotion_kernel_->SetStanceHold(true, gait_time_s);
+
+    // C-003 is the sole terrain-to-gait handoff. Flag-off deliberately does
+    // not touch the request or setter sequence used by Phase 1.
+    const double adapter_now_s = static_cast<double>(state_snapshot.tick()) *
+        1.0e-3;
+    const bool stage_c_window = params_.stage_c_execution &&
+        params_.terrain_actuation && !params_.terrain_sensor_only &&
+        terrain_transfer_window_active_;
+    terrain_plan_execution_adapter_.SetEnabled(stage_c_window);
+    if (stage_c_window)
+    {
+        const auto timed_plan = terrain_plan_store_.LoadUsable(adapter_now_s);
+        std::array<bool, go2::kLegCount> measured_support{};
+        {
+            std::lock_guard<std::mutex> lock(terrain_control_mutex_);
+            measured_support = terrain_control_snapshot_.measured_contact;
+        }
+        const auto handoff = terrain_plan_execution_adapter_.Update(
+            timed_plan.get(), adapter_now_s,
+            terrain_plan_execution_adapter_.IsLegalBoundary(adapter_now_s),
+            measured_support, runtime_gait_pattern_, params_.period_s,
+            params_.duty_factor, params_.step_length_m, params_.foot_lift_m);
+        terrain_plan_execution_adapter_.ApplyToKernel(
+            *locomotion_kernel_, gait_request, adapter_now_s, feet);
+        if (handoff.adopted)
+            terrain_execution_adopted_plan_id_ = handoff.adopted_plan_id;
+        if (handoff.rejected)
+            terrain_execution_rejected_plan_id_ = handoff.rejected_plan_id;
+        if (!handoff.fallback_reason.empty())
+            terrain_execution_fallback_reason_ = handoff.fallback_reason;
+    }
     if (!locomotion_kernel_->Compute(gait_request, gait_result))
     {
         std::cerr << "Locomotion kernel failed at gait_time="

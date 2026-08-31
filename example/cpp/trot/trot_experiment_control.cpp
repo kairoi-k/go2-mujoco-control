@@ -344,6 +344,14 @@ void TrotExperiment::UpdateTerrainRuntime()
     input.gait_period_s = control.gait_period_s;
     input.duty_factor = control.duty_factor;
     input.commanded_vx_mps = control.commanded_vx_mps;
+    input.has_stage_c_timing = params_.stage_c_execution;
+    input.terrain_timing_bounds.current_period_s = input.gait_period_s;
+    input.terrain_timing_bounds.current_duty_factor = input.duty_factor;
+    input.terrain_timing_bounds.window_start_s = input.state_stamp_s;
+    input.terrain_timing_bounds.window_end_s = input.state_stamp_s +
+        static_cast<double>(terrain_planner_.config().horizon_knots - 1) *
+            terrain_planner_.config().knot_dt_s;
+    input.terrain_timing_bounds.knot_dt_s = terrain_planner_.config().knot_dt_s;
     input.current_feet_base = go2::AllFootPositions(control.joint_positions);
     input.nominal_feet_base = control.have_commanded_body_feet
         ? control.nominal_feet_base
@@ -462,6 +470,10 @@ void TrotExperiment::UpdateTerrainRuntime()
             input.terrain_retarget_allowed[leg] = true;
         }
     }
+    input.terrain_timing_bounds.next_touchdown_time_s =
+        input.next_touchdown_time_s;
+    input.terrain_timing_bounds.next_touchdown_time_valid =
+        input.next_touchdown_time_valid;
 
     {
         std::lock_guard<std::mutex> lock(terrain_map_mutex_);

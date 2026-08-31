@@ -529,6 +529,8 @@ public:
         result.max_swing_candidate_z_by_leg.fill(
             -std::numeric_limits<double>::infinity());
         result.plan.plan_id = plan_id;
+        result.plan.input_hash = input.has_stage_c_timing
+            ? TerrainPlannerInputHash(input) : 0;
         result.plan.plan_epoch = plan_id;
         result.plan.map_epoch = input.terrain != nullptr
             ? input.terrain->epoch : 0;
@@ -543,14 +545,13 @@ public:
         result.plan.identity.valid_until_s = result.plan.valid_until_s;
         result.plan.contact_timing.identity = result.plan.identity;
         result.plan.timing_bounds = input.terrain_timing_bounds;
-        // C-001 keeps timed fields as an inert, provenance-complete snapshot;
-        // has_stage_c_timing remains false until a later execution order.
-        // C-000 is a frozen seam: timing values are provenance-only and the
-        // existing planner remains the sole producer of legacy behavior.
-        result.plan.has_stage_c_timing = false;
+        // C-001 fields remain provenance-complete; Stage-C timing is populated
+        // only when the execution flag is explicitly enabled.
+        result.plan.has_stage_c_timing = input.has_stage_c_timing;
         BuildShadow(input, result);
-        result.plan.contact_timing.provenance =
-            TerrainTimingProvenance::kLegacyPhase1;
+        result.plan.contact_timing.provenance = input.has_stage_c_timing
+            ? TerrainTimingProvenance::kStageCPlanner
+            : TerrainTimingProvenance::kLegacyPhase1;
         result.plan.contact_timing.period_s = input.gait_period_s;
         result.plan.contact_timing.duty_factor = input.duty_factor;
         result.plan.contact_timing.horizon_knots = config_.horizon_knots;
@@ -2328,6 +2329,15 @@ private:
             plan.state_stamp_s +
                 static_cast<double>(kTerrainPlanMaxKnots - 1) *
                     config_.knot_dt_s);
+        if (plan.has_stage_c_timing)
+        {
+            // Keep the timing validator bound to the same extended whole
+            // snapshot; never expose a tail with legacy timing metadata.
+            plan.contact_timing.horizon_knots = plan.horizon_knots;
+            plan.timing_bounds.window_end_s = plan.state_stamp_s +
+                static_cast<double>(plan.horizon_knots - 1) *
+                    plan.contact_timing.knot_dt_s;
+        }
         return true;
     }
 

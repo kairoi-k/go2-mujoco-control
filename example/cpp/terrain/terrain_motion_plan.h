@@ -396,6 +396,8 @@ struct TerrainMotionPlan
     TerrainContactTiming contact_timing{};
     TerrainTimingBounds timing_bounds{};
     bool has_stage_c_timing = false;
+    bool v3_c_shadow = false;
+    std::uint64_t input_hash = 0;
     std::uint64_t plan_id = 0;
     std::uint64_t plan_epoch = 0;
     std::uint64_t map_epoch = 0;

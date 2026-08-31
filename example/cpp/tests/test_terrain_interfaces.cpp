@@ -13,6 +13,7 @@
 #include "terrain_swing_tracking.h"
 #include "terrain_crawl_script.h"
 #include "terrain_crawl_sequencer.h"
+#include "terrain_plan_execution_adapter.h"
 #include "full2_campaign_env.h"
 
 namespace
@@ -2630,6 +2631,7 @@ int main()
     const auto make_timing_plan = [] {
         go2_terrain::TerrainMotionPlan plan;
         plan.plan_id = 11;
+        plan.input_hash = 101;
         plan.plan_epoch = 11;
         plan.map_epoch = 1;
         plan.state_stamp_s = 1.0;
@@ -2799,6 +2801,86 @@ int main()
         if (!Check(!invalid_duty.valid(),
                    "duty factor outside timing bounds was accepted"))
             return 1;
+    }
+
+    // C-003 adapter: only a whole V2-B snapshot is adopted; replacements
+    // cannot mutate an in-flight transaction and V3-C shadow is rejected.
+    {
+        const auto valid_plan = make_timing_plan();
+        go2_terrain::TerrainPlanExecutionAdapter adapter(true, 0.10);
+        const std::array<bool, go2::kLegCount> measured{false, true, true, true};
+        const auto first = adapter.Update(&valid_plan, 1.0, true, measured,
+            go2_control::GaitPattern::kDiagonalTrot, 0.8, 0.58, 0.12, 0.05);
+        if (!Check(first.adopted && first.using_plan &&
+                       first.request.plan_id == valid_plan.plan_id,
+                   "adapter did not atomically adopt V2-B snapshot")) return 1;
+        auto replacement = valid_plan;
+        replacement.plan_id = 12;
+        replacement.plan_epoch = 12;
+        replacement.identity.plan_id = 12;
+        replacement.identity.plan_epoch = 12;
+        replacement.contact_timing.identity = replacement.identity;
+        replacement.contact_schedule.provenance = replacement.identity;
+        for (std::size_t k = 0; k < replacement.horizon_knots; ++k) {
+            replacement.body_reference[k].provenance = replacement.identity;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                replacement.predicted_foothold[k][leg].provenance = replacement.identity;
+        }
+        const auto blocked = adapter.Update(&replacement, 1.05, false, measured,
+            go2_control::GaitPattern::kDiagonalTrot, 0.8, 0.58, 0.12, 0.05);
+        if (!Check(blocked.rejected && adapter.adopted_plan_id() == valid_plan.plan_id,
+                   "adapter replaced a plan outside a legal boundary")) return 1;
+        auto v3 = valid_plan;
+        v3.v3_c_shadow = true;
+        const auto rejected_v3 = adapter.Update(&v3, 1.05, true, measured,
+            go2_control::GaitPattern::kDiagonalTrot, 0.8, 0.58, 0.12, 0.05);
+        if (!Check(rejected_v3.rejected &&
+                       rejected_v3.rejection_reason == "v3_c_shadow_rejected",
+                   "V3-C shadow snapshot was executable")) return 1;
+        const auto fallback = adapter.Update(nullptr, 1.31, true, measured,
+            go2_control::GaitPattern::kDiagonalTrot, 0.8, 0.58, 0.12, 0.05);
+        if (!Check(!fallback.using_plan && fallback.request.fallback &&
+                       fallback.fallback_reason == "measured-support:N",
+                   "expired plan did not use measured-support fallback")) return 1;
+
+        go2_control::HandCodedTrotKernel kernel(go2_control::GaitKernelParams{
+            0.8, 0.75, 0.12, 1.0, 0.05, 0.8, -1.0,
+            go2_control::GaitPattern::kCrawl});
+        go2_control::GaitKernelRequest kernel_request;
+        kernel_request.gait_time_s = 1.10;
+        kernel_request.neutral_feet = {{
+            {0.3, -0.1, 0.0}, {0.3, 0.1, 0.0},
+            {-0.3, -0.1, 0.0}, {-0.3, 0.1, 0.0}}};
+        kernel_request.has_execution_request = true;
+        kernel_request.execution.valid = true;
+        kernel_request.execution.valid_from_s = 1.0;
+        kernel_request.execution.valid_until_s = 1.4;
+        kernel_request.execution.phase_origin_s = 1.0;
+        kernel_request.execution.phase_origin = 0.25;
+        kernel_request.execution.period_s = 0.8;
+        kernel_request.execution.duty_factor = 0.75;
+        kernel_request.execution.liftoff_time_s[0] = 1.0;
+        kernel_request.execution.touchdown_time_s[0] = 1.2;
+        kernel_request.execution.liftoff_time_valid[0] = true;
+        kernel_request.execution.touchdown_time_valid[0] = true;
+        kernel_request.execution.endpoint_valid[0] = true;
+        kernel_request.execution.swing_start[0] = {0.3, -0.1, 0.0};
+        kernel_request.execution.swing_endpoint[0] = {0.5, -0.1, 0.05};
+        go2_control::GaitKernelResult swing_a, swing_b;
+        if (!Check(kernel.Compute(kernel_request, swing_a),
+                   "timed gait request was rejected") ||
+            !Check(swing_a.execution_request_valid &&
+                       swing_a.execution_plan_id == 0,
+                   "timed gait provenance was not reported")) return 1;
+        kernel_request.gait_time_s = 1.15;
+        if (!Check(kernel.Compute(kernel_request, swing_b) &&
+                       swing_b.feet[0].x > swing_a.feet[0].x &&
+                       swing_b.touchdown_target_feet_base[0].x == 0.5,
+                   "timed swing was not continuous or endpoint-held")) return 1;
+        const auto immutable_endpoint = kernel_request.execution.swing_endpoint[0];
+        kernel_request.execution.swing_endpoint[0].x = 0.9;
+        if (!Check(immutable_endpoint.x == 0.5,
+                   "caller could not observe endpoint identity immutability")) return 1;
     }
 
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";

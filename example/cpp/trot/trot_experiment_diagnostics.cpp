@@ -75,6 +75,8 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_execution_map_epoch,terrain_execution_plan_generated_at_s"
          << ",terrain_execution_plan_valid_until_s,terrain_execution_plan_age_s"
          << ",terrain_execution_plan_usable,terrain_execution_planned_contact_mask"
+         << ",terrain_execution_adopted_plan_id,terrain_execution_rejected_plan_id"
+         << ",terrain_execution_fallback_reason"
          << ",terrain_transfer_hold_active,terrain_transfer_hold_mask"
          << ",terrain_transfer_window_active,terrain_transfer_window_release_s"
          << ",terrain_crawl_state,terrain_crawl_active_leg"
@@ -1186,6 +1188,10 @@ void TrotExperiment::LogSample(
          << "," << terrain_execution_plan_age_s
          << "," << (terrain_execution_plan_usable ? 1 : 0)
          << "," << terrain_execution_planned_contact_mask
+         << "," << terrain_execution_adopted_plan_id_
+         << "," << terrain_execution_rejected_plan_id_
+         << "," << (terrain_execution_fallback_reason_.empty()
+                         ? "none" : terrain_execution_fallback_reason_)
          << "," << (terrain_transfer_hold_active_ ? 1 : 0)
          << "," << terrain_transfer_hold_mask
          << "," << (terrain_transfer_window_active_ ? 1 : 0)
