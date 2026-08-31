@@ -717,6 +717,8 @@ struct TerrainShadowSnapshot
     double period_s = 0.0;
     double duty_factor = 0.0;
     std::array<double, go2::kLegCount> touchdown_offset_s{};
+    // Shadow-only event record retained with the schedule for replay.
+    TerrainContactTiming contact_timing{};
     TerrainContactSchedule contact_schedule{};
     std::array<TerrainBodyReference, kTerrainPlanMaxKnots> body_reference{};
     std::array<std::array<TerrainFootholdPrediction, go2::kLegCount>, kTerrainPlanMaxKnots> predicted_foothold{};

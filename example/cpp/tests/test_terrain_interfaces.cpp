@@ -986,12 +986,15 @@ int main()
     const auto planned = planner.Build(input, 7);
     const auto replayed = planner.Build(input, 7);
     if (!Check(planned.shadow_snapshot &&
+                   planned.shadow_family_snapshots[0] &&
+                   planned.shadow_family_snapshots[1] &&
                    planned.shadow_diagnostics.input_hash != 0 &&
                    planned.shadow_diagnostics.candidate_count[0] > 0 &&
                    planned.shadow_diagnostics.candidate_count[1] > 0 &&
+                   planned.shadow_diagnostics.feasible_count[0] > 0 &&
                    planned.shadow_diagnostics.feasible_count[1] > 0 &&
                    planned.shadow_diagnostics.shadow_output_consumed == false,
-               "C-002 shadow snapshot/diagnostics were not emitted") ||
+               "C-002b shadow family snapshots/diagnostics were not emitted") ||
         !Check(planned.shadow_diagnostics.ToJson().find("input_hash") != std::string::npos &&
                    planned.shadow_diagnostics.ToJson().find("rejection_histogram") != std::string::npos,
                "C-002 diagnostics were not machine-readable") ||
@@ -1005,6 +1008,58 @@ int main()
         !Check(planned.shadow_snapshot->identity.plan_id == planned.plan.identity.plan_id &&
                    planned.shadow_snapshot->identity.map_epoch == planned.plan.identity.map_epoch,
                "shadow snapshot identity was not atomically bound") ||
+        !Check([&]() {
+                   const auto &a = *planned.shadow_family_snapshots[0];
+                   const auto &b = *planned.shadow_family_snapshots[1];
+                   bool a_has_three = false;
+                   bool b_has_two = false;
+                   std::size_t b_two_run = 0;
+                   std::size_t b_max_two_run = 0;
+                   for (std::size_t k = 0; k < a.contact_timing.horizon_knots; ++k) {
+                       std::size_t a_count = 0, b_count = 0;
+                       for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
+                           a_count += a.contact_schedule.planned_contact[k][leg] ? 1U : 0U;
+                           b_count += b.contact_schedule.planned_contact[k][leg] ? 1U : 0U;
+                       }
+                       if (a_count >= 3) a_has_three = true;
+                       if (b_count == 2) {
+                           b_has_two = true;
+                           ++b_two_run;
+                           const auto mask = static_cast<unsigned>(
+                               (b.contact_schedule.planned_contact[k][0] ? 1U : 0U) |
+                               (b.contact_schedule.planned_contact[k][1] ? 2U : 0U) |
+                               (b.contact_schedule.planned_contact[k][2] ? 4U : 0U) |
+                               (b.contact_schedule.planned_contact[k][3] ? 8U : 0U));
+                           if (mask != 0x6U && mask != 0x9U) return false;
+                       } else {
+                           b_max_two_run = std::max(b_max_two_run, b_two_run);
+                           b_two_run = 0;
+                       }
+                       if (a_count < 3 || b_count < 2) return false;
+                   }
+                   b_max_two_run = std::max(b_max_two_run, b_two_run);
+                   bool has_liftoff = false, has_touchdown = false;
+                   for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
+                       has_liftoff = has_liftoff || b.contact_timing.liftoff_time_valid[leg];
+                       has_touchdown = has_touchdown || b.contact_timing.touchdown_time_valid[leg];
+                   }
+                   return a_has_three && b_has_two && has_liftoff && has_touchdown &&
+                       static_cast<double>(b_max_two_run) * planner_config.knot_dt_s <=
+                           planner_config.shadow_max_two_contact_duration_s + 1.0e-9;
+               }(),
+               "C-002b did not construct explicit bounded A/B event schedules") ||
+        !Check([&]() {
+                   auto reordered = input;
+                   std::reverse(reordered.contact_schedule.planned_contact.begin(),
+                                reordered.contact_schedule.planned_contact.end());
+                   const auto replay = planner.Build(reordered, 7);
+                   return replay.shadow_diagnostics.chosen_shadow_hash ==
+                       planned.shadow_diagnostics.chosen_shadow_hash &&
+                       replay.shadow_family_snapshots[1] &&
+                       replay.shadow_family_snapshots[1]->shadow_hash ==
+                           planned.shadow_family_snapshots[1]->shadow_hash;
+               }(),
+               "shadow schedule depended on inherited event ordering") ||
         !Check(!planned.publishable &&
                    planned.plan.status ==
                        go2_terrain::TerrainPlanStatus::kDegraded,
