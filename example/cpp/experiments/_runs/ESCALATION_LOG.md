@@ -3799,3 +3799,65 @@ commit_chain: |
   5107827, b9c898e, d447719, cc3dbbc, 9d7caca, b088e90, c6515e6,
   6902b8b, 8de45e5, 1a06b68, 0e406fd, f029efa. No push or amend; all
   simulations serialized.
+
+---
+
+Order-081 implementation update — 2026-09-02
+
+source_sha: f5a10a89a2294db19e1b8bb4687e85e0b7f19059
+bisect: |
+  Source-level bisect of the five named commits isolates f029efa as the
+  first behavioral regression after the passing 8de45e5 rung. b088e90,
+  c6515e6, and 6902b8b only alter the raised-FL swing arch; 8de45e5 and
+  1a06b68 alter the sequencer hold bookkeeping. f029efa is the first commit
+  that changes the terrain execution adapter's COMMIT command. Its normal
+  path commands the endpoint, but its invalid/pending execution path falls
+  through the nominal planner path because the sequencer-direct fallback only
+  handles SWING. Thus COMMIT can lose the final endpoint exactly when the
+  planner snapshot is unavailable; the observed f029efa FL endpoints were
+  mid/late trajectory points with no contact.
+fix: |
+  The terrain adapter now applies the sequencer-owned final endpoint at zero
+  velocity on every sequencer-direct COMMIT fallback path. The sequencer's
+  endpoint-hold trajectory generation was also made live for COMMIT (the
+  previous 1a06b68 block was nested under a SWING-only condition), so the
+  published COMMIT witness is unambiguously the final endpoint with zero
+  velocity. No contract, analyzer threshold, canary definition, or safety
+  gate was changed.
+unit_validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  Changes were committed promptly at f5a10a8; no push or amend.
+staged_validation: |
+  Serial domain-229, LD_PRELOAD=/home/che/dds_base4000_preload.so, Base=4000,
+  duration 30/wall 35, --staged-start, source f5a10a8. Three runs
+  order081_staged_seed195_f5a10a8_r1/r2/r3 all reached FL SWING->COMMIT but
+  none produced a measured FL commit: 0/3, four-leg sequence 0/3. r1
+  entered COMMIT at t=11.632 with target=(0.873498,0.099356,0.073328) and
+  measured foot=(0.849530,0.111772,0.116672), then ABORT after the 0.20 s
+  hold; r2/r3 likewise stopped in COMMIT with no measured touchdown. The
+  endpoint command was zero velocity; the remaining failure is physical
+  endpoint/contact realization, not a mid-phase command.
+flat_validation: |
+  Serial TROT_TERRAIN_DEBUG_FLAT_CRAWL, domain 229, Base=4000 preload,
+  phase2_flat.xml, controller 12 s/wall 18, order081_flat_f5a10a8_01..20:
+  completion_status=0/20 (all 20 had controller_status=0 and
+  completion_status=1). The flat harness therefore does not support a
+  20/20 claim at f5a10a8; this is a real final-SHA failure, not a favorable
+  accounting reinterpretation. The sequencer trace did reach all four
+  COMMIT states in the first probe before the inherited hard-posture stop.
+full_validation: |
+  The requested ten-pair full campaign and crossing/confirmation were not
+  run after the fix because the staged FL rung remained 0/3 and flat was
+  0/20. B0 remains the prior f029efa evidence (fixed repeats 1/2/3 green);
+  no new B0 claim is made for f5a10a8.
+acceptance: |
+  Bisect: f029efa, execution-adapter direct COMMIT override with an
+  SWING-only fallback. Fix committed as f5a10a8. FL commit >=3: NOT ACHIEVED
+  (0/3). Staged full sequence >=3: NOT ACHIEVED (0/3). Flat 20/20: NOT
+  ACHIEVED (0/20). Full-run budget/crossing: NOT RUN. No gate conclusion.
+commit_chain: |
+  5107827, b9c898e, d447719, cc3dbbc, 9d7caca, b088e90, c6515e6,
+  6902b8b, 8de45e5, 1a06b68, 0e406fd, f029efa, e06f1a2, f5a10a8.
+  No push or amend; all simulations were serialized under the experiment
+  lock.
