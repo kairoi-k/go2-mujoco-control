@@ -3524,3 +3524,59 @@ validation: |
   status 0. Its controller summary reports touchdown_events=4 and max
   touchdown errors x=0.00690 m, y=0.00995 m; it is not a fresh flat 20/20
   claim (the flat crawl transaction was not active for this invocation).
+
+---
+
+Order-076 implementation update — 2026-09-02
+
+source_sha: cb5df5f31eb7f837da7b889024fdd455587ec247
+posture_verdict: |
+  Order-036 was already present and active in the legacy/WBC path: the
+  pre-change staged trace order076_staged_seed195_pose01 at the second SHIFT
+  had terrain_stance_reference_valid=1 and a measured 3-D triangle reference.
+  The gap was that the WBC used the lagging legacy active leg and refit the
+  triangle on every swing tick. The sequencer path is now authoritative and
+  the measured four-foot support plane is latched once per committed mask.
+  The 0.20 rad hard stop remains deviation from the cached tilted reference;
+  flat_ground_mode never enables the tilted reference.
+
+fix: |
+  7a5da84 wires posture activation and hard-limit semantics to sequencer
+  SHIFT/SWING/COMMIT as well as legacy SHIFT_COM/CRAWL_STEP, selecting the
+  sequencer active leg and retaining the last valid plane over transient FK
+  invalidity. cb5df5f adds least-squares z=ax+by+c fitting for all four
+  measured feet at each commit mask, then holds that plane while the active
+  foot swings; it also adds a unit assertion that a raised left foot produces
+  positive roll toward that side.
+
+post_fl_evidence: |
+  Measured replay from order076_staged_seed195_pose01 at FL commit/second
+  SHIFT (t=16.286 s): FL=(0.77027,0.10710,0.07449) m, FR=(0.60949,-0.11465,
+  0.02270), RR=(0.24021,-0.19042,0.02366), RL=(0.23541,0.19542,0.02182).
+  The four-foot fit gives roll reference +0.0427 rad (2.45 deg); measured
+  roll was +0.1307 rad (7.49 deg). The pre-fix three-foot reference in that
+  trace was -0.0078 rad, demonstrating the wiring/geometry distinction.
+
+staged_validation: |
+  Serial domain-229, DDS preload /home/che/dds_base4000_preload.so,
+  duration 30/wall 35, --staged-start: pose01 (seed195), pose02 (seed196),
+  pose03 (seed197), pose04 (seed195), pose05 (seed196), pose06 (seed197),
+  and pose07 (seed198). All stopped before a complete four-leg sequence;
+  pose01/02 reached FL committed mask=2 and second SHIFT, while the later
+  probes stopped in the upstream FL swing/COMMIT or before commit. Therefore
+  staged full-sequence >=3 is NOT achieved and no crossing claim is made.
+
+full_validation: |
+  Serial b1_freegait_epoch244_order076_pose, seed244, same domain/preload,
+  duration 30/wall 35, reached first FL SHIFT/CRAWL_STEP but did not produce
+  a complete sequence. The requested full reconnect budget was not exhausted;
+  no B0 3x or flat 20/20 claim is made. No gate conclusion is made.
+
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  No v1 contract, analyzer threshold, canary definition, or safety gate was
+  weakened. No push or amend; simulation runs were serialized.
+
+commit_chain: |
+  7a5da84, cb5df5f. No push or amend.
