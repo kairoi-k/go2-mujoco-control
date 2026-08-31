@@ -925,6 +925,14 @@ public:
         }
         case TerrainCrawlState::kStage:
         {
+            if (signals.allow_creep_entry && signals.sequencer_swing_active)
+            {
+                // Full v2 may satisfy the measured reachability gate before
+                // the legacy stage basin witness catches up. Synchronize the
+                // legacy state to the sequencer swing instead of timing out.
+                SetState(TerrainCrawlState::kCrawlStep, signals.now_s);
+                break;
+            }
             int force_contacts = 0;
             if (signals.measured_force_valid)
                 for (const double force : signals.measured_normal_force_n)
