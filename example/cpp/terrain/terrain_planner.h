@@ -9,8 +9,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+#include <memory>
 #include <utility>
 #include <vector>
+#include <cstring>
 
 #include "terrain_feasibility.h"
 #include "terrain_motion_plan.h"
@@ -59,6 +61,13 @@ struct TerrainPlannerConfig
     double swing_clearance_m = 0.030;
     bool sensor_only = true;
     bool allow_actuation = false;
+    // C-002 is always observer-only; these bounds only limit its work.
+    bool shadow_enabled = true;
+    double shadow_max_two_contact_duration_s = 0.10;
+    double shadow_max_body_projection_m = 0.060;
+    double shadow_friction_coefficient = 0.50;
+    double shadow_min_normal_force_n = 2.0;
+    double shadow_max_torque_nm = 60.0;
 };
 
 struct TerrainPlannerInput
@@ -129,6 +138,40 @@ struct TerrainPlannerInput
     bool has_stage_c_timing = false;
 };
 
+inline std::uint64_t TerrainPlannerInputHash(const TerrainPlannerInput &input)
+{
+    std::uint64_t hash = 1469598103934665603ULL;
+    const auto add = [&hash](const void *data, std::size_t size) {
+        const auto *bytes = static_cast<const unsigned char *>(data);
+        for (std::size_t i = 0; i < size; ++i) { hash ^= bytes[i]; hash *= 1099511628211ULL; }
+    };
+    const auto add_double = [&add](double value) { add(&value, sizeof(value)); };
+    add_double(input.state_stamp_s); add_double(input.base_yaw_rad);
+    add(&input.base_position_world, sizeof(input.base_position_world));
+    add(&input.base_velocity_world, sizeof(input.base_velocity_world));
+    add(&input.base_acceleration_world, sizeof(input.base_acceleration_world));
+    add_double(input.base_roll_rad); add_double(input.base_pitch_rad); add_double(input.base_height_m);
+    add_double(input.gait_phase); add_double(input.gait_period_s); add_double(input.duty_factor);
+    add_double(input.commanded_vx_mps);
+    add(input.current_feet_base.data(), sizeof(input.current_feet_base));
+    add(input.nominal_feet_base.data(), sizeof(input.nominal_feet_base));
+    add(input.nominal_touchdown_feet_base.data(), sizeof(input.nominal_touchdown_feet_base));
+    add(input.terrain_retarget_allowed.data(), sizeof(input.terrain_retarget_allowed));
+    add(input.next_touchdown_time_s.data(), sizeof(input.next_touchdown_time_s));
+    add(input.next_touchdown_time_valid.data(), sizeof(input.next_touchdown_time_valid));
+    add(input.contact_schedule.measured_contact.data(), sizeof(input.contact_schedule.measured_contact));
+    add(input.contact_schedule.planned_contact.data(), sizeof(input.contact_schedule.planned_contact));
+    add(&input.has_stage_c_timing, sizeof(input.has_stage_c_timing));
+    add(&input.terrain_timing_bounds, sizeof(input.terrain_timing_bounds));
+    if (input.terrain != nullptr) {
+        add(input.terrain->frame_id.data(), input.terrain->frame_id.size());
+        add_double(input.terrain->age_s); add(&input.terrain->epoch, sizeof(input.terrain->epoch));
+        add_double(input.terrain->resolution_m); add(input.terrain->origin_m.data(), sizeof(input.terrain->origin_m));
+        for (const auto &cell : input.terrain->cells) { add(&cell, sizeof(cell)); }
+    }
+    return hash;
+}
+
 struct TerrainPlannerResult
 {
     TerrainMotionPlan plan{};
@@ -160,6 +203,10 @@ struct TerrainPlannerResult
     bool map_usable = false;
     bool publishable = false;
     bool safe_stop_required = false;
+    // Published legacy plan and shadow plan are separate objects. The shadow
+    // pointer is never passed to TerrainPlanStore or any control consumer.
+    std::shared_ptr<const TerrainShadowSnapshot> shadow_snapshot{};
+    TerrainShadowDiagnostics shadow_diagnostics{};
 };
 
 inline go2::Vec3 RotateBaseToWorld(
@@ -497,6 +544,7 @@ public:
         // C-000 is a frozen seam: timing values are provenance-only and the
         // existing planner remains the sole producer of legacy behavior.
         result.plan.has_stage_c_timing = false;
+        BuildShadow(input, result);
         result.plan.contact_timing.provenance =
             TerrainTimingProvenance::kLegacyPhase1;
         result.plan.contact_timing.period_s = input.gait_period_s;
@@ -1092,6 +1140,9 @@ public:
     }
 
 private:
+    void BuildShadow(const TerrainPlannerInput &input,
+                     TerrainPlannerResult &result) const;
+
     static go2::Vec3 NominalTouchdownFoot(
         const TerrainPlannerInput &input, std::size_t leg)
     {
@@ -2708,5 +2759,308 @@ private:
 
     TerrainPlannerConfig config_;
 };
+
+inline void TerrainPlanner::BuildShadow(
+    const TerrainPlannerInput &input, TerrainPlannerResult &result) const
+{
+    const auto start = std::chrono::steady_clock::now();
+    auto &diag = result.shadow_diagnostics;
+    diag = TerrainShadowDiagnostics{};
+    diag.input_hash = TerrainPlannerInputHash(input);
+    diag.deadline_us = config_.deadline_us;
+    for (auto &values : diag.min_support_margin_m) values = std::numeric_limits<double>::infinity();
+    for (auto &values : diag.min_dynamic_margin) values = std::numeric_limits<double>::infinity();
+    for (auto &values : diag.min_clearance_margin_m) values = std::numeric_limits<double>::infinity();
+    for (auto &values : diag.min_reachability_margin_m) values = std::numeric_limits<double>::infinity();
+    for (auto &values : diag.min_edge_margin_m) values = std::numeric_limits<double>::infinity();
+    for (auto &values : diag.min_body_posture_margin) values = std::numeric_limits<double>::infinity();
+    for (auto &values : diag.min_uncertainty_margin_m) values = std::numeric_limits<double>::infinity();
+    TerrainShadowSnapshot empty;
+    empty.identity = result.plan.identity;
+    result.shadow_snapshot = std::make_shared<const TerrainShadowSnapshot>(empty);
+    const auto finish = [&]() {
+        diag.latency_us = std::chrono::duration<double, std::micro>(
+            std::chrono::steady_clock::now() - start).count();
+        diag.deadline_miss = diag.latency_us > diag.deadline_us;
+    };
+    if (!config_.shadow_enabled) { finish(); return; }
+    const auto reject = [&](TerrainShadowFamily family,
+                            TerrainShadowRejectReason reason) {
+        const auto f = static_cast<std::size_t>(family);
+        ++diag.candidate_count[f];
+        ++diag.rejected_count[f];
+        ++diag.rejection_histogram[f][static_cast<std::size_t>(reason)];
+    };
+    if (input.terrain == nullptr || !input.terrain->valid()) {
+        reject(TerrainShadowFamily::kV2B, TerrainShadowRejectReason::kInvalidInput);
+        reject(TerrainShadowFamily::kV3CDraft, TerrainShadowRejectReason::kInvalidInput);
+        finish(); return;
+    }
+    if (input.terrain->age_s > config_.feasibility.max_map_age_s) {
+        reject(TerrainShadowFamily::kV2B, TerrainShadowRejectReason::kStaleMap);
+        reject(TerrainShadowFamily::kV3CDraft, TerrainShadowRejectReason::kStaleMap);
+        finish(); return;
+    }
+    if (input.terrain->frame_id != config_.feasibility.required_frame) {
+        reject(TerrainShadowFamily::kV2B, TerrainShadowRejectReason::kFrameMismatch);
+        reject(TerrainShadowFamily::kV3CDraft, TerrainShadowRejectReason::kFrameMismatch);
+        finish(); return;
+    }
+    bool any_known = false;
+    for (const auto &cell : input.terrain->cells) any_known = any_known || cell.known;
+    if (!any_known) {
+        reject(TerrainShadowFamily::kV2B, TerrainShadowRejectReason::kUnknownTerrain);
+        reject(TerrainShadowFamily::kV3CDraft, TerrainShadowRejectReason::kUnknownTerrain);
+        finish(); return;
+    }
+    std::array<std::vector<SafeFootholdRegion>, go2::kLegCount> regions;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        regions[leg] = BuildSafeFootholdRegions(
+            *input.terrain, static_cast<go2::Leg>(leg), config_.feasibility, nullptr);
+    std::array<FootholdCandidate, go2::kLegCount> footholds{};
+    std::array<bool, go2::kLegCount> foothold_valid{};
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
+        for (const auto &region : regions[leg]) {
+            if (!region.valid) continue;
+            footholds[leg].leg = static_cast<go2::Leg>(leg);
+            footholds[leg].foot_position = region.center;
+            footholds[leg].surface_normal = region.normal;
+            footholds[leg].map_epoch = region.map_epoch;
+            footholds[leg].region_id = region.region_id;
+            footholds[leg].edge_margin_m = region.edge_margin_m;
+            footholds[leg].reachability_margin_m = region.reachability_margin_m;
+            footholds[leg].swing_clearance_m = region.swing_clearance_m;
+            footholds[leg].swing_lift_m = region.swing_lift_m;
+            footholds[leg].swing_peak_phase = region.swing_peak_phase;
+            footholds[leg].swing_leading_edge_phase = region.swing_leading_edge_phase;
+            footholds[leg].swing_leading_edge_phase_valid = region.swing_leading_edge_phase_valid;
+            footholds[leg].support_margin_m = region.support_margin_m;
+            footholds[leg].collision_margin_m = region.collision_margin_m;
+            footholds[leg].uncertainty_m = region.uncertainty_m;
+            footholds[leg].hard_feasible = true;
+            foothold_valid[leg] = true;
+            break;
+        }
+    }
+    const std::size_t horizon = std::clamp<std::size_t>(
+        config_.horizon_knots, 1, kTerrainPlanMaxKnots);
+    std::array<std::vector<int>, go2::kLegCount> events;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
+        bool previous = input.contact_schedule.measured_contact[leg];
+        for (std::size_t k = 0; k < horizon && events[leg].size() < 2; ++k) {
+            const bool planned = input.contact_schedule.planned_contact[k][leg];
+            if (planned && !previous) events[leg].push_back(static_cast<int>(k));
+            previous = planned;
+        }
+    }
+    const double period_values[] = {-0.04, 0.0, 0.04};
+    const double duty_values[] = {-0.04, 0.0, 0.04};
+    const int offset_values[] = {-1, 0, 1};
+    std::shared_ptr<const TerrainShadowSnapshot> best_a, best_b;
+    const auto snapshot_hash = [&horizon](const TerrainShadowSnapshot &snapshot) {
+        std::uint64_t hash = 1469598103934665603ULL;
+        const auto add = [&hash](const void *data, std::size_t size) {
+            const auto *bytes = static_cast<const unsigned char *>(data);
+            for (std::size_t i = 0; i < size; ++i) { hash ^= bytes[i]; hash *= 1099511628211ULL; }
+        };
+        add(&snapshot.family, sizeof(snapshot.family)); add(&snapshot.period_s, sizeof(double));
+        add(&snapshot.duty_factor, sizeof(double)); add(snapshot.touchdown_offset_s.data(), sizeof(snapshot.touchdown_offset_s));
+        for (std::size_t k = 0; k < horizon; ++k) {
+            add(snapshot.contact_schedule.planned_contact[k].data(), sizeof(bool) * go2::kLegCount);
+            add(&snapshot.body_reference[k].position, sizeof(go2::Vec3));
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                if (snapshot.predicted_foothold[k][leg].valid)
+                    add(&snapshot.predicted_foothold[k][leg].position_world, sizeof(go2::Vec3));
+        }
+        return hash;
+    };
+    const auto update_margin = [&diag](std::size_t family, const TerrainShadowSnapshot &s) {
+        diag.min_support_margin_m[family] = std::min(diag.min_support_margin_m[family], s.min_support_margin_m);
+        diag.min_dynamic_margin[family] = std::min(diag.min_dynamic_margin[family], s.min_dynamic_margin);
+        diag.min_clearance_margin_m[family] = std::min(diag.min_clearance_margin_m[family], s.min_clearance_margin_m);
+        diag.min_reachability_margin_m[family] = std::min(diag.min_reachability_margin_m[family], s.min_reachability_margin_m);
+        diag.min_edge_margin_m[family] = std::min(diag.min_edge_margin_m[family], s.min_edge_margin_m);
+        diag.min_body_posture_margin[family] = std::min(diag.min_body_posture_margin[family], s.min_body_posture_margin);
+        diag.min_uncertainty_margin_m[family] = std::min(diag.min_uncertainty_margin_m[family], s.min_uncertainty_margin_m);
+    };
+    for (double period_delta : period_values) for (double duty_delta : duty_values)
+    for (int offset_code = 0; offset_code < 81; ++offset_code) {
+        std::array<int, go2::kLegCount> offsets{};
+        int offset_digits = offset_code;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
+            offsets[leg] = offset_values[offset_digits % 3];
+            offset_digits /= 3;
+        }
+        TerrainShadowSnapshot base;
+        base.identity = result.plan.identity;
+        base.period_s = input.gait_period_s + period_delta;
+        base.duty_factor = input.duty_factor + duty_delta;
+        if (!(base.period_s > 0.0) || !(base.duty_factor > 0.0 && base.duty_factor < 1.0)) {
+            reject(TerrainShadowFamily::kV2B, TerrainShadowRejectReason::kTimingBounds);
+            reject(TerrainShadowFamily::kV3CDraft, TerrainShadowRejectReason::kTimingBounds);
+            continue;
+        }
+        base.contact_schedule = input.contact_schedule;
+        base.contact_schedule.provenance = result.plan.identity;
+        std::array<int, go2::kLegCount> shifted_first{};
+        shifted_first.fill(-1);
+        bool timing_ok = true;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
+            base.touchdown_offset_s[leg] = static_cast<double>(offsets[leg]) * config_.knot_dt_s;
+            for (const int event : events[leg]) {
+                const int shifted = event + offsets[leg];
+                if (shifted <= 0 || shifted >= static_cast<int>(horizon)) { timing_ok = false; break; }
+                if (shifted_first[leg] >= 0 && shifted == shifted_first[leg]) { timing_ok = false; break; }
+                if (shifted_first[leg] < 0) shifted_first[leg] = shifted;
+            }
+            if (!timing_ok) break;
+            bool previous = input.contact_schedule.measured_contact[leg];
+            for (std::size_t k = 0; k < horizon; ++k) {
+                const bool planned = input.contact_schedule.planned_contact[k][leg];
+                base.contact_schedule.planned_contact[k][leg] = planned;
+                previous = planned;
+            }
+            // Rebuild this leg's event rows from the shifted event positions.
+            bool contact = input.contact_schedule.measured_contact[leg];
+            std::size_t event_index = 0;
+            for (std::size_t k = 0; k < horizon; ++k) {
+                if (event_index < events[leg].size() &&
+                    static_cast<int>(k) == events[leg][event_index] + offsets[leg]) {
+                    contact = true; ++event_index;
+                } else if (event_index < events[leg].size() &&
+                           static_cast<int>(k) < events[leg][event_index] + offsets[leg]) {
+                    contact = false;
+                } else if (event_index < events[leg].size() &&
+                           static_cast<int>(k) > events[leg][event_index] + offsets[leg]) {
+                    contact = true; ++event_index;
+                }
+                base.contact_schedule.planned_contact[k][leg] = contact;
+            }
+        }
+        if (!timing_ok) {
+            reject(TerrainShadowFamily::kV2B, TerrainShadowRejectReason::kTimingBounds);
+            reject(TerrainShadowFamily::kV3CDraft, TerrainShadowRejectReason::kTimingBounds);
+            continue;
+        }
+        for (std::size_t family_index = 0; family_index < 2; ++family_index) {
+            const auto family = static_cast<TerrainShadowFamily>(family_index);
+            ++diag.candidate_count[family_index];
+            TerrainShadowSnapshot candidate = base;
+            candidate.family = family;
+            candidate.min_support_margin_m = std::numeric_limits<double>::infinity();
+            candidate.min_dynamic_margin = std::numeric_limits<double>::infinity();
+            candidate.min_clearance_margin_m = std::numeric_limits<double>::infinity();
+            candidate.min_reachability_margin_m = std::numeric_limits<double>::infinity();
+            candidate.min_edge_margin_m = std::numeric_limits<double>::infinity();
+            candidate.min_body_posture_margin = std::numeric_limits<double>::infinity();
+            candidate.min_uncertainty_margin_m = std::numeric_limits<double>::infinity();
+            TerrainShadowRejectReason failure = TerrainShadowRejectReason::kNone;
+            std::size_t two_contact_run = 0;
+            for (std::size_t k = 0; k < horizon && failure == TerrainShadowRejectReason::kNone; ++k) {
+                std::array<go2::Vec3, go2::kLegCount> feet{};
+                std::array<bool, go2::kLegCount> contacts = candidate.contact_schedule.planned_contact[k];
+                std::size_t count = 0;
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
+                    auto &foot = candidate.predicted_foothold[k][leg];
+                    if (!contacts[leg]) { foot = {}; continue; }
+                    ++count;
+                    const bool future = !input.contact_schedule.measured_contact[leg] ||
+                        (shifted_first[leg] >= 0 && static_cast<int>(k) >= shifted_first[leg]);
+                    feet[leg] = future && foothold_valid[leg]
+                        ? RotateBaseToWorld(input.base_position_world, input.base_yaw_rad, footholds[leg].foot_position)
+                        : RotateBaseToWorld(input.base_position_world, input.base_yaw_rad, input.current_feet_base[leg]);
+                    foot.valid = true; foot.position_world = feet[leg];
+                    foot.touchdown = future && shifted_first[leg] == static_cast<int>(k);
+                    foot.touchdown_time_s = input.state_stamp_s + static_cast<double>(k) * config_.knot_dt_s;
+                    foot.swing_duration_s = std::max(config_.knot_dt_s, (1.0 - candidate.duty_factor) * candidate.period_s);
+                    foot.region_id = future && foothold_valid[leg] ? footholds[leg].region_id : 0;
+                    foot.edge_margin_m = future && foothold_valid[leg] ? footholds[leg].edge_margin_m : 1.0;
+                    foot.reachability_margin_m = future && foothold_valid[leg] ? footholds[leg].reachability_margin_m : 1.0;
+                    foot.swing_clearance_m = future && foothold_valid[leg] ? footholds[leg].swing_clearance_m : 1.0;
+                    foot.uncertainty_m = future && foothold_valid[leg] ? footholds[leg].uncertainty_m : 0.0;
+                    foot.provenance = result.plan.identity;
+                    if (future && !foothold_valid[leg]) failure = TerrainShadowRejectReason::kNoFoothold;
+                }
+                auto &body = candidate.body_reference[k];
+                body.provenance = result.plan.identity; body.valid = true;
+                body.position = PredictBasePosition(input.base_position_world, input.base_velocity_world,
+                    static_cast<double>(k) * config_.knot_dt_s);
+                body.linear_velocity = input.base_velocity_world;
+                body.linear_acceleration = input.base_acceleration_world;
+                body.roll_rad = input.base_roll_rad; body.pitch_rad = input.base_pitch_rad;
+                body.yaw_rad = input.base_yaw_rad; body.height_m = input.base_height_m;
+                // Bounded CoM projection is part of the shadow candidate, not
+                // a command or a gait reference. Move only toward the current
+                // support centroid and cap each horizontal displacement.
+                if (count > 0 && std::isfinite(config_.shadow_max_body_projection_m)) {
+                    go2::Vec3 centroid{};
+                    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) if (contacts[leg]) {
+                        centroid.x += feet[leg].x; centroid.y += feet[leg].y;
+                    }
+                    centroid.x /= static_cast<double>(count); centroid.y /= static_cast<double>(count);
+                    const double limit = std::max(0.0, config_.shadow_max_body_projection_m);
+                    body.position.x += std::clamp(centroid.x - body.position.x, -limit, limit);
+                    body.position.y += std::clamp(centroid.y - body.position.y, -limit, limit);
+                }
+                if (count == 0) { failure = family == TerrainShadowFamily::kV2B ? TerrainShadowRejectReason::kMinimumContacts : TerrainShadowRejectReason::kAerial; break; }
+                if (family == TerrainShadowFamily::kV2B && count < 3) { failure = TerrainShadowRejectReason::kMinimumContacts; break; }
+                if (family == TerrainShadowFamily::kV3CDraft && count == 1) { failure = TerrainShadowRejectReason::kDynamicInfeasible; break; }
+                if (family == TerrainShadowFamily::kV3CDraft && count == 2) {
+                    const std::uint8_t mask = static_cast<std::uint8_t>((contacts[0] ? 1 : 0) | (contacts[1] ? 2 : 0) | (contacts[2] ? 4 : 0) | (contacts[3] ? 8 : 0));
+                    if (mask != 0x6 && mask != 0x9) { failure = TerrainShadowRejectReason::kDynamicInfeasible; break; }
+                    ++two_contact_run;
+                    if (static_cast<double>(two_contact_run) * config_.knot_dt_s > config_.shadow_max_two_contact_duration_s + 1.0e-9) { failure = TerrainShadowRejectReason::kTwoContactTimeout; break; }
+                } else two_contact_run = 0;
+                const double support = SupportMargin2D(feet, contacts, body.position,
+                    0.0, config_.max_two_contact_line_error_m);
+                candidate.min_support_margin_m = std::min(candidate.min_support_margin_m, support);
+                candidate.min_body_posture_margin = std::min(candidate.min_body_posture_margin,
+                    0.2617993877991494 - std::max(std::abs(body.roll_rad), std::abs(body.pitch_rad)));
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) if (contacts[leg] && foothold_valid[leg]) {
+                    candidate.min_edge_margin_m = std::min(candidate.min_edge_margin_m, footholds[leg].edge_margin_m);
+                    candidate.min_reachability_margin_m = std::min(candidate.min_reachability_margin_m, footholds[leg].reachability_margin_m);
+                    candidate.min_clearance_margin_m = std::min(candidate.min_clearance_margin_m, footholds[leg].swing_clearance_m);
+                    candidate.min_uncertainty_margin_m = std::min(candidate.min_uncertainty_margin_m, footholds[leg].edge_margin_m - footholds[leg].uncertainty_m);
+                }
+                if (!std::isfinite(support) || support <= 0.0) { failure = TerrainShadowRejectReason::kBodyPosture; break; }
+                if (candidate.min_body_posture_margin <= 0.0) { failure = TerrainShadowRejectReason::kBodyPosture; break; }
+                if (candidate.min_uncertainty_margin_m <= 0.0 || candidate.min_reachability_margin_m <= 0.0) { failure = TerrainShadowRejectReason::kReachability; break; }
+                if (candidate.min_clearance_margin_m <= 0.0) { failure = TerrainShadowRejectReason::kSweptClearance; break; }
+                if (candidate.min_edge_margin_m <= 0.0) { failure = TerrainShadowRejectReason::kUncertainty; break; }
+                if (family == TerrainShadowFamily::kV3CDraft) {
+                    const double mass = 12.0, normal = mass * 9.81 / static_cast<double>(count);
+                    const double friction_margin = config_.shadow_friction_coefficient * normal - mass * std::abs(input.base_acceleration_world.x) / static_cast<double>(count);
+                    const double unilateral_margin = normal - config_.shadow_min_normal_force_n;
+                    double torque_proxy = 0.0;
+                    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) if (contacts[leg]) {
+                        const double rx = feet[leg].x - body.position.x, ry = feet[leg].y - body.position.y;
+                        torque_proxy = std::max(torque_proxy, normal * std::hypot(rx, ry));
+                    }
+                    const double torque_margin = config_.shadow_max_torque_nm - torque_proxy;
+                    candidate.min_dynamic_margin = std::min({candidate.min_dynamic_margin, friction_margin, unilateral_margin, torque_margin});
+                    if (friction_margin <= 0.0) failure = TerrainShadowRejectReason::kFrictionOrUnilateral;
+                    else if (torque_margin <= 0.0) failure = TerrainShadowRejectReason::kTorqueProxy;
+                    else if (candidate.min_dynamic_margin <= 0.0) failure = TerrainShadowRejectReason::kDynamicInfeasible;
+                }
+            }
+            if (failure != TerrainShadowRejectReason::kNone) {
+                ++diag.rejected_count[family_index];
+                ++diag.rejection_histogram[family_index][static_cast<std::size_t>(failure)];
+                continue;
+            }
+            candidate.no_aerial = true; candidate.valid = true; candidate.shadow_hash = snapshot_hash(candidate);
+            ++diag.feasible_count[family_index]; update_margin(family_index, candidate);
+            const auto snapshot = std::make_shared<const TerrainShadowSnapshot>(candidate);
+            if (family == TerrainShadowFamily::kV2B && (!best_a || snapshot->shadow_hash < best_a->shadow_hash)) best_a = snapshot;
+            if (family == TerrainShadowFamily::kV3CDraft && (!best_b || snapshot->shadow_hash < best_b->shadow_hash)) best_b = snapshot;
+        }
+    }
+    if (best_a) result.shadow_snapshot = best_a;
+    else if (best_b) result.shadow_snapshot = best_b;
+    if (best_a) { diag.chosen_family = TerrainShadowFamily::kV2B; diag.chosen_shadow_hash = best_a->shadow_hash; }
+    else if (best_b) { diag.chosen_family = TerrainShadowFamily::kV3CDraft; diag.chosen_shadow_hash = best_b->shadow_hash; }
+    diag.a_empty_b_feasible = diag.feasible_count[0] == 0 && diag.feasible_count[1] > 0;
+    finish();
+}
 
 } // namespace go2_terrain

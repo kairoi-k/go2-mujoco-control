@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <string>
 
 #include "terrain_feasibility.h"
 #include "terrain_motion_plan.h"
@@ -983,7 +984,28 @@ int main()
     planner_config.feasibility.elevated_surface_standoff_m = 0.0;
     go2_terrain::TerrainPlanner planner(planner_config);
     const auto planned = planner.Build(input, 7);
-    if (!Check(!planned.publishable &&
+    const auto replayed = planner.Build(input, 7);
+    if (!Check(planned.shadow_snapshot &&
+                   planned.shadow_diagnostics.input_hash != 0 &&
+                   planned.shadow_diagnostics.candidate_count[0] > 0 &&
+                   planned.shadow_diagnostics.candidate_count[1] > 0 &&
+                   planned.shadow_diagnostics.feasible_count[1] > 0 &&
+                   planned.shadow_diagnostics.shadow_output_consumed == false,
+               "C-002 shadow snapshot/diagnostics were not emitted") ||
+        !Check(planned.shadow_diagnostics.ToJson().find("input_hash") != std::string::npos &&
+                   planned.shadow_diagnostics.ToJson().find("rejection_histogram") != std::string::npos,
+               "C-002 diagnostics were not machine-readable") ||
+        !Check(planned.shadow_diagnostics.rejection_histogram[0][
+                       static_cast<std::size_t>(go2_terrain::TerrainShadowRejectReason::kMinimumContacts)] > 0,
+                   "V2-B did not reject a planned knot with fewer than three contacts") ||
+        !Check(!planned.shadow_diagnostics.ToJson().empty() &&
+                   planned.shadow_diagnostics.chosen_shadow_hash ==
+                       replayed.shadow_diagnostics.chosen_shadow_hash,
+               "shadow replay/tie-break was not deterministic") ||
+        !Check(planned.shadow_snapshot->identity.plan_id == planned.plan.identity.plan_id &&
+                   planned.shadow_snapshot->identity.map_epoch == planned.plan.identity.map_epoch,
+               "shadow snapshot identity was not atomically bound") ||
+        !Check(!planned.publishable &&
                    planned.plan.status ==
                        go2_terrain::TerrainPlanStatus::kDegraded,
                "sensor-only planner became actuation-capable") ||
@@ -994,6 +1016,60 @@ int main()
                    !planned.selected[1].hard_feasible,
                "sensor-only planner performed actuation selection"))
         return 1;
+
+    // Invalid sensor provenance is rejected independently by both shadow families.
+    {
+        auto stale_input = input;
+        auto stale_model = built.model;
+        stale_model.age_s = planner_config.feasibility.max_map_age_s + 0.01;
+        stale_input.terrain = &stale_model;
+        const auto stale = planner.Build(stale_input, 14);
+        if (!Check(stale.shadow_diagnostics.rejection_histogram[0][
+                           static_cast<std::size_t>(go2_terrain::TerrainShadowRejectReason::kStaleMap)] > 0,
+                   "stale shadow terrain was not rejected")) return 1;
+        auto unknown_input = input;
+        auto unknown_model = built.model;
+        for (auto &cell : unknown_model.cells) cell.known = false;
+        unknown_input.terrain = &unknown_model;
+        const auto unknown = planner.Build(unknown_input, 15);
+        if (!Check(unknown.shadow_diagnostics.rejection_histogram[1][
+                           static_cast<std::size_t>(go2_terrain::TerrainShadowRejectReason::kUnknownTerrain)] > 0,
+                   "unknown shadow terrain was not rejected")) return 1;
+        auto frame_input = input;
+        auto frame_model = built.model;
+        frame_model.frame_id = "map";
+        frame_input.terrain = &frame_model;
+        const auto frame = planner.Build(frame_input, 16);
+        if (!Check(frame.shadow_diagnostics.rejection_histogram[0][
+                           static_cast<std::size_t>(go2_terrain::TerrainShadowRejectReason::kFrameMismatch)] > 0,
+                   "frame-mismatched shadow terrain was not rejected")) return 1;
+        auto aerial_input = input;
+        aerial_input.contact_schedule.measured_contact = {false, false, false, false};
+        for (std::size_t k = 0; k < 8; ++k)
+            aerial_input.contact_schedule.planned_contact[k] = {false, false, false, false};
+        const auto aerial = planner.Build(aerial_input, 17);
+        if (!Check(aerial.shadow_diagnostics.rejection_histogram[1][
+                           static_cast<std::size_t>(go2_terrain::TerrainShadowRejectReason::kAerial)] > 0,
+                   "V3-C shadow accepted an aerial interval")) return 1;
+        auto timeout_input = input;
+        for (std::size_t k = 0; k < 8; ++k)
+            timeout_input.contact_schedule.planned_contact[k] = {true, false, false, true};
+        const auto timeout = planner.Build(timeout_input, 18);
+        if (!Check(timeout.shadow_diagnostics.rejection_histogram[1][
+                           static_cast<std::size_t>(go2_terrain::TerrainShadowRejectReason::kTwoContactTimeout)] > 0,
+                   "V3-C shadow accepted an overlong two-contact interval")) return 1;
+        auto dynamic_input = timeout_input;
+        dynamic_input.base_acceleration_world.x = 100.0;
+        auto dynamic_config = planner_config;
+        dynamic_config.shadow_max_two_contact_duration_s = 1.0;
+        go2_terrain::TerrainPlanner dynamic_planner(dynamic_config);
+        const auto dynamic = dynamic_planner.Build(dynamic_input, 19);
+        if (!Check(dynamic.shadow_diagnostics.rejection_histogram[1][
+                           static_cast<std::size_t>(go2_terrain::TerrainShadowRejectReason::kFrictionOrUnilateral)] > 0 ||
+                       dynamic.shadow_diagnostics.rejection_histogram[1][
+                           static_cast<std::size_t>(go2_terrain::TerrainShadowRejectReason::kDynamicInfeasible)] > 0,
+                   "V3-C shadow accepted dynamically infeasible contact")) return 1;
+    }
 
     planner_config.sensor_only = false;
     planner_config.allow_actuation = true;

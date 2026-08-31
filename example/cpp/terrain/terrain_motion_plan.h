@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <memory>
 #include <limits>
+#include <iomanip>
+#include <sstream>
 #include <string>
 
 #include "go2_forward_kinematics.h"
@@ -679,6 +681,108 @@ struct TerrainMotionPlan
     bool usable_at(double now_s) const
     {
         return valid() && std::isfinite(now_s) && now_s <= valid_until_s;
+    }
+};
+
+enum class TerrainShadowFamily : std::uint8_t { kV2B = 0, kV3CDraft = 1 };
+inline const char *TerrainShadowFamilyName(TerrainShadowFamily family)
+{ return family == TerrainShadowFamily::kV3CDraft ? "v3-c-draft" : "v2-b"; }
+
+enum class TerrainShadowRejectReason : std::uint8_t
+{
+    kNone = 0, kInvalidInput, kStaleMap, kUnknownTerrain, kFrameMismatch,
+    kNoFoothold, kAerial, kMinimumContacts, kTwoContactTimeout,
+    kDynamicInfeasible, kFrictionOrUnilateral, kTorqueProxy, kReachability,
+    kSweptClearance, kBodyPosture, kUncertainty, kTimingBounds
+};
+constexpr std::size_t kTerrainShadowFamilyCount = 2;
+constexpr std::size_t kTerrainShadowRejectReasonCount =
+    static_cast<std::size_t>(TerrainShadowRejectReason::kTimingBounds) + 1;
+inline const char *TerrainShadowRejectReasonName(TerrainShadowRejectReason reason)
+{
+    static const char *const names[] = {"none", "invalid_input", "stale_map",
+        "unknown_terrain", "frame_mismatch", "no_foothold", "aerial",
+        "minimum_contacts", "two_contact_timeout", "dynamic_infeasible",
+        "friction_unilateral", "torque_proxy", "reachability",
+        "swept_clearance", "body_posture", "uncertainty", "timing_bounds"};
+    const auto index = static_cast<std::size_t>(reason);
+    return index < kTerrainShadowRejectReasonCount ? names[index] : "none";
+}
+
+// Immutable observer-only snapshot; no TerrainPlanStore or execution adapter.
+struct TerrainShadowSnapshot
+{
+    TerrainPlanIdentity identity{};
+    TerrainShadowFamily family = TerrainShadowFamily::kV2B;
+    double period_s = 0.0;
+    double duty_factor = 0.0;
+    std::array<double, go2::kLegCount> touchdown_offset_s{};
+    TerrainContactSchedule contact_schedule{};
+    std::array<TerrainBodyReference, kTerrainPlanMaxKnots> body_reference{};
+    std::array<std::array<TerrainFootholdPrediction, go2::kLegCount>, kTerrainPlanMaxKnots> predicted_foothold{};
+    double min_support_margin_m = -std::numeric_limits<double>::infinity();
+    double min_dynamic_margin = -std::numeric_limits<double>::infinity();
+    double min_clearance_margin_m = -std::numeric_limits<double>::infinity();
+    double min_reachability_margin_m = -std::numeric_limits<double>::infinity();
+    double min_edge_margin_m = -std::numeric_limits<double>::infinity();
+    double min_body_posture_margin = -std::numeric_limits<double>::infinity();
+    double min_uncertainty_margin_m = -std::numeric_limits<double>::infinity();
+    bool valid = false;
+    bool no_aerial = false;
+    std::uint64_t shadow_hash = 0;
+};
+
+struct TerrainShadowDiagnostics
+{
+    std::uint64_t input_hash = 0, chosen_shadow_hash = 0;
+    TerrainShadowFamily chosen_family = TerrainShadowFamily::kV2B;
+    std::array<std::uint64_t, 2> candidate_count{}, feasible_count{}, rejected_count{};
+    std::array<std::array<std::uint64_t, kTerrainShadowRejectReasonCount>, 2> rejection_histogram{};
+    std::array<double, 2> min_support_margin_m{}, min_dynamic_margin{}, min_clearance_margin_m{};
+    std::array<double, 2> min_reachability_margin_m{}, min_edge_margin_m{};
+    std::array<double, 2> min_body_posture_margin{}, min_uncertainty_margin_m{};
+    double latency_us = 0.0, deadline_us = 0.0;
+    bool deadline_miss = false, a_empty_b_feasible = false;
+    bool shadow_output_consumed = false;
+    static std::string Number(double value)
+    {
+        if (!std::isfinite(value)) return "null";
+        std::ostringstream stream; stream << std::setprecision(17) << value; return stream.str();
+    }
+    std::string ToJson() const
+    {
+        std::ostringstream stream;
+        stream << "{\"input_hash\":" << input_hash
+               << ",\"chosen_shadow_hash\":" << chosen_shadow_hash
+               << ",\"chosen_family\":\"" << TerrainShadowFamilyName(chosen_family)
+               << "\",\"families\":[";
+        for (std::size_t f = 0; f < 2; ++f) {
+            if (f) stream << ',';
+            stream << "{\"name\":\"" << TerrainShadowFamilyName(static_cast<TerrainShadowFamily>(f))
+                   << "\",\"candidates\":" << candidate_count[f]
+                   << ",\"feasible\":" << feasible_count[f]
+                   << ",\"rejected\":" << rejected_count[f]
+                   << ",\"min_support_margin_m\":" << Number(min_support_margin_m[f])
+                   << ",\"min_dynamic_margin\":" << Number(min_dynamic_margin[f])
+                   << ",\"min_clearance_margin_m\":" << Number(min_clearance_margin_m[f])
+                   << ",\"min_reachability_margin_m\":" << Number(min_reachability_margin_m[f])
+                   << ",\"min_edge_margin_m\":" << Number(min_edge_margin_m[f])
+                   << ",\"min_body_posture_margin\":" << Number(min_body_posture_margin[f])
+                   << ",\"min_uncertainty_margin_m\":" << Number(min_uncertainty_margin_m[f])
+                   << ",\"rejection_histogram\":{";
+            for (std::size_t r = 0; r < kTerrainShadowRejectReasonCount; ++r) {
+                if (r) stream << ',';
+                stream << "\"" << TerrainShadowRejectReasonName(static_cast<TerrainShadowRejectReason>(r))
+                       << "\":" << rejection_histogram[f][r];
+            }
+            stream << "}}";
+        }
+        stream << "],\"latency_us\":" << Number(latency_us)
+               << ",\"deadline_us\":" << Number(deadline_us)
+               << ",\"deadline_miss\":" << (deadline_miss ? "true" : "false")
+               << ",\"a_empty_b_feasible\":" << (a_empty_b_feasible ? "true" : "false")
+               << ",\"shadow_output_consumed\":false}";
+        return stream.str();
     }
 };
 
