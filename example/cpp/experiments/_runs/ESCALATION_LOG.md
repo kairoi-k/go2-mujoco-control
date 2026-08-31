@@ -4485,3 +4485,67 @@ final_replay: |
   for the inherited quantitative analyzers, and no actuation/gate claim is
   made. The B rejection is specifically the no-aerial check, so the rule is
   still NOT TRIGGERED.
+
+
+---
+timestamp: 2026-09-04T00:00:00+0800
+run_id: Order-095 C-002b explicit shadow hybrid schedule generator
+source_sha: 08ff34dea01ac0e1acd686984bf0b71d13ab13b9
+scope: |
+  Shadow-only generator correction. Family A now constructs explicit >=3-contact
+  schedules; family B enumerates diagonal 2-contact intervals with staggered
+  liftoff/touchdown 3-contact transitions and optional 4-contact settling.
+  Both use the same sensor-derived foothold representatives, body projection,
+  and provenance. Input running-trot contact topology is not used as a seed.
+  Shadow family snapshots retain explicit event timing for replay inspection;
+  no TerrainPlanStore, gait, MPC, WBC, or actuation consumer was added.
+implementation: |
+  Candidate horizons are clamped to 0.4--0.8 s. B construction guarantees
+  no 0/1-contact or aerial knot and bounds the maximum 2-contact run by
+  shadow_max_two_contact_duration_s. Both event permutations and both diagonal
+  masks are enumerated; deterministic score then hash tie-break selects the
+  winner. Malformed legacy replay rows remain diagnostics only (including
+  aerial, single-contact, and timeout classifications).
+unit_validation: |
+  test_terrain_interfaces covers non-empty A/B family snapshots, A >=3
+  contacts, B diagonal 2-contact plus 3/4-contact transitions, bounded run,
+  explicit liftoff/touchdown timing, inherited-order independence, deterministic
+  replay hash, stale/unknown/frame rejection, dynamic rejection, and
+  shadow_output_consumed=false.
+validation: |
+  cmake --build example/cpp/build -j2: PASS.
+  ctest --test-dir example/cpp/build --output-on-failure: 27/27 PASS.
+  git diff --check: PASS.
+b0_shadow_smoke: |
+  Serial fixed-3-m/s sensor-only pair used the existing lock and
+  LD_PRELOAD=/home/che/dds_base4000_preload.so at source 9433cab. The terrain
+  analyzer checks no_plan_consumer=true, no_plan_publish=true,
+  no_terrain_actuation=true, planner_deadline=true, and planner_updated=true.
+  Overall analyzer was FAIL because the paired baseline lifecycle failed;
+  this is not a shadow-generator or actuation failure and no gate claim is made.
+b1_shadow_only: |
+  Four serial 8-second 5-cm runs were observer-only, source 9433cab,
+  base4000 preload, scene phase2_step_5cm.xml, domains 230/231/232/220.
+  |run|A candidates/feasible|B candidates/feasible|A reject histogram|B reject histogram|A min support|B min support|B min dynamic|latency us|
+  |order095_b1_shadow_u0|30/0|147/0|no_foothold=26,minimum_contacts=4|no_foothold=146,aerial=1|null|null|null|429.4|
+  |order095_b1_shadow_u1|29/0|146/0|no_foothold=25,minimum_contacts=4|no_foothold=145,aerial=1|null|null|null|632.5|
+  |order095_b1_shadow_u2|28/24|145/144|minimum_contacts=4|aerial=1|0.05228|0.05217|14.715|2035.3|
+  |order095_b1_shadow_u3|28/24|145/144|minimum_contacts=4|aerial=1|0.05304|0.05292|14.715|1813.1|
+  All four report deadline_miss=false and shadow_output_consumed=false.
+  The first two startup observations are dominated by no_foothold; warmed
+  observations have positive A and B margins. This is diagnostic evidence,
+  not B1/B3 acceptance evidence.
+rule_decision: |
+  Neither contract activation nor terrain execution occurred. The autonomous
+  A-empty/B-positive rule is not triggered: A is feasible in 2/4 runs and B
+  is not positive while A is empty. Do not advance on the two empty startup
+  rows; first review the transient no_foothold attribution and repeat a
+  warmed-map shadow probe before any C-003 execution review. V3-C remains
+  DRAFT/SHADOW.
+rollback: |
+  Disable shadow_enabled or revert 08ff34d; legacy TerrainMotionPlan,
+  TerrainPlanStore, gait, MPC, WBC, and contract/analyzer/canary definitions
+  remain unchanged.
+acceptance: |
+  C-002b generator and unit evidence are complete, pushed, and shadow-only.
+  Physical B1 gate and contract activation are explicitly not claimed.
