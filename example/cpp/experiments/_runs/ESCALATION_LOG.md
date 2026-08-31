@@ -3638,3 +3638,58 @@ validation: |
 
 commit_chain: |
   5107827, b9c898e. No push or amend.
+
+---
+
+Order-078 implementation update — 2026-09-02
+
+source_sha: d4477196b5482d6b02381d98d3095a097cdc9a40
+kinematics_fix: |
+  The explicit crawl sequencer now scopes the terrain touchdown envelope to
+  raised FL (Leg::FL), with cubic easing in both horizontal progress and
+  vertical descent.  Thus the commanded x/z velocity tends to zero at the
+  fixed 0.60 s endpoint; flat isolation and the v1 path are unchanged.  The
+  execution adapter records the actual Cartesian command velocity each tick.
+
+stand_off_fix: |
+  Staged-start target derivation had a second fixed 0.16 m reach clamp after
+  MeasureTerrainScriptTarget had selected the raised foothold.  That clamp
+  shortened the target to roughly 0.08 m edge stand-off (the Order-077
+  failure).  It is removed; the measured-map target is retained and the
+  existing IK/WBC path remains authoritative.
+
+touchdown_telemetry: |
+  CSV now records per-leg command/measured foot velocity x/z, endpoint error
+  x/z, and achieved/target edge stand-off.  Measurement is finite-difference
+  FK in world coordinates at state-tick cadence; command is the exact world
+  velocity passed to the terrain Cartesian target adapter.
+
+unit_validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest: 27/27 PASS;
+  test_terrain_interfaces includes the raised-FL 10 ms pre-endpoint x/z
+  braking assertion; git diff --check: PASS.
+
+staged_validation: |
+  Serial domain-229, DDS preload /home/che/dds_base4000_preload.so,
+  --staged-start, duration 30/wall 35, all clean at d447719:
+  epoch249 seed249, epoch250 seed250, epoch251 seed251.  All three reached
+  FL SWING with target edge stand-off 0.2451, 0.1991, and 0.2451 m
+  respectively (thus the 0.16 m minimum target was retained), but each
+  stopped before a committed crawl step (0 commits).  Staged full-sequence
+  >=3 is NOT achieved; no crossing claim and no gate conclusion.
+
+full_validation: |
+  Serial domain-229, same preload/duration/scene, d447719,
+  b1_freegait_epoch246_order078_full seed246 reached FL SWING with target
+  edge stand-off 0.1750 m and stopped before commit (0 commits).  The
+  reconnect budget was not exhausted; no crossing claim, B0 3x, or flat
+  20/20 claim is made.
+
+pre_fix_evidence: |
+  Dirty exploratory epochs246/247/248 preceded d447719.  Their staged
+  target telemetry showed the removed clamp producing approximately 0.0975,
+  0.2450, and 0.1550 m depending on map snapshot; they are not counted as
+  clean validation.  The clean d447719 runs above show the target retained.
+
+commit_chain: |
+  5107827, b9c898e, d447719. No push or amend; simulation runs serialized.
