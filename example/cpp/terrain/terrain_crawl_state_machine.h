@@ -56,11 +56,10 @@ inline bool TerrainCrawlWbcContactOverride(
 {
     if (state == TerrainCrawlState::kShiftCom)
     {
-        // A v2 body advance uses the ordinary crawl schedule so a stance
-        // exchange can produce physical translation. The default full stance
-        // remains unchanged for staged/flat and ordinary SHIFT_COM.
-        if (body_advance_requested)
-            return false;
+        // A v2 body advance still needs the measured three-foot support
+        // witness while the body translates toward the endpoint. Keep the
+        // full stance here; the velocity/MPC path supplies the bounded creep,
+        // while staged/flat and ordinary SHIFT_COM retain the same stance.
         contact.fill(true);
         return true;
     }
