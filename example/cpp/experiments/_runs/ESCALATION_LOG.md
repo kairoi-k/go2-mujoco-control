@@ -4842,3 +4842,52 @@ acceptance: |
   Fault harness, B0 flag-off fixed pair, and three serial no-gate runtime probes
   are recorded. Runtime raw artifacts remain ignored; deterministic CSV and
   acceptance report are tracked.
+
+---
+timestamp: 2026-09-01T04:59:35+0800
+run_id: Order-101 C-006 formal B0 planner-enabled regression gate
+source_sha: 7861bf98cd32f454b3da6783a09b5571f4cfe037
+scope: |
+  VERIFY only. Frozen B0/Phase-1 contract, fixed-pair entrypoint, scene,
+  controller/simulator binaries, analyzers, and Base=4000 preload. Three
+  serial fixed pairs were pre-registered. Stage-C execution was OFF; terrain
+  sensor/planner and shadow diagnostics were ON. No plan publish/consumer,
+  gait/MPC/WBC consumption, terrain actuation, or threshold/code tuning.
+probe_validation: |
+  Pair 1 (domains 222/223, run suffix 045117): baseline lifecycle all zero,
+  fixed analyzer PASS; terrain lifecycle all zero, fixed analyzer PASS,
+  B0 acceptance PASS. Pair 2 (domains 222/223, suffix 045423): terrain
+  lifecycle all zero, fixed analyzer PASS and terrain diagnostics had 2,724
+  planner updates with zero deadline misses; baseline hit the existing hard
+  posture limit (roll=178.557 deg), safety_status=1 and completion_status=1,
+  fixed analyzer validation=FAIL. B0 correctly returned FAIL through
+  paired_baseline_lifecycle=false. Pair 3 was not run.
+shadow_and_logging: |
+  Terrain shadow records were 2,840 and 2,708; maximum planner latency was
+  4,429.690 us and 4,358.228 us against the frozen 5,000 us deadline, with
+  zero deadline misses and zero shadow-output consumption. In both terrain
+  members, terrain_has_stage_c_timing, terrain_plan_published,
+  terrain_plan_consumed, terrain_gait_target_overrides,
+  terrain_mpc_plan_consumed, and wbc_terrain_planned_contact_mask were zero
+  for every row. All FR/FL/RR/RL measured_fk records were valid with source
+  state_q+base_pose_fk. Raw/filtered/planned/fused masks remained separate.
+diagnosis: |
+  Mandatory stop was applied on the first authoritative failure. The failure
+  is a run-local baseline lifecycle/safety failure and is not terrain-only;
+  the matching terrain member passed. Existing nonlinear wall-clock
+  sensitivity means jitter versus startup/infrastructure disturbance cannot
+  be separated without a rerun. No rerun, threshold adjustment, or behavior
+  change is authorized by this order.
+rollback: |
+  Keep Stage-C execution flag off / omit --stage-c-execution and retain source
+  SHA 7861bf9 as prior verified rollback. Do not advance to C-007 or B1.
+artifacts: |
+  docs/research/evidence/order101_c006/PREREGISTERED_MANIFEST.json
+  docs/research/evidence/order101_c006/FORMAL_MANIFEST.json
+  docs/research/evidence/order101_c006/SUMMARY.md
+  docs/research/evidence/order101_c006/WILSON.json
+  docs/research/ORDER101_C006_ACCEPTANCE_20260901.md
+acceptance: |
+  NOT ACCEPTED: required 3/3 formal B0 passes were not established. Observed
+  completed pairs were 1 PASS / 1 FAIL; Wilson is diagnostic only because the
+  pre-registered sample was stopped at n=2.
