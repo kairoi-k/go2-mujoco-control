@@ -82,7 +82,6 @@ phase_offset[leg] = wrap((t_touch[i] - t_now) / T)  # derived telemetry only
 
 ### 2.3 机身/CoM 共规划
 
-对每个“时序组合 + 每腿安全落点组合”，建
 对每个“时序组合 + 每腿安全落点组合”，建立同一 horizon 的 body reference `b[k]`。初版不需要全身非线性求解：用当前 state/velocity 生成 base prediction，再对 `x,y,z,roll,pitch` 做小型约束投影或 bounded convex QP；已有 `SupportMargin2D`、`PredictBasePosition` 和 `body_reference[k]` 是直接 seam（`terrain_planner.h:246-319, 1401-1418, 1586-1612`）。投影变量允许 CoM 横向/纵向小移动、base height 和 terrain plane 的姿态参考，限制 base rate、roll/pitch、angular rate、height、jerk；不得用当前四脚均值代替 support polygon。
 
 在每个 knot：
@@ -100,9 +99,36 @@ phase_offset[leg] = wrap((t_touch[i] - t_now) / T)  # derived telemetry only
 
 窗口结束时，适配器撤销 terrain request，清除 terrain timing override，恢复 Phase-1 period/duty/pattern/velocity profile；不能调用 crawl `RESUME` 来掩盖计划状态。只有 stable passage 和 V2-A 的恢复时间条件都满足，才释放 window。planner stale/timeout 时保留 bounded latest-valid plan；超过 grace 进入 Phase-1 shaper 的 braking/support-safe fallback。`terrain_crawl_sequencer.h` 可作为显式 fallback backend，但 fallback 不是正常成功路径，也不能将其固定 leg order 写进 Stage C acceptance。
 
+### 2.4a 实测支撑运行时门禁
+
+这是执行期的硬门禁，不是 analyzer 软指标。每个控制 tick 重新计算 `measured_contact`：沿用现有 `HystereticContactParams` 和 `UpdateHystereticContact`（`example/cpp/contact/contact_state_filter.h:8-38`），当前运行参数为 engage `>=5 N`、release `<=3 N`（`example/cpp/trot/trot_types.h:55-56`，调用于 `trot_experiment_wbc.cpp:264-278`）。力值非有限或参数非法即判定观测无效并走回退。kinematic 判据不新造阈值：touchdown promotion 只能复用 `TerrainTouchdownTolerance`（`terrain_motion_plan.h:15-29`，窗口内下限 45 mm）及现有 endpoint error 检查（`trot_experiment_wbc.cpp:445-459`）；仅有位置接近、没有 filter contact bit，永远不能算支撑。
+
+定义 `M(t)=count(measured_contact[t])`。当任一控制 tick `N` 检出 `M(N)<3`，在同一 tick 锁存 `support_guard`：禁止新的 swing、禁止 touchdown commit、禁止扩展/推进 contact schedule；已在途 swing 的目标与起点不再漂移，只允许执行适配器在下一 tick 以内（`N+1`，当前 500 Hz 环境即不超过约 2 ms）冻结其计划进度并进入 recovery。适配器职责是计划生命周期：按以下固定链执行，而不把计划接触伪装成测量接触：
+
+1. `N`：保留当前 measured mask，停止新事件；向现有 v_cmd shaper 提交带 `plan_id` 的减速至零/安全 cap 请求。
+2. `N+1`：尝试加载 `latest-valid plan` 的 bounded recovery segment；只允许保持当前已测支撑并把已有在途腿导向该计划中已验证的 touchdown，不能发明落点。期间最多保持一个预冻结的 filter latency grace；WBC 的实际 contact mask 仍是 measured/fused mask。
+3. 到 `N+5`（不超过约 10 ms）仍 `M<3`，或 recovery segment 不存在/过期/不满足当前 measured mask：适配器放弃 terrain timing，切换 Phase-1 safe-stop request，保持 gait phase 不再推进。
+4. 到 `N+25`（不超过约 50 ms）仍未恢复至少 3 个实测接触，或 posture/torque guard 先触发：调用既有 posture stop/emergency safety path；不以“计划上有三脚”解除门禁。
+
+执行 `N+5` 的 Phase-1 safe-stop 前先将 terrain transfer 标记为 `transfer_abort`；因此 V2-A 的“完成或 transfer abort”边界已发生，后续完全停车是安全回退而非新的 terrain-crossing 行为。若 safety path 必须优先于窗口时限，则 safety envelope 胜过速度包络；该 episode 只能记为 abort/failure，不能声称满足 V2-A 的成功速度剖面。
+
+上述 tick/时间是 proposed runtime contract，必须在 C-000 根据实测控制周期冻结；不得用更宽 grace 掩盖支撑丢失。若 `M` 在 N+5 前恢复到 >=3，仍需 endpoint/force filter 原有 promotion 条件，才可恢复最新计划；一次恢复不追溯地把缺失 tick 记为计划接触。`latest-valid` 是恢复来源，不是 WBC 支撑事实。
+
+ID-WBC 职责相反且明确：它接收适配器给出的实际 `contact`，并以 `measured_contact` 做安全约束；执行已有摩擦锥、support normal、stance/swing acceleration、torque limit 和 solver validity（`example/cpp/wbc/inverse_dynamics_wbc.h:49-73, 127-161, 260-357`），在 guard 期间不得因 `planned_contact` 增位或 promotion。ID-WBC 不选择 planner fallback、腿序或 touchdown target；若输入无效/扭矩或姿态保护失败，返回 invalid 让适配器沿 Phase-1 safe-stop → posture stop 链处理。强制条款：**planned contact 永远不得替代 measured contact 进入 WBC 安全决策**；它只能作为 SRBD 预测和执行适配器的候选时间表。
+
 ### 2.5 合约合法性及未生效 v3 草案
 
-本设计的首次实现只声称 V2-B：V2-A 允许窗口内的受控 creep，V2-B 允许窗口内切换为任意时刻至少 3 接触的 crawl；计划选择了“planner-owned quasi-static >=3”，所以不需要修改当前 v2 合约。V1 继承的完成性、lidar-only、零碰撞、planned/measured 一致、0.45 s stable passage、manifest 和全部 posture/velocity/torque/model gates 原样保留。任何 threshold 不能因 Stage C 方便而放宽。
+本设计首次实现只声称当前 v2 的 V2-B 准静态模式；窗口内速度仍按 V2-A 通过既有 shaper 仲裁。下表是行为主张到合约的逐条对账，不把设计提议误写成已通过的 B1-B3 证据。
+
+| 本设计行为主张 | v2 合约条款 | 原文摘要/执行解释 |
+|---|---|---|
+| 窗口内速度由 planner 请求受控 cap，最低 0.05 m/s，结束后恢复 | `修订条款 V2-A`（第 24--31 行） | “接近段仍 0.30m/s；转移窗口内允许受控减速至爬行速度（不低于 0.05m/s，不允许完全刹停超过 1.0s）；穿越完成后 1.0s 内恢复脚本速度”；窗口外保留 v1 的 ±0.020 m/s、禁刹车、单速度权威。planner 不能直接写 gait setter 或 shaper 输出。 |
+| planner-owned quasi-static schedule 在任意时刻至少 3 个实测接触 | `修订条款 V2-B`（第 33--36 行） | “转移窗口内允许从 running-trot 切换为准静态 crawl（任意时刻 ≥3 接触）”；本设计把“接触”定义为现有 filter 的 measured bit，不是 planned mask。 |
+| planned/measured 分离、实测力才可确认 touchdown | `修订条款 V2-B`（第 33--36 行）及 `不变的底线`（第 38--43 行） | “窗口内的 contact 一致性、planned/measured 转移一致、零碰撞、每腿实测力支撑触地等全部 v1 条款不变”；lidar-only、零碰撞、完成性、0.45s stable passage 和 manifest 也原样继承。 |
+| stale/timeout 用 latest-valid → Phase-1 safe-stop → posture stop | `V2-A` 的 “transfer abort” 与 `V2-B` 的窗口外恢复；`不变的底线` | 合约明确 abort 和恢复冻结 Phase1 profile；本设计把 `PHASE2_TERRAIN_PLAN.md` §8--9 的 latest-valid/fallback 具体化，且不把 fallback 计为穿越成功或放宽任何 v1 gate。 |
+| 少于 3 接触的 dynamic timing adaptation | **不属于当前 v2；本文件 V3-C 草案** | 只能作为下方未生效提案，不能用于当前 B1-B3 验收。 |
+
+对账基线：`docs/research/PHASE2_B123_ACCEPTANCE_CONTRACT_V2.md` 最后修改 commit 为 `d0d6252821381fce53060159570ed1a03b3d1ff0`（`git log -1 -- docs/research/PHASE2_B123_ACCEPTANCE_CONTRACT_V2.md`）；当前文件 blob hash 为 `34a7e74b136f3b0b100f2ca1f7405499da7b8e38`（`git hash-object`）。后续验收应记录该 commit，并在合约变更时重新生成对账 hash。
 
 以下仅为若未来要接受少于 3 接触的 dynamic-with-timing-adaptation 而起草，**未生效、未应用、不能用于当前 B1-B3 验收**：
 
@@ -115,15 +141,34 @@ phase_offset[leg] = wrap((t_touch[i] - t_now) / T)  # derived telemetry only
 升级决定必须在 B0 flat planner-enabled regression 通过、TerrainModel/Feasibility 传感器语义通过、Stage C 的 timing/foothold/body plan 可复现且 SRBD 已确实消费逐 knot foothold/contact 后做。先排除：map frame/age、safe-region 错误、planned/measured 混淆、contact filter latency、gait handoff、ID-WBC torque/stance task 和 solver deadline。否则“SRBD 不够”只是错误接口的归因。
 
 建议验收模式预注册 holdout 样本量、seed、场景生成器和 analyzer hash；至少做一组固定样本的 SRBD 对照（旧 flat foothold、time-indexed foothold、timing+body plan），抖动门按 `PHASE2_WORKFLOW.md` 预注册 n 并给 Wilson 区间，不能由一次通过/失败下结论。每行证据至少包括：run/plan/map id、schedule/touchdown、每 knot contact mask、foothold/CoM、support margin、SRBD status/iterations/cost/force residual、ID-WBC status/eq/RNE residual、friction/torque activity、measured contact、failure stage、latency/deadline 和 fallback reason。
-### 3.2 满足下列全部条件，才标记 “SRBD insufficient”
+### 3.2 数值化的 B0 与 SRBD 升级分界（proposed）
 
-1. 传感器-only flat B0 和几何/时序单元测试绿；holdout controller 输入没有 truth/XML/oracle provenance。
-2. 在预注册的多次 holdout 中，完整 timing+foothold+body plan 均满足硬 feasibility，plan/contact/foothold horizon 100% coherent，SRBD QP 与 ID-WBC 都在预算内且 validity=1；不是 planner reject 或 stale fallback 导致的失败。
-3. 失败仍发生在“SRBD 被允许的全约束计划”中，并能归因于 SRBD 的状态/接触模型缺失，例如 full-body joint-limit/velocity coupling、swing-foot/body reaction、姿态与接触 wrench 的非线性耦合；要有时间对齐的 measured q/dq、wrench/force、torque saturation、base error 证据。
-4. 对照实验显示增加 horizon foothold、retimed schedule、body reference 或 ID-WBC execution 修复均不能消除该类失败，而离线 full-body rollout/小规模 NMPC 对同一输入能在同一安全约束下找到可行解。离线对照只能由 harness 使用 truth 做评分，controller 仍不可读 truth。
-5. 失败不是单纯超时、接触阈值、摩擦参数、map uncertainty 或执行器饱和；这些问题必须先有独立探针和回滚结论。
+下列数字是后续验收前的 proposed freeze，不是本单结果，也不能调到 holdout 结果。B0 的“绿”定义为：在 sensor-only/no-actuation、clean source 下，选定的 Phase-1 profile 与已接受 baseline 的完整量化合约逐门相同，并同时满足以下既有门（来源：`PHASE2_TERRAIN_PLAN.md §11.2` 及其引用的 Phase-1 analyzer/contract）：
 
-输出格式是 machine-readable `srbd_escalation_evidence.json` 加对应 CSV/manifest，记录每个候选计划的约束 residual 和对照配置；reviewer 必须能从 `plan_id/map_epoch` 重放该结论。未满足全部条件，只继续改进 Stage C/SRBD 接口，不启动 NMPC。
+* completion/lifecycle/status：完成、controller/safety/quality/dynamics status 合法，zero unplanned status failure；terrain 仅有 telemetry，不得改变 foothold、body reference、gait topology、event response 或 WBC task gate。
+* posture：所选 arbitrary-velocity profile 的 roll/pitch P95 `<=4 deg`、全运行最大绝对 roll/pitch `<=15 deg`；若运行 fixed-3-m/s profile，仍使用其冻结的 `5 deg` P95 analyzer gate，但 Phase-2 common ceiling `4 deg` 更严格时取 4 deg；活动 execution mode 更低的 hard limit 优先。
+* velocity/shaper：所选 profile 的 exact tracking/steady-state/overshoot/undershoot/settling row 不变；shaped-to-measured P95 `<=0.45 m/s`、shaper acceleration `<=1.25 m/s²`、jerk `<=4.20 m/s³`、acceleration-step change `<=0.02 m/s³`；需要停步的 profile stop-tail P95 `<=0.05 m/s`。terrain request 必须为 no-actuation/no-cap。
+* support/foothold：contact-loss fraction `<=0.25`、single-contact fraction `<=0.45`、touchdown x `<=0.18 m`、y `<=0.07 m`、slip evidence `==0`；B0 不新增 terrain touchdown gate。计划/脚步 validity 与 baseline 一致。
+* actuation/model/runtime：unchanged `--tau-limit` 下 torque-saturation fraction `<=0.003`；solver、SRBD、ID-WBC、footstep-plan validity `==1.0`；solver-budget fraction `>=0.80`；minimum base height `>=0.28 m`。fixed-3-m/s profile 另保留其冻结的 base-height percentile `[0.33,0.40] m` 和 foot-clearance `>=0.08 m` 条款。
+* identity/separation：terrain flag、lidar source、event response、runtime v_cmd、kernel target、WBC target、MPC input、ID-WBC output 必须逐字段与 baseline 分离；manifest 写明 HEAD、contract/analyzer hash 和 source provenance。ctest 全绿只是必要条件，不替代这些门。
+
+“SRBD 足够”与“允许升级”的统计分界建议固定为同一组 `n=20` holdout episode、双侧 95% Wilson 区间、全数纳入分母（无效运行不得删除）：
+
+| 结论 | 数值门 | 含义 |
+|---|---|---|
+| SRBD sufficient | 20/20 episode 全部通过继承门、Stage-C 几何/时序/支撑门和完成性；pass-rate Wilson 95% 下限 `>=0.80` | `20/20` 的 Wilson 下限约 `0.839`，故可声称在 proposed 0.80 置信下 SRBD+Stage-C 足够；任一未分类失败都不能声称 sufficient。 |
+| 证据不足、继续诊断 | 0--4 个可归因 SRBD failures，或有任意 map/fusion/执行器/unclassified failure | 例如 `4/20` failure 的 Wilson 下限约 `0.081<0.10`，不能升级；先修接口/归因。 |
+| SRBD insufficient、可提交升级评审 | 至少 `5/20`（failure rate `>=0.25`），且每个均满足下述 SRBD 归因条件；failure-rate Wilson 95% 下限 `>=0.10` | `5/20` 的下限约 `0.112`；这只是“可提交 reviewer 决策”，不是自动批准 NMPC。 |
+
+SRBD 归因必须可从日志独立判定，而不是从“穿越失败”倒推：
+
+1. 输入与计划：`TerrainModel` 为 lidar-only、frame/age/epoch 有效；无 truth/XML/oracle；accepted `plan_id/map_epoch` 的 timing、foothold、body horizon 完整且每个硬几何/uncertainty/support margin 门通过；planned contact count 和 measured contact 明确分列。
+2. 计划消费：`BuildTerrainPlanHorizonIndices` 成功，`mpc_in.has_time_indexed_footholds/reference==true`，每个 planned contact 有对应 valid foothold，`terrain_plan_consumed==true`；不得是 planner reject、stale fallback、缺 knot 或 sequencer override。
+3. 求解/执行：每个失败 episode 的 SRBD QP `ok==true`、ID-WBC `ok==true`、plan/contact coherent==true，solver-budget `>=0.80`；无 timeout/deadline、NaN、摩擦锥/normal-force violation、torque saturation（继承 `<=0.003`）、slip 或 `<3` measured-contact runtime-gate failure。ID-WBC 的 eq/RNE residual、force、friction ratio、q/dq、torque 和 base error 必须带同一时间戳。
+4. 现象归因：失败必须重复落在可观测的 SRBD 缺失项（例如逐 knot contact wrench/foothold 变化与 full-body joint-limit/velocity coupling、swing-foot reaction 或姿态动力学不一致），且 measured support、touchdown、collision、posture/velocity safety gate 本身没有先失败。使用明确的 `failure_class=srbd_model_gap`；其他类别为 planner/map/contact_fusion/id_wbc/actuator/unclassified。
+5. 反事实对照：同一 `plan_id/map_epoch`、state、timing、foothold、seed 的旧 flat、time-indexed foothold、timed+body 三组结果及离线 full-body rollout 都入 manifest；只有在 timing/foothold/body 和 ID-WBC 修复对照仍不能消除该类失败，而约束相同的离线 full-body 解可行时，才算 SRBD model gap。harness 可读取 truth 做评分，controller 不可读取。
+
+输出为 machine-readable `srbd_escalation_evidence.json`、CSV 和 manifest：记录每 episode 的 pass/failure、Wilson n/k/bounds、上述五类判据、残差、plan identity、配置和对照。未同时满足 `5/20 + Wilson 下限 + 全部归因判据`，只能继续 Stage C/SRBD，不启动 NMPC；满足也必须经过 reviewer 批准。
 
 ### 3.3 未来 whole-body NMPC 范围草案
 
