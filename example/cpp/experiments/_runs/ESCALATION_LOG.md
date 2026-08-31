@@ -3956,12 +3956,12 @@ full_campaign: |
   epoch281 / epoch281_r2                       0/2  0/2    none     20/33,20/33 INACTIVE>STAGE / 0.379 / 0.548,0.794,0.164,0.167; 0.399 / 0.566,0.813,0.182,0.185
   epoch282 / epoch282_r2                       0/2  0/2    none     21/33,18/33 INACTIVE>STAGE / 0.414 / 0.590,0.804,0.198,0.204; 0.376 / 0.538,0.833,0.154,0.156
   epoch283 / epoch283_r2                       0/2  0/2    none     19/33,20/33 INACTIVE>STAGE>SHIFT / 0.378 / 0.545,0.834,0.159,0.158; 0.393 / 0.764,0.565,0.177,0.324
-  epoch284 / epoch284_r2                       0/2  0/2    none     20/33,20/33 INACTIVE>STAGE / 0.427 / 0.594,0.693,0.214,0.210; 0.424 / 0.594,0.826,0.210,0.296
+  epoch284 / epoch284_r2                       0/2  0/2    none     20/33,20/33 INACTIVE>STAGE; INACTIVE>STAGE>SHIFT / 0.427 / 0.594,0.693,0.214,0.210; 0.424 / 0.594,0.826,0.210,0.296
   epoch285 / epoch285_r2                       0/2  0/2    none     21/33,20/33 INACTIVE>STAGE>SHIFT / 0.398 / 0.696,0.559,0.173,0.226; 0.387 / 0.564,0.594,0.191,0.317
   epoch286 / epoch286_r2                       0/2  0/2    none     20/33,15/33 INACTIVE>STAGE>SHIFT; INACTIVE>STAGE>SHIFT>SWING>COMMIT>ABORT / 0.402 / 0.573,0.783,0.192,0.186; 0.646 / 1.164,0.847,0.709,0.680
   epoch287 / epoch287_r2                       0/2  0/2    none     19/33,15/33 INACTIVE>STAGE; INACTIVE>STAGE>SHIFT>SWING>COMMIT>ABORT / 0.422 / 0.587,0.705,0.207,0.203; 0.824 / 1.241,0.840,0.604,0.489
   epoch288 / epoch288_r2                       0/2  0/2    none     15/33,20/33 INACTIVE>STAGE>SHIFT>SWING>COMMIT>ABORT; INACTIVE>STAGE / 1.007 / 0.687,0.830,0.688,0.682; 0.367 / 0.537,0.806,0.149,0.153
-  epoch289 / epoch289_r2                       0/2  0/2    none     20/33,20/33 INACTIVE>STAGE / 0.393 / 0.598,0.565,0.176,0.371; 0.397 / 0.567,0.571,0.180,0.403
+  epoch289 / epoch289_r2                       0/2  0/2    none     20/33,20/33 INACTIVE>STAGE; INACTIVE>STAGE>SHIFT / 0.393 / 0.598,0.565,0.176,0.371; 0.397 / 0.567,0.571,0.180,0.403
   Aggregate                                   0/20 0/20  none     n/a         full sequence rate 0.0%, Wilson 95% CI [0.0%,16.1%]; crossing rate 0.0%, Wilson 95% CI [0.0%,16.1%]. Per-pair 0/2 Wilson upper bound is 65.8%.
 residual: |
   Because no run completed the full sequence, the Order-083 conditional
