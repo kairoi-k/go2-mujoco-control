@@ -2829,8 +2829,19 @@ inline void TerrainPlanner::BuildShadow(
             footholds[leg].region_id = region.region_id;
             footholds[leg].edge_margin_m = region.edge_margin_m;
             footholds[leg].reachability_margin_m = region.reachability_margin_m;
-            footholds[leg].swing_clearance_m = region.swing_clearance_m;
-            footholds[leg].swing_lift_m = region.swing_lift_m;
+            double swept_clearance = region.swing_clearance_m;
+            FootholdRejectReason clearance_reason = FootholdRejectReason::kSwingClearance;
+            double required_lift = region.swing_lift_m;
+            if (!CheckSwingClearance(
+                    *input.terrain, TerrainPlannerSwingStart(input, leg),
+                    go2::ContactPatchToFootSite(region.center),
+                    config_.swing_clearance_m, swept_clearance,
+                    &clearance_reason, static_cast<go2::Leg>(leg),
+                    &required_lift))
+                continue;
+            footholds[leg].swing_clearance_m = std::isfinite(swept_clearance)
+                ? swept_clearance : region.swing_clearance_m;
+            footholds[leg].swing_lift_m = required_lift;
             footholds[leg].swing_peak_phase = region.swing_peak_phase;
             footholds[leg].swing_leading_edge_phase = region.swing_leading_edge_phase;
             footholds[leg].swing_leading_edge_phase_valid = region.swing_leading_edge_phase_valid;
