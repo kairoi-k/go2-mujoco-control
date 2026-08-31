@@ -4768,3 +4768,33 @@ acceptance: |
   coherent consumption with zero identity mismatches, complete knot witnesses,
   no MPC deadline misses, no immediate safety failure, and unchanged ID-WBC.
   This is runtime evidence only; no B1 acceptance claim.
+
+---
+timestamp: 2026-09-01T02:35:00+0800
+run_id: Order-099 C-004 final normal-approach probe C
+source_sha: 57ca03f2ed00147b9144f81836c0704605f78bef
+scope: |
+  Final source SHA is documentation-only after 741eda7; controller binary and
+  C-004 implementation are unchanged.  This is the requested third normal
+  full-approach development/no-gate probe, not a B1 campaign.  It used serial
+  lock discipline, new DDS domain 228, Base=4000 preload, phase2_step_5cm.xml,
+  --terrain-planner --stage-c-execution, shadow diagnostics and C004 witness.
+probe_validation: |
+  |run|domain|source|shadow records|map/safe-region ready|consumed rows|gait adopted plan/map/input_hash|SRBD consumed plan/epoch/map/input_hash|identity mismatches|MPC p50/p95/max us|deadline misses|ID-WBC status|safety|
+  |order099_c004_approach_C|228|57ca03f|736|true/true|2|351/351/13745316235677526436|351/351/351/13745316235677526436|0|244.808/288.500/1161.022|0|wbc_full_id_ok=1|PASS|
+  Witnesses contained finite lever_arms for every planned contact knot,
+  complete 8-knot contact mask vectors (minimum 3 contacts), and full 12-state
+  body_reference vectors.  Measured mask was logged separately and remained the
+  safety input; ID-WBC policy and gates were unchanged.  Rejection/fallback was
+  measured-support:N+5/N+25 after event-boundary rejection, with no mixed plan.
+  For completeness, approach_4 on domain 229 at this same final source also
+  completed safely: 2 consumed rows, plan 343/map 343/input_hash
+  4439858912535298529, zero identity mismatches, MPC latency
+  260.703/312.091/1282.777 us, zero deadline misses, ID-WBC=1.
+closure: |
+  B0 fixed-pair analyzer remains PASS from the prior closure.  The earlier
+  staged-start probe remains stopped/recorded as unsuitable because it had
+  chosen_hash=0, v2-b feasible=0 and immediate hard-posture safety failure
+  before any coherent C-004 consumption.  Normal approach probes 2, 3 and C
+  provide three safe no-gate consumptive runtime probes; each has zero gait/MPC
+  identity mismatch.  No full B1, C-005, NMPC, or threshold change occurred.
