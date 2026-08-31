@@ -3512,3 +3512,15 @@ validation: |
   20/20, crossing, or confirmation claim is made in this window.
 commit_chain: |
   69f2b2d, bebdcb3. No push or amend.
+
+
+Order-075 follow-up correction — 2026-09-02
+
+source_sha: 1aa1bf2c6aba1428c3563797aabb5b914526a689
+validation: |
+  A fresh serial flat probe order075_flat_seed209 with the same DDS preload,
+  domain 229, Base=4000, duration 30/wall 35, phase2_flat.xml and
+  --wall-clock-motion completed controller/safety/quality/analysis/ground-truth
+  status 0. Its controller summary reports touchdown_events=4 and max
+  touchdown errors x=0.00690 m, y=0.00995 m; it is not a fresh flat 20/20
+  claim (the flat crawl transaction was not active for this invocation).
