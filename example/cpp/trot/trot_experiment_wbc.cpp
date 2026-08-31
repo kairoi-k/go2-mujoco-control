@@ -546,7 +546,8 @@ void TrotExperiment::UpdateWbcFull(
                     terrain_transfer_hold_contact_, scheduled_contact,
                     measured_contact, true);
         }
-        if (terrain_transfer_hold_active_ && !terrain_transfer_complete)
+        if (terrain_transfer_hold_active_ && !terrain_transfer_complete &&
+            !terrain_crawl_sequencer_output_.body_advance_requested)
         {
             // Keep the support captured at the first target boundary;
             // only a confirmed target may be removed from that support
