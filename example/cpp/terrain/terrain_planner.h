@@ -123,6 +123,10 @@ struct TerrainPlannerInput
     // gait phase used by the low-level target generator.
     std::array<double, go2::kLegCount> next_touchdown_time_s{};
     std::array<bool, go2::kLegCount> next_touchdown_time_valid{};
+    // C-000 freezes the data seam only.  The planner and every terrain
+    // actuator path deliberately ignore these fields until a later order.
+    TerrainTimingBounds terrain_timing_bounds{};
+    bool has_stage_c_timing = false;
 };
 
 struct TerrainPlannerResult
@@ -481,6 +485,20 @@ public:
         result.plan.generated_at_s = input.state_stamp_s;
         result.plan.valid_until_s = input.state_stamp_s +
             config_.plan_validity_s;
+        result.plan.identity.plan_id = result.plan.plan_id;
+        result.plan.identity.plan_epoch = result.plan.plan_epoch;
+        result.plan.identity.map_epoch = result.plan.map_epoch;
+        result.plan.identity.generated_at_s = result.plan.generated_at_s;
+        result.plan.identity.valid_until_s = result.plan.valid_until_s;
+        // C-000 is a frozen seam: timing values are provenance-only and the
+        // existing planner remains the sole producer of legacy behavior.
+        result.plan.has_stage_c_timing = false;
+        result.plan.contact_timing.provenance =
+            TerrainTimingProvenance::kLegacyPhase1;
+        result.plan.contact_timing.period_s = input.gait_period_s;
+        result.plan.contact_timing.duty_factor = input.duty_factor;
+        result.plan.contact_timing.horizon_knots = config_.horizon_knots;
+        result.plan.contact_timing.knot_dt_s = config_.knot_dt_s;
         result.plan.gait_phase = input.gait_phase;
         result.plan.gait_period_s = input.gait_period_s;
         result.plan.duty_factor = input.duty_factor;

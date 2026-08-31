@@ -4338,3 +4338,36 @@ acceptance: |
   but staged >=3 and the full 4-pair >=6/8 gate were not achieved. Per
   Order-090 stop rule the low-stance pivot is not a B1 claim and the next
   decision is returned to the human owner. No 10-pair campaign was run.
+
+---
+timestamp: 2026-09-03T16:00:00+0800
+run_id: Order-092 C-000 frozen interfaces
+source_sha: 1869c6a
+scope: value types, inert validator, provenance/manifest/CSV fields only; no contract/analyzer/canary changes
+implementation: |
+  Added TerrainTimingBounds to TerrainPlannerInput; TerrainContactTiming,
+  TerrainTimingProvenance, immutable identity/timing snapshot fields, and an
+  opt-in schedule validator. has_stage_c_timing defaults false and the
+  existing planner/terrain actuation path does not consume it. CSV and run
+  manifest additions are provenance-only. Tests cover flat/unknown/stale/
+  invalid-frame maps, non-monotonic touchdown, missing foothold, fewer than
+  three planned contacts, period/duty bounds, and a valid minimal round-trip.
+validation: |
+  cmake --build example/cpp/build --target test_terrain_interfaces real_trot_go2 -j2: PASS.
+  ctest --test-dir example/cpp/build --output-on-failure: 27/27 PASS.
+  git diff --check: PASS.
+b0_smoke: |
+  Serial flock -n /tmp/go2_mujoco_experiment.lock with
+  LD_PRELOAD=/home/che/dds_base8000_preload.so bash
+  example/cpp/scripts/run_phase2_b0_fixed_pair.sh development 0; baseline
+  domain 222 and terrain domain 223. b0_analyzer acceptance_status=PASS;
+  no_terrain_actuation/no_plan_consumer/no_plan_publish=true; paired command,
+  event, applied velocity, and WBC/MPC legacy acceptance checks retained.
+rollback: |
+  Revert the C-000 commit, or remove the additive timing/provenance fields
+  and validator. Keep has_stage_c_timing=false; legacy TerrainMotionPlan
+  fields, planner, scheduler, WBC/MPC, contract, analyzer, and canary remain
+  the fallback. Do not roll back contract hashes.
+acceptance: |
+  C-000 checks pass; smoke is sensor-only and produces no Stage-C actuation.
+  No behavior path was enabled.

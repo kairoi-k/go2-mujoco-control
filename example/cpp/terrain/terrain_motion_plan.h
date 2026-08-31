@@ -277,6 +277,67 @@ struct TerrainFootholdPrediction
     bool surface_transition_intent_valid = false;
 };
 
+enum class TerrainTimingProvenance : std::uint8_t
+{
+    kNone = 0,
+    kLegacyPhase1 = 1,
+    kStageCPlanner = 2,
+    kReplay = 3,
+};
+
+inline const char *TerrainTimingProvenanceName(TerrainTimingProvenance source)
+{
+    switch (source)
+    {
+    case TerrainTimingProvenance::kLegacyPhase1: return "legacy_phase1";
+    case TerrainTimingProvenance::kStageCPlanner: return "stage_c_planner";
+    case TerrainTimingProvenance::kReplay: return "replay";
+    default: return "none";
+    }
+}
+
+// Absolute touchdown times are the sole future execution time variable.
+// Phase offsets, if later exposed, remain derived telemetry.
+struct TerrainContactTiming
+{
+    double period_s = 0.8;
+    double duty_factor = 0.58;
+    std::array<double, go2::kLegCount> touchdown_time_s{};
+    std::array<bool, go2::kLegCount> touchdown_time_valid{};
+    std::size_t horizon_knots = 0;
+    double knot_dt_s = 0.020;
+    TerrainTimingProvenance provenance = TerrainTimingProvenance::kNone;
+
+    bool valid(const TerrainTimingBounds &bounds) const
+    {
+        if (!bounds.valid() || !std::isfinite(period_s) ||
+            !std::isfinite(duty_factor) || !std::isfinite(knot_dt_s) ||
+            knot_dt_s <= 0.0 || period_s < bounds.min_period_s ||
+            period_s > bounds.max_period_s ||
+            duty_factor < bounds.min_duty_factor ||
+            duty_factor > bounds.max_duty_factor)
+            return false;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (!touchdown_time_valid[leg])
+                continue;
+            const double time = touchdown_time_s[leg];
+            if (!std::isfinite(time) || time < bounds.window_start_s ||
+                time > bounds.window_end_s)
+                return false;
+            if (bounds.next_touchdown_time_valid[leg] &&
+                std::abs(time - bounds.next_touchdown_time_s[leg]) >
+                    bounds.knot_dt_s + 1.0e-9)
+                return false;
+            if (bounds.touchdown_window_valid[leg] &&
+                (time < bounds.earliest_touchdown_time_s[leg] ||
+                 time > bounds.latest_touchdown_time_s[leg]))
+                return false;
+        }
+        return true;
+    }
+};
+
 struct TerrainVelocityRequest
 {
     bool valid = false;
@@ -305,6 +366,12 @@ struct TerrainSolverDiagnostics
 
 struct TerrainMotionPlan
 {
+    // Legacy scalar identity fields remain source-compatible; identity is the
+    // C-000 immutable value snapshot used by later consumers.
+    TerrainPlanIdentity identity{};
+    TerrainContactTiming contact_timing{};
+    TerrainTimingBounds timing_bounds{};
+    bool has_stage_c_timing = false;
     std::uint64_t plan_id = 0;
     std::uint64_t plan_epoch = 0;
     std::uint64_t map_epoch = 0;
@@ -419,6 +486,52 @@ struct TerrainMotionPlan
                     return false;
                 if (foot.touchdown &&
                     foot.touchdown_time_s > valid_until_s + 1.0e-6)
+                    return false;
+            }
+        }
+        if (has_stage_c_timing)
+        {
+            if (contact_timing.horizon_knots != horizon_knots ||
+                !contact_timing.valid(timing_bounds))
+                return false;
+            const double last_knot_time = state_stamp_s +
+                static_cast<double>(horizon_knots - 1) *
+                    contact_timing.knot_dt_s;
+            if (state_stamp_s < timing_bounds.window_start_s ||
+                !std::isfinite(last_knot_time) ||
+                last_knot_time > timing_bounds.window_end_s + 1.0e-9)
+                return false;
+            bool have_previous_touchdown = false;
+            double previous_touchdown_time = -std::numeric_limits<double>::infinity();
+            std::array<bool, go2::kLegCount> previous_contact =
+                contact_schedule.measured_contact;
+            for (std::size_t k = 0; k < horizon_knots; ++k)
+            {
+                std::size_t planned_contacts = 0;
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                {
+                    const bool planned = contact_schedule.planned_contact[k][leg];
+                    planned_contacts += planned ? 1U : 0U;
+                    const auto &foot = predicted_foothold[k][leg];
+                    if (foot.touchdown)
+                    {
+                        if (!planned || !foot.valid ||
+                            !std::isfinite(foot.touchdown_time_s) ||
+                            foot.touchdown_time_s < timing_bounds.window_start_s ||
+                            foot.touchdown_time_s > timing_bounds.window_end_s ||
+                            (have_previous_touchdown &&
+                             foot.touchdown_time_s + 1.0e-9 <
+                                 previous_touchdown_time))
+                            return false;
+                        previous_touchdown_time = foot.touchdown_time_s;
+                        have_previous_touchdown = true;
+                    }
+                    if (planned && !previous_contact[leg] &&
+                        (!foot.touchdown || !foot.valid))
+                        return false;
+                    previous_contact[leg] = planned;
+                }
+                if (planned_contacts < 3)
                     return false;
             }
         }

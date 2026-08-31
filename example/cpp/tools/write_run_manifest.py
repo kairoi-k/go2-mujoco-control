@@ -117,6 +117,16 @@ def main() -> int:
                 "terrain_analysis_status",
             )
         },
+        # C-000 publishes schema/provenance only.  Timing remains disabled
+        # until a later order explicitly enables a terrain execution path.
+        "terrain_timing": {
+            "has_stage_c_timing": False,
+            "timing_provenance": "none",
+            "period_s": None,
+            "duty_factor": None,
+            "window_start_s": None,
+            "window_end_s": None,
+        },
         "run": {
             "domain_id": metadata.get("domain_id", ""),
             "controller_duration_s": metadata.get("controller_duration_s", ""),

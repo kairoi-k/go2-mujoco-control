@@ -44,6 +44,9 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_map_valid,terrain_map_source,terrain_map_epoch"
          << ",terrain_map_age_s,terrain_known_cells,terrain_feasible_regions"
          << ",terrain_plan_status,terrain_plan_id,terrain_plan_epoch,terrain_plan_valid"
+         << ",terrain_has_stage_c_timing,terrain_timing_provenance"
+         << ",terrain_timing_period_s,terrain_timing_duty_factor"
+         << ",terrain_timing_window_start_s,terrain_timing_window_end_s"
          << ",terrain_planner_updates,terrain_planner_rejections"
          << ",terrain_planner_deadline_misses,terrain_solver_elapsed_us"
          << ",terrain_safe_stop_requested,terrain_velocity_cap_mps"
@@ -1117,6 +1120,24 @@ void TrotExperiment::LogSample(
          << "," << terrain_plan_id_.load()
          << "," << terrain_plan_epoch_.load()
          << "," << (terrain_latest_plan_valid ? 1 : 0)
+         << "," << (terrain_execution_plan &&
+                          terrain_execution_plan->has_stage_c_timing ? 1 : 0)
+         << "," << (terrain_execution_plan
+                          ? go2_terrain::TerrainTimingProvenanceName(
+                                terrain_execution_plan->contact_timing.provenance)
+                          : "none")
+         << "," << (terrain_execution_plan &&
+                          terrain_execution_plan->has_stage_c_timing
+                          ? terrain_execution_plan->contact_timing.period_s : 0.0)
+         << "," << (terrain_execution_plan &&
+                          terrain_execution_plan->has_stage_c_timing
+                          ? terrain_execution_plan->contact_timing.duty_factor : 0.0)
+         << "," << (terrain_execution_plan &&
+                          terrain_execution_plan->has_stage_c_timing
+                          ? terrain_execution_plan->timing_bounds.window_start_s : 0.0)
+         << "," << (terrain_execution_plan &&
+                          terrain_execution_plan->has_stage_c_timing
+                          ? terrain_execution_plan->timing_bounds.window_end_s : 0.0)
          << "," << terrain_planner_updates
          << "," << terrain_planner_rejections
          << "," << terrain_planner_deadline_misses

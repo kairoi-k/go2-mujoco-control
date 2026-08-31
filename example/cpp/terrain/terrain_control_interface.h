@@ -38,6 +38,60 @@ struct TerrainPlanIdentity
     }
 };
 
+// Bounds are an input-only description of a future Stage-C timing window.
+// They are intentionally inert until a later order enables the timing path.
+struct TerrainTimingBounds
+{
+    double current_period_s = 0.8;
+    double current_duty_factor = 0.58;
+    double min_period_s = 0.10;
+    double max_period_s = 2.00;
+    double min_duty_factor = 0.50;
+    double max_duty_factor = 0.95;
+    double window_start_s = 0.0;
+    double window_end_s = 0.0;
+    double knot_dt_s = 0.020;
+    std::array<double, go2::kLegCount> next_touchdown_time_s{};
+    std::array<bool, go2::kLegCount> next_touchdown_time_valid{};
+    std::array<double, go2::kLegCount> earliest_touchdown_time_s{};
+    std::array<double, go2::kLegCount> latest_touchdown_time_s{};
+    std::array<bool, go2::kLegCount> touchdown_window_valid{};
+
+    bool valid() const
+    {
+        if (!std::isfinite(current_period_s) ||
+            !std::isfinite(current_duty_factor) ||
+            !std::isfinite(min_period_s) || !std::isfinite(max_period_s) ||
+            !std::isfinite(min_duty_factor) ||
+            !std::isfinite(max_duty_factor) ||
+            !std::isfinite(window_start_s) || !std::isfinite(window_end_s) ||
+            !std::isfinite(knot_dt_s) || knot_dt_s <= 0.0 ||
+            min_period_s <= 0.0 || min_period_s > max_period_s ||
+            min_duty_factor <= 0.0 || min_duty_factor >= max_duty_factor ||
+            max_duty_factor >= 1.0 || window_end_s < window_start_s)
+            return false;
+        if (current_period_s < min_period_s ||
+            current_period_s > max_period_s ||
+            current_duty_factor < min_duty_factor ||
+            current_duty_factor > max_duty_factor)
+            return false;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (!next_touchdown_time_valid[leg])
+                continue;
+            if (!std::isfinite(next_touchdown_time_s[leg]))
+                return false;
+            if (touchdown_window_valid[leg] &&
+                (!std::isfinite(earliest_touchdown_time_s[leg]) ||
+                 !std::isfinite(latest_touchdown_time_s[leg]) ||
+                 earliest_touchdown_time_s[leg] >
+                     latest_touchdown_time_s[leg]))
+                return false;
+        }
+        return true;
+    }
+};
+
 struct TerrainContactSchedule
 {
     // Measured contact is the current estimator/sensor observation.  Planned

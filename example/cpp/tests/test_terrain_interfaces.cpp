@@ -2450,6 +2450,126 @@ int main()
                    "FL triangle witness was not distinct from STAGE polygon")) return 1;
     }
 
+    // C-000: timing is a frozen value seam and is inert unless explicitly
+    // enabled. Exercise map provenance and each hard schedule check here;
+    // these fixtures never enter a terrain execution path.
+    {
+        auto stale_map = map;
+        const auto stale_built = go2_terrain::BuildTerrainModel(
+            &stale_map, 10.50, 4, go2_terrain::TerrainSource::kLidar);
+        const auto stale_candidate = go2_terrain::EvaluateFoothold(
+            stale_built.model, go2::Leg::FR, 0.20, -0.10, feasibility);
+        auto invalid_frame_map = map;
+        invalid_frame_map.frame_id("");
+        const auto invalid_frame_built = go2_terrain::BuildTerrainModel(
+            &invalid_frame_map, 10.04, 5, go2_terrain::TerrainSource::kLidar);
+        if (!Check(stale_built.ok() &&
+                       stale_candidate.reject_reason ==
+                           go2_terrain::FootholdRejectReason::kStale,
+                   "stale map was not rejected by the feasibility seam") ||
+            !Check(!invalid_frame_built.ok() &&
+                       invalid_frame_built.error ==
+                           go2_terrain::TerrainModelError::kInvalidFrame,
+                   "invalid-frame map was accepted") ||
+            !Check(built.ok() && unknown_built.ok(),
+                   "flat/unknown map fixtures did not remain valid observations"))
+            return 1;
+    }
+
+    const auto make_timing_plan = [] {
+        go2_terrain::TerrainMotionPlan plan;
+        plan.plan_id = 11;
+        plan.plan_epoch = 11;
+        plan.map_epoch = 1;
+        plan.state_stamp_s = 1.0;
+        plan.generated_at_s = 1.0;
+        plan.valid_until_s = 1.20;
+        plan.frame_id = "base_link";
+        plan.status = go2_terrain::TerrainPlanStatus::kValid;
+        plan.horizon_knots = 3;
+        plan.has_stage_c_timing = true;
+        plan.timing_bounds.window_start_s = 1.0;
+        plan.timing_bounds.window_end_s = 1.20;
+        plan.timing_bounds.knot_dt_s = 0.10;
+        plan.contact_timing.horizon_knots = 3;
+        plan.contact_timing.knot_dt_s = 0.10;
+        plan.contact_timing.period_s = 0.80;
+        plan.contact_timing.duty_factor = 0.75;
+        plan.contact_timing.provenance =
+            go2_terrain::TerrainTimingProvenance::kStageCPlanner;
+        plan.contact_schedule.measured_contact = {true, true, true, true};
+        plan.contact_schedule.measured_valid = true;
+        plan.contact_schedule.planned_valid = true;
+        for (std::size_t k = 0; k < plan.horizon_knots; ++k)
+        {
+            plan.contact_schedule.planned_contact[k] =
+                {true, true, true, true};
+            plan.body_reference[k].valid = true;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                auto &foot = plan.predicted_foothold[k][leg];
+                foot.valid = true;
+                foot.position_world = {0.2, 0.1, 0.0};
+            }
+        }
+        auto &touchdown = plan.predicted_foothold[1][0];
+        touchdown.touchdown = true;
+        touchdown.touchdown_time_s = 1.10;
+        touchdown.swing_duration_s = 0.10;
+        touchdown.swing_start_position_valid = true;
+        touchdown.swing_start_position_world = {0.1, 0.1, 0.0};
+        return plan;
+    };
+    {
+        const auto valid_plan = make_timing_plan();
+        if (!Check(valid_plan.valid(),
+                   "minimal valid Stage-C plan did not round-trip"))
+            return 1;
+        go2_terrain::TerrainPlanStore timing_store;
+        timing_store.Publish(valid_plan);
+        const auto timing_loaded = timing_store.LoadUsable(1.15);
+        if (!Check(timing_loaded && timing_loaded->has_stage_c_timing &&
+                       timing_loaded->contact_timing.provenance ==
+                           go2_terrain::TerrainTimingProvenance::kStageCPlanner,
+                   "minimal valid Stage-C plan was not atomically round-tripped"))
+            return 1;
+
+        auto non_monotonic = valid_plan;
+        auto &second_touchdown = non_monotonic.predicted_foothold[2][1];
+        second_touchdown.touchdown = true;
+        second_touchdown.touchdown_time_s = 1.05;
+        second_touchdown.swing_duration_s = 0.10;
+        second_touchdown.swing_start_position_valid = true;
+        second_touchdown.swing_start_position_world = {0.1, 0.1, 0.0};
+        if (!Check(!non_monotonic.valid(),
+                   "non-monotonic touchdown schedule was accepted"))
+            return 1;
+
+        auto missing_foothold = valid_plan;
+        missing_foothold.predicted_foothold[1][0].valid = false;
+        if (!Check(!missing_foothold.valid(),
+                   "touchdown without a valid foothold was accepted"))
+            return 1;
+
+        auto too_few_contacts = valid_plan;
+        too_few_contacts.contact_schedule.planned_contact[1] =
+            {true, true, false, false};
+        if (!Check(!too_few_contacts.valid(),
+                   "schedule with fewer than three planned contacts was accepted"))
+            return 1;
+
+        auto invalid_period = valid_plan;
+        invalid_period.contact_timing.period_s = 0.05;
+        if (!Check(!invalid_period.valid(),
+                   "period outside timing bounds was accepted"))
+            return 1;
+        auto invalid_duty = valid_plan;
+        invalid_duty.contact_timing.duty_factor = 0.99;
+        if (!Check(!invalid_duty.valid(),
+                   "duty factor outside timing bounds was accepted"))
+            return 1;
+    }
+
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";
     return 0;
 }
