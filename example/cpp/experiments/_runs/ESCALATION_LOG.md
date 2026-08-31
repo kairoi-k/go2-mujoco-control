@@ -4217,3 +4217,78 @@ acceptance: |
   The required physical SHIFT-witness and SWING-entry improvement was not
   achieved (0/8 and 2/8 respectively), and sequence completion is not claimed.
   Diagnostic runs and probes were serialized. No push or amend.
+
+---
+timestamp: 2026-09-03T12:00:00+0800
+run_id: Order-089 geometric edge-slip forensics, support placement repair, and re-probe
+source_sha: d9e3816
+fix_sha: 67471c1, 50a45b5, 399e6bf
+forensics: |
+  Replayed all eight telemetry-on diagnostic CSVs from b1_freegait_epoch312..315
+  and each _r2. An event is exactly the Order-088 definition: commanded normal
+  force >10 N and measured force <5 N for >=3 consecutive telemetry rows.
+  The 522 episodes reproduce exactly. Applying the recorded precedence and
+  cause-4 condition slip >=0.5 m/s and abs(foot_surface_z_error) <=0.06 m
+  reproduces 260 edge-slip episodes.
+  Signed forward distance d is terrain_exec_*_achieved_standoff_m (positive
+  beyond the first measured rising edge; edge x is the diagnostics measured
+  map edge). At event onset, the three-way geometric distribution is:
+    (a) lip/edge-radius band d >= -0.040 m: 54/260 (20.8%), FR/FL/RR/RL=21/30/3/0;
+    (b) below lip but within 0.120 m and dragged toward it during transfer,
+        -0.120 <= d < -0.040 m: 52/260 (20.0%), FR/FL/RR/RL=18/33/1/0;
+    (c) flat support, body transfer pulls the foot from farther behind the
+        lip, d < -0.120 m: 154/260 (59.2%), FR/FL/RR/RL=11/14/40/89.
+  The category boundary is the 40 mm support keep-away and 120 mm drag basin;
+  z error remained within the cause-4 band by construction (onset range
+  -0.0587..0.0470 m, median 0.0032 m), so these are lateral edge events, not
+  vertical map mismatch. The onset d range was -0.5785..0.1178 m and median
+  -0.2447 m. The 154 far-flat events are dominated by rear feet (129/154),
+  while all 54 lip-band events are front feet except three RR events.
+  Event maxima slip ranged 0.505..5.499 m/s, median 0.963 m/s.
+attribution: |
+  The pre-fix planner applied min_edge_margin_m=0.040 to map/FOV patch margin,
+  not the forward riser lip. Its elevated-surface standoff gate was only for
+  raised swing candidates; low-surface support candidates had no riser
+  keep-away. The execution fields confirm the distinction: among the 260
+  events, planned execution standoff was <=-0.120 m in 203/260, while actual
+  event onset was in the lip/near-lip bands for 106/260 (a+b). Thus the
+  recorded planner/execution target is not an effective support-foot placement
+  constraint; the approach gait placed/held the support anchors and crawl
+  SHIFT later dragged them. This is separate from the direct raised swing
+  target, which already has its 0.080 m (and FL 0.160 m) upper-surface rule.
+implementation: |
+  67471c1 adds ForwardRiserEdgeX using a two-lateral-row persistent measured
+  height transition and support_edge_standoff_m=0.080 m. Low-surface planner
+  candidates now require that keep-away in both first and repeated touchdown
+  selection; elevated swing candidates retain their existing rule. Unit tests
+  cover accepted/rejected low-side positions and preserve the elevated rule.
+  180 no-slip was reverted to 80 for the Order-088 full-v2 SHIFT branch: the
+  522-event histogram and epoch316..319 result (SHIFT witness 0/8, SWING 2/8)
+  supplied no evidence of benefit. The pre-existing separate raised-support
+  hard branch remains unchanged.
+  After the first probe showed current approach anchors were already selected
+  before planner candidate selection, the approved STAGE repair (50a45b5,
+  399e6bf) relocates one measured support foot at a time to 2*standoff behind
+  the measured edge, holds the other feet at measured anchors, requires a
+  measured contact witness before selecting the next foot, and gates sequencer
+  SHIFT on completion. No contract/analyzer/canary definition changed.
+probe_validation: |
+  Initial epoch320..323 probe at 67471c1: SHIFT witness 0/8; this exposed the
+  approach-anchor attribution. Re-probe epoch324..327 at 399e6bf, all eight
+  serial under flock -x /tmp/go2_mujoco_experiment.lock, domain 229,
+  LD_PRELOAD=/home/che/dds_base4000_preload.so, scene phase2_step_5cm.xml,
+  telemetry off, unchanged B1 command: SHIFT witness 0/8. No run reached
+  sequencer SWING, and all stopped in the inherited support/posture frontier;
+  target >=6/8 was not achieved. The STAGE gate held while support relocation
+  lacked a complete measured-contact sequence, so this is a failed probe and
+  not a gate claim.
+unit_validation: |
+  cmake --build example/cpp/build -j2 --target real_trot_go2
+  test_terrain_interfaces: PASS; ctest --test-dir example/cpp/build
+  --output-on-failure: 27/27 PASS; git diff --check: PASS. Simulation runs
+  were serialized and used the required preload/domain.
+acceptance: |
+  Geometry and attribution evidence are complete. Placement-level planner and
+  STAGE relocation repairs are local and v2-scoped, but physical target
+  SHIFT witness >=6/8 was not met: 0/8. Local commits are retained; no push
+  and no amend.
