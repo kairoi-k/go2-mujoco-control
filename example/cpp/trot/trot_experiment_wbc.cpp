@@ -185,7 +185,8 @@ void TrotExperiment::UpdateWbcFull(
     const auto crawl_state = terrain_crawl_state_machine_.state();
     const auto sequencer_state = terrain_crawl_sequencer_output_.state;
     const bool body_advance_requested =
-        terrain_crawl_sequencer_output_.body_advance_requested;
+        terrain_crawl_sequencer_output_.body_advance_requested ||
+        crawl_state == go2_terrain::TerrainCrawlState::kAdvanceBody;
     const bool sequencer_crawl_execution =
         terrain_crawl_sequencer_output_.control_authority_active &&
         sequencer_state != go2_terrain::TerrainCrawlSequencerState::kAbort &&
