@@ -42,6 +42,7 @@
 #include "array_safety.h"
 #include "unitree_sdk2_bridge.h"
 #include "param.h"
+#include "lockstep.h"
 
 #define MUJOCO_PLUGIN_DIR "mujoco_plugin"
 #define NUM_MOTOR_IDL_GO 20
@@ -92,6 +93,9 @@ public:
   std::vector<double> f_ = {0, 0, 0};
 };
 inline ElasticBand elastic_band;
+
+// Order-103 verification-only lockstep coordinator (null when disabled).
+lockstep::Coordinator *g_lockstep = nullptr;
 
 
 namespace
@@ -1217,6 +1221,43 @@ namespace
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
 
+      // Order-103 lockstep gate: once the ready barrier is complete, wait
+      // for the exchange handshake WITHOUT holding the sim mutex, then take
+      // the mutex only for the single frozen step. Before the barrier the
+      // wall-clock path below runs unchanged (identical startup). Holding
+      // the mutex during the wait would deadlock the bridge handshake.
+      if (param::config.lockstep && g_lockstep != nullptr && m != nullptr &&
+          sim.run && g_lockstep->BarrierComplete())
+      {
+        const lockstep::WaitOutcome outcome =
+            g_lockstep->WaitForStepPermission();
+        if (outcome == lockstep::WaitOutcome::kReady)
+        {
+          {
+            const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
+            // inject noise identically to the wall-clock path
+            if (sim.ctrl_noise_std)
+            {
+              mjtNum rate = mju_exp(-m->opt.timestep / mju_max(sim.ctrl_noise_rate, mjMINVAL));
+              mjtNum scale = sim.ctrl_noise_std * mju_sqrt(1 - rate * rate);
+              for (int i = 0; i < m->nu; i++)
+              {
+                ctrlnoise[i] = rate * ctrlnoise[i] + scale * mju_standardNormal(nullptr);
+                d->ctrl[i] = ctrlnoise[i];
+              }
+            }
+            mj_step(m, d);
+            ground_truth_logger.Log(m, d);
+            sim.AddToHistory();
+          }
+          g_lockstep->NotifyStepCompleted(
+              static_cast<std::uint64_t>(std::llround(d->time * 1000.0)));
+        }
+        if (shutdown_requested)
+          sim.exitrequest.store(1);
+        continue;
+      }
+
       {
         // lock the sim mutex
         const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
@@ -1407,6 +1448,11 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
         d->qpos[1] = param::config.initial_y_m;
       mj_forward(m, d);
       ground_truth_logger.Configure(m);
+      if (param::config.lockstep && g_lockstep != nullptr)
+      {
+        g_lockstep->SetDtMs(static_cast<std::uint64_t>(
+            std::llround(m->opt.timestep * 1000.0)));
+      }
 
       // allocate ctrlnoise
       free(ctrlnoise);
@@ -1420,6 +1466,8 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
   }
 
   PhysicsLoop(*sim);
+  if (g_lockstep != nullptr)
+    g_lockstep->WriteSummary();
   ground_truth_logger.Close();
 
   // delete everything we allocated
@@ -1568,6 +1616,26 @@ int main(int argc, char **argv)
   std::filesystem::path proj_dir = std::filesystem::path(getExecutableDir()).parent_path();
   param::config.load_from_yaml(proj_dir / "config.yaml");
   param::helper(argc, argv);
+  if (param::config.lockstep)
+  {
+    lockstep::Coordinator::Config lockstep_cfg;
+    lockstep_cfg.dt_ms = 2; // overridden from m->opt.timestep after load
+    lockstep_cfg.trace_path =
+        param::config.lockstep_trace.empty()
+            ? std::string("lockstep_trace.csv")
+            : param::config.lockstep_trace.string();
+    if (const char *v = std::getenv("SIM_LOCKSTEP_BARRIER_TIMEOUT_S"))
+      lockstep_cfg.barrier_timeout_s = std::strtod(v, nullptr);
+    if (const char *v = std::getenv("SIM_LOCKSTEP_EXCHANGE_TIMEOUT_S"))
+      lockstep_cfg.exchange_timeout_s = std::strtod(v, nullptr);
+    if (const char *v = std::getenv("SIM_LOCKSTEP_STEP_TIMEOUT_S"))
+      lockstep_cfg.step_wait_timeout_s = std::strtod(v, nullptr);
+    g_lockstep = new lockstep::Coordinator(lockstep_cfg);
+    g_lockstep->SetAbortCallback(
+        []() { return shutdown_requested != 0; });
+    std::cout << "LOCKSTEP: verification-only sim-time lockstep enabled"
+              << " trace=" << lockstep_cfg.trace_path << "\n";
+  }
   if (const char *value = std::getenv("TROT_INITIAL_X_M"))
     param::config.initial_x_m = std::strtod(value, nullptr);
   if (const char *value = std::getenv("TROT_INITIAL_Y_M"))

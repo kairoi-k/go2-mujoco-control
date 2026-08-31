@@ -36,6 +36,10 @@ inline struct SimulationConfig
     // Publish simulated terrain sensing only for terrain-enabled runs.  The
     // default keeps the accepted Phase 1 simulator path unchanged.
     bool terrain_lidar = false;
+    // Order-103 verification-only sim-time lockstep harness. Off by default;
+    // the wall-clock runner is unchanged.
+    bool lockstep = false;
+    std::filesystem::path lockstep_trace;
     double initial_x_m = 0.0;
     double initial_y_m = 0.0;
 
@@ -92,6 +96,8 @@ inline po::variables_map helper(int argc, char** argv)
         ("headless", po::bool_switch(&config.headless), "Run without a GUI window (no GLFW)")
         ("camera-follow", po::bool_switch(&config.camera_follow), "Track the Go2 base body with the GUI camera")
         ("terrain-lidar", po::bool_switch(&config.terrain_lidar), "Publish simulated terrain sensor maps")
+        ("lockstep", po::bool_switch(&config.lockstep), "Verification-only sim-time lockstep harness (Order-103)")
+        ("lockstep-trace", po::value<std::filesystem::path>(&config.lockstep_trace), "Lockstep interval trace CSV output path")
         ("initial-x", po::value<double>(&config.initial_x_m), "Initial base world x (harness only)")
         ("initial-y", po::value<double>(&config.initial_y_m), "Initial base world y (harness only)")
         ("push-time", po::value<double>(&config.push_time_s), "Disturbance push start time (s); <0 disables")

@@ -28,6 +28,14 @@
 
 #include "param.h"
 #include "physics_joystick.h"
+#include "lockstep.h"
+
+// Order-103 verification-only lockstep coordinator, owned by main.cc.
+namespace lockstep
+{
+class Coordinator;
+}
+extern lockstep::Coordinator *g_lockstep;
 
 #define MOTOR_SENSOR_NUM 3
 
@@ -214,6 +222,25 @@ class RobotBridge : public UnitreeSDK2BridgeBase
 using HighState_t = unitree::robot::go2::publisher::SportModeState;
 using WirelessController_t = unitree::robot::go2::publisher::WirelessController;
 
+// LowCmd subscription that counts every DDS arrival so the lockstep
+// exchange rule can wait for a full controller write period. Message state
+// handling is identical to SubscriptionBase's default handler; the
+// wall-clock path keeps the plain LowCmd_t and is byte-identical.
+template <typename MsgType>
+class CountingLowCmd : public unitree::robot::SubscriptionBase<MsgType>
+{
+public:
+    CountingLowCmd(const std::string &topic, lockstep::Coordinator *coord)
+        : unitree::robot::SubscriptionBase<MsgType>(
+              topic, [this, coord](const void *msg) {
+                  if (coord != nullptr) coord->OnCommandArrived();
+                  std::lock_guard<std::mutex> lock(this->mutex_);
+                  this->msg_ = *(const MsgType *)msg;
+              })
+    {
+    }
+};
+
 public:
     RobotBridge(
         mjModel *model,
@@ -221,7 +248,15 @@ public:
         std::recursive_mutex *sim_mutex)
         : UnitreeSDK2BridgeBase(model, data, sim_mutex)
     {
-        lowcmd = std::make_shared<LowCmd_t>("rt/lowcmd");
+        if (param::config.lockstep)
+        {
+            lowcmd = std::make_shared<CountingLowCmd<typename LowCmd_t::MsgType>>(
+                "rt/lowcmd", g_lockstep);
+        }
+        else
+        {
+            lowcmd = std::make_shared<LowCmd_t>("rt/lowcmd");
+        }
         lowstate = std::make_unique<LowState_t>();
         lowstate->joystick = joystick;
         highstate = std::make_unique<HighState_t>();
@@ -597,22 +632,75 @@ public:
             PinCurrentThreadToEnv("TROT_SIM_BRIDGE_CPU");
             affinity_initialized = true;
         }
+        if (param::config.lockstep && g_lockstep != nullptr)
+        {
+            RunLockstep();
+            return;
+        }
+        RunWallClock();
+    }
+
+    // Wall-clock path: unchanged from the accepted Phase-1 bridge loop.
+    void RunWallClock()
+    {
         auto sim_lock = LockSimulation();
         if(!mj_data_) return;
         if(lowstate->joystick) { lowstate->joystick->update(); }
-        // lowcmd
-        {
-            std::lock_guard<std::mutex> lock(lowcmd->mutex_);
-            for(int i(0); i<num_motor_; i++) {
-                auto & m = lowcmd->msg_.motor_cmd()[i];
-                mj_data_->ctrl[i] = m.tau() +
-                                    m.kp() * (m.q() - mj_data_->sensordata[i]) +
-                                    m.kd() * (m.dq() - mj_data_->sensordata[i + num_motor_]);
-            }
-        }
+        ApplyLatestCommand();
+        PublishStateSnapshot(/*blocking_lowstate=*/false);
+    }
 
+    // Lockstep path (Order-103): one frozen physics/control interval per
+    // completed ready/exchange handshake. Startup (before the ready barrier)
+    // is byte-identical to the wall-clock path; the frozen discipline starts
+    // at the handoff tick recorded by the coordinator.
+    void RunLockstep()
+    {
+        if (!g_lockstep->BarrierComplete())
+        {
+            RunWallClock();
+            g_lockstep->OnStartupPublish();
+            return;
+        }
+        if (g_lockstep->WaitForStepCompleted() != lockstep::WaitOutcome::kReady)
+            return; // aborted or fail-closed; physics loop owns process exit
+        PublishStateSnapshot(/*blocking_lowstate=*/true);
+        const std::uint64_t sim_tick_ms = CurrentTickMs();
+        lockstep::ExchangeTrigger trigger = lockstep::ExchangeTrigger::kBarrier;
+        if (g_lockstep->WaitForExchange(sim_tick_ms, &trigger) !=
+            lockstep::WaitOutcome::kReady)
+            return;
+        ApplyLatestCommand();
+        g_lockstep->NotifyCommandApplied();
+    }
+
+    std::uint64_t CurrentTickMs() const
+    {
+        return static_cast<std::uint64_t>(
+            std::llround(mj_data_->time * 1000.0));
+    }
+
+    void ApplyLatestCommand()
+    {
+        auto sim_lock = LockSimulation();
+        if (!mj_data_) return;
+        std::lock_guard<std::mutex> lock(lowcmd->mutex_);
+        for(int i(0); i<num_motor_; i++) {
+            auto & m = lowcmd->msg_.motor_cmd()[i];
+            mj_data_->ctrl[i] = m.tau() +
+                                m.kp() * (m.q() - mj_data_->sensordata[i]) +
+                                m.kd() * (m.dq() - mj_data_->sensordata[i + num_motor_]);
+        }
+    }
+
+    void PublishStateSnapshot(bool blocking_lowstate)
+    {
+        auto sim_lock = LockSimulation();
+        if (!mj_data_) return;
+        const bool lowstate_locked =
+            blocking_lowstate ? (lowstate->lock(), true) : lowstate->trylock();
         // lowstate
-        if(lowstate->trylock()) {
+        if(lowstate_locked) {
             for(int i(0); i<num_motor_; i++) {
                 lowstate->msg_.motor_state()[i].q() = mj_data_->sensordata[i];
                 lowstate->msg_.motor_state()[i].dq() = mj_data_->sensordata[i + num_motor_];
@@ -725,7 +813,7 @@ public:
     unitree::robot::ChannelPtr<unitree_go::msg::dds_::HeightMap_> environment_heightmap;
     unitree::robot::ChannelPtr<unitree_go::msg::dds_::HeightMap_> lidar_heightmap;
     std::unique_ptr<WirelessController_t> wireless_controller;
-    std::shared_ptr<LowCmd_t> lowcmd;
+    std::shared_ptr<unitree::robot::SubscriptionBase<typename LowCmd_t::MsgType>> lowcmd;
     std::unique_ptr<LowState_t> lowstate;
     
 private:

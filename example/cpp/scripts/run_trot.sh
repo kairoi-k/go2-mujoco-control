@@ -22,6 +22,8 @@ controller_duration_s="$timeout_s"
 sim_headless=false
 sim_camera_follow=false
 sim_terrain_lidar=false
+sim_lockstep=false
+sim_lockstep_trace=""
 sim_initial_args=()
 sim_push_args=()
 phase2_milestone=""
@@ -301,7 +303,15 @@ fi
 
 metadata_file="$experiment_dir/run_metadata.txt"
 environment_file="$experiment_dir/environment.txt"
-env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_)" >"$environment_file" || true
+
+# Order-103 verification-only lockstep: env-opt-in, default OFF. The frozen
+# interval discipline is enforced inside the simulator; here we only forward
+# the flag and the trace path. The wall-clock runner is unchanged when off.
+if [[ "${SIM_LOCKSTEP:-0}" == "1" ]]; then
+  sim_lockstep=true
+  sim_lockstep_trace="${SIM_LOCKSTEP_TRACE:-$experiment_dir/lockstep_trace.csv}"
+fi
+env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_|SIM_LOCKSTEP)" >"$environment_file" || true
 {
   printf "started_at=%s\n" "$(date --iso-8601=seconds)"
   printf "git_head=%s\n" "$(git -C "$repo_dir" rev-parse HEAD)"
@@ -317,6 +327,8 @@ env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_)" >"$environment
   printf "headless=%s\n" "$([[ "$sim_headless" == true ]] && echo true || echo false)"
   printf "camera_follow=%s\n" "$([[ "$sim_camera_follow" == true ]] && echo true || echo false)"
   printf "terrain_lidar=%s\n" "$([[ "$sim_terrain_lidar" == true ]] && echo true || echo false)"
+  printf "lockstep=%s\n" "$([[ "$sim_lockstep" == true ]] && echo true || echo false)"
+  printf "lockstep_trace=%s\n" "$sim_lockstep_trace"
   printf "sim_cpu_affinity=%s\n" "${sim_affinity:-auto}"
   printf "controller_cpu_affinity=%s\n" "${ctrl_affinity:-auto}"
   printf "controller_writer_cpu_affinity=%s\n" "${writer_affinity:-auto}"
@@ -407,6 +419,8 @@ PULSE_SERVER="$pulse_server" \
   $([[ "$sim_headless" == true ]] && printf %s --headless) \
   $([[ "$sim_camera_follow" == true ]] && printf %s --camera-follow) \
   $([[ "$sim_terrain_lidar" == true ]] && printf %s --terrain-lidar) \
+  $([[ "$sim_lockstep" == true ]] && printf %s --lockstep) \
+  $([[ "$sim_lockstep" == true ]] && printf '%s %s' --lockstep-trace "$sim_lockstep_trace") \
   "${sim_initial_args[@]}" \
   "${sim_push_args[@]}" \
   >"$experiment_dir/simulator.log" 2>&1 &
@@ -603,9 +617,44 @@ if ! python3 "$cpp_dir/tools/write_run_manifest.py" "$experiment_dir" \
   manifest_status=1
 fi
 
+lockstep_status=0
+if [[ "$sim_lockstep" == true ]]; then
+  if [[ ! -s "$experiment_dir/lockstep_trace.csv" ]]; then
+    echo "Lockstep trace missing; see $experiment_dir/simulator.log" >&2
+    lockstep_status=1
+  elif grep -q "SIM_LOCKSTEP_FAIL_CLOSED" "$experiment_dir/simulator.log"; then
+    echo "Simulator failed closed during lockstep; see $experiment_dir/simulator.log" >&2
+    lockstep_status=1
+  else
+    if ! python3 - "$experiment_dir/lockstep_trace.csv" <<'PY3'
+import sys
+path = sys.argv[1]
+rows = []
+for line in open(path):
+    line = line.strip()
+    if not line or line.startswith("#") or line.startswith("sim_tick_ms"):
+        continue
+    cols = line.split(",")
+    rows.append((int(cols[0]), int(cols[8])))
+if not rows:
+    sys.exit(1)
+diffs = {rows[i + 1][0] - rows[i][0] for i in range(len(rows) - 1)}
+if len(diffs) != 1 or next(iter(diffs)) <= 0:
+    sys.exit(1)
+if any(v != 0 for _, v in rows):
+    sys.exit(1)
+print("lockstep_trace_ok rows=%d dt_ms=%d" % (len(rows), next(iter(diffs))))
+PY3
+    then
+      lockstep_status=1
+    fi
+  fi
+fi
+
 if (( controller_status != 0 || safety_status != 0 || quality_status != 0 ||
       analysis_status != 0 || ground_truth_status != 0 || dynamics_status != 0 ||
       completion_status != 0 || phase1_quantitative_status != 0 ||
-      terrain_analysis_status != 0 || manifest_status != 0 )); then
+      terrain_analysis_status != 0 || manifest_status != 0 ||
+      lockstep_status != 0 )); then
   exit 1
 fi
