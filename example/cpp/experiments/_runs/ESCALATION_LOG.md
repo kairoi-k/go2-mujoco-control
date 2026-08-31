@@ -4969,3 +4969,56 @@ pooled_statistics: |
   Retained pooled statistic across Order-101 and this stopped sample is 1/3
   authoritative fixed-pair PASS, 95% Wilson [0.061492, 0.792340]. Order-101
   1/2 and its failure remain permanent and are not replaced.
+
+---
+timestamp: 2026-09-01T07:15:00+0800
+run_id: Order-104 C-006d exact-committed-SHA lockstep formal verification
+source_sha: 2b3bc5d634e998c77fc14486665a4df6d052f58c
+scope: |
+  Formal rerun of the Order-103 lockstep development evidence at exact clean
+  committed SHA 2b3bc5d (reviewer-approved). Pre-run manifest frozen at
+  06:59:00+0800 (sha256 ec98fd902c54547b7e6af5a3119005a01b40a09e3699c6b25b8ead615c70c238);
+  no source/script/analyzer/contract/config edit after manifest. Every run
+  manifest records git_head=2b3bc5d, git_dirty=false, controller 46033a1c
+  (identical to authoritative Order-101 pair-1), scene 12286418, simulator
+  deac717e. Stage-C execution off, terrain shadow on, dds_base4000 preload.
+canary: |
+  phase2_b0_lockstep_development_fixed_3mps_r0_20260901_070014 vs
+  Order-101 pair-1 wall-clock 045117: baseline/terrain lifecycle all 0,
+  fixed analyzer PASS (3.235/3.242 m/s), terrain B0 PASS, traces
+  38931/38909 intervals, dt=2 ms, 0 violations. Segment comparison PASS at
+  frozen tolerances: startup nearly identical (dz p95<=0.004 m), lockstep
+  segment dz p95 0.013/0.009 m, roll p95 3.26/3.11 deg, pitch p95 2.84/2.74 deg.
+holdouts: |
+  Serial lockstep fixed pairs r1 (183/203), r2 (184/204), r3 (185/205).
+  r1 PASS/PASS, r2 PASS/PASS. r3 baseline FAIL: fixed analyzer validation=FAIL
+  (cycle_health_count=45<100, good_window=0<20 s, speed_median=1.2502,
+  stop_start=11.652 s); lifecycle all 0; controller health-governor auto-brake
+  then WBC hold. r3 terrain PASS/B0 PASS. Lockstep mechanism normal on the
+  failed member: dt=2 ms, 0 violations, fail_closed=0, exchange p50 1631 us.
+  Signature matches the Order-102 pair-1 wall-clock baseline failure class
+  (11.500 s / 44 / 1.1706); Order-102 diagnosis is inherited stochastic
+  Phase-1 controller failure. No fix justified in this order; none made.
+stop_rule: |
+  First authoritative gate failure (r3 baseline analyzer) stopped
+  verification. No replacement, no rerun, no threshold/config/code/analyzer/
+  contract edit. Result: canary PASS, holdout 2/3 -> required 3/3 not
+  established, C-006 BLOCKED. Wilson diagnostic 2/3 [0.207660, 0.938508].
+tests: |
+  ctest example/cpp/build 28/28 PASS; ctest simulate/build 2/2 PASS
+  (test_lockstep, test_lockstep_sim).
+acceptance: |
+  BLOCKED: exact-SHA canary PASS and 2/3 holdout pairs PASS do not satisfy
+  the required 3/3. Order-101 (1/2) and Order-102 (0/1) wall-clock failures
+  remain separate and permanent; lockstep proves deterministic functional
+  non-regression only and WSL wall-clock robustness is not claimed.
+artifacts: |
+  docs/ESCALATION/order104_c006d/PRERUN_MANIFEST.json
+  docs/ESCALATION/order104_c006d/CANARY_SUMMARY.md
+  docs/ESCALATION/order104_c006d/PAIRS_SUMMARY.md
+  docs/ESCALATION/order104_c006d/FORMAL_MANIFEST.json
+  docs/ESCALATION/order104_c006d/WILSON.json
+  docs/ESCALATION/order104_c006d/SUMMARY.md
+rollback: |
+  No runtime change. Stage-C flags off and source 2b3bc5d remain rollback.
+  Do not advance C-007/B1.
