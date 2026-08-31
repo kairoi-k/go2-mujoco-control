@@ -3319,3 +3319,60 @@ validation: |
   full reconnect, B0 3x, flat 20/20, or crossing claim is made.
 commit_chain: |
   bfb1960, a334643. No push or amend.
+
+---
+
+Order-072 implementation update — 2026-09-02
+
+source_sha: b49740f
+precheck: |
+  No simulation was used. The measured STAGE feet from
+  order071_staged_seed195_baseline3 were FR=(0.613987,-0.114068,0.023327),
+  FL=(0.613684,0.111981,0.023328), RR=(0.231091,-0.197996,0.022801),
+  RL=(0.230865,0.194082,0.022801) m. Measured terrain is a 5 cm
+  riser/plateau; the measured site target was x=0.7734 m, z=0.0733 m
+  (each target keeps its leg y). For each step, A=|u×v|/2 in m² and
+  h_min=2A/max(|e_i|), using the 3-D support triangle after the current
+  leg is lifted; ADVANCE_BODY changes body pose only and therefore leaves
+  world support vertices and these values unchanged.
+
+  Legacy FL-FR-ADV-RR-RL: after FL, support {FR,RR,RL}:
+  A=0.075072, h_min=0.305376; after FR, {FL_h,RR,RL}:
+  A=0.106809, h_min=0.340868; after ADVANCE, unchanged; after RR,
+  {FL_h,FR_h,RL}: A=0.061585, h_min=0.196763; after RL,
+  {FL_h,FR_h,RR_h}: A=0, h_min=0 because the measured plateau target
+  line is collinear in x.
+
+  Lateral FL-RL-ADV-FR-RR: after FL the same 0.075072/0.305376;
+  after RL, {FL_h,FR,RR}: A=0.037863, h_min=0.120835; after ADVANCE,
+  unchanged; after FR, {FL_h,RL_h,RR}: A=0.022358, h_min=0.066632;
+  after RR, {FL_h,RL_h,FR_h}: A=0, h_min=0. Thus the geometry
+  pre-check rejects the lateral hypothesis: among non-degenerate
+  intermediate triangles the legacy minimum is 0.061585 m²/0.196763 m
+  versus lateral 0.022358 m²/0.066632 m. One or two ADVANCE_BODY events
+  cannot improve this world-frame metric without changing foothold sites.
+  The mathematically selected default is therefore legacy; lateral remains
+  an explicit experiment parameter. This is a negative result against the
+  original Order-072 geometry premise, not a gate conclusion.
+implementation: |
+  Added TerrainCrawlLegOrder with legacy and lateral arrays. The state
+  machine, event sequencer, and script now carry a selectable order;
+  legacy remains the class compatibility default and --terrain-leg-order
+  lateral|legacy selects the runtime path. TrotExperiment wires the CLI
+  parameter into both owners, with default legacy. Added the 3-D area /
+  minimum-altitude precheck helper and source-named unit coverage. No v1
+  contract, analyzer threshold, canary, or safety gate changed.
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  One required serial staged-start run (domain 229, LD_PRELOAD=/home/che/dds_base4000_preload.so,
+  duration 30/wall 35, FULL2_TAU=45) at
+  order072_staged_seed195_lateralcheck used --terrain-leg-order legacy.
+  It reached STAGE, SHIFT, and one FL SWING, then aborted before FL
+  COMMIT: CSV state counts INACTIVE=5070, STAGE=351, SHIFT=300,
+  SWING=210, ABORT=2354; FL SWING began at t=11.442, margin +0.0823 m,
+  measured forces FR/FL/RR/RL=33/35/56/37 N and ID-WBC normal forces
+  40.93/0.00/61.02/60.50 N. No staged completion, full reconnect,
+  B0, flat 20/20, or crossing confirmation is claimed.
+commit_chain: |
+  bfb1960, a334643, b49740f. No push or amend.
