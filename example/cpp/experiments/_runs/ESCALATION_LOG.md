@@ -3580,3 +3580,61 @@ validation: |
 
 commit_chain: |
   7a5da84, cb5df5f. No push or amend.
+
+---
+
+Order-077 implementation update — 2026-09-02
+
+source_sha: b9c898e838e5caa4b7de5c2aa00d9239b1558a7b
+forensics: |
+  The prior accepted replay order076_staged_seed195_pose01 (7a5da84)
+  isolates a dynamic plant over-roll, not a bad plane reference.  The FL
+  script touchdown was x=0.7703 m against the scene riser edge x=0.7000 m,
+  only 0.0703 m onto the plateau.  During FL SWING measured roll moved from
+  -0.003 rad to -0.0316 rad; at touchdown the measured FL ground reaction
+  was (-137.7,-26.4,175.4) N and the total contact roll moment was +4.05
+  Nm.  FL then lost contact (175 N to 0 N in the next logged sample), while
+  the body roll rose to +0.1307 rad at the next SHIFT and +0.1937 rad at
+  the hard stop.  The second SHIFT reached -2.71 rad/s base x angular
+  velocity, so this is dynamic tipping rather than a slow quasi-static
+  lean.  The reference supplied by Order-076 is +0.0427 rad at FL commit;
+  the +0.1307 rad measured value is 3.06x that reference.
+
+wbc_evidence: |
+  In the failing replay the terrain crawl ID-WBC roll/pitch task weight was
+  80 and posture regularization was 0.2.  FL joint torque share stayed small
+  (max abs 1.51 Nm) while RR/RL calf torques reached 35.01/35.03 Nm.  The
+  measured FL touchdown tangential force was large relative to its normal
+  force and coincided with the +4.05 Nm total roll moment; this is consistent
+  with an edge/patch contact impulse, followed by physical FL unloading.
+
+fix: |
+  b9c898e scopes a stronger 240 base-angular ID-WBC weight to sequencer
+  states after the FL commit, retaining the established 80 weight during
+  the first FL transfer and retaining flat-ground behavior.  The direct
+  measured script target now gives FL a 0.160 m minimum edge stand-off
+  (FR/RR/RL retain the generic 0.080 m), with a unit assertion covering the
+  leg-specific target ordering.  No gate, analyzer threshold, v1 contract,
+  or canary definition changed.
+
+staged_validation: |
+  Serial domain-229, DDS preload /home/che/dds_base4000_preload.so,
+  duration 30/wall 35, --staged-start, current source b9c898e: seeds 195,
+  196, 198, 199 (including target/weight probes) all stopped in the first
+  FL transfer before a complete four-leg sequence.  Staged full-sequence
+  >=3 is NOT achieved; no crossing claim is made.
+
+full_validation: |
+  Serial b1_freegait_epoch245_order077, seed245, same domain/preload and
+  30/35 budget reached no committed crawl step (0 commits) and stopped on
+  posture safety.  The reconnect budget was not exhausted; no B0 3x or
+  flat 20/20 claim is made.  No gate conclusion is made.
+
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  Simulation runs were serialized. No push or amend; no v1 contract,
+  analyzer threshold, canary definition, or safety gate was weakened.
+
+commit_chain: |
+  5107827, b9c898e. No push or amend.
