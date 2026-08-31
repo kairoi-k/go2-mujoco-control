@@ -221,7 +221,23 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_shadow_id_wbc_normal_force_fr_n"
          << ",wbc_shadow_id_wbc_normal_force_fl_n"
          << ",wbc_shadow_id_wbc_normal_force_rr_n"
-         << ",wbc_shadow_id_wbc_normal_force_rl_n"
+         << ",wbc_shadow_id_wbc_normal_force_rl_n";
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        csv_ << ",wbc_shadow_id_wbc_force_" << kLegNames[leg]
+             << "_x_n,wbc_shadow_id_wbc_force_" << kLegNames[leg]
+             << "_y_n,wbc_shadow_id_wbc_force_" << kLegNames[leg]
+             << "_z_n,wbc_shadow_id_wbc_friction_ratio_" << kLegNames[leg]
+             << ",wbc_shadow_id_wbc_friction_active_" << kLegNames[leg]
+             << ",wbc_shadow_id_wbc_contact_normal_" << kLegNames[leg]
+             << "_x,wbc_shadow_id_wbc_contact_normal_" << kLegNames[leg]
+             << "_y,wbc_shadow_id_wbc_contact_normal_" << kLegNames[leg]
+             << "_z";
+    csv_ << ",wbc_shadow_id_wbc_qp_cost"
+         << ",wbc_shadow_id_wbc_w_base_angular"
+         << ",wbc_shadow_id_wbc_w_stance_no_slip"
+         << ",wbc_shadow_id_wbc_w_swing"
+         << ",wbc_shadow_id_wbc_w_force_track"
+         << ",wbc_shadow_id_wbc_w_posture"
          << ",terrain_hold_force_telemetry";
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         csv_ << ",terrain_hold_" << kLegNames[leg]
@@ -1245,7 +1261,24 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[0]
          << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[1]
          << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[2]
-         << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[3]
+         << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[3];
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        csv_ << "," << wbc_shadow_diagnostics_.id_wbc_force_world_n[leg][0]
+             << "," << wbc_shadow_diagnostics_.id_wbc_force_world_n[leg][1]
+             << "," << wbc_shadow_diagnostics_.id_wbc_force_world_n[leg][2]
+             << "," << wbc_shadow_diagnostics_.id_wbc_friction_ratio[leg]
+             << "," << (wbc_shadow_diagnostics_.id_wbc_friction_active[leg] ? 1 : 0)
+             << "," << wbc_shadow_diagnostics_.id_wbc_contact_normal[leg][0]
+             << "," << wbc_shadow_diagnostics_.id_wbc_contact_normal[leg][1]
+             << "," << wbc_shadow_diagnostics_.id_wbc_contact_normal[leg][2];
+    }
+    csv_ << "," << wbc_shadow_diagnostics_.id_wbc_qp_cost
+         << "," << wbc_shadow_diagnostics_.id_wbc_w_base_angular
+         << "," << wbc_shadow_diagnostics_.id_wbc_w_stance_no_slip
+         << "," << wbc_shadow_diagnostics_.id_wbc_w_swing
+         << "," << wbc_shadow_diagnostics_.id_wbc_w_force_track
+         << "," << wbc_shadow_diagnostics_.id_wbc_w_posture
          << "," << (terrain_force_telemetry ? 1 : 0);
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {

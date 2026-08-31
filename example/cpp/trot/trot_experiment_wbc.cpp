@@ -181,6 +181,7 @@ void TrotExperiment::UpdateWbcFull(
     // hard-limit check on the next control tick; flat ground computes exact
     // zero angles and therefore retains the existing path.
     terrain_stance_reference_valid_ = false;
+    terrain_stance_reference_normal_ = Eigen::Vector3d::UnitZ();
     const auto crawl_state = terrain_crawl_state_machine_.state();
     // The event sequencer is the authority during both the flat isolation
     // harness and the terrain transfer. The legacy state machine can lag it
@@ -210,6 +211,8 @@ void TrotExperiment::UpdateWbcFull(
         {
             terrain_stance_reference_roll_rad_ = plane.roll_rad;
             terrain_stance_reference_pitch_rad_ = plane.pitch_rad;
+            terrain_stance_reference_normal_ = Eigen::Vector3d(
+                plane.normal.x, plane.normal.y, plane.normal.z);
         }
     }
     if (!dynamics_logged_)
@@ -1265,6 +1268,18 @@ void TrotExperiment::UpdateWbcFull(
     go2_control::IdWbcInput wbc_in;
     wbc_in.dynamics = dyn;
     wbc_in.contact = qp_contact;
+    if (terrain_stance_reference_valid_ && !terrain_plan_active &&
+        !terrain_crawl_sequencer_output_.flat_ground_mode)
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (qp_contact[leg])
+            {
+                wbc_in.contact_normal[leg] = terrain_stance_reference_normal_;
+                wbc_in.contact_normal_valid[leg] = true;
+            }
+        }
+    }
     if (terrain_plan_active && terrain_plan_contact_coherent &&
         !terrain_crawl_sequencer_output_.control_authority_active)
     {
@@ -1728,7 +1743,14 @@ void TrotExperiment::UpdateWbcFull(
         ? 35.0
         : (params_.cartesian_world ? 80.0 : 80.0);
     if (terrain_raised_support)
-        id_params.w_stance_no_slip = 120.0;
+    {
+        // The raised-support handoff is the mixed-height failure boundary:
+        // retaining only the 30 N feasibility floor lets the QP choose a
+        // mathematically valid but physically unloadable stance corner.
+        id_params.w_stance_no_slip = 180.0;
+        id_params.min_normal_n = std::max(id_params.min_normal_n, 45.0);
+        id_params.hard_stance_no_slip = true;
+    }
     const double w_sw_ov = Full2EnvDouble("FULL2_W_SWING", -1.0);
     if (w_sw_ov > 0.0)
         id_params.w_swing = w_sw_ov;
@@ -2060,6 +2082,37 @@ void TrotExperiment::UpdateWbcFull(
     }
     wbc_shadow_diagnostics_.min_contact_normal_force_n =
         std::isfinite(min_fz) ? min_fz : 0.0;
+    wbc_shadow_diagnostics_.id_wbc_w_base_angular = id_params.w_base_ang;
+    wbc_shadow_diagnostics_.id_wbc_w_stance_no_slip =
+        id_params.w_stance_no_slip;
+    wbc_shadow_diagnostics_.id_wbc_w_swing = id_params.w_swing;
+    wbc_shadow_diagnostics_.id_wbc_w_force_track =
+        id_params.w_force_track;
+    wbc_shadow_diagnostics_.id_wbc_w_posture = id_params.w_posture;
+    wbc_shadow_diagnostics_.id_wbc_qp_cost =
+        wbc_out.cost_terms.base_linear + wbc_out.cost_terms.base_angular +
+        wbc_out.cost_terms.stance_no_slip + wbc_out.cost_terms.swing +
+        wbc_out.cost_terms.force_regularization +
+        wbc_out.cost_terms.force_tracking + wbc_out.cost_terms.posture +
+        wbc_out.cost_terms.torque;
+    const Eigen::Vector3d diagnostic_normal =
+        terrain_stance_reference_valid_
+            ? terrain_stance_reference_normal_ : Eigen::Vector3d::UnitZ();
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const Eigen::Vector3d f =
+            wbc_out.force.segment<3>(3 * static_cast<int>(leg));
+        for (int axis = 0; axis < 3; ++axis)
+        {
+            wbc_shadow_diagnostics_.id_wbc_force_world_n[leg][axis] = f[axis];
+            wbc_shadow_diagnostics_.id_wbc_contact_normal[leg][axis] =
+                diagnostic_normal[axis];
+        }
+        wbc_shadow_diagnostics_.id_wbc_friction_ratio[leg] =
+            wbc_out.friction_ratio[leg];
+        wbc_shadow_diagnostics_.id_wbc_friction_active[leg] =
+            qp_contact[leg] && wbc_out.friction_ratio[leg] >= 0.98;
+    }
 
     // This channel is deliberately opt-in: it records the physical force
     // sensor alongside the final ID-WBC force and objective decomposition,

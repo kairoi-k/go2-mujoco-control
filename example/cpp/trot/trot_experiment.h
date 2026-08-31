@@ -562,6 +562,7 @@ private:
     bool terrain_stance_reference_valid_ = false;
     double terrain_stance_reference_roll_rad_ = 0.0;
     double terrain_stance_reference_pitch_rad_ = 0.0;
+    Eigen::Vector3d terrain_stance_reference_normal_ = Eigen::Vector3d::UnitZ();
     // The transfer window decelerates while retaining the configured trot;
     // this target is deliberately window-local and reset at each handoff.
     bool terrain_deceleration_active_ = false;

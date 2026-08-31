@@ -75,6 +75,23 @@ int main()
             loaded.force[3 * i + 2] >= 19.9,
             "held contact fell below minimum normal force");
 
+    // A raised support plane must constrain force along its normal, not
+    // world-Z. This catches the mixed-height cone regression while retaining
+    // the flat default when normals are not supplied.
+    const Eigen::Vector3d tilted_normal = Eigen::Vector3d(-0.10, 0.0, 0.995).normalized();
+    input.contact_normal.fill(tilted_normal);
+    input.contact_normal_valid.fill(true);
+    go2_control::IdWbcOutput tilted;
+    passed &= Check(
+        go2_control::SolveInverseDynamicsWbc(loaded_params, input, tilted) &&
+            tilted.ok,
+        "tilted-contact ID-WBC failed");
+    for (int i = 0; i < 4; ++i)
+        passed &= Check(
+            tilted.normal_force[i] >= 19.9 && tilted.normal_force[i] <= 180.1,
+            "tilted contact normal limits");
+    input.contact_normal_valid.fill(false);
+
     input.has_terrain_plan = true;
     input.terrain_plan.plan_id = 5;
     input.terrain_plan.plan_epoch = 6;

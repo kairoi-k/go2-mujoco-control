@@ -288,6 +288,16 @@ struct WbcShadowDiagnostics
     // telemetry can distinguish a declared swing from a stance leg that the
     // optimizer has effectively unloaded.
     std::array<double, go2::kLegCount> id_wbc_normal_force_n{};
+    std::array<std::array<double, 3>, go2::kLegCount> id_wbc_force_world_n{};
+    std::array<double, go2::kLegCount> id_wbc_friction_ratio{};
+    std::array<bool, go2::kLegCount> id_wbc_friction_active{};
+    std::array<std::array<double, 3>, go2::kLegCount> id_wbc_contact_normal{};
+    double id_wbc_qp_cost = 0.0;
+    double id_wbc_w_base_angular = 0.0;
+    double id_wbc_w_stance_no_slip = 0.0;
+    double id_wbc_w_swing = 0.0;
+    double id_wbc_w_force_track = 0.0;
+    double id_wbc_w_posture = 0.0;
     double elapsed_us = 0.0;
     bool within_budget = true;
     double max_abs_tau = 0.0;

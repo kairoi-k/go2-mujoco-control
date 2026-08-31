@@ -60,6 +60,10 @@ struct IdWbcInput
     std::array<bool, go2::kLegCount> planned_contact{};
     bool planned_contact_valid = false;
     std::array<bool, go2::kLegCount> contact{};
+    // Optional support-surface normals. Invalid entries retain the flat
+    // world-Z friction cone, preserving the established flat WBC path.
+    std::array<Eigen::Vector3d, go2::kLegCount> contact_normal{};
+    std::array<bool, go2::kLegCount> contact_normal_valid{};
     std::array<Eigen::Vector3d, go2::kLegCount> swing_acc_world{};
     std::array<Eigen::Vector3d, go2::kLegCount> stance_acc_world{};
     bool have_stance_acc = false;
@@ -95,6 +99,9 @@ struct IdWbcOutput
     Eigen::Matrix<double, go2::kJointCount, 1> tau =
         Eigen::Matrix<double, go2::kJointCount, 1>::Zero();
     IdWbcCostTerms cost_terms{};
+    // Per-contact cone activity is retained for terrain forensic telemetry.
+    std::array<double, go2::kLegCount> friction_ratio{};
+    std::array<double, go2::kLegCount> normal_force{};
 };
 
 inline Eigen::Matrix<double, 12, kGo2Nv> StackFootJacobian(
@@ -268,28 +275,43 @@ inline bool SolveInverseDynamicsWbc(
             }
             continue;
         }
-        Aineq(row, c + 2) = -1.0;
+        Eigen::Vector3d normal = Eigen::Vector3d::UnitZ();
+        if (input.contact_normal_valid[leg] &&
+            input.contact_normal[leg].allFinite() &&
+            input.contact_normal[leg].norm() > 1.0e-6)
+        {
+            normal = input.contact_normal[leg].normalized();
+            if (normal.z() < 0.0)
+                normal = -normal;
+        }
+        Aineq.row(row).segment<3>(c) = -normal.transpose();
         const double per_leg_floor = params.min_normal_n_by_leg[leg];
         bineq[row] = -std::max(
             params.min_normal_n,
             std::isfinite(per_leg_floor) && per_leg_floor > 0.0
                 ? per_leg_floor : params.min_normal_n);
         ++row;
-        Aineq(row, c + 2) = 1.0;
+        Aineq.row(row).segment<3>(c) = normal.transpose();
         bineq[row] = params.max_normal_n;
         ++row;
-        Aineq(row, c + 0) = 1.0;
-        Aineq(row, c + 2) = -mu;
-        ++row;
-        Aineq(row, c + 0) = -1.0;
-        Aineq(row, c + 2) = -mu;
-        ++row;
-        Aineq(row, c + 1) = 1.0;
-        Aineq(row, c + 2) = -mu;
-        ++row;
-        Aineq(row, c + 1) = -1.0;
-        Aineq(row, c + 2) = -mu;
-        ++row;
+        // Choose a deterministic tangent basis. For the flat default this is
+        // exactly world X/Y; terrain contacts instead use the measured
+        // support-plane normal, so the cone is not spuriously narrowed by a
+        // tilted three-foot stance.
+        Eigen::Vector3d tangent_x =
+            std::abs(normal.z()) < 0.9
+                ? normal.cross(Eigen::Vector3d::UnitZ()).normalized()
+                : Eigen::Vector3d::UnitX();
+        Eigen::Vector3d tangent_y = normal.cross(tangent_x).normalized();
+        const auto add_cone_row = [&](const Eigen::Vector3d &axis) {
+            Aineq.row(row).segment<3>(c) = axis.transpose();
+            Aineq.row(row).segment<3>(c) -= mu * normal.transpose();
+            ++row;
+        };
+        add_cone_row(tangent_x);
+        add_cone_row(-tangent_x);
+        add_cone_row(tangent_y);
+        add_cone_row(-tangent_y);
     }
     for (int i = 0; i < 12; ++i)
     {
@@ -369,6 +391,25 @@ inline bool SolveInverseDynamicsWbc(
     }
     output.cost_terms.posture = params.w_posture * output.qdd.tail<12>().squaredNorm();
     output.cost_terms.torque = params.w_tau * output.tau.squaredNorm();
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        Eigen::Vector3d normal = Eigen::Vector3d::UnitZ();
+        if (input.contact_normal_valid[leg] &&
+            input.contact_normal[leg].allFinite() &&
+            input.contact_normal[leg].norm() > 1.0e-6)
+        {
+            normal = input.contact_normal[leg].normalized();
+            if (normal.z() < 0.0)
+                normal = -normal;
+        }
+        const Eigen::Vector3d force =
+            output.force.segment<3>(3 * static_cast<int>(leg));
+        const double fn = normal.dot(force);
+        const double tangent = (force - fn * normal).norm();
+        output.normal_force[leg] = fn;
+        output.friction_ratio[leg] = fn > 1.0e-9
+            ? tangent / (params.friction_mu * fn) : 0.0;
+    }
     if (output.eq_residual >= 5.0)
         return false;
     output.ok = qp_ok || output.eq_residual < 1.0e-2;
