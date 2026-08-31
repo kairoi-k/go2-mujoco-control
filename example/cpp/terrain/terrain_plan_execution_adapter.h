@@ -45,6 +45,10 @@ public:
     bool using_plan() const noexcept { return using_plan_; }
     std::uint64_t adopted_plan_id() const noexcept
     { return adopted_ ? adopted_->plan_id : 0; }
+    // The WBC consumer must use the exact snapshot adopted by gait, not a
+    // newer store value that arrived between event boundaries.
+    std::shared_ptr<const TerrainMotionPlan> adopted_plan() const noexcept
+    { return adopted_; }
     std::uint64_t last_rejected_plan_id() const noexcept
     { return last_rejected_plan_id_; }
     const std::string &last_rejection_reason() const noexcept

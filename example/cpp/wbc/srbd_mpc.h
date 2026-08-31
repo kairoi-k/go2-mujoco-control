@@ -66,6 +66,9 @@ struct SrbdMpcInput
         foot_valid{};
     std::uint64_t plan_id = 0;
     std::uint64_t plan_epoch = 0;
+    // Planner input identity is diagnostic provenance; it is not a solver
+    // decision variable and remains optional for legacy/flat inputs.
+    std::uint64_t terrain_input_hash = 0;
     bool has_terrain_plan = false;
     go2_terrain::TerrainPlanIdentity terrain_plan{};
     std::array<bool, go2::kLegCount> measured_contact{};

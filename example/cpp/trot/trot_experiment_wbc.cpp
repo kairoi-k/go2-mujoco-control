@@ -287,9 +287,11 @@ void TrotExperiment::UpdateWbcFull(
     const auto terrain_contact_plan =
         params_.terrain_actuation && !params_.terrain_sensor_only
             ? (stage_c_window
-                   ? (terrain_execution_plan_ &&
-                              terrain_execution_plan_->usable_at(terrain_now_s)
-                          ? terrain_execution_plan_
+                   ? (terrain_plan_execution_adapter_.using_plan() &&
+                      terrain_plan_execution_adapter_.adopted_plan() &&
+                      terrain_plan_execution_adapter_.adopted_plan()->usable_at(
+                          terrain_now_s)
+                          ? terrain_plan_execution_adapter_.adopted_plan()
                           : nullptr)
                    : (terrain_execution_plan_ &&
                               terrain_execution_plan_->usable_at(terrain_now_s)
@@ -1312,6 +1314,7 @@ void TrotExperiment::UpdateWbcFull(
                 mpc_in.has_time_indexed_reference = true;
                 mpc_in.plan_id = terrain_plan->plan_id;
                 mpc_in.plan_epoch = terrain_plan->plan_epoch;
+                mpc_in.terrain_input_hash = terrain_plan->input_hash;
                 mpc_in.has_terrain_plan = true;
                 mpc_in.terrain_plan = terrain_plan->identity;
                 mpc_in.measured_contact = measured_contact;
@@ -1373,8 +1376,101 @@ void TrotExperiment::UpdateWbcFull(
             first_reference[9];
         wbc_shadow_diagnostics_.mpc_reference_vx_last_mps = last_reference[9];
         go2_control::SrbdMpcOutput mpc_out;
-        if (go2_control::SolveSrbdMpc(mpc_params, mpc_in, mpc_out) && mpc_out.ok)
+        const auto mpc_started_at = std::chrono::steady_clock::now();
+        const bool mpc_solved =
+            go2_control::SolveSrbdMpc(mpc_params, mpc_in, mpc_out) &&
+            mpc_out.ok;
+        const double mpc_elapsed_us = static_cast<double>(
+            std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(
+                std::chrono::steady_clock::now() - mpc_started_at).count());
+        if (mpc_solved)
             last_srbd_ = mpc_out;
+        // Opt-in, machine-readable C-004 witness. This is diagnostics only:
+        // it observes the already constructed SRBD input and never changes
+        // solve behavior or safety policy.
+        if (stage_c_window && Full2EnvDouble(
+                "TROT_TERRAIN_C004_DIAGNOSTICS", 0.0) > 0.5)
+        {
+            const auto adopted = terrain_plan_execution_adapter_.adopted_plan();
+            std::ostringstream witness;
+            witness << std::setprecision(17)
+                    << "C004_SRBD_WITNESS {\"now_s\":"
+                    << terrain_now_s << ",\"status\":"
+                    << (mpc_solved ? "true" : "false")
+                    << ",\"latency_us\":" << mpc_elapsed_us
+                    << ",\"deadline_us\":5000"
+                    << ",\"deadline_miss\":"
+                    << (mpc_elapsed_us > 5000.0 ? "true" : "false")
+                    << ",\"consumed\":"
+                    << (mpc_solved && mpc_out.terrain_plan_consumed
+                            ? "true" : "false")
+                    << ",\"mpc_plan_id\":" << mpc_in.plan_id
+                    << ",\"mpc_plan_epoch\":" << mpc_in.plan_epoch
+                    << ",\"mpc_map_epoch\":"
+                    << (mpc_in.has_terrain_plan
+                            ? mpc_in.terrain_plan.map_epoch : 0)
+                    << ",\"mpc_input_hash\":"
+                    << mpc_in.terrain_input_hash
+                    << ",\"gait_plan_id\":"
+                    << (adopted ? adopted->plan_id : 0)
+                    << ",\"gait_map_epoch\":"
+                    << (adopted ? adopted->map_epoch : 0)
+                    << ",\"gait_input_hash\":"
+                    << (adopted ? adopted->input_hash : 0)
+                    << ",\"measured_mask\":"
+                    << contact_mask_for(measured_contact)
+                    << ",\"reject_reason\":\""
+                    << terrain_plan_execution_adapter_.last_rejection_reason()
+                    << "\",\"fallback_reason\":\""
+                    << terrain_plan_execution_adapter_.last_fallback_reason()
+                    << "\",\"contact_masks\":[";
+            for (int k = 0; k < mpc_params.horizon; ++k)
+            {
+                if (k != 0)
+                    witness << ",";
+                witness << contact_mask_for(mpc_in.contact[k]);
+            }
+            witness << "],\"lever_arms\":[";
+            for (int k = 0; k < mpc_params.horizon; ++k)
+            {
+                if (k != 0)
+                    witness << ",";
+                witness << "[";
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                {
+                    if (leg != 0)
+                        witness << ",";
+                    if (mpc_in.contact[k][leg])
+                    {
+                        const auto &r = go2_control::SrbdFootAt(
+                            mpc_in, k, leg);
+                        witness << "[" << r.x() << "," << r.y() << ","
+                                << r.z() << "]";
+                    }
+                    else
+                        witness << "null";
+                }
+                witness << "]";
+            }
+            witness << "],\"body_reference\":[";
+            for (int k = 0; k < mpc_params.horizon; ++k)
+            {
+                if (k != 0)
+                    witness << ",";
+                const auto &body_ref = mpc_in.reference_horizon[
+                    static_cast<std::size_t>(k)];
+                witness << "[";
+                for (int i = 0; i < go2_control::kSrbdStateSize; ++i)
+                {
+                    if (i != 0)
+                        witness << ",";
+                    witness << body_ref[i];
+                }
+                witness << "]";
+            }
+            witness << "]}\n";
+            std::cout << witness.str() << std::flush;
+        }
     }
     if (terrain_mpc_update_count_ == 0)
     {
