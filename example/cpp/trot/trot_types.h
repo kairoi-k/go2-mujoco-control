@@ -189,6 +189,8 @@ struct TrotParams
     bool terrain_actuation = false;
     go2_terrain::TerrainCrawlLegOrder terrain_leg_order =
         go2_terrain::TerrainCrawlLegOrder::kLegacyFrontFirst;
+    go2_terrain::TerrainCrawlAdvancePolicy terrain_advance_policy =
+        go2_terrain::TerrainCrawlAdvancePolicy::kAfterSecondStep;
     bool runtime_velocity_command = false;
     double gait_phase_offset = 0.0;
     std::string velocity_command_script_path;

@@ -18,6 +18,15 @@ enum class TerrainCrawlLegOrder : unsigned char
     kLateral = 1,
 };
 
+// Body advance is optional so the proven legacy sequence remains the default.
+// The early variant moves in four-contact stance after FL commits, before FR
+// asks the mixed-height triangle to carry the COM shift.
+enum class TerrainCrawlAdvancePolicy : unsigned char
+{
+    kAfterSecondStep = 0,
+    kBeforeSecondStep = 1,
+};
+
 inline constexpr std::array<std::size_t, go2::kLegCount>
     kLegacyFrontFirstLegOrder = {1, 0, 2, 3};
 inline constexpr std::array<std::size_t, go2::kLegCount>

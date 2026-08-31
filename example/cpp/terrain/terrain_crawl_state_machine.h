@@ -656,7 +656,16 @@ public:
             ? kLateralLegOrder : kLegacyFrontFirstLegOrder;
     }
 
+    void SetAdvancePolicy(TerrainCrawlAdvancePolicy policy) noexcept
+    {
+        advance_policy_ = policy;
+    }
+
     TerrainCrawlLegOrder leg_order() const noexcept { return leg_order_; }
+    TerrainCrawlAdvancePolicy advance_policy() const noexcept
+    {
+        return advance_policy_;
+    }
 
     void Reset() noexcept
     {
@@ -754,7 +763,7 @@ public:
             const std::size_t leg = ActiveLegForSupport();
             if (leg < go2::kLegCount && committed_latched_[leg] &&
                 ForceBalanceReady(signals, leg)) {
-                if (order_index_ == 1)
+                if (ShouldAdvanceBodyAfterCommit())
                     SetState(TerrainCrawlState::kAdvanceBody, signals.now_s);
                 else if (order_index_ + 1 < leg_order_values_.size()) {
                     ++order_index_;
@@ -1047,7 +1056,7 @@ public:
             if (active_leg_committed)
             {
                 retry_count_ = 0;
-                if (order_index_ == 1)
+                if (ShouldAdvanceBodyAfterCommit())
                     SetState(TerrainCrawlState::kAdvanceBody, signals.now_s);
                 else if (order_index_ + 1 < leg_order_values_.size())
                 {
@@ -1108,7 +1117,7 @@ public:
                 !committed_latched_[leg] || !ForceBalanceReady(signals, leg))
                 break;
             retry_count_ = 0;
-            if (order_index_ == 1)
+            if (ShouldAdvanceBodyAfterCommit())
                 SetState(TerrainCrawlState::kAdvanceBody, signals.now_s);
             else if (order_index_ + 1 < leg_order_values_.size())
             {
@@ -1215,6 +1224,13 @@ public:
     std::size_t com_target_leg() const noexcept { return ActiveLegForSupport(); }
 
 private:
+    bool ShouldAdvanceBodyAfterCommit() const noexcept
+    {
+        const std::size_t advance_index = advance_policy_ ==
+            TerrainCrawlAdvancePolicy::kBeforeSecondStep ? 0 : 1;
+        return order_index_ == advance_index;
+    }
+
     std::size_t ActiveLegForSupport() const noexcept
     {
         return order_index_ < leg_order_values_.size() ? leg_order_values_[order_index_]
@@ -1375,6 +1391,8 @@ private:
     // cannot move the active leg backwards.
     std::array<bool, go2::kLegCount> committed_latched_{};
     TerrainCrawlLegOrder leg_order_ = TerrainCrawlLegOrder::kLegacyFrontFirst;
+    TerrainCrawlAdvancePolicy advance_policy_ =
+        TerrainCrawlAdvancePolicy::kAfterSecondStep;
     std::array<std::size_t, go2::kLegCount> leg_order_values_ =
         kLegacyFrontFirstLegOrder;
     std::size_t order_index_ = 0;

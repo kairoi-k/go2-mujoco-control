@@ -243,7 +243,16 @@ public:
             ? kLateralLegOrder : kLegacyFrontFirstLegOrder;
     }
 
+    void SetAdvancePolicy(TerrainCrawlAdvancePolicy policy) noexcept
+    {
+        advance_policy_ = policy;
+    }
+
     TerrainCrawlLegOrder leg_order() const noexcept { return leg_order_; }
+    TerrainCrawlAdvancePolicy advance_policy() const noexcept
+    {
+        return advance_policy_;
+    }
 
     void Reset() noexcept
     {
@@ -438,7 +447,7 @@ public:
             if (MeasuredTargetAtEndpoint(input))
             {
                 committed_[active_leg()] = true;
-                if (order_index_ == 1)
+                if (ShouldAdvanceBodyAfterCommit())
                     SetState(TerrainCrawlSequencerState::kAdvance, input.now_s);
                 else if (order_index_ + 1 < leg_order_values_.size())
                 {
@@ -525,6 +534,13 @@ public:
     double state_enter_time_s() const noexcept { return state_enter_s_; }
 
 private:
+    bool ShouldAdvanceBodyAfterCommit() const noexcept
+    {
+        const std::size_t advance_index = advance_policy_ ==
+            TerrainCrawlAdvancePolicy::kBeforeSecondStep ? 0 : 1;
+        return order_index_ == advance_index;
+    }
+
     void SetState(TerrainCrawlSequencerState state, double now_s) noexcept
     {
         state_ = state;
@@ -818,6 +834,8 @@ private:
 
     TerrainCrawlSequencerState state_ = TerrainCrawlSequencerState::kInactive;
     TerrainCrawlLegOrder leg_order_ = TerrainCrawlLegOrder::kLegacyFrontFirst;
+    TerrainCrawlAdvancePolicy advance_policy_ =
+        TerrainCrawlAdvancePolicy::kAfterSecondStep;
     std::array<std::size_t, 4> leg_order_values_ = kLegacyFrontFirstLegOrder;
     std::size_t order_index_ = 0;
     double state_enter_s_ = 0.0;

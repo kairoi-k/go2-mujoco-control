@@ -79,7 +79,11 @@ public:
     {
         runtime_gait_pattern_ = params_.gait_pattern;
         terrain_crawl_state_machine_.SetLegOrder(params_.terrain_leg_order);
+        terrain_crawl_state_machine_.SetAdvancePolicy(
+            params_.terrain_advance_policy);
         terrain_crawl_sequencer_.SetLegOrder(params_.terrain_leg_order);
+        terrain_crawl_sequencer_.SetAdvancePolicy(
+            params_.terrain_advance_policy);
         task_.Configure(task_mode, goal);
         motion_event_response_enabled_ =
             params_.reactive_events || params_.auto_environment ||

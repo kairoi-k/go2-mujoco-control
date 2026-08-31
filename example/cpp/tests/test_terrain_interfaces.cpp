@@ -1750,6 +1750,16 @@ int main()
                    "crawl machine aborted during endpoint contact handoff"))
             return 1;
         x.committed[1] = true;
+        // The optional early policy must enter four-contact ADVANCE_BODY
+        // immediately after FL (order index 0), before selecting FR.
+        auto early = m;
+        early.SetAdvancePolicy(
+            go2_terrain::TerrainCrawlAdvancePolicy::kBeforeSecondStep);
+        early.Update(x);
+        if (!Check(early.state() ==
+                       go2_terrain::TerrainCrawlState::kAdvanceBody &&
+                       early.order_index() == 0,
+                   "early body-advance policy did not run after FL")) return 1;
         // A commit can be latched just before the planner snapshot is
         // refreshed. It must survive that refresh and advance the pointer.
         x.plan_valid = false;
