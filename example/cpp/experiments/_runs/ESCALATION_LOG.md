@@ -4891,3 +4891,41 @@ acceptance: |
   NOT ACCEPTED: required 3/3 formal B0 passes were not established. Observed
   completed pairs were 1 PASS / 1 FAIL; Wilson is diagnostic only because the
   pre-registered sample was stopped at n=2.
+
+---
+timestamp: 2026-09-01T00:00:00+0800
+run_id: Order-102 C-006b Phase-A diagnosis and preregistration
+source_sha: e422a53305f38101bf584982c40c71fdd5d49d53
+scope: |
+  DIAGNOSE then VERIFY. Read-only comparison of exact Order-101 pair-1
+  baseline/terrain and pair-2 baseline/terrain artifacts. No rerun before
+  diagnosis; no B1, analyzer, contract, threshold, or behavior edits.
+probe_validation: |
+  All four members share source 7861bf9, controller/simulator/scene hashes,
+  frozen argv, domains 222/223, Base=4000 preload, and empty seed/profile
+  fields. Initial settled pose, DDS ready, stand at controller t=3.000 s,
+  gait transition at t=4.300 s, and command/event-off state are present.
+  Pair-2 baseline alone has state_tick_gap 30 ms at t=3.926 s, 24 ms at
+  5.948 s, 12 ms at 7.966 s, and 40 ms at 13.404 s. Its measured support
+  reaches mask 0 at t=13.388 s, then roll grows to the hard stop at 13.830 s.
+  Pair-2 terrain passes with max state gap 8 ms, zero planner deadline misses,
+  and all terrain consumers/publish/actuation counters zero.
+diagnosis: |
+  Classification is inherited stochastic Phase-1 controller failure triggered
+  or exposed by wall-clock/state_tick_gap jitter. This is not a startup-ready
+  race or Stage-C regression: DDS/readiness and transitions are present,
+  execution is off, and pre-C000 failed baselines exist (30cfdbae max gap
+  56 ms; 2f6935c7 102 ms; 9433cab9 26 ms), interspersed with passes. No code
+  fix is justified. The first causal divergence is measured-support loss and
+  state/phase desynchronization; the later posture stop is consequential.
+preregistration: |
+  Supervisor reviewed and approved fresh n=3 serial fixed pairs at exact
+  source SHA e422a53305f38101bf584982c40c71fdd5d49d53. No outcome-selected
+  replacement and no gap exclusion. Any authoritative failure stops at once.
+  Order-101 remains permanent at 1/2 PASS with diagnostic Wilson [0.094531,
+  0.905469]. A new 3/3 can support only the narrow flag-off plumbing claim.
+artifacts: |
+  docs/research/evidence/order102_c006b/PHASE_A_DIAGNOSIS.md
+  docs/research/evidence/order102_c006b/PREREGISTERED_MANIFEST.json
+rollback: |
+  No runtime change. Stage-C flags off and source 7861bf9 remain rollback.
