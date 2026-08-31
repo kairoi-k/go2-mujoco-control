@@ -261,7 +261,14 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
                     // STAGE servo. Base creep remains only as a fallback
                     // while geometry is unavailable, avoiding a body command
                     // that fights the support-polygon correction.
-                    if (terrain_crawl_state_machine_.stage_com_target_valid())
+                    if (!flat_crawl_debug && !staged_start_debug)
+                    {
+                        requested_mps =
+                            go2_terrain::TerrainCrawlStateMachine::
+                                kCreepSpeedMps;
+                        terrain_stage_direction_ = 1.0;
+                    }
+                    else if (terrain_crawl_state_machine_.stage_com_target_valid())
                     {
                         requested_mps = 0.0;
                         terrain_stage_direction_ = 1.0;
@@ -1957,6 +1964,8 @@ bool TrotExperiment::BuildGaitTargets(
         go2_terrain::TerrainCrawlSequencerInput sequencer_input;
         sequencer_input.transfer_window_active = true;
         sequencer_input.flat_ground_mode = flat_crawl_debug;
+        sequencer_input.allow_creep_entry =
+            !flat_crawl_debug && !staged_start_debug;
         sequencer_input.flat_step_length_m =
             params_.direction_sign * std::clamp(Full2EnvDouble(
                 "TROT_FLAT_CRAWL_STEP_M", 0.04), 0.02, 0.08);
@@ -2151,6 +2160,8 @@ bool TrotExperiment::BuildGaitTargets(
             terrain_crawl_control_authority_active;
         crawl_signals.scripted_execution =
             terrain_crawl_control_authority_active;
+        crawl_signals.allow_creep_entry =
+            !flat_crawl_debug && !staged_start_debug;
         crawl_signals.plan_valid = flat_crawl_debug
             ? sequencer_output.target_valid
             : ((active_terrain_plan && active_terrain_plan->valid()) ||

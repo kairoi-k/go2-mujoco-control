@@ -2034,6 +2034,35 @@ int main()
             return 1;
     }
 
+    // V2 full-run handoff stays inside the moving creep envelope instead of
+    // waiting for a zero-velocity stop. Staged/flat callers leave this opt-in
+    // false and retain the historical <=0.04 m/s gate.
+    {
+        if (!Check(std::abs(
+                       go2_terrain::TerrainCrawlSequencer::ApproachSpeedCapMps(
+                           0.0) - 0.05) < 1.0e-9 &&
+                       go2_terrain::TerrainCrawlSequencer::ApproachSpeedCapMps(0.03) >= 0.05,
+                   "V2-A approach cap did not preserve minimum creep"))
+            return 1;
+        go2_terrain::TerrainCrawlSequencerInput input;
+        input.transfer_window_active = true;
+        input.allow_creep_entry = true;
+        input.measured_contact_valid = true;
+        input.measured_contact = {true, true, true, true};
+        input.measured_velocity_mps = 0.08;
+        input.measured_posture_valid = true;
+        input.trot_full_contact_able = true;
+        input.now_s = 0.0;
+        go2_terrain::TerrainCrawlSequencer seq;
+        seq.Update(input);
+        input.now_s = 0.01;
+        seq.Update(input);
+        if (!Check(seq.output().authority_velocity_ready &&
+                       seq.output().control_authority_active,
+                   "V2-A creep handoff rejected an in-envelope speed"))
+            return 1;
+    }
+
     // Order-042 sequencer transitions are driven by measured contact and
     // endpoint events, while targets are sampled directly from the live map.
     {

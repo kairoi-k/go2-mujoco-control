@@ -3988,3 +3988,58 @@ acceptance: |
   claimable B1 milestone; no crossing+confirmation claim is made.
 git_status: |
   Evidence log append only; no source changes, no push, no amend. Commit locally.
+
+---
+timestamp: 2026-09-03T00:00:00+0800
+run_id: Order-084 full-run crawl entry predicate repair and probe
+trigger: T1
+forensics: |
+  The v2 contract enters from the lidar terrain trigger while approach remains
+  0.30 m/s; inside the window the commanded creep must remain >=0.05 m/s.
+  The full path arms terrain_transfer_window_active_ through
+  TerrainCrawlSequencer::TransferActivationReady at
+  example/cpp/trot/trot_experiment_gait.cpp:696, but the handoff then used the
+  stop predicate measured_velocity_mps <= 0.04 in the sequencer and legacy
+  STAGE gates (terrain_crawl_sequencer.h:336 and :400; state machine before
+  this fix at :974). --staged-start bypassed the terrain trigger and used a
+  forced window, while its stationary setup made <=0.04 attainable. In the
+  epoch280-289 CSVs, at the first front-foot/riser crossing (front execution
+  foot x >=0.70 m), the full-path crawl handoff was still not a moving creep:
+  measured velocity was 0.180-0.339 m/s (representative epoch280 FL x=0.7930,
+  v=0.2122, velocity_ready=0; epoch288 FL x=0.7932, v=0.0699,
+  velocity_ready=0). The recurring failed predicate was the <=0.04 stop gate;
+  the approach command had already been driven to 0.0 instead of preserving
+  the v2 creep envelope.
+implementation: |
+  Added an explicit allow_creep_entry handoff mode, enabled only for the
+  normal terrain planner path (not flat debug or --staged-start). Full v2
+  authority accepts the bounded <=0.12 m/s handoff and the STAGE dwell no
+  longer waits for a zero-velocity stop. The full STAGE command requests the
+  calibrated 0.08 m/s creep, and ApproachSpeedCapMps is clamped to the v2
+  minimum 0.05 m/s. Existing staged/flat gates remain unchanged. The duplicate
+  sequencer polygon gate is retained for staged/flat and full v2 relies on the
+  independent legacy measured support witness during this handoff; no
+  contract, analyzer, or canary definition changed.
+unit_validation: |
+  Added test_terrain_interfaces coverage for the 0.05 m/s cap and a 0.08 m/s
+  moving authority handoff. cmake --build example/cpp/build -j2: PASS;
+  ctest --test-dir example/cpp/build --output-on-failure: 27/27 PASS;
+  git diff --check: PASS.
+probe_validation: |
+  Eight serial probes b1_freegait_epoch290..293 and each _r2 used domain 229,
+  Base=4000, LD_PRELOAD=/home/che/dds_base4000_preload.so, the Order-083
+  full-run command, and flock -x /tmp/go2_mujoco_experiment.lock. All 8/8
+  entered the sequencer SHIFT state (therefore >=6/8); 4/8 reached SWING and
+  4/8 reached COMMIT, with no full sequence completion claim.
+campaign_validation: |
+  Per Order-083 rule, the continued ten-pair campaign epochs290..299 (20
+  serial runs, same preload/lock/domain/command) entered SHIFT in 20/20.
+  Full sequence completion remained 0/20 and crossing/confirmation remained
+  0/20; later stops were COMMIT->ABORT or downstream physical/safety failure,
+  not pre-entry starvation. The historical 3/20 COMMIT->ABORT cases are a
+  second root cause: missing measured endpoint/contact realization followed
+  by hard-posture stop, distinct from the pre-SHIFT velocity/entry predicate.
+acceptance: |
+  Entry probe: PASS, 8/8. Ten-pair continuation: entered 20/20, full sequence
+  0/20, crossing 0/20, confirmation none. No gate-level conclusion.
+git_status: source and evidence are committed locally; no push, no amend, no staged files.

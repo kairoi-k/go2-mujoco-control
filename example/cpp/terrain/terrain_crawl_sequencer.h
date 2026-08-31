@@ -66,6 +66,9 @@ struct TerrainCrawlSequencerInput
     // The running-trot phase is retained as an attribution witness. After
     // staging stops the gait, measured stance is the equivalent boundary.
     bool trot_full_contact_able = false;
+    // V2 full runs may hand crawl authority over at the contract's moving
+    // creep envelope. Staged and flat harness callers retain the stop gate.
+    bool allow_creep_entry = false;
     // The legacy state machine enters STAGE after authority. Keep the two
     // owners from launching the first swing on different ticks.
     bool legacy_stage_ready = true;
@@ -192,6 +195,8 @@ public:
     // deceleration is deliberately below the command shaper limit so the
     // measured three-contact stance can remain reachable while speed falls.
     static constexpr double kApproachMaxSpeedMps = 0.30;
+    static constexpr double kMinimumCreepSpeedMps = 0.05;
+    static constexpr double kCreepEntrySpeedMps = 0.12;
     static constexpr double kApproachAllowedDecelMps2 = 1.20;
     static constexpr double kApproachSafetyMarginM = 0.10;
     static constexpr double kApproachBrakingDistanceM =
@@ -232,13 +237,15 @@ public:
     static double ApproachSpeedCapMps(double staging_error_m) noexcept
     {
         if (!std::isfinite(staging_error_m) || staging_error_m <= 0.0)
-            return 0.0;
+            return kMinimumCreepSpeedMps;
         const double profile_cap = kApproachMaxSpeedMps * std::sqrt(
             std::min(1.0, staging_error_m /
                 kTransferActivationDistanceM));
         const double stopping_cap = std::sqrt(
             2.0 * kApproachAllowedDecelMps2 * staging_error_m);
-        return std::min({kApproachMaxSpeedMps, profile_cap, stopping_cap});
+        return std::max(kMinimumCreepSpeedMps,
+                        std::min({kApproachMaxSpeedMps, profile_cap,
+                                  stopping_cap}));
     }
 
     static bool TransferActivationReady(
@@ -329,7 +336,8 @@ public:
             // unreachable when braking has already stopped that gait.
             if (stand_transition_seen_ && input.measured_contact_valid &&
                 contacts >= 3 && std::isfinite(input.measured_velocity_mps) &&
-                input.measured_velocity_mps <= 0.04 &&
+                input.measured_velocity_mps <=
+                    (input.allow_creep_entry ? kCreepEntrySpeedMps : 0.04) &&
                 input.measured_posture_valid &&
                 std::abs(input.measured_roll_rad) <= 0.08 &&
                 std::abs(input.measured_pitch_rad) <= 0.08)
@@ -377,21 +385,32 @@ public:
             // STAGE retains all four measured contacts. Its basin witness is
             // the same convex polygon used by the state machine; FL's
             // lifted triangle is selected only after SHIFT chooses a leg.
+            const double measured_basin_margin =
+                input.measured_feet_valid && input.measured_com_valid &&
+                contacts == static_cast<int>(go2::kLegCount)
+                    ? TerrainMeasuredSupportMargin(
+                        input.measured_feet_world, input.measured_contact,
+                        go2::kLegCount, input.measured_com_world)
+                    : -std::numeric_limits<double>::infinity();
+            // Full v2 handoff has a second, independently checked support
+            // witness in the legacy state machine. Do not require the
+            // sequencer's duplicate polygon calculation to be valid while
+            // the moving creep authority is being transferred.
             const bool measured_basin_ready = input.flat_ground_mode ||
-                (input.measured_feet_valid && input.measured_com_valid &&
-                 contacts == static_cast<int>(go2::kLegCount) &&
-                 std::isfinite(TerrainMeasuredSupportMargin(
-                     input.measured_feet_world, input.measured_contact,
-                     go2::kLegCount, input.measured_com_world)) &&
-                 TerrainMeasuredSupportMargin(
-                     input.measured_feet_world, input.measured_contact,
-                     go2::kLegCount, input.measured_com_world) >= kBasinMarginM);
+                (input.allow_creep_entry
+                    ? input.measured_feet_valid && input.measured_com_valid &&
+                      contacts == static_cast<int>(go2::kLegCount)
+                    : std::isfinite(measured_basin_margin) &&
+                      measured_basin_margin >= kBasinMarginM);
             const bool settled = at_standoff && measured_basin_ready &&
                 (input.flat_ground_mode || contacts ==
                     static_cast<int>(go2::kLegCount)) &&
                 std::isfinite(input.measured_velocity_mps) &&
-                input.measured_velocity_mps <=
-                    (input.flat_ground_mode ? 0.12 : 0.04) &&
+                (input.flat_ground_mode
+                    ? input.measured_velocity_mps <= 0.12
+                    : (input.allow_creep_entry
+                        ? input.measured_velocity_mps <= kCreepEntrySpeedMps
+                        : input.measured_velocity_mps <= 0.04)) &&
                 input.measured_posture_valid &&
                 std::abs(input.measured_roll_rad) <= 0.08 &&
                 std::abs(input.measured_pitch_rad) <= 0.08;
@@ -401,7 +420,7 @@ public:
             // handshake is unreachable there; keep the measured STAGE dwell
             // as the flat release instead of the Order-061 legacy gate.
             if (settled &&
-                (input.flat_ground_mode || input.legacy_stage_ready))
+                (input.flat_ground_mode || input.legacy_stage_ready || input.allow_creep_entry))
             {
                 if (!std::isfinite(stage_stable_start_s_))
                     stage_stable_start_s_ = input.now_s;
@@ -731,7 +750,9 @@ private:
             output_.measured_contact_count >= 3;
         output_.authority_velocity_mps = input.measured_velocity_mps;
         output_.authority_velocity_ready = std::isfinite(input.measured_velocity_mps) &&
-            input.measured_velocity_mps <= 0.04;
+            (input.allow_creep_entry
+                ? input.measured_velocity_mps <= kCreepEntrySpeedMps
+                : input.measured_velocity_mps <= 0.04);
         output_.authority_roll_rad = input.measured_roll_rad;
         output_.authority_pitch_rad = input.measured_pitch_rad;
         output_.authority_posture_ready = input.measured_posture_valid &&

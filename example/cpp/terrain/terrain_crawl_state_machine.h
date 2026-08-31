@@ -73,6 +73,9 @@ struct TerrainCrawlSignals
     bool transfer_window_active = false;
     // Order-032 enables fixed timing only inside the scripted window.
     bool scripted_execution = false;
+    // V2 full runs retain the contract's moving creep envelope at handoff.
+    // Staged and flat callers leave this false to preserve their stop gate.
+    bool allow_creep_entry = false;
     bool plan_valid = false;
     // Sequencer STAGE must finish before the legacy machine can launch SWING.
     bool sequencer_stage_pending = false;
@@ -971,7 +974,10 @@ public:
                         kStagePositionToleranceM));
             const bool stage_ready = stage_location_ready && stage_contact_ready &&
                 std::isfinite(signals.measured_velocity_mps) &&
-                signals.measured_velocity_mps <= kStageVelocityToleranceMps &&
+                (signals.allow_creep_entry
+                    ? signals.measured_velocity_mps <= 0.12
+                    : signals.measured_velocity_mps <=
+                      kStageVelocityToleranceMps) &&
                 signals.measured_posture_valid &&
                 std::isfinite(signals.measured_roll_rad) &&
                 std::isfinite(signals.measured_pitch_rad) &&
