@@ -726,7 +726,7 @@ private:
         // the 5 cm surface step plus the calibrated foot-site offset.
         output_.swing_lift_m = input.flat_ground_mode ? 0.015 :
             (output_.active_leg == static_cast<std::size_t>(go2::Leg::FL)
-                 ? 0.03 : 0.08);
+                 ? 0.06 : 0.08);
         if ((output_.active_leg < go2::kLegCount ||
              state_ == TerrainCrawlSequencerState::kStage) &&
             input.measured_feet_valid && input.measured_com_valid)
