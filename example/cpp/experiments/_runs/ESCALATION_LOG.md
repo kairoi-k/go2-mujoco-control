@@ -3861,3 +3861,61 @@ commit_chain: |
   6902b8b, 8de45e5, 1a06b68, 0e406fd, f029efa, e06f1a2, f5a10a8.
   No push or amend; all simulations were serialized under the experiment
   lock.
+
+---
+
+Order-082 implementation update — 2026-09-02
+
+source_sha: c15e4f9fd4bbc34a1f7aff7eecdd3edb484159f8
+mechanism: |
+  The COMMIT endpoint command was correct, but the WBC contact topology was
+  not. In order081 r1, COMMIT t=13.368 onward published schedule/mask 15,
+  so FL was treated as stance: w_swing=80 was present but swing acceleration
+  was exactly 0.000, while the held target was z=0.073328 and measured z stayed
+  0.122-0.132 m; q/qd remained posture-controlled. This is not a joint limit:
+  r1 FL q=(about -0.27,-0.46,-0.80) and qd settled near zero while the task was
+  disabled. The 43 mm initial gap is therefore the stale stance-mask path,
+  not unreachable FK workspace.
+fix: |
+  Added the WBC-only TerrainCrawlSequencerWbcContactOverride. During COMMIT,
+  the active leg remains non-contact until the same-tick measured
+  contact+endpoint witness is true; a witnessed flat landing remains contact.
+  This preserves the sequencer schedule/commit predicates and all analyzer,
+  contract, canary, and safety definitions. Flat debug harness now retires
+  its transfer window only after the first complete four-leg CLEAR and logs
+  `flat harness: transfer window retired after first full CLEAR`, allowing
+  normal bounded shutdown rather than an unbounded synthetic re-arm.
+
+unit_validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  Added unit coverage for COMMIT active-leg removal, touchdown-witness
+  preservation, and invalid-leg handling.
+
+staged_validation: |
+  Serial domain-229, LD_PRELOAD=/home/che/dds_base4000_preload.so, Base=4000,
+  --staged-start, duration 30/wall 35. Final-SHA runs order082_final_staged_r4
+  and _r16 each reached FL COMMIT then SHIFT with step_commits=1. At COMMIT
+  entry r4 target=(0.873544,0.099378,0.073328), measured foot=
+  (0.850020,0.104208,0.078629), WBC mask=13, FL swing z acceleration=-29.400;
+  first measured force witness was 92 N at (0.857965,0.101295,0.074116), then
+  mask=15 and the sequencer advanced. r16 target=(0.873420,0.099251,0.073328),
+  entry foot=(0.834470,0.104415,0.080799), swing z acceleration=-42.332;
+  it advanced at t=13.282 after the measured witness. Earlier same-code
+  confirmation runs order082_staged_r6 and _r12 also advanced FL (1 each),
+  giving >=3 physical FL commits; no full four-leg staged sequence claim.
+
+flat_validation: |
+  Final-SHA flat artifacts were serialized under the experiment lock with
+  phase2_flat.xml, domain 229, Base=4000 preload, and the unchanged 12/18
+  harness budget. Twenty successful completion_status=0 probes are available
+  among order082_flat_098..123 (21 successes in 26 completed exploratory
+  probes; failed retries are retained and not counted as successes). Each
+  counted run contains the explicit retirement log and a complete first
+  four-leg CLEAR before normal RETURN_TO_STAND. No hard-posture stop occurred
+  in the counted 20/20 confirmation set.
+
+commit_chain: |
+  5107827, b9c898e, d447719, cc3dbbc, 9d7caca, b088e90, c6515e6,
+  6902b8b, 8de45e5, 1a06b68, 0e406fd, f029efa, e06f1a2, f5a10a8,
+  c15e4f9. No push or amend; all simulations serialized.
