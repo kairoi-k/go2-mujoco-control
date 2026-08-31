@@ -457,7 +457,8 @@ public:
                 // If the post-SHIFT body pose cannot reach it, keep the
                 // measured support plant and request v2 crawl advance rather
                 // than opening a doomed SWING transaction.
-                CaptureTarget(input);
+                if (!target_valid_)
+                    CaptureTarget(input);
                 if (input.allow_creep_entry && TargetOutsideMeasuredReach(input))
                 {
                     body_advance_requested_ = true;
