@@ -1652,7 +1652,8 @@ void TrotExperiment::UpdateWbcFull(
                 ax_lim = 0.0;
             const double ax_body =
                 pitch_fade * Clamp(ax_gain * v_err, -ax_lim, ax_lim);
-            wbc_in.desired_linear_acc_world.x() += ax_body * std::cos(yaw);
+            if (!terrain_crawl_sequencer_output_.body_advance_requested)
+                wbc_in.desired_linear_acc_world.x() += ax_body * std::cos(yaw);
             wbc_in.desired_linear_acc_world.y() += ax_body * std::sin(yaw);
             const double roll =
                 static_cast<double>(state_snapshot.imu_state().rpy()[0]);
