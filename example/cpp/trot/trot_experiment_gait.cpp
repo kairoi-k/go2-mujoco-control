@@ -149,8 +149,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     const bool staged_start_debug =
         Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) > 0.5;
     const bool full_v2_shift =
-        terrain_crawl_sequencer_output_.state ==
-            go2_terrain::TerrainCrawlSequencerState::kShift &&
+        terrain_crawl_sequencer_output_.body_advance_requested &&
         !flat_crawl_debug && !staged_start_debug;
     if (!flat_crawl_debug)
         flat_crawl_harness_retired_ = false;

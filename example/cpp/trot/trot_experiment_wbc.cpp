@@ -185,8 +185,7 @@ void TrotExperiment::UpdateWbcFull(
     const auto crawl_state = terrain_crawl_state_machine_.state();
     const auto sequencer_state = terrain_crawl_sequencer_output_.state;
     const bool full_v2_shift =
-        terrain_crawl_sequencer_output_.state ==
-            go2_terrain::TerrainCrawlSequencerState::kShift &&
+        terrain_crawl_sequencer_output_.body_advance_requested &&
         !terrain_crawl_sequencer_output_.flat_ground_mode &&
         Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) <= 0.5;
     const bool body_advance_requested =
