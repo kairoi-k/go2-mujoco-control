@@ -96,6 +96,52 @@ int main()
             terrain_output.ok && terrain_output.terrain_plan_consumed &&
             terrain_output.terrain_plan.plan_epoch == 23,
         "terrain SRBD identity/contact interface failed");
+
+    // A contact transition must use the foothold at that same knot. This
+    // catches the old single-anchor behavior, where touchdown lever arms were
+    // silently reused across the whole horizon.
+    auto transition = indexed;
+    transition.contact[4][0] = false;
+    transition.foot_from_com_world_horizon[4][0].x() += 0.40;
+    go2_control::SrbdMpcOutput transition_output;
+    passed &= Check(
+        go2_control::SolveSrbdMpc(params, transition, transition_output) &&
+            transition_output.ok,
+        "contact-transition MPC failed");
+    passed &= Check(
+        (transition_output.predicted_state - indexed_output.predicted_state).norm() >
+            1.0e-7,
+        "touchdown-knot lever arm was not consumed");
+
+    auto missing_lever_arm = indexed;
+    missing_lever_arm.foot_valid[4][0] = false;
+    go2_control::SrbdMpcOutput missing_output;
+    passed &= Check(
+        !go2_control::SolveSrbdMpc(params, missing_lever_arm, missing_output),
+        "missing contact lever arm was not rejected");
+
+    auto mismatched_plan = terrain_indexed;
+    mismatched_plan.plan_id = 18;
+    go2_control::SrbdMpcOutput mismatch_output;
+    passed &= Check(
+        !go2_control::SolveSrbdMpc(params, mismatched_plan, mismatch_output),
+        "MPC accepted mismatched plan identity");
+
+    auto timed_body = indexed;
+    timed_body.has_time_indexed_reference = true;
+    for (int k = 0; k < params.horizon; ++k)
+        timed_body.reference_horizon[static_cast<std::size_t>(k)] =
+            input.reference;
+    timed_body.reference_horizon[4][3] = 0.30;
+    go2_control::SrbdMpcOutput timed_body_output;
+    passed &= Check(
+        go2_control::SolveSrbdMpc(params, timed_body, timed_body_output) &&
+            timed_body_output.ok,
+        "time-indexed body reference MPC failed");
+    passed &= Check(
+        (timed_body_output.predicted_state - indexed_output.predicted_state).norm() >
+            1.0e-7,
+        "body reference was not aligned to its knot");
     go2_control::FillTrotContactSchedule(
         0.24, 0.60, 0.75, params.horizon, params.dt_s, input.contact);
     go2_control::SrbdMpcOutput two;

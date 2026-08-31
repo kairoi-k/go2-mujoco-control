@@ -126,7 +126,11 @@ inline Eigen::Matrix<double, kSrbdStateSize, kSrbdForceSize> SrbdBd(
 inline const Eigen::Vector3d &SrbdFootAt(
     const SrbdMpcInput &input, int knot, std::size_t leg)
 {
-    return input.has_time_indexed_footholds
+    // Only valid timed entries are consumed. This keeps unused swing entries
+    // out of the dynamics without silently replacing a required contact
+    // lever arm (the validator rejects that case).
+    return input.has_time_indexed_footholds &&
+            input.foot_valid[static_cast<std::size_t>(knot)][leg]
         ? input.foot_from_com_world_horizon[static_cast<std::size_t>(knot)][leg]
         : input.foot_from_com_world[leg];
 }
@@ -140,9 +144,18 @@ inline bool ValidateSrbdFootHorizon(const SrbdMpcParams &params,
     {
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            if (input.contact[k][leg] && !input.foot_valid[k][leg])
-                return false;
-            if (!SrbdFootAt(input, k, leg).allFinite())
+            // A lever arm is required exactly where a contact wrench may be
+            // applied. Unscheduled legs have no prediction and must not make
+            // a complete snapshot fail due to an unused Eigen value.
+            if (!input.contact[k][leg])
+            {
+                if (input.foot_valid[k][leg] &&
+                    !SrbdFootAt(input, k, leg).allFinite())
+                    return false;
+                continue;
+            }
+            if (!input.foot_valid[k][leg] ||
+                !SrbdFootAt(input, k, leg).allFinite())
                 return false;
         }
     }
@@ -164,7 +177,13 @@ inline bool ValidateSrbdTerrainReference(const SrbdMpcInput &input)
 {
     if (!input.has_terrain_plan)
         return true;
-    return input.terrain_plan.valid() && input.measured_contact_valid;
+    if (!input.terrain_plan.valid() || !input.measured_contact_valid ||
+        input.plan_id == 0 || input.plan_epoch == 0)
+        return false;
+    // Plan, map and validity identity are one atomic provenance token. Do
+    // not pair a fresh horizon with another plan.
+    return input.terrain_plan.plan_id == input.plan_id &&
+        input.terrain_plan.plan_epoch == input.plan_epoch;
 }
 
 inline Eigen::Matrix<double, kSrbdStateSize, 1> SrbdGravity(

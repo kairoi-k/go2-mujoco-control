@@ -281,13 +281,20 @@ void TrotExperiment::UpdateWbcFull(
     const bool stage_c_window = params_.stage_c_execution &&
         params_.terrain_actuation && !params_.terrain_sensor_only &&
         terrain_transfer_window_active_;
+    // Gait and MPC consume the same adopted immutable snapshot. During the
+    // v2 Stage-C window do not reload a newer store value behind gait's back;
+    // an absent/expired adopted plan is a measured-support fallback.
     const auto terrain_contact_plan =
-        params_.terrain_actuation && !params_.terrain_sensor_only &&
-        !stage_c_window
-            ? (terrain_execution_plan_ &&
-                       terrain_execution_plan_->usable_at(terrain_now_s)
-                   ? terrain_execution_plan_
-                   : terrain_plan_store_.LoadUsable(terrain_now_s))
+        params_.terrain_actuation && !params_.terrain_sensor_only
+            ? (stage_c_window
+                   ? (terrain_execution_plan_ &&
+                              terrain_execution_plan_->usable_at(terrain_now_s)
+                          ? terrain_execution_plan_
+                          : nullptr)
+                   : (terrain_execution_plan_ &&
+                              terrain_execution_plan_->usable_at(terrain_now_s)
+                          ? terrain_execution_plan_
+                          : terrain_plan_store_.LoadUsable(terrain_now_s)))
             : nullptr;
     const int high_speed_contact_merge_mode = high_speed_curriculum
         ? std::clamp(static_cast<int>(std::llround(Full2EnvDouble(
@@ -882,6 +889,13 @@ void TrotExperiment::UpdateWbcFull(
     if (terrain_plan_active)
     {
         terrain_plan_contact_coherent =
+            terrain_plan->valid() &&
+            (!stage_c_window ||
+             !terrain_plan->v3_c_shadow) &&
+            (!stage_c_window ||
+             (terrain_plan->has_stage_c_timing &&
+              terrain_plan->contact_timing.provenance ==
+                  go2_terrain::TerrainTimingProvenance::kStageCPlanner)) &&
             terrain_plan->contact_schedule.valid(
                 terrain_plan->horizon_knots) &&
             go2_terrain::BuildTerrainPlanHorizonIndices(
@@ -893,6 +907,10 @@ void TrotExperiment::UpdateWbcFull(
         if (!terrain_plan_contact_coherent)
             ++terrain_plan_contact_rejections_;
     }
+    // Sequencer whole-horizon overrides are disabled only for a coherent,
+    // adopted Stage-C snapshot; invalid/expired input remains safe fallback.
+    const bool stage_c_mpc_consumption =
+        stage_c_window && terrain_plan && terrain_plan_contact_coherent;
     wbc_shadow_diagnostics_.terrain_plan_id =
         terrain_plan_active ? terrain_plan->plan_id : 0;
     wbc_shadow_diagnostics_.terrain_contact_coherent =
@@ -1132,15 +1150,14 @@ void TrotExperiment::UpdateWbcFull(
         if (terrain_plan && terrain_plan_contact_coherent &&
             task_.gait_started_ &&
             task_.motion_stage_ == 2 && !WbcStopHoldActive() &&
-            !terrain_crawl_sequencer_output_.control_authority_active)
+            (!terrain_crawl_sequencer_output_.control_authority_active ||
+             stage_c_mpc_consumption))
         {
             // The accepted planner snapshot is the sole source for future
             // terrain contacts.  A partial snapshot is rejected rather than
             // mixed with the legacy current-foot anchor.
             const auto fallback_mpc_contact = mpc_in.contact;
             bool complete_foot_horizon = true;
-            const WorldPose current_pose = ComputeWorldPose(
-                state_snapshot, high_state_snapshot);
             std::array<bool, go2::kLegCount> active_transfer_target{};
             std::array<bool, go2::kLegCount> effective_transfer_hold{};
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -1185,7 +1202,7 @@ void TrotExperiment::UpdateWbcFull(
                             effective_transfer_hold,
                             active_transfer_target);
                 }
-                if (terrain_crawl_shift ||
+                if ((!stage_c_mpc_consumption && terrain_crawl_shift) ||
                     (k == 0 && (terrain_transfer_hold_active_ ||
                                 terrain_surface_transition_active_)))
                     mpc_in.contact[k] = qp_contact;
@@ -1195,16 +1212,21 @@ void TrotExperiment::UpdateWbcFull(
                     plan_knot];
                 if (body.valid)
                 {
-                    // Horizontal speed remains owned by the approved Phase-1
-                    // v_cmd path already present in mpc_in.reference.  The
-                    // planner's measured-state extrapolation is not a second
-                    // longitudinal velocity authority.  Stage B consumes the
-                    // terrain-conditioned vertical body reference here.
-                    mpc_in.reference_horizon[static_cast<std::size_t>(k)][5] =
-                        mpc_in.reference[5] +
-                        body.position.z - current_pose.base.z;
-                    mpc_in.reference_horizon[static_cast<std::size_t>(k)][11] =
-                        body.linear_velocity.z;
+                    // The adopted body knot is part of the same atomic
+                    // timing/foothold snapshot. Copy every SRBD state field;
+                    // no legacy scalar reference may replace it selectively.
+                    auto &body_reference =
+                        mpc_in.reference_horizon[static_cast<std::size_t>(k)];
+                    body_reference[0] = body.roll_rad;
+                    body_reference[1] = body.pitch_rad;
+                    body_reference[2] = body.yaw_rad;
+                    body_reference[3] = body.position.x;
+                    body_reference[4] = body.position.y;
+                    body_reference[5] = body.position.z;
+                    body_reference[8] = body.yaw_rate_radps;
+                    body_reference[9] = body.linear_velocity.x;
+                    body_reference[10] = body.linear_velocity.y;
+                    body_reference[11] = body.linear_velocity.z;
                 }
                 for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
                 {
@@ -1291,11 +1313,7 @@ void TrotExperiment::UpdateWbcFull(
                 mpc_in.plan_id = terrain_plan->plan_id;
                 mpc_in.plan_epoch = terrain_plan->plan_epoch;
                 mpc_in.has_terrain_plan = true;
-                mpc_in.terrain_plan.plan_id = terrain_plan->plan_id;
-                mpc_in.terrain_plan.plan_epoch = terrain_plan->plan_epoch;
-                mpc_in.terrain_plan.map_epoch = terrain_plan->map_epoch;
-                mpc_in.terrain_plan.generated_at_s = terrain_plan->generated_at_s;
-                mpc_in.terrain_plan.valid_until_s = terrain_plan->valid_until_s;
+                mpc_in.terrain_plan = terrain_plan->identity;
                 mpc_in.measured_contact = measured_contact;
                 mpc_in.measured_contact_valid = true;
                 ++terrain_mpc_plan_consumed_count_;
@@ -1309,7 +1327,7 @@ void TrotExperiment::UpdateWbcFull(
         // legacy trot horizon must not reintroduce future contact switches.
         // Keep the same measured topology for the whole MPC preview; flat
         // isolation already used this rule, and terrain now follows it too.
-        if (sequencer_crawl_execution)
+        if (sequencer_crawl_execution && !stage_c_mpc_consumption)
         {
             for (int k = 0; k < mpc_params.horizon; ++k)
                 mpc_in.contact[k] =
@@ -1322,7 +1340,7 @@ void TrotExperiment::UpdateWbcFull(
             terrain_crawl_sequencer_output_.control_authority_active &&
             terrain_crawl_sequencer_output_.state ==
                 go2_terrain::TerrainCrawlSequencerState::kStage;
-        if (sequencer_staging)
+        if (sequencer_staging && !stage_c_mpc_consumption)
         {
             for (int k = 0; k < mpc_params.horizon; ++k)
                 mpc_in.contact[k].fill(true);
