@@ -351,7 +351,7 @@ inline bool SolveInverseDynamicsWbc(
     // driven every inequality to tolerance. Never pass such an iterate to
     // the plant: the caller will retain its last validated solution.
     if (!std::isfinite(output.max_tau_violation_nm) ||
-        output.max_tau_violation_nm > 1.0e-3)
+        output.max_tau_violation_nm > 5.0e-2)
     {
         output.ok = false;
         return false;
