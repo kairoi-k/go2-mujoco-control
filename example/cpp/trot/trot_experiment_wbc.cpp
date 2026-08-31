@@ -1023,17 +1023,36 @@ void TrotExperiment::UpdateWbcFull(
             {
                 // SHIFT_COM and the swing hold are a reference change to the
                 // existing MPC/WBC body task, not a second balance controller.
-                mpc_in.reference[3] = target.x;
+                const bool body_advance =
+                    terrain_crawl_sequencer_output_.body_advance_requested;
                 mpc_in.reference[4] = target.y;
-                if (terrain_crawl_state_machine_.state() ==
-                        go2_terrain::TerrainCrawlState::kShiftCom ||
-                    terrain_crawl_state_machine_.state() ==
-                        go2_terrain::TerrainCrawlState::kCrawlStep)
+                if (body_advance)
                 {
-                    // Hold the body while it loads the triangle; the stance
-                    // feet remain the existing WBC support task.
-                    mpc_in.reference[9] = 0.0;
+                    // The measured reachability gate owns a bounded forward
+                    // creep. Do not leave MPC SHIFT position/zero-velocity
+                    // hold as a competing backward authority while the
+                    // four-foot plant advances to the endpoint envelope.
+                    const double advance_v = params_.direction_sign *
+                        go2_terrain::TerrainCrawlStateMachine::
+                            kAdvanceBodySpeedMps;
+                    mpc_in.reference[3] = dyn.com_world.x() + advance_v *
+                        mpc_params.dt_s * 0.5 * mpc_params.horizon;
+                    mpc_in.reference[9] = advance_v;
                     mpc_in.reference[10] = 0.0;
+                }
+                else
+                {
+                    mpc_in.reference[3] = target.x;
+                    if (terrain_crawl_state_machine_.state() ==
+                            go2_terrain::TerrainCrawlState::kShiftCom ||
+                        terrain_crawl_state_machine_.state() ==
+                            go2_terrain::TerrainCrawlState::kCrawlStep)
+                    {
+                        // Hold the body while it loads the triangle; the stance
+                        // feet remain the existing WBC support task.
+                        mpc_in.reference[9] = 0.0;
+                        mpc_in.reference[10] = 0.0;
+                    }
                 }
             }
         }
@@ -1498,8 +1517,24 @@ void TrotExperiment::UpdateWbcFull(
                 terrain_stage_servo_saturated_ =
                     (measured_stage || measured_shift || measured_swing_hold) &&
                     (std::abs(raw_acc_x) > 4.0 || std::abs(raw_acc_y) > 4.0);
-                wbc_in.desired_linear_acc_world.x() = Clamp(
-                    raw_acc_x, -4.0, 4.0);
+                if (measured_shift &&
+                    terrain_crawl_sequencer_output_.body_advance_requested)
+                {
+                    // SHIFT_COM balance otherwise replaces the velocity
+                    // command with a zero-velocity COM hold. Give ID-WBC an
+                    // explicit v2 creep acceleration so advance becomes a
+                    // physical base motion.
+                    const double advance_v = params_.direction_sign *
+                        go2_terrain::TerrainCrawlStateMachine::
+                            kAdvanceBodySpeedMps;
+                    const double advance_acc = Clamp(
+                        8.0 * (advance_v - linear_vel_world.x()), -4.0, 4.0);
+                    terrain_shift_servo_acc_x_mps2_ = advance_acc;
+                    wbc_in.desired_linear_acc_world.x() = advance_acc;
+                }
+                else
+                    wbc_in.desired_linear_acc_world.x() = Clamp(
+                        raw_acc_x, -4.0, 4.0);
                 wbc_in.desired_linear_acc_world.y() = Clamp(
                     raw_acc_y, -4.0, 4.0);
             }

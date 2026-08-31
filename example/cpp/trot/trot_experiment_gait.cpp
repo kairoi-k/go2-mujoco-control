@@ -423,6 +423,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
             : 0.0;
     }
     if (terrain_window_active && !flat_crawl_debug &&
+        !terrain_crawl_sequencer_output_.body_advance_requested &&
         std::isfinite(terrain_staging_error_m_) &&
         std::abs(terrain_staging_error_m_) >
             go2_terrain::TerrainCrawlStateMachine::kStageBasinHalfWidthM)

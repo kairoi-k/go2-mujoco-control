@@ -2170,8 +2170,21 @@ int main()
                     go2_terrain::TerrainCrawlSequencerState::kAbort)
                 return 1;
         }
-        x.now_s = 0.32 + go2_terrain::TerrainCrawlSequencer::kStageDwellS +
+        const double shift_ready_s = 0.32 +
+            go2_terrain::TerrainCrawlSequencer::kStageDwellS +
             go2_terrain::TerrainCrawlSequencer::kShiftDwellS + 0.01;
+        // Full v2 keeps the sequencer in SHIFT and raises the advance request
+        // while the measured FL endpoint remains outside the FK envelope.
+        x.allow_creep_entry = true;
+        x.now_s = shift_ready_s;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kShift &&
+                       seq.output().body_advance_requested,
+                   "v2 SHIFT did not request body advance for an unreachable endpoint")) return 1;
+        // The legacy/staged caller does not consume the v2 request and retains
+        // the historical dwell gate, proving the request is opt-in.
+        x.allow_creep_entry = false;
+        x.now_s = shift_ready_s + 0.01;
         seq.Update(x);
         if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kSwing &&
                        seq.active_leg() == 1 && seq.output().target_valid &&
