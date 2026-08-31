@@ -4130,8 +4130,7 @@ forensics: |
   plan 178), not as the SWING terminal cause.
 implementation: |
   At the full-v2 SHIFT boundary, trot_experiment_wbc.cpp now gives the
-  sequencers
- measured support-triangle incenter priority over the legacy
+  sequencer measured support-triangle incenter priority over the legacy
   STAGE target and includes it in the existing bounded COM position servo.
   This lets the plant square the three-leg support witness while the
   sequencer remains in SHIFT, without changing v2 window timing, the
