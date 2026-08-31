@@ -691,6 +691,10 @@ bool TrotExperiment::BuildGaitTargets(
         Full2EnvDouble("TROT_TERRAIN_DEBUG_FLAT_CRAWL", 0.0) > 0.5;
     const bool staged_start_debug =
         Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) > 0.5;
+    const bool full_v2_body_advance =
+        !flat_crawl_debug && !staged_start_debug &&
+        terrain_crawl_sequencer_output_.state ==
+            go2_terrain::TerrainCrawlSequencerState::kShift;
     const bool terrain_execution_allowed =
         (params_.terrain_actuation && !params_.terrain_sensor_only) ||
         flat_crawl_debug;
@@ -3585,7 +3589,8 @@ bool TrotExperiment::BuildGaitTargets(
             else
                 apply_world_target(leg, path_world, path_velocity);
         }
-        if (terrain_transfer_hold_active_ && have_actual_world_feet)
+        if (terrain_transfer_hold_active_ && !full_v2_body_advance &&
+            have_actual_world_feet)
         {
             // The phase continues to advance while the terrain foothold is
             // being confirmed. Keep the support feet at measured anchors
@@ -3607,7 +3612,7 @@ bool TrotExperiment::BuildGaitTargets(
             ++terrain_gait_target_override_count_;
     }
 
-    if (terrain_transfer_window_active_ &&
+    if (terrain_transfer_window_active_ && !full_v2_body_advance &&
         terrain_crawl_state_machine_.state() ==
             go2_terrain::TerrainCrawlState::kShiftCom &&
         !(flat_crawl_debug && terrain_crawl_sequencer_output_.state ==
