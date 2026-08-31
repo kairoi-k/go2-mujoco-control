@@ -91,6 +91,9 @@ struct TerrainFeasibilityConfig
     // from a scene/world coordinate, and only applies to elevated candidates
     // in the terrain-actuated planner path.
     double elevated_surface_standoff_m = 0.080;
+    // Existing low-surface support feet must stay behind the measured riser
+    // edge; this is separate from the elevated swing-target stand-off above.
+    double support_edge_standoff_m = 0.080;
     // Harness calibration bounds the lidar edge under-estimate to two map
     // cells; retain that correction before applying the stand-off.
     double elevated_surface_edge_bias_m = 0.100;
@@ -1035,6 +1038,66 @@ inline double ForwardElevatedSurfaceEdgeX(
     }
     return std::isfinite(nearest_edge_x)
         ? nearest_edge_x : std::numeric_limits<double>::quiet_NaN();
+}
+
+// Return the first persistent height transition in front of a low-surface
+// foothold. Unlike ForwardElevatedSurfaceEdgeX, this observes the edge from
+// the lower side, which is the geometry needed to keep existing support feet
+// away from a riser lip.
+inline double ForwardRiserEdgeX(
+    const TerrainModel &model, const go2::Vec3 &position,
+    double patch_radius_m)
+{
+    if (!model.valid() || !std::isfinite(position.x) ||
+        !std::isfinite(position.y) || !std::isfinite(position.z))
+        return std::numeric_limits<double>::quiet_NaN();
+    std::size_t center_ix = 0;
+    std::size_t center_iy = 0;
+    if (!model.CellIndex(position.x, position.y, center_ix, center_iy))
+        return std::numeric_limits<double>::quiet_NaN();
+    (void)center_iy;
+    const double lateral_radius = std::max(0.070, 2.0 * patch_radius_m);
+    const int iy_min = std::max(
+        0, static_cast<int>(std::floor(
+            (position.y - lateral_radius - model.origin_m[1]) /
+            model.resolution_m)));
+    const int iy_max = std::min(
+        static_cast<int>(model.height) - 1,
+        static_cast<int>(std::floor(
+            (position.y + lateral_radius - model.origin_m[1]) /
+            model.resolution_m)));
+    for (std::size_t edge_ix = center_ix + 1; edge_ix < model.width;
+         ++edge_ix)
+    {
+        std::size_t transition_rows = 0;
+        for (int iy = iy_min; iy <= iy_max; ++iy)
+        {
+            const auto *before = model.CellAt(
+                edge_ix - 1, static_cast<std::size_t>(iy));
+            const auto *after = model.CellAt(
+                edge_ix, static_cast<std::size_t>(iy));
+            if (before != nullptr && after != nullptr && before->known &&
+                after->known && after->height_m > before->height_m + 0.02)
+                ++transition_rows;
+        }
+        // Two lateral rows reject isolated lidar spikes and match the
+        // consensus used by the direct crawl target.
+        if (transition_rows >= 2)
+            return model.origin_m[0] +
+                static_cast<double>(edge_ix) * model.resolution_m;
+    }
+    return std::numeric_limits<double>::quiet_NaN();
+}
+
+inline bool HasForwardSupportEdgeStandoff(
+    const TerrainModel &model, const go2::Vec3 &position,
+    double standoff_m, double patch_radius_m)
+{
+    if (!(standoff_m > 0.0) || !std::isfinite(position.x))
+        return true;
+    const double edge_x = ForwardRiserEdgeX(model, position, patch_radius_m);
+    return !std::isfinite(edge_x) ||
+        position.x <= edge_x - standoff_m + 1.0e-9;
 }
 
 inline bool HasForwardElevatedSurfaceStandoff(

@@ -149,6 +149,19 @@ int main()
                        fr.position_base.y < 0.0 && fr.edge_margin_m >= 0.025,
                    "FL/FR script targets did not preserve leg-specific stand-off"))
             return 1;
+        // Low-surface support must remain behind the measured riser edge;
+        // elevated swing targets use the separate upper-surface rule.
+        if (!Check(go2_terrain::HasForwardSupportEdgeStandoff(
+                       model, {0.40, 0.0, -0.25}, 0.080, 0.025),
+                   "support foothold inside the riser keep-away was accepted") ||
+            !Check(!go2_terrain::HasForwardSupportEdgeStandoff(
+                       model, {0.43, 0.0, -0.25}, 0.080, 0.025),
+                   "support foothold at the riser lip was not rejected") ||
+            !Check(go2_terrain::HasForwardElevatedSurfaceStandoff(
+                       model, {0.60, 0.0, 0.05}, -0.25, 0.080, 0.025),
+                   "elevated target lost its upper-surface stand-off"))
+            return 1;
+
         const auto yawed = go2_terrain::MeasureTerrainStagingReference(
             model, {1.0, 2.0, 0.0}, 1.5707963267948966, 0.30);
         if (!Check(yawed.valid && std::abs(yawed.target_world.x - 1.0) < 1.0e-9 &&
@@ -1592,7 +1605,7 @@ int main()
                 go2_terrain::TerrainCrawlStateMachine::kShiftStanceNoSlipWeight == 80.0,
                 "COM shift stance weight changed") ||
             !Check(
-                go2_terrain::TerrainCrawlStateMachine::kV2FullShiftStanceNoSlipWeight == 180.0,
+                go2_terrain::TerrainCrawlStateMachine::kV2FullShiftStanceNoSlipWeight == 80.0,
                 "full-v2 shift stance weight changed") ||
             !Check(
                 go2_terrain::TerrainCrawlStateMachine::kCrawlStepHandoffGraceS == 0.10,

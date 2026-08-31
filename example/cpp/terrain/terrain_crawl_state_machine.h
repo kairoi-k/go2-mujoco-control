@@ -702,9 +702,9 @@ public:
     // The four-foot shift is the only path that asks stance to resist a
     // moving COM reference; retain ordinary non-transfer weights elsewhere.
     static constexpr double kShiftStanceNoSlipWeight = 80.0;
-    // Full-v2 moving SHIFT is vulnerable to lip slip; retain the legacy
-    // staged/flat weight and use this stronger, scoped stance objective.
-    static constexpr double kV2FullShiftStanceNoSlipWeight = 180.0;
+    // Full-v2 moving SHIFT keeps the legacy weight; lip avoidance belongs in
+    // foothold placement rather than this stance objective.
+    static constexpr double kV2FullShiftStanceNoSlipWeight = 80.0;
     // A lower handoff speed leaves the trot controller enough authority to
     // settle without transferring a residual stride into SHIFT_COM.
     static constexpr double kCreepSpeedMps = 0.08;

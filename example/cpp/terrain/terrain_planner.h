@@ -674,12 +674,19 @@ public:
                         directional_progress >= -forward_tolerance ? 1 : 0;
                 };
             const auto has_surface_standoff =
-                [&](const go2::Vec3 &position) {
+                [&](const go2::Vec3 &position, double uncertainty) {
                     if (command_direction <= 0.0)
                         return true;
-                    return go2_terrain::HasForwardElevatedSurfaceStandoff(
-                        *input.terrain, position, observed_surface_height_m,
-                        config_.feasibility.elevated_surface_standoff_m,
+                    const bool elevated = forward_elevated_surface(
+                        position, uncertainty) > 0;
+                    if (elevated)
+                        return go2_terrain::HasForwardElevatedSurfaceStandoff(
+                            *input.terrain, position, observed_surface_height_m,
+                            config_.feasibility.elevated_surface_standoff_m,
+                            config_.feasibility.foot_patch_radius_m);
+                    return go2_terrain::HasForwardSupportEdgeStandoff(
+                        *input.terrain, position,
+                        config_.feasibility.support_edge_standoff_m,
                         config_.feasibility.foot_patch_radius_m);
                 };
             const auto bias_surface_position =
@@ -779,7 +786,8 @@ public:
                     future_base_displacement_valid[leg]
                         ? &future_base_displacement_base[leg] : nullptr);
                 if (!candidate.hard_feasible ||
-                    !has_surface_standoff(candidate.foot_position))
+                    !has_surface_standoff(candidate.foot_position,
+                                          candidate.uncertainty_m))
                     continue;
                 candidate.region_id = region.region_id;
                 candidate.support_margin_m = region.support_margin_m;
@@ -1826,13 +1834,23 @@ private:
                         config_.swing_clearance_m,
                         future_displacement_valid
                             ? &future_displacement : nullptr);
-                    if (!candidate.hard_feasible ||
-                        (command_direction > 0.0 &&
-                         !go2_terrain::HasForwardElevatedSurfaceStandoff(
-                             *input.terrain, candidate.foot_position,
-                             observed_surface_height_m,
-                             config_.feasibility.elevated_surface_standoff_m,
-                             config_.feasibility.foot_patch_radius_m)))
+                    if (!candidate.hard_feasible)
+                        continue;
+                    const bool elevated_candidate =
+                        candidate.foot_position.z > observed_surface_height_m +
+                            std::max(2.0 * candidate.uncertainty_m,
+                                     0.5 * config_.feasibility.foot_patch_radius_m);
+                    if (command_direction > 0.0 &&
+                        (elevated_candidate
+                             ? !go2_terrain::HasForwardElevatedSurfaceStandoff(
+                                   *input.terrain, candidate.foot_position,
+                                   observed_surface_height_m,
+                                   config_.feasibility.elevated_surface_standoff_m,
+                                   config_.feasibility.foot_patch_radius_m)
+                             : !go2_terrain::HasForwardSupportEdgeStandoff(
+                                   *input.terrain, candidate.foot_position,
+                                   config_.feasibility.support_edge_standoff_m,
+                                   config_.feasibility.foot_patch_radius_m)))
                         continue;
                     candidate.region_id = region.region_id;
                     candidate.support_margin_m = region.support_margin_m;
