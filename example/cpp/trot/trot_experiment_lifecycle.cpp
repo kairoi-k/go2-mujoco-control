@@ -11,6 +11,7 @@
 
 #include "contact_wrench_projected_allocator.h"
 #include "contact_state_filter.h"
+#include "full2_campaign_env.h"
 #include "go2_contact_torque_mapping.h"
 #include "go2_inverse_kinematics.h"
 #include "motion_frame_utils.h"
@@ -229,6 +230,21 @@ bool TrotExperiment::Init()
     lowcmd_publisher_.reset(
         new ChannelPublisher<unitree_go::msg::dds_::LowCmd_>(GO2_TROT_TOPIC_LOWCMD));
     lowcmd_publisher_->InitChannel();
+
+    // Order-105 verification-only causal handshake: when the sim runs with
+    // the lockstep flag the harness also sets TROT_LOCKSTEP_ACK=1, so this
+    // adapter acks {state_seq, command_seq} after every LowCmd write. Off by
+    // default; the flag never changes control math.
+    if (Full2EnvDouble("TROT_LOCKSTEP_ACK", 0.0) > 0.5)
+    {
+        lockstep_ack_publisher_.reset(
+            new ChannelPublisher<unitree_go::msg::dds_::Error_>(
+                GO2_TROT_TOPIC_LOCKSTEP_ACK));
+        lockstep_ack_publisher_->InitChannel();
+        lockstep_ack_enabled_ = true;
+        std::cout << "Lockstep ack adapter enabled on "
+                  << GO2_TROT_TOPIC_LOCKSTEP_ACK << "\n";
+    }
 
     lowstate_subscriber_.reset(
         new ChannelSubscriber<unitree_go::msg::dds_::LowState_>(GO2_TROT_TOPIC_LOWSTATE));

@@ -6,6 +6,7 @@
 #include <unitree/robot/channel/channel_subscriber.hpp>
 #include <unitree/dds_wrapper/robots/go2/go2.h>
 #include <unitree/dds_wrapper/robots/g1/g1.h>
+#include <unitree/idl/go2/Error_.hpp>
 #include <unitree/idl/go2/HeightMap_.hpp>
 #include <unitree/idl/hg/BmsState_.hpp>
 #include <unitree/idl/hg/IMUState_.hpp>
@@ -241,6 +242,27 @@ public:
     }
 };
 
+// Order-105 verification-only ack subscription: the controller adapter
+// publishes {state_seq, command_seq} (unitree Error_ type repurposed as a
+// sequence-metadata carrier) on rt/lockstep/ack after each LowCmd write.
+// Only created when the lockstep flag is on.
+class LockstepAckSubscriber
+    : public unitree::robot::SubscriptionBase<unitree_go::msg::dds_::Error_>
+{
+public:
+    explicit LockstepAckSubscriber(const std::string &topic,
+                                   lockstep::Coordinator *coord)
+        : unitree::robot::SubscriptionBase<unitree_go::msg::dds_::Error_>(
+              topic, [coord](const void *msg) {
+                  if (coord == nullptr) return;
+                  const auto *m = static_cast<
+                      const unitree_go::msg::dds_::Error_ *>(msg);
+                  coord->OnAckReceived(m->source(), m->state());
+              })
+    {
+    }
+};
+
 public:
     RobotBridge(
         mjModel *model,
@@ -252,6 +274,9 @@ public:
         {
             lowcmd = std::make_shared<CountingLowCmd<typename LowCmd_t::MsgType>>(
                 "rt/lowcmd", g_lockstep);
+            lockstep_ack_subscriber_ =
+                std::make_shared<LockstepAckSubscriber>("rt/lockstep/ack",
+                                                        g_lockstep);
         }
         else
         {
@@ -650,20 +675,22 @@ public:
         PublishStateSnapshot(/*blocking_lowstate=*/false);
     }
 
-    // Lockstep path (Order-103): one frozen physics/control interval per
-    // completed ready/exchange handshake. Startup (before the ready barrier)
-    // is byte-identical to the wall-clock path; the frozen discipline starts
-    // at the handoff tick recorded by the coordinator.
+    // Lockstep path (Order-103/105): one frozen physics/control interval per
+    // completed causal exchange. Startup (before the ready barrier) is
+    // identical to the wall-clock path; the frozen discipline starts at the
+    // handoff tick. Each lockstep publish registers its monotonic tick as
+    // the ack state_seq side-channel before the LowState is sent.
     void RunLockstep()
     {
         if (!g_lockstep->BarrierComplete())
         {
             RunWallClock();
-            g_lockstep->OnStartupPublish();
+            g_lockstep->OnStartupPublish(CurrentTickMs());
             return;
         }
         if (g_lockstep->WaitForStepCompleted() != lockstep::WaitOutcome::kReady)
             return; // aborted or fail-closed; physics loop owns process exit
+        g_lockstep->OnStatePublished(CurrentTickMs());
         PublishStateSnapshot(/*blocking_lowstate=*/true);
         const std::uint64_t sim_tick_ms = CurrentTickMs();
         lockstep::ExchangeTrigger trigger = lockstep::ExchangeTrigger::kBarrier;
@@ -814,6 +841,7 @@ public:
     unitree::robot::ChannelPtr<unitree_go::msg::dds_::HeightMap_> lidar_heightmap;
     std::unique_ptr<WirelessController_t> wireless_controller;
     std::shared_ptr<unitree::robot::SubscriptionBase<typename LowCmd_t::MsgType>> lowcmd;
+    std::shared_ptr<LockstepAckSubscriber> lockstep_ack_subscriber_;
     std::unique_ptr<LowState_t> lowstate;
     
 private:

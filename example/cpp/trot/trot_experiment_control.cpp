@@ -1088,6 +1088,10 @@ void TrotExperiment::LowCmdWrite()
 
     // SECTION: publish-lowcmd
     PublishLowCmdWithCrc();
+    // Order-105: after the LowCmd is published in this cycle, emit the
+    // verification-only ack{state_seq, command_seq} for the state snapshot
+    // consumed by this control period (no-op when the adapter is off).
+    PublishLockstepAck(state_snapshot.tick());
     // SECTION: log-sample
         LogSample(state_snapshot, have_state, high_state_snapshot, have_high_state);
 }
@@ -1098,6 +1102,22 @@ void TrotExperiment::PublishLowCmdWithCrc()
         (uint32_t *)&low_cmd_,
         (sizeof(unitree_go::msg::dds_::LowCmd_) >> 2) - 1);
     lowcmd_publisher_->Write(low_cmd_);
+}
+
+// Order-105 verification-only ack: {state_seq, command_seq} published only
+// after the LowCmd write of the same control cycle, only when the adapter is
+// enabled. `state_seq` is the tick side-channel of the LowState snapshot the
+// cycle consumed; `command_seq` counts LowCmd writes 1:1 so the sim can match
+// the ack to a received command. No control math or message payload changes.
+void TrotExperiment::PublishLockstepAck(std::uint32_t state_seq)
+{
+    if (!lockstep_ack_enabled_ || !lockstep_ack_publisher_)
+        return;
+    ++lockstep_cmd_seq_;
+    unitree_go::msg::dds_::Error_ ack;
+    ack.source(state_seq);
+    ack.state(lockstep_cmd_seq_);
+    lockstep_ack_publisher_->Write(ack);
 }
 
 bool TrotExperiment::PhaseStandUp(std::array<double, go2_trot::kMotorCount> &joint_targets)

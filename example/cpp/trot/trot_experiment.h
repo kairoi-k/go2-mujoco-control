@@ -16,6 +16,7 @@
 #include <vector>
 
 #include <unitree/common/thread/thread.hpp>
+#include <unitree/idl/go2/Error_.hpp>
 #include <unitree/idl/go2/HeightMap_.hpp>
 #include <unitree/idl/go2/LowCmd_.hpp>
 #include <unitree/idl/go2/LowState_.hpp>
@@ -48,6 +49,12 @@ using unitree::robot::ChannelSubscriberPtr;
 #define GO2_TROT_TOPIC_LOWCMD "rt/lowcmd"
 #define GO2_TROT_TOPIC_LOWSTATE "rt/lowstate"
 #define GO2_TROT_TOPIC_HIGHSTATE "rt/sportmodestate"
+#endif
+// Order-105 verification-only causal handshake topic: the adapter publishes
+// ack{state_seq, command_seq} (unitree Error_ repurposed as a sequence-
+// metadata carrier) after every LowCmd write when TROT_LOCKSTEP_ACK=1.
+#ifndef GO2_TROT_TOPIC_LOCKSTEP_ACK
+#define GO2_TROT_TOPIC_LOCKSTEP_ACK "rt/lockstep/ack"
 #endif
 #ifndef GO2_TROT_TOPIC_ENVIRONMENT_MAP
 #define GO2_TROT_TOPIC_ENVIRONMENT_MAP "rt/go2/environment_heightmap"
@@ -163,6 +170,7 @@ private:
     bool PhaseLieDown(std::array<double, go2_trot::kMotorCount> &joint_targets);
     double UpdateCartesianForceBlend();
     void PublishLowCmdWithCrc();
+    void PublishLockstepAck(std::uint32_t state_seq);
     void LogSample(
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
         bool have_state,
@@ -749,6 +757,9 @@ private:
     std::atomic<bool> external_stop_requested_{false};
 
     ChannelPublisherPtr<unitree_go::msg::dds_::LowCmd_> lowcmd_publisher_;
+    ChannelPublisherPtr<unitree_go::msg::dds_::Error_> lockstep_ack_publisher_;
+    bool lockstep_ack_enabled_ = false;
+    std::uint32_t lockstep_cmd_seq_ = 0;
     ChannelSubscriberPtr<unitree_go::msg::dds_::LowState_> lowstate_subscriber_;
     ChannelSubscriberPtr<unitree_go::msg::dds_::SportModeState_>
         highstate_subscriber_;

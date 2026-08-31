@@ -1,39 +1,25 @@
 #pragma once
-// Verification-only sim-time lockstep coordinator (Order-103, C-006c).
+// Verification-only sim-time lockstep coordinator (Order-103/105).
 //
-// The wall-clock runner lets the MuJoCo physics thread free-run while the
-// DDS lowstate/lowcmd exchange races, so a controller command can be applied
-// to a state it was not computed from (the Order-102 baseline roll). When
-// enabled this coordinator makes the exchange deterministic:
+// Goal: never apply a controller command to a MuJoCo state the command was
+// not computed from. Contract:
+//   * startup stays identical to the wall-clock runner until the controller's
+//     lifecycle boundary (first lowcmd arrival) completes the ready barrier;
+//   * explicit handoff: on the first command the physics thread advances
+//     exactly one mj_step (T0 -> T0+dt) and the barrier row is recorded at T0;
+//   * causal handshake (Order-105): every lockstep LowState carries a
+//     monotonic tick side-channel. The controller's verification adapter
+//     acks {state_seq, command_seq} after publishing each LowCmd. The
+//     physics thread advances exactly one mj_step only when a newer LowCmd
+//     arrived AND ack.state_seq equals the currently published state tick
+//     AND the ack command_seq is consistent with an arrived command;
+//   * stale/future/duplicate/reordered/missing acks, command mismatches and
+//     timeouts fail closed with a trace row;
+//   * the side-channel is sequence metadata only (no truth/geometry); with
+//     the flag off this header has no effect on the wall-clock runner.
 //
-//   * startup stays byte-identical to the wall-clock runner: physics
-//     free-runs and the bridge publishes at 1000 Hz until the controller's
-//     existing lifecycle boundary — natural settle + world reference
-//     capture, observable as the first lowcmd arrival — is confirmed on both
-//     sides. Startup safety/lifecycle failures (settle timeout, posture,
-//     etc.) remain authoritative failures and are never skipped;
-//   * explicit handoff: on the first controller command the ready barrier
-//     completes; the physics thread then advances exactly one mj_step
-//     (tick T0 -> T0+dt) and the coordinator records the barrier row at T0
-//     with the command sequence. The first lockstep state publish is T0+dt,
-//     so the tick sequence is continuous across the handoff (no duplicate /
-//     missing tick);
-//   * frozen intervals: the bridge publishes one lowstate per completed
-//     physics step and then waits for the next controller command. The step
-//     plus publish completes well inside one controller write period, so the
-//     command that arrives after the publish was computed from the
-//     just-published state (loopback DDS delivery is <1 ms, the controller
-//     writes every 2 ms). Controller clock and sim clock stay 1:1;
-//   * the physics thread advances exactly one mj_step only after the
-//     exchange is complete; the next state is published only after that step;
-//   * timeouts fail closed; every interval is recorded with sim_tick, step
-//     index, command sequence numbers, wall timestamps, wait latency and
-//     violation flags.
-//
-// The coordinator is DDS/MuJoCo-free so the ready/exchange/tick invariants
-// are unit-testable (see simulate/src/tests/test_lockstep.cpp). The bridge
-// and physics loop in the simulator feed it events; the controller is never
-// modified and never reads simulator truth.
+// The coordinator is DDS/MuJoCo-free so the ready/exchange/tick/ack
+// invariants are unit-testable (see simulate/src/tests/test_lockstep.cpp).
 
 #include <atomic>
 #include <chrono>
@@ -54,6 +40,11 @@ constexpr std::uint32_t kViolationExchangeTimeout = 1u << 1;
 constexpr std::uint32_t kViolationStepTimeout = 1u << 2;
 constexpr std::uint32_t kViolationTickGap = 1u << 3;
 constexpr std::uint32_t kViolationStepTick = 1u << 4;
+constexpr std::uint32_t kViolationAckStale = 1u << 5;
+constexpr std::uint32_t kViolationAckFuture = 1u << 6;
+constexpr std::uint32_t kViolationAckDuplicate = 1u << 7;
+constexpr std::uint32_t kViolationAckCmdMismatch = 1u << 8;
+constexpr std::uint32_t kViolationAckMissing = 1u << 9;
 
 enum class WaitOutcome : int
 {
@@ -67,6 +58,7 @@ enum class ExchangeTrigger : int
   kBarrier = 0,
   kArrivalCount = 1,
   kTimeout = 2,
+  kAckMatched = 3,
 };
 
 struct IntervalRecord
@@ -80,6 +72,8 @@ struct IntervalRecord
   std::int64_t publish_wall_us = 0;
   ExchangeTrigger trigger = ExchangeTrigger::kBarrier;
   std::uint32_t violations = 0;
+  std::uint64_t ack_state_seq = 0;
+  std::uint64_t ack_cmd_seq = 0;
 };
 
 class Coordinator
@@ -108,7 +102,7 @@ public:
       {
         trace_ << "sim_tick_ms,step_index,phase,cmd_seq_at_publish,"
                   "cmd_seq_at_ready,exchange_wait_us,publish_wall_us,"
-                  "exchange_trigger,violations\n";
+                  "exchange_trigger,violations,ack_state_seq,ack_cmd_seq\n";
       }
     }
   }
@@ -118,10 +112,55 @@ public:
     WriteSummary();
   }
 
-  // ---- event feed (lowcmd DDS subscriber callback) ----
+  // ---- event feed (DDS subscriber callbacks) ----
   void OnCommandArrived()
   {
     cmd_seq_.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  // Order-105 causal handshake: the controller's verification adapter
+  // publishes ack{state_seq, command_seq} after each LowCmd write. State
+  // sequences are validated against the last published state tick; the ack
+  // is held as the pending proof for the exchange of that state. Acks whose
+  // command_seq belongs to the wall-clock startup phase (<= the barrier
+  // command) reference pre-handoff states and are ignored.
+  void OnAckReceived(std::uint64_t state_seq, std::uint64_t command_seq)
+  {
+    const char *reason = nullptr;
+    std::uint32_t violation = 0;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (!ack_validation_active_) return; // startup wall-clock phase
+      if (command_seq <= barrier_seq_)
+        return; // barrier-command ack: startup phase, not an exchange ack
+      if (pending_ack_valid_ &&
+          pending_ack_state_seq_ == published_state_seq_)
+      {
+        violation = kViolationAckDuplicate;
+        reason = "duplicate ack for published state";
+      }
+      else if (state_seq < published_state_seq_)
+      {
+        violation = kViolationAckStale;
+        reason = "stale ack for older state";
+      }
+      else if (state_seq > published_state_seq_)
+      {
+        violation = kViolationAckFuture;
+        reason = "future ack for unpublished state";
+      }
+      else
+      {
+        pending_ack_valid_ = true;
+        pending_ack_state_seq_ = state_seq;
+        pending_ack_cmd_seq_ = command_seq;
+      }
+    }
+    if (reason != nullptr)
+    {
+      AddViolation(violation);
+      FailClosed(AckReason(reason, state_seq, command_seq));
+    }
   }
 
   // ---- startup (bridge thread) ----
@@ -129,24 +168,20 @@ public:
   // ready barrier). Returns true when the ready barrier completed on this
   // call: the first controller command (computed after the controller's
   // natural-settle + world-reference lifecycle boundary) arrived and the
-  // first frozen step is permitted. The barrier row's tick is recorded by
-  // the first NotifyStepCompleted so it matches the actual pre-step tick.
-  bool OnStartupPublish()
+  // first frozen step is permitted. `sim_tick_ms` is the tick of the state
+  // just published; it tracks the last published state for ack validation.
+  bool OnStartupPublish(std::uint64_t sim_tick_ms)
   {
     if (barrier_complete_.load(std::memory_order_acquire)) return true;
     bool barrier_timeout = false;
     {
       std::lock_guard<std::mutex> lock(mutex_);
       if (barrier_complete_.load(std::memory_order_relaxed)) return true;
+      published_state_seq_ = sim_tick_ms;
       if (startup_begin_us_ == 0) startup_begin_us_ = NowUs();
       const std::uint64_t seq = cmd_seq_.load(std::memory_order_relaxed);
       if (seq < 1)
       {
-        // Startup watchdog: the controller must begin commanding (its
-        // settle/world-reference lifecycle completes) within the barrier
-        // timeout or the run fails closed. Startup safety/lifecycle
-        // failures on the controller side are still the authoritative
-        // harness failures; this bounds the sim-side wait.
         const std::int64_t elapsed_us = NowUs() - startup_begin_us_;
         if (static_cast<double>(elapsed_us) * 1e-6 > cfg_.barrier_timeout_s)
         {
@@ -166,7 +201,6 @@ public:
     }
     if (barrier_timeout)
     {
-      // FailClosed must run outside the mutex (WriteSummary re-locks).
       FailClosed("ready barrier timeout waiting for first controller "
                  "command");
       return false;
@@ -180,11 +214,33 @@ public:
     return barrier_complete_.load(std::memory_order_acquire);
   }
 
+  // Call before publishing each lockstep state with its tick. Fails closed
+  // if a stale ack from the previous interval is still pending (the
+  // controller wrote more than once from one state).
+  void OnStatePublished(std::uint64_t sim_tick_ms)
+  {
+    bool stale_pending = false;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      ack_validation_active_ = true;
+      published_state_seq_ = sim_tick_ms;
+      stale_pending = pending_ack_valid_ &&
+                      pending_ack_state_seq_ != sim_tick_ms;
+    }
+    if (stale_pending)
+    {
+      AddViolation(kViolationAckStale);
+      FailClosed("stale ack pending at lockstep state publish");
+    }
+  }
+
   // ---- interval protocol (bridge thread) ----
-  // Blocks until the exchange for the just-published state is complete.
-  // Called immediately after the bridge published lowstate `sim_tick_ms`.
-  // kReady: the latest received command may be applied and physics may
-  // step. kAborted: external stop requested. Timeouts fail closed.
+  // Blocks until the causal exchange for the just-published state is
+  // complete: a newer controller command arrived AND an ack whose state_seq
+  // equals `sim_tick_ms` (the published tick side-channel) and whose
+  // command_seq references an arrived command newer than the publish.
+  // kReady: the acked command may be applied and physics may step exactly
+  // one mj_step. Timeouts and ack anomalies fail closed.
   WaitOutcome WaitForExchange(std::uint64_t sim_tick_ms,
                               ExchangeTrigger *out_trigger)
   {
@@ -208,25 +264,76 @@ public:
     {
       FailClosed("tick sequence gap/duplicate/reorder");
     }
+    exchange_active_.store(true, std::memory_order_release);
+    struct ActiveGuard
+    {
+      std::atomic<bool> &flag;
+      ~ActiveGuard() { flag.store(false, std::memory_order_release); }
+    } active_guard{exchange_active_};
 
     const auto deadline = Clock::now() + Seconds(cfg_.exchange_timeout_s);
     ExchangeTrigger trigger = ExchangeTrigger::kTimeout;
+    bool ack_seen = false;
+    std::uint64_t ack_state_seq = 0;
+    std::uint64_t ack_cmd_seq = 0;
     for (;;)
     {
       if (AbortRequested()) return WaitOutcome::kAborted;
-      // One fresh command per frozen interval keeps the controller clock and
-      // the sim clock 1:1 (both 2 ms). The step+publish completes within one
-      // controller write period, so this arrival is guaranteed to have been
-      // computed from the just-published state.
-      if (cmd_seq_.load(std::memory_order_relaxed) >= seq_at_publish + 1)
+      if (failed_closed_.load(std::memory_order_acquire))
+        return WaitOutcome::kTimeoutFailClosed;
+      const char *mismatch_reason = nullptr;
+      std::uint32_t mismatch_violation = 0;
+      bool complete = false;
       {
-        trigger = ExchangeTrigger::kArrivalCount;
-        break;
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (pending_ack_valid_)
+        {
+          ack_seen = true;
+          ack_state_seq = pending_ack_state_seq_;
+          ack_cmd_seq = pending_ack_cmd_seq_;
+          if (pending_ack_state_seq_ != sim_tick_ms)
+          {
+            mismatch_reason =
+                "ack state_seq mismatch (stale/future/reorder)";
+            mismatch_violation = pending_ack_state_seq_ < sim_tick_ms
+                                     ? kViolationAckStale
+                                     : kViolationAckFuture;
+          }
+          else if (pending_ack_cmd_seq_ <= seq_at_publish)
+          {
+            mismatch_reason =
+                "ack command_seq not newer than published state";
+            mismatch_violation = kViolationAckCmdMismatch;
+          }
+          else if (cmd_seq_.load(std::memory_order_relaxed) >=
+                   pending_ack_cmd_seq_)
+          {
+            pending_ack_valid_ = false;
+            trigger = ExchangeTrigger::kAckMatched;
+            complete = true;
+          }
+        }
       }
+      if (mismatch_reason != nullptr)
+      {
+        AddViolation(mismatch_violation);
+        FailClosed(AckReason(mismatch_reason, ack_state_seq, ack_cmd_seq));
+        return WaitOutcome::kTimeoutFailClosed;
+      }
+      if (complete) break;
       if (Clock::now() >= deadline)
       {
-        AddViolation(kViolationExchangeTimeout);
-        FailClosed("exchange timeout waiting for controller command");
+        if (ack_seen)
+        {
+          AddViolation(kViolationExchangeTimeout);
+          FailClosed("exchange timeout waiting for acked controller "
+                     "command");
+        }
+        else
+        {
+          AddViolation(kViolationAckMissing);
+          FailClosed("exchange timeout waiting for controller ack");
+        }
         return WaitOutcome::kTimeoutFailClosed;
       }
       SleepUs(200);
@@ -238,7 +345,8 @@ public:
           sim_tick_ms, interval_index, "lockstep", seq_at_publish,
           cmd_seq_.load(std::memory_order_relaxed), NowUs() - publish_us,
           publish_us, trigger,
-          violations_.load(std::memory_order_relaxed)});
+          violations_.load(std::memory_order_relaxed), ack_state_seq,
+          ack_cmd_seq});
     }
     return WaitOutcome::kReady;
   }
@@ -254,6 +362,8 @@ public:
     for (;;)
     {
       if (AbortRequested()) return WaitOutcome::kAborted;
+      if (failed_closed_.load(std::memory_order_acquire))
+        return WaitOutcome::kTimeoutFailClosed;
       if (barrier_complete_.load(std::memory_order_acquire) &&
           step_permitted_.exchange(false, std::memory_order_acq_rel))
       {
@@ -298,7 +408,7 @@ public:
         Record(IntervalRecord{
             pre_tick, 0, "barrier", 0, barrier_seq_, 0, NowUs(),
             ExchangeTrigger::kBarrier,
-            violations_.load(std::memory_order_relaxed)});
+            violations_.load(std::memory_order_relaxed), 0, 0});
         interval_index_ = 1;
       }
       if (sim_tick_ms != last_published_tick_ + cfg_.dt_ms)
@@ -321,6 +431,8 @@ public:
     for (;;)
     {
       if (AbortRequested()) return WaitOutcome::kAborted;
+      if (failed_closed_.load(std::memory_order_acquire))
+        return WaitOutcome::kTimeoutFailClosed;
       if (step_completed_.exchange(false, std::memory_order_acq_rel))
       {
         return WaitOutcome::kReady;
@@ -384,6 +496,14 @@ public:
     return trace_ok_;
   }
 
+  // True while WaitForExchange has captured the publish-time command count
+  // and is waiting for the causal exchange (used by tests to inject events
+  // deterministically).
+  bool ExchangeActive() const
+  {
+    return exchange_active_.load(std::memory_order_acquire);
+  }
+
   void WriteSummary()
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -429,6 +549,19 @@ private:
     violations_.fetch_or(flag, std::memory_order_relaxed);
   }
 
+  // Formats a fail-closed reason with the offending ack's sequences. The
+  // ack callback is a single DDS thread, so thread-local storage suffices.
+  static const char *AckReason(const char *reason, std::uint64_t state_seq,
+                               std::uint64_t command_seq)
+  {
+    thread_local char buf[160];
+    std::snprintf(buf, sizeof(buf), "%s state_seq=%llu command_seq=%llu",
+                  reason,
+                  static_cast<unsigned long long>(state_seq),
+                  static_cast<unsigned long long>(command_seq));
+    return buf;
+  }
+
   void Record(const IntervalRecord &record)
   {
     interval_count_.fetch_add(1, std::memory_order_relaxed);
@@ -438,6 +571,7 @@ private:
            << record.cmd_seq_at_ready << "," << record.exchange_wait_us << ","
            << record.publish_wall_us << ","
            << static_cast<int>(record.trigger) << "," << record.violations
+           << "," << record.ack_state_seq << "," << record.ack_cmd_seq
            << "\n";
     trace_.flush();
   }
@@ -468,6 +602,7 @@ private:
   std::atomic<bool> failed_closed_{false};
   std::atomic<std::uint32_t> violations_{0};
   std::atomic<std::uint64_t> interval_count_{0};
+  std::atomic<bool> exchange_active_{false};
   std::function<bool()> abort_cb_;
   std::function<void()> fail_closed_handler_;
   mutable std::mutex mutex_;
@@ -479,6 +614,11 @@ private:
   std::uint64_t interval_index_ = 0;
   std::uint64_t barrier_seq_ = 0;
   std::int64_t startup_begin_us_ = 0;
+  bool ack_validation_active_ = false;
+  bool pending_ack_valid_ = false;
+  std::uint64_t pending_ack_state_seq_ = 0;
+  std::uint64_t pending_ack_cmd_seq_ = 0;
+  std::uint64_t published_state_seq_ = 0;
 };
 
 } // namespace lockstep

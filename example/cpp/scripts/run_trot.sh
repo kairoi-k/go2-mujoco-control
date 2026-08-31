@@ -304,12 +304,14 @@ fi
 metadata_file="$experiment_dir/run_metadata.txt"
 environment_file="$experiment_dir/environment.txt"
 
-# Order-103 verification-only lockstep: env-opt-in, default OFF. The frozen
-# interval discipline is enforced inside the simulator; here we only forward
-# the flag and the trace path. The wall-clock runner is unchanged when off.
+# Order-103/105 verification-only lockstep: env-opt-in, default OFF. The
+# frozen interval discipline and the causal ack handshake are enforced
+# inside the simulator; here we only forward the flag, the trace path and the
+# controller ack adapter flag. The wall-clock runner is unchanged when off.
 if [[ "${SIM_LOCKSTEP:-0}" == "1" ]]; then
   sim_lockstep=true
   sim_lockstep_trace="${SIM_LOCKSTEP_TRACE:-$experiment_dir/lockstep_trace.csv}"
+  export TROT_LOCKSTEP_ACK=1
 fi
 env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_|SIM_LOCKSTEP)" >"$environment_file" || true
 {
