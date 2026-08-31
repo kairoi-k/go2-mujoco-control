@@ -194,6 +194,7 @@ public:
     // the stance. Keep the existing fixed swing deadline as the safety bound;
     // a persistent loss still aborts at that deadline.
     static constexpr double kSwingSupportLossDeadlineS = kSwingDurationS;
+    static constexpr double kEndpointHoldS = 0.20;
     static constexpr double kCommitToleranceM = 0.045;
     static constexpr double kResumeDwellS = 0.45;
     static constexpr double kStageTimeoutS = 4.0;
@@ -440,7 +441,13 @@ public:
                            kSwingSupportLossDeadlineS)) ||
                      (finite_time &&
                       input.now_s - state_enter_s_ + 1e-9 >= kSwingDurationS))
-                SetState(TerrainCrawlSequencerState::kAbort, input.now_s);
+            {
+                // Keep the zero-velocity endpoint commanded for a bounded
+                // contact-settling interval.  The commit predicates below
+                // remain unchanged; this only observes late physical
+                // touchdown instead of aborting at the nominal endpoint.
+                SetState(TerrainCrawlSequencerState::kCommit, input.now_s);
+            }
             break;
         }
         case TerrainCrawlSequencerState::kCommit:
@@ -457,6 +464,10 @@ public:
                 else
                     SetState(TerrainCrawlSequencerState::kClear, input.now_s);
             }
+            else if (finite_time &&
+                     input.now_s - state_enter_s_ + 1e-9 >=
+                         kEndpointHoldS)
+                SetState(TerrainCrawlSequencerState::kAbort, input.now_s);
             break;
         case TerrainCrawlSequencerState::kAdvance:
             // Body advance is an observed event: wait until the measured
