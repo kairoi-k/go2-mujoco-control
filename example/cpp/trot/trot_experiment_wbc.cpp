@@ -600,6 +600,7 @@ void TrotExperiment::UpdateWbcFull(
             terrain_crawl_state_machine_.ActiveLeg(), qp_contact,
             terrain_crawl_sequencer_output_.body_advance_requested);
         if (terrain_crawl_sequencer_output_.control_authority_active &&
+            !terrain_crawl_sequencer_output_.body_advance_requested &&
             (terrain_crawl_sequencer_output_.measured_contact_count >= 3 ||
              terrain_crawl_sequencer_output_.flat_ground_mode ||
              terrain_crawl_sequencer_output_.state ==
