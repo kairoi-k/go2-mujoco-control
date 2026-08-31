@@ -184,9 +184,15 @@ void TrotExperiment::UpdateWbcFull(
     // prepared, while the legacy machine can be one tick behind it.
     const auto crawl_state = terrain_crawl_state_machine_.state();
     const auto sequencer_state = terrain_crawl_sequencer_output_.state;
+    const bool full_v2_shift =
+        terrain_crawl_sequencer_output_.state ==
+            go2_terrain::TerrainCrawlSequencerState::kShift &&
+        !terrain_crawl_sequencer_output_.flat_ground_mode &&
+        Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) <= 0.5;
     const bool body_advance_requested =
         terrain_crawl_sequencer_output_.body_advance_requested ||
-        crawl_state == go2_terrain::TerrainCrawlState::kAdvanceBody;
+        crawl_state == go2_terrain::TerrainCrawlState::kAdvanceBody ||
+        full_v2_shift;
     const bool sequencer_crawl_execution =
         terrain_crawl_sequencer_output_.control_authority_active &&
         sequencer_state != go2_terrain::TerrainCrawlSequencerState::kAbort &&
@@ -318,7 +324,7 @@ void TrotExperiment::UpdateWbcFull(
     // from the running trot phase or a planner snapshot.
     if (terrain_transfer_window_active_ &&
         terrain_crawl_sequencer_output_.control_authority_active &&
-        !terrain_crawl_sequencer_output_.body_advance_requested &&
+        !body_advance_requested &&
         (terrain_crawl_sequencer_output_.measured_contact_count >= 3 ||
          terrain_crawl_sequencer_output_.flat_ground_mode ||
          terrain_crawl_sequencer_output_.state ==
@@ -551,7 +557,7 @@ void TrotExperiment::UpdateWbcFull(
                     measured_contact, true);
         }
         if (terrain_transfer_hold_active_ && !terrain_transfer_complete &&
-            !terrain_crawl_sequencer_output_.body_advance_requested)
+            !body_advance_requested)
         {
             // Keep the support captured at the first target boundary;
             // only a confirmed target may be removed from that support
@@ -603,9 +609,9 @@ void TrotExperiment::UpdateWbcFull(
         (void)go2_terrain::TerrainCrawlWbcContactOverride(
             terrain_crawl_state_machine_.state(),
             terrain_crawl_state_machine_.ActiveLeg(), qp_contact,
-            terrain_crawl_sequencer_output_.body_advance_requested);
+            body_advance_requested);
         if (terrain_crawl_sequencer_output_.control_authority_active &&
-            !terrain_crawl_sequencer_output_.body_advance_requested &&
+            !body_advance_requested &&
             (terrain_crawl_sequencer_output_.measured_contact_count >= 3 ||
              terrain_crawl_sequencer_output_.flat_ground_mode ||
              terrain_crawl_sequencer_output_.state ==
@@ -1033,7 +1039,7 @@ void TrotExperiment::UpdateWbcFull(
                 // SHIFT_COM and the swing hold are a reference change to the
                 // existing MPC/WBC body task, not a second balance controller.
                 const bool body_advance =
-                    terrain_crawl_sequencer_output_.body_advance_requested;
+                    body_advance_requested;
                 mpc_in.reference[4] = target.y;
                 if (body_advance)
                 {
@@ -1526,8 +1532,7 @@ void TrotExperiment::UpdateWbcFull(
                 terrain_stage_servo_saturated_ =
                     (measured_stage || measured_shift || measured_swing_hold) &&
                     (std::abs(raw_acc_x) > 4.0 || std::abs(raw_acc_y) > 4.0);
-                if (measured_shift &&
-                    terrain_crawl_sequencer_output_.body_advance_requested)
+                if (measured_shift && body_advance_requested)
                 {
                     // SHIFT_COM balance otherwise replaces the velocity
                     // command with a zero-velocity COM hold. Give ID-WBC an
@@ -1555,7 +1560,7 @@ void TrotExperiment::UpdateWbcFull(
                     -5.0 * linear_vel_world.y(), -1.5, 1.5);
             }
         }
-        if (terrain_crawl_sequencer_output_.body_advance_requested)
+        if (body_advance_requested)
         {
             // The legacy SHIFT_COM COM target can be unavailable for one
             // asynchronous tick even though the sequencer has raised the
@@ -1657,7 +1662,7 @@ void TrotExperiment::UpdateWbcFull(
                 ax_lim = 0.0;
             const double ax_body =
                 pitch_fade * Clamp(ax_gain * v_err, -ax_lim, ax_lim);
-            if (!terrain_crawl_sequencer_output_.body_advance_requested)
+            if (!body_advance_requested)
                 wbc_in.desired_linear_acc_world.x() += ax_body * std::cos(yaw);
             wbc_in.desired_linear_acc_world.y() += ax_body * std::sin(yaw);
             const double roll =

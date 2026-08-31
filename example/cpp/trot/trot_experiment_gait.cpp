@@ -148,6 +148,10 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         Full2EnvDouble("TROT_TERRAIN_DEBUG_FLAT_CRAWL", 0.0) > 0.5;
     const bool staged_start_debug =
         Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) > 0.5;
+    const bool full_v2_shift =
+        terrain_crawl_sequencer_output_.state ==
+            go2_terrain::TerrainCrawlSequencerState::kShift &&
+        !flat_crawl_debug && !staged_start_debug;
     if (!flat_crawl_debug)
         flat_crawl_harness_retired_ = false;
     // Harness-only isolation: arm the sequencer at gait start without a
@@ -311,7 +315,8 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
                 terrain_deceleration_active_ = false;
                 runtime_gait_regime_ = "terrain-crawl-abort";
             }
-            else if (terrain_crawl_sequencer_output_.body_advance_requested)
+            else if (terrain_crawl_sequencer_output_.body_advance_requested ||
+                     full_v2_shift)
             {
                 // A front endpoint can be outside the measured FK envelope
                 // after SHIFT. Advance the body at the v2 crawl capability
@@ -424,6 +429,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     }
     if (terrain_window_active && !flat_crawl_debug &&
         !terrain_crawl_sequencer_output_.body_advance_requested &&
+        !full_v2_shift &&
         std::isfinite(terrain_staging_error_m_) &&
         std::abs(terrain_staging_error_m_) >
             go2_terrain::TerrainCrawlStateMachine::kStageBasinHalfWidthM)
