@@ -2145,6 +2145,13 @@ int main()
         seq.Update(x);
         if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kCommit,
                    "sequencer did not expose FL COMMIT event")) return 1;
+        if (!Check(std::abs(seq.output().swing_position_world.x - seq.output().target_world.x) < 1.0e-9 &&
+                       std::abs(seq.output().swing_position_world.y - seq.output().target_world.y) < 1.0e-9 &&
+                       std::abs(seq.output().swing_position_world.z - seq.output().target_world.z) < 1.0e-9 &&
+                       std::abs(seq.output().swing_velocity_world.x) < 1.0e-12 &&
+                       std::abs(seq.output().swing_velocity_world.y) < 1.0e-12 &&
+                       std::abs(seq.output().swing_velocity_world.z) < 1.0e-12,
+                   "COMMIT did not hold the final endpoint at zero velocity")) return 1;
         x.now_s = 1.01;
         seq.Update(x);
         if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kShift &&

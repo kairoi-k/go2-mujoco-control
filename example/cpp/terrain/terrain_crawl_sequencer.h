@@ -798,7 +798,9 @@ private:
                 output_.com_reference_valid = true;
             }
         }
-        if (finite(input.now_s) && state_ == TerrainCrawlSequencerState::kSwing)
+        if (finite(input.now_s) &&
+            (state_ == TerrainCrawlSequencerState::kSwing ||
+             state_ == TerrainCrawlSequencerState::kCommit))
         {
             output_.swing_phase = std::clamp(
                 (input.now_s - state_enter_s_) / kSwingDurationS, 0.0, 1.0);

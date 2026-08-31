@@ -3410,13 +3410,19 @@ bool TrotExperiment::BuildGaitTargets(
                 // foot-site/world target. Do not silently fall back to the
                 // nominal gait while its bookkeeping transaction is waiting
                 // for a planner snapshot; that was the immobile-leg failure.
-                if (sequencer_direct_target &&
-                    terrain_crawl_sequencer_output_.state ==
-                        go2_terrain::TerrainCrawlSequencerState::kSwing)
+                if (sequencer_direct_target)
                 {
+                    const bool committing =
+                        terrain_crawl_sequencer_output_.state ==
+                        go2_terrain::TerrainCrawlSequencerState::kCommit;
                     apply_world_target(
-                        leg, terrain_crawl_sequencer_output_.swing_position_world,
-                        terrain_crawl_sequencer_output_.swing_velocity_world);
+                        leg,
+                        committing
+                            ? terrain_crawl_sequencer_output_.target_world
+                            : terrain_crawl_sequencer_output_.swing_position_world,
+                        committing
+                            ? go2::Vec3{}
+                            : terrain_crawl_sequencer_output_.swing_velocity_world);
                 }
                 continue;
             }
