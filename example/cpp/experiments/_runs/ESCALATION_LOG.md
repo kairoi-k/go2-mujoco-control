@@ -3283,3 +3283,39 @@ validation: |
 commit_chain: |
   519f308, 60a0717, ae4fa29, 588297a, 8227b4e, 9310a64, b0da420,
   fa61c4b, 8722c9b, c287ae7, 5caf880, ef2a7e7, 5075864. No push or amend.
+
+---
+
+Order-071 implementation update — 2026-09-02
+
+source_sha: a33464322e48238319132263bade334a872ce0ee
+forensics: |
+  Rebuilt the bfb1960 baseline and ran the required serial staged-start
+  harness with domain 229, Base=4000, FULL2_TAU=45, and the DDS preload.
+  Baseline run order071_staged_seed195_baseline3 entered FL SWING at
+  state_tick=12.972 with COM margin +0.0863 m and measured forces
+  FR/FL/RR/RL=30/31/59/34 N; by state_tick=13.330 RR fell to 0 N
+  while ID-WBC still requested approximately FR/RR/RL=51/55/55 N.
+  The sequencer then took the named kSwingSupportLossDeadlineS path
+  (0.60 s bound; observed support count 2) and entered ABORT. The
+  failure is physical stance unloading, not the endpoint gate: FL was
+  still in flight (phase about 0.60, endpoint not held). Probe runs
+  reproduced the same support collapse at phases 0.32 (w_stance=100),
+  0.38 (w_stance=160), and 0.42 (w_stance=120), with positive COM
+  margin before collapse. No gate, analyzer threshold, canary, or v1
+  contract was changed.
+fix: |
+  a334643 raises only the terrain mixed-height SWING stance no-slip
+  weight from the existing 80 to 120. This is scoped by
+  terrain_raised_support and leaves flat WBC and all safety gates intact.
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: PASS (27/27); git diff --check:
+  PASS. Serial probes: baseline3, probe_force1, probe_noslip,
+  probe_hphase, probe_fl25, probe_fl80c, probe_flacc20c,
+  probe_reach10, probe_noslip160, and probe_noslip100 all failed before
+  a complete staged sequence; probe_noslip120 delayed the same physical
+  rear-support collapse but did not reach FL COMMIT. No staged >=3,
+  full reconnect, B0 3x, flat 20/20, or crossing claim is made.
+commit_chain: |
+  bfb1960, a334643. No push or amend.
