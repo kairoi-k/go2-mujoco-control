@@ -4554,7 +4554,7 @@ acceptance: |
 ---
 timestamp: 2026-09-01T00:00:00+0800
 run_id: Order-096 C-002c warmed-map shadow decision gate
-source_sha: implementation changes tested from HEAD 3641b0a plus working-tree diagnostics
+source_sha: ba7c47ad3276f3e2adf2a48f7ac923d0501acfc7 (implementation and diagnostics tested)
 scope: |
   Strict SHADOW ONLY. Added only env-gated provenance diagnostics for the
   existing shadow stream; no contract, analyzer, gait, MPC, WBC, store, or
