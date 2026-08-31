@@ -311,6 +311,15 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
                 terrain_deceleration_active_ = false;
                 runtime_gait_regime_ = "terrain-crawl-abort";
             }
+            else if (terrain_crawl_sequencer_output_.body_advance_requested)
+            {
+                // A front endpoint can be outside the measured FK envelope
+                // after SHIFT. Advance the body at the v2 crawl capability
+                // before allowing the sequencer to launch SWING.
+                requested_mps =
+                    go2_terrain::TerrainCrawlStateMachine::kAdvanceBodySpeedMps;
+                runtime_gait_regime_ = "terrain-body-advance";
+            }
             else if (crawl_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep)
             {
                 // Keep trot timing unchanged while spreading the handoff:
@@ -379,6 +388,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
                     // stopping here would make ADVANCE_BODY self-blocking.
                     requested_mps =
                         go2_terrain::TerrainCrawlStateMachine::kAdvanceBodySpeedMps;
+                runtime_gait_regime_ = "terrain-body-advance";
                 }
                 else
                     requested_mps = 0.0;
@@ -2180,8 +2190,12 @@ bool TrotExperiment::BuildGaitTargets(
             sequencer_output.state ==
                 go2_terrain::TerrainCrawlSequencerState::kStage;
         crawl_signals.sequencer_pre_swing_pending = !flat_crawl_debug &&
+            (sequencer_output.state ==
+                 go2_terrain::TerrainCrawlSequencerState::kStage ||
+             sequencer_output.body_advance_requested);
+        crawl_signals.sequencer_abort =
             sequencer_output.state ==
-                go2_terrain::TerrainCrawlSequencerState::kStage;
+                go2_terrain::TerrainCrawlSequencerState::kAbort;
         crawl_signals.sequencer_swing_active = !flat_crawl_debug &&
             (sequencer_output.state ==
                  go2_terrain::TerrainCrawlSequencerState::kSwing ||

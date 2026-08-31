@@ -2188,6 +2188,14 @@ int main()
         if (!Check(std::abs(seq.output().swing_velocity_world.x) < 0.10 &&
                        std::abs(seq.output().swing_velocity_world.z) < 0.10,
                    "FL touchdown trajectory did not brake both x and z")) return 1;
+        // A flight-time expiry alone must not open COMMIT: the endpoint
+        // proximity gate prevents a moving-entry miss from consuming the
+        // short contact hold before the foot reaches the site.
+        x.now_s = seq.state_enter_time_s() +
+            go2_terrain::TerrainCrawlSequencer::kSwingDurationS + 0.01;
+        seq.Update(x);
+        if (!Check(seq.state() == go2_terrain::TerrainCrawlSequencerState::kSwing,
+                   "sequencer entered COMMIT before endpoint proximity")) return 1;
         x.measured_feet_world[1] = seq.output().target_world;
         x.now_s = 1.0;
         seq.Update(x);

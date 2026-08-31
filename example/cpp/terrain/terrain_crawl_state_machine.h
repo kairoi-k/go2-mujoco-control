@@ -86,6 +86,9 @@ struct TerrainCrawlSignals
     // passed its own shift margin/force gates, synchronize the legacy state
     // in the same tick so its four-foot override cannot mask the swing.
     bool sequencer_swing_active = false;
+    // The sequencer bounded endpoint deadline failed; stop rather than
+    // letting the legacy retry path race a sequencer-owned abort.
+    bool sequencer_abort = false;
     bool measured_contact_valid = false;
     std::array<bool, go2::kLegCount> measured_contact{};
     double measured_velocity_mps = 0.0;
@@ -834,6 +837,11 @@ public:
         }
         if (state_ == TerrainCrawlState::kInactive)
             Enter(signals.now_s);
+        if (signals.sequencer_abort)
+        {
+            SetState(TerrainCrawlState::kAbort, signals.now_s);
+            return state_;
+        }
         if (!signals.step_failed)
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
                 committed_latched_[leg] = committed_latched_[leg] ||

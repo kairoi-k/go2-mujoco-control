@@ -175,6 +175,9 @@ struct TerrainCrawlSequencerOutput
     // A phase-respecting stop may be requested while still armed; this is
     // the trot pipeline slowing down, not sequencer contact ownership.
     bool stand_transition_requested = false;
+    // The first raised-foot endpoint is not yet in the measured FK envelope;
+    // keep SHIFT active while the crawl gait advances the body.
+    bool body_advance_requested = false;
     std::array<bool, go2::kLegCount> contact_schedule{};
     int measured_contact_count = 0;
     double com_margin_m = -std::numeric_limits<double>::infinity();
@@ -219,6 +222,10 @@ public:
     static constexpr double kSwingSupportLossDeadlineS = kSwingDurationS;
     static constexpr double kEndpointHoldS = 0.20;
     static constexpr double kCommitToleranceM = 0.045;
+    // Require a 20 mm radial margin before launching a raised-foot swing.
+    // The Go2 FK envelope is approximately 0.426 m; this gate uses only
+    // measured pose and the lidar-derived endpoint.
+    static constexpr double kSwingReachabilityRadiusM = 0.406;
     static constexpr double kResumeDwellS = 0.45;
     static constexpr double kStageTimeoutS = 4.0;
     // Order-060 measured entry basin: edge-minus-base target is the
@@ -297,6 +304,7 @@ public:
         stage_abort_reason_ = 0;
         authority_com_reference_valid_ = false;
         stand_transition_seen_ = false;
+        body_advance_requested_ = false;
         committed_.fill(false);
     }
 
@@ -441,9 +449,20 @@ public:
             break;
         }
         case TerrainCrawlSequencerState::kShift:
+            body_advance_requested_ = false;
             if (three_contacts && input.measured_feet_valid &&
                 input.measured_com_valid && CurrentTarget(input))
             {
+                // Sample the endpoint before the support-margin launch gate.
+                // If the post-SHIFT body pose cannot reach it, keep the
+                // measured support plant and request v2 crawl advance rather
+                // than opening a doomed SWING transaction.
+                CaptureTarget(input);
+                if (input.allow_creep_entry && TargetOutsideMeasuredReach(input))
+                {
+                    body_advance_requested_ = true;
+                    break;
+                }
                 const double measured_margin =
                     TerrainMeasuredSupportMargin(
                         input.measured_feet_world, input.measured_contact,
@@ -456,10 +475,7 @@ public:
                     (input.flat_ground_mode || input.legacy_shift_ready) &&
                     finite_time && input.now_s - state_enter_s_ + 1e-9 >=
                         kShiftDwellS)
-                {
-                    CaptureTarget(input);
                     SetState(TerrainCrawlSequencerState::kSwing, input.now_s);
-                }
             }
             break;
         case TerrainCrawlSequencerState::kSwing:
@@ -473,18 +489,25 @@ public:
                 ForceSupportReady(input, active_leg());
             if (MeasuredTargetAtEndpoint(input))
                 SetState(TerrainCrawlSequencerState::kCommit, input.now_s);
-            else if ((!three_contacts && !force_supported &&
-                      (!input.flat_ground_mode || !finite_time ||
-                       input.now_s - state_enter_s_ + 1e-9 >=
-                           kSwingSupportLossDeadlineS)) ||
-                     (finite_time &&
-                      input.now_s - state_enter_s_ + 1e-9 >= kSwingDurationS))
+            else if (finite_time &&
+                     input.now_s - state_enter_s_ + 1e-9 >=
+                         kSwingDurationS &&
+                     TargetPositionAtEndpoint(input))
             {
-                // Keep the zero-velocity endpoint commanded for a bounded
-                // contact-settling interval.  The commit predicates below
-                // remain unchanged; this only observes late physical
-                // touchdown instead of aborting at the nominal endpoint.
+                // COMMIT is entered only after the measured foot is close to
+                // the immutable endpoint. A moving full-run entry may need
+                // the endpoint command beyond the nominal flight deadline;
+                // do not spend the short COMMIT hold on a 10 cm miss.
                 SetState(TerrainCrawlSequencerState::kCommit, input.now_s);
+            }
+            else if (finite_time &&
+                     input.now_s - state_enter_s_ + 1e-9 >=
+                         kSwingDurationS + kEndpointHoldS)
+            {
+                // The endpoint command was given the same bounded settling
+                // budget as the old COMMIT hold, but the proximity gate did
+                // not pass. Fail closed and let the caller stop safely.
+                SetState(TerrainCrawlSequencerState::kAbort, input.now_s);
             }
             break;
         }
@@ -713,6 +736,26 @@ private:
             maximum / minimum <= kStableForceImbalanceRatio;
     }
 
+    bool TargetOutsideMeasuredReach(
+        const TerrainCrawlSequencerInput &input) const noexcept
+    {
+        if (!target_valid_ || active_leg() >= go2::kLegCount ||
+            !std::isfinite(input.base_position_world.x) ||
+            !std::isfinite(input.base_position_world.y) ||
+            !std::isfinite(input.base_position_world.z))
+            return true;
+        const double c = std::cos(input.base_yaw_rad);
+        const double s = std::sin(input.base_yaw_rad);
+        const double dx = target_.x - input.base_position_world.x;
+        const double dy = target_.y - input.base_position_world.y;
+        const double target_base_x = c * dx + s * dy;
+        const double target_base_y = -s * dx + c * dy;
+        return !std::isfinite(target_base_x) ||
+            !std::isfinite(target_base_y) ||
+            std::hypot(target_base_x, target_base_y) >
+                kSwingReachabilityRadiusM;
+    }
+
     bool TargetPositionAtEndpoint(const TerrainCrawlSequencerInput &input) const noexcept
     {
         if (!target_valid_ || active_leg() >= go2::kLegCount ||
@@ -799,6 +842,7 @@ private:
                 support_lifted_leg, input.measured_com_world);
         }
         output_.committed = committed_;
+        output_.body_advance_requested = body_advance_requested_;
         output_.contact_schedule.fill(true);
         if (!output_.control_authority_active)
             output_.contact_schedule.fill(false);
@@ -922,6 +966,7 @@ private:
     go2::Vec3 authority_com_reference_{};
     bool authority_com_reference_valid_ = false;
     bool stand_transition_seen_ = false;
+    bool body_advance_requested_ = false;
     int stage_abort_reason_ = 0;
     std::array<bool, go2::kLegCount> committed_{};
     TerrainCrawlSequencerOutput output_{};
