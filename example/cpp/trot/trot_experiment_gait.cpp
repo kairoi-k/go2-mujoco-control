@@ -438,6 +438,28 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
                 "TROT_FLAT_CRAWL_BODY_SPEED", 0.05), 0.0, 0.12)
             : 0.0;
     }
+    const bool stage_c_contact_guard = params_.stage_c_execution &&
+        params_.terrain_actuation && !params_.terrain_sensor_only &&
+        terrain_window_active && terrain_contact_fusion_.guard_active();
+    if (stage_c_contact_guard)
+    {
+        const auto age = terrain_contact_fusion_.low_support_age_ticks();
+        requested_mps = 0.0;
+        terrain_velocity_cap_mps_.store(0.0);
+        runtime_gait_regime_ = age >=
+            go2_control::MeasuredContactFusion::kPostureStopTicks
+            ? "terrain-contact-posture-stop"
+            : (age >= go2_control::MeasuredContactFusion::kSafeStopTicks
+                ? "terrain-contact-safe-stop"
+                : "terrain-contact-brake");
+        if (age >= go2_control::MeasuredContactFusion::kPostureStopTicks)
+        {
+            task_.stop_requested_ = true;
+            task_.task_completion_requested_ = false;
+            task_.motion_stage_ = 3;
+            terrain_safe_stop_requested_.store(true);
+        }
+    }
     if (terrain_window_active && !flat_crawl_debug &&
         !terrain_crawl_sequencer_output_.body_advance_requested &&
         !full_v2_shift &&
@@ -681,6 +703,13 @@ bool TrotExperiment::BuildGaitTargets(
 
     // C-003 is the sole terrain-to-gait handoff. Flag-off deliberately does
     // not touch the request or setter sequence used by Phase 1.
+    // A contact guard freezes the adopted snapshot while its immutable
+    // endpoint is in flight; after N+5 the adapter leaves terrain timing.
+    terrain_plan_execution_adapter_.SetContactGuard(
+        terrain_contact_fusion_.guard_active(),
+        terrain_contact_fusion_.low_support_age_ticks());
+    if (terrain_contact_fusion_.guard_active())
+        locomotion_kernel_->SetStanceHold(true, gait_time_s);
     const double adapter_now_s = static_cast<double>(state_snapshot.tick()) *
         1.0e-3;
     const bool stage_c_window = stage_c_execution_requested &&

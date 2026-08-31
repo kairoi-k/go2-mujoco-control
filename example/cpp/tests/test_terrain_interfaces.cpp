@@ -2852,6 +2852,33 @@ int main()
                        fallback.fallback_reason == "measured-support:N",
                    "expired plan did not use measured-support fallback")) return 1;
 
+        adapter.SetContactGuard(true, 0);
+        auto guarded_replacement = replacement;
+        guarded_replacement.plan_id = 13;
+        guarded_replacement.plan_epoch = 13;
+        guarded_replacement.identity.plan_id = 13;
+        guarded_replacement.identity.plan_epoch = 13;
+        guarded_replacement.contact_timing.identity = guarded_replacement.identity;
+        guarded_replacement.contact_schedule.provenance = guarded_replacement.identity;
+        for (std::size_t k = 0; k < guarded_replacement.horizon_knots; ++k) {
+            guarded_replacement.body_reference[k].provenance = guarded_replacement.identity;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                guarded_replacement.predicted_foothold[k][leg].provenance =
+                    guarded_replacement.identity;
+        }
+        const auto guarded = adapter.Update(&guarded_replacement, 1.0, true,
+            measured, go2_control::GaitPattern::kDiagonalTrot, 0.8, 0.58,
+            0.12, 0.05);
+        if (!Check(guarded.rejected && adapter.adopted_plan_id() == valid_plan.plan_id,
+                   "contact guard replaced immutable plan")) return 1;
+        adapter.SetContactGuard(true, 5);
+        const auto guarded_stop = adapter.Update(nullptr, 1.1, false, measured,
+            go2_control::GaitPattern::kDiagonalTrot, 0.8, 0.58, 0.12, 0.05);
+        if (!Check(!guarded_stop.using_plan && guarded_stop.request.fallback &&
+                       guarded_stop.fallback_reason == "measured-support:N+5",
+                   "contact guard did not enter N+5 fallback")) return 1;
+        adapter.SetContactGuard(false, 0);
+
         go2_control::HandCodedTrotKernel kernel(go2_control::GaitKernelParams{
             0.8, 0.75, 0.12, 1.0, 0.05, 0.8, -1.0,
             go2_control::GaitPattern::kCrawl});

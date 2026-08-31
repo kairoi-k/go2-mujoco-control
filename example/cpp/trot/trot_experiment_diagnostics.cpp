@@ -191,6 +191,11 @@ void TrotExperiment::WriteCsvHeader()
              << ",terrain_exec_" << name << "_foot_world_x_m"
              << ",terrain_exec_" << name << "_foot_world_y_m"
              << ",terrain_exec_" << name << "_foot_world_z_m"
+             << ",measured_fk_" << name << "_foot_world_x"
+             << ",measured_fk_" << name << "_foot_world_y"
+             << ",measured_fk_" << name << "_foot_world_z"
+             << ",measured_fk_" << name << "_foot_world_valid"
+             << ",measured_fk_" << name << "_foot_world_source"
              << ",terrain_exec_" << name << "_command_velocity_x_mps"
              << ",terrain_exec_" << name << "_command_velocity_z_mps"
              << ",terrain_exec_" << name << "_measured_velocity_x_mps"
@@ -298,7 +303,12 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_full_srbd_acc_x_mps2,wbc_full_id_qdd_x_mps2"
          << ",wbc_full_id_contact_force_x_n"
          << ",wbc_measured_contact_mask,wbc_scheduled_contact_mask"
-         << ",wbc_terrain_planned_contact_mask,wbc_mpc_update_count"
+         << ",wbc_terrain_planned_contact_mask,wbc_terrain_raw_contact_mask,wbc_terrain_fused_contact_mask"
+         << ",wbc_terrain_robust_support_mask,wbc_terrain_contact_guard_active"
+         << ",wbc_terrain_contact_guard_age_ticks"
+         << ",wbc_terrain_contact_grace_remaining_ticks"
+         << ",wbc_terrain_contact_fallback_stage"
+         << ",wbc_terrain_contact_fusion_reason,wbc_mpc_update_count"
          << ",wbc_mpc_contact_mask_k0"
          << ",wbc_mpc_min_contact_count,wbc_mpc_reference_x_first_m"
          << ",wbc_mpc_reference_x_last_m,wbc_mpc_reference_vx_first_mps"
@@ -1357,6 +1367,11 @@ void TrotExperiment::LogSample(
              << "," << actual_foot.x
              << "," << actual_foot.y
              << "," << actual_foot.z
+             << "," << (terrain_actual_world_feet_valid ? actual_foot.x : 0.0)
+             << "," << (terrain_actual_world_feet_valid ? actual_foot.y : 0.0)
+             << "," << (terrain_actual_world_feet_valid ? actual_foot.z : 0.0)
+             << "," << (terrain_actual_world_feet_valid ? 1 : 0)
+             << ",state_q+base_pose_fk"
              << "," << terrain_command_velocity_world_[leg].x
              << "," << terrain_command_velocity_world_[leg].z
              << "," << terrain_measured_velocity_x[leg]
@@ -1530,6 +1545,14 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.measured_contact_mask
          << "," << wbc_shadow_diagnostics_.scheduled_contact_mask
          << "," << wbc_shadow_diagnostics_.terrain_planned_contact_mask
+         << "," << wbc_shadow_diagnostics_.terrain_raw_contact_mask
+         << "," << wbc_shadow_diagnostics_.terrain_fused_contact_mask
+         << "," << wbc_shadow_diagnostics_.terrain_robust_support_mask
+         << "," << (wbc_shadow_diagnostics_.terrain_contact_guard_active ? 1 : 0)
+         << "," << wbc_shadow_diagnostics_.terrain_contact_guard_age_ticks
+         << "," << wbc_shadow_diagnostics_.terrain_contact_grace_remaining_ticks
+         << "," << wbc_shadow_diagnostics_.terrain_contact_fallback_stage
+         << "," << wbc_shadow_diagnostics_.terrain_contact_fusion_reason
          << "," << wbc_shadow_diagnostics_.mpc_update_count
          << "," << wbc_shadow_diagnostics_.mpc_contact_mask_k0
          << "," << wbc_shadow_diagnostics_.mpc_min_contact_count

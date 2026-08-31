@@ -24,6 +24,7 @@
 #include <unitree/robot/channel/channel_subscriber.hpp>
 
 #include "go2_contact_torque_mapping.h"
+#include "contact_state_filter.h"
 #include "locomotion_kernel.h"
 #include "trot_task.h"
 #include "trot_types.h"
@@ -489,6 +490,9 @@ private:
     go2_terrain::TerrainPlanner terrain_planner_{};
     go2_terrain::TerrainPlanStore terrain_plan_store_{};
     go2_terrain::TerrainPlanExecutionAdapter terrain_plan_execution_adapter_{};
+    // Stage-C contact truth is filtered once, then fused only with bounded
+    // last robust support. Planned masks never enter this safety state.
+    go2_control::MeasuredContactFusion terrain_contact_fusion_{};
     // A committed terrain foothold is a trajectory transaction.  It is
     // prepared from the measured stance anchor, executed through the actual
     // gait swing boundary, and held at its endpoint after that boundary.

@@ -261,26 +261,55 @@ void TrotExperiment::UpdateWbcFull(
                   << " bias_z=" << dyn.bias[2] << "\n";
     }
 
+    std::array<double, go2::kLegCount> foot_forces{};
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        foot_forces[leg] = state_snapshot.foot_force()[leg];
     std::array<bool, go2::kLegCount> measured_contact{};
     const go2_control::HystereticContactParams contact_params{
         kShadowContactOnForceN, kShadowContactOffForceN};
-    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-    {
-        const double force = state_snapshot.foot_force()[leg];
-        bool next_contact = false;
-        if (!go2_control::UpdateHystereticContact(
-                wbc_shadow_contact_state_[leg], force, contact_params,
-                next_contact))
-            return;
-        wbc_shadow_contact_state_[leg] = next_contact;
-        measured_contact[leg] = next_contact;
-    }
-    wbc_shadow_contact_state_valid_ = true;
+    const bool measured_filter_valid =
+        go2_control::UpdateHystereticContactArray(
+            foot_forces, contact_params, wbc_shadow_contact_state_,
+            measured_contact);
+    if (!measured_filter_valid)
+        measured_contact.fill(false);
+    // Keep an invalid sensor observation distinct from an all-off reading.
+    // The Stage-C guard below will select the documented fallback chain.
+    wbc_shadow_contact_state_valid_ = measured_filter_valid;
     const double terrain_now_s =
         static_cast<double>(state_snapshot.tick()) * 1.0e-3;
     const bool stage_c_window = params_.stage_c_execution &&
         params_.terrain_actuation && !params_.terrain_sensor_only &&
         terrain_transfer_window_active_;
+    const auto contact_fusion = terrain_contact_fusion_.Update(
+        measured_contact, measured_filter_valid, stage_c_window);
+    wbc_shadow_diagnostics_.terrain_raw_contact_mask = 0;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        if (std::isfinite(foot_forces[leg]) &&
+            foot_forces[leg] >= contact_params.engage_force_n)
+            wbc_shadow_diagnostics_.terrain_raw_contact_mask |=
+                1 << static_cast<int>(leg);
+    wbc_shadow_diagnostics_.terrain_fused_contact_mask = 0;
+    wbc_shadow_diagnostics_.terrain_robust_support_mask = 0;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (contact_fusion.fused_contact[leg])
+            wbc_shadow_diagnostics_.terrain_fused_contact_mask |=
+                1 << static_cast<int>(leg);
+        if (contact_fusion.robust_support[leg])
+            wbc_shadow_diagnostics_.terrain_robust_support_mask |=
+                1 << static_cast<int>(leg);
+    }
+    wbc_shadow_diagnostics_.terrain_contact_guard_active =
+        contact_fusion.guard_active;
+    wbc_shadow_diagnostics_.terrain_contact_guard_age_ticks =
+        static_cast<int>(contact_fusion.low_support_age_ticks);
+    wbc_shadow_diagnostics_.terrain_contact_grace_remaining_ticks =
+        static_cast<int>(contact_fusion.grace_remaining_ticks);
+    wbc_shadow_diagnostics_.terrain_contact_fallback_stage =
+        static_cast<int>(contact_fusion.fallback_stage);
+    wbc_shadow_diagnostics_.terrain_contact_fusion_reason =
+        contact_fusion.reason;
     // Gait and MPC consume the same adopted immutable snapshot. During the
     // v2 Stage-C window do not reload a newer store value behind gait's back;
     // an absent/expired adopted plan is a measured-support fallback.
@@ -467,6 +496,14 @@ void TrotExperiment::UpdateWbcFull(
             endpoint_error.norm() <= terrain_touchdown_tolerance_m;
         execution.wbc_at_endpoint = at_endpoint;
         execution.wbc_measured_contact = measured_contact[leg];
+        // A support guard owns the transaction until measured support is
+        // restored. Do not promote an early/late endpoint during N..N+25;
+        // the immutable endpoint remains available to the bounded recovery.
+        if (stage_c_window && contact_fusion.guard_active)
+        {
+            terrain_transfer_complete = false;
+            continue;
+        }
         if (measured_contact[leg] && at_endpoint)
         {
             execution.measured_touchdown = true;
@@ -763,6 +800,12 @@ void TrotExperiment::UpdateWbcFull(
             }
         }
     }
+
+    // Planned contact remains prediction-only. During the Stage-C guard the
+    // actual WBC mask is measured/fused contact (plus the bounded robust
+    // support grace), never the planner schedule or a kinematic prediction.
+    if (stage_c_window)
+        qp_contact = contact_fusion.fused_contact;
 
     const auto contact_mask_for = [](
         const std::array<bool, go2::kLegCount> &contact) {
@@ -1186,6 +1229,8 @@ void TrotExperiment::UpdateWbcFull(
                     terrain_plan_knot[static_cast<std::size_t>(k)];
                 mpc_in.contact[k] = terrain_plan->contact_schedule.planned_contact[
                     plan_knot];
+                if (stage_c_window && contact_fusion.guard_active && k == 0)
+                    mpc_in.contact[k] = qp_contact;
                 if (terrain_surface_transition_active_ ||
                     (terrain_transfer_hold_active_ &&
                      terrain_transfer_has_target &&
@@ -1511,7 +1556,9 @@ void TrotExperiment::UpdateWbcFull(
         wbc_in.terrain_plan.generated_at_s = terrain_plan->generated_at_s;
         wbc_in.terrain_plan.valid_until_s = terrain_plan->valid_until_s;
         wbc_in.measured_contact = measured_contact;
-        wbc_in.measured_contact_valid = true;
+        wbc_in.measured_contact_valid = measured_filter_valid;
+        wbc_in.fused_contact = qp_contact;
+        wbc_in.fused_contact_valid = stage_c_window;
         wbc_in.planned_contact =
             terrain_plan->contact_schedule.planned_contact[
                 terrain_plan_knot[0]];
@@ -2150,6 +2197,81 @@ void TrotExperiment::UpdateWbcFull(
         return;
     }
 
+    // Opt-in machine-readable C-005 witness. Contact masks are emitted in
+    // separate filtered/planned/fused fields so a prediction cannot be
+    // mistaken for a measured safety witness.
+    if (stage_c_window && Full2EnvDouble(
+            "TROT_TERRAIN_C005_DIAGNOSTICS", 0.0) > 0.5)
+    {
+        const auto adopted = terrain_plan_execution_adapter_.adopted_plan();
+        const auto mask = [](const std::array<bool, go2::kLegCount> &contacts) {
+            int value = 0;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                if (contacts[leg]) value |= 1 << static_cast<int>(leg);
+            return value;
+        };
+        std::ostringstream witness;
+        witness << std::setprecision(17)
+                << "C005_CONTACT_FUSION {\"now_s\":" << terrain_now_s
+                << ",\"raw_force_finite\":"
+                << (measured_filter_valid ? "true" : "false")
+                << ",\"filtered_mask\":" << mask(measured_contact)
+                << ",\"planned_mask\":"
+                << wbc_shadow_diagnostics_.terrain_planned_contact_mask
+                << ",\"fused_mask\":"
+                << wbc_shadow_diagnostics_.terrain_fused_contact_mask
+                << ",\"robust_support_mask\":"
+                << wbc_shadow_diagnostics_.terrain_robust_support_mask
+                << ",\"measured_count\":"
+                << contact_fusion.measured_count
+                << ",\"guard\":"
+                << (contact_fusion.guard_active ? "true" : "false")
+                << ",\"age_ticks\":"
+                << contact_fusion.low_support_age_ticks
+                << ",\"grace_remaining_ticks\":"
+                << contact_fusion.grace_remaining_ticks
+                << ",\"fallback_stage\":"
+                << static_cast<int>(contact_fusion.fallback_stage)
+                << ",\"reason\":\"" << contact_fusion.reason
+                << "\",\"plan_id\":" << (adopted ? adopted->plan_id : 0)
+                << ",\"plan_epoch\":" << (adopted ? adopted->plan_epoch : 0)
+                << ",\"map_epoch\":" << (adopted ? adopted->map_epoch : 0)
+                << ",\"input_hash\":" << (adopted ? adopted->input_hash : 0)
+                << ",\"srbd_ok\":" << (last_srbd_.ok ? "true" : "false")
+                << ",\"id_wbc_ok\":" << (solved ? "true" : "false")
+                << ",\"id_eq_residual\":" << wbc_out.eq_residual
+                << ",\"id_rne_residual\":" << wbc_out.rne_residual
+                << ",\"max_tau_violation_nm\":"
+                << wbc_out.max_tau_violation_nm
+                << ",\"per_leg\":[";
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (leg != 0) witness << ",";
+            const auto &foot = dyn.foot_pos_world[leg];
+            const bool fk_valid = foot.allFinite();
+            witness << "{\"raw\":"
+                    << ((std::isfinite(foot_forces[leg]) &&
+                         foot_forces[leg] >= contact_params.engage_force_n)
+                            ? "true" : "false")
+                    << ",\"filtered\":"
+                    << (measured_contact[leg] ? "true" : "false")
+                    << ",\"planned\":"
+                    << ((wbc_shadow_diagnostics_.terrain_planned_contact_mask &
+                         (1 << static_cast<int>(leg))) ? "true" : "false")
+                    << ",\"fused\":"
+                    << (contact_fusion.fused_contact[leg] ? "true" : "false")
+                    << ",\"measured_fk_valid\":"
+                    << (fk_valid ? "true" : "false")
+                    << ",\"measured_fk_source\":\"state_q+base_pose_fk\""
+                    << ",\"measured_fk\":["
+                    << (fk_valid ? foot.x() : 0.0) << ","
+                    << (fk_valid ? foot.y() : 0.0) << ","
+                    << (fk_valid ? foot.z() : 0.0) << "]}";
+        }
+        witness << "]}\n";
+        std::cout << witness.str() << std::flush;
+    }
+
     // Sprint-only pitch moment trim.  The ID-WBC task can lose the small
     // front/rear normal-force split needed to hold the torso while the
     // diagonal pair is accelerating.  Redistribute a bounded amount of
@@ -2490,6 +2612,7 @@ void TrotExperiment::UpdateWbcShadow(
     int contact_mask = 0;
     const go2_control::HystereticContactParams shadow_contact_params{
         kShadowContactOnForceN, kShadowContactOffForceN};
+    std::array<double, go2::kLegCount> foot_forces{};
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         const int motor = static_cast<int>(3 * leg);
@@ -2503,27 +2626,29 @@ void TrotExperiment::UpdateWbcShadow(
                 joint_angles[leg][0],
                 joint_angles[leg][1],
                 joint_angles[leg][2]);
-        const double foot_force =
+        foot_forces[leg] =
             static_cast<double>(state_snapshot.foot_force()[leg]);
-        bool next_contact = false;
-        if (!go2_control::UpdateHystereticContact(
-                wbc_shadow_contact_state_[leg],
-                foot_force,
-                shadow_contact_params,
-                next_contact))
-        {
-            finish_shadow_timing();
-            return;
-        }
-        wbc_shadow_contact_state_[leg] = next_contact;
-        request.wrench.contact[leg] = wbc_shadow_contact_state_[leg];
+    }
+    std::array<bool, go2::kLegCount> measured_contact{};
+    const bool measured_filter_valid =
+        go2_control::UpdateHystereticContactArray(
+            foot_forces, shadow_contact_params, wbc_shadow_contact_state_,
+            measured_contact);
+    if (!measured_filter_valid)
+    {
+        finish_shadow_timing();
+        return;
+    }
+    wbc_shadow_contact_state_valid_ = true;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        request.wrench.contact[leg] = measured_contact[leg];
         if (request.wrench.contact[leg])
         {
             ++active_contacts;
             contact_mask |= 1 << static_cast<int>(leg);
         }
     }
-    wbc_shadow_contact_state_valid_ = true;
     wbc_shadow_diagnostics_.active_contacts = active_contacts;
     const bool reduced_contact_task =
         params_.wbc_reduced_contact_task &&

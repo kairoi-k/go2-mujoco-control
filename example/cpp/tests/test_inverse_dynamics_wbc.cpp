@@ -108,6 +108,18 @@ int main()
             terrain.ok && terrain.terrain_plan_consumed &&
             terrain.terrain_plan.plan_epoch == 6,
         "terrain ID-WBC identity/contact interface failed");
+    // A planned-only leg may be metadata for prediction, never a WBC
+    // safety contact.
+    input.measured_contact[3] = false;
+    input.fused_contact = input.measured_contact;
+    input.fused_contact_valid = true;
+    input.contact[3] = true;
+    go2_control::IdWbcOutput planned_only;
+    passed &= Check(
+        !go2_control::SolveInverseDynamicsWbc({}, input, planned_only),
+        "planned contact entered ID-WBC safety mask");
+    input.measured_contact[3] = true;
+    input.contact[3] = false;
     input.has_terrain_plan = false;
     input.contact = {true, false, false, true};
     go2_control::IdWbcOutput two;

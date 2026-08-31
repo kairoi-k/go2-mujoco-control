@@ -57,6 +57,10 @@ struct IdWbcInput
     go2_terrain::TerrainPlanIdentity terrain_plan{};
     std::array<bool, go2::kLegCount> measured_contact{};
     bool measured_contact_valid = false;
+    // contact may retain bounded robust support during filter grace. Keep
+    // that fused safety mask explicit so it cannot be confused with planned.
+    std::array<bool, go2::kLegCount> fused_contact{};
+    bool fused_contact_valid = false;
     std::array<bool, go2::kLegCount> planned_contact{};
     bool planned_contact_valid = false;
     std::array<bool, go2::kLegCount> contact{};
@@ -89,6 +93,12 @@ struct IdWbcOutput
     bool ok = false;
     bool terrain_plan_consumed = false;
     go2_terrain::TerrainPlanIdentity terrain_plan{};
+    std::array<bool, go2::kLegCount> measured_contact{};
+    std::array<bool, go2::kLegCount> fused_contact{};
+    std::array<bool, go2::kLegCount> planned_contact{};
+    bool measured_contact_valid = false;
+    bool fused_contact_valid = false;
+    bool planned_contact_valid = false;
     int iterations = 0;
     double eq_residual = 0.0;
     double rne_residual = 0.0;
@@ -119,8 +129,16 @@ inline bool ValidateIdWbcTerrainReference(const IdWbcInput &input)
 {
     if (!input.has_terrain_plan)
         return true;
-    return input.terrain_plan.valid() && input.measured_contact_valid &&
-        input.planned_contact_valid;
+    if (!input.terrain_plan.valid() || !input.measured_contact_valid ||
+        !input.planned_contact_valid)
+        return false;
+    // C-005 callers explicitly provide the fused safety mask. Legacy terrain
+    // callers retain their pre-C-005 interface until they opt into it.
+    if (input.fused_contact_valid)
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            if (input.contact[leg] && !input.fused_contact[leg])
+                return false;
+    return true;
 }
 
 
@@ -132,6 +150,15 @@ inline bool SolveInverseDynamicsWbc(
     output = IdWbcOutput{};
     if (!input.dynamics.valid || !ValidateIdWbcTerrainReference(input))
         return false;
+    output.terrain_plan_consumed = input.has_terrain_plan;
+    output.terrain_plan = input.terrain_plan;
+    output.measured_contact = input.measured_contact;
+    output.fused_contact = input.fused_contact_valid
+        ? input.fused_contact : input.contact;
+    output.planned_contact = input.planned_contact;
+    output.measured_contact_valid = input.measured_contact_valid;
+    output.fused_contact_valid = input.fused_contact_valid;
+    output.planned_contact_valid = input.planned_contact_valid;
     const auto &M = input.dynamics.mass_matrix;
     const auto &h = input.dynamics.bias;
     const auto J = StackFootJacobian(input.dynamics);

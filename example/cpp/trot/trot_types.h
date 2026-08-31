@@ -270,6 +270,14 @@ struct WbcShadowDiagnostics
     int measured_contact_mask = 0;
     int scheduled_contact_mask = 0;
     int terrain_planned_contact_mask = 0;
+    int terrain_raw_contact_mask = 0;
+    int terrain_fused_contact_mask = 0;
+    int terrain_robust_support_mask = 0;
+    bool terrain_contact_guard_active = false;
+    int terrain_contact_guard_age_ticks = 0;
+    int terrain_contact_grace_remaining_ticks = 0;
+    int terrain_contact_fallback_stage = 0;
+    std::string terrain_contact_fusion_reason = "none";
     std::uint64_t mpc_update_count = 0;
     int mpc_contact_mask_k0 = 0;
     int mpc_min_contact_count = 0;

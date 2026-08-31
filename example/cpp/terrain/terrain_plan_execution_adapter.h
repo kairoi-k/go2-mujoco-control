@@ -43,6 +43,11 @@ public:
     }
     bool enabled() const noexcept { return enabled_; }
     bool using_plan() const noexcept { return using_plan_; }
+    void SetContactGuard(bool active, std::size_t age_ticks) noexcept
+    {
+        contact_guard_active_ = active;
+        contact_guard_age_ticks_ = age_ticks;
+    }
     std::uint64_t adopted_plan_id() const noexcept
     { return adopted_ ? adopted_->plan_id : 0; }
     // The WBC consumer must use the exact snapshot adopted by gait, not a
@@ -66,6 +71,8 @@ public:
         last_fallback_reason_.clear();
         last_request_ = {};
         in_flight_.fill(false);
+        contact_guard_active_ = false;
+        contact_guard_age_ticks_ = 0;
     }
 
     // A replacement is legal only at an explicit event boundary and when no
@@ -116,7 +123,10 @@ public:
         const bool same_plan = candidate_valid && adopted_ &&
             SameIdentity(*candidate, *adopted_);
         const bool boundary = event_boundary && IsLegalBoundary(now_s);
-        if (candidate_valid && (!adopted_ || same_plan || boundary))
+        const bool guard_keeps_snapshot = contact_guard_active_ && adopted_ &&
+            !same_plan;
+        if (candidate_valid && (!guard_keeps_snapshot) &&
+            (!adopted_ || same_plan || boundary))
         {
             if (!same_plan)
             {
@@ -138,7 +148,9 @@ public:
             last_rejection_reason_ = "not_at_event_boundary_or_in_flight";
             result.rejection_reason = last_rejection_reason_;
         }
-        if (adopted_ && std::isfinite(now_s) &&
+        const bool guard_safe_stop = contact_guard_active_ &&
+            contact_guard_age_ticks_ >= 5;
+        if (adopted_ && !guard_safe_stop && std::isfinite(now_s) &&
             now_s <= adopted_->valid_until_s + grace_s_)
         {
             using_plan_ = true;
@@ -149,9 +161,13 @@ public:
         else
         {
             using_plan_ = false;
-            ++fallback_age_steps_;
-            result.fallback_reason = MeasuredSupportFallbackReason(
-                fallback_age_steps_);
+            if (contact_guard_active_)
+                fallback_age_steps_ = contact_guard_age_ticks_;
+            else
+                ++fallback_age_steps_;
+            result.fallback_reason = contact_guard_active_
+                ? ContactGuardFallbackReason(fallback_age_steps_)
+                : MeasuredSupportFallbackReason(fallback_age_steps_);
             last_fallback_reason_ = result.fallback_reason;
             last_request_ = MakeFallbackRequest(
                 measured_support, fallback_pattern, fallback_period_s,
@@ -316,6 +332,13 @@ private:
         if (age_steps <= 25) return "measured-support:N+5";
         return "measured-support:N+25";
     }
+    static std::string ContactGuardFallbackReason(std::size_t age_ticks)
+    {
+        if (age_ticks == 0) return "measured-support:N";
+        if (age_ticks < 5) return "measured-support:N+1";
+        if (age_ticks < 25) return "measured-support:N+5";
+        return "measured-support:N+25";
+    }
     void UpdateFlightState(const go2_control::GaitExecutionRequest &request,
                            double now_s)
     {
@@ -336,6 +359,8 @@ private:
     std::size_t fallback_age_steps_ = 0;
     std::shared_ptr<const TerrainMotionPlan> adopted_;
     std::array<bool, go2::kLegCount> in_flight_{};
+    bool contact_guard_active_ = false;
+    std::size_t contact_guard_age_ticks_ = 0;
     go2_control::GaitExecutionRequest last_request_{};
     std::uint64_t last_rejected_plan_id_ = 0;
     std::string last_rejection_reason_;
