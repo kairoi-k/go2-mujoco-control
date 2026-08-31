@@ -98,6 +98,9 @@ struct IdWbcOutput
         Eigen::Matrix<double, 12, 1>::Zero();
     Eigen::Matrix<double, go2::kJointCount, 1> tau =
         Eigen::Matrix<double, go2::kJointCount, 1>::Zero();
+    // The torque inequalities are safety constraints, not merely a QP
+    // objective. Retain the measured violation for callers/telemetry.
+    double max_tau_violation_nm = 0.0;
     IdWbcCostTerms cost_terms{};
     // Per-contact cone activity is retained for terrain forensic telemetry.
     std::array<double, go2::kLegCount> friction_ratio{};
@@ -342,6 +345,17 @@ inline bool SolveInverseDynamicsWbc(
     output.force = x.tail<nf>();
     output.tau = Mj * output.qdd + hj - Jj_t * output.force;
     output.eq_residual = (Aeq * x - beq).norm();
+    output.max_tau_violation_nm =
+        (output.tau.cwiseAbs().array() - params.tau_limit_nm).max(0.0).maxCoeff();
+    // DenseQpEq may return an equality-accurate iterate before ADMM has
+    // driven every inequality to tolerance. Never pass such an iterate to
+    // the plant: the caller will retain its last validated solution.
+    if (!std::isfinite(output.max_tau_violation_nm) ||
+        output.max_tau_violation_nm > 1.0e-3)
+    {
+        output.ok = false;
+        return false;
+    }
     output.rne_residual =
         (M * output.qdd + h - J.transpose() * output.force).head<6>().norm();
 

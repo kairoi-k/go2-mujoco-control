@@ -271,6 +271,13 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_mpc_reference_x_last_m,wbc_mpc_reference_vx_first_mps"
          << ",wbc_mpc_reference_vx_last_mps,wbc_terrain_contact_coherent"
          << ",wbc_terrain_plan_id";
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        csv_ << ",wbc_shadow_swing_acc_" << kLegNames[leg]
+             << "_x_mps2,wbc_shadow_swing_acc_" << kLegNames[leg]
+             << "_y_mps2,wbc_shadow_swing_acc_" << kLegNames[leg]
+             << "_z_mps2";
+    for (int i = 0; i < kMotorCount; ++i)
+        csv_ << ",wbc_shadow_id_wbc_" << kMotorNames[i] << "_tau_nm";
     for (int i = 0; i < kMotorCount; ++i)
     {
         csv_ << "," << kMotorNames[i] << "_q_target"
@@ -1338,6 +1345,12 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.mpc_reference_vx_last_mps
          << "," << (wbc_shadow_diagnostics_.terrain_contact_coherent ? 1 : 0)
          << "," << wbc_shadow_diagnostics_.terrain_plan_id;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        csv_ << "," << wbc_shadow_diagnostics_.id_wbc_swing_acc_world_mps2[leg][0]
+             << "," << wbc_shadow_diagnostics_.id_wbc_swing_acc_world_mps2[leg][1]
+             << "," << wbc_shadow_diagnostics_.id_wbc_swing_acc_world_mps2[leg][2];
+    for (int i = 0; i < kMotorCount; ++i)
+        csv_ << "," << wbc_shadow_diagnostics_.id_wbc_tau_nm[i];
 
     // SECTION: log-joint-cmds (cmd vs state per joint)
     for (int i = 0; i < kMotorCount; ++i)

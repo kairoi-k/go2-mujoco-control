@@ -292,6 +292,9 @@ struct WbcShadowDiagnostics
     std::array<double, go2::kLegCount> id_wbc_friction_ratio{};
     std::array<bool, go2::kLegCount> id_wbc_friction_active{};
     std::array<std::array<double, 3>, go2::kLegCount> id_wbc_contact_normal{};
+    std::array<double, kMotorCount> id_wbc_tau_nm{};
+    std::array<std::array<double, 3>, go2::kLegCount>
+        id_wbc_swing_acc_world_mps2{};
     double id_wbc_qp_cost = 0.0;
     double id_wbc_w_base_angular = 0.0;
     double id_wbc_w_stance_no_slip = 0.0;

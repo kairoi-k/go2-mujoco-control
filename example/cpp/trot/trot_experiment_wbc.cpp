@@ -1700,6 +1700,9 @@ void TrotExperiment::UpdateWbcFull(
             wbc_in.swing_acc_world[leg] = ClampVec3(
                 swing_kp * (p_des - p) + swing_kd * (v_des - v),
                 swing_acc_lim);
+            for (int axis = 0; axis < 3; ++axis)
+                wbc_shadow_diagnostics_.id_wbc_swing_acc_world_mps2[leg][axis] =
+                    wbc_in.swing_acc_world[leg][axis];
         }
     }
 
@@ -2075,6 +2078,8 @@ void TrotExperiment::UpdateWbcFull(
             const int joint_row = dof - 6;
             wbc_shadow_candidate_torques_[leg][j] =
                 (joint_row >= 0 && joint_row < 12) ? wbc_out.tau[joint_row] : 0.0;
+            wbc_shadow_diagnostics_.id_wbc_tau_nm[3 * leg + j] =
+                wbc_shadow_candidate_torques_[leg][j];
         }
         wbc_shadow_diagnostics_.id_wbc_normal_force_n[leg] = f.z();
         if (qp_contact[leg])
