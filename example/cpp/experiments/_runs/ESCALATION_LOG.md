@@ -3693,3 +3693,56 @@ pre_fix_evidence: |
 
 commit_chain: |
   5107827, b9c898e, d447719. No push or amend; simulation runs serialized.
+
+---
+
+Order-079 implementation update — 2026-09-02
+
+source_sha: 1a06b68c8b1999fdfdc742195c1538a19178af1c
+forensics: |
+  Clean Order-078 CSVs attribute the FL stop to endpoint/contact, not the
+  zero-velocity command. Thresholds are endpoint norm <=0.045 m; active-leg
+  contact=true; remaining support forces each >=10 N, total >=50 N, max/min
+  <=4. There is no separate contact-duration predicate. At the final SWING
+  sample: staged seed249 target=(0.919981,0.063319), foot=(0.906014,0.120878),
+  errors=(-0.013967,+0.057558), FL force=0/contact=0; seed250 target=
+  (0.871659,0.063323), foot=(0.804995,0.114740), errors=(-0.066663,+0.051418),
+  force=0/contact=0; seed251 target=(0.920129,0.063320), foot=(0.935146,
+  0.156967), errors=(+0.015017,+0.093647), force=0/contact=0. Full seed246
+  reached only foot=(0.600304,0.023724) while target=(0.874536,0.070537),
+  errors=(-0.274232,-0.046813), force=36/contact=1 but it was not at target.
+  Plateau top is z=0.05; the FL site target must be about 0.072, not a
+  base-frame map elevation. The old staged z=actual site+0.04 produced
+  0.0633; direct map-site conversion produced 0.1108. Both were wrong in
+  this base-frame handoff.
+fix: |
+  Staged FL retains measured-map x/y stand-off and uses current site z+0.05
+  (9d7caca). Raised FL uses a clearance arch 0.06 with a normalized
+  u=0.4 peak and faster descent (6902b8b); 0.03 caused early riser contact
+  (failure 7). Sequencer now observes a bounded 0.20 s COMMIT endpoint hold
+  and immediately commands the endpoint at COMMIT (8de45e5, 1a06b68).
+  No v1 contract, analyzer threshold, canary definition, or safety gate was
+  changed.
+staged_validation: |
+  Serial domain-229, LD_PRELOAD=/home/che/dds_base4000_preload.so, Base=4000,
+  duration 30/wall 35, --staged-start. 253/254/255/256/257/260/261/262/263
+  stopped before a full sequence (step commits 0); 258 and 259 each reached
+  FL COMMIT and measured endpoint: 258 step_commits=1, final FL endpoint
+  error approximately (+0.0045,-0.0018), force=278/contact=1; 259
+  step_commits=1, endpoint error (+0.00451,-0.00018), force=162/contact=1.
+  Staged full-sequence >=3 is NOT achieved; no crossing or gate conclusion.
+full_validation: |
+  Serial full reconnect epoch252, same domain/preload/scene and duration,
+  source 1a06b68: FL entered COMMIT but ended with target=(0.852141,0.071936),
+  foot=(0.843960,0.102613), errors=(-0.00818,+0.03068), force=0/contact=0,
+  support contacts=2; step_commits=0. No crossing claim.
+b0_flat: |
+  No fresh B0 three-run or flat 20/20 campaign was run in this window;
+  existing prior evidence is not reattributed to source 1a06b68.
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest: 27/27 PASS;
+  git diff --check: PASS. All simulations were serialized under
+  /tmp/go2_mujoco_experiment.lock; no push or amend.
+commit_chain: |
+  5107827, b9c898e, d447719, cc3dbbc, 9d7caca, b088e90, c6515e6,
+  6902b8b, 8de45e5, 1a06b68. No push or amend.
