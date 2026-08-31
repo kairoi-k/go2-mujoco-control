@@ -4549,3 +4549,78 @@ rollback: |
 acceptance: |
   C-002b generator and unit evidence are complete, pushed, and shadow-only.
   Physical B1 gate and contract activation are explicitly not claimed.
+
+
+---
+timestamp: 2026-09-01T00:00:00+0800
+run_id: Order-096 C-002c warmed-map shadow decision gate
+source_sha: implementation changes tested from HEAD 3641b0a plus working-tree diagnostics
+scope: |
+  Strict SHADOW ONLY. Added only env-gated provenance diagnostics for the
+  existing shadow stream; no contract, analyzer, gait, MPC, WBC, store, or
+  terrain-actuation consumer reads these fields.
+implementation: |
+  TerrainShadowDiagnostics now records the planner input state timestamp and
+  map epoch, map validity/freshness, known/total cells, frame validity, and
+  per-leg safe-region candidate counts plus safe_region_ready. The fields are
+  populated in TerrainPlanner::BuildShadow and emitted only when
+  TROT_TERRAIN_SHADOW_DIAGNOSTICS is set. safe_region_ready is the existing
+  candidate availability predicate: every leg has at least one sensor-derived
+  safe-region candidate; no new numeric threshold was introduced.
+startup_attribution: |
+  Order-095 startup rows u0/u1 were A=B=0 with no_foothold dominating (26 and
+  25 rejects), while warmed rows u2/u3 were A=24/28 and 24/28 and B=144/145
+  and 144/145, with positive support about 0.052--0.053 m and B dynamic
+  margin 14.715. This separates transient map warm-up from a deterministic
+  terrain blind spot. The new diagnostics expose the attribution directly.
+  In all eight Order-096 runs, the first and every subsequent diagnostic had
+  map_valid=true, map_fresh=true, frame_valid=true, known_cells=319--320,
+  safe_region_ready=true, and nonzero per-leg safe-region counts.
+b0_shadow_smoke: |
+  Serial flocked fixed-pair command used
+  LD_PRELOAD=/home/che/dds_base4000_preload.so,
+  TROT_TERRAIN_SHADOW_DIAGNOSTICS=1, and
+  bash example/cpp/scripts/run_phase2_b0_fixed_pair.sh development 0.
+  Artifact: _runs/phase2_b0_development_fixed_3mps_r0_20260831_234131_terrain.
+  b0_analyzer acceptance_status=PASS; planner_updates=2780;
+  planner_deadline_misses=0; no_plan_consumer=true; no_plan_publish=true;
+  no_terrain_actuation=true; planner_does_not_safe_stop=true.
+b1_shadow_only: |
+  Eight serial headless runs, controller duration 8 s, 5-cm scene,
+  domains 230,231,232,224,225,226,227,228, with
+  TROT_TERRAIN_SHADOW_DIAGNOSTICS=1 and the base4000 preload. Evaluation
+  starts only on map_valid && map_fresh && frame_valid && safe_region_ready;
+  every post-warm diagnostic update in the bounded run is included below.
+  Columns: run | all/post-warm updates | A feasible updates/rate | B feasible
+  updates/rate | post-warm no_foothold A/B | A positive min support | B
+  positive min support | B positive min dynamic | latency p50/p95/max us |
+  deadline misses | chosen hash unique/updates | chosen-hash sequence digest.
+  |order096_b1_shadow_0|752/752|263/752 34.97%|264/752 35.11%|33/752 33/752|0.000195718|0.000311239|14.715|1363.466/2756.926/4603.081|0|265/752|62ef2ea999d9f623|
+  |order096_b1_shadow_1|772/772|261/772 33.81%|261/772 33.81%|39/772 39/772|0.000847298|0.000159088|14.715|1357.019/2772.705/4618.412|0|262/772|c9e8d3b060569b16|
+  |order096_b1_shadow_2|735/735|263/735 35.78%|261/735 35.51%|34/735 34/735|0.001249887|0.000016735|14.715|1343.742/2783.322/4675.260|0|264/735|5bace633ac187792|
+  |order096_b1_shadow_3|715/715|256/715 35.80%|256/715 35.80%|25/715 25/715|0.000184934|0.000502923|14.715|1306.516/2681.539/4349.884|0|257/715|9b849567cc35d797|
+  |order096_b1_shadow_4|735/735|260/735 35.37%|261/735 35.51%|28/735 28/735|0.000298157|0.000002171|14.715|1308.513/2636.040/4331.324|0|262/735|9bcfc09450467da|
+  |order096_b1_shadow_5|753/753|261/753 34.66%|262/753 34.79%|41/753 41/753|0.000558313|0.000581650|14.715|1291.047/2608.981/4346.060|0|263/753|29660f43f39de6df|
+  |order096_b1_shadow_6|766/766|260/766 33.94%|260/766 33.94%|31/766 31/766|0.000544240|0.000553408|14.715|1315.965/2690.110/4335.587|0|261/766|3d1491b0c1c143a1|
+  |order096_b1_shadow_7|719/719|236/719 32.82%|236/719 32.82%|43/719 43/719|0.001797866|0.000503953|14.715|1262.991/2655.859/4171.730|0|237/719|ca3234d7b3ad8c9b|
+  A had positive-feasible updates in 8/8 runs; the global positive minima
+  were A support 0.000184934 m, B support 0.000002171 m, and B dynamic
+  14.715. No post-warm empty family was systematic (no_foothold was 3.3--6.0
+  percent of updates and all runs had feasible A updates). Every input_hash
+  mapped to one chosen hash with zero same-input conflicts. Every B1 CSV row
+  reported terrain_actuation=0, terrain_plan_published=0,
+  terrain_plan_consumed=0, and terrain_mpc_plan_consumed=0; terrain_sensor_only
+  was 1 in all runs.
+validation: |
+  cmake --build example/cpp/build -j2 --target test_terrain_interfaces
+  real_trot_go2: PASS. ctest --test-dir example/cpp/build
+  --output-on-failure: 27/27 PASS. git diff --check: PASS.
+decision: |
+  V2-B continuation rule is satisfied at the run level: A is positive and
+  feasible in 8/8 runs, with no systematic post-warm empty family. Continue
+  to V2-B C-003 review only; this order does not activate C-003, V3-C, any
+  contract, or any terrain execution.
+rollback: |
+  Revert the diagnostics-only commit or leave
+  TROT_TERRAIN_SHADOW_DIAGNOSTICS unset. Legacy behavior and all consumers
+  remain unchanged.

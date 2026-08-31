@@ -737,6 +737,18 @@ struct TerrainShadowSnapshot
 struct TerrainShadowDiagnostics
 {
     std::uint64_t input_hash = 0, chosen_shadow_hash = 0;
+    // These fields are observer-only provenance for attributing startup
+    // no_foothold results. They are populated and emitted only by the
+    // existing env-gated shadow diagnostic stream.
+    double input_state_stamp_s = std::numeric_limits<double>::quiet_NaN();
+    std::uint64_t input_map_epoch = 0;
+    double input_map_age_s = std::numeric_limits<double>::infinity();
+    std::size_t input_known_cells = 0, input_total_cells = 0;
+    bool input_map_valid = false, input_map_fresh = false;
+    bool input_frame_valid = false;
+    std::array<std::uint64_t, go2::kLegCount>
+        safe_region_candidate_count_by_leg{};
+    bool safe_region_ready = false;
     TerrainShadowFamily chosen_family = TerrainShadowFamily::kV2B;
     std::array<std::uint64_t, 2> candidate_count{}, feasible_count{}, rejected_count{};
     std::array<std::array<std::uint64_t, kTerrainShadowRejectReasonCount>, 2> rejection_histogram{};
@@ -755,6 +767,20 @@ struct TerrainShadowDiagnostics
     {
         std::ostringstream stream;
         stream << "{\"input_hash\":" << input_hash
+               << ",\"input_state_stamp_s\":" << Number(input_state_stamp_s)
+               << ",\"input_map_epoch\":" << input_map_epoch
+               << ",\"input_map_age_s\":" << Number(input_map_age_s)
+               << ",\"input_map_valid\":" << (input_map_valid ? "true" : "false")
+               << ",\"input_map_fresh\":" << (input_map_fresh ? "true" : "false")
+               << ",\"input_frame_valid\":" << (input_frame_valid ? "true" : "false")
+               << ",\"input_known_cells\":" << input_known_cells
+               << ",\"input_total_cells\":" << input_total_cells
+               << ",\"safe_region_candidate_count_by_leg\":["
+               << safe_region_candidate_count_by_leg[0] << ","
+               << safe_region_candidate_count_by_leg[1] << ","
+               << safe_region_candidate_count_by_leg[2] << ","
+               << safe_region_candidate_count_by_leg[3] << "]"
+               << ",\"safe_region_ready\":" << (safe_region_ready ? "true" : "false")
                << ",\"chosen_shadow_hash\":" << chosen_shadow_hash
                << ",\"chosen_family\":\"" << TerrainShadowFamilyName(chosen_family)
                << "\",\"families\":[";

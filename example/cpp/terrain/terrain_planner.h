@@ -2771,6 +2771,21 @@ inline void TerrainPlanner::BuildShadow(
     auto &diag = result.shadow_diagnostics;
     diag = TerrainShadowDiagnostics{};
     diag.input_hash = TerrainPlannerInputHash(input);
+    diag.input_state_stamp_s = input.state_stamp_s;
+    if (input.terrain != nullptr)
+    {
+        diag.input_map_valid = input.terrain->valid();
+        diag.input_map_age_s = input.terrain->age_s;
+        diag.input_map_fresh = std::isfinite(input.terrain->age_s) &&
+            input.terrain->age_s <= config_.feasibility.max_map_age_s;
+        diag.input_frame_valid = input.terrain->frame_id ==
+            config_.feasibility.required_frame;
+        diag.input_map_epoch = input.terrain->epoch;
+        diag.input_total_cells = input.terrain->cells.size();
+        for (const auto &cell : input.terrain->cells)
+            if (cell.known)
+                ++diag.input_known_cells;
+    }
     diag.deadline_us = config_.deadline_us;
     for (auto &value : diag.min_support_margin_m)
         value = std::numeric_limits<double>::infinity();
@@ -2889,6 +2904,7 @@ inline void TerrainPlanner::BuildShadow(
         const auto regions = BuildSafeFootholdRegions(
             *input.terrain, static_cast<go2::Leg>(leg), config_.feasibility,
             nullptr);
+        diag.safe_region_candidate_count_by_leg[leg] = regions.size();
         double best_score = -std::numeric_limits<double>::infinity();
         for (const auto &region : regions) {
             if (!region.valid)
@@ -2941,6 +2957,10 @@ inline void TerrainPlanner::BuildShadow(
                    TerrainShadowRejectReason::kNoFoothold);
         }
     }
+    diag.safe_region_ready = std::all_of(
+        diag.safe_region_candidate_count_by_leg.begin(),
+        diag.safe_region_candidate_count_by_leg.end(),
+        [](std::uint64_t count) { return count > 0; });
 
     const double dt = config_.knot_dt_s;
     const std::size_t minimum_horizon = static_cast<std::size_t>(

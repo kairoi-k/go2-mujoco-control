@@ -998,6 +998,17 @@ int main()
         !Check(planned.shadow_diagnostics.ToJson().find("input_hash") != std::string::npos &&
                    planned.shadow_diagnostics.ToJson().find("rejection_histogram") != std::string::npos,
                "C-002 diagnostics were not machine-readable") ||
+        !Check(planned.shadow_diagnostics.input_state_stamp_s == input.state_stamp_s &&
+                   planned.shadow_diagnostics.input_map_epoch == input.terrain->epoch &&
+                   planned.shadow_diagnostics.input_map_valid &&
+                   planned.shadow_diagnostics.input_map_fresh &&
+                   planned.shadow_diagnostics.input_known_cells > 0 &&
+                   planned.shadow_diagnostics.safe_region_ready &&
+                   std::all_of(
+                       planned.shadow_diagnostics.safe_region_candidate_count_by_leg.begin(),
+                       planned.shadow_diagnostics.safe_region_candidate_count_by_leg.end(),
+                       [](std::uint64_t count) { return count > 0; }),
+               "shadow warm-up attribution diagnostics were not populated") ||
         !Check(planned.shadow_diagnostics.rejection_histogram[0][
                        static_cast<std::size_t>(go2_terrain::TerrainShadowRejectReason::kMinimumContacts)] > 0,
                    "V2-B did not reject a planned knot with fewer than three contacts") ||
