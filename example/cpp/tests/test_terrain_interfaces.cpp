@@ -1,6 +1,7 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <iostream>
 #include <limits>
 
@@ -11,6 +12,7 @@
 #include "terrain_swing_tracking.h"
 #include "terrain_crawl_script.h"
 #include "terrain_crawl_sequencer.h"
+#include "full2_campaign_env.h"
 
 namespace
 {
@@ -40,6 +42,16 @@ unitree_go::msg::dds_::HeightMap_ FlatMap()
 
 int main()
 {
+    // Order-088 telemetry is an analysis-only channel and must be opt-in.
+    unsetenv("TROT_TERRAIN_TELEMETRY");
+    if (!Check(!Full2TerrainTelemetryEnabled(),
+               "terrain telemetry is not off by default"))
+        return 1;
+    setenv("TROT_TERRAIN_TELEMETRY", "1", 1);
+    if (!Check(Full2TerrainTelemetryEnabled(),
+               "terrain telemetry opt-in was not honored"))
+        return 1;
+    unsetenv("TROT_TERRAIN_TELEMETRY");
     // Order-072 geometry fixture: measured staged feet from the last clean
     // baseline, with each raised foothold on the measured 5 cm plateau.
     {
@@ -1579,6 +1591,9 @@ int main()
             !Check(
                 go2_terrain::TerrainCrawlStateMachine::kShiftStanceNoSlipWeight == 80.0,
                 "COM shift stance weight changed") ||
+            !Check(
+                go2_terrain::TerrainCrawlStateMachine::kV2FullShiftStanceNoSlipWeight == 180.0,
+                "full-v2 shift stance weight changed") ||
             !Check(
                 go2_terrain::TerrainCrawlStateMachine::kCrawlStepHandoffGraceS == 0.10,
                 "crawl-step handoff grace changed"))

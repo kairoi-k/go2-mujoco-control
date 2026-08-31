@@ -33,6 +33,13 @@ inline bool Full2UseSlew()
     return Full2EnvDouble("FULL2_SLEW", 0.0) > 0.5;
 }
 
+// Order-088 diagnostic channel. Unset/zero keeps the normal CSV values
+// suppressed; this flag never changes control decisions.
+inline bool Full2TerrainTelemetryEnabled()
+{
+    return Full2EnvDouble("TROT_TERRAIN_TELEMETRY", 0.0) > 0.5;
+}
+
 // FULL2_INC: override cycle speed increment (baseline 0.03, or 0.06 if v>=0.40).
 // FULL2_YPOS: lateral world-Y capture gain (baseline 0). Closed: 0.35 on T1
 //   shortened survival; T1 Y was heading curve, not crab.

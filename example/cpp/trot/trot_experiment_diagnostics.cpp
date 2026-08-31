@@ -261,6 +261,17 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_hold_cost_force_tracking"
          << ",terrain_hold_cost_posture"
          << ",terrain_hold_cost_torque"
+         << ",terrain_telemetry_enabled,terrain_telemetry_phase_active";
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        csv_ << ",terrain_telemetry_" << kLegNames[leg]
+             << "_commanded_normal_force_n,terrain_telemetry_" << kLegNames[leg]
+             << "_measured_normal_force_n,terrain_telemetry_" << kLegNames[leg]
+             << "_foot_slip_speed_mps,terrain_telemetry_" << kLegNames[leg]
+             << "_foot_z_m,terrain_telemetry_" << kLegNames[leg]
+             << "_local_surface_z_m,terrain_telemetry_" << kLegNames[leg]
+             << "_foot_surface_z_error_m,terrain_telemetry_" << kLegNames[leg]
+             << "_wbc_allocation_saturated";
+    csv_
          << ",wbc_shadow_residual_norm,wbc_shadow_max_abs_tau"
          << ",wbc_shadow_elapsed_us,wbc_shadow_within_budget"
          << ",wbc_shadow_feedforward_ready,wbc_shadow_feedforward_applied"
@@ -947,6 +958,7 @@ void TrotExperiment::LogSample(
         terrain_plan_published = terrain_plan_published_count_;
     }
     std::array<double, go2::kLegCount> terrain_measured_velocity_x{};
+    std::array<double, go2::kLegCount> terrain_measured_velocity_y{};
     std::array<double, go2::kLegCount> terrain_measured_velocity_z{};
     std::array<double, go2::kLegCount> terrain_achieved_standoff{};
     std::array<double, go2::kLegCount> terrain_target_standoff{};
@@ -973,6 +985,9 @@ void TrotExperiment::LogSample(
             terrain_measured_velocity_x[leg] =
                 (terrain_actual_world_feet[leg].x -
                  previous_terrain_foot_world_[leg].x) / terrain_velocity_dt;
+            terrain_measured_velocity_y[leg] =
+                (terrain_actual_world_feet[leg].y -
+                 previous_terrain_foot_world_[leg].y) / terrain_velocity_dt;
             terrain_measured_velocity_z[leg] =
                 (terrain_actual_world_feet[leg].z -
                  previous_terrain_foot_world_[leg].z) / terrain_velocity_dt;
@@ -990,6 +1005,42 @@ void TrotExperiment::LogSample(
             terrain_target_standoff[leg] =
                 c * (execution.target_world.x - terrain_edge_world_x) +
                 ss * (execution.target_world.y - terrain_edge_world_y);
+        }
+    }
+    const bool terrain_telemetry_enabled = Full2TerrainTelemetryEnabled();
+    const auto telemetry_state = terrain_crawl_sequencer_output_.state;
+    const bool terrain_telemetry_phase_active = terrain_telemetry_enabled &&
+        (telemetry_state == go2_terrain::TerrainCrawlSequencerState::kShift ||
+         telemetry_state == go2_terrain::TerrainCrawlSequencerState::kSwing);
+    std::array<double, go2::kLegCount> terrain_telemetry_foot_z{};
+    std::array<double, go2::kLegCount> terrain_telemetry_surface_z{};
+    std::array<double, go2::kLegCount> terrain_telemetry_slip_speed{};
+    std::array<double, go2::kLegCount> terrain_telemetry_z_error{};
+    terrain_telemetry_foot_z.fill(std::numeric_limits<double>::quiet_NaN());
+    terrain_telemetry_surface_z.fill(std::numeric_limits<double>::quiet_NaN());
+    terrain_telemetry_slip_speed.fill(std::numeric_limits<double>::quiet_NaN());
+    terrain_telemetry_z_error.fill(std::numeric_limits<double>::quiet_NaN());
+    if (terrain_telemetry_phase_active && terrain_actual_world_feet_valid &&
+        terrain_model != nullptr && terrain_model->valid())
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            const go2::Vec3 foot_body = go2_control::WorldToBody(
+                pose.base, pose.quaternion, terrain_actual_world_feet[leg]);
+            go2_terrain::TerrainPatch patch;
+            if (terrain_model->SamplePatch(foot_body.x, foot_body.y, 0.0, patch) &&
+                patch.valid)
+            {
+                terrain_telemetry_foot_z[leg] = go2::FootSiteToContactPatch(foot_body).z;
+                terrain_telemetry_surface_z[leg] = patch.center_height_m;
+                terrain_telemetry_z_error[leg] =
+                    go2::FootSiteToContactPatch(foot_body).z - patch.center_height_m;
+            }
+            if (terrain_velocity_valid)
+                terrain_telemetry_slip_speed[leg] = std::sqrt(
+                    terrain_measured_velocity_x[leg] * terrain_measured_velocity_x[leg] +
+                    terrain_measured_velocity_y[leg] * terrain_measured_velocity_y[leg] +
+                    terrain_measured_velocity_z[leg] * terrain_measured_velocity_z[leg]);
         }
     }
     const bool terrain_safe_stop_requested = params_.terrain_enabled &&
@@ -1392,6 +1443,21 @@ void TrotExperiment::LogSample(
                               ? wbc_shadow_diagnostics_.terrain_hold_cost_posture : 0.0)
          << "," << (terrain_force_telemetry
                               ? wbc_shadow_diagnostics_.terrain_hold_cost_torque : 0.0)
+         << "," << (terrain_telemetry_enabled ? 1 : 0)
+         << "," << (terrain_telemetry_phase_active ? 1 : 0);
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const bool emit = terrain_telemetry_phase_active;
+        csv_ << "," << (emit
+                              ? wbc_shadow_diagnostics_.terrain_telemetry_commanded_normal_force_n[leg] : 0.0)
+             << "," << (emit ? foot_forces[leg] : 0.0)
+             << "," << (emit ? terrain_telemetry_slip_speed[leg] : 0.0)
+             << "," << (emit ? terrain_telemetry_foot_z[leg] : 0.0)
+             << "," << (emit ? terrain_telemetry_surface_z[leg] : 0.0)
+             << "," << (emit ? terrain_telemetry_z_error[leg] : 0.0)
+             << "," << (emit && wbc_shadow_diagnostics_.terrain_telemetry_wbc_saturated[leg] ? 1 : 0);
+    }
+    csv_
          << "," << wbc_shadow_diagnostics_.residual_norm
          << "," << wbc_shadow_diagnostics_.max_abs_tau
          << "," << wbc_shadow_diagnostics_.elapsed_us

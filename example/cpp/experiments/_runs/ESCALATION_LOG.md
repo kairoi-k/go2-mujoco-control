@@ -4163,3 +4163,57 @@ commit_chain: |
   c003636, fb731de, 41bccd9, 28e6294, a4c1009, 9520b2a. The two exploratory
   commits and their reverts are retained in history; final source change is
   9520b2a. All simulations serialized.
+
+---
+timestamp: 2026-09-03T08:00:00+0800
+run_id: Order-088 support-witness telemetry, scoped WBC slip repair, and re-probe
+trigger: T1
+implementation: |
+  Added TROT_TERRAIN_TELEMETRY (unset/0 by default). During sequencer SHIFT
+  and SWING only, the CSV now emits per-leg commanded/measured normal force,
+  full 3-D foot slip speed, contact-patch foot z/local map surface z and error,
+  and per-leg WBC allocation saturation. The map comparison uses
+  FootSiteToContactPatch; no threshold, analyzer, contract, or canary changed.
+  Full-v2 moving SHIFT uses the scoped 180 no-slip objective; staged/flat retain
+  the existing 80 objective. Added interface coverage for telemetry default-off,
+  opt-in, and the scoped weight.
+validation: |
+  ctest --test-dir example/cpp/build --output-on-failure: 27/27 PASS;
+  cmake --build example/cpp/build -j2 --target test_terrain_interfaces
+  real_trot_go2: PASS; git diff --check: PASS.
+  Diagnostic pairs epoch312-315 and _r2 were serial under
+  /tmp/go2_mujoco_experiment.lock, domain 229, Base=4000 preload, terrain
+  scene and unchanged B1 command. They are analysis-only; all eight reached
+  SHIFT telemetry rows, but the simulator/controller safety frontier rejected
+  completion, so no gate evidence is claimed.
+telemetry_histogram: |
+  A support-unload event is a per-leg commanded normal force >10 N and measured
+  force <5 N for at least three consecutive telemetry rows. Cause attribution
+  precedence is explicit allocator saturation (2), slip >=0.5 m/s with patch
+  z error <=0.06 m (4), foot above patch by >=0.08 m (3), map/geometry error
+  abs(patch z error) >=0.06 m (5), otherwise contact realization/threshold vs
+  geometry (1). Across 522 events: cause 1=91, cause 2=162, cause 3=2,
+  cause 4=260, cause 5=7. Cause-4 is dominant (49.8%); its event maxima were
+  slip 5.499 m/s with z error -0.059..0.053 m. Cause-1 events had command
+  max mean 49.4 N, measured minimum 0 N, z error -0.030..0.034 m. Cause-2
+  command max mean was 68.5 N (min measured 0 N). Histogram is diagnostic
+  only and not a gate claim.
+fix: |
+  Fixed only the dominant cause: full-v2 SHIFT stance WBC no-slip weight is
+  180.0 instead of the legacy 80.0. This is terrain-actuation scoped and does
+  not weaken contact thresholds or modify staged/flat/v1 behavior.
+probe_validation: |
+  Telemetry-off epoch316-319, each _r2, serial/domain/preload unchanged.
+  Run                              SHIFT witness PASS  SWING entry
+  epoch316 / epoch316_r2           0/2                  0/2
+  epoch317 / epoch317_r2           0/2                  1/2
+  epoch318 / epoch318_r2           0/2                  0/2
+  epoch319 / epoch319_r2           0/2                  1/2
+  aggregate                         0/8                  2/8
+  Maximum SHIFT measured contacts were 4, but finite support margins remained
+  negative (-0.060..-0.032 m where present); missing margins were -inf.
+acceptance: |
+  Instrumentation and unit coverage are complete; ctest is 27/27 green.
+  The required physical SHIFT-witness and SWING-entry improvement was not
+  achieved (0/8 and 2/8 respectively), and sequence completion is not claimed.
+  Diagnostic runs and probes were serialized. No push or amend.

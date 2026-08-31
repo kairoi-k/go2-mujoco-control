@@ -290,6 +290,10 @@ struct WbcShadowDiagnostics
     // telemetry can distinguish a declared swing from a stance leg that the
     // optimizer has effectively unloaded.
     std::array<double, go2::kLegCount> id_wbc_normal_force_n{};
+    // Order-088 diagnostic values are populated for every solve but only
+    // emitted when TROT_TERRAIN_TELEMETRY is enabled during SHIFT/SWING.
+    std::array<double, go2::kLegCount> terrain_telemetry_commanded_normal_force_n{};
+    std::array<bool, go2::kLegCount> terrain_telemetry_wbc_saturated{};
     std::array<std::array<double, 3>, go2::kLegCount> id_wbc_force_world_n{};
     std::array<double, go2::kLegCount> id_wbc_friction_ratio{};
     std::array<bool, go2::kLegCount> id_wbc_friction_active{};

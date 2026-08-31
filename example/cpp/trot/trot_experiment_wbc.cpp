@@ -1839,8 +1839,11 @@ void TrotExperiment::UpdateWbcFull(
     const int n_contact =
         (qp_contact[0] ? 1 : 0) + (qp_contact[1] ? 1 : 0) +
         (qp_contact[2] ? 1 : 0) + (qp_contact[3] ? 1 : 0);
+    const bool full_v2_terrain_stance = params_.terrain_actuation && !terrain_staged_target_valid_;
     id_params.w_stance_no_slip = terrain_crawl_stance
-        ? go2_terrain::TerrainCrawlStateMachine::kShiftStanceNoSlipWeight
+        ? (full_v2_terrain_stance
+               ? go2_terrain::TerrainCrawlStateMachine::kV2FullShiftStanceNoSlipWeight
+               : go2_terrain::TerrainCrawlStateMachine::kShiftStanceNoSlipWeight)
         : (params_.cartesian_world ? (50.0 + 90.0 * cart_lock) : 8.0);
     const double w_no_slip_x_ov = Full2EnvDouble("FULL2_WX_X", -1.0);
     if (w_no_slip_x_ov >= 0.0)
@@ -2220,6 +2223,10 @@ void TrotExperiment::UpdateWbcFull(
                 wbc_shadow_candidate_torques_[leg][j];
         }
         wbc_shadow_diagnostics_.id_wbc_normal_force_n[leg] = f.z();
+        wbc_shadow_diagnostics_.terrain_telemetry_commanded_normal_force_n[leg] = f.z();
+        wbc_shadow_diagnostics_.terrain_telemetry_wbc_saturated[leg] =
+            qp_contact[leg] && (wbc_out.friction_ratio[leg] >= 0.98 ||
+                                 f.z() >= id_params.max_normal_n - 1.0e-6);
         if (qp_contact[leg])
             min_fz = std::min(min_fz, f.z());
     }
@@ -2725,6 +2732,21 @@ void TrotExperiment::UpdateWbcShadow(
             wrench_solution.max_radial_friction_ratio;
         wbc_shadow_diagnostics_.min_contact_normal_force_n =
             wrench_solution.min_contact_normal_force;
+    }
+
+    // Retain the allocator output for the opt-in terrain force witness.
+    // This is observation only and is not fed back into control.
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const go2::Vec3 &f = contact_forces[leg];
+        const double normal = f.z;
+        const double radial = std::hypot(f.x, f.y);
+        wbc_shadow_diagnostics_.terrain_telemetry_commanded_normal_force_n[leg] =
+            normal;
+        wbc_shadow_diagnostics_.terrain_telemetry_wbc_saturated[leg] =
+            request.wrench.contact[leg] &&
+            (normal >= kShadowWbcMaxNormalForce - 1.0e-6 ||
+             (normal > 1.0e-9 && radial / (kShadowWbcFrictionCoefficient * normal) >= 0.98));
     }
 
     go2_control::ContactTorqueMapRequest torque_request;
