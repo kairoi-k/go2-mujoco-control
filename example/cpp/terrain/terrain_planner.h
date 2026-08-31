@@ -490,6 +490,10 @@ public:
         result.plan.identity.map_epoch = result.plan.map_epoch;
         result.plan.identity.generated_at_s = result.plan.generated_at_s;
         result.plan.identity.valid_until_s = result.plan.valid_until_s;
+        result.plan.contact_timing.identity = result.plan.identity;
+        result.plan.timing_bounds = input.terrain_timing_bounds;
+        // C-001 keeps timed fields as an inert, provenance-complete snapshot;
+        // has_stage_c_timing remains false until a later execution order.
         // C-000 is a frozen seam: timing values are provenance-only and the
         // existing planner remains the sole producer of legacy behavior.
         result.plan.has_stage_c_timing = false;
@@ -1077,6 +1081,9 @@ public:
         if (result.plan.velocity_request.valid)
             result.plan.velocity_request.valid_until_s =
                 result.plan.valid_until_s;
+        // Retiming and support-tail extension may have changed valid_until;
+        // bind the complete final snapshot once, immediately before publish.
+        result.plan.BindIdentity();
         result.plan.status = TerrainPlanStatus::kValid;
         result.plan.fallback_to_phase1 = false;
         result.plan.solver.success = true;
@@ -2272,6 +2279,11 @@ private:
     void PopulatePlan(const TerrainPlannerInput &input,
                       TerrainPlannerResult &result) const
     {
+        result.plan.contact_timing.identity = result.plan.identity;
+        result.plan.contact_timing.touchdown_time_s.fill(0.0);
+        result.plan.contact_timing.touchdown_time_valid.fill(false);
+        result.plan.contact_timing.liftoff_time_s.fill(0.0);
+        result.plan.contact_timing.liftoff_time_valid.fill(false);
         result.plan.min_edge_margin_m =
             std::numeric_limits<double>::infinity();
         result.plan.min_uncertainty_inflated_edge_margin_m =
@@ -2317,6 +2329,7 @@ private:
                 input.base_position_world.z + terrain_height_m;
             result.plan.current_terrain_height_valid[leg] = true;
         }
+        result.plan.contact_schedule.provenance = result.plan.identity;
         result.plan.contact_schedule.measured_contact =
             input.contact_schedule.measured_contact;
         result.plan.contact_schedule.measured_valid =
@@ -2622,6 +2635,54 @@ private:
             result.plan.min_reachability_margin_m = 0.0;
         if (!std::isfinite(result.plan.min_swing_clearance_m))
             result.plan.min_swing_clearance_m = 0.0;
+        // Complete the per-leg absolute event view from the same discrete
+        // schedule that is copied into the plan.  These fields remain
+        // diagnostics-only while has_stage_c_timing is false.
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            bool previous = input.contact_schedule.measured_contact[leg];
+            for (std::size_t k = 0; k < config_.horizon_knots; ++k)
+            {
+                const bool planned =
+                    result.plan.contact_schedule.planned_contact[k][leg];
+                const double knot_time = result.plan.state_stamp_s +
+                    static_cast<double>(k) * config_.knot_dt_s;
+                if (planned && !previous &&
+                    !result.plan.contact_timing.touchdown_time_valid[leg])
+                {
+                    const auto &foot = result.plan.predicted_foothold[k][leg];
+                    result.plan.contact_timing.touchdown_time_s[leg] =
+                        foot.touchdown && std::isfinite(foot.touchdown_time_s)
+                        ? foot.touchdown_time_s : knot_time;
+                    result.plan.contact_timing.touchdown_time_valid[leg] =
+                        true;
+                }
+                if (!planned && previous &&
+                    !result.plan.contact_timing.liftoff_time_valid[leg])
+                {
+                    result.plan.contact_timing.liftoff_time_s[leg] = knot_time;
+                    result.plan.contact_timing.liftoff_time_valid[leg] = true;
+                }
+                previous = planned;
+            }
+        }
+        for (std::size_t k = 0; k < kTerrainPlanMaxKnots; ++k)
+        {
+            result.plan.body_reference[k].provenance = result.plan.identity;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                result.plan.predicted_foothold[k][leg].provenance =
+                    result.plan.identity;
+                if (k == 0)
+                    result.plan.scripted_target[leg].provenance =
+                        result.plan.identity;
+            }
+        }
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            result.plan.current_support_anchor[leg].provenance =
+                result.plan.identity;
+        }
         // Keep the conservative uncertainty bound for support diagnostics.
     }
 

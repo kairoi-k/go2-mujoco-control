@@ -77,15 +77,18 @@ struct TerrainTimingBounds
             return false;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            if (!next_touchdown_time_valid[leg])
-                continue;
-            if (!std::isfinite(next_touchdown_time_s[leg]))
+            if (next_touchdown_time_valid[leg] &&
+                (!std::isfinite(next_touchdown_time_s[leg]) ||
+                 next_touchdown_time_s[leg] < window_start_s ||
+                 next_touchdown_time_s[leg] > window_end_s))
                 return false;
             if (touchdown_window_valid[leg] &&
                 (!std::isfinite(earliest_touchdown_time_s[leg]) ||
                  !std::isfinite(latest_touchdown_time_s[leg]) ||
                  earliest_touchdown_time_s[leg] >
-                     latest_touchdown_time_s[leg]))
+                     latest_touchdown_time_s[leg] ||
+                 earliest_touchdown_time_s[leg] < window_start_s ||
+                 latest_touchdown_time_s[leg] > window_end_s))
                 return false;
         }
         return true;
@@ -94,6 +97,8 @@ struct TerrainTimingBounds
 
 struct TerrainContactSchedule
 {
+    // Both measured and every planned knot belong to one immutable snapshot.
+    TerrainPlanIdentity provenance{};
     // Measured contact is the current estimator/sensor observation.  Planned
     // contact is a future schedule supplied by the planner.  Neither field is
     // an implicit replacement for the applied WBC contact mask.

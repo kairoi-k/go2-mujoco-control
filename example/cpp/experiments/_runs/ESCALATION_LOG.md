@@ -4371,3 +4371,45 @@ rollback: |
 acceptance: |
   C-000 checks pass; smoke is sensor-only and produces no Stage-C actuation.
   No behavior path was enabled.
+
+---
+timestamp: 2026-09-03T18:00:00+0800
+run_id: Order-093 C-001 atomic timed plan (Stage-C-early C-001)
+source_sha: 7d65909 (pre-commit implementation baseline)
+scope: |
+  Added absolute per-leg touchdown/liftoff timing, timing bounds checks,
+  per-knot planned contact validation, and plan/map/valid-until provenance
+  binding for body and foothold knots. TerrainPlanStore now accepts only a
+  complete valid value and atomically replaces the immutable shared snapshot;
+  Replace is an equivalent whole-snapshot operation and LoadWithinGrace is
+  bounded recovery lookup only. has_stage_c_timing remains false, and no
+  gait/MPC/WBC consumer was enabled or changed to consume timed fields.
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  Unit coverage includes deterministic identity round-trip, absolute
+  touchdown/liftoff, per-knot contact count and event alignment, period/duty
+  and timing-window bounds, resampling, valid-until/grace, invalid plan
+  retention, replacement atomicity, epoch coherence, and explicit rejection
+  of new-foot/old-body provenance mixing.
+b0_smoke: |
+  Sensor-only fixed pair was run serially under flock -n
+  /tmp/go2_mujoco_experiment.lock with DDS preload
+  /home/che/dds_base8000_preload.so. b0_analyzer acceptance_status=PASS,
+  planner deadline misses=0, terrain map valid fraction=0.9999743635757684,
+  no_terrain_actuation/no_plan_consumer/no_plan_publish=true, and all paired
+  contract/legacy checks passed. The run artifact was generated before the
+  final commit and therefore records the expected dirty working tree.
+paired_diagnostics_non_gate: |
+  Honest diagnostic-only paired differences were retained: gait duty max
+  abs diff=0.091615485, gait period max abs diff=0.020 s, WBC requested
+  acceleration max abs diff=8.95232432 m/s2, and WBC velocity target max abs
+  diff=1.324857757 m/s. These are non-gated paired diagnostics; no timed
+  execution or B1-B3 claim is made.
+rollback: |
+  Keep has_stage_c_timing=false and revert the C-001 value/store/test changes;
+  legacy plan fields and Phase-1 fallback remain authoritative.
+acceptance: |
+  C-001 interface and atomicity checks pass. Timed execution remains disabled;
+  no Stage-C actuation was enabled. Simulation was serial and no contract,
+  analyzer, or canary source was changed.

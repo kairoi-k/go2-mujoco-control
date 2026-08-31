@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <limits>
 #include <string>
 
 #include "go2_forward_kinematics.h"
@@ -232,6 +233,8 @@ enum class TerrainPlanFailure : std::uint8_t
 
 struct TerrainBodyReference
 {
+    // Every body knot is provenance-bound to the immutable plan snapshot.
+    TerrainPlanIdentity provenance{};
     go2::Vec3 position{};
     go2::Vec3 linear_velocity{};
     go2::Vec3 linear_acceleration{};
@@ -245,6 +248,9 @@ struct TerrainBodyReference
 
 struct TerrainFootholdPrediction
 {
+    // A foothold is never independently publishable: this identity must
+    // match TerrainMotionPlan::identity when the timed snapshot is enabled.
+    TerrainPlanIdentity provenance{};
     bool valid = false;
     bool touchdown = false;
     double touchdown_time_s = 0.0;
@@ -300,17 +306,22 @@ inline const char *TerrainTimingProvenanceName(TerrainTimingProvenance source)
 // Phase offsets, if later exposed, remain derived telemetry.
 struct TerrainContactTiming
 {
+    // The plan identity binds timing to the same snapshot as body and feet.
+    TerrainPlanIdentity identity{};
     double period_s = 0.8;
     double duty_factor = 0.58;
     std::array<double, go2::kLegCount> touchdown_time_s{};
     std::array<bool, go2::kLegCount> touchdown_time_valid{};
+    std::array<double, go2::kLegCount> liftoff_time_s{};
+    std::array<bool, go2::kLegCount> liftoff_time_valid{};
     std::size_t horizon_knots = 0;
     double knot_dt_s = 0.020;
     TerrainTimingProvenance provenance = TerrainTimingProvenance::kNone;
 
     bool valid(const TerrainTimingBounds &bounds) const
     {
-        if (!bounds.valid() || !std::isfinite(period_s) ||
+        if (!identity.valid() || provenance == TerrainTimingProvenance::kNone ||
+            !bounds.valid() || !std::isfinite(period_s) ||
             !std::isfinite(duty_factor) || !std::isfinite(knot_dt_s) ||
             knot_dt_s <= 0.0 || period_s < bounds.min_period_s ||
             period_s > bounds.max_period_s ||
@@ -319,20 +330,31 @@ struct TerrainContactTiming
             return false;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            if (!touchdown_time_valid[leg])
-                continue;
-            const double time = touchdown_time_s[leg];
-            if (!std::isfinite(time) || time < bounds.window_start_s ||
-                time > bounds.window_end_s)
-                return false;
-            if (bounds.next_touchdown_time_valid[leg] &&
-                std::abs(time - bounds.next_touchdown_time_s[leg]) >
-                    bounds.knot_dt_s + 1.0e-9)
-                return false;
-            if (bounds.touchdown_window_valid[leg] &&
-                (time < bounds.earliest_touchdown_time_s[leg] ||
-                 time > bounds.latest_touchdown_time_s[leg]))
-                return false;
+            if (touchdown_time_valid[leg])
+            {
+                const double time = touchdown_time_s[leg];
+                if (!std::isfinite(time) || time < bounds.window_start_s ||
+                    time > bounds.window_end_s)
+                    return false;
+                if (bounds.next_touchdown_time_valid[leg] &&
+                    std::abs(time - bounds.next_touchdown_time_s[leg]) >
+                        bounds.knot_dt_s + 1.0e-9)
+                    return false;
+                if (bounds.touchdown_window_valid[leg] &&
+                    (time < bounds.earliest_touchdown_time_s[leg] ||
+                     time > bounds.latest_touchdown_time_s[leg]))
+                    return false;
+            }
+            if (liftoff_time_valid[leg])
+            {
+                const double time = liftoff_time_s[leg];
+                if (!std::isfinite(time) || time < bounds.window_start_s ||
+                    time > bounds.window_end_s)
+                    return false;
+                if (touchdown_time_valid[leg] &&
+                    time <= touchdown_time_s[leg])
+                    return false;
+            }
         }
         return true;
     }
@@ -442,11 +464,48 @@ struct TerrainMotionPlan
     bool fallback_to_phase1 = true;
     bool safe_stop_requested = false;
 
+    // Rebind every nested value after a planner changes the snapshot
+    // validity horizon.  This is the only supported way to keep provenance
+    // coherent; consumers never repair fields independently.
+    void BindIdentity()
+    {
+        identity.plan_id = plan_id;
+        identity.plan_epoch = plan_epoch;
+        identity.map_epoch = map_epoch;
+        identity.generated_at_s = generated_at_s;
+        identity.valid_until_s = valid_until_s;
+        contact_timing.identity = identity;
+        contact_schedule.provenance = identity;
+        for (std::size_t k = 0; k < kTerrainPlanMaxKnots; ++k)
+        {
+            body_reference[k].provenance = identity;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                predicted_foothold[k][leg].provenance = identity;
+        }
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            current_support_anchor[leg].provenance = identity;
+            scripted_target[leg].provenance = identity;
+        }
+    }
+
     bool valid() const
     {
+        const bool identity_matches =
+            identity.plan_id == plan_id &&
+            identity.plan_epoch == plan_epoch &&
+            identity.map_epoch == map_epoch &&
+            identity.generated_at_s == generated_at_s &&
+            identity.valid_until_s == valid_until_s;
         if ((status != TerrainPlanStatus::kValid &&
              status != TerrainPlanStatus::kDegraded) ||
             plan_id == 0 || plan_epoch == 0 || map_epoch == 0 ||
+            !identity.valid() || !identity_matches ||
+            contact_schedule.provenance.plan_id != plan_id ||
+            contact_schedule.provenance.plan_epoch != plan_epoch ||
+            contact_schedule.provenance.map_epoch != map_epoch ||
+            contact_schedule.provenance.generated_at_s != generated_at_s ||
+            contact_schedule.provenance.valid_until_s != valid_until_s ||
             !contact_schedule.valid(horizon_knots) || frame_id.empty() ||
             !std::isfinite(state_stamp_s) || !std::isfinite(generated_at_s) ||
             !std::isfinite(valid_until_s) || valid_until_s < generated_at_s ||
@@ -454,13 +513,25 @@ struct TerrainMotionPlan
             return false;
         for (std::size_t k = 0; k < horizon_knots; ++k)
         {
-            if (!body_reference[k].valid)
+            if (!body_reference[k].valid ||
+                body_reference[k].provenance.plan_id != plan_id ||
+                body_reference[k].provenance.plan_epoch != plan_epoch ||
+                body_reference[k].provenance.map_epoch != map_epoch ||
+                body_reference[k].provenance.generated_at_s != generated_at_s ||
+                body_reference[k].provenance.valid_until_s != valid_until_s)
                 return false;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {
+                const auto &foot = predicted_foothold[k][leg];
+                if (foot.valid &&
+                    (foot.provenance.plan_id != plan_id ||
+                     foot.provenance.plan_epoch != plan_epoch ||
+                     foot.provenance.map_epoch != map_epoch ||
+                     foot.provenance.generated_at_s != generated_at_s ||
+                     foot.provenance.valid_until_s != valid_until_s))
+                    return false;
                 if (!contact_schedule.planned_contact[k][leg])
                     continue;
-                const auto &foot = predicted_foothold[k][leg];
                 if (!foot.valid || !std::isfinite(foot.touchdown_time_s) ||
                     !std::isfinite(foot.position_world.x) ||
                     !std::isfinite(foot.position_world.y) ||
@@ -489,11 +560,41 @@ struct TerrainMotionPlan
                     return false;
             }
         }
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            const auto provenance_matches = [this](
+                const TerrainPlanIdentity &source) {
+                return source.plan_id == plan_id &&
+                    source.plan_epoch == plan_epoch &&
+                    source.map_epoch == map_epoch &&
+                    source.generated_at_s == generated_at_s &&
+                    source.valid_until_s == valid_until_s;
+            };
+            if ((current_support_anchor[leg].valid &&
+                 !provenance_matches(current_support_anchor[leg].provenance)) ||
+                (scripted_target[leg].valid &&
+                 !provenance_matches(scripted_target[leg].provenance)))
+                return false;
+        }
         if (has_stage_c_timing)
         {
-            if (contact_timing.horizon_knots != horizon_knots ||
+            if (contact_timing.identity.plan_id != plan_id ||
+                contact_timing.identity.plan_epoch != plan_epoch ||
+                contact_timing.identity.map_epoch != map_epoch ||
+                contact_timing.identity.generated_at_s != generated_at_s ||
+                contact_timing.identity.valid_until_s != valid_until_s ||
+                contact_timing.horizon_knots != horizon_knots ||
                 !contact_timing.valid(timing_bounds))
                 return false;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                if (contact_timing.touchdown_time_valid[leg] &&
+                    contact_timing.touchdown_time_s[leg] > valid_until_s + 1.0e-9)
+                    return false;
+                if (contact_timing.liftoff_time_valid[leg] &&
+                    contact_timing.liftoff_time_s[leg] > valid_until_s + 1.0e-9)
+                    return false;
+            }
             const double last_knot_time = state_stamp_s +
                 static_cast<double>(horizon_knots - 1) *
                     contact_timing.knot_dt_s;
@@ -505,14 +606,41 @@ struct TerrainMotionPlan
             double previous_touchdown_time = -std::numeric_limits<double>::infinity();
             std::array<bool, go2::kLegCount> previous_contact =
                 contact_schedule.measured_contact;
+            std::array<bool, go2::kLegCount> saw_touchdown{};
+            std::array<bool, go2::kLegCount> saw_liftoff{};
             for (std::size_t k = 0; k < horizon_knots; ++k)
             {
                 std::size_t planned_contacts = 0;
+                const double knot_time = state_stamp_s +
+                    static_cast<double>(k) * contact_timing.knot_dt_s;
                 for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
                 {
                     const bool planned = contact_schedule.planned_contact[k][leg];
                     planned_contacts += planned ? 1U : 0U;
                     const auto &foot = predicted_foothold[k][leg];
+                    const bool touchdown_event = planned &&
+                        !previous_contact[leg];
+                    const bool liftoff_event = !planned &&
+                        previous_contact[leg];
+                    if (touchdown_event)
+                    {
+                        if (!contact_timing.touchdown_time_valid[leg] ||
+                            !foot.touchdown || !foot.valid ||
+                            std::abs(contact_timing.touchdown_time_s[leg] -
+                                     knot_time) >
+                                0.5 * contact_timing.knot_dt_s + 1.0e-9)
+                            return false;
+                        saw_touchdown[leg] = true;
+                    }
+                    if (liftoff_event)
+                    {
+                        if (!contact_timing.liftoff_time_valid[leg] ||
+                            std::abs(contact_timing.liftoff_time_s[leg] -
+                                     knot_time) >
+                                0.5 * contact_timing.knot_dt_s + 1.0e-9)
+                            return false;
+                        saw_liftoff[leg] = true;
+                    }
                     if (foot.touchdown)
                     {
                         if (!planned || !foot.valid ||
@@ -521,17 +649,27 @@ struct TerrainMotionPlan
                             foot.touchdown_time_s > timing_bounds.window_end_s ||
                             (have_previous_touchdown &&
                              foot.touchdown_time_s + 1.0e-9 <
-                                 previous_touchdown_time))
+                                 previous_touchdown_time) ||
+                            !contact_timing.touchdown_time_valid[leg] ||
+                            std::abs(foot.touchdown_time_s -
+                                     contact_timing.touchdown_time_s[leg]) >
+                                0.5 * contact_timing.knot_dt_s + 1.0e-9)
                             return false;
                         previous_touchdown_time = foot.touchdown_time_s;
                         have_previous_touchdown = true;
                     }
-                    if (planned && !previous_contact[leg] &&
-                        (!foot.touchdown || !foot.valid))
-                        return false;
                     previous_contact[leg] = planned;
                 }
                 if (planned_contacts < 3)
+                    return false;
+            }
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                if (contact_timing.touchdown_time_valid[leg] &&
+                    !saw_touchdown[leg])
+                    return false;
+                if (contact_timing.liftoff_time_valid[leg] &&
+                    !saw_liftoff[leg])
                     return false;
             }
         }
@@ -594,13 +732,24 @@ inline bool BuildTerrainPlanHorizonIndices(
 class TerrainPlanStore
 {
 public:
-    void Publish(const TerrainMotionPlan &plan)
+    // Publish is the sole write operation.  It copies one complete validated
+    // value and atomically replaces the prior snapshot; no field-level update
+    // can be observed by a concurrent consumer.
+    bool Publish(const TerrainMotionPlan &plan)
     {
         if (!plan.valid())
-            return;
+            return false;
         auto next = std::make_shared<const TerrainMotionPlan>(plan);
         std::atomic_store_explicit(&latest_, std::move(next),
                                    std::memory_order_release);
+        return true;
+    }
+
+    // Named replacement keeps call sites explicit without introducing a
+    // partial-update API.  It has exactly the same whole-snapshot semantics.
+    bool Replace(const TerrainMotionPlan &plan)
+    {
+        return Publish(plan);
     }
 
     std::shared_ptr<const TerrainMotionPlan> Load() const
@@ -614,6 +763,19 @@ public:
         if (plan && plan->usable_at(now_s))
             return plan;
         return nullptr;
+    }
+
+    // Grace is exclusively a bounded recovery lookup.  It never changes the
+    // plan's valid_until or makes an expired snapshot usable for normal
+    // execution.
+    std::shared_ptr<const TerrainMotionPlan> LoadWithinGrace(
+        double now_s, double grace_s) const
+    {
+        auto plan = Load();
+        if (!plan || !std::isfinite(now_s) || !std::isfinite(grace_s) ||
+            grace_s < 0.0 || !plan->valid())
+            return nullptr;
+        return now_s <= plan->valid_until_s + grace_s ? plan : nullptr;
     }
 
 private:

@@ -1337,17 +1337,26 @@ int main()
     atomic_plan.state_stamp_s = 1.0;
     atomic_plan.generated_at_s = 1.0;
     atomic_plan.valid_until_s = 2.0;
+    atomic_plan.identity.plan_id = atomic_plan.plan_id;
+    atomic_plan.identity.plan_epoch = atomic_plan.plan_epoch;
+    atomic_plan.identity.map_epoch = atomic_plan.map_epoch;
+    atomic_plan.identity.generated_at_s = atomic_plan.generated_at_s;
+    atomic_plan.identity.valid_until_s = atomic_plan.valid_until_s;
     atomic_plan.frame_id = "base_link";
     atomic_plan.status = go2_terrain::TerrainPlanStatus::kValid;
     atomic_plan.horizon_knots = 1;
     atomic_plan.body_reference[0].valid = true;
+    atomic_plan.body_reference[0].provenance = atomic_plan.identity;
     atomic_plan.contact_schedule = input.contact_schedule;
+    atomic_plan.contact_schedule.provenance = atomic_plan.identity;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         atomic_plan.contact_schedule.planned_contact[0][leg] = true;
         atomic_plan.predicted_foothold[0][leg].valid = true;
         atomic_plan.predicted_foothold[0][leg].position_world =
             input.current_feet_base[leg];
+        atomic_plan.predicted_foothold[0][leg].provenance =
+            atomic_plan.identity;
     }
     go2_terrain::TerrainPlanStore store;
     store.Publish(atomic_plan);
@@ -2484,6 +2493,11 @@ int main()
         plan.state_stamp_s = 1.0;
         plan.generated_at_s = 1.0;
         plan.valid_until_s = 1.20;
+        plan.identity.plan_id = plan.plan_id;
+        plan.identity.plan_epoch = plan.plan_epoch;
+        plan.identity.map_epoch = plan.map_epoch;
+        plan.identity.generated_at_s = plan.generated_at_s;
+        plan.identity.valid_until_s = plan.valid_until_s;
         plan.frame_id = "base_link";
         plan.status = go2_terrain::TerrainPlanStatus::kValid;
         plan.horizon_knots = 3;
@@ -2491,30 +2505,37 @@ int main()
         plan.timing_bounds.window_start_s = 1.0;
         plan.timing_bounds.window_end_s = 1.20;
         plan.timing_bounds.knot_dt_s = 0.10;
+        plan.contact_timing.identity = plan.identity;
         plan.contact_timing.horizon_knots = 3;
         plan.contact_timing.knot_dt_s = 0.10;
         plan.contact_timing.period_s = 0.80;
         plan.contact_timing.duty_factor = 0.75;
         plan.contact_timing.provenance =
             go2_terrain::TerrainTimingProvenance::kStageCPlanner;
-        plan.contact_schedule.measured_contact = {true, true, true, true};
+        plan.contact_schedule.provenance = plan.identity;
+        plan.contact_schedule.measured_contact = {false, true, true, true};
         plan.contact_schedule.measured_valid = true;
         plan.contact_schedule.planned_valid = true;
         for (std::size_t k = 0; k < plan.horizon_knots; ++k)
         {
             plan.contact_schedule.planned_contact[k] =
-                {true, true, true, true};
+                k == 0 ? std::array<bool, go2::kLegCount>{false, true, true, true}
+                       : std::array<bool, go2::kLegCount>{true, true, true, true};
             plan.body_reference[k].valid = true;
+            plan.body_reference[k].provenance = plan.identity;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {
                 auto &foot = plan.predicted_foothold[k][leg];
                 foot.valid = true;
+                foot.provenance = plan.identity;
                 foot.position_world = {0.2, 0.1, 0.0};
             }
         }
         auto &touchdown = plan.predicted_foothold[1][0];
         touchdown.touchdown = true;
         touchdown.touchdown_time_s = 1.10;
+        plan.contact_timing.touchdown_time_s[0] = 1.10;
+        plan.contact_timing.touchdown_time_valid[0] = true;
         touchdown.swing_duration_s = 0.10;
         touchdown.swing_start_position_valid = true;
         touchdown.swing_start_position_world = {0.1, 0.1, 0.0};
@@ -2532,6 +2553,74 @@ int main()
                        timing_loaded->contact_timing.provenance ==
                            go2_terrain::TerrainTimingProvenance::kStageCPlanner,
                    "minimal valid Stage-C plan was not atomically round-tripped"))
+            return 1;
+
+        if (!Check(timing_loaded && timing_loaded->has_stage_c_timing &&
+                       timing_loaded->contact_timing.provenance ==
+                           go2_terrain::TerrainTimingProvenance::kStageCPlanner &&
+                       timing_loaded->identity.plan_id ==
+                           timing_loaded->contact_timing.identity.plan_id &&
+                       timing_loaded->body_reference[1].provenance.map_epoch == 1 &&
+                       timing_loaded->predicted_foothold[1][0].provenance.plan_id == 11,
+                   "minimal valid Stage-C plan was not atomically round-tripped"))
+            return 1;
+        if (!Check(!timing_store.LoadUsable(1.21) &&
+                       timing_store.LoadWithinGrace(1.21, 0.05) &&
+                       !timing_store.LoadWithinGrace(1.26, 0.05),
+                   "valid-until/grace lookup did not remain bounded"))
+            return 1;
+
+        // A single identity covers every timing/body/foothold field.  A
+        // provenance mismatch must reject the complete candidate, proving
+        // that a new foot cannot be paired with an old body/contact/timing.
+        auto mixed_snapshot = valid_plan;
+        mixed_snapshot.predicted_foothold[1][0].provenance.plan_id = 10;
+        if (!Check(!mixed_snapshot.valid(),
+                   "new foothold with old snapshot provenance was accepted"))
+            return 1;
+        auto mismatched_identity = valid_plan;
+        mismatched_identity.map_epoch = 2;
+        if (!Check(!mismatched_identity.valid(),
+                   "plan/map identity mismatch was accepted"))
+            return 1;
+        auto replacement = valid_plan;
+        replacement.plan_id = 12;
+        replacement.plan_epoch = 12;
+        replacement.map_epoch = 2;
+        replacement.identity.plan_id = replacement.plan_id;
+        replacement.identity.plan_epoch = replacement.plan_epoch;
+        replacement.identity.map_epoch = replacement.map_epoch;
+        replacement.contact_timing.identity = replacement.identity;
+        replacement.contact_schedule.provenance = replacement.identity;
+        for (std::size_t k = 0; k < replacement.horizon_knots; ++k)
+        {
+            replacement.body_reference[k].provenance = replacement.identity;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                replacement.predicted_foothold[k][leg].provenance =
+                    replacement.identity;
+        }
+        if (!Check(timing_store.Replace(replacement) &&
+                       timing_store.LoadUsable(1.15)->plan_id == 12 &&
+                       !timing_store.Publish(mixed_snapshot) &&
+                       timing_store.LoadUsable(1.15)->plan_id == 12,
+                   "whole-snapshot replacement accepted a partial update"))
+            return 1;
+
+        auto with_liftoff = valid_plan;
+        with_liftoff.contact_schedule.planned_contact[2] =
+            {false, true, true, true};
+        with_liftoff.contact_timing.liftoff_time_s[0] = 1.20;
+        with_liftoff.contact_timing.liftoff_time_valid[0] = true;
+        if (!Check(with_liftoff.valid(),
+                   "absolute per-leg liftoff was not aligned to a knot"))
+            return 1;
+        auto non_knot_liftoff = valid_plan;
+        non_knot_liftoff.contact_schedule.planned_contact[2] =
+            {false, true, true, true};
+        non_knot_liftoff.contact_timing.liftoff_time_s[0] = 1.05;
+        non_knot_liftoff.contact_timing.liftoff_time_valid[0] = true;
+        if (!Check(!non_knot_liftoff.valid(),
+                   "liftoff before touchdown was accepted"))
             return 1;
 
         auto non_monotonic = valid_plan;
