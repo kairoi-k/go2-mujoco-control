@@ -611,6 +611,7 @@ private:
     std::size_t terrain_stage_reposition_leg_ = go2::kLegCount;
     go2::Vec3 terrain_stage_reposition_target_world_{};
     std::array<bool, go2::kLegCount> terrain_stage_repositioned_{};
+    bool terrain_stage_reposition_scan_complete_ = false;
     go2_control::GaitPattern runtime_gait_pattern_ =
         go2_control::GaitPattern::kDiagonalTrot;
     double terrain_surface_transition_target_world_z_ = 0.0;

@@ -754,6 +754,7 @@ bool TrotExperiment::BuildGaitTargets(
             terrain_stage_reposition_leg_ = go2::kLegCount;
             terrain_stage_reposition_target_world_ = {};
             terrain_stage_repositioned_.fill(false);
+            terrain_stage_reposition_scan_complete_ = false;
             terrain_crawl_sequencer_.Reset();
         }
     }
@@ -1990,6 +1991,9 @@ bool TrotExperiment::BuildGaitTargets(
         sequencer_input.flat_ground_mode = flat_crawl_debug;
         sequencer_input.allow_creep_entry =
             !flat_crawl_debug && !staged_start_debug;
+        sequencer_input.support_reposition_ready =
+            flat_crawl_debug || staged_start_debug ||
+            terrain_stage_reposition_scan_complete_;
         sequencer_input.flat_step_length_m =
             params_.direction_sign * std::clamp(Full2EnvDouble(
                 "TROT_FLAT_CRAWL_STEP_M", 0.04), 0.02, 0.08);
@@ -3247,6 +3251,8 @@ bool TrotExperiment::BuildGaitTargets(
                             actual_world_feet[candidate_leg].z};
                         break;
                     }
+                    if (terrain_stage_reposition_leg_ >= go2::kLegCount)
+                        terrain_stage_reposition_scan_complete_ = true;
                 }
                 if (terrain_stage_reposition_leg_ < go2::kLegCount)
                 {

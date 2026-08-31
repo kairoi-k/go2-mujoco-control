@@ -69,6 +69,9 @@ struct TerrainCrawlSequencerInput
     // V2 full runs may hand crawl authority over at the contract's moving
     // creep envelope. Staged and flat harness callers retain the stop gate.
     bool allow_creep_entry = false;
+    // Full-v2 STAGE may first relocate already-loaded support feet. The
+    // sequencer must not release SHIFT until that measured-contact step ends.
+    bool support_reposition_ready = true;
     // The legacy state machine enters STAGE after authority. Keep the two
     // owners from launching the first swing on different ticks.
     bool legacy_stage_ready = true;
@@ -411,6 +414,7 @@ public:
                     : std::isfinite(measured_basin_margin) &&
                       measured_basin_margin >= kBasinMarginM);
             const bool settled = at_standoff && measured_basin_ready &&
+                (input.flat_ground_mode || input.support_reposition_ready) &&
                 (input.flat_ground_mode || contacts ==
                     static_cast<int>(go2::kLegCount)) &&
                 std::isfinite(input.measured_velocity_mps) &&
