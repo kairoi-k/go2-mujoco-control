@@ -3463,3 +3463,52 @@ validation: |
   fresh B0 3x, crossing, or confirmation claim is made.
 commit_chain: |
   4bcb5a5, 588f325, 261abd6. No push or amend.
+
+
+---
+
+Order-075 implementation update — 2026-09-02
+
+source_sha: bebdcb391e38bdb1bff0df7be69b6b42663f470b
+forensics: |
+  Replayed the corrected Order-074 guard05 CSV at the requested second-SHIFT
+  timestamp (cmd/state tick 17.858/19.604 s). The sequencer target is the
+  measured 3-D incenter (0.40729, 0.09586, 0.04413) m of
+  {FL_high=(0.77067,0.10496,0.07339), RR=(0.23852,-0.19502,0.02304),
+  RL=(0.23602,0.19169,0.02172)}; measured COM was (0.37858,0.02976) m,
+  margin +0.10988 m. At the same tick roll was already 0.1831 rad (the
+  preceding samples pass 0.146 rad), pitch -0.0524 rad, base z 0.4075 m,
+  and measured FR/FL/RR/RL normal forces were 11/0/0/73 N, while ID-WBC
+  requested 34.14/34.97/40.23/46.99 N. The subsequent samples show roll
+  0.183->0.316 rad and base z 0.4075->0.3952 m while the QP residual stays
+  3.0e-6--6.3e-6 and max accepted tau is 34.9 Nm in the captured interval.
+  This is plant/support divergence, not a bad 3-D target: the uphill
+  component toward raised FL is +0.066 m in y from the measured COM, and
+  the realized FL/RR support is already absent despite finite ID forces.
+fix: |
+  Added the opt-in TerrainCrawlAdvancePolicy::kBeforeSecondStep and CLI
+  --terrain-advance-body-before-second. It enters the existing measured,
+  four-contact ADVANCE_BODY immediately after order index 0 (FL) and only
+  then selects FR; the default after-second policy is unchanged. Both the
+  event sequencer and legacy state machine receive the same policy.
+geometry: |
+  Using the measured staged feet, A=|cross(b-a,c-a)|/2 and h_min=2A/L_max:
+  first flat support {FR,RR,RL}: A=0.07508 m2, h=0.30538 m; direct mixed
+  second support {FL_high,RR,RL}: A=0.07568 m2, h=0.30579 m. Thus the
+  triangle is not thin. The four-contact convex-hull margin at COM
+  (0.37,0.03) is 0.1313 m and remains 0.1061 m after a 0.12 m forward
+  advance (XY diagnostic); ADVANCE is selected to remove the mixed-height
+  lateral COM transfer, not because of triangle area.
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  Serial domain-229 staged probes used DDS preload
+  /home/che/dds_base4000_preload.so, Base=4000, duration 30/wall 35,
+  --staged-start and the new policy. order075_staged_seed195_advance01,
+  _advance02, _advance03, _advance_tau60, _advance_x440, _advance_nopin,
+  seed196_advance01, seed197_advance01, seed198_advance01 and seed244_advance01
+  all stopped in the upstream FL swing/COMMIT rung before exercising the
+  new post-FL ADVANCE policy. No staged >=3, full reconnect, B0 3x, flat
+  20/20, crossing, or confirmation claim is made in this window.
+commit_chain: |
+  69f2b2d, bebdcb3. No push or amend.
