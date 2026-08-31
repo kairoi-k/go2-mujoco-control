@@ -3376,3 +3376,40 @@ validation: |
   B0, flat 20/20, or crossing confirmation is claimed.
 commit_chain: |
   bfb1960, a334643, b49740f. No push or amend.
+
+---
+
+Order-073 implementation update — 2026-09-02
+
+source_sha: f8ad0eedf39124f728f3c89e12c53ce60e3489f3
+forensics: |
+  The opt-in per-tick ID-WBC telemetry records all four desired world-frame
+  force components, the support-plane normal, local cone ratio/activity, QP
+  objective decomposition, equality/task residuals, iterations, and posture/
+  stance/swing/force-tracking weights. In the mixed-height FR swing probe
+  (FL raised), the raised FL ratio stayed 0.03..0.10 (well below activation),
+  while ID requested FL about (0.8,-1.6,49.4) N and RR/RL about
+  (1.4,-1.6,61.8)/(2.8,-1.6,49.8) N; measured forces simultaneously fell
+  to FL=0, RR=7, RL=16 N. QP residual remained 0.000039--0.000064 and
+  cost rose 1.1e3 to 2.8e4. This rejects (a) and (b) as primary causes:
+  it is (c), a physically unrealized stance allocation (liftoff/slip), with
+  no raised-FL cone activation. The tilted reference normal was about
+  (-0.102,0,0.995).
+fix: |
+  ID-WBC now accepts optional per-contact support normals and constructs the
+  normal/tangent friction pyramid and normal floors in that frame; flat
+  callers retain the exact world-Z default. Terrain mixed-height handoff
+  passes the measured support-plane normal, raises scoped stance no-slip to
+  180, raises the scoped feasibility floor to 45 N, and enables hard stance
+  no-slip with the existing infeasibility fallback. No v1 contract, analyzer,
+  canary, or safety gate changed. Added source-named tilted-normal coverage.
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  Serial staged probe order073_staged_seed195_tiltcone_fix6 used domain 229,
+  DDS preload /home/che/dds_base4000_preload.so, Base=4000, duration 30/wall
+  35 and reached FL SWING/COMMIT boundary only; it did not complete the full
+  sequence. No flat 20/20, staged >=3, full reconnect, B0, or crossing claim
+  is made in this implementation window.
+commit_chain: |
+  05399d1, f8ad0ee. No push or amend.
