@@ -3512,11 +3512,24 @@ bool TrotExperiment::BuildGaitTargets(
                 path_progress_rate *
                     (execution.target_world.z - execution.start_world.z) +
                     swing_arch_rate};
-            if (sequencer_output.state ==
-                    go2_terrain::TerrainCrawlSequencerState::kSwing &&
-                sequencer_output.active_leg == leg)
+            if (sequencer_output.active_leg == leg &&
+                sequencer_output.state ==
+                    go2_terrain::TerrainCrawlSequencerState::kSwing)
+            {
                 apply_world_target(leg, sequencer_output.swing_position_world,
                                    sequencer_output.swing_velocity_world);
+            }
+            else if (sequencer_output.active_leg == leg &&
+                     sequencer_output.state ==
+                         go2_terrain::TerrainCrawlSequencerState::kCommit)
+            {
+                // COMMIT is an endpoint observation window. Keep the
+                // sequencer-owned endpoint commanded while contact settles;
+                // continuing the planner path here lets the body pull the
+                // foot away from the measured touchdown witness.
+                apply_world_target(leg, sequencer_output.target_world,
+                                   go2::Vec3{});
+            }
             else
                 apply_world_target(leg, path_world, path_velocity);
         }
