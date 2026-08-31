@@ -4043,3 +4043,56 @@ acceptance: |
   Entry probe: PASS, 8/8. Ten-pair continuation: entered 20/20, full sequence
   0/20, crossing 0/20, confirmation none. No gate-level conclusion.
 git_status: source and evidence are committed locally; no push, no amend, no staged files.
+
+
+---
+timestamp: 2026-09-03T02:00:00+0800
+run_id: Order-086 v2 body-advance wiring and probe
+trigger: T1
+forensics: |
+  Order-085 raises body_advance_requested in
+  example/cpp/terrain/terrain_crawl_sequencer.h:451-465 after CaptureTarget,
+  but UpdateRuntimeVelocityCommand consumes the previous output at
+  example/cpp/trot/trot_experiment_gait.cpp:318-326. The final staging
+  micro-adjust at :430-435 could then replace the request with 0.03 m/s.
+  The CSVs showed request/shaped/applied 0.12/0.12/0.12 m/s in epoch302-303
+  while SHIFT was active, but measured speed was -0.74..+0.61 m/s and base_x
+  moved backward. At example/cpp/trot/trot_experiment_wbc.cpp:1037-1056,
+  SHIFT_COM MPC held reference velocity at zero; at :559-566 and gait
+  :3592-3608 transfer/anchor policy froze support; at :48-65 state-machine
+  WBC policy forced all four contacts. The request was applied but overruled
+  by the balance/support plant, not missing at the sequencer.
+implementation: |
+  Full v2 SHIFT retains the captured endpoint instead of recapturing the
+  moving planner target (terrain_crawl_sequencer.h:460-462), preserves the
+  request against the staging override (trot_experiment_gait.cpp:430-433),
+  and passes a bounded 0.08 m/s target through MPC/ID-WBC
+  (trot_experiment_wbc.cpp:187-199, :1037-1056, :1563-1574). The ordinary
+  crawl contact schedule is allowed only for full v2 SHIFT body advance;
+  transfer anchors and the all-contact SHIFT_COM override remain for
+  staged/flat (terrain_crawl_state_machine.h:51-66; trot_experiment_wbc.cpp:
+  325-330, :559-566, :609-618; trot_experiment_gait.cpp:3592-3620). A v2
+  swing synchronizes the legacy state before its STAGE timeout
+  (terrain_crawl_sequencer.h:473-479; terrain_crawl_state_machine.h:926-935).
+probe_validation: |
+  Eight serial probes b1_freegait_epoch304..307 and _r2 used flock
+  /tmp/go2_mujoco_experiment.lock, domain 229, and
+  LD_PRELOAD=/home/che/dds_base4000_preload.so. All 8/8 reached the measured
+  reachability proxy (minimum target radial distance <= 0.406 m; examples:
+  epoch304 0.386 m, epoch304_r2 0.116 m, epoch305 0.327 m, epoch306 0.388 m).
+  2/8 entered SWING (epoch304 and epoch306), 0/8 completed the full sequence;
+  the two SWING runs subsequently aborted on physical/safety failure. No
+  >=6/8 completion claim and no campaign continuation is made.
+unit_validation: |
+  Added sequencer body-advance coverage and v2 contact-policy coverage in
+  test_terrain_interfaces.cpp. cmake --build example/cpp/build -j2 PASS;
+  ctest --test-dir example/cpp/build --output-on-failure PASS 27/27;
+  git diff --check PASS. Source/evidence commits were local only; no push or
+  amend.
+acceptance: |
+  Reachability proxy 8/8; full sequence 0/8. The repair wires the v2 request
+  through velocity, MPC, WBC contact, and anchored-foot consumers, but the
+  completion threshold is not met.
+commit_chain: |
+  2fcb510, 9650872, ae73cba, 3bf65ce, 6896403, c8cd37c, 9299580,
+  909b48b, 8b3b3e7, 6fb4047, 7ffa34d, 45de079.
