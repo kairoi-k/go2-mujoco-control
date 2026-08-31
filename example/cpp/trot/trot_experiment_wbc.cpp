@@ -1727,6 +1727,8 @@ void TrotExperiment::UpdateWbcFull(
     id_params.w_swing = terrain_raised_support
         ? 35.0
         : (params_.cartesian_world ? 80.0 : 80.0);
+    if (terrain_raised_support)
+        id_params.w_stance_no_slip = 120.0;
     const double w_sw_ov = Full2EnvDouble("FULL2_W_SWING", -1.0);
     if (w_sw_ov > 0.0)
         id_params.w_swing = w_sw_ov;
