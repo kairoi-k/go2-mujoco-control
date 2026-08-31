@@ -470,10 +470,18 @@ public:
                         active_leg(), input.measured_com_world);
                 const bool measured_margin_valid =
                     std::isfinite(measured_margin);
+                const bool v2_shift_ready = input.allow_creep_entry &&
+                    measured_margin_valid && measured_margin >= 0.0 &&
+                    std::isfinite(input.measured_velocity_mps) &&
+                    input.measured_velocity_mps <= kCreepEntrySpeedMps &&
+                    input.measured_posture_valid &&
+                    std::abs(input.measured_roll_rad) <= 0.08 &&
+                    std::abs(input.measured_pitch_rad) <= 0.08;
                 if (measured_margin_valid &&
                     (measured_margin >= 0.0 ||
                      input.flat_ground_mode) &&
-                    (input.flat_ground_mode || input.legacy_shift_ready) &&
+                    (input.flat_ground_mode || input.legacy_shift_ready ||
+                     v2_shift_ready) &&
                     finite_time && input.now_s - state_enter_s_ + 1e-9 >=
                         kShiftDwellS)
                     SetState(TerrainCrawlSequencerState::kSwing, input.now_s);
