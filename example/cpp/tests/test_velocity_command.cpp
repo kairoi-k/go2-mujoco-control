@@ -14,7 +14,12 @@ int main()
     const auto probe = go2_trot::ScheduleContinuousVelocityGait(0.30, true);
     const auto sprint = go2_trot::ScheduleContinuousVelocityGait(3.0, false);
     const auto crawl = go2_trot::ScheduleTerrainCrawl(0.12);
+    const auto low_crawl = go2_trot::ScheduleTerrainCrawl(0.12, true);
     assert(std::abs(crawl.period_s - 0.50) < 1.0e-9);
+    assert(std::abs(low_crawl.period_s - 0.60) < 1.0e-9);
+    assert(std::abs(low_crawl.duty_factor - 0.85) < 1.0e-9);
+    assert(std::abs(low_crawl.foot_lift_m - 0.025) < 1.0e-9);
+    assert(low_crawl.step_length_m <= 0.035 + 1.0e-9);
     assert(std::abs(crawl.duty_factor - 0.80) < 1.0e-9);
     assert(crawl.step_length_m >= 0.05 * crawl.period_s /
            (2.0 * crawl.duty_factor));

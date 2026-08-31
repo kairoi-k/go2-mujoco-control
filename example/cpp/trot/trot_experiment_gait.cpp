@@ -148,6 +148,11 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         Full2EnvDouble("TROT_TERRAIN_DEBUG_FLAT_CRAWL", 0.0) > 0.5;
     const bool staged_start_debug =
         Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) > 0.5;
+    const bool low_stance_active =
+        go2_terrain::TerrainCrawlLowStanceActive(
+            terrain_crawl_sequencer_output_.state,
+            terrain_crawl_sequencer_output_.control_authority_active,
+            flat_crawl_debug);
     const bool full_v2_shift =
         terrain_crawl_sequencer_output_.state ==
             go2_terrain::TerrainCrawlSequencerState::kShift &&
@@ -206,17 +211,23 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     const bool event_crawl_active =
         terrain_crawl_sequencer_output_.control_authority_active &&
         terrain_crawl_sequencer_output_.state !=
-            go2_terrain::TerrainCrawlSequencerState::kStage;
+            go2_terrain::TerrainCrawlSequencerState::kStage &&
+        terrain_crawl_sequencer_output_.state !=
+            go2_terrain::TerrainCrawlSequencerState::kResume;
     const bool terrain_crawl_active = terrain_window_active &&
         (event_crawl_active ||
          (terrain_crawl_sequencer_output_.control_authority_active &&
           terrain_crawl_sequencer_output_.state !=
               go2_terrain::TerrainCrawlSequencerState::kStage &&
+          terrain_crawl_sequencer_output_.state !=
+              go2_terrain::TerrainCrawlSequencerState::kResume &&
           terrain_crawl_state_machine_.UsesCrawlExecution()) ||
          (terrain_crawl_sequencer_output_.control_authority_active &&
           terrain_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep &&
           terrain_crawl_sequencer_output_.state !=
-              go2_terrain::TerrainCrawlSequencerState::kStage));
+              go2_terrain::TerrainCrawlSequencerState::kStage &&
+          terrain_crawl_sequencer_output_.state !=
+              go2_terrain::TerrainCrawlSequencerState::kResume));
     if ((params_.terrain_actuation && !params_.terrain_sensor_only) ||
         flat_crawl_debug)
     {
@@ -495,7 +506,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     }
     velocity_command_state_.applied_mps = applied_mps;
     const auto schedule = terrain_crawl_active
-        ? ScheduleTerrainCrawl(applied_mps)
+        ? ScheduleTerrainCrawl(applied_mps, low_stance_active)
         : velocity_gait_scheduler_.Step(applied_mps, dt);
     runtime_gait_pattern_ = terrain_crawl_active
         ? go2_control::GaitPattern::kCrawl
@@ -528,6 +539,21 @@ bool TrotExperiment::BuildGaitTargets(
     std::array<double, kMotorCount> &joint_targets)
 {
     auto feet = go2::AllFootPositions(task_.stand_up_joint_pos_);
+    const bool low_stance_active =
+        go2_terrain::TerrainCrawlLowStanceActive(
+            terrain_crawl_sequencer_output_.state,
+            terrain_crawl_sequencer_output_.control_authority_active,
+            Full2EnvDouble("TROT_TERRAIN_DEBUG_FLAT_CRAWL", 0.0) > 0.5);
+    if (low_stance_active)
+    {
+        for (auto &foot : feet)
+        {
+            if (std::abs(foot.y) > 1.0e-6)
+                foot.y += std::copysign(
+                    go2_terrain::TerrainCrawlStateMachine::
+                        kLowStanceLateralOutwardM, foot.y);
+        }
+    }
     go2_control::GaitKernelResult gait_result{};
     go2_control::GaitKernelRequest gait_request{};
     const double phase_period_s = params_.period_s > 0.0
@@ -554,17 +580,23 @@ bool TrotExperiment::BuildGaitTargets(
     const bool event_crawl_active =
         terrain_crawl_sequencer_output_.control_authority_active &&
         terrain_crawl_sequencer_output_.state !=
-            go2_terrain::TerrainCrawlSequencerState::kStage;
+            go2_terrain::TerrainCrawlSequencerState::kStage &&
+        terrain_crawl_sequencer_output_.state !=
+            go2_terrain::TerrainCrawlSequencerState::kResume;
     const bool terrain_crawl_active = terrain_transfer_window_active_ &&
         (event_crawl_active ||
          (terrain_crawl_sequencer_output_.control_authority_active &&
           terrain_crawl_sequencer_output_.state !=
               go2_terrain::TerrainCrawlSequencerState::kStage &&
+          terrain_crawl_sequencer_output_.state !=
+              go2_terrain::TerrainCrawlSequencerState::kResume &&
           terrain_crawl_state_machine_.UsesCrawlExecution()) ||
          (terrain_crawl_sequencer_output_.control_authority_active &&
           terrain_state == go2_terrain::TerrainCrawlState::kDecelerateToCreep &&
           terrain_crawl_sequencer_output_.state !=
-              go2_terrain::TerrainCrawlSequencerState::kStage));
+              go2_terrain::TerrainCrawlSequencerState::kStage &&
+          terrain_crawl_sequencer_output_.state !=
+              go2_terrain::TerrainCrawlSequencerState::kResume));
     runtime_gait_pattern_ = terrain_crawl_active
         ? go2_control::GaitPattern::kCrawl
         : params_.gait_pattern;
@@ -2030,7 +2062,11 @@ bool TrotExperiment::BuildGaitTargets(
             terrain_crawl_state_machine_.state() ==
                 go2_terrain::TerrainCrawlState::kShiftCom &&
             terrain_crawl_state_machine_.com_target_valid() &&
-            terrain_crawl_state_machine_.com_margin_m() >= 0.02 &&
+            terrain_crawl_state_machine_.com_margin_m() >=
+                (low_stance_active
+                     ? go2_terrain::TerrainCrawlStateMachine::
+                           kLowStanceComMarginM
+                     : 0.02) &&
             have_high_state)
         {
             const std::size_t lifted_leg =
@@ -2069,7 +2105,11 @@ bool TrotExperiment::BuildGaitTargets(
         if (!flat_crawl_debug && sequencer_input.legacy_shift_ready)
             sequencer_input.legacy_shift_ready =
                 std::isfinite(sequencer_input.com_margin_m) &&
-                sequencer_input.com_margin_m >= 0.02;
+                sequencer_input.com_margin_m >=
+                    (low_stance_active
+                         ? go2_terrain::TerrainCrawlStateMachine::
+                               kLowStanceComMarginM
+                         : 0.02);
         sequencer_input.terrain = live_terrain_model.get();
         if (staged_start_debug &&
             terrain_crawl_state_machine_.com_target_leg() < go2::kLegCount)

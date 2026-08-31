@@ -4292,3 +4292,49 @@ acceptance: |
   STAGE relocation repairs are local and v2-scoped, but physical target
   SHIFT witness >=6/8 was not met: 0/8. Local commits are retained; no push
   and no amend.
+
+---
+timestamp: 2026-09-03T14:00:00+0800
+run_id: Order-090 v2 low-stance crawl pivot
+source_sha: c5348b5 (requested HEAD)
+trigger: T1 pivot criterion met after 48 documented full-run attempts with zero measured-support-witness passes and zero complete sequences.
+design: |
+  Added docs/research/PHASE2_ORDER090_LOW_STANCE_CRAWL.md. The v2-only
+  authority path targets 0.34 m body height, COM MPC weights 420/24,
+  height PD 480/72, 25 mm outward nominal lateral stance offset, 0.60 s
+  period / 0.85 duty / 25 mm nominal lift / 35 mm step cap, and sequencer
+  internal measured-margin release 10 mm. V2-A and V2-B citations in the
+  design document establish the legal window speed and crawl topology;
+  analyzer, canary, and contract definitions were not changed. RESUME
+  excludes the low-stance override so the frozen Phase-1 profile restores.
+implementation: |
+  Low-stance activation is gated by sequencer control authority and excludes
+  flat mode and RESUME. Existing default ScheduleTerrainCrawl remains 0.50 s,
+  0.80 duty, 35 mm lift; only the new explicit low-stance argument changes
+  the v2 authority schedule. Support anchors remain measured/frozen; only
+  nominal non-frozen lateral targets receive the outward offset. The v2
+  internal support margin uses 0.010 m while legacy/staged defaults retain
+  their prior thresholds. No analyzer/canary/contract source was modified.
+validation: |
+  cmake --build example/cpp/build -j2: PASS.
+  ctest --test-dir example/cpp/build --output-on-failure: 27/27 PASS.
+  git diff --check: PASS.
+staged_probe: |
+  One serial staged harness run was executed under flock -x
+  /tmp/go2_mujoco_experiment.lock with domain 229 and
+  LD_PRELOAD=/home/che/dds_base4000_preload.so, scene
+  phase2_step_5cm.xml, controller duration 30 s, and the unchanged B1
+  command. order090_staged_1 reached sequencer STAGE but completed 0/1;
+  no CLEAR/RESUME or measured complete sequence appeared. The controller
+  stopped on the hard posture limit after support loss (roll about 179.9
+  degrees). This is the required stop condition; no additional staged or
+  full-run probes were started.
+probe_table: |
+  run                 complete sequence   result
+  order090_staged_1  0/1                 STOP: no complete sequence
+  epoch328-331        not run             blocked by stop rule
+acceptance: |
+  Design and implementation are complete and unit/ctest validation is green,
+  but staged >=3 and the full 4-pair >=6/8 gate were not achieved. Per
+  Order-090 stop rule the low-stance pivot is not a B1 claim and the next
+  decision is returned to the human owner. No 10-pair campaign was run.

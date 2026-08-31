@@ -684,6 +684,15 @@ public:
         kLateralLegOrder;
     static constexpr int kMaxRetries = 2;
     static constexpr double kComMarginM = 0.02;
+    // Order-090 low-stance margin is sequencer-internal; contract/analyzer
+    // thresholds remain unchanged.
+    static constexpr double kLowStanceComMarginM = 0.010;
+    static constexpr double kLowStanceBodyHeightM = 0.34;
+    static constexpr double kLowStanceComPositionWeight = 420.0;
+    static constexpr double kLowStanceComVelocityWeight = 24.0;
+    static constexpr double kLowStanceHeightKp = 480.0;
+    static constexpr double kLowStanceHeightKd = 72.0;
+    static constexpr double kLowStanceLateralOutwardM = 0.025;
     static constexpr double kComShiftRampS = 0.40;
     // Asymmetric support can need more than the symmetric 0.40 s ramp. The
     // duration is selected from measured COM-to-incenter displacement.
@@ -1099,8 +1108,10 @@ public:
                 std::isfinite(com_stable_start_time_s_) &&
                 signals.now_s - com_stable_start_time_s_ + 1.0e-9 >=
                     kStableDwellS;
-            const bool shift_ready = geometric_ready && ComShiftReady() &&
-                force_balanced;
+            const double required_com_margin = signals.allow_creep_entry
+                ? kLowStanceComMarginM : kComMarginM;
+            const bool shift_ready = geometric_ready &&
+                ComShiftReady(required_com_margin) && force_balanced;
             if (signals.plan_valid && !signals.sequencer_stage_pending &&
                 !signals.sequencer_pre_swing_pending &&
                 (shift_ready || signals.sequencer_swing_active ||
@@ -1432,9 +1443,9 @@ private:
                 alpha * (interior.z - com_shift_start_world_.z)};
     }
 
-    bool ComShiftReady() const noexcept
+    bool ComShiftReady(double required_margin_m = kComMarginM) const noexcept
     {
-        return triangle_valid_ && com_margin_m_ >= kComMarginM;
+        return triangle_valid_ && com_margin_m_ >= required_margin_m;
     }
 
     bool ForceBalanceReady(const TerrainCrawlSignals &signals,

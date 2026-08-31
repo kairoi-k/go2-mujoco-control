@@ -188,6 +188,20 @@ struct TerrainCrawlSequencerOutput
     std::array<bool, go2::kLegCount> committed{};
 };
 
+inline bool TerrainCrawlLowStanceActive(
+    TerrainCrawlSequencerState state, bool authority_active,
+    bool flat_ground_mode) noexcept
+{
+    if (!authority_active || flat_ground_mode)
+        return false;
+    return state == TerrainCrawlSequencerState::kStage ||
+        state == TerrainCrawlSequencerState::kShift ||
+        state == TerrainCrawlSequencerState::kSwing ||
+        state == TerrainCrawlSequencerState::kCommit ||
+        state == TerrainCrawlSequencerState::kAdvance ||
+        state == TerrainCrawlSequencerState::kClear;
+}
+
 class TerrainCrawlSequencer
 {
 public:
@@ -238,6 +252,9 @@ public:
         0.5 * (kMeasuredBasinEdgeMinusBaseMaxM -
                kMeasuredBasinEdgeMinusBaseMinM);
     static constexpr double kStableForceMinN = 10.0;
+    // Low-stance tuning is deliberately scoped to the v2 sequencer owner.
+    static constexpr double kLowStanceSwingLiftFlM = 0.035;
+    static constexpr double kLowStanceSwingLiftM = 0.045;
     static constexpr double kStableForceTotalMinN = 50.0;
     static constexpr double kStableForceImbalanceRatio = 4.0;
 
@@ -475,14 +492,21 @@ public:
                 const bool measured_margin_valid =
                     std::isfinite(measured_margin);
                 const bool v2_shift_ready = input.allow_creep_entry &&
-                    measured_margin_valid && measured_margin >= 0.0 &&
+                    measured_margin_valid &&
+                    measured_margin >=
+                        (input.allow_creep_entry
+                             ? TerrainCrawlStateMachine::kLowStanceComMarginM
+                             : 0.0) &&
                     std::isfinite(input.measured_velocity_mps) &&
                     input.measured_velocity_mps <= kCreepEntrySpeedMps &&
                     input.measured_posture_valid &&
                     std::abs(input.measured_roll_rad) <= 0.08 &&
                     std::abs(input.measured_pitch_rad) <= 0.08;
                 if (measured_margin_valid &&
-                    (measured_margin >= 0.0 ||
+                    (measured_margin >=
+                         (input.allow_creep_entry
+                              ? TerrainCrawlStateMachine::kLowStanceComMarginM
+                              : 0.0) ||
                      input.flat_ground_mode) &&
                     (input.flat_ground_mode || input.legacy_shift_ready ||
                      v2_shift_ready) &&
@@ -839,7 +863,7 @@ private:
         // the 5 cm surface step plus the calibrated foot-site offset.
         output_.swing_lift_m = input.flat_ground_mode ? 0.015 :
             (output_.active_leg == static_cast<std::size_t>(go2::Leg::FL)
-                 ? 0.06 : 0.08);
+                 ? kLowStanceSwingLiftFlM : kLowStanceSwingLiftM);
         if ((output_.active_leg < go2::kLegCount ||
              state_ == TerrainCrawlSequencerState::kStage) &&
             input.measured_feet_valid && input.measured_com_valid)

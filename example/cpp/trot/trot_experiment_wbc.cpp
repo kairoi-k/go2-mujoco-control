@@ -189,6 +189,11 @@ void TrotExperiment::UpdateWbcFull(
             go2_terrain::TerrainCrawlSequencerState::kShift &&
         !terrain_crawl_sequencer_output_.flat_ground_mode &&
         Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) <= 0.5;
+    const bool low_stance_active =
+        go2_terrain::TerrainCrawlLowStanceActive(
+            sequencer_state,
+            terrain_crawl_sequencer_output_.control_authority_active,
+            terrain_crawl_sequencer_output_.flat_ground_mode);
     const bool body_advance_requested =
         terrain_crawl_sequencer_output_.body_advance_requested ||
         crawl_state == go2_terrain::TerrainCrawlState::kAdvanceBody ||
@@ -804,6 +809,13 @@ void TrotExperiment::UpdateWbcFull(
         mpc_params.w_pos_xy = 300.0;
         mpc_params.w_vel_xy = 20.0;
     }
+    if (low_stance_active)
+    {
+        mpc_params.w_pos_xy =
+            go2_terrain::TerrainCrawlStateMachine::kLowStanceComPositionWeight;
+        mpc_params.w_vel_xy =
+            go2_terrain::TerrainCrawlStateMachine::kLowStanceComVelocityWeight;
+    }
     if (high_speed_curriculum)
     {
         // The ordinary trot weights are intentionally conservative.  Keep
@@ -913,13 +925,14 @@ void TrotExperiment::UpdateWbcFull(
             mpc_in.reference[0] = terrain_stance_reference_roll_rad_;
             mpc_in.reference[1] = terrain_stance_reference_pitch_rad_;
         }
-        const double base_height_ref =
-            (high_speed_curriculum &&
-             Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0) > 0.0)
-                ? std::clamp(
-                      Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0),
-                      0.32, 0.48)
-                : kWbcPrimaryBaseHeightM;
+        const double base_height_ref = low_stance_active
+            ? go2_terrain::TerrainCrawlStateMachine::kLowStanceBodyHeightM
+            : ((high_speed_curriculum &&
+                Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0) > 0.0)
+                   ? std::clamp(
+                         Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0),
+                         0.32, 0.48)
+                   : kWbcPrimaryBaseHeightM);
         mpc_in.reference[5] = base_height_ref;
         mpc_in.reference[6] = 0.0;
         mpc_in.reference[7] = 0.0;
@@ -2302,6 +2315,12 @@ void TrotExperiment::UpdateWbcShadow(
     const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
     bool have_high_state)
 {
+    const bool low_stance_active =
+        go2_terrain::TerrainCrawlLowStanceActive(
+            terrain_crawl_sequencer_output_.state,
+            terrain_crawl_sequencer_output_.control_authority_active,
+            terrain_crawl_sequencer_output_.flat_ground_mode);
+
     wbc_shadow_diagnostics_ = WbcShadowDiagnostics{};
     wbc_shadow_contact_state_valid_ = false;
     const bool high_speed_curriculum =
@@ -2460,8 +2479,10 @@ void TrotExperiment::UpdateWbcShadow(
         // 基座高度 PD(目标 0.42 m)
         const WorldPose pose =
             ComputeWorldPose(state_snapshot, high_state_snapshot);
-        const double height_error_m =
-            kWbcPrimaryBaseHeightM - pose.base.z;
+        const double height_target_m = low_stance_active
+            ? go2_terrain::TerrainCrawlStateMachine::kLowStanceBodyHeightM
+            : kWbcPrimaryBaseHeightM;
+        const double height_error_m = height_target_m - pose.base.z;
         const double base_vel_z_mps =
             static_cast<double>(high_state_snapshot.velocity()[2]);
         // [wrench-fix] z 目标 = 纯重力基底(支撑归一化)。
@@ -2480,9 +2501,14 @@ void TrotExperiment::UpdateWbcShadow(
         }
         else
         {
-            desired_force[2] +=
-                kWbcPrimaryHeightKp * height_error_m -
-                kWbcPrimaryHeightKd * base_vel_z_mps;
+            const double height_kp = low_stance_active
+                ? go2_terrain::TerrainCrawlStateMachine::kLowStanceHeightKp
+                : kWbcPrimaryHeightKp;
+            const double height_kd = low_stance_active
+                ? go2_terrain::TerrainCrawlStateMachine::kLowStanceHeightKd
+                : kWbcPrimaryHeightKd;
+            desired_force[2] += height_kp * height_error_m -
+                height_kd * base_vel_z_mps;
         }
         // 姿态 PD + 角速度阻尼(imu rpy 与 gyro)
         const double roll_rad =

@@ -1613,6 +1613,19 @@ int main()
             return 1;
     }
 
+    {
+        const auto shift = go2_terrain::TerrainCrawlSequencerState::kShift;
+        const auto resume = go2_terrain::TerrainCrawlSequencerState::kResume;
+        if (!Check(go2_terrain::TerrainCrawlLowStanceActive(shift, true, false), "low stance did not activate in v2 SHIFT") ||
+            !Check(!go2_terrain::TerrainCrawlLowStanceActive(resume, true, false), "low stance leaked into RESUME") ||
+            !Check(!go2_terrain::TerrainCrawlLowStanceActive(shift, true, true), "low stance changed flat harness") ||
+            !Check(go2_terrain::TerrainCrawlStateMachine::kLowStanceBodyHeightM == 0.34,
+                   "low stance body target changed") ||
+            !Check(go2_terrain::TerrainCrawlStateMachine::kLowStanceComMarginM == 0.010,
+                   "low stance internal margin changed"))
+            return 1;
+    }
+
     // Planner and sequencer must witness the same measured polygon/COM
     // arithmetic before the sequencer swing gate is allowed to open.
     {
