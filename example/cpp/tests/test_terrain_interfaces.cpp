@@ -1545,6 +1545,25 @@ int main()
                     contact == prior,
                 "non-crawl state unexpectedly changed WBC contacts"))
             return 1;
+        contact.fill(true);
+        if (!Check(
+                go2_terrain::TerrainCrawlSequencerWbcContactOverride(
+                    go2_terrain::TerrainCrawlSequencerState::kCommit, 1,
+                    false, contact) &&
+                    contact == std::array<bool, go2::kLegCount>{true, false, true, true},
+                "COMMIT did not keep the active foot in swing WBC mode") ||
+            !Check(
+                !go2_terrain::TerrainCrawlSequencerWbcContactOverride(
+                    go2_terrain::TerrainCrawlSequencerState::kCommit, 1,
+                    true, contact) &&
+                    contact == std::array<bool, go2::kLegCount>{true, false, true, true},
+                "COMMIT touchdown witness did not preserve active support") ||
+            !Check(
+                !go2_terrain::TerrainCrawlSequencerWbcContactOverride(
+                    go2_terrain::TerrainCrawlSequencerState::kCommit,
+                    go2::kLegCount, false, contact),
+                "COMMIT override accepted an invalid active leg"))
+            return 1;
         if (!Check(
                 go2_terrain::TerrainCrawlStateMachine::kComShiftRampS == 0.40,
                 "COM shift ramp duration changed") ||

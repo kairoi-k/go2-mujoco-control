@@ -148,9 +148,11 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         Full2EnvDouble("TROT_TERRAIN_DEBUG_FLAT_CRAWL", 0.0) > 0.5;
     const bool staged_start_debug =
         Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) > 0.5;
+    if (!flat_crawl_debug)
+        flat_crawl_harness_retired_ = false;
     // Harness-only isolation: arm the sequencer at gait start without a
     // terrain window or lidar map. The default remains entirely inactive.
-    if ((flat_crawl_debug ||
+    if (((flat_crawl_debug && !flat_crawl_harness_retired_) ||
          (staged_start_debug && params_.terrain_actuation &&
           !params_.terrain_sensor_only)) &&
         task_.gait_started_ && task_.motion_stage_ == 2 &&
@@ -2119,6 +2121,18 @@ bool TrotExperiment::BuildGaitTargets(
         terrain_crawl_sequencer_output_ = sequencer_output;
         terrain_crawl_control_authority_active =
             sequencer_output.control_authority_active;
+        if (flat_crawl_debug &&
+            terrain_crawl_sequencer_.ConsumeFlatCycleCompleted())
+        {
+            // The flat acceptance probe is one complete four-leg sequence.
+            // Retire only after CLEAR, then let the ordinary bounded gait
+            // shutdown complete; this avoids counting a hard-posture stop as
+            // a successful harness completion.
+            flat_crawl_harness_retired_ = true;
+            terrain_transfer_window_active_ = false;
+            std::cout << "flat harness: transfer window retired after first "
+                         "full CLEAR\n";
+        }
         if (sequencer_output.state ==
                 go2_terrain::TerrainCrawlSequencerState::kAbort)
             terrain_safe_stop_requested_.store(true);

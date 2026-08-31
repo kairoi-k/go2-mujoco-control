@@ -603,6 +603,29 @@ void TrotExperiment::UpdateWbcFull(
              terrain_crawl_sequencer_output_.state ==
                  go2_terrain::TerrainCrawlSequencerState::kStage))
             qp_contact = terrain_crawl_sequencer_output_.contact_schedule;
+        // The sequencer publishes a landing-support schedule in COMMIT, but
+        // the active foot is not support until the measured endpoint/contact
+        // witness advances the state. Preserve the swing task for this hold.
+        bool active_leg_touchdown_witness = false;
+        const std::size_t active_leg =
+            terrain_crawl_sequencer_output_.active_leg;
+        if (terrain_crawl_sequencer_output_.state ==
+                go2_terrain::TerrainCrawlSequencerState::kCommit &&
+            active_leg < go2::kLegCount &&
+            terrain_crawl_sequencer_output_.target_valid)
+        {
+            const Eigen::Vector3d endpoint_error =
+                dyn.foot_pos_world[active_leg] - Eigen::Vector3d(
+                    terrain_crawl_sequencer_output_.target_world.x,
+                    terrain_crawl_sequencer_output_.target_world.y,
+                    terrain_crawl_sequencer_output_.target_world.z);
+            active_leg_touchdown_witness = measured_contact[active_leg] &&
+                endpoint_error.allFinite() &&
+                endpoint_error.norm() <= terrain_touchdown_tolerance_m;
+        }
+        (void)go2_terrain::TerrainCrawlSequencerWbcContactOverride(
+            terrain_crawl_sequencer_output_.state, active_leg,
+            active_leg_touchdown_witness, qp_contact);
     }
 
     bool terrain_surface_transition_complete =

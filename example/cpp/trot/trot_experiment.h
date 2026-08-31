@@ -554,6 +554,10 @@ private:
     // passage. It is separate from the per-leg transaction latch so the
     // crawl/velocity authority cannot return while the body is clearing.
     bool terrain_transfer_window_active_ = false;
+    // Flat crawl is a one-cycle isolation harness. Retire it after the first
+    // complete four-leg CLEAR so normal controlled shutdown can finish
+    // instead of re-arming an unbounded synthetic crawl.
+    bool flat_crawl_harness_retired_ = false;
     double terrain_transfer_window_release_s_ =
         -std::numeric_limits<double>::infinity();
     // Explicit v2 crawl sequencing. This object is only advanced while the

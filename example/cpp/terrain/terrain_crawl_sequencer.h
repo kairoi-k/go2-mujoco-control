@@ -21,6 +21,24 @@ enum class TerrainCrawlSequencerState : unsigned char
     kClear, kResume, kAbort
 };
 
+// COMMIT is still a swing until the sequencer observes its measured
+// endpoint/contact witness. Keep the active leg out of the WBC stance mask
+// during that observation window so the swing position task remains live.
+inline bool TerrainCrawlSequencerWbcContactOverride(
+    TerrainCrawlSequencerState state,
+    std::size_t active_leg,
+    bool active_leg_touchdown_witness,
+    std::array<bool, go2::kLegCount> &contact) noexcept
+{
+    if (state == TerrainCrawlSequencerState::kCommit &&
+        active_leg < go2::kLegCount && !active_leg_touchdown_witness)
+    {
+        contact[active_leg] = false;
+        return true;
+    }
+    return false;
+}
+
 inline const char *TerrainCrawlSequencerStateName(
     TerrainCrawlSequencerState state) noexcept
 {
@@ -267,6 +285,7 @@ public:
         target_valid_ = false;
         output_ = {};
         authority_active_ = false;
+        flat_cycle_completed_ = false;
         authority_com_reference_ = {};
         stage_abort_reason_ = 0;
         authority_com_reference_valid_ = false;
@@ -487,11 +506,11 @@ public:
             {
                 if (input.flat_ground_mode)
                 {
-                    // Flat isolation is a continuous gait, not a transfer
-                    // transaction. Re-arm the first leg directly while the
-                    // four-foot landing support is still authoritative;
-                    // RESUME would unnecessarily hand control back to the
-                    // stochastic trot boundary between crawl cycles.
+                    // Flat isolation completes after one full four-leg
+                    // sequence; let the harness retire before re-arming.
+                    flat_cycle_completed_ = true;
+                    // Keep the historical re-arm state for callers that do
+                    // not retire the debug harness immediately.
                     order_index_ = 0;
                     committed_.fill(false);
                     SetState(TerrainCrawlSequencerState::kShift, input.now_s);
@@ -543,6 +562,12 @@ public:
     }
     const TerrainCrawlSequencerOutput &output() const noexcept { return output_; }
     double state_enter_time_s() const noexcept { return state_enter_s_; }
+    bool ConsumeFlatCycleCompleted() noexcept
+    {
+        const bool completed = flat_cycle_completed_;
+        flat_cycle_completed_ = false;
+        return completed;
+    }
 
 private:
     bool ShouldAdvanceBodyAfterCommit() const noexcept
@@ -872,6 +897,7 @@ private:
     go2::Vec3 target_{};
     bool target_valid_ = false;
     bool authority_active_ = false;
+    bool flat_cycle_completed_ = false;
     go2::Vec3 authority_com_reference_{};
     bool authority_com_reference_valid_ = false;
     bool stand_transition_seen_ = false;
