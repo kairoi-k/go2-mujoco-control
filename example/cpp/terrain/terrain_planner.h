@@ -2883,19 +2883,28 @@ inline void TerrainPlanner::BuildShadow(
         diag.min_body_posture_margin[family] = std::min(diag.min_body_posture_margin[family], s.min_body_posture_margin);
         diag.min_uncertainty_margin_m[family] = std::min(diag.min_uncertainty_margin_m[family], s.min_uncertainty_margin_m);
     };
+    std::size_t offset_dimensions = 0;
+    for (const auto &leg_events : events) if (!leg_events.empty()) ++offset_dimensions;
+    const int offset_candidates = static_cast<int>(std::pow(3.0,
+        static_cast<double>(offset_dimensions)));
     for (double period_delta : period_values) for (double duty_delta : duty_values)
-    for (int offset_code = 0; offset_code < 81; ++offset_code) {
+    for (int offset_code = 0; offset_code < std::max(1, offset_candidates); ++offset_code) {
         std::array<int, go2::kLegCount> offsets{};
         int offset_digits = offset_code;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
-            offsets[leg] = offset_values[offset_digits % 3];
-            offset_digits /= 3;
+            offsets[leg] = events[leg].empty() ? 0 : offset_values[offset_digits % 3];
+            if (!events[leg].empty()) offset_digits /= 3;
         }
         TerrainShadowSnapshot base;
         base.identity = result.plan.identity;
         base.period_s = input.gait_period_s + period_delta;
         base.duty_factor = input.duty_factor + duty_delta;
-        if (!(base.period_s > 0.0) || !(base.duty_factor > 0.0 && base.duty_factor < 1.0)) {
+        const bool bounds_valid = input.has_stage_c_timing && input.terrain_timing_bounds.valid();
+        if (!(base.period_s > 0.0) || !(base.duty_factor > 0.0 && base.duty_factor < 1.0) ||
+            (bounds_valid && (base.period_s < input.terrain_timing_bounds.min_period_s ||
+                              base.period_s > input.terrain_timing_bounds.max_period_s ||
+                              base.duty_factor < input.terrain_timing_bounds.min_duty_factor ||
+                              base.duty_factor > input.terrain_timing_bounds.max_duty_factor))) {
             reject(TerrainShadowFamily::kV2B, TerrainShadowRejectReason::kTimingBounds);
             reject(TerrainShadowFamily::kV3CDraft, TerrainShadowRejectReason::kTimingBounds);
             continue;
@@ -2910,6 +2919,12 @@ inline void TerrainPlanner::BuildShadow(
             for (const int event : events[leg]) {
                 const int shifted = event + offsets[leg];
                 if (shifted <= 0 || shifted >= static_cast<int>(horizon)) { timing_ok = false; break; }
+                const double shifted_time = input.state_stamp_s +
+                    static_cast<double>(shifted) * config_.knot_dt_s;
+                if (bounds_valid && (shifted_time < input.terrain_timing_bounds.window_start_s ||
+                                     shifted_time > input.terrain_timing_bounds.window_end_s)) {
+                    timing_ok = false; break;
+                }
                 if (shifted_first[leg] >= 0 && shifted == shifted_first[leg]) { timing_ok = false; break; }
                 if (shifted_first[leg] < 0) shifted_first[leg] = shifted;
             }
@@ -2970,6 +2985,16 @@ inline void TerrainPlanner::BuildShadow(
                         ? RotateBaseToWorld(input.base_position_world, input.base_yaw_rad, footholds[leg].foot_position)
                         : RotateBaseToWorld(input.base_position_world, input.base_yaw_rad, input.current_feet_base[leg]);
                     foot.valid = true; foot.position_world = feet[leg];
+                    if (future && foothold_valid[leg]) {
+                        foot.surface_normal = footholds[leg].surface_normal;
+                        foot.swing_lift_m = footholds[leg].swing_lift_m;
+                        foot.swing_peak_phase = footholds[leg].swing_peak_phase;
+                        foot.swing_leading_edge_phase = footholds[leg].swing_leading_edge_phase;
+                        foot.swing_leading_edge_phase_valid = footholds[leg].swing_leading_edge_phase_valid;
+                        foot.support_margin_m = footholds[leg].support_margin_m;
+                        foot.collision_margin_m = footholds[leg].collision_margin_m;
+                        foot.reachability_margin_m = footholds[leg].reachability_margin_m;
+                    }
                     foot.touchdown = future && shifted_first[leg] == static_cast<int>(k);
                     foot.touchdown_time_s = input.state_stamp_s + static_cast<double>(k) * config_.knot_dt_s;
                     foot.swing_duration_s = std::max(config_.knot_dt_s, (1.0 - candidate.duty_factor) * candidate.period_s);
