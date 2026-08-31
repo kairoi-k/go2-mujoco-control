@@ -1216,6 +1216,7 @@ bool TrotExperiment::PhaseStartGait(
     have_commanded_body_feet_velocity_ = false;
     have_kernel_touchdown_target_feet_ = false;
     have_commanded_world_feet_ = false;
+    terrain_command_velocity_world_ = {};
     previous_leg_swing_.fill(false);
     touchdown_recorded_.fill(false);
     touchdown_waiting_contact_.fill(false);
@@ -1252,6 +1253,8 @@ bool TrotExperiment::PhaseStartGait(
     terrain_surface_transition_last_required_mask_ = 0;
     terrain_surface_transition_last_committed_mask_ = 0;
     previous_support_foot_valid_.fill(false);
+    previous_terrain_foot_valid_.fill(false);
+    previous_terrain_foot_time_s_ = 0.0;
     have_leg_phase_history_ = false;
     std::cout << "Starting diagonal trot: period="
               << params_.period_s

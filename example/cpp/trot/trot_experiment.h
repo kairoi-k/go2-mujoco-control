@@ -341,6 +341,12 @@ private:
     bool have_commanded_body_feet_velocity_ = false;
     std::array<go2::Vec3, go2::kLegCount> commanded_world_feet_{};
     bool have_commanded_world_feet_ = false;
+    std::array<go2::Vec3, go2::kLegCount> terrain_command_velocity_world_{};
+    // Per-leg FK history used to report measured touchdown velocity without
+    // conflating it with the support-foot speed witness.
+    std::array<go2::Vec3, go2::kLegCount> previous_terrain_foot_world_{};
+    std::array<bool, go2::kLegCount> previous_terrain_foot_valid_{};
+    double previous_terrain_foot_time_s_ = 0.0;
     std::array<go2::Vec3, go2::kLegCount> previous_support_foot_world_{};
     std::array<bool, go2::kLegCount> previous_support_foot_valid_{};
     go2_control::CartesianWorldState cartesian_state_{};

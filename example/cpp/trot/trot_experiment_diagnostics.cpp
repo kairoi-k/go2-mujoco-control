@@ -177,6 +177,14 @@ void TrotExperiment::WriteCsvHeader()
              << ",terrain_exec_" << name << "_foot_world_x_m"
              << ",terrain_exec_" << name << "_foot_world_y_m"
              << ",terrain_exec_" << name << "_foot_world_z_m"
+             << ",terrain_exec_" << name << "_command_velocity_x_mps"
+             << ",terrain_exec_" << name << "_command_velocity_z_mps"
+             << ",terrain_exec_" << name << "_measured_velocity_x_mps"
+             << ",terrain_exec_" << name << "_measured_velocity_z_mps"
+             << ",terrain_exec_" << name << "_endpoint_error_x_m"
+             << ",terrain_exec_" << name << "_endpoint_error_z_m"
+             << ",terrain_exec_" << name << "_achieved_standoff_m"
+             << ",terrain_exec_" << name << "_target_standoff_m"
              << ",terrain_pending_" << name << "_valid"
              << ",terrain_pending_" << name << "_plan_id"
              << ",terrain_pending_" << name << "_touchdown_time_s"
@@ -938,6 +946,52 @@ void TrotExperiment::LogSample(
         terrain_latest_plan_valid = terrain_latest_plan_valid_;
         terrain_plan_published = terrain_plan_published_count_;
     }
+    std::array<double, go2::kLegCount> terrain_measured_velocity_x{};
+    std::array<double, go2::kLegCount> terrain_measured_velocity_z{};
+    std::array<double, go2::kLegCount> terrain_achieved_standoff{};
+    std::array<double, go2::kLegCount> terrain_target_standoff{};
+    const double terrain_velocity_dt = state_tick_s -
+        previous_terrain_foot_time_s_;
+    const bool terrain_velocity_valid = terrain_actual_world_feet_valid &&
+        std::isfinite(terrain_velocity_dt) && terrain_velocity_dt > 1.0e-6 &&
+        terrain_velocity_dt < 0.1;
+    double terrain_edge_world_x = std::numeric_limits<double>::quiet_NaN();
+    double terrain_edge_world_y = std::numeric_limits<double>::quiet_NaN();
+    if (terrain_model != nullptr && terrain_model->valid())
+    {
+        const double edge_x = go2_terrain::MeasureTerrainEdgeX(*terrain_model);
+        if (std::isfinite(edge_x) && std::isfinite(pose.yaw_rad))
+        {
+            terrain_edge_world_x = pose.base.x + std::cos(pose.yaw_rad) * edge_x;
+            terrain_edge_world_y = pose.base.y + std::sin(pose.yaw_rad) * edge_x;
+        }
+    }
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (terrain_velocity_valid && previous_terrain_foot_valid_[leg])
+        {
+            terrain_measured_velocity_x[leg] =
+                (terrain_actual_world_feet[leg].x -
+                 previous_terrain_foot_world_[leg].x) / terrain_velocity_dt;
+            terrain_measured_velocity_z[leg] =
+                (terrain_actual_world_feet[leg].z -
+                 previous_terrain_foot_world_[leg].z) / terrain_velocity_dt;
+        }
+        if (terrain_actual_world_feet_valid &&
+            std::isfinite(terrain_edge_world_x) &&
+            std::isfinite(terrain_edge_world_y))
+        {
+            const double c = std::cos(pose.yaw_rad);
+            const double ss = std::sin(pose.yaw_rad);
+            const auto &execution = terrain_swing_execution_[leg];
+            terrain_achieved_standoff[leg] =
+                c * (terrain_actual_world_feet[leg].x - terrain_edge_world_x) +
+                ss * (terrain_actual_world_feet[leg].y - terrain_edge_world_y);
+            terrain_target_standoff[leg] =
+                c * (execution.target_world.x - terrain_edge_world_x) +
+                ss * (execution.target_world.y - terrain_edge_world_y);
+        }
+    }
     const bool terrain_safe_stop_requested = params_.terrain_enabled &&
         terrain_safe_stop_requested_.load();
     const double terrain_velocity_cap_mps = params_.terrain_enabled
@@ -1203,6 +1257,20 @@ void TrotExperiment::LogSample(
              << "," << actual_foot.x
              << "," << actual_foot.y
              << "," << actual_foot.z
+             << "," << terrain_command_velocity_world_[leg].x
+             << "," << terrain_command_velocity_world_[leg].z
+             << "," << terrain_measured_velocity_x[leg]
+             << "," << terrain_measured_velocity_z[leg]
+             << "," << (execution.wbc_endpoint_error_m <
+                              std::numeric_limits<double>::infinity()
+                          ? actual_foot.x - execution.target_world.x
+                          : 0.0)
+             << "," << (execution.wbc_endpoint_error_m <
+                              std::numeric_limits<double>::infinity()
+                          ? actual_foot.z - execution.target_world.z
+                          : 0.0)
+             << "," << terrain_achieved_standoff[leg]
+             << "," << terrain_target_standoff[leg]
              << "," << (pending.valid ? 1 : 0)
              << "," << pending.plan_id
              << "," << pending.touchdown_time_s
@@ -1387,4 +1455,10 @@ void TrotExperiment::LogSample(
              << "," << (motor_cmd.q() - q_state);
     }
     csv_ << "\n";
+    if (terrain_actual_world_feet_valid)
+    {
+        previous_terrain_foot_world_ = terrain_actual_world_feet;
+        previous_terrain_foot_valid_.fill(true);
+        previous_terrain_foot_time_s_ = state_tick_s;
+    }
 }

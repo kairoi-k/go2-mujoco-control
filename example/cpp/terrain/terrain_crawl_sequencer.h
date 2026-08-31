@@ -790,12 +790,11 @@ private:
             output_.swing_phase = std::clamp(
                 (input.now_s - state_enter_s_) / kSwingDurationS, 0.0, 1.0);
             const double u = output_.swing_phase;
-            // The FR event is the mixed-height touchdown crux; preserve
-            // the proven FL transfer path and change only this descent.
+            // Crawl touchdown is quasi-static for the raised FL foothold:
+            // use the same zero-slope endpoint envelope for both horizontal
+            // and vertical motion. The flat isolation path remains unchanged.
             const bool terrain_swing = !input.flat_ground_mode &&
-                active_leg() == 0;
-            // Keep horizontal progress unchanged: the measured failure was
-            // a touchdown wrench impulse, not an edge-corner collision.
+                active_leg() == static_cast<std::size_t>(go2::Leg::FL);
             const double progress = u * u * (3.0 - 2.0 * u);
             const double progress_rate = 6.0 * u * (1.0 - u) /
                 kSwingDurationS;

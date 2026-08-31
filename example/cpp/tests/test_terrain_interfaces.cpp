@@ -2131,6 +2131,15 @@ int main()
                        seq.output().measured_contact_count >= 3 &&
                        std::abs(seq.output().target_world.z - 0.072) < 1.0e-9,
                    "sequencer did not launch a foot-site-corrected FL swing")) return 1;
+        // The raised FL crawl trajectory must approach touchdown at rest in
+        // both axes.  At 10 ms before the fixed endpoint, neither command may
+        // still carry the linear vertical descent or a horizontal impulse.
+        x.now_s = seq.state_enter_time_s() +
+            go2_terrain::TerrainCrawlSequencer::kSwingDurationS - 0.01;
+        seq.Update(x);
+        if (!Check(std::abs(seq.output().swing_velocity_world.x) < 0.10 &&
+                       std::abs(seq.output().swing_velocity_world.z) < 0.10,
+                   "FL touchdown trajectory did not brake both x and z")) return 1;
         x.measured_feet_world[1] = seq.output().target_world;
         x.now_s = 1.0;
         seq.Update(x);
