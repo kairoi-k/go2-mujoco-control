@@ -1025,15 +1025,25 @@ void TrotExperiment::UpdateWbcFull(
                  terrain_crawl_state_machine_.state() ==
                      go2_terrain::TerrainCrawlState::kCrawlStep) &&
                 terrain_crawl_state_machine_.com_target_valid();
+            // Full v2 can remain in legacy STAGE while the event sequencer
+            // owns SHIFT. Servo the sequencer measured support-triangle
+            // incenter in that boundary instead of waiting for legacy
+            // SHIFT_COM to catch up.
+            const bool terrain_v2_shift_hold = full_v2_shift &&
+                terrain_crawl_sequencer_output_.state ==
+                    go2_terrain::TerrainCrawlSequencerState::kShift &&
+                terrain_crawl_sequencer_output_.com_reference_valid;
             const bool terrain_stage_hold =
                 terrain_crawl_state_machine_.state() ==
                     go2_terrain::TerrainCrawlState::kStage &&
                 terrain_crawl_state_machine_.stage_com_target_valid();
-            const auto target = terrain_swing_hold || terrain_stage_hold
-                ? terrain_crawl_state_machine_.com_target_world()
-                : (terrain_crawl_sequencer_output_.com_reference_valid
-                    ? terrain_crawl_sequencer_output_.com_reference_world
-                    : terrain_crawl_state_machine_.com_target_world());
+            const auto target = terrain_v2_shift_hold
+                ? terrain_crawl_sequencer_output_.com_reference_world
+                : (terrain_swing_hold || terrain_stage_hold
+                    ? terrain_crawl_state_machine_.com_target_world()
+                    : (terrain_crawl_sequencer_output_.com_reference_valid
+                        ? terrain_crawl_sequencer_output_.com_reference_world
+                        : terrain_crawl_state_machine_.com_target_world()));
             if (std::isfinite(target.x) && std::isfinite(target.y))
             {
                 // SHIFT_COM and the swing hold are a reference change to the
@@ -1484,6 +1494,10 @@ void TrotExperiment::UpdateWbcFull(
                  go2_terrain::TerrainCrawlSequencerState::kSwing ||
              terrain_crawl_sequencer_output_.state ==
                  go2_terrain::TerrainCrawlSequencerState::kCommit);
+        const bool terrain_v2_shift_hold = full_v2_shift &&
+            terrain_crawl_sequencer_output_.state ==
+                go2_terrain::TerrainCrawlSequencerState::kShift &&
+            terrain_crawl_sequencer_output_.com_reference_valid;
         if (terrain_crawl_sequencer_output_.control_authority_active &&
             !terrain_crawl_sequencer_output_.flat_ground_mode &&
             (terrain_crawl_state_machine_.state() ==
@@ -1498,6 +1512,7 @@ void TrotExperiment::UpdateWbcFull(
                 terrain_crawl_state_machine_.state() ==
                     go2_terrain::TerrainCrawlState::kShiftCom &&
                 terrain_crawl_state_machine_.com_target_valid();
+            const bool measured_v2_shift = terrain_v2_shift_hold;
             const bool measured_stage =
                 terrain_crawl_state_machine_.state() ==
                     go2_terrain::TerrainCrawlState::kStage &&
@@ -1505,7 +1520,8 @@ void TrotExperiment::UpdateWbcFull(
             const bool measured_swing_hold =
                 sequencer_swing_hold &&
                 terrain_crawl_state_machine_.com_target_valid();
-            if (measured_shift || measured_stage || measured_swing_hold)
+            if (measured_shift || measured_v2_shift || measured_stage ||
+                measured_swing_hold)
             {
                 // The old SHIFT override was velocity-only, so a settled
                 // body received zero COM acceleration even with a target
@@ -1526,11 +1542,14 @@ void TrotExperiment::UpdateWbcFull(
                 terrain_stage_servo_acc_x_mps2_ = measured_stage ? raw_acc_x : 0.0;
                 terrain_stage_servo_acc_y_mps2_ = measured_stage ? raw_acc_y : 0.0;
                 terrain_shift_servo_acc_x_mps2_ =
-                    (measured_shift || measured_swing_hold) ? raw_acc_x : 0.0;
+                    (measured_shift || measured_v2_shift || measured_swing_hold)
+                        ? raw_acc_x : 0.0;
                 terrain_shift_servo_acc_y_mps2_ =
-                    (measured_shift || measured_swing_hold) ? raw_acc_y : 0.0;
+                    (measured_shift || measured_v2_shift || measured_swing_hold)
+                        ? raw_acc_y : 0.0;
                 terrain_stage_servo_saturated_ =
-                    (measured_stage || measured_shift || measured_swing_hold) &&
+                    (measured_stage || measured_shift || measured_v2_shift ||
+                     measured_swing_hold) &&
                     (std::abs(raw_acc_x) > 4.0 || std::abs(raw_acc_y) > 4.0);
                 if (measured_shift && body_advance_requested)
                 {
