@@ -184,9 +184,12 @@ void TrotExperiment::UpdateWbcFull(
     // prepared, while the legacy machine can be one tick behind it.
     const auto crawl_state = terrain_crawl_state_machine_.state();
     const auto sequencer_state = terrain_crawl_sequencer_output_.state;
+    const bool body_advance_requested =
+        terrain_crawl_sequencer_output_.body_advance_requested;
     const bool sequencer_crawl_execution =
         terrain_crawl_sequencer_output_.control_authority_active &&
-        sequencer_state != go2_terrain::TerrainCrawlSequencerState::kAbort;
+        sequencer_state != go2_terrain::TerrainCrawlSequencerState::kAbort &&
+        !body_advance_requested;
     const bool sequencer_stance_reference =
         sequencer_crawl_execution &&
         (sequencer_state ==
@@ -832,6 +835,7 @@ void TrotExperiment::UpdateWbcFull(
     const bool terrain_crawl_stance =
         sequencer_crawl_execution ||
         (terrain_crawl_sequencer_output_.control_authority_active &&
+         !body_advance_requested &&
          (terrain_crawl_shift ||
           terrain_crawl_state_machine_.state() ==
               go2_terrain::TerrainCrawlState::kCrawlStep ||
