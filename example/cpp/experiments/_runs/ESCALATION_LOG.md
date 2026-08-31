@@ -3413,3 +3413,6 @@ validation: |
   is made in this implementation window.
 commit_chain: |
   05399d1, f8ad0ee. No push or amend.
+
+Order-073 correction — source_sha: d3ba55e0099940ecf0fb7a23134feb896be191bd
+The fix6 serial staged artifact did reach the mixed-height FR SWING (t=14.362--14.862 s), not merely the first FL boundary. At entry ID-WBC requested FR≈0, FL=(2.0,-1.2,47.4), RR=(3.1,-1.7,59.3), RL=(3.8,-1.7,54.7) N, with FL cone activity 0 and QP cost 326.5; measured forces were 26/28/42/52 N. Near t=14.772 the requested stance was FL=(0.5,-2.2,47.7), RR=(2.0,-3.0,57.2), RL=(4.1,-3.0,51.4) N while measured was 45/53/50 N. Collapse at t=14.854 showed requested FL=(17.0,0.1,29.8), RR=(0.5,-3.2,46.1), RL=(10.4,-3.6,51.0) N but measured RR=1 and RL=19 N; QP residual was 7.7e-6, cost 9.04e5, max tau 155.5 N·m, and FL cone ratio 0.71 (not active). Thus classification is (c): the nominal QP equality residual is small but the realized torque/plant diverges. This run did not complete the sequence; no crossing/full-run/B0/flat claims.
