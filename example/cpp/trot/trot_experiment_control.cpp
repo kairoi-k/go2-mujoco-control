@@ -546,6 +546,11 @@ void TrotExperiment::TerrainPlannerWorker()
         }
         work.input.terrain = model.get();
         const auto result = terrain_planner_.Build(work.input, work.plan_id);
+        // Observer-only, opt-in machine-readable C-002 evidence. No shadow
+        // field is copied into the legacy store or any control request.
+        if (std::getenv("TROT_TERRAIN_SHADOW_DIAGNOSTICS") != nullptr)
+            std::fprintf(stderr, "TerrainShadowDiagnostics %s\n",
+                         result.shadow_diagnostics.ToJson().c_str());
         static int terrain_selection_debug_prints = 0;
         if (Full2EnvDouble("TROT_TERRAIN_DEBUG_SELECTION", 0.0) > 0.5 &&
             model && terrain_selection_debug_prints < 200)
