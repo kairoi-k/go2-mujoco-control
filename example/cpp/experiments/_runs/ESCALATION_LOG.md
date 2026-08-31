@@ -4929,3 +4929,39 @@ artifacts: |
   docs/research/evidence/order102_c006b/PREREGISTERED_MANIFEST.json
 rollback: |
   No runtime change. Stage-C flags off and source 7861bf9 remain rollback.
+
+---
+timestamp: 2026-09-01T05:15:00+0800
+run_id: Order-102 C-006b fresh verification
+source_sha: e422a53305f38101bf584982c40c71fdd5d49d53
+scope: |
+  VERIFY the pre-registered fresh n=3 fixed pairs after reviewed Phase-A
+  inherited stochastic diagnosis. Exact frozen command, domains, preload,
+  binaries, scene, config, contract, and analyzers; Stage-C execution off.
+probe_validation: |
+  Pair-1 baseline/terrain ran serially. Baseline lifecycle statuses were all
+  zero but the independent fixed 3 m/s analyzer failed: stop_start=11.500 s,
+  cycle_health_count=44 (<100), good_window=0 (<20 s), speed_median=1.170566,
+  all_feet_low_fraction=0.061914. Terrain completed and passed with 504
+  cycles, median 3.240324 m/s, 2763 planner updates, max latency 4358.228 us,
+  zero deadline misses. All publish/consumer/actuation counters were zero.
+stop_rule: |
+  The B0 diagnostic JSON says PASS only because paired-baseline-lifecycle is
+  true; the inherited fixed 3 m/s analyzer is authoritative and failed.
+  Pair-2 and pair-3 were not run. No retry, replacement, gap exclusion,
+  threshold/config/analyzer/contract edit, or behavior change was made.
+acceptance: |
+  BLOCKED: fresh sample is 0/1 completed authoritative fixed-pair passes;
+  required 3/3 was not established. Original Order-101 1/2 result remains
+  permanent. New Wilson is diagnostic only: 0/1, 95% [0, 0.793451].
+artifacts: |
+  docs/research/evidence/order102_c006b/PHASE_A_DIAGNOSIS.md
+  docs/research/evidence/order102_c006b/PREREGISTERED_MANIFEST.json
+  docs/research/evidence/order102_c006b/FORMAL_MANIFEST.json
+  docs/research/evidence/order102_c006b/SUMMARY.md
+  docs/research/evidence/order102_c006b/WILSON.json
+  docs/research/evidence/order102_c006b/PAIR1_B0_ANALYZER.json
+  docs/research/evidence/order102_c006b/PAIR1_BASELINE_MANIFEST.json
+  docs/research/evidence/order102_c006b/PAIR1_TERRAIN_MANIFEST.json
+rollback: |
+  No runtime change. Keep Stage-C execution off; do not advance C-007/B1.

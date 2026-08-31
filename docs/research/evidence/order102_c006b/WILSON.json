@@ -1,0 +1,11 @@
+{
+  "metric": "completed new fixed pairs with baseline and terrain authoritative gates PASS",
+  "successes": 0,
+  "completed_pairs": 1,
+  "preregistered_pairs": 3,
+  "interval": "95% Wilson",
+  "lower": 0.0,
+  "upper": 0.7934506856227626,
+  "applicability": "diagnostic only; mandatory stop after first authoritative failure",
+  "original_order101": {"successes": 1, "completed_pairs": 2, "preregistered_pairs": 3, "interval": "95% Wilson", "lower": 0.09453120573423074, "upper": 0.9054687942657693, "permanent": true}
+}
