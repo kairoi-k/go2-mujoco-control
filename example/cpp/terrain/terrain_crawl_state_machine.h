@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "go2_forward_kinematics.h"
+#include "terrain_crawl_script.h"
 
 namespace go2_terrain
 {
@@ -175,6 +176,53 @@ inline TerrainSupportTriangle ComputeTerrainSupportTriangle(
         cross.x * cross.x + cross.y * cross.y + cross.z * cross.z);
     triangle.valid = triangle.valid && twice_area_3d > 1.0e-6;
     return triangle;
+}
+
+struct TerrainSupportTriangleQuality
+{
+    bool valid = false;
+    double area_m2 = 0.0;
+    double minimum_altitude_m = 0.0;
+};
+
+// Geometric pre-check metric: area is the 3-D support triangle area and the
+// minimum altitude is 2A divided by its longest edge.  The latter is the
+// conservative load-transfer width, and remains meaningful for mixed-height
+// support planes without introducing a COM or WBC assumption.
+inline TerrainSupportTriangleQuality MeasureTerrainSupportTriangleQuality(
+    const TerrainSupportTriangle &triangle) noexcept
+{
+    TerrainSupportTriangleQuality quality;
+    if (!triangle.valid)
+        return quality;
+    double longest_edge = 0.0;
+    for (std::size_t i = 0; i < triangle.vertex.size(); ++i)
+    {
+        const auto &a = triangle.vertex[i];
+        const auto &b = triangle.vertex[(i + 1) % triangle.vertex.size()];
+        const double dx = b.x - a.x;
+        const double dy = b.y - a.y;
+        const double dz = b.z - a.z;
+        longest_edge = std::max(longest_edge,
+            std::sqrt(dx * dx + dy * dy + dz * dz));
+    }
+    const auto &a = triangle.vertex[0];
+    const auto &b = triangle.vertex[1];
+    const auto &c = triangle.vertex[2];
+    const go2::Vec3 ab{b.x - a.x, b.y - a.y, b.z - a.z};
+    const go2::Vec3 ac{c.x - a.x, c.y - a.y, c.z - a.z};
+    const go2::Vec3 cross{
+        ab.y * ac.z - ab.z * ac.y,
+        ab.z * ac.x - ab.x * ac.z,
+        ab.x * ac.y - ab.y * ac.x};
+    quality.area_m2 = 0.5 * std::sqrt(
+        cross.x * cross.x + cross.y * cross.y + cross.z * cross.z);
+    quality.valid = std::isfinite(quality.area_m2) &&
+        std::isfinite(longest_edge) && quality.area_m2 > 1.0e-9 &&
+        longest_edge > 1.0e-9;
+    if (quality.valid)
+        quality.minimum_altitude_m = 2.0 * quality.area_m2 / longest_edge;
+    return quality;
 }
 
 // Return the body attitude whose z axis is normal to the measured support
@@ -535,8 +583,12 @@ inline double TerrainMeasuredSupportMargin(
 class TerrainCrawlStateMachine
 {
 public:
+    // Historical alias retained for legacy callers; instances select an
+    // order so the sequencer and this owner cannot diverge.
     static constexpr std::array<std::size_t, go2::kLegCount> kLegOrder =
-        {1, 0, 2, 3};
+        kLegacyFrontFirstLegOrder;
+    static constexpr std::array<std::size_t, go2::kLegCount> kLateralOrder =
+        kLateralLegOrder;
     static constexpr int kMaxRetries = 2;
     static constexpr double kComMarginM = 0.02;
     static constexpr double kComShiftRampS = 0.40;
@@ -596,6 +648,15 @@ public:
     // filter settles. Keep the captured support until just before the
     // scripted 0.80 s retry boundary without changing the commit predicate.
     static constexpr double kCrawlStepEndpointGraceS = 0.70;
+
+    void SetLegOrder(TerrainCrawlLegOrder order) noexcept
+    {
+        leg_order_ = order;
+        leg_order_values_ = order == TerrainCrawlLegOrder::kLateral
+            ? kLateralLegOrder : kLegacyFrontFirstLegOrder;
+    }
+
+    TerrainCrawlLegOrder leg_order() const noexcept { return leg_order_; }
 
     void Reset() noexcept
     {
@@ -695,7 +756,7 @@ public:
                 ForceBalanceReady(signals, leg)) {
                 if (order_index_ == 1)
                     SetState(TerrainCrawlState::kAdvanceBody, signals.now_s);
-                else if (order_index_ + 1 < kLegOrder.size()) {
+                else if (order_index_ + 1 < leg_order_values_.size()) {
                     ++order_index_;
                     SetState(TerrainCrawlState::kShiftCom, signals.now_s);
                 } else
@@ -988,7 +1049,7 @@ public:
                 retry_count_ = 0;
                 if (order_index_ == 1)
                     SetState(TerrainCrawlState::kAdvanceBody, signals.now_s);
-                else if (order_index_ + 1 < kLegOrder.size())
+                else if (order_index_ + 1 < leg_order_values_.size())
                 {
                     ++order_index_;
                     SetState(TerrainCrawlState::kShiftCom, signals.now_s);
@@ -1049,7 +1110,7 @@ public:
             retry_count_ = 0;
             if (order_index_ == 1)
                 SetState(TerrainCrawlState::kAdvanceBody, signals.now_s);
-            else if (order_index_ + 1 < kLegOrder.size())
+            else if (order_index_ + 1 < leg_order_values_.size())
             {
                 ++order_index_;
                 SetState(TerrainCrawlState::kShiftCom, signals.now_s);
@@ -1101,8 +1162,8 @@ public:
     std::size_t ActiveLeg() const noexcept
     {
         return state_ == TerrainCrawlState::kCrawlStep &&
-                order_index_ < kLegOrder.size()
-            ? kLegOrder[order_index_]
+                order_index_ < leg_order_values_.size()
+            ? leg_order_values_[order_index_]
             : go2::kLegCount;
     }
     // The sequencer owns the next transition identity before a foothold
@@ -1156,7 +1217,7 @@ public:
 private:
     std::size_t ActiveLegForSupport() const noexcept
     {
-        return order_index_ < kLegOrder.size() ? kLegOrder[order_index_]
+        return order_index_ < leg_order_values_.size() ? leg_order_values_[order_index_]
                                                 : go2::kLegCount;
     }
 
@@ -1313,6 +1374,9 @@ private:
     // Keep it through bounded SHIFT_COM recovery so a cleared snapshot
     // cannot move the active leg backwards.
     std::array<bool, go2::kLegCount> committed_latched_{};
+    TerrainCrawlLegOrder leg_order_ = TerrainCrawlLegOrder::kLegacyFrontFirst;
+    std::array<std::size_t, go2::kLegCount> leg_order_values_ =
+        kLegacyFrontFirstLegOrder;
     std::size_t order_index_ = 0;
     int retry_count_ = 0;
     double state_enter_time_s_ = 0.0;

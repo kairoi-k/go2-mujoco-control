@@ -40,6 +40,36 @@ unitree_go::msg::dds_::HeightMap_ FlatMap()
 
 int main()
 {
+    // Order-072 geometry fixture: measured staged feet from the last clean
+    // baseline, with each raised foothold on the measured 5 cm plateau.
+    {
+        const std::array<go2::Vec3, go2::kLegCount> feet{
+            go2::Vec3{0.6140, -0.1141, 0.0233},
+            go2::Vec3{0.6137,  0.1120, 0.0733},
+            go2::Vec3{0.2311, -0.1980, 0.0233},
+            go2::Vec3{0.2309,  0.1941, 0.0233}};
+        const auto first = go2_terrain::MeasureTerrainSupportTriangleQuality(
+            go2_terrain::ComputeTerrainSupportTriangle(feet, 1));
+        if (!Check(first.valid && first.area_m2 > 0.074 &&
+                       first.minimum_altitude_m > 0.30,
+                   "order072 geometry fixture lost the measured first triangle"))
+            return 1;
+        go2_terrain::TerrainCrawlSequencer seq;
+        seq.SetLegOrder(go2_terrain::TerrainCrawlLegOrder::kLateral);
+        go2_terrain::TerrainCrawlScript script;
+        script.SetLegOrder(go2_terrain::TerrainCrawlLegOrder::kLateral);
+        if (!Check(seq.leg_order() == go2_terrain::TerrainCrawlLegOrder::kLateral &&
+                       script.leg_order() == go2_terrain::TerrainCrawlLegOrder::kLateral,
+                   "order072 lateral selection was not retained") ||
+            !Check(go2_terrain::TerrainCrawlSequencer::kLateralOrder ==
+                       std::array<std::size_t, 4>{1, 3, 0, 2},
+                   "order072 lateral order is not FL-RL-FR-RR") ||
+            !Check(go2_terrain::TerrainCrawlSequencer::kLegOrder ==
+                       std::array<std::size_t, 4>{1, 0, 2, 3},
+                   "legacy crawl order was not preserved"))
+            return 1;
+    }
+
     // The terrain SWING handoff must project the four-foot preload onto the
     // three stance legs before the swing leg is removed from WBC contact.
     {

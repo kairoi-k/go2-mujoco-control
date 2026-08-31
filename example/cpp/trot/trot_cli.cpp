@@ -35,6 +35,7 @@ void PrintTrotCliUsage()
            " [--auto-environment]"
            " [--gait-phase-offset fraction]"
            " [--terrain-sensor-only|--terrain-planner]"
+           " [--terrain-leg-order lateral|legacy]"
            " [--impact-to-emergency-stop-delay s]"
            " [--task stand-walk-lie]"
            " [--goal-x m] [--goal-y m] [--goal-tol m]\n";
@@ -122,6 +123,19 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.params.terrain_enabled = true;
                 cfg.params.terrain_sensor_only = false;
                 cfg.params.terrain_actuation = true;
+            }
+            else if (option == "--terrain-leg-order")
+            {
+                const std::string value = require_value("--terrain-leg-order");
+                if (value == "lateral")
+                    cfg.params.terrain_leg_order =
+                        go2_terrain::TerrainCrawlLegOrder::kLateral;
+                else if (value == "legacy")
+                    cfg.params.terrain_leg_order =
+                        go2_terrain::TerrainCrawlLegOrder::kLegacyFrontFirst;
+                else
+                    throw std::invalid_argument(
+                        "unsupported terrain leg order '" + value + "'");
             }
             else if (option == "--gait-phase-offset")
                 cfg.params.gait_phase_offset =
@@ -486,6 +500,9 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << (params.terrain_sensor_only ? "on" : "off") << "\n"
               << "  terrain_actuation="
               << (params.terrain_actuation ? "on" : "off") << "\n"
+              << "  terrain_leg_order="
+              << go2_terrain::TerrainCrawlLegOrderName(
+                     params.terrain_leg_order) << "\n"
               << "  reactive_events="
               << ((params.reactive_events || params.auto_environment || !params.event_schedule.empty()) ? "on" : "off") << "\n"
               << "  impact_to_emergency_stop_delay="

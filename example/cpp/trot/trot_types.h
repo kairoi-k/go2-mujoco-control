@@ -18,6 +18,7 @@
 #include "motion_event_response.h"
 #include "raibert_trot_kernel.h"
 #include "wbc_runtime_gate.h"
+#include "terrain_crawl_script.h"
 #include "velocity_command.h"
 
 namespace go2_trot {
@@ -186,6 +187,8 @@ struct TrotParams
     bool terrain_enabled = false;
     bool terrain_sensor_only = false;
     bool terrain_actuation = false;
+    go2_terrain::TerrainCrawlLegOrder terrain_leg_order =
+        go2_terrain::TerrainCrawlLegOrder::kLegacyFrontFirst;
     bool runtime_velocity_command = false;
     double gait_phase_offset = 0.0;
     std::string velocity_command_script_path;

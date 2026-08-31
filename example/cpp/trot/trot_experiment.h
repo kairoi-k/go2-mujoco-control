@@ -78,6 +78,8 @@ public:
           velocity_command_shaper_(params_.velocity_command_shaper)
     {
         runtime_gait_pattern_ = params_.gait_pattern;
+        terrain_crawl_state_machine_.SetLegOrder(params_.terrain_leg_order);
+        terrain_crawl_sequencer_.SetLegOrder(params_.terrain_leg_order);
         task_.Configure(task_mode, goal);
         motion_event_response_enabled_ =
             params_.reactive_events || params_.auto_environment ||

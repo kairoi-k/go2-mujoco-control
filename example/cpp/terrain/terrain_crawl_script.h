@@ -12,6 +12,23 @@
 namespace go2_terrain
 {
 
+enum class TerrainCrawlLegOrder : unsigned char
+{
+    kLegacyFrontFirst = 0,
+    kLateral = 1,
+};
+
+inline constexpr std::array<std::size_t, go2::kLegCount>
+    kLegacyFrontFirstLegOrder = {1, 0, 2, 3};
+inline constexpr std::array<std::size_t, go2::kLegCount>
+    kLateralLegOrder = {1, 3, 0, 2};
+
+inline constexpr const char *TerrainCrawlLegOrderName(
+    TerrainCrawlLegOrder order) noexcept
+{
+    return order == TerrainCrawlLegOrder::kLateral ? "lateral" : "legacy";
+}
+
 // The script fixes sequencing and deadlines only. Terrain geometry remains
 // an observation: this helper never contains a scene/world coordinate.
 
@@ -277,14 +294,27 @@ enum class TerrainCrawlScriptStage : unsigned char
 class TerrainCrawlScript
 {
 public:
+    // Retain the historical compile-time alias for callers that only need
+    // the old order; live instances select the order explicitly.
     static constexpr std::array<std::size_t, go2::kLegCount> kLegOrder =
-        {1, 0, 2, 3};
+        kLegacyFrontFirstLegOrder;
+    static constexpr std::array<std::size_t, go2::kLegCount> kLateralOrder =
+        kLateralLegOrder;
     static constexpr double kShiftRampS = 0.40;
     static constexpr double kShiftSettleS = 0.20;
     static constexpr double kSwingDurationS = 0.60;
     static constexpr double kSwingApexPhase = 0.40;
     static constexpr int kMaxRetries = 2;
     static constexpr double kStableS = 0.45;
+
+    void SetLegOrder(TerrainCrawlLegOrder order) noexcept
+    {
+        leg_order_ = order;
+        leg_order_values_ = order == TerrainCrawlLegOrder::kLateral
+            ? kLateralLegOrder : kLegacyFrontFirstLegOrder;
+    }
+
+    TerrainCrawlLegOrder leg_order() const noexcept { return leg_order_; }
 
     void Reset() noexcept
     {
@@ -372,8 +402,8 @@ public:
     TerrainCrawlScriptStage stage() const noexcept { return stage_; }
     std::size_t active_leg() const noexcept
     {
-        return order_index_ < kLegOrder.size() ? kLegOrder[order_index_]
-                                                : go2::kLegCount;
+        return order_index_ < leg_order_values_.size()
+            ? leg_order_values_[order_index_] : go2::kLegCount;
     }
     std::size_t order_index() const noexcept { return order_index_; }
     int retry_count() const noexcept { return retry_count_; }
@@ -414,7 +444,7 @@ private:
         retry_count_ = 0;
         if (order_index_ == 1)
             Set(TerrainCrawlScriptStage::kAdvanceBody, now_s);
-        else if (order_index_ + 1 < kLegOrder.size())
+        else if (order_index_ + 1 < leg_order_values_.size())
         {
             ++order_index_;
             Set(TerrainCrawlScriptStage::kShiftCom, now_s);
@@ -424,6 +454,9 @@ private:
     }
 
     TerrainCrawlScriptStage stage_ = TerrainCrawlScriptStage::kInactive;
+    TerrainCrawlLegOrder leg_order_ = TerrainCrawlLegOrder::kLegacyFrontFirst;
+    std::array<std::size_t, go2::kLegCount> leg_order_values_ =
+        kLegacyFrontFirstLegOrder;
     std::size_t order_index_ = 0;
     int retry_count_ = 0;
     double state_enter_s_ = 0.0;

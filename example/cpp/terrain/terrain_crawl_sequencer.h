@@ -164,8 +164,11 @@ struct TerrainCrawlSequencerOutput
 class TerrainCrawlSequencer
 {
 public:
-    // FL, FR, ADVANCE, RR, RL. Leg indices use the existing Go2 order.
-    static constexpr std::array<std::size_t, 4> kLegOrder = {1, 0, 2, 3};
+    // The historical compile-time alias remains available to old callers.
+    static constexpr std::array<std::size_t, 4> kLegOrder =
+        kLegacyFrontFirstLegOrder;
+    static constexpr std::array<std::size_t, 4> kLateralOrder =
+        kLateralLegOrder;
     static constexpr double kStandoffM = 0.12;
     // V2-A entry braking remains under the running trot authority. The
     // deceleration is deliberately below the command shaper limit so the
@@ -232,6 +235,15 @@ public:
     }
 
     std::size_t order_index() const noexcept { return order_index_; }
+
+    void SetLegOrder(TerrainCrawlLegOrder order) noexcept
+    {
+        leg_order_ = order;
+        leg_order_values_ = order == TerrainCrawlLegOrder::kLateral
+            ? kLateralLegOrder : kLegacyFrontFirstLegOrder;
+    }
+
+    TerrainCrawlLegOrder leg_order() const noexcept { return leg_order_; }
 
     void Reset() noexcept
     {
@@ -428,7 +440,7 @@ public:
                 committed_[active_leg()] = true;
                 if (order_index_ == 1)
                     SetState(TerrainCrawlSequencerState::kAdvance, input.now_s);
-                else if (order_index_ + 1 < kLegOrder.size())
+                else if (order_index_ + 1 < leg_order_values_.size())
                 {
                     ++order_index_;
                     SetState(TerrainCrawlSequencerState::kShift, input.now_s);
@@ -505,8 +517,8 @@ public:
         return state_ == TerrainCrawlSequencerState::kShift ||
                 state_ == TerrainCrawlSequencerState::kSwing ||
                 state_ == TerrainCrawlSequencerState::kCommit
-            ? (order_index_ < kLegOrder.size() ? kLegOrder[order_index_]
-                                                : go2::kLegCount)
+            ? (order_index_ < leg_order_values_.size()
+                ? leg_order_values_[order_index_] : go2::kLegCount)
             : go2::kLegCount;
     }
     const TerrainCrawlSequencerOutput &output() const noexcept { return output_; }
@@ -805,6 +817,8 @@ private:
     static bool finite(double value) noexcept { return std::isfinite(value); }
 
     TerrainCrawlSequencerState state_ = TerrainCrawlSequencerState::kInactive;
+    TerrainCrawlLegOrder leg_order_ = TerrainCrawlLegOrder::kLegacyFrontFirst;
+    std::array<std::size_t, 4> leg_order_values_ = kLegacyFrontFirstLegOrder;
     std::size_t order_index_ = 0;
     double state_enter_s_ = 0.0;
     double stable_start_s_ = std::numeric_limits<double>::infinity();
