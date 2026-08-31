@@ -844,6 +844,13 @@ private:
                 progress_rate * (target_.y - swing_start_.y),
                 vertical_progress_rate * (target_.z - swing_start_.z) +
                     arch_rate};
+            if (state_ == TerrainCrawlSequencerState::kCommit)
+            {
+                // COMMIT observes a held endpoint; do not keep advancing
+                // the swing trajectory while physical contact settles.
+                output_.swing_position_world = target_;
+                output_.swing_velocity_world = {};
+            }
         }
         return state_;
     }
