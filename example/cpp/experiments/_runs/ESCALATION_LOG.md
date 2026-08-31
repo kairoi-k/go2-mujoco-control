@@ -3919,3 +3919,72 @@ commit_chain: |
   5107827, b9c898e, d447719, cc3dbbc, 9d7caca, b088e90, c6515e6,
   6902b8b, 8de45e5, 1a06b68, 0e406fd, f029efa, e06f1a2, f5a10a8,
   c15e4f9. No push or amend; all simulations serialized.
+
+---
+timestamp: 2026-08-31T16:12:00+0800
+run_id: Order-083 full freegait campaign at HEAD 24e640a
+trigger: T1
+configuration: |
+  HEAD 24e640abe069f5a952793c8ccf19a4c26b331765, clean source, serial
+  simulations under /tmp/go2_mujoco_experiment.lock. B0 used
+  LD_PRELOAD=/home/che/dds_base4000_preload.so, fixed-pair domains 222/223,
+  TROT_DYNAMICS_TOLERANCE_N=20. Full runs used domain 229 and the latest
+  full-run command contract: run_trot.sh 35, --headless,
+  --controller-duration 30, --wbc-full, running-trot period 0.50 duty
+  0.75 step-length 0.15 foot-lift 0.08 tau-limit 45, velocity shaping
+  0.80/1.20/4.0, phase2_b1_velocity_0p3.csv, --terrain-planner,
+  --phase2-milestone B1, and the same Base=4000 preload. Telemetry/debug
+  variables were not enabled. Each epoch pair is the base run and _r2.
+validation: |
+  B0 fixed development repeats 1/2/3 all returned acceptance_status=PASS,
+  completion_status=0, controller_status=0, safety_status=0, quality_status=0,
+  analyzer_status=0, planner deadline misses=0, and terrain map valid
+  fractions 0.9999743616, 0.9999743603, and 0.9999743544 respectively.
+  ctest --test-dir example/cpp/build --output-on-failure: 27/27 PASS.
+full_campaign: |
+  All 20 runs produced manifests and CSV/ground-truth artifacts at HEAD.
+  No crash-level defect occurred with the required preload. None completed the
+  full sequence (all four legs COMMIT + ADVANCE + CLEAR + RESUME), and none
+  supplied crossing evidence (base_x and all four feet simultaneously >0.70 m).
+  No confirmation window was entered; confirmation=none for every run. The
+  frozen phase2-b123 analyzer was run unchanged on every artifact; P/F below
+  is its exact 33-gate result; the complete per-gate P/F sets are preserved
+  in each run's phase2_terrain_analysis.json for independent review.
+
+  pair/run                                      seq  cross  confirm  analyzer P/F  stop frontier / max base_x / max FR,FL,RR,RL foot x
+  epoch280 / epoch280_r2                       0/2  0/2    none     20/33,20/33 INACTIVE>STAGE / 0.382 / 0.553,0.841,0.164,0.171; 0.387 / 0.830,0.556,0.457,0.382
+  epoch281 / epoch281_r2                       0/2  0/2    none     20/33,20/33 INACTIVE>STAGE / 0.379 / 0.548,0.794,0.164,0.167; 0.399 / 0.566,0.813,0.182,0.185
+  epoch282 / epoch282_r2                       0/2  0/2    none     21/33,18/33 INACTIVE>STAGE / 0.414 / 0.590,0.804,0.198,0.204; 0.376 / 0.538,0.833,0.154,0.156
+  epoch283 / epoch283_r2                       0/2  0/2    none     19/33,20/33 INACTIVE>STAGE>SHIFT / 0.378 / 0.545,0.834,0.159,0.158; 0.393 / 0.764,0.565,0.177,0.324
+  epoch284 / epoch284_r2                       0/2  0/2    none     20/33,20/33 INACTIVE>STAGE / 0.427 / 0.594,0.693,0.214,0.210; 0.424 / 0.594,0.826,0.210,0.296
+  epoch285 / epoch285_r2                       0/2  0/2    none     21/33,20/33 INACTIVE>STAGE>SHIFT / 0.398 / 0.696,0.559,0.173,0.226; 0.387 / 0.564,0.594,0.191,0.317
+  epoch286 / epoch286_r2                       0/2  0/2    none     20/33,15/33 INACTIVE>STAGE>SHIFT; INACTIVE>STAGE>SHIFT>SWING>COMMIT>ABORT / 0.402 / 0.573,0.783,0.192,0.186; 0.646 / 1.164,0.847,0.709,0.680
+  epoch287 / epoch287_r2                       0/2  0/2    none     19/33,15/33 INACTIVE>STAGE; INACTIVE>STAGE>SHIFT>SWING>COMMIT>ABORT / 0.422 / 0.587,0.705,0.207,0.203; 0.824 / 1.241,0.840,0.604,0.489
+  epoch288 / epoch288_r2                       0/2  0/2    none     15/33,20/33 INACTIVE>STAGE>SHIFT>SWING>COMMIT>ABORT; INACTIVE>STAGE / 1.007 / 0.687,0.830,0.688,0.682; 0.367 / 0.537,0.806,0.149,0.153
+  epoch289 / epoch289_r2                       0/2  0/2    none     20/33,20/33 INACTIVE>STAGE / 0.393 / 0.598,0.565,0.176,0.371; 0.397 / 0.567,0.571,0.180,0.403
+  Aggregate                                   0/20 0/20  none     n/a         full sequence rate 0.0%, Wilson 95% CI [0.0%,16.1%]; crossing rate 0.0%, Wilson 95% CI [0.0%,16.1%]. Per-pair 0/2 Wilson upper bound is 65.8%.
+residual: |
+  Because no run completed the full sequence, the Order-083 conditional
+  support-loss/endpoint-miss/planner-starvation classification is not invoked.
+  The observed frontier is planner starvation/support rejection before or at
+  the first terrain transfer: 17/20 runs stopped no later than SHIFT (mostly
+  INACTIVE->STAGE or INACTIVE->STAGE->SHIFT), while 3/20 reached
+  SWING->COMMIT->ABORT (epoch286_r2, epoch287_r2, epoch288). Those three had
+  step_commits=0 and no committed touchdown; the maximum base/foot values in
+  the table are not simultaneous crossing evidence. Typical support rejects
+  report support_margin about -0.010 to -0.030 m with partial masks, and the
+  later aborts are accompanied by hard-posture safety stops. This is evidence
+  of an incomplete sequence, not a claim about a completed-sequence residual.
+  No code, contract, analyzer, or canary definition was changed.
+artifacts: |
+  Run directories are b1_freegait_epoch280 through epoch289 and each _r2
+  under example/cpp/experiments/_runs. Every directory contains run_manifest.json,
+  phase2_terrain_analysis.json, controller.log, data.csv, and ground truth.
+  Frozen analyzer checks are unchanged; analyzer/contract hashes in manifests
+  match the latest command contract.
+acceptance: |
+  B0 at HEAD: 3/3 green. Full sequence: 0/20. Crossing: 0/20.
+  Confirmation: none. Therefore this campaign does not support the first
+  claimable B1 milestone; no crossing+confirmation claim is made.
+git_status: |
+  Evidence log append only; no source changes, no push, no amend. Commit locally.
