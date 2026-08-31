@@ -238,6 +238,7 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         legacy_crawl_state == go2_terrain::TerrainCrawlState::kShiftCom ||
         legacy_crawl_state == go2_terrain::TerrainCrawlState::kCrawlStep ||
         legacy_crawl_state == go2_terrain::TerrainCrawlState::kAdvanceBody;
+    snapshot.terrain_transfer_window_active = terrain_transfer_window_active_;
     snapshot.terrain_crawl_support_window_active =
         terrain_transfer_window_active_ &&
         ((terrain_crawl_sequencer_output_.control_authority_active &&
@@ -344,7 +345,8 @@ void TrotExperiment::UpdateTerrainRuntime()
     input.gait_period_s = control.gait_period_s;
     input.duty_factor = control.duty_factor;
     input.commanded_vx_mps = control.commanded_vx_mps;
-    input.has_stage_c_timing = params_.stage_c_execution;
+    input.has_stage_c_timing = params_.stage_c_execution &&
+        control.terrain_transfer_window_active;
     input.terrain_timing_bounds.current_period_s = input.gait_period_s;
     input.terrain_timing_bounds.current_duty_factor = input.duty_factor;
     input.terrain_timing_bounds.window_start_s = input.state_stamp_s;
@@ -867,13 +869,43 @@ void TrotExperiment::TerrainPlannerWorker()
             terrain_latest_plan_valid_ = result.plan.valid();
         }
 
-        if (result.publishable && params_.terrain_actuation &&
-            !params_.terrain_sensor_only)
+        // C-003b bridge: only an explicit Stage-C invocation inside the
+        // active v2 window may promote the validated V2-B shadow snapshot.
+        // V3-C remains observer-only and is never eligible here.
+        go2_terrain::TerrainMotionPlan plan_to_publish = result.plan;
+        bool shadow_bridge = false;
+        std::uint64_t shadow_hash = 0;
+        const bool stage_c_window = params_.stage_c_execution &&
+            work.input.has_stage_c_timing &&
+            params_.terrain_actuation && !params_.terrain_sensor_only;
+        if (stage_c_window &&
+            result.shadow_family_snapshots[static_cast<std::size_t>(
+                go2_terrain::TerrainShadowFamily::kV2B)])
         {
-            terrain_plan_store_.Publish(result.plan);
+            const auto &shadow = *result.shadow_family_snapshots[
+                static_cast<std::size_t>(go2_terrain::TerrainShadowFamily::kV2B)];
+            if (go2_terrain::BuildV2BExecutionPlanFromShadow(
+                    shadow, work.input, &plan_to_publish))
+            {
+                shadow_bridge = true;
+                shadow_hash = shadow.shadow_hash;
+            }
+
+        }
+        const bool publish_stage_plan = result.publishable || shadow_bridge;
+        const bool publish_allowed = params_.terrain_actuation &&
+            !params_.terrain_sensor_only &&
+            (!params_.stage_c_execution || stage_c_window);
+        if (publish_stage_plan && publish_allowed)
+        {
+            if (terrain_plan_store_.Publish(plan_to_publish))
             {
                 std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
                 ++terrain_plan_published_count_;
+                terrain_execution_source_ = shadow_bridge
+                    ? "shadow-v2-b-bridge" : "planner-v2-b";
+                terrain_execution_source_shadow_hash_ = shadow_hash;
+                terrain_latest_plan_valid_ = plan_to_publish.valid();
             }
             const double terrain_velocity_cap =
                 result.plan.velocity_request.valid &&
@@ -888,7 +920,7 @@ void TrotExperiment::TerrainPlannerWorker()
             terrain_velocity_cap_mps_.store(terrain_velocity_cap);
             terrain_safe_stop_requested_.store(false);
         }
-        else if (params_.terrain_actuation && !params_.terrain_sensor_only)
+        else if (publish_allowed)
         {
             const auto previous = terrain_plan_store_.LoadUsable(
                 work.input.state_stamp_s);

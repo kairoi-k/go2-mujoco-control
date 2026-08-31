@@ -278,8 +278,12 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_contact_state_valid_ = true;
     const double terrain_now_s =
         static_cast<double>(state_snapshot.tick()) * 1.0e-3;
+    const bool stage_c_window = params_.stage_c_execution &&
+        params_.terrain_actuation && !params_.terrain_sensor_only &&
+        terrain_transfer_window_active_;
     const auto terrain_contact_plan =
-        params_.terrain_actuation && !params_.terrain_sensor_only
+        params_.terrain_actuation && !params_.terrain_sensor_only &&
+        !stage_c_window
             ? (terrain_execution_plan_ &&
                        terrain_execution_plan_->usable_at(terrain_now_s)
                    ? terrain_execution_plan_

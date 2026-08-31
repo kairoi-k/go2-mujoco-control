@@ -77,6 +77,11 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_execution_plan_usable,terrain_execution_planned_contact_mask"
          << ",terrain_execution_adopted_plan_id,terrain_execution_rejected_plan_id"
          << ",terrain_execution_fallback_reason"
+         << ",terrain_execution_source,terrain_execution_source_shadow_hash"
+         << ",terrain_execution_adapter_updates,terrain_execution_adapter_adoptions"
+         << ",terrain_execution_adapter_rejections,terrain_execution_request_plan_id"
+         << ",terrain_execution_request_input_hash,terrain_execution_adapter_using_plan"
+         << ",terrain_execution_boundary_reason"
          << ",terrain_transfer_hold_active,terrain_transfer_hold_mask"
          << ",terrain_transfer_window_active,terrain_transfer_window_release_s"
          << ",terrain_crawl_state,terrain_crawl_active_leg"
@@ -152,7 +157,11 @@ void TrotExperiment::WriteCsvHeader()
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         const char *name = kLegNames[leg];
-        csv_ << ",terrain_exec_" << name << "_valid"
+        csv_ << ",terrain_execution_request_" << name << "_endpoint_identity"
+             << ",terrain_execution_request_" << name << "_in_flight"
+             << ",terrain_execution_" << name << "_touchdown_error_s"
+             << ",terrain_execution_" << name << "_liftoff_error_s"
+             << ",terrain_exec_" << name << "_valid"
              << ",terrain_exec_" << name << "_in_flight"
              << ",terrain_exec_" << name << "_endpoint_held"
              << ",terrain_exec_" << name << "_measured_touchdown"
@@ -1192,6 +1201,15 @@ void TrotExperiment::LogSample(
          << "," << terrain_execution_rejected_plan_id_
          << "," << (terrain_execution_fallback_reason_.empty()
                          ? "none" : terrain_execution_fallback_reason_)
+         << "," << terrain_execution_source_
+         << "," << terrain_execution_source_shadow_hash_
+         << "," << terrain_execution_adapter_updates_
+         << "," << terrain_execution_adapter_adoptions_
+         << "," << terrain_execution_adapter_rejections_
+         << "," << terrain_execution_request_plan_id_
+         << "," << terrain_execution_request_input_hash_
+         << "," << (terrain_execution_adapter_using_plan_ ? 1 : 0)
+         << "," << terrain_execution_boundary_reason_
          << "," << (terrain_transfer_hold_active_ ? 1 : 0)
          << "," << terrain_transfer_hold_mask
          << "," << (terrain_transfer_window_active_ ? 1 : 0)
@@ -1291,6 +1309,10 @@ void TrotExperiment::LogSample(
          << "," << terrain_target_last_prepare_failure_;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
+        csv_ << "," << terrain_execution_request_endpoint_identity_[leg]
+             << "," << (terrain_execution_request_in_flight_[leg] ? 1 : 0)
+             << "," << terrain_execution_touchdown_error_s_[leg]
+             << "," << terrain_execution_liftoff_error_s_[leg];
         const auto &execution = terrain_swing_execution_[leg];
         const auto &pending = terrain_swing_pending_[leg];
         const double execution_phase = execution.valid &&

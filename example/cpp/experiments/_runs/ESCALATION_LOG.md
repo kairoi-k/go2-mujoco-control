@@ -4649,3 +4649,53 @@ residual_risks: |
   fallback reason. No B1 campaign was run.
 rollback: |
   Leave --stage-c-execution unset (default false) or set stage_c_execution=false.
+
+
+---
+timestamp: 2026-09-04T00:00:00+0800
+run_id: Order-098 C-003b runtime adapter evidence closure
+source_sha: pending-local-commit
+trace: |
+  The opt-in path is TerrainPlanner::Build (family-A shadow is never used
+  implicitly) -> explicit BuildV2BExecutionPlanFromShadow bridge only when
+  --stage-c-execution and terrain_transfer_window_active -> TerrainPlanStore::Publish
+  whole immutable snapshot -> TerrainPlanExecutionAdapter::Update/ApplyToKernel
+  -> GaitExecutionRequest -> HandCodedTrotKernel::Compute timed path. The
+  pre-bridge C-003 source had no publishable runtime A snapshot in staged runs;
+  C-002 shadow remains observer-only. The bridge promotes only V2-B family A,
+  rejects V3-C/B by family/flag checks, and MPC/WBC consumption is disabled.
+implementation: |
+  Added explicit V2-B shadow-to-execution whole-snapshot bridge, initial-contact-
+  aware timing validation (same-cycle liftoff is legal only with measured support),
+  adapter provenance/boundary/counter diagnostics, endpoint immutable witnesses,
+  measured touchdown/liftoff timing residuals, and Stage-C gating that preserves
+  legacy sequencer/WBC/MPC behavior outside the active window. V3-C remains
+  shadow/reject. Sequencer is not the Stage-C source.
+probe_validation: |
+  Three serial staged/no-gate probes used flock, domain 229, Base=4000 preload,
+  phase2_step_5cm.xml, --stage-c-execution, and TROT_TERRAIN_SHADOW_DIAGNOSTICS=1.
+  |run|rows|publish/adopt/reject|adapter plan|active rows|planned masks|measured masks|td/liftoff max s|immutable endpoint ids|MPC consumed|result|
+  |order098_closure_1|14393|22/1/3928|542|299|7,14,15|1,2,3,9,11|0.332/0.196|RL=1|false|adapter evidence, no crossing claim|
+  |order098_closure_2|14333|16/1/2808|558|300|7,11,15|1,2,3,7,9,11|0.376/0.194|RL=1|false|adapter evidence, no crossing claim|
+  |order098_closure_3|14324|20/1/3351|547|299|7,11,15|1,2,3,7,9,11,15|0.314/0.194|RL=1|false|adapter evidence, no crossing claim|
+  Boundary reasons included event-boundary-adopt, event-boundary-no-adopt,
+  event-boundary-no-candidate, and not-event-boundary-or-in-flight. Fallback
+  chain remained measured-support:N/N+1/N+5/N+25. The gait-only plan did not
+  cause an immediate unsafe stop; runs returned normally. V3-C/B never adopted.
+b0: |
+  Flag-off fixed pair at source SHA 3cfdc41 used DDS preload 8000 and domains
+  222/223. b0_analyzer acceptance_status=PASS, no_terrain_actuation=true,
+  no_plan_consumer=true, no_plan_publish=true, legacy_status_pass=true.
+  Paired period/duty, WBC acceleration, and WBC velocity timing differences
+  were diagnostic-only non-gating outputs; thresholds were not changed.
+unit_validation: |
+  cmake --build example/cpp/build -j2 --target test_terrain_interfaces real_trot_go2: PASS;
+  ctest --test-dir example/cpp/build --output-on-failure: 27/27 PASS;
+  git diff --check: PASS.
+rollback: |
+  Omit --stage-c-execution (default false) or set stage_c_execution=false.
+  Adapter resets and old sequencer/Phase-1 behavior remains authoritative;
+  Stage-C snapshot publication is window-gated. No C-004 changes made.
+acceptance: |
+  End-to-end staged adapter evidence >=3: PASS. Unit/ctest: PASS. B0 flag-off:
+  PASS. No full B1 campaign and no C-004. Commit and push remain required.

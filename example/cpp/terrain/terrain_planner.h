@@ -213,6 +213,68 @@ struct TerrainPlannerResult
     TerrainShadowDiagnostics shadow_diagnostics{};
 };
 
+// Explicit C-003 bridge from the reviewed V2-B shadow family.  This is
+// intentionally not part of BuildShadow: callers must opt in at the active
+// Stage-C window, and the V3-C draft can never be promoted by this helper.
+inline bool BuildV2BExecutionPlanFromShadow(
+    const TerrainShadowSnapshot &shadow,
+    const TerrainPlannerInput &input,
+    TerrainMotionPlan *output)
+{
+    if (output == nullptr || !input.has_stage_c_timing ||
+        input.terrain == nullptr || !input.terrain->valid() ||
+        shadow.family != TerrainShadowFamily::kV2B || !shadow.valid ||
+        !shadow.no_aerial || shadow.identity.plan_id == 0 ||
+        shadow.identity.map_epoch == 0 || shadow.contact_timing.horizon_knots == 0 ||
+        shadow.contact_timing.horizon_knots > kTerrainPlanMaxKnots ||
+        !shadow.contact_schedule.valid(shadow.contact_timing.horizon_knots) ||
+        !input.terrain_timing_bounds.valid())
+        return false;
+
+    TerrainMotionPlan plan{};
+    plan.plan_id = shadow.identity.plan_id;
+    plan.plan_epoch = shadow.identity.plan_epoch;
+    plan.map_epoch = shadow.identity.map_epoch;
+    plan.state_stamp_s = shadow.identity.generated_at_s;
+    plan.generated_at_s = shadow.identity.generated_at_s;
+    plan.valid_until_s = std::max(shadow.identity.valid_until_s,
+        plan.state_stamp_s + static_cast<double>(
+            shadow.contact_timing.horizon_knots - 1) *
+            shadow.contact_timing.knot_dt_s);
+    plan.frame_id = input.terrain->frame_id;
+    plan.status = TerrainPlanStatus::kValid;
+    plan.failure = TerrainPlanFailure::kNone;
+    plan.map_age_s = input.terrain->age_s;
+    plan.horizon_knots = shadow.contact_timing.horizon_knots;
+    plan.gait_phase = input.gait_phase;
+    plan.gait_period_s = shadow.period_s;
+    plan.duty_factor = shadow.duty_factor;
+    plan.min_support_margin_m = shadow.min_support_margin_m;
+    plan.min_reachability_margin_m = shadow.min_reachability_margin_m;
+    plan.min_swing_clearance_m = shadow.min_clearance_margin_m;
+    plan.min_edge_margin_m = shadow.min_edge_margin_m;
+    plan.min_uncertainty_inflated_edge_margin_m = shadow.min_uncertainty_margin_m;
+    plan.min_uncertainty_inflated_support_margin_m = shadow.min_uncertainty_margin_m;
+    plan.timing_bounds = input.terrain_timing_bounds;
+    plan.contact_timing = shadow.contact_timing;
+    plan.contact_schedule = shadow.contact_schedule;
+    plan.body_reference = shadow.body_reference;
+    plan.predicted_foothold = shadow.predicted_foothold;
+    plan.has_stage_c_timing = true;
+    plan.v3_c_shadow = false;
+    plan.input_hash = TerrainPlannerInputHash(input);
+    plan.fallback_to_phase1 = false;
+    plan.solver.attempted = true;
+    plan.solver.success = true;
+    plan.solver.deadline_us = 5000.0;
+    plan.BindIdentity();
+    plan.contact_timing.period_s = shadow.period_s;
+    plan.contact_timing.duty_factor = shadow.duty_factor;
+    plan.contact_timing.provenance = TerrainTimingProvenance::kStageCPlanner;
+    *output = std::move(plan);
+    return output->valid();
+}
+
 inline go2::Vec3 RotateBaseToWorld(
     const go2::Vec3 &base_position, double yaw, const go2::Vec3 &local)
 {

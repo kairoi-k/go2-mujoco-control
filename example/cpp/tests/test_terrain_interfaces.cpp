@@ -2758,6 +2758,15 @@ int main()
         if (!Check(with_liftoff.valid(),
                    "absolute per-leg liftoff was not aligned to a knot"))
             return 1;
+        auto same_cycle_liftoff = valid_plan;
+        same_cycle_liftoff.contact_schedule.measured_contact[0] = true;
+        same_cycle_liftoff.contact_timing.liftoff_time_s[0] = 1.05;
+        same_cycle_liftoff.contact_timing.liftoff_time_valid[0] = true;
+        if (!Check(same_cycle_liftoff.contact_timing.valid(
+                       same_cycle_liftoff.timing_bounds,
+                       &same_cycle_liftoff.contact_schedule.measured_contact),
+                   "measured support did not allow same-cycle liftoff"))
+            return 1;
         auto non_knot_liftoff = valid_plan;
         non_knot_liftoff.contact_schedule.planned_contact[2] =
             {false, true, true, true};

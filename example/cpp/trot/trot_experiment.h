@@ -247,6 +247,7 @@ private:
         bool measured_com_valid = false;
         go2::Vec3 measured_com_world{};
         bool terrain_crawl_support_window_active = false;
+        bool terrain_transfer_window_active = false;
         std::size_t terrain_crawl_support_lifted_leg = go2::kLegCount;
         bool terrain_transfer_hold_active = false;
         std::array<bool, go2::kLegCount>
@@ -692,6 +693,23 @@ private:
     std::uint64_t terrain_execution_adopted_plan_id_ = 0;
     std::uint64_t terrain_execution_rejected_plan_id_ = 0;
     std::string terrain_execution_fallback_reason_;
+    std::string terrain_execution_source_ = "none";
+    std::uint64_t terrain_execution_source_shadow_hash_ = 0;
+    std::uint64_t terrain_execution_adapter_updates_ = 0;
+    std::uint64_t terrain_execution_adapter_adoptions_ = 0;
+    std::uint64_t terrain_execution_adapter_rejections_ = 0;
+    std::uint64_t terrain_execution_request_plan_id_ = 0;
+    std::uint64_t terrain_execution_request_input_hash_ = 0;
+    bool terrain_execution_adapter_using_plan_ = false;
+    std::string terrain_execution_boundary_reason_ = "inactive";
+    std::array<std::uint64_t, go2::kLegCount>
+        terrain_execution_request_endpoint_identity_{};
+    std::array<bool, go2::kLegCount> terrain_execution_request_in_flight_{};
+    std::array<double, go2::kLegCount>
+        terrain_execution_touchdown_error_s_{};
+    std::array<double, go2::kLegCount> terrain_execution_liftoff_error_s_{};
+    std::array<bool, go2::kLegCount> terrain_execution_previous_measured_{};
+    bool terrain_execution_previous_measured_valid_ = false;
 
     std::atomic<std::uint64_t> terrain_plan_contact_rejections_{0};
     std::uint64_t terrain_target_prepare_attempt_count_ = 0;

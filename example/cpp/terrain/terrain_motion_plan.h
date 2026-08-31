@@ -320,7 +320,8 @@ struct TerrainContactTiming
     double knot_dt_s = 0.020;
     TerrainTimingProvenance provenance = TerrainTimingProvenance::kNone;
 
-    bool valid(const TerrainTimingBounds &bounds) const
+    bool valid(const TerrainTimingBounds &bounds,
+               const std::array<bool, go2::kLegCount> *initial_contact = nullptr) const
     {
         if (!identity.valid() || provenance == TerrainTimingProvenance::kNone ||
             !bounds.valid() || !std::isfinite(period_s) ||
@@ -354,7 +355,8 @@ struct TerrainContactTiming
                     time > bounds.window_end_s)
                     return false;
                 if (touchdown_time_valid[leg] &&
-                    time <= touchdown_time_s[leg])
+                    time <= touchdown_time_s[leg] &&
+                    (initial_contact == nullptr || !(*initial_contact)[leg]))
                     return false;
             }
         }
@@ -588,7 +590,8 @@ struct TerrainMotionPlan
                 contact_timing.identity.generated_at_s != generated_at_s ||
                 contact_timing.identity.valid_until_s != valid_until_s ||
                 contact_timing.horizon_knots != horizon_knots ||
-                !contact_timing.valid(timing_bounds))
+                !contact_timing.valid(timing_bounds,
+                    &contact_schedule.measured_contact))
                 return false;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {

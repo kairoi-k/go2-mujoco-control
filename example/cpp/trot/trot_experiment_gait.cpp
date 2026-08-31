@@ -538,6 +538,9 @@ bool TrotExperiment::BuildGaitTargets(
     bool have_high_state,
     std::array<double, kMotorCount> &joint_targets)
 {
+    const bool stage_c_execution_requested = params_.stage_c_execution &&
+        params_.terrain_actuation && !params_.terrain_sensor_only;
+
     auto feet = go2::AllFootPositions(task_.stand_up_joint_pos_);
     const bool low_stance_active =
         go2_terrain::TerrainCrawlLowStanceActive(
@@ -680,8 +683,7 @@ bool TrotExperiment::BuildGaitTargets(
     // not touch the request or setter sequence used by Phase 1.
     const double adapter_now_s = static_cast<double>(state_snapshot.tick()) *
         1.0e-3;
-    const bool stage_c_window = params_.stage_c_execution &&
-        params_.terrain_actuation && !params_.terrain_sensor_only &&
+    const bool stage_c_window = stage_c_execution_requested &&
         terrain_transfer_window_active_;
     terrain_plan_execution_adapter_.SetEnabled(stage_c_window);
     if (stage_c_window)
@@ -692,17 +694,59 @@ bool TrotExperiment::BuildGaitTargets(
             std::lock_guard<std::mutex> lock(terrain_control_mutex_);
             measured_support = terrain_control_snapshot_.measured_contact;
         }
+        const bool adapter_boundary =
+            terrain_plan_execution_adapter_.IsLegalBoundary(adapter_now_s);
         const auto handoff = terrain_plan_execution_adapter_.Update(
-            timed_plan.get(), adapter_now_s,
-            terrain_plan_execution_adapter_.IsLegalBoundary(adapter_now_s),
+            timed_plan.get(), adapter_now_s, adapter_boundary,
             measured_support, runtime_gait_pattern_, params_.period_s,
             params_.duty_factor, params_.step_length_m, params_.foot_lift_m);
         terrain_plan_execution_adapter_.ApplyToKernel(
             *locomotion_kernel_, gait_request, adapter_now_s, feet);
+        ++terrain_execution_adapter_updates_;
+        terrain_execution_adapter_using_plan_ = handoff.using_plan;
+        terrain_execution_request_plan_id_ = handoff.request.plan_id;
+        terrain_execution_request_input_hash_ = handoff.request.input_hash;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            terrain_execution_request_endpoint_identity_[leg] =
+                handoff.request.endpoint_identity[leg];
+            terrain_execution_request_in_flight_[leg] =
+                handoff.request.endpoint_valid[leg] &&
+                handoff.request.liftoff_time_valid[leg] &&
+                handoff.request.touchdown_time_valid[leg] &&
+                adapter_now_s >= handoff.request.liftoff_time_s[leg] &&
+                adapter_now_s < handoff.request.touchdown_time_s[leg];
+            if (terrain_execution_previous_measured_valid_ &&
+                measured_support[leg] != terrain_execution_previous_measured_[leg])
+            {
+                if (measured_support[leg] &&
+                    handoff.request.touchdown_time_valid[leg])
+                    terrain_execution_touchdown_error_s_[leg] =
+                        adapter_now_s - handoff.request.touchdown_time_s[leg];
+                if (!measured_support[leg] &&
+                    handoff.request.liftoff_time_valid[leg])
+                    terrain_execution_liftoff_error_s_[leg] =
+                        adapter_now_s - handoff.request.liftoff_time_s[leg];
+            }
+            terrain_execution_previous_measured_[leg] = measured_support[leg];
+        }
+        terrain_execution_previous_measured_valid_ = true;
+        terrain_execution_boundary_reason_ = adapter_boundary
+            ? (handoff.adopted ? "event-boundary-adopt" :
+               (timed_plan ? "event-boundary-no-adopt" :
+                "event-boundary-no-candidate"))
+            : "not-event-boundary-or-in-flight";
         if (handoff.adopted)
+        {
             terrain_execution_adopted_plan_id_ = handoff.adopted_plan_id;
+            ++terrain_execution_adapter_adoptions_;
+        }
         if (handoff.rejected)
+        {
             terrain_execution_rejected_plan_id_ = handoff.rejected_plan_id;
+            ++terrain_execution_adapter_rejections_;
+            terrain_execution_boundary_reason_ = handoff.rejection_reason;
+        }
         if (!handoff.fallback_reason.empty())
             terrain_execution_fallback_reason_ = handoff.fallback_reason;
     }
@@ -900,7 +944,7 @@ bool TrotExperiment::BuildGaitTargets(
     const auto active_terrain_plan = terrain_execution_plan_;
     std::array<bool, go2::kLegCount> terrain_contact_now{};
     bool terrain_contact_now_valid = false;
-    if (active_terrain_plan)
+    if (active_terrain_plan && !stage_c_execution_requested)
     {
         std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
             terrain_now_index{};
@@ -2047,7 +2091,7 @@ bool TrotExperiment::BuildGaitTargets(
     // Drive terrain execution from the explicit v2 sequencer. All inputs
     // here are observations from the force filter, lidar plan, current FK,
     // and measured body/foot pose; no scene or XML truth is consulted.
-    if (terrain_transfer_window_active_)
+    if (terrain_transfer_window_active_ && !stage_c_execution_requested)
     {
         go2_terrain::TerrainCrawlSequencerInput sequencer_input;
         sequencer_input.transfer_window_active = true;
@@ -2599,6 +2643,7 @@ bool TrotExperiment::BuildGaitTargets(
     const bool terrain_target_adapter_enabled =
         Full2EnvDouble("TROT_TERRAIN_TARGET_ADAPTER", 1.0) > 0.5;
     if (terrain_target_adapter_enabled && active_terrain_plan &&
+        (!stage_c_execution_requested || !terrain_transfer_window_active_) &&
         have_high_state &&
         task_.gait_started_ && task_.motion_stage_ == 2)
     {
