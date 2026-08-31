@@ -932,7 +932,8 @@ public:
                         ++force_contacts;
             const bool stage_contact_ready = signals.scripted_execution
                 ? (signals.measured_contact_valid &&
-                   contacts == static_cast<int>(go2::kLegCount))
+                   (signals.allow_creep_entry ? contacts >= 3
+                                              : contacts == static_cast<int>(go2::kLegCount)))
                 : ((signals.measured_contact_valid && contacts >= 3) ||
                    (signals.measured_force_valid && force_contacts >= 3));
             // STAGE retains all four contacts; no swing leg should be
