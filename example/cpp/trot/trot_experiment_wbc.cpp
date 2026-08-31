@@ -1550,6 +1550,19 @@ void TrotExperiment::UpdateWbcFull(
                     -5.0 * linear_vel_world.y(), -1.5, 1.5);
             }
         }
+        if (terrain_crawl_sequencer_output_.body_advance_requested)
+        {
+            // The legacy SHIFT_COM COM target can be unavailable for one
+            // asynchronous tick even though the sequencer has raised the
+            // v2 reachability request. Keep the request authoritative for
+            // the longitudinal ID-WBC task across that handoff boundary.
+            const double advance_v = params_.direction_sign *
+                go2_terrain::TerrainCrawlStateMachine::kAdvanceBodySpeedMps;
+            const double advance_acc = Clamp(
+                8.0 * (advance_v - linear_vel_world.x()), -4.0, 4.0);
+            terrain_shift_servo_acc_x_mps2_ = advance_acc;
+            wbc_in.desired_linear_acc_world.x() = advance_acc;
+        }
         const bool stop_balance =
             EmergencyStopHoldReady() ||
             WbcStopHoldActive() ||
