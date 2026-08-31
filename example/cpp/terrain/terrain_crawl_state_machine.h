@@ -51,10 +51,16 @@ inline const char *TerrainCrawlStateName(TerrainCrawlState state) noexcept
 inline bool TerrainCrawlWbcContactOverride(
     TerrainCrawlState state,
     std::size_t active_leg,
-    std::array<bool, go2::kLegCount> &contact) noexcept
+    std::array<bool, go2::kLegCount> &contact,
+    bool body_advance_requested = false) noexcept
 {
     if (state == TerrainCrawlState::kShiftCom)
     {
+        // A v2 body advance uses the ordinary crawl schedule so a stance
+        // exchange can produce physical translation. The default full stance
+        // remains unchanged for staged/flat and ordinary SHIFT_COM.
+        if (body_advance_requested)
+            return false;
         contact.fill(true);
         return true;
     }

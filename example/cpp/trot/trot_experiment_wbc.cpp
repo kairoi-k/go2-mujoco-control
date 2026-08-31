@@ -314,6 +314,7 @@ void TrotExperiment::UpdateWbcFull(
     // from the running trot phase or a planner snapshot.
     if (terrain_transfer_window_active_ &&
         terrain_crawl_sequencer_output_.control_authority_active &&
+        !terrain_crawl_sequencer_output_.body_advance_requested &&
         (terrain_crawl_sequencer_output_.measured_contact_count >= 3 ||
          terrain_crawl_sequencer_output_.flat_ground_mode ||
          terrain_crawl_sequencer_output_.state ==
@@ -596,7 +597,8 @@ void TrotExperiment::UpdateWbcFull(
     {
         (void)go2_terrain::TerrainCrawlWbcContactOverride(
             terrain_crawl_state_machine_.state(),
-            terrain_crawl_state_machine_.ActiveLeg(), qp_contact);
+            terrain_crawl_state_machine_.ActiveLeg(), qp_contact,
+            terrain_crawl_sequencer_output_.body_advance_requested);
         if (terrain_crawl_sequencer_output_.control_authority_active &&
             (terrain_crawl_sequencer_output_.measured_contact_count >= 3 ||
              terrain_crawl_sequencer_output_.flat_ground_mode ||

@@ -1533,6 +1533,12 @@ int main()
                     contact == std::array<bool, go2::kLegCount>{true, true, true, true},
                 "SHIFT_COM did not force all WBC contacts") ||
             !Check(
+                !go2_terrain::TerrainCrawlWbcContactOverride(
+                    go2_terrain::TerrainCrawlState::kShiftCom,
+                    go2::kLegCount, contact, true) &&
+                    contact == std::array<bool, go2::kLegCount>{true, true, true, true},
+                "v2 body advance unexpectedly forced all WBC contacts") ||
+            !Check(
                 go2_terrain::TerrainCrawlWbcContactOverride(
                     go2_terrain::TerrainCrawlState::kCrawlStep, 1, contact) &&
                     contact == std::array<bool, go2::kLegCount>{true, false, true, true},
