@@ -4965,3 +4965,7 @@ artifacts: |
   docs/research/evidence/order102_c006b/PAIR1_TERRAIN_MANIFEST.json
 rollback: |
   No runtime change. Keep Stage-C execution off; do not advance C-007/B1.
+pooled_statistics: |
+  Retained pooled statistic across Order-101 and this stopped sample is 1/3
+  authoritative fixed-pair PASS, 95% Wilson [0.061492, 0.792340]. Order-101
+  1/2 and its failure remain permanent and are not replaced.
