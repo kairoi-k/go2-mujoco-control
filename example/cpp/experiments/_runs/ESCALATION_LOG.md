@@ -4096,3 +4096,71 @@ acceptance: |
 commit_chain: |
   2fcb510, 9650872, ae73cba, 3bf65ce, 6896403, c8cd37c, 9299580,
   909b48b, 8b3b3e7, 6fb4047, 7ffa34d, 45de079.
+
+---
+timestamp: 2026-09-03T04:00:00+0800
+run_id: Order-087 v2 SWING-entry/support-boundary repair and probe
+trigger: T1
+source_sha: 9520b2aeeb6fbce727ff90837106a7059dcc6791
+forensics: |
+  The epoch304-307 split is a support-witness boundary, not a planner or
+  WBC-solver entry failure. All 8/8 passed the reachability proxy (minimum
+  target radial 0.116-0.388 m in the retained evidence). The six non-SWING
+  traces remained in sequencer SHIFT with active FL=1. At the closest
+  <=0.406 m target samples, the measured contact masks were predominantly
+  7/11 (missing one of the three FL-excluded support legs), with finite
+  support-margin samples below zero (planner diagnostics -0.0004 to
+  -0.0361 m and -inf for incomplete masks). The sequencer v2 predicate at
+  terrain_crawl_sequencer.h:473-479 therefore stayed false even when
+  velocity/posture were ready; examples: epoch305 had contacts=3, v=0.0853
+  m/s but roll=0.1952 rad/pitch=0.2265 rad after support loss; epoch307_r2
+  ended contacts=1, v=0.1433 m/s, roll=0.2296 rad. The legacy state was
+  STAGE/SHIFT_COM while the sequencer was SHIFT, but this was a consequence
+  of the missing measured support witness rather than a timeout-only gate.
+  The two entry traces were epoch304 and epoch306; each then lost the
+  three-contact plant during SWING. Epoch304 SWING had measured contacts
+  4->2, support failure diagnostics failure=5 (support-infeasible) in 60/64
+  emitted diagnostics, followed by hard-posture roll reaching 179.73 deg.
+  Epoch306 had contacts 4->0, failure=5 in 59/64 diagnostics, WBC ID flags
+  reached 0, and the posture monitor reached roll=11.73 deg. No collision
+  diagnostic or independent solver-failure signature was present; the
+  physical class is support loss, with posture stop as the terminal safety
+  action. Failure=4/no-safe-foothold also appeared only as transient
+  planner fallout (epoch306 plan 297, failed leg RR, and epoch304 early
+  plan 178), not as the SWING terminal cause.
+implementation: |
+  At the full-v2 SHIFT boundary, trot_experiment_wbc.cpp now gives the
+  sequencers
+ measured support-triangle incenter priority over the legacy
+  STAGE target and includes it in the existing bounded COM position servo.
+  This lets the plant square the three-leg support witness while the
+  sequencer remains in SHIFT, without changing v2 window timing, the
+  sequencer predicate, staged/flat behavior, v1 behavior, analyzer, or
+  canary definitions. The change is committed locally as 9520b2a.
+validation: |
+  cmake --build example/cpp/build -j2: PASS; ctest --test-dir
+  example/cpp/build --output-on-failure: 27/27 PASS; git diff --check: PASS.
+  Eight serial probes b1_freegait_epoch308..311 and each _r2 used
+  flock -x /tmp/go2_mujoco_experiment.lock, domain 229,
+  LD_PRELOAD=/home/che/dds_base4000_preload.so, scene phase2_step_5cm.xml,
+  controller duration 30 s / wall timeout 35 s, and the unchanged B1 command.
+probe_table: |
+  run                         reach proxy   SWING rows   full sequence   max base_x
+  epoch308                    PASS          yes          0               0.7441 m
+  epoch308_r2                 PASS          no           0               0.5271 m
+  epoch309                    PASS          no           0               0.6148 m
+  epoch309_r2                 PASS          no           0               1.0899 m
+  epoch310                    PASS          no           0               0.6302 m
+  epoch310_r2                 PASS          no           0               0.6344 m
+  epoch311                    PASS          yes          0               0.5369 m
+  epoch311_r2                 PASS          no           0               0.7684 m
+  aggregate                   8/8           2/8          0/8             no crossing claim
+acceptance: |
+  The requested SWING >=6/8 and at least one completed measured-contact
+  sequence were NOT achieved (2/8 SWING, 0/8 complete). The ten-pair
+  continuation from epoch312 was not run. No gate-level or B1 conclusion
+  is made. No staged files; no push; no amend of evidence commits.
+commit_chain: |
+  c003636, fb731de, 41bccd9, 28e6294, a4c1009, 9520b2a. The two exploratory
+  commits and their reverts are retained in history; final source change is
+  9520b2a. All simulations serialized.
