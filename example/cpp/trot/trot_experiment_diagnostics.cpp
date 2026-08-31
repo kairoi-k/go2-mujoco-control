@@ -664,9 +664,20 @@ bool TrotExperiment::CheckInstantaneousHardLimits(
         return true;
     const double roll = state_snapshot.imu_state().rpy()[0];
     const double pitch = state_snapshot.imu_state().rpy()[1];
+    const auto sequencer_state = terrain_crawl_sequencer_output_.state;
+    const bool sequencer_stance_reference =
+        terrain_crawl_sequencer_output_.control_authority_active &&
+        !terrain_crawl_sequencer_output_.flat_ground_mode &&
+        (sequencer_state ==
+             go2_terrain::TerrainCrawlSequencerState::kShift ||
+         sequencer_state ==
+             go2_terrain::TerrainCrawlSequencerState::kSwing ||
+         sequencer_state ==
+             go2_terrain::TerrainCrawlSequencerState::kCommit);
     const bool crawl_stance_reference = terrain_transfer_window_active_ &&
         terrain_stance_reference_valid_ &&
-        (terrain_crawl_state_machine_.state() ==
+        (sequencer_stance_reference ||
+         terrain_crawl_state_machine_.state() ==
              go2_terrain::TerrainCrawlState::kShiftCom ||
          terrain_crawl_state_machine_.state() ==
              go2_terrain::TerrainCrawlState::kCrawlStep);

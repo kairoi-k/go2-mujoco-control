@@ -179,36 +179,54 @@ void TrotExperiment::UpdateWbcFull(
     // A raised committed foot makes the remaining stance a tilted 3-D
     // support plane. Cache its deliberate attitude reference before the
     // hard-limit check on the next control tick; flat ground computes exact
-    // zero angles and therefore retains the existing path.
-    terrain_stance_reference_valid_ = false;
-    terrain_stance_reference_normal_ = Eigen::Vector3d::UnitZ();
+    // zero angles and therefore retains the existing path. The sequencer is
+    // authoritative here: its active leg is the commit currently being
+    // prepared, while the legacy machine can be one tick behind it.
     const auto crawl_state = terrain_crawl_state_machine_.state();
-    // The event sequencer is the authority during both the flat isolation
-    // harness and the terrain transfer. The legacy state machine can lag it
-    // while it is still in DECELERATE_TO_CREEP; using that stale state leaves
-    // stance legs with only the 1 N default floor during SWING.
+    const auto sequencer_state = terrain_crawl_sequencer_output_.state;
     const bool sequencer_crawl_execution =
         terrain_crawl_sequencer_output_.control_authority_active &&
-        terrain_crawl_sequencer_output_.state !=
-            go2_terrain::TerrainCrawlSequencerState::kAbort;
+        sequencer_state != go2_terrain::TerrainCrawlSequencerState::kAbort;
+    const bool sequencer_stance_reference =
+        sequencer_crawl_execution &&
+        (sequencer_state ==
+             go2_terrain::TerrainCrawlSequencerState::kShift ||
+         sequencer_state ==
+             go2_terrain::TerrainCrawlSequencerState::kSwing ||
+         sequencer_state ==
+             go2_terrain::TerrainCrawlSequencerState::kCommit);
+    const bool legacy_stance_reference =
+        crawl_state == go2_terrain::TerrainCrawlState::kShiftCom ||
+        crawl_state == go2_terrain::TerrainCrawlState::kCrawlStep;
     const bool crawl_stance_reference =
         !terrain_crawl_sequencer_output_.flat_ground_mode &&
         terrain_crawl_sequencer_output_.control_authority_active &&
-        (crawl_state == go2_terrain::TerrainCrawlState::kShiftCom ||
-         crawl_state == go2_terrain::TerrainCrawlState::kCrawlStep);
-    if (crawl_stance_reference)
+        (sequencer_stance_reference || legacy_stance_reference);
+    if (!crawl_stance_reference)
     {
+        terrain_stance_reference_valid_ = false;
+        terrain_stance_reference_normal_ = Eigen::Vector3d::UnitZ();
+    }
+    else
+    {
+        const std::size_t active_leg =
+            terrain_crawl_sequencer_output_.active_leg < go2::kLegCount
+                ? terrain_crawl_sequencer_output_.active_leg
+                : terrain_crawl_state_machine_.com_target_leg();
         const auto triangle = go2_terrain::ComputeTerrainSupportTriangle(
             {go2::Vec3{dyn.foot_pos_world[0].x(), dyn.foot_pos_world[0].y(), dyn.foot_pos_world[0].z()},
              go2::Vec3{dyn.foot_pos_world[1].x(), dyn.foot_pos_world[1].y(), dyn.foot_pos_world[1].z()},
              go2::Vec3{dyn.foot_pos_world[2].x(), dyn.foot_pos_world[2].y(), dyn.foot_pos_world[2].z()},
              go2::Vec3{dyn.foot_pos_world[3].x(), dyn.foot_pos_world[3].y(), dyn.foot_pos_world[3].z()}},
-            terrain_crawl_state_machine_.com_target_leg());
+            active_leg);
         const auto plane = go2_terrain::ComputeTerrainStancePlane(
             triangle, static_cast<double>(state_snapshot.imu_state().rpy()[2]));
-        terrain_stance_reference_valid_ = plane.valid;
+        // Keep the last measured plane for one transient invalid FK sample;
+        // falling back to absolute level there would turn a deliberate tilt
+        // into a false 0.20 rad stop.
         if (plane.valid)
         {
+            terrain_stance_reference_valid_ = true;
             terrain_stance_reference_roll_rad_ = plane.roll_rad;
             terrain_stance_reference_pitch_rad_ = plane.pitch_rad;
             terrain_stance_reference_normal_ = Eigen::Vector3d(
