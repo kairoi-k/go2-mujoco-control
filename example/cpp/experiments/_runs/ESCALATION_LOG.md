@@ -4413,3 +4413,60 @@ acceptance: |
   C-001 interface and atomicity checks pass. Timed execution remains disabled;
   no Stage-C actuation was enabled. Simulation was serial and no contract,
   analyzer, or canary source was changed.
+
+
+---
+timestamp: 2026-08-31T23:00:00+0800
+run_id: Order-094 C-002 shadow hybrid contact-timing + body planner
+source_sha: dbaf3bedc5864539f3cd549e6adc60aa640d1527
+scope: |
+  Implemented the deterministic, bounded C-002 shadow path only. It searches
+  period/duty, independent per-leg touchdown offsets, sensor SafeFootholdRegion
+  representatives, and bounded horizontal CoM projection. V2-B requires >=3
+  planned contacts per knot. V3-C-DRAFT permits only diagonal 2-contact
+  intervals with no aerial knots and applies dynamic friction/unilateral/
+  torque proxies, reachability, clearance, posture, and uncertainty margins.
+  The chosen object is an immutable shared shadow snapshot and is not passed to
+  TerrainPlanStore, gait, MPC, or WBC. Contract/analyzer/canary definitions
+  were not changed.
+validation: |
+  cmake --build example/cpp/build -j2 --target test_terrain_interfaces: PASS;
+  cmake --build example/cpp/build -j2 --target real_trot_go2: PASS;
+  ctest --test-dir example/cpp/build --output-on-failure: 27/27 PASS;
+  git diff --check: PASS. Deterministic replay/tie-break, stale/unknown/frame,
+  V2-B <3-contact, V3-C aerial/timeout/dynamic rejection, machine-readable
+  diagnostics, and no-consumer unit checks pass.
+b0: |
+  The completed serial fixed-3-m/s sensor-only pair was run with
+  LD_PRELOAD=/home/che/dds_base4000_preload.so, domains 222/223, under the
+  existing locks. Controller/safety/quality/dynamics statuses were 0 and the
+  manually completed analyzer returned acceptance_status=PASS; terrain planner
+  deadline misses=0, no_plan_consumer=true, no_plan_publish=true,
+  no_terrain_actuation=true. Terrain run source SHA was 471fc33e967382a3caabd35186887a4adb0dae1a.
+  The paired gait/WBC differences are diagnostic-only fields already reported
+  by the analyzer; no gate claim is made here.
+b1_shadow_only: |
+  Four serial 5-cm sensor-only runs used domain 229, the base4000 preload,
+  and TROT_TERRAIN_SHADOW_DIAGNOSTICS=1. Each emitted machine-readable
+  diagnostics and made no actuation/gate claim. All used source SHA
+  dbaf3bedc5864539f3cd549e6adc60aa640d1527.
+comparison_table: |
+  |run|A candidates/feasible|B candidates/feasible|A-empty/B-feasible|p planner us|chosen shadow hash|
+  |order094_b1_shadow_0|729/0|729/0|false|1180.1|0|
+  |order094_b1_shadow_1|729/0|729/0|false|1160.2|0|
+  |order094_b1_shadow_2|729/0|729/0|false|1124.0|0|
+  |order094_b1_shadow_3|729/0|729/0|false|1147.6|0|
+  B's repeated rejection is the no-aerial rule on the running-trot schedule;
+  no positive dynamic-margin evidence exists. The short smoke duration causes
+  legacy quantitative analysis to be non-gating/incomplete, not a C-002 gate.
+rule_decision: |
+  NOT TRIGGERED. A has no feasible shadow candidates in these running-trot
+  observations, but B does not repeatedly show positive dynamic margins;
+  therefore the autonomous A-empty/B-positive rule is not met. V3-C remains
+  DRAFT/SHADOW and no contract activation or gate conclusion is made.
+rollback: |
+  Set shadow_enabled=false (or revert the C-002 commits); legacy
+  TerrainMotionPlan/TerrainPlanStore and all execution paths remain unchanged.
+acceptance: |
+  Shadow output remains observer-only; B0 PASS/no actuation evidence and the
+  four-run A/B table are recorded above. No contract amendment was made.
