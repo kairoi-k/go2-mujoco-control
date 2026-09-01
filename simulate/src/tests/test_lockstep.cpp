@@ -1,14 +1,23 @@
-// Unit tests for the Order-103/105 sim-time lockstep coordinator
-// (simulate/src/lockstep.h). The coordinator is DDS/MuJoCo-free; tests drive
-// the ready/exchange/tick/ack protocol directly and assert the invariants
-// that the simulator integration relies on:
+// Unit/integration tests for the Order-103/105/106 sim-time lockstep
+// coordinator (simulate/src/lockstep.h). The coordinator is DDS/MuJoCo-free;
+// tests drive the ready/publish/exchange/tick/ack protocol directly and
+// assert the invariants the simulator integration relies on:
 //   * ready barrier completes only after the first controller command;
 //   * one frozen interval per causal exchange; exact dt tick sequence
 //     (no duplicate/missing/reordered tick);
-//   * Order-105: a step is granted only for a matching newer LowCmd plus
-//     ack{state_seq == published tick, command_seq consistent}; stale /
-//     future / duplicate / reordered / missing acks, command mismatches and
-//     timeouts fail closed with the expected violation flags;
+//   * Order-106 frozen republish: repeated 1000 Hz publishes of one frozen
+//     state carry the same state_seq and never fail closed; the exchange
+//     completes only when a new LowCmd arrived after the FIRST publish AND a
+//     matching ack{state_seq == published tick} was received;
+//   * Order-106 canary reproduction (C-006e at 1b29974): a late ack for the
+//     just-consumed state (delivered after the sim advanced) is idempotent
+//     instead of failing closed as stale (violations=32 in the canary);
+//   * duplicate acks idempotent; TRUE stale (older than the last consumed
+//     state) and future/reordered acks fail closed with the expected
+//     violation flags; startup-phase acks are ignored;
+//   * both callback orders (ack-before-command and command-before-ack)
+//     complete the exchange;
+//   * tick space beyond 80 s (tick > 80000) has no wrap/truncation effects;
 //   * external stop aborts waits without failing closed;
 //   * repeated identical event scripts yield an identical deterministic
 //     trace (stable columns), wall-timing columns excluded.
@@ -28,7 +37,6 @@ namespace
 {
 
 int g_failures = 0;
-std::atomic<std::uint64_t> g_cmd_count{0};
 
 void Check(bool condition, const char *what)
 {
@@ -48,55 +56,31 @@ std::uint32_t Or(std::initializer_list<std::uint32_t> flags)
 
 // ---------------------------------------------------------------- helpers
 
-// One LowCmd arrival; mirrors the coordinator's internal command counter.
+// One LowCmd arrival; mirrors the coordinator's local arrival counter.
 void FeedCommand(lockstep::Coordinator *coord)
 {
     coord->OnCommandArrived();
-    g_cmd_count.fetch_add(1, std::memory_order_relaxed);
 }
 
-// Blocks until WaitForExchange has captured the publish-time command count
-// (so events injected afterwards are guaranteed to be observed as "newer"
-// than the publish).
-void WaitExchangeActive(lockstep::Coordinator *coord)
-{
-    while (!coord->ExchangeActive())
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
-}
-
-// Ack with the current arrival count (a real adapter counts every write the
-// same way, so the sim-side arrival count and the ack command_seq align).
+// Ack for a frozen state (Order-106: state_seq only).
 void FeedAck(lockstep::Coordinator *coord, std::uint64_t state_seq)
 {
-    coord->OnAckReceived(
-        state_seq, g_cmd_count.load(std::memory_order_relaxed));
+    coord->OnAckReceived(state_seq);
 }
 
+// Bridge + physics roles for the non-blocking interval protocol.
 struct ProtocolDriver
 {
     explicit ProtocolDriver(lockstep::Coordinator *c) : coord(c) {}
 
-    // Bridge role for one interval: wait for the physics step, register the
-    // published state tick, wait for the causal exchange (one fresh command
-    // plus its ack), grant the next step.
-    lockstep::WaitOutcome BridgeInterval(std::uint64_t tick)
+    // Bridge role: one 1000 Hz publish of the frozen state.
+    lockstep::PublishOutcome Publish(std::uint64_t tick)
     {
-        lockstep::WaitOutcome w = coord->WaitForStepCompleted();
-        if (w != lockstep::WaitOutcome::kReady) return w;
-        coord->OnStatePublished(tick);
-        lockstep::ExchangeTrigger trigger;
-        w = coord->WaitForExchange(tick, &trigger);
-        if (w != lockstep::WaitOutcome::kReady) return w;
-        if (trigger != lockstep::ExchangeTrigger::kAckMatched)
-        {
-            Check(false, "exchange trigger must be kAckMatched");
-        }
-        coord->NotifyCommandApplied();
-        return lockstep::WaitOutcome::kReady;
+        return coord->OnPublish(tick);
     }
 
-    // Physics role: one step per granted interval.
-    lockstep::WaitOutcome PhysicsStep(std::uint64_t next_tick)
+    // Physics role: wait for one granted step and report it.
+    lockstep::WaitOutcome Step(std::uint64_t next_tick)
     {
         lockstep::WaitOutcome w = coord->WaitForStepPermission();
         if (w != lockstep::WaitOutcome::kReady) return w;
@@ -108,12 +92,13 @@ struct ProtocolDriver
 };
 
 // Runs the full protocol for `interval_count` intervals starting at
-// `start_tick`. Returns the trace text; command/ack events are scripted so
-// the run is reproducible.
+// `start_tick` with scripted 1:1 command/ack events (both the ack and the
+// command are injected between the first publish and the completion check,
+// covering the command-before-ack callback order on the open exchange).
+// Returns the trace text; events are scripted so the run is reproducible.
 std::string RunFullProtocol(int interval_count, const std::string &trace_path,
                             std::uint64_t start_tick = 0)
 {
-    g_cmd_count.store(0, std::memory_order_relaxed);
     lockstep::Coordinator::Config cfg;
     cfg.dt_ms = 2;
     cfg.trace_path = trace_path;
@@ -133,36 +118,26 @@ std::string RunFullProtocol(int interval_count, const std::string &trace_path,
           "barrier completes on first command");
     Check(coord.BarrierComplete(), "BarrierComplete() true after barrier");
 
-    std::thread physics([&]() {
-        Check(driver.PhysicsStep(start_tick + 2) ==
-                  lockstep::WaitOutcome::kReady,
-              "first physics step granted");
-        for (int i = 1; i < interval_count; ++i)
-        {
-            Check(driver.PhysicsStep(
-                      start_tick +
-                      2u * static_cast<std::uint64_t>(i + 1)) ==
-                      lockstep::WaitOutcome::kReady,
-                  "physics step granted for every interval");
-        }
-    });
+    Check(driver.Step(start_tick + 2) == lockstep::WaitOutcome::kReady,
+          "first physics step granted");
 
-    // Bridge role: every exchange needs one fresh command plus a matching
-    // ack so WaitForExchange completes on kAckMatched (1:1 controller/sim).
-    for (int i = 1; i <= interval_count; ++i)
+    std::uint64_t tick = start_tick + 2;
+    for (int i = 0; i < interval_count; ++i)
     {
-        const std::uint64_t tick =
-            start_tick + 2u * static_cast<std::uint64_t>(i);
-        std::thread feeder([&coord, tick]() {
-            WaitExchangeActive(&coord);
-            FeedCommand(&coord);
-            FeedAck(&coord, tick);
-        });
-        Check(driver.BridgeInterval(tick) == lockstep::WaitOutcome::kReady,
-              "exchange ready for every interval");
-        feeder.join();
+        // First publish of the frozen state opens the exchange.
+        Check(driver.Publish(tick) == lockstep::PublishOutcome::kIdle,
+              "exchange opened on first publish");
+        FeedCommand(&coord);
+        FeedAck(&coord, tick);
+        // Next publish (republish of the same frozen state) evaluates the
+        // exchange.
+        Check(driver.Publish(tick) == lockstep::PublishOutcome::kStepGranted,
+              "exchange completes on the matching ack + new command");
+        coord.NotifyCommandApplied();
+        Check(driver.Step(tick + 2) == lockstep::WaitOutcome::kReady,
+              "physics step granted for every interval");
+        tick += 2;
     }
-    physics.join();
 
     Check(!coord.FailedClosed(), "no fail-closed in the happy path");
     Check(coord.ViolationCount() == 0, "zero violations in the happy path");
@@ -177,58 +152,45 @@ std::string RunFullProtocol(int interval_count, const std::string &trace_path,
 }
 
 // Prepares the coordinator for one lockstep exchange on `tick`: barrier,
-// first step, publish registration. The exchange wait itself runs on a
-// background thread so the test can inject command/ack events while it
-// blocks.
-struct AckScenario
+// first step, first publish of the frozen state.
+struct ExchangeScenario
 {
     lockstep::Coordinator *coord;
     std::uint64_t tick = 0;
-    lockstep::WaitOutcome outcome = lockstep::WaitOutcome::kReady;
-    lockstep::ExchangeTrigger trigger = lockstep::ExchangeTrigger::kBarrier;
-    std::thread waiter;
 
-    explicit AckScenario(lockstep::Coordinator *c,
-                         std::uint64_t start_tick)
+    explicit ExchangeScenario(lockstep::Coordinator *c,
+                              std::uint64_t start_tick)
         : coord(c), tick(start_tick)
     {
-        g_cmd_count.store(0, std::memory_order_relaxed);
         FeedCommand(coord); // first controller command -> barrier
         Check(coord->OnStartupPublish(tick - 2),
-              "barrier completes in AckScenario");
-        Check(coord->WaitForStepPermission() ==
-                  lockstep::WaitOutcome::kReady,
-              "first step granted in AckScenario");
+              "barrier completes in ExchangeScenario");
+        Check(coord->WaitForStepPermission() == lockstep::WaitOutcome::kReady,
+              "first step granted in ExchangeScenario");
         coord->NotifyStepCompleted(tick);
-        coord->OnStatePublished(tick);
+        Check(coord->OnPublish(tick) == lockstep::PublishOutcome::kIdle,
+              "first publish opens the exchange in ExchangeScenario");
     }
 
-    void StartWait()
+    // Completes the exchange for the current frozen state.
+    bool CompleteExchange()
     {
-        waiter = std::thread([this]() {
-            outcome = coord->WaitForExchange(tick, &trigger);
-        });
-        // Wait until the publish-time command count is captured before the
-        // test injects command/ack events.
-        WaitExchangeActive(coord);
+        FeedAck(coord, tick);
+        FeedCommand(coord);
+        return coord->OnPublish(tick) == lockstep::PublishOutcome::kStepGranted;
     }
 
-    // Re-arms the scenario for the next interval without the barrier.
+    // Re-arms the scenario for the next frozen state (physics already
+    // stepped to `next_tick`).
     void NextExchange(std::uint64_t next_tick)
     {
+        coord->NotifyCommandApplied();
+        Check(coord->WaitForStepPermission() == lockstep::WaitOutcome::kReady,
+              "next step granted in NextExchange");
+        coord->NotifyStepCompleted(next_tick);
         tick = next_tick;
-        coord->OnStatePublished(tick);
-        outcome = lockstep::WaitOutcome::kReady;
-        trigger = lockstep::ExchangeTrigger::kBarrier;
-        waiter = std::thread([this]() {
-            outcome = coord->WaitForExchange(tick, &trigger);
-        });
-        WaitExchangeActive(coord);
-    }
-
-    void Join()
-    {
-        if (waiter.joinable()) waiter.join();
+        Check(coord->OnPublish(tick) == lockstep::PublishOutcome::kIdle,
+              "next first publish opens the exchange");
     }
 };
 
@@ -270,19 +232,41 @@ void TestExchangeTimeout()
     Check(coord.WaitForStepPermission() == lockstep::WaitOutcome::kReady,
           "step 1 granted");
     coord.NotifyStepCompleted(2);
-    coord.OnStatePublished(2);
+    Check(coord.OnPublish(2) == lockstep::PublishOutcome::kIdle,
+          "exchange opened");
 
-    lockstep::WaitOutcome outcome = lockstep::WaitOutcome::kReady;
-    std::thread t([&]() {
-        lockstep::ExchangeTrigger trigger;
-        outcome = coord.WaitForExchange(2, &trigger);
-    });
-    t.join(); // no commands and no acks arrive -> exchange timeout
-
-    Check(outcome == lockstep::WaitOutcome::kTimeoutFailClosed,
-          "exchange timeout returns kTimeoutFailClosed");
+    // No commands and no acks arrive: the exchange deadline fails closed.
+    std::this_thread::sleep_for(std::chrono::milliseconds(350));
+    Check(coord.OnPublish(2) == lockstep::PublishOutcome::kIdle,
+          "no step without ack/command");
+    Check(coord.FailedClosed(), "exchange timeout fails closed");
     Check((coord.ViolationCount() & lockstep::kViolationAckMissing) != 0,
           "missing ack violation flag set on exchange timeout");
+}
+
+void TestCommandArrivalTimeout()
+{
+    lockstep::Coordinator::Config cfg;
+    cfg.barrier_timeout_s = 1.0;
+    cfg.exchange_timeout_s = 0.3;
+    cfg.step_wait_timeout_s = 1.0;
+    lockstep::Coordinator coord(cfg);
+    coord.SetFailClosedHandler([]() {});
+
+    FeedCommand(&coord);
+    Check(coord.OnStartupPublish(0), "barrier complete");
+    Check(coord.WaitForStepPermission() == lockstep::WaitOutcome::kReady,
+          "step 1 granted");
+    coord.NotifyStepCompleted(2);
+    Check(coord.OnPublish(2) == lockstep::PublishOutcome::kIdle,
+          "exchange opened");
+    FeedAck(&coord, 2); // ack arrives but the acked command never does
+    std::this_thread::sleep_for(std::chrono::milliseconds(350));
+    Check(coord.OnPublish(2) == lockstep::PublishOutcome::kIdle,
+          "ack without a new command never grants a step");
+    Check(coord.FailedClosed(), "ack-without-command fails closed");
+    Check((coord.ViolationCount() & lockstep::kViolationExchangeTimeout) != 0,
+          "exchange timeout violation flag set");
 }
 
 void TestStepTimeout()
@@ -310,7 +294,7 @@ void TestStepTimeout()
           "step timeout violation flag set");
 }
 
-void TestTickGapFailClosed()
+void TestPhysicsTickMismatchFailClosed()
 {
     lockstep::Coordinator::Config cfg;
     cfg.barrier_timeout_s = 1.0;
@@ -323,20 +307,25 @@ void TestTickGapFailClosed()
     Check(coord.OnStartupPublish(0), "barrier complete");
     Check(coord.WaitForStepPermission() == lockstep::WaitOutcome::kReady,
           "step 1 granted");
-    coord.NotifyStepCompleted(2);
+    coord.NotifyStepCompleted(3); // expected 2 -> step tick mismatch
+    Check(coord.FailedClosed(), "physics step tick mismatch fails closed");
+    Check((coord.ViolationCount() & lockstep::kViolationStepTick) != 0,
+          "step tick violation flag set");
+}
 
-    // Publish tick 3 instead of expected 2 -> tick gap -> fail closed.
-    lockstep::WaitOutcome outcome = lockstep::WaitOutcome::kReady;
-    std::thread t([&]() {
-        lockstep::ExchangeTrigger trigger;
-        outcome = coord.WaitForExchange(3, &trigger);
-    });
-    t.join();
-    Check(outcome == lockstep::WaitOutcome::kTimeoutFailClosed,
-          "tick gap returns kTimeoutFailClosed");
-    Check((coord.ViolationCount() & lockstep::kViolationTickGap) != 0,
-          "tick gap violation flag set");
-    Check(coord.FailedClosed(), "FailedClosed set after tick gap");
+void TestRepublishTickMismatchFailClosed()
+{
+    lockstep::Coordinator::Config cfg;
+    cfg.exchange_timeout_s = 1.0;
+    cfg.step_wait_timeout_s = 1.0;
+    lockstep::Coordinator coord(cfg);
+    coord.SetFailClosedHandler([]() {});
+
+    ExchangeScenario sc(&coord, 4);
+    // Republish with a tick that is not the frozen state: invariant break.
+    Check(coord.OnPublish(6) == lockstep::PublishOutcome::kIdle,
+          "mismatched republish returns idle");
+    Check(coord.FailedClosed(), "republish tick mismatch fails closed");
 }
 
 void TestStartupWatchdog()
@@ -396,100 +385,189 @@ void TestAbort()
     Check(coord.ViolationCount() == 0, "abort records no violation");
 }
 
-// Order-105: an ack whose state_seq is older than the published state (an
-// in-flight command computed from an older state) fails closed and no step
-// is granted.
-void TestAckStaleFailClosed()
+// Order-106 canary reproduction: the Order-105 C-006e canary failed closed
+// at 1b29974 with "stale ack for older state" (violations=32) when the
+// controller's ack for the just-published/just-consumed state was delivered
+// after the simulator advanced (docs/research/evidence/order105_c006e). The
+// same event sequence must now be idempotent: the ack for the barrier state
+// (and later for the just-consumed state) is tolerated, and the exchange
+// completes only on ack{state_seq == published} plus a new LowCmd.
+void TestCanaryLateAckReproduction()
 {
     lockstep::Coordinator::Config cfg;
-    cfg.exchange_timeout_s = 1.0;
+    cfg.exchange_timeout_s = 2.0;
+    cfg.step_wait_timeout_s = 2.0;
+    lockstep::Coordinator coord(cfg);
+    coord.SetFailClosedHandler([]() {});
+
+    FeedCommand(&coord);
+    Check(coord.OnStartupPublish(2300), "barrier at 2300 (canary baseline)");
+    Check(coord.WaitForStepPermission() == lockstep::WaitOutcome::kReady,
+          "barrier step granted");
+    coord.NotifyStepCompleted(2302);
+    Check(coord.OnPublish(2302) == lockstep::PublishOutcome::kIdle,
+          "first lockstep publish opens the exchange at 2302");
+
+    // Canary race: the controller was still computing on the barrier state
+    // 2300 when the sim advanced; its ack{2300} arrives after 2302 was
+    // published. Order-105 classified this as stale and failed closed.
+    FeedAck(&coord, 2300);
+    Check(!coord.FailedClosed(),
+          "late ack for the just-consumed state is tolerated");
+    FeedAck(&coord, 2300); // a second identical late ack is also idempotent
+    Check(!coord.FailedClosed(), "duplicate late ack is idempotent");
+    Check(coord.OnPublish(2302) == lockstep::PublishOutcome::kIdle,
+          "late ack alone never grants a step");
+
+    // The controller consumes 2302: matching ack + new LowCmd complete.
+    FeedAck(&coord, 2302);
+    FeedCommand(&coord);
+    Check(coord.OnPublish(2302) == lockstep::PublishOutcome::kStepGranted,
+          "exchange for 2302 completes on matching ack + new command");
+    coord.NotifyCommandApplied();
+    Check(coord.WaitForStepPermission() == lockstep::WaitOutcome::kReady,
+          "step to 2304 granted");
+    coord.NotifyStepCompleted(2304);
+    Check(coord.OnPublish(2304) == lockstep::PublishOutcome::kIdle,
+          "exchange for 2304 opened");
+
+    // Late ack for the just-consumed state 2302 after the sim advanced:
+    // tolerated (== last consumed), never fails closed.
+    FeedAck(&coord, 2302);
+    Check(!coord.FailedClosed(),
+          "post-advance ack of the consumed state is tolerated");
+    Check(coord.OnPublish(2304) == lockstep::PublishOutcome::kIdle,
+          "consumed-state ack does not complete the new exchange");
+
+    Check(coord.ViolationCount() == 0, "canary sequence has zero violations");
+}
+
+// Order-106: a 1000 Hz bridge republishes the same frozen state (same
+// state_seq) until the exchange completes; republishes never fail closed and
+// never grant a step early.
+void Test1000HzRepublishSameSeq()
+{
+    lockstep::Coordinator::Config cfg;
+    cfg.exchange_timeout_s = 5.0;
     cfg.step_wait_timeout_s = 1.0;
     lockstep::Coordinator coord(cfg);
     coord.SetFailClosedHandler([]() {});
 
-    AckScenario sc(&coord, 4);
-    sc.StartWait(); // waiting for the state published at tick 4
-    FeedCommand(&coord);
-    FeedAck(&coord, 2); // ack for the OLD state (tick 2)
-    sc.Join();
+    ExchangeScenario sc(&coord, 4);
+    for (int i = 0; i < 10; ++i) // ~10 ms of 1000 Hz republish
+    {
+        Check(coord.OnPublish(4) == lockstep::PublishOutcome::kIdle,
+              "republish of the frozen state stays idle");
+        Check(!coord.FailedClosed(), "republish never fails closed");
+    }
+    Check(coord.ViolationCount() == 0,
+          "republish does not produce violations");
+    Check(sc.CompleteExchange(), "exchange completes after the republishes");
+    Check(!coord.FailedClosed(), "no fail-closed after republish exchange");
+}
 
-    Check(sc.outcome == lockstep::WaitOutcome::kTimeoutFailClosed,
-          "stale ack fails closed (no step)");
+// Order-106: a 500 Hz controller may write 1-2 LowCmds per frozen state and
+// ack it more than once; duplicate acks (while the state is current or after
+// the sim advanced to the next state) are idempotent.
+void Test500HzControllerDoubleWriteDupIdempotent()
+{
+    lockstep::Coordinator::Config cfg;
+    cfg.exchange_timeout_s = 5.0;
+    cfg.step_wait_timeout_s = 1.0;
+    lockstep::Coordinator coord(cfg);
+    coord.SetFailClosedHandler([]() {});
+
+    ExchangeScenario sc(&coord, 4);
+    // First 500 Hz write on the frozen state 4: matching ack + command.
+    Check(sc.CompleteExchange(), "first write completes the exchange");
+    coord.NotifyCommandApplied();
+    Check(coord.WaitForStepPermission() == lockstep::WaitOutcome::kReady,
+          "step to 6 granted");
+    coord.NotifyStepCompleted(6);
+    Check(coord.OnPublish(6) == lockstep::PublishOutcome::kIdle,
+          "exchange for 6 opened");
+
+    // Second 500 Hz write was still computed on state 4 (the controller had
+    // not received state 6 yet): its ack{4} duplicates the just-consumed
+    // state and its command is a fresh arrival.
+    FeedAck(&coord, 4);
+    FeedCommand(&coord);
+    Check(!coord.FailedClosed(), "duplicate ack for consumed state tolerated");
+    FeedAck(&coord, 6);
+    FeedCommand(&coord);
+    Check(coord.OnPublish(6) == lockstep::PublishOutcome::kStepGranted,
+          "exchange for 6 completes normally");
+    Check(!coord.FailedClosed(), "no fail-closed on controller double-write");
+    Check(coord.ViolationCount() == 0, "double-write has zero violations");
+}
+
+// Order-106: an ack older than the last consumed state is a TRUE stale ack
+// and fails closed (it can only occur through reordering or corruption).
+void TestTrueStaleAckFailClosed()
+{
+    lockstep::Coordinator::Config cfg;
+    cfg.exchange_timeout_s = 2.0;
+    cfg.step_wait_timeout_s = 1.0;
+    lockstep::Coordinator coord(cfg);
+    coord.SetFailClosedHandler([]() {});
+
+    ExchangeScenario sc(&coord, 2);
+    Check(sc.CompleteExchange(), "state 2 consumed");
+    coord.NotifyCommandApplied();
+    Check(coord.WaitForStepPermission() == lockstep::WaitOutcome::kReady,
+          "step to 4 granted");
+    coord.NotifyStepCompleted(4);
+    Check(coord.OnPublish(4) == lockstep::PublishOutcome::kIdle,
+          "exchange for 4 opened");
+
+    // ack{2} (the just-consumed state): tolerated.
+    FeedAck(&coord, 2);
+    Check(!coord.FailedClosed(), "ack for just-consumed state tolerated");
+    // ack{0} (== barrier state, older than the last consumed state): TRUE
+    // stale -> fail closed.
+    FeedAck(&coord, 0);
+    Check(coord.FailedClosed(), "true stale ack fails closed");
     Check((coord.ViolationCount() & lockstep::kViolationAckStale) != 0,
           "stale ack violation flag set");
 }
 
-// Order-105: an ack for a state the sim has not published yet fails closed.
-void TestAckFutureFailClosed()
+// Order-106: an ack for a state the sim has not published (future, e.g. a
+// reordered ack of the next state) fails closed.
+void TestFutureAckFailClosed()
 {
     lockstep::Coordinator::Config cfg;
-    cfg.exchange_timeout_s = 1.0;
+    cfg.exchange_timeout_s = 2.0;
     cfg.step_wait_timeout_s = 1.0;
     lockstep::Coordinator coord(cfg);
     coord.SetFailClosedHandler([]() {});
 
-    AckScenario sc(&coord, 4);
-    sc.StartWait();
-    FeedCommand(&coord);
-    coord.OnAckReceived(8, 2); // ack for a future state (tick 8)
-    sc.Join();
-
-    Check(sc.outcome == lockstep::WaitOutcome::kTimeoutFailClosed,
-          "future ack fails closed (no step)");
+    ExchangeScenario sc(&coord, 4);
+    FeedAck(&coord, 8); // ack for a future state (tick 8)
+    Check(coord.FailedClosed(), "future ack fails closed");
     Check((coord.ViolationCount() & lockstep::kViolationAckFuture) != 0,
           "future ack violation flag set");
 }
 
-// Order-105: two acks for the same published state fail closed (a controller
-// that acks twice for one state breaks the 1:1 write contract).
-void TestAckDuplicateFailClosed()
+// Order-106: reordered ack (the next state's ack arriving first) is a future
+// ack and fails closed.
+void TestReorderAckFailClosed()
 {
     lockstep::Coordinator::Config cfg;
-    cfg.exchange_timeout_s = 1.0;
+    cfg.exchange_timeout_s = 2.0;
     cfg.step_wait_timeout_s = 1.0;
     lockstep::Coordinator coord(cfg);
     coord.SetFailClosedHandler([]() {});
 
-    AckScenario sc(&coord, 4);
-    sc.StartWait();
-    // Both acks for the same state arrive before any command: the first is
-    // held pending, the second must fail closed (no step, no completion).
-    coord.OnAckReceived(4, 2);
-    coord.OnAckReceived(4, 3);
-    FeedCommand(&coord); // too late: the run already failed closed
-    sc.Join();
-
-    Check(sc.outcome == lockstep::WaitOutcome::kTimeoutFailClosed,
-          "duplicate ack fails closed (no step)");
-    Check((coord.ViolationCount() & lockstep::kViolationAckDuplicate) != 0,
-          "duplicate ack violation flag set");
-}
-
-// Order-105: out-of-order acks (a later state's ack arriving first) are
-// caught as future relative to the exchange currently waiting.
-void TestAckReorderFailClosed()
-{
-    lockstep::Coordinator::Config cfg;
-    cfg.exchange_timeout_s = 1.0;
-    cfg.step_wait_timeout_s = 1.0;
-    lockstep::Coordinator coord(cfg);
-    coord.SetFailClosedHandler([]() {});
-
-    AckScenario sc(&coord, 4);
-    sc.StartWait();
-    FeedCommand(&coord);
-    coord.OnAckReceived(6, 2); // next state's ack arrives first (reordered)
-    sc.Join();
-
-    Check(sc.outcome == lockstep::WaitOutcome::kTimeoutFailClosed,
-          "reordered ack fails closed (no step)");
+    ExchangeScenario sc(&coord, 4);
+    FeedAck(&coord, 6); // next state's ack arrives first
+    Check(coord.FailedClosed(), "reordered ack fails closed");
     Check((coord.ViolationCount() & lockstep::kViolationAckFuture) != 0,
           "reordered ack recorded as future violation");
 }
 
-// Order-105: ack for the previous state arriving after the sim moved to the
-// next state (delayed ack) fails closed.
-void TestAckDelayedFailClosed()
+// Order-106: startup-phase acks (before the ready barrier or referencing
+// pre-handoff states) are ignored, not validated.
+void TestStartupAckIgnored()
 {
     lockstep::Coordinator::Config cfg;
     cfg.exchange_timeout_s = 1.0;
@@ -497,133 +575,62 @@ void TestAckDelayedFailClosed()
     lockstep::Coordinator coord(cfg);
     coord.SetFailClosedHandler([]() {});
 
-    AckScenario sc(&coord, 4);
-    sc.StartWait();
+    // Acks before the barrier (ack_validation inactive): ignored.
+    FeedAck(&coord, 999);
+    Check(!coord.FailedClosed(), "pre-barrier ack ignored");
+    Check(coord.ViolationCount() == 0, "pre-barrier ack no violation");
+
     FeedCommand(&coord);
-    FeedAck(&coord, 4); // valid exchange for tick 4 completes
-    sc.Join();
-    Check(sc.outcome == lockstep::WaitOutcome::kReady,
-          "first exchange ready with matching ack");
-    Check(sc.trigger == lockstep::ExchangeTrigger::kAckMatched,
-          "first exchange trigger is kAckMatched");
-
-    // Next state published (tick 6); the delayed ack for tick 4 arrives
-    // during its exchange wait.
-    sc.NextExchange(6);
-    FeedAck(&coord, 4); // delayed ack for the previous state
-    sc.Join();
-
-    Check(sc.outcome == lockstep::WaitOutcome::kTimeoutFailClosed,
-          "delayed ack for previous state fails closed (no step)");
-    Check((coord.ViolationCount() & lockstep::kViolationAckStale) != 0,
-          "delayed ack recorded as stale violation");
-}
-
-// Order-105: ack whose command_seq is not newer than the publish cannot be
-// matched to a command computed from the published state.
-void TestAckCmdMismatchFailClosed()
-{
-    lockstep::Coordinator::Config cfg;
-    cfg.exchange_timeout_s = 1.0;
-    cfg.step_wait_timeout_s = 1.0;
-    lockstep::Coordinator coord(cfg);
-    coord.SetFailClosedHandler([]() {});
-
-    AckScenario sc(&coord, 4);
-    FeedCommand(&coord); // a second command arrives before the exchange wait
-    sc.StartWait();      // publish-time count is now 2
-    // The ack's command_seq 2 is not newer than the publish count 2, so it
-    // cannot reference a command computed from the published state.
-    coord.OnAckReceived(4, 2);
-    sc.Join();
-
-    Check(sc.outcome == lockstep::WaitOutcome::kTimeoutFailClosed,
-          "command mismatch fails closed (no step)");
-    Check((coord.ViolationCount() & lockstep::kViolationAckCmdMismatch) != 0,
-          "command mismatch violation flag set");
-}
-
-// Order-105: an ack for the current state whose command never arrives fails
-// closed on exchange timeout.
-void TestAckCmdTimeoutFailClosed()
-{
-    lockstep::Coordinator::Config cfg;
-    cfg.exchange_timeout_s = 0.3;
-    cfg.step_wait_timeout_s = 1.0;
-    lockstep::Coordinator coord(cfg);
-    coord.SetFailClosedHandler([]() {});
-
-    AckScenario sc(&coord, 4);
-    sc.StartWait();
-    // Valid state_seq, but the ack references a command (count+3) that is
-    // never published, so the exchange can never complete.
-    coord.OnAckReceived(4, g_cmd_count.load(std::memory_order_relaxed) + 3);
-    sc.Join();
-
-    Check(sc.outcome == lockstep::WaitOutcome::kTimeoutFailClosed,
-          "missing acked command fails closed on timeout");
-    Check((coord.ViolationCount() & lockstep::kViolationExchangeTimeout) != 0,
-          "exchange timeout violation flag set");
-}
-
-// Order-105 happy paths: a valid ack may arrive before its LowCmd (cross-
-// topic reorder) and still complete the exchange exactly once.
-void TestAckHappyPaths()
-{
-    lockstep::Coordinator::Config cfg;
-    cfg.exchange_timeout_s = 1.0;
-    cfg.step_wait_timeout_s = 1.0;
-    lockstep::Coordinator coord(cfg);
-    coord.SetFailClosedHandler([]() {});
-
-    AckScenario sc(&coord, 4);
-    sc.StartWait();
-    // ack references command_seq 2 (newer than the publish count 1) while
-    // its LowCmd is still in flight; the exchange waits for the arrival.
-    coord.OnAckReceived(4, 2);
+    Check(coord.OnStartupPublish(0), "barrier complete");
+    Check(coord.WaitForStepPermission() == lockstep::WaitOutcome::kReady,
+          "step 1 granted");
+    coord.NotifyStepCompleted(2);
+    // A pre-handoff state's ack (startup wall-clock state) is ignored.
+    FeedAck(&coord, 0);
+    Check(!coord.FailedClosed(), "pre-handoff ack ignored");
+    Check(coord.OnPublish(2) == lockstep::PublishOutcome::kIdle,
+          "exchange for 2 opened");
+    FeedAck(&coord, 2);
     FeedCommand(&coord);
-    sc.Join();
-    Check(sc.outcome == lockstep::WaitOutcome::kReady,
+    Check(coord.OnPublish(2) == lockstep::PublishOutcome::kStepGranted,
+          "exchange completes after the ignored ack");
+}
+
+// Order-106: both callback orders complete the exchange exactly once.
+void TestCallbackOrderAckBeforeCommand()
+{
+    lockstep::Coordinator::Config cfg;
+    cfg.exchange_timeout_s = 1.0;
+    cfg.step_wait_timeout_s = 1.0;
+    lockstep::Coordinator coord(cfg);
+    coord.SetFailClosedHandler([]() {});
+
+    ExchangeScenario sc(&coord, 4);
+    FeedAck(&coord, 4);   // ack first (cross-topic reorder)
+    FeedAck(&coord, 4);   // duplicate ack while current: idempotent
+    Check(!coord.FailedClosed(), "duplicate matching ack idempotent");
+    FeedCommand(&coord);  // command arrives after the acks
+    Check(coord.OnPublish(4) == lockstep::PublishOutcome::kStepGranted,
           "ack-before-command completes the exchange");
-    Check(sc.trigger == lockstep::ExchangeTrigger::kAckMatched,
-          "ack-before-command trigger is kAckMatched");
-    Check(!coord.FailedClosed(), "happy ack path does not fail closed");
+    Check(!coord.FailedClosed(), "ack-before-command path does not fail");
+}
 
-    // The barrier command's ack (command_seq <= barrier_seq_) references a
-    // startup-phase state; it belongs to the wall-clock boundary, not to any
-    // exchange, and must be ignored rather than fail closed.
-    lockstep::Coordinator::Config cfg3;
-    cfg3.exchange_timeout_s = 1.0;
-    cfg3.step_wait_timeout_s = 1.0;
-    lockstep::Coordinator coord3(cfg3);
-    coord3.SetFailClosedHandler([]() {});
-    AckScenario sc3(&coord3, 4);
-    sc3.StartWait();
-    coord3.OnAckReceived(2, 1); // delayed barrier-command ack (startup tick)
-    FeedCommand(&coord3);
-    coord3.OnAckReceived(4, 2); // valid exchange ack
-    sc3.Join();
-    Check(sc3.outcome == lockstep::WaitOutcome::kReady,
-          "barrier-command ack is ignored, exchange still completes");
-    Check(!coord3.FailedClosed(), "barrier-command ack does not fail closed");
+void TestCallbackOrderCommandBeforeAck()
+{
+    lockstep::Coordinator::Config cfg;
+    cfg.exchange_timeout_s = 1.0;
+    cfg.step_wait_timeout_s = 1.0;
+    lockstep::Coordinator coord(cfg);
+    coord.SetFailClosedHandler([]() {});
 
-    // A stale ack arriving while the first exchange is still pending must
-    // not be overwritten by a later valid one: it fails closed immediately.
-    lockstep::Coordinator::Config cfg2;
-    cfg2.exchange_timeout_s = 1.0;
-    cfg2.step_wait_timeout_s = 1.0;
-    lockstep::Coordinator coord2(cfg2);
-    coord2.SetFailClosedHandler([]() {});
-    AckScenario sc2(&coord2, 4);
-    sc2.StartWait();
-    coord2.OnAckReceived(2, 2); // stale
-    coord2.OnAckReceived(4, 2); // later valid ack must not mask the stale one
-    FeedCommand(&coord2);
-    sc2.Join();
-    Check(sc2.outcome == lockstep::WaitOutcome::kTimeoutFailClosed,
-          "stale ack is not masked by a later valid ack");
-    Check((coord2.ViolationCount() & lockstep::kViolationAckStale) != 0,
-          "stale violation flag set despite later valid ack");
+    ExchangeScenario sc(&coord, 4);
+    FeedCommand(&coord);  // command first
+    Check(coord.OnPublish(4) == lockstep::PublishOutcome::kIdle,
+          "command alone does not grant a step");
+    FeedAck(&coord, 4);   // then the matching ack
+    Check(coord.OnPublish(4) == lockstep::PublishOutcome::kStepGranted,
+          "command-before-ack completes the exchange");
+    Check(!coord.FailedClosed(), "command-before-ack path does not fail");
 }
 
 void VerifyTraceSequence(const std::string &text, std::uint64_t start_tick,
@@ -670,9 +677,8 @@ void VerifyTraceSequence(const std::string &text, std::uint64_t start_tick,
         {
             Check(ack_state_seq == tick,
                   "ack state_seq equals the published tick");
-            Check(ack_cmd_seq ==
-                      static_cast<std::uint64_t>(rows + 1),
-                  "ack command_seq matches the interval command");
+            Check(ack_cmd_seq == 0,
+                  "ack command_seq is no longer carried (always 0)");
         }
         expected_tick += 2;
         ++expected_index;
@@ -689,7 +695,7 @@ void TestFullProtocolTrace()
     const std::string trace_c = "/tmp/lockstep_test_c.csv";
     std::string a = RunFullProtocol(50, trace_a);
     std::string b = RunFullProtocol(50, trace_b);
-    // Handoff at a later tick (wall-clock startup lasted 1000 ms): barrier
+    // Handoff at a late tick (wall-clock startup lasted 1000 ms): barrier
     // row must record tick 1000 and the sequence must continue from there.
     std::string c = RunFullProtocol(50, trace_c, 1000);
 
@@ -734,6 +740,70 @@ void TestFullProtocolTrace()
     VerifyTraceSequence(c, 1000, 50);
 }
 
+// Order-106: tick space beyond 80 s (tick > 80000 at 2 ms dt) must not wrap
+// or truncate. The wire carries state_seq as uint32_t (Error_.source(),
+// LowState.tick), which wraps only at 2^32 ms (~49.7 days at 1 kHz); this
+// fast-forward proves the protocol is exact across the 80 s boundary and at
+// late-tick handoffs.
+void TestWrapBeyond80s()
+{
+    lockstep::Coordinator::Config cfg;
+    cfg.exchange_timeout_s = 60.0; // never hit: every exchange completes inline
+    cfg.step_wait_timeout_s = 60.0;
+    cfg.trace_path.clear(); // no trace file for the fast-forward
+    lockstep::Coordinator coord(cfg);
+    coord.SetFailClosedHandler([]() {});
+
+    FeedCommand(&coord);
+    Check(coord.OnStartupPublish(0), "barrier complete at tick 0");
+    Check(coord.WaitForStepPermission() == lockstep::WaitOutcome::kReady,
+          "first step granted");
+    coord.NotifyStepCompleted(2);
+
+    // 41001 intervals advance the sim from tick 2 to 82004 ms (> 80 s).
+    const std::uint64_t interval_count = 41001;
+    std::uint64_t tick = 2;
+    for (std::uint64_t i = 0; i < interval_count; ++i, tick += 2)
+    {
+        Check(coord.OnPublish(tick) == lockstep::PublishOutcome::kIdle,
+              "exchange opened (fast-forward)");
+        FeedAck(&coord, tick);
+        FeedCommand(&coord);
+        Check(coord.OnPublish(tick) == lockstep::PublishOutcome::kStepGranted,
+              "exchange granted (fast-forward)");
+        coord.NotifyCommandApplied();
+        coord.NotifyStepCompleted(tick + 2);
+        if (coord.FailedClosed()) break;
+    }
+    Check(tick - 2 >= 80000, "fast-forward crossed the 80 s boundary");
+    Check(!coord.FailedClosed(), "no fail-closed past 80 s of ticks");
+    Check(coord.ViolationCount() == 0, "zero violations past 80 s");
+    Check(coord.IntervalCount() == interval_count + 1,
+          "all intervals recorded past 80 s");
+
+    // A late-tick handoff (barrier at 90000 ms > 80 s) must behave
+    // identically.
+    lockstep::Coordinator::Config cfg2;
+    cfg2.exchange_timeout_s = 60.0;
+    cfg2.step_wait_timeout_s = 60.0;
+    cfg2.trace_path = "/tmp/lockstep_test_late.csv";
+    lockstep::Coordinator coord2(cfg2);
+    coord2.SetFailClosedHandler([]() {});
+    FeedCommand(&coord2);
+    Check(coord2.OnStartupPublish(90000), "barrier at 90000 ms");
+    Check(coord2.WaitForStepPermission() == lockstep::WaitOutcome::kReady,
+          "late handoff step granted");
+    coord2.NotifyStepCompleted(90002);
+    Check(coord2.OnPublish(90002) == lockstep::PublishOutcome::kIdle,
+          "late exchange opened");
+    FeedAck(&coord2, 90002);
+    FeedCommand(&coord2);
+    Check(coord2.OnPublish(90002) == lockstep::PublishOutcome::kStepGranted,
+          "late exchange completes");
+    Check(!coord2.FailedClosed(), "late-tick run does not fail closed");
+    Check(coord2.ViolationCount() == 0, "late-tick run has zero violations");
+}
+
 void TestDtMsOverride()
 {
     lockstep::Coordinator::Config cfg;
@@ -750,19 +820,23 @@ int main()
 {
     TestBarrierTimeout();
     TestExchangeTimeout();
+    TestCommandArrivalTimeout();
     TestStepTimeout();
-    TestTickGapFailClosed();
+    TestPhysicsTickMismatchFailClosed();
+    TestRepublishTickMismatchFailClosed();
     TestStartupWatchdog();
     TestAbort();
-    TestAckStaleFailClosed();
-    TestAckFutureFailClosed();
-    TestAckDuplicateFailClosed();
-    TestAckReorderFailClosed();
-    TestAckDelayedFailClosed();
-    TestAckCmdMismatchFailClosed();
-    TestAckCmdTimeoutFailClosed();
-    TestAckHappyPaths();
+    TestCanaryLateAckReproduction();
+    Test1000HzRepublishSameSeq();
+    Test500HzControllerDoubleWriteDupIdempotent();
+    TestTrueStaleAckFailClosed();
+    TestFutureAckFailClosed();
+    TestReorderAckFailClosed();
+    TestStartupAckIgnored();
+    TestCallbackOrderAckBeforeCommand();
+    TestCallbackOrderCommandBeforeAck();
     TestFullProtocolTrace();
+    TestWrapBeyond80s();
     TestDtMsOverride();
 
     if (g_failures == 0)

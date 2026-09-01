@@ -242,10 +242,13 @@ public:
     }
 };
 
-// Order-105 verification-only ack subscription: the controller adapter
-// publishes {state_seq, command_seq} (unitree Error_ type repurposed as a
-// sequence-metadata carrier) on rt/lockstep/ack after each LowCmd write.
-// Only created when the lockstep flag is on.
+// Order-105/106 verification-only ack subscription: the controller adapter
+// publishes ack{state_seq} (unitree Error_ type repurposed as a
+// sequence-metadata carrier; Error_.source() is uint32_t and carries the
+// full-width frozen-state tick) on rt/lockstep/ack after each LowCmd write.
+// The command_seq side-channel is not carried (Order-106): the sim counts
+// LowCmd arrivals locally, so Error_.state() stays 0. Only created when the
+// lockstep flag is on.
 class LockstepAckSubscriber
     : public unitree::robot::SubscriptionBase<unitree_go::msg::dds_::Error_>
 {
@@ -257,7 +260,7 @@ public:
                   if (coord == nullptr) return;
                   const auto *m = static_cast<
                       const unitree_go::msg::dds_::Error_ *>(msg);
-                  coord->OnAckReceived(m->source(), m->state());
+                  coord->OnAckReceived(m->source());
               })
     {
     }
@@ -675,11 +678,17 @@ public:
         PublishStateSnapshot(/*blocking_lowstate=*/false);
     }
 
-    // Lockstep path (Order-103/105): one frozen physics/control interval per
-    // completed causal exchange. Startup (before the ready barrier) is
-    // identical to the wall-clock path; the frozen discipline starts at the
-    // handoff tick. Each lockstep publish registers its monotonic tick as
-    // the ack state_seq side-channel before the LowState is sent.
+    // Lockstep path (Order-103/105/106): the frozen physics state is
+    // republished at the 1000 Hz bridge rate until the causal exchange for
+    // it completes (new LowCmd after the first publish + matching
+    // ack{state_seq}), then physics steps exactly once. Startup (before the
+    // ready barrier) is identical to the wall-clock path; the frozen
+    // discipline starts at the handoff tick. Each publish registers its
+    // monotonic tick as the ack state_seq side-channel before the LowState
+    // is sent; repeated publishes of the same frozen state keep the same
+    // state_seq. The sim mutex is held across the publish so the tick read
+    // and the consumed step-completed flag always refer to the same state
+    // (NotifyStepCompleted runs inside the physics lock).
     void RunLockstep()
     {
         if (!g_lockstep->BarrierComplete())
@@ -688,17 +697,18 @@ public:
             g_lockstep->OnStartupPublish(CurrentTickMs());
             return;
         }
-        if (g_lockstep->WaitForStepCompleted() != lockstep::WaitOutcome::kReady)
-            return; // aborted or fail-closed; physics loop owns process exit
-        g_lockstep->OnStatePublished(CurrentTickMs());
-        PublishStateSnapshot(/*blocking_lowstate=*/true);
+        auto sim_lock = LockSimulation();
+        if (!mj_data_) return;
+        if (g_lockstep->FailedClosed()) return;
         const std::uint64_t sim_tick_ms = CurrentTickMs();
-        lockstep::ExchangeTrigger trigger = lockstep::ExchangeTrigger::kBarrier;
-        if (g_lockstep->WaitForExchange(sim_tick_ms, &trigger) !=
-            lockstep::WaitOutcome::kReady)
-            return;
-        ApplyLatestCommand();
-        g_lockstep->NotifyCommandApplied();
+        const lockstep::PublishOutcome outcome =
+            g_lockstep->OnPublish(sim_tick_ms);
+        PublishStateSnapshot(/*blocking_lowstate=*/true);
+        if (outcome == lockstep::PublishOutcome::kStepGranted)
+        {
+            ApplyLatestCommand();
+            g_lockstep->NotifyCommandApplied();
+        }
     }
 
     std::uint64_t CurrentTickMs() const

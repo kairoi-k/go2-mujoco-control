@@ -1104,19 +1104,20 @@ void TrotExperiment::PublishLowCmdWithCrc()
     lowcmd_publisher_->Write(low_cmd_);
 }
 
-// Order-105 verification-only ack: {state_seq, command_seq} published only
-// after the LowCmd write of the same control cycle, only when the adapter is
+// Order-105/106 verification-only ack: ack{state_seq} published only after
+// the LowCmd write of the same control cycle, only when the adapter is
 // enabled. `state_seq` is the tick side-channel of the LowState snapshot the
-// cycle consumed; `command_seq` counts LowCmd writes 1:1 so the sim can match
-// the ack to a received command. No control math or message payload changes.
+// cycle consumed, carried full-width in Error_.source() (uint32_t; wraps at
+// 2^32 ms ~ 49.7 days at 1 kHz). The command_seq side-channel was removed
+// (Order-106): the sim counts LowCmd arrivals locally, so Error_.state()
+// stays 0. No control math or message payload changes.
 void TrotExperiment::PublishLockstepAck(std::uint32_t state_seq)
 {
     if (!lockstep_ack_enabled_ || !lockstep_ack_publisher_)
         return;
-    ++lockstep_cmd_seq_;
     unitree_go::msg::dds_::Error_ ack;
     ack.source(state_seq);
-    ack.state(lockstep_cmd_seq_);
+    ack.state(0); // command-seq side-channel removed; sim counts locally
     lockstep_ack_publisher_->Write(ack);
 }
 

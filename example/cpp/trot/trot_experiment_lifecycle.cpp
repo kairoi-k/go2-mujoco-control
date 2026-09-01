@@ -231,9 +231,9 @@ bool TrotExperiment::Init()
         new ChannelPublisher<unitree_go::msg::dds_::LowCmd_>(GO2_TROT_TOPIC_LOWCMD));
     lowcmd_publisher_->InitChannel();
 
-    // Order-105 verification-only causal handshake: when the sim runs with
-    // the lockstep flag the harness also sets TROT_LOCKSTEP_ACK=1, so this
-    // adapter acks {state_seq, command_seq} after every LowCmd write. Off by
+    // Order-105/106 verification-only causal handshake: when the sim runs
+    // with the lockstep flag the harness also sets TROT_LOCKSTEP_ACK=1, so
+    // this adapter acks {state_seq} after every LowCmd write. Off by
     // default; the flag never changes control math.
     if (Full2EnvDouble("TROT_LOCKSTEP_ACK", 0.0) > 0.5)
     {

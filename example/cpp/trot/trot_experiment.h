@@ -50,9 +50,12 @@ using unitree::robot::ChannelSubscriberPtr;
 #define GO2_TROT_TOPIC_LOWSTATE "rt/lowstate"
 #define GO2_TROT_TOPIC_HIGHSTATE "rt/sportmodestate"
 #endif
-// Order-105 verification-only causal handshake topic: the adapter publishes
-// ack{state_seq, command_seq} (unitree Error_ repurposed as a sequence-
-// metadata carrier) after every LowCmd write when TROT_LOCKSTEP_ACK=1.
+// Order-105/106 verification-only causal handshake topic: the adapter
+// publishes ack{state_seq} (unitree Error_ repurposed as a sequence-metadata
+// carrier; Error_.source() is uint32_t and carries the full-width frozen-state
+// tick) after every LowCmd write when TROT_LOCKSTEP_ACK=1. The command_seq
+// side-channel is not carried (Order-106): the sim counts LowCmd arrivals
+// locally.
 #ifndef GO2_TROT_TOPIC_LOCKSTEP_ACK
 #define GO2_TROT_TOPIC_LOCKSTEP_ACK "rt/lockstep/ack"
 #endif
@@ -759,7 +762,6 @@ private:
     ChannelPublisherPtr<unitree_go::msg::dds_::LowCmd_> lowcmd_publisher_;
     ChannelPublisherPtr<unitree_go::msg::dds_::Error_> lockstep_ack_publisher_;
     bool lockstep_ack_enabled_ = false;
-    std::uint32_t lockstep_cmd_seq_ = 0;
     ChannelSubscriberPtr<unitree_go::msg::dds_::LowState_> lowstate_subscriber_;
     ChannelSubscriberPtr<unitree_go::msg::dds_::SportModeState_>
         highstate_subscriber_;

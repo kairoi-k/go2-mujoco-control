@@ -1249,9 +1249,11 @@ namespace
             mj_step(m, d);
             ground_truth_logger.Log(m, d);
             sim.AddToHistory();
+            // Notify under the sim mutex so the bridge's publish tick and
+            // the step-completed flag always refer to the same frozen state.
+            g_lockstep->NotifyStepCompleted(
+                static_cast<std::uint64_t>(std::llround(d->time * 1000.0)));
           }
-          g_lockstep->NotifyStepCompleted(
-              static_cast<std::uint64_t>(std::llround(d->time * 1000.0)));
         }
         if (shutdown_requested)
           sim.exitrequest.store(1);
