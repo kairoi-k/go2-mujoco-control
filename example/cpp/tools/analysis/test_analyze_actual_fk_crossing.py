@@ -99,7 +99,7 @@ class ActualFkCrossingTest(unittest.TestCase):
         self.assertTrue(report["gt_time_quality"]["input_nonmonotonic"])
         self.assertTrue(report["gt_time_quality"]["sorted_non_decreasing"])
         self.assertEqual(report["gt_alignment"]["status"], "unavailable")
-        self.assertGreater(report["gt_alignment"]["unmatched"], 0)
+        self.assertGreater(report["gt_alignment"]["unmatched_state_rows"], 0)
         self.assertEqual(report["phases"]["front_ascent_first_touchdown"]["contact_witness_status"], "observed")
 
     def test_missing_measured_contact_is_ambiguous_not_gt_promoted(self):
