@@ -36,6 +36,7 @@ jobs:
                   example/cpp/trot/trot_experiment.h \
                   example/cpp/trot/trot_experiment_control.cpp \
                   example/cpp/trot/trot_experiment_gait.cpp \
+                  example/cpp/trot/trot_experiment_wbc.cpp \
                   example/cpp/tests/test_terrain_bootstrap_c0.cpp
           git commit -m "feat: wire development C0-C1 bootstrap runtime"
           git push origin HEAD:assistant/bootstrap-static-fixes-20260902
