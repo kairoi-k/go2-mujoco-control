@@ -179,8 +179,9 @@ public:
         return result;
     }
 
-    // Translate the already-adopted whole request into the kernel in one
-    // operation. No caller should invoke terrain gait setters independently.
+    // Translate the current whole request into the kernel in one operation.
+    // Fallback requests intentionally restore the nominal Phase-1 gait
+    // parameters even though they are not exposed as timed terrain execution.
     void ApplyToKernel(go2_control::LocomotionKernel &kernel,
                        go2_control::GaitKernelRequest &request,
                        double gait_time_s,
@@ -193,7 +194,7 @@ public:
         request.execution = last_request_;
         if (!request.has_execution_request)
             request.execution = {};
-        if (using_plan_ && last_request_.valid)
+        if (last_request_.valid)
         {
             kernel.SetGaitPattern(last_request_.pattern);
             kernel.SetGaitPeriod(last_request_.period_s);
