@@ -228,10 +228,26 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
               go2_terrain::TerrainCrawlSequencerState::kStage &&
           terrain_crawl_sequencer_output_.state !=
               go2_terrain::TerrainCrawlSequencerState::kResume));
+    const bool stage_c_velocity_owner = params_.stage_c_execution &&
+        params_.terrain_actuation && !params_.terrain_sensor_only &&
+        terrain_window_active;
     if ((params_.terrain_actuation && !params_.terrain_sensor_only) ||
         flat_crawl_debug)
     {
-        if (terrain_window_active)
+        if (stage_c_velocity_owner)
+        {
+            terrain_deceleration_active_ = false;
+            terrain_deceleration_target_mps_ = 0.0;
+            const double plan_cap_mps = terrain_velocity_cap_mps_.load();
+            if (std::isfinite(plan_cap_mps))
+                requested_mps = std::min(
+                    std::max(0.0, requested_mps),
+                    std::max(0.0, plan_cap_mps));
+            runtime_gait_regime_ = std::isfinite(plan_cap_mps)
+                ? "terrain-stage-c-plan-cap"
+                : "terrain-stage-c-plan";
+        }
+        else if (terrain_window_active)
         {
             const auto crawl_state = terrain_crawl_state_machine_.state();
             const bool approach_braking =
@@ -460,7 +476,8 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
             terrain_safe_stop_requested_.store(true);
         }
     }
-    if (terrain_window_active && !flat_crawl_debug &&
+    if (!stage_c_velocity_owner && terrain_window_active &&
+        !flat_crawl_debug &&
         !terrain_crawl_sequencer_output_.body_advance_requested &&
         !full_v2_shift &&
         std::isfinite(terrain_staging_error_m_) &&
