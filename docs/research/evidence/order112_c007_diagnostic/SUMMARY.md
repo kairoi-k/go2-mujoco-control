@@ -1,5 +1,9 @@
 # Order112 C-007 diagnostic bundle
 
+> **Status: INCONCLUSIVE**
+>
+> Correction: the collector was not attached to the logs; terminal/subgate evidence is missing; the copied commands and the Order110/096 alignment are invalid. This bundle must not be treated as acceptance evidence. See [CORRECTION.md](CORRECTION.md).
+
 - Probe: exactly one bounded C-007 diagnostic probe at source SHA `54561c0e021493a0c450415ff986c81a68fbd057`; no rerun or tuning.
 - Contract: Stage-C v2 only; terrain crawl fallback-only; V3-C off; seed 11; simulator/domain lock and 60 s wall timeout; controller duration 30 s.
 - Exact first planner failure: row 2170, state_tick_s 6.542000000.

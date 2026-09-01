@@ -38,116 +38,6 @@ enum class FootholdRejectReason : std::uint8_t
 constexpr std::size_t kFootholdRejectReasonCount =
     static_cast<std::size_t>(FootholdRejectReason::kSupport) + 1;
 
-enum class TerrainTelemetryGate : std::uint8_t
-{
-    kNone = 0,
-    kFootholdUnknownSurface,
-    kFootholdUnknownPatch,
-    kFootholdUnknownCell,
-    kFootholdRejectOther,
-    kSwingUnknownPathSample,
-    kSwingUnknownMapCell,
-    kSwingCollision,
-    kSwingHeight,
-    kSwingClearance,
-    kSwingRejectOther,
-};
-
-constexpr std::size_t kTerrainTelemetryGateCount =
-    static_cast<std::size_t>(TerrainTelemetryGate::kSwingRejectOther) + 1;
-
-inline const char *TerrainTelemetryGateName(TerrainTelemetryGate gate)
-{
-    switch (gate)
-    {
-    case TerrainTelemetryGate::kFootholdUnknownSurface: return "foothold_unknown_surface";
-    case TerrainTelemetryGate::kFootholdUnknownPatch: return "foothold_unknown_patch";
-    case TerrainTelemetryGate::kFootholdUnknownCell: return "foothold_unknown_cell";
-    case TerrainTelemetryGate::kFootholdRejectOther: return "foothold_reject_other";
-    case TerrainTelemetryGate::kSwingUnknownPathSample: return "swing_unknown_path_sample";
-    case TerrainTelemetryGate::kSwingUnknownMapCell: return "swing_unknown_map_cell";
-    case TerrainTelemetryGate::kSwingCollision: return "swing_collision";
-    case TerrainTelemetryGate::kSwingHeight: return "swing_height";
-    case TerrainTelemetryGate::kSwingClearance: return "swing_clearance";
-    case TerrainTelemetryGate::kSwingRejectOther: return "swing_reject_other";
-    default: return "none";
-    }
-}
-
-struct TerrainModel;
-struct TerrainPatch;
-
-struct TerrainTelemetryWitness
-{
-    bool valid = false;
-    go2::Leg leg = go2::Leg::FR;
-    TerrainTelemetryGate gate = TerrainTelemetryGate::kNone;
-    std::uint64_t map_epoch = 0;
-    std::uint64_t input_hash = 0;
-    std::uint64_t plan_hash = 0;
-    std::uint32_t candidate_index = 0;
-    std::uint32_t candidate_count = 0;
-    int path_sample = -1;
-    int cell_ix = -1;
-    int cell_iy = -1;
-    go2::Vec3 patch_world{};
-    go2::Vec3 cell_world{};
-    double known_fraction = std::numeric_limits<double>::quiet_NaN();
-    double sampled_height_m = std::numeric_limits<double>::quiet_NaN();
-};
-
-// Fixed-size, observer-only candidate provenance.  Counts saturate and the
-// first witness is retained in a bounded array; no per-candidate log is
-// allocated or emitted.
-struct TerrainCandidateTelemetry
-{
-    bool enabled = false;
-    std::uint64_t input_hash = 0;
-    std::uint64_t plan_hash = 0;
-    int failed_leg = -1;
-    std::uint64_t failed_map_epoch = 0;
-    std::array<std::array<std::uint32_t, kTerrainTelemetryGateCount>,
-               go2::kLegCount> counts_by_leg{};
-    std::array<std::uint32_t, go2::kLegCount> evaluated_candidates{};
-    std::array<std::uint32_t, go2::kLegCount> accepted_candidates{};
-    std::array<TerrainTelemetryWitness, kTerrainTelemetryGateCount>
-        first_witness{};
-    std::array<std::array<TerrainTelemetryWitness, kTerrainTelemetryGateCount>,
-               go2::kLegCount> first_witness_by_leg{};
-
-    void Configure(bool on, std::uint64_t input, std::uint64_t plan)
-    {
-        *this = {};
-        enabled = on;
-        input_hash = input;
-        plan_hash = plan;
-    }
-
-    void ObserveCandidate(go2::Leg leg)
-    {
-        if (!enabled || static_cast<std::size_t>(leg) >= go2::kLegCount)
-            return;
-        auto &count = evaluated_candidates[static_cast<std::size_t>(leg)];
-        if (count != std::numeric_limits<std::uint32_t>::max())
-            ++count;
-    }
-
-    void ObserveAccepted(go2::Leg leg)
-    {
-        if (!enabled || static_cast<std::size_t>(leg) >= go2::kLegCount)
-            return;
-        auto &count = accepted_candidates[static_cast<std::size_t>(leg)];
-        if (count != std::numeric_limits<std::uint32_t>::max())
-            ++count;
-    }
-
-    void Record(go2::Leg leg, TerrainTelemetryGate gate,
-                std::uint64_t map_epoch, const go2::Vec3 &position,
-                const TerrainModel *model = nullptr,
-                const TerrainPatch *patch = nullptr, int path_sample = -1,
-                std::uint32_t candidate_index = 0);
-};
-
 inline const char *FootholdRejectReasonName(FootholdRejectReason reason)
 {
     switch (reason)
@@ -209,62 +99,6 @@ struct TerrainFeasibilityConfig
     double elevated_surface_edge_bias_m = 0.100;
 };
 
-inline void TerrainCandidateTelemetry::Record(
-    go2::Leg leg, TerrainTelemetryGate gate, std::uint64_t map_epoch,
-    const go2::Vec3 &position, const TerrainModel *model,
-    const TerrainPatch *patch, int path_sample, std::uint32_t candidate_index)
-{
-    if (!enabled || gate == TerrainTelemetryGate::kNone ||
-        static_cast<std::size_t>(leg) >= go2::kLegCount)
-        return;
-    const auto gate_index = static_cast<std::size_t>(gate);
-    if (gate_index >= kTerrainTelemetryGateCount)
-        return;
-    auto &count = counts_by_leg[static_cast<std::size_t>(leg)][gate_index];
-    if (count != std::numeric_limits<std::uint32_t>::max())
-        ++count;
-    TerrainTelemetryWitness witness;
-    witness.valid = true;
-    witness.leg = leg;
-    witness.gate = gate;
-    witness.map_epoch = map_epoch;
-    witness.input_hash = input_hash;
-    witness.plan_hash = plan_hash;
-    witness.candidate_index = candidate_index;
-    witness.candidate_count = evaluated_candidates[
-        static_cast<std::size_t>(leg)];
-    witness.path_sample = path_sample;
-    witness.patch_world = position;
-    witness.sampled_height_m = patch != nullptr ? patch->max_height_m
-                                                 : kTerrainNaN;
-    witness.known_fraction = patch != nullptr && patch->total_cells > 0
-        ? static_cast<double>(patch->known_cells) /
-            static_cast<double>(patch->total_cells)
-        : 0.0;
-    if (model != nullptr)
-    {
-        std::size_t ix = 0;
-        std::size_t iy = 0;
-        if (model->CellIndex(position.x, position.y, ix, iy))
-        {
-            witness.cell_ix = static_cast<int>(ix);
-            witness.cell_iy = static_cast<int>(iy);
-            witness.cell_world = {
-                model->origin_m[0] + (static_cast<double>(ix) + 0.5) *
-                    model->resolution_m,
-                model->origin_m[1] + (static_cast<double>(iy) + 0.5) *
-                    model->resolution_m,
-                model->CellAt(ix, iy) != nullptr
-                    ? model->CellAt(ix, iy)->height_m : kTerrainNaN};
-        }
-    }
-    if (!first_witness[gate_index].valid)
-        first_witness[gate_index] = witness;
-    if (!first_witness_by_leg[static_cast<std::size_t>(leg)][gate_index].valid)
-        first_witness_by_leg[static_cast<std::size_t>(leg)][gate_index] =
-            witness;
-}
-
 struct SafeFootholdRegion
 {
     static constexpr std::size_t kMaxVertices = 4;
@@ -273,7 +107,6 @@ struct SafeFootholdRegion
     double support_margin_m = std::numeric_limits<double>::infinity();
     double collision_margin_m = std::numeric_limits<double>::infinity();
     std::uint32_t region_id = 0;
-    std::uint32_t candidate_index = 0;
     std::array<go2::Vec3, kMaxVertices> vertices{};
     std::size_t vertex_count = 0;
     go2::Vec3 center{};
@@ -321,8 +154,6 @@ struct FootholdCandidate
     bool surface_transition_required = false;
     bool surface_transition_intent_valid = false;
     bool hard_feasible = false;
-    // Monotonic index assigned by the optional diagnostics collector.
-    std::uint32_t candidate_index = 0;
 };
 
 inline double LegReachabilityMargin(
@@ -477,9 +308,7 @@ inline bool CheckSwingClearance(
     double *required_lift_m = nullptr,
     double *required_peak_phase = nullptr,
     double *leading_edge_phase = nullptr,
-    bool *leading_edge_phase_valid = nullptr,
-    TerrainCandidateTelemetry *telemetry = nullptr,
-    std::uint32_t candidate_index = 0)
+    bool *leading_edge_phase_valid = nullptr)
 {
     minimum_clearance_m = std::numeric_limits<double>::infinity();
     if (failure_reason != nullptr)
@@ -492,17 +321,9 @@ inline bool CheckSwingClearance(
         *leading_edge_phase = 0.5;
     if (leading_edge_phase_valid != nullptr)
         *leading_edge_phase_valid = false;
-    const auto reject = [&](FootholdRejectReason reason,
-                             TerrainTelemetryGate gate =
-                                 TerrainTelemetryGate::kSwingRejectOther,
-                             go2::Vec3 position = {},
-                             const TerrainPatch *patch = nullptr,
-                             int path_sample = -1) {
+    const auto reject = [&](FootholdRejectReason reason) {
         if (failure_reason != nullptr)
             *failure_reason = reason;
-        if (telemetry != nullptr)
-            telemetry->Record(leg, gate, model.epoch, position, &model, patch,
-                              path_sample, candidate_index);
         return false;
     };
     if (!model.valid() || !std::isfinite(clearance_m) || clearance_m < 0.0)
@@ -543,12 +364,7 @@ inline bool CheckSwingClearance(
                         ++debug_unknown_path_prints;
                     }
                 }
-                return reject(
-                    FootholdRejectReason::kUnknown,
-                    patch.HasUnknownInside()
-                        ? TerrainTelemetryGate::kSwingUnknownMapCell
-                        : TerrainTelemetryGate::kSwingUnknownPathSample,
-                    {x, y, patch.max_height_m}, &patch, i);
+                return reject(FootholdRejectReason::kUnknown);
             }
             // Fringe samples straddle the sensor FOV edge; their height is
             // the max over the observed subset (the unobservable strip
@@ -576,9 +392,7 @@ inline bool CheckSwingClearance(
                         ++debug_unknown_anchor_oob_prints;
                     }
                 }
-                return reject(FootholdRejectReason::kUnknown,
-                              TerrainTelemetryGate::kSwingUnknownMapCell,
-                              start, nullptr, i);
+                return reject(FootholdRejectReason::kUnknown);
             }
             // The swing start is the live encoder-FK support foot,
             // verified against ground truth.  Its single 5 cm cell can
@@ -626,9 +440,7 @@ inline bool CheckSwingClearance(
                         ++debug_unknown_anchor_cells_prints;
                     }
                 }
-                return reject(FootholdRejectReason::kUnknown,
-                              TerrainTelemetryGate::kSwingUnknownMapCell,
-                              start, nullptr, i);
+                return reject(FootholdRejectReason::kUnknown);
             }
             terrain_height[0] = anchor_min_m;
         }
@@ -665,9 +477,7 @@ inline bool CheckSwingClearance(
                     ++debug_anchor_prints;
                 }
             }
-            return reject(FootholdRejectReason::kSwingClearance,
-                          TerrainTelemetryGate::kSwingHeight, start, nullptr,
-                          i);
+            return reject(FootholdRejectReason::kSwingClearance);
         }
     }
 
@@ -742,11 +552,7 @@ inline bool CheckSwingClearance(
                     ++debug_shape_prints;
                 }
             }
-            return reject(FootholdRejectReason::kSwingClearance,
-                          TerrainTelemetryGate::kSwingClearance,
-                          {start.x + path_progress * (end.x - start.x),
-                           start.y + path_progress * (end.y - start.y),
-                           linear_height}, nullptr, i);
+            return reject(FootholdRejectReason::kSwingClearance);
         }
         double lift_for_sample = std::max(lift, required / shape);
         while (std::fma(shape, lift_for_sample, linear_height) <
@@ -755,9 +561,7 @@ inline bool CheckSwingClearance(
             const double next_lift = std::nextafter(
                 lift_for_sample, std::numeric_limits<double>::infinity());
             if (!(next_lift > lift_for_sample))
-                return reject(FootholdRejectReason::kSwingClearance,
-                              TerrainTelemetryGate::kSwingClearance, start,
-                              nullptr, i);
+                return reject(FootholdRejectReason::kSwingClearance);
             lift_for_sample = next_lift;
         }
         if (lift_for_sample > lift)
@@ -773,8 +577,7 @@ inline bool CheckSwingClearance(
         }
     }
     if (!std::isfinite(lift))
-        return reject(FootholdRejectReason::kSwingClearance,
-                      TerrainTelemetryGate::kSwingClearance);
+        return reject(FootholdRejectReason::kSwingClearance);
 
     const auto knee_position = [leg](
         const go2::LegJointPositions &joints) {
@@ -839,13 +642,7 @@ inline bool CheckSwingClearance(
                 start.y + path_progress * (end.y - start.y), foot_height};
             go2::LegJointPositions joints;
             if (!go2::LegInverseKinematics(leg, foot, joints))
-            {
-                if (telemetry != nullptr)
-                    telemetry->Record(leg,
-                        TerrainTelemetryGate::kSwingRejectOther,
-                        model.epoch, foot, &model, nullptr, i);
                 return FootholdRejectReason::kReachability;
-            }
             if (i == 0 || i == samples)
                 continue;
 
@@ -870,12 +667,6 @@ inline bool CheckSwingClearance(
                         ++debug_unknown_foot_prints;
                     }
                 }
-                if (telemetry != nullptr)
-                    telemetry->Record(leg,
-                        foot_patch.HasUnknownInside()
-                            ? TerrainTelemetryGate::kSwingUnknownMapCell
-                            : TerrainTelemetryGate::kSwingUnknownPathSample,
-                        model.epoch, foot, &model, &foot_patch, i);
                 return FootholdRejectReason::kUnknown;
             }
             const double foot_clearance = foot.z - foot_patch.max_height_m;
@@ -941,10 +732,6 @@ inline bool CheckSwingClearance(
                                 ++debug_unknown_shin_prints;
                             }
                         }
-                        if (telemetry != nullptr)
-                            telemetry->Record(leg,
-                                TerrainTelemetryGate::kSwingUnknownMapCell,
-                                model.epoch, shin, &model, &shin_patch, i);
                         return FootholdRejectReason::kUnknown;
                     }
                     if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
@@ -982,12 +769,7 @@ inline bool CheckSwingClearance(
         const FootholdRejectReason geometry_reason =
             evaluate_swept_geometry(lift);
         if (geometry_reason != FootholdRejectReason::kNone)
-            return reject(geometry_reason,
-                          geometry_reason == FootholdRejectReason::kCollision
-                              ? TerrainTelemetryGate::kSwingCollision
-                              : geometry_reason == FootholdRejectReason::kSwingClearance
-                                    ? TerrainTelemetryGate::kSwingHeight
-                                    : TerrainTelemetryGate::kSwingRejectOther);
+            return reject(geometry_reason);
         if (!foot_violation && !shin_violation)
             break;
         const double foot_deficit =
@@ -1005,10 +787,7 @@ inline bool CheckSwingClearance(
         if (!std::isfinite(next_lift) || !(next_lift > lift))
             return reject(shin_violation
                               ? FootholdRejectReason::kCollision
-                              : FootholdRejectReason::kSwingClearance,
-                          shin_violation
-                              ? TerrainTelemetryGate::kSwingCollision
-                              : TerrainTelemetryGate::kSwingClearance);
+                              : FootholdRejectReason::kSwingClearance);
         lift = next_lift;
     }
     if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr &&
@@ -1042,14 +821,11 @@ inline bool CheckSwingClearance(
         }
     }
     if (shin_violation)
-        return reject(FootholdRejectReason::kCollision,
-                      TerrainTelemetryGate::kSwingCollision);
+        return reject(FootholdRejectReason::kCollision);
     if (foot_violation)
-        return reject(FootholdRejectReason::kSwingClearance,
-                      TerrainTelemetryGate::kSwingHeight);
+        return reject(FootholdRejectReason::kSwingClearance);
     if (!std::isfinite(lift))
-        return reject(FootholdRejectReason::kSwingClearance,
-                      TerrainTelemetryGate::kSwingClearance);
+        return reject(FootholdRejectReason::kSwingClearance);
     if (required_lift_m != nullptr)
         *required_lift_m = lift;
     if (required_peak_phase != nullptr)
@@ -1086,63 +862,33 @@ inline FootholdCandidate EvaluateFoothold(
     const TerrainFeasibilityConfig &config,
     const go2::Vec3 *swing_start = nullptr,
     double swing_clearance_m = std::numeric_limits<double>::infinity(),
-    const go2::Vec3 *future_base_displacement_base = nullptr,
-    TerrainCandidateTelemetry *telemetry = nullptr)
+    const go2::Vec3 *future_base_displacement_base = nullptr)
 {
     FootholdCandidate candidate;
     candidate.leg = leg;
     candidate.map_epoch = model.epoch;
-    const std::uint32_t candidate_index = telemetry != nullptr &&
-        telemetry->enabled && static_cast<std::size_t>(leg) < go2::kLegCount
-        ? telemetry->evaluated_candidates[static_cast<std::size_t>(leg)] : 0;
-    candidate.candidate_index = candidate_index;
-    if (telemetry != nullptr)
-        telemetry->ObserveCandidate(leg);
-    const auto record_reject = [&](TerrainTelemetryGate gate,
-                                   const go2::Vec3 &position,
-                                   const TerrainPatch *patch = nullptr) {
-        if (telemetry != nullptr)
-            telemetry->Record(leg, gate, model.epoch, position, &model, patch,
-                              -1, candidate_index);
-    };
     if (!model.valid())
     {
-        record_reject(TerrainTelemetryGate::kFootholdRejectOther,
-                      {x_m, y_m, kTerrainNaN});
         candidate.reject_reason = FootholdRejectReason::kInvalidModel;
         return candidate;
     }
     if (model.frame_id != config.required_frame)
     {
-        record_reject(TerrainTelemetryGate::kFootholdRejectOther,
-                      {x_m, y_m, kTerrainNaN});
         candidate.reject_reason = FootholdRejectReason::kFrameMismatch;
         return candidate;
     }
     if (model.age_s > config.max_map_age_s)
     {
-        record_reject(TerrainTelemetryGate::kFootholdRejectOther,
-                      {x_m, y_m, kTerrainNaN});
         candidate.reject_reason = FootholdRejectReason::kStale;
         return candidate;
     }
     TerrainPatch patch;
-    const bool patch_sampled = model.SamplePatch(
-        x_m, y_m, config.foot_patch_radius_m, patch);
-    const bool patch_known = static_cast<double>(patch.known_cells) /
-        std::max<std::size_t>(1, patch.total_cells) >=
-        config.min_known_fraction;
-    if (!patch_sampled || !patch.valid || !patch_known)
+    if (!model.SamplePatch(x_m, y_m, config.foot_patch_radius_m, patch) ||
+        !patch.valid ||
+        static_cast<double>(patch.known_cells) /
+            std::max<std::size_t>(1, patch.total_cells) <
+            config.min_known_fraction)
     {
-        const TerrainTelemetryGate gate = !patch_sampled
-            ? (patch.known_cells == 0
-                   ? TerrainTelemetryGate::kFootholdUnknownSurface
-                   : TerrainTelemetryGate::kFootholdUnknownPatch)
-            : (!patch.valid ? TerrainTelemetryGate::kFootholdUnknownPatch
-                            : (patch.HasUnknownInside()
-                                   ? TerrainTelemetryGate::kFootholdUnknownCell
-                                   : TerrainTelemetryGate::kFootholdUnknownPatch));
-        record_reject(gate, {x_m, y_m, patch.center_height_m}, &patch);
         if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
         {
             static int debug_unknown_foothold_prints = 0;
@@ -1162,8 +908,6 @@ inline FootholdCandidate EvaluateFoothold(
     }
     if (model.age_s > config.max_cell_age_s)
     {
-        record_reject(TerrainTelemetryGate::kFootholdRejectOther,
-                      {x_m, y_m, patch.center_height_m}, &patch);
         candidate.reject_reason = FootholdRejectReason::kStale;
         return candidate;
     }
@@ -1193,36 +937,26 @@ inline FootholdCandidate EvaluateFoothold(
         leg, reachability_position);
     if (candidate.edge_margin_m < config.min_edge_margin_m)
     {
-        record_reject(TerrainTelemetryGate::kFootholdRejectOther,
-                      candidate.foot_position, &patch);
         candidate.reject_reason = FootholdRejectReason::kEdge;
         return candidate;
     }
     if (patch.max_height_m - patch.min_height_m > config.max_surface_step_m)
     {
-        record_reject(TerrainTelemetryGate::kFootholdRejectOther,
-                      candidate.foot_position, &patch);
         candidate.reject_reason = FootholdRejectReason::kSurfaceStep;
         return candidate;
     }
     if (patch.slope_rad > config.max_slope_rad)
     {
-        record_reject(TerrainTelemetryGate::kFootholdRejectOther,
-                      candidate.foot_position, &patch);
         candidate.reject_reason = FootholdRejectReason::kSlope;
         return candidate;
     }
     if (patch.roughness_m > config.max_roughness_m)
     {
-        record_reject(TerrainTelemetryGate::kFootholdRejectOther,
-                      candidate.foot_position, &patch);
         candidate.reject_reason = FootholdRejectReason::kRoughness;
         return candidate;
     }
     if (candidate.uncertainty_m > std::sqrt(config.max_variance_m2))
     {
-        record_reject(TerrainTelemetryGate::kFootholdRejectOther,
-                      candidate.foot_position, &patch);
         candidate.reject_reason = FootholdRejectReason::kUncertainty;
         return candidate;
     }
@@ -1230,8 +964,6 @@ inline FootholdCandidate EvaluateFoothold(
     if (!go2::LegInverseKinematics(leg, reachability_position, joints) ||
         candidate.reachability_margin_m < config.min_reachability_margin_m)
     {
-        record_reject(TerrainTelemetryGate::kFootholdRejectOther,
-                      candidate.foot_position, &patch);
         candidate.reject_reason = FootholdRejectReason::kReachability;
         return candidate;
     }
@@ -1246,16 +978,13 @@ inline FootholdCandidate EvaluateFoothold(
                 &swing_reject_reason, leg, &candidate.swing_lift_m,
                 &candidate.swing_peak_phase,
                 &candidate.swing_leading_edge_phase,
-                &candidate.swing_leading_edge_phase_valid, telemetry,
-                candidate_index))
+                &candidate.swing_leading_edge_phase_valid))
         {
             candidate.reject_reason = swing_reject_reason;
             return candidate;
         }
     }
     candidate.hard_feasible = true;
-    if (telemetry != nullptr)
-        telemetry->ObserveAccepted(leg);
     candidate.support_margin_m = candidate.edge_margin_m;
     candidate.collision_margin_m = candidate.swing_clearance_m;
     return candidate;
@@ -1389,8 +1118,7 @@ inline bool HasForwardElevatedSurfaceStandoff(
 inline std::vector<SafeFootholdRegion> BuildSafeFootholdRegions(
     const TerrainModel &model, go2::Leg leg,
     const TerrainFeasibilityConfig &config,
-    const go2::Vec3 *future_base_displacement_base = nullptr,
-    TerrainCandidateTelemetry *telemetry = nullptr)
+    const go2::Vec3 *future_base_displacement_base = nullptr)
 {
     std::vector<SafeFootholdRegion> regions;
     if (!model.valid() || model.frame_id != config.required_frame)
@@ -1409,7 +1137,7 @@ inline std::vector<SafeFootholdRegion> BuildSafeFootholdRegions(
             const FootholdCandidate candidate = EvaluateFoothold(
                 model, leg, x, y, config, nullptr,
                 std::numeric_limits<double>::infinity(),
-                future_base_displacement_base, telemetry);
+                future_base_displacement_base);
             if (!candidate.hard_feasible)
                 continue;
             const double half = std::min(
@@ -1421,7 +1149,6 @@ inline std::vector<SafeFootholdRegion> BuildSafeFootholdRegions(
             region.leg = leg;
             region.map_epoch = model.epoch;
             region.region_id = static_cast<std::uint32_t>(regions.size());
-            region.candidate_index = candidate.candidate_index;
             region.center = candidate.foot_position;
             region.normal = candidate.surface_normal;
             region.height_min_m = candidate.height_min_m;

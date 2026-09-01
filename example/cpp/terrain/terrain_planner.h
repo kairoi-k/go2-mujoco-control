@@ -63,9 +63,6 @@ struct TerrainPlannerConfig
     bool allow_actuation = false;
     // C-002 is always observer-only; these bounds only limit its work.
     bool shadow_enabled = true;
-    // Candidate provenance is bounded and observer-only. It is disabled by
-    // default so legacy planner execution has no diagnostic work.
-    bool candidate_telemetry_enabled = false;
     double shadow_max_two_contact_duration_s = 0.10;
     double shadow_max_body_projection_m = 0.060;
     double shadow_friction_coefficient = 0.50;
@@ -141,110 +138,36 @@ struct TerrainPlannerInput
     bool has_stage_c_timing = false;
 };
 
-// Canonical provenance hash for every behavior-affecting Build input. Keep
-// this explicit and reuse it for the plan and optional candidate telemetry;
-// do not introduce a second partial diagnostic hash.
 inline std::uint64_t TerrainPlannerInputHash(const TerrainPlannerInput &input)
 {
     std::uint64_t hash = 1469598103934665603ULL;
     const auto add = [&hash](const void *data, std::size_t size) {
         const auto *bytes = static_cast<const unsigned char *>(data);
-        for (std::size_t i = 0; i < size; ++i) {
-            hash ^= bytes[i];
-            hash *= 1099511628211ULL;
-        }
+        for (std::size_t i = 0; i < size; ++i) { hash ^= bytes[i]; hash *= 1099511628211ULL; }
     };
-    const auto add_bool = [&add](bool value) { add(&value, sizeof(value)); };
     const auto add_double = [&add](double value) { add(&value, sizeof(value)); };
-    const auto add_vec3 = [&add](const go2::Vec3 &value) {
-        add(&value.x, sizeof(value.x));
-        add(&value.y, sizeof(value.y));
-        add(&value.z, sizeof(value.z));
-    };
-    const auto add_identity = [&add, &add_double](const TerrainPlanIdentity &value) {
-        add(&value.plan_id, sizeof(value.plan_id));
-        add(&value.plan_epoch, sizeof(value.plan_epoch));
-        add(&value.map_epoch, sizeof(value.map_epoch));
-        add_double(value.generated_at_s);
-        add_double(value.valid_until_s);
-    };
-    add_double(input.state_stamp_s);
-    add_double(input.base_yaw_rad);
-    add_vec3(input.base_position_world);
-    add_vec3(input.base_velocity_world);
-    add_vec3(input.base_acceleration_world);
-    add_double(input.base_roll_rad);
-    add_double(input.base_pitch_rad);
-    add_double(input.base_height_m);
-    add_double(input.gait_phase);
-    add_double(input.gait_period_s);
-    add_double(input.duty_factor);
+    add_double(input.state_stamp_s); add_double(input.base_yaw_rad);
+    add(&input.base_position_world, sizeof(input.base_position_world));
+    add(&input.base_velocity_world, sizeof(input.base_velocity_world));
+    add(&input.base_acceleration_world, sizeof(input.base_acceleration_world));
+    add_double(input.base_roll_rad); add_double(input.base_pitch_rad); add_double(input.base_height_m);
+    add_double(input.gait_phase); add_double(input.gait_period_s); add_double(input.duty_factor);
     add_double(input.commanded_vx_mps);
-    for (const auto &foot : input.current_feet_base) add_vec3(foot);
-    for (const auto &foot : input.nominal_feet_base) add_vec3(foot);
-    add_bool(input.nominal_touchdown_feet_valid);
-    for (const auto &foot : input.nominal_touchdown_feet_base) add_vec3(foot);
-    add_bool(input.terrain_retarget_allowed_valid);
-    for (const bool value : input.terrain_retarget_allowed) add_bool(value);
-    add_bool(input.terrain_surface_transition_active);
-    for (const bool value : input.terrain_surface_transition_required) add_bool(value);
-    for (const bool value : input.terrain_surface_transition_committed) add_bool(value);
-    for (const bool value : input.terrain_surface_transition_source_valid) add_bool(value);
-    for (const double value : input.terrain_surface_transition_source_height_m) add_double(value);
-    add_bool(input.terrain_transfer_hold_active);
-    for (const bool value : input.terrain_transfer_hold_contact) add_bool(value);
-    add_bool(input.terrain_crawl_support_window_active);
-    add(&input.terrain_crawl_support_lifted_leg, sizeof(input.terrain_crawl_support_lifted_leg));
-    add_bool(input.measured_support_geometry_valid);
-    for (const auto &foot : input.measured_support_feet_world) add_vec3(foot);
-    for (const bool value : input.measured_support_contact) add_bool(value);
-    add_bool(input.measured_com_valid);
-    add_vec3(input.measured_com_world);
-    add_identity(input.contact_schedule.provenance);
-    for (const bool value : input.contact_schedule.measured_contact) add_bool(value);
-    for (const auto &knot : input.contact_schedule.planned_contact)
-        for (const bool value : knot) add_bool(value);
-    add_bool(input.contact_schedule.measured_valid);
-    add_bool(input.contact_schedule.planned_valid);
-    for (const double value : input.next_touchdown_time_s) add_double(value);
-    for (const bool value : input.next_touchdown_time_valid) add_bool(value);
-    add_double(input.terrain_timing_bounds.current_period_s);
-    add_double(input.terrain_timing_bounds.current_duty_factor);
-    add_double(input.terrain_timing_bounds.min_period_s);
-    add_double(input.terrain_timing_bounds.max_period_s);
-    add_double(input.terrain_timing_bounds.min_duty_factor);
-    add_double(input.terrain_timing_bounds.max_duty_factor);
-    add_double(input.terrain_timing_bounds.window_start_s);
-    add_double(input.terrain_timing_bounds.window_end_s);
-    add_double(input.terrain_timing_bounds.knot_dt_s);
-    for (const double value : input.terrain_timing_bounds.next_touchdown_time_s) add_double(value);
-    for (const bool value : input.terrain_timing_bounds.next_touchdown_time_valid) add_bool(value);
-    for (const double value : input.terrain_timing_bounds.earliest_touchdown_time_s) add_double(value);
-    for (const double value : input.terrain_timing_bounds.latest_touchdown_time_s) add_double(value);
-    for (const bool value : input.terrain_timing_bounds.touchdown_window_valid) add_bool(value);
-    add_bool(input.has_stage_c_timing);
-    const bool has_terrain = input.terrain != nullptr;
-    add_bool(has_terrain);
-    if (has_terrain) {
+    add(input.current_feet_base.data(), sizeof(input.current_feet_base));
+    add(input.nominal_feet_base.data(), sizeof(input.nominal_feet_base));
+    add(input.nominal_touchdown_feet_base.data(), sizeof(input.nominal_touchdown_feet_base));
+    add(input.terrain_retarget_allowed.data(), sizeof(input.terrain_retarget_allowed));
+    add(input.next_touchdown_time_s.data(), sizeof(input.next_touchdown_time_s));
+    add(input.next_touchdown_time_valid.data(), sizeof(input.next_touchdown_time_valid));
+    add(input.contact_schedule.measured_contact.data(), sizeof(input.contact_schedule.measured_contact));
+    add(input.contact_schedule.planned_contact.data(), sizeof(input.contact_schedule.planned_contact));
+    add(&input.has_stage_c_timing, sizeof(input.has_stage_c_timing));
+    add(&input.terrain_timing_bounds, sizeof(input.terrain_timing_bounds));
+    if (input.terrain != nullptr) {
         add(input.terrain->frame_id.data(), input.terrain->frame_id.size());
-        add_double(input.terrain->state_stamp_s);
-        add_double(input.terrain->map_stamp_s);
-        add_double(input.terrain->age_s);
-        add(&input.terrain->epoch, sizeof(input.terrain->epoch));
-        add_double(input.terrain->resolution_m);
-        add(input.terrain->origin_m.data(), sizeof(input.terrain->origin_m));
-        add(&input.terrain->width, sizeof(input.terrain->width));
-        add(&input.terrain->height, sizeof(input.terrain->height));
-        add(&input.terrain->source, sizeof(input.terrain->source));
-        for (const auto &cell : input.terrain->cells) {
-            add_double(cell.height_m);
-            add_double(cell.age_s);
-            add_double(cell.slope_rad);
-            add_double(cell.roughness_m);
-            add_double(cell.variance_m2);
-            add(cell.normal.data(), sizeof(cell.normal));
-            add_bool(cell.known);
-        }
+        add_double(input.terrain->age_s); add(&input.terrain->epoch, sizeof(input.terrain->epoch));
+        add_double(input.terrain->resolution_m); add(input.terrain->origin_m.data(), sizeof(input.terrain->origin_m));
+        for (const auto &cell : input.terrain->cells) { add(&cell, sizeof(cell)); }
     }
     return hash;
 }
@@ -288,10 +211,6 @@ struct TerrainPlannerResult
     std::array<std::shared_ptr<const TerrainShadowSnapshot>,
                kTerrainShadowFamilyCount> shadow_family_snapshots{};
     TerrainShadowDiagnostics shadow_diagnostics{};
-    // Review-only counters make lazy provenance work auditable without
-    // adding any per-update or per-cell log storage.
-    std::uint8_t canonical_hash_invocations = 0;
-    std::uint8_t shadow_map_traversals = 0;
 };
 
 // Explicit C-003 bridge from the reviewed V2-B shadow family.  This is
@@ -659,18 +578,9 @@ public:
     const TerrainPlannerConfig &config() const { return config_; }
 
     TerrainPlannerResult Build(const TerrainPlannerInput &input,
-                               std::uint64_t plan_id,
-                               TerrainCandidateTelemetry *collector = nullptr) const
+                               std::uint64_t plan_id) const
     {
         TerrainPlannerResult result;
-        TerrainCandidateTelemetry *telemetry = nullptr;
-        if (config_.candidate_telemetry_enabled && collector != nullptr)
-            telemetry = collector;
-        const bool hash_required = config_.shadow_enabled ||
-            telemetry != nullptr || input.has_stage_c_timing;
-        const std::uint64_t canonical_input_hash = hash_required
-            ? TerrainPlannerInputHash(input) : 0;
-        result.canonical_hash_invocations = hash_required ? 1 : 0;
         result.touchdown_knot_by_leg.fill(-1);
         result.candidate_required.fill(false);
         for (auto &valid : result.selected_by_touchdown_valid)
@@ -682,7 +592,7 @@ public:
             -std::numeric_limits<double>::infinity());
         result.plan.plan_id = plan_id;
         result.plan.input_hash = input.has_stage_c_timing
-            ? canonical_input_hash : 0;
+            ? TerrainPlannerInputHash(input) : 0;
         result.plan.plan_epoch = plan_id;
         result.plan.map_epoch = input.terrain != nullptr
             ? input.terrain->epoch : 0;
@@ -696,13 +606,11 @@ public:
         result.plan.identity.generated_at_s = result.plan.generated_at_s;
         result.plan.identity.valid_until_s = result.plan.valid_until_s;
         result.plan.contact_timing.identity = result.plan.identity;
-        if (telemetry != nullptr)
-            telemetry->Configure(true, canonical_input_hash, plan_id);
         result.plan.timing_bounds = input.terrain_timing_bounds;
         // C-001 fields remain provenance-complete; Stage-C timing is populated
         // only when the execution flag is explicitly enabled.
         result.plan.has_stage_c_timing = input.has_stage_c_timing;
-        BuildShadow(input, result, canonical_input_hash, telemetry);
+        BuildShadow(input, result);
         result.plan.contact_timing.provenance = input.has_stage_c_timing
             ? TerrainTimingProvenance::kStageCPlanner
             : TerrainTimingProvenance::kLegacyPhase1;
@@ -829,8 +737,7 @@ public:
                 *input.terrain, static_cast<go2::Leg>(leg),
                 config_.feasibility,
                 future_base_displacement_valid[leg]
-                    ? &future_base_displacement_base[leg] : nullptr,
-                telemetry);
+                    ? &future_base_displacement_base[leg] : nullptr);
             result.candidate_counts[leg] = result.regions[leg].size();
             for (const auto &region : result.regions[leg])
             {
@@ -1014,8 +921,7 @@ public:
                     config_.feasibility, nullptr,
                     std::numeric_limits<double>::infinity(),
                     future_base_displacement_valid[leg]
-                        ? &future_base_displacement_base[leg] : nullptr,
-                    telemetry);
+                        ? &future_base_displacement_base[leg] : nullptr);
                 if (!candidate.hard_feasible ||
                     !has_surface_standoff(candidate.foot_position,
                                           candidate.uncertainty_m))
@@ -1034,8 +940,7 @@ public:
                         static_cast<go2::Leg>(leg), &candidate.swing_lift_m,
                         &candidate.swing_peak_phase,
                         &candidate.swing_leading_edge_phase,
-                        &candidate.swing_leading_edge_phase_valid,
-                        telemetry, candidate.candidate_index))
+                        &candidate.swing_leading_edge_phase_valid))
                 {
                     const auto reason = static_cast<std::size_t>(
                         swing_reject_reason);
@@ -1086,12 +991,6 @@ public:
             if (options.empty())
             {
                 result.failed_leg = static_cast<int>(leg);
-                if (telemetry != nullptr)
-                {
-                    telemetry->failed_leg = result.failed_leg;
-                    telemetry->failed_map_epoch =
-                        input.terrain != nullptr ? input.terrain->epoch : 0;
-                }
                 for (std::size_t reason = 1;
                      reason < result.foothold_reject_counts.size(); ++reason)
                 {
@@ -1259,7 +1158,7 @@ public:
         }
         result.selected = best_feasible_selection;
         SeedTouchdownSelections(input, result);
-        PopulateFutureTouchdownSelections(input, result, telemetry);
+        PopulateFutureTouchdownSelections(input, result);
         PopulatePlan(input, result);
         TerrainPlannerInput coherent_input = input;
         bool retimed = false;
@@ -1309,9 +1208,7 @@ public:
 
 private:
     void BuildShadow(const TerrainPlannerInput &input,
-                     TerrainPlannerResult &result,
-                     std::uint64_t canonical_input_hash,
-                     TerrainCandidateTelemetry *telemetry) const;
+                     TerrainPlannerResult &result) const;
 
     static go2::Vec3 NominalTouchdownFoot(
         const TerrainPlannerInput &input, std::size_t leg)
@@ -1950,8 +1847,8 @@ private:
             std::isfinite(displacement.z);
     }
     void PopulateFutureTouchdownSelections(
-        const TerrainPlannerInput &input, TerrainPlannerResult &result,
-        TerrainCandidateTelemetry *telemetry) const
+        const TerrainPlannerInput &input,
+        TerrainPlannerResult &result) const
     {
         constexpr std::size_t kMaxFutureSwingEvaluations = 32;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -2079,8 +1976,7 @@ private:
                         config_.feasibility, &swing_start,
                         config_.swing_clearance_m,
                         future_displacement_valid
-                            ? &future_displacement : nullptr,
-                        telemetry);
+                            ? &future_displacement : nullptr);
                     if (!candidate.hard_feasible)
                         continue;
                     const bool elevated_candidate =
@@ -2941,17 +2837,14 @@ private:
 };
 
 inline void TerrainPlanner::BuildShadow(
-    const TerrainPlannerInput &input, TerrainPlannerResult &result,
-    std::uint64_t canonical_input_hash,
-    TerrainCandidateTelemetry *telemetry) const
+    const TerrainPlannerInput &input, TerrainPlannerResult &result) const
 {
     const auto start = std::chrono::steady_clock::now();
     auto &diag = result.shadow_diagnostics;
     diag = TerrainShadowDiagnostics{};
-    diag.input_hash = canonical_input_hash;
+    diag.input_hash = TerrainPlannerInputHash(input);
     diag.input_state_stamp_s = input.state_stamp_s;
-    bool any_known = false;
-    if (config_.shadow_enabled && input.terrain != nullptr)
+    if (input.terrain != nullptr)
     {
         diag.input_map_valid = input.terrain->valid();
         diag.input_map_age_s = input.terrain->age_s;
@@ -2961,12 +2854,9 @@ inline void TerrainPlanner::BuildShadow(
             config_.feasibility.required_frame;
         diag.input_map_epoch = input.terrain->epoch;
         diag.input_total_cells = input.terrain->cells.size();
-        ++result.shadow_map_traversals;
-        for (const auto &cell : input.terrain->cells) {
-            any_known = any_known || cell.known;
+        for (const auto &cell : input.terrain->cells)
             if (cell.known)
                 ++diag.input_known_cells;
-        }
     }
     diag.deadline_us = config_.deadline_us;
     for (auto &value : diag.min_support_margin_m)
@@ -3021,6 +2911,9 @@ inline void TerrainPlanner::BuildShadow(
         finish();
         return;
     }
+    bool any_known = false;
+    for (const auto &cell : input.terrain->cells)
+        any_known = any_known || cell.known;
     if (!any_known) {
         reject(TerrainShadowFamily::kV2B, TerrainShadowRejectReason::kUnknownTerrain);
         reject(TerrainShadowFamily::kV3CDraft, TerrainShadowRejectReason::kUnknownTerrain);
@@ -3082,7 +2975,7 @@ inline void TerrainPlanner::BuildShadow(
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
         const auto regions = BuildSafeFootholdRegions(
             *input.terrain, static_cast<go2::Leg>(leg), config_.feasibility,
-            nullptr, telemetry);
+            nullptr);
         diag.safe_region_candidate_count_by_leg[leg] = regions.size();
         double best_score = -std::numeric_limits<double>::infinity();
         for (const auto &region : regions) {
@@ -3096,8 +2989,7 @@ inline void TerrainPlanner::BuildShadow(
                     *input.terrain, TerrainPlannerSwingStart(input, leg),
                     go2::ContactPatchToFootSite(region.center),
                     config_.swing_clearance_m, clearance, &clearance_reason,
-                    static_cast<go2::Leg>(leg), &lift, nullptr,
-                    nullptr, nullptr, telemetry, region.candidate_index))
+                    static_cast<go2::Leg>(leg), &lift))
                 continue;
             FootholdCandidate candidate{};
             candidate.leg = static_cast<go2::Leg>(leg);
