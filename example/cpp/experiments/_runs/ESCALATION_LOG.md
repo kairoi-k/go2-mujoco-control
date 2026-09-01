@@ -5119,3 +5119,38 @@ artifacts: |
 rollback: |
   No runtime change. Stage-C flags off. e65e155 tested and recorded; prior
   verified SHAs 2b3bc5d remain. Do not advance C-007/B1.
+
+---
+timestamp: 2026-09-01T11:44:00+08:00
+run_id: phase2_b0_lockstep_development_fixed_3mps_r0_20260901_113510
+trigger: T1 (authoritative controller gate failure; Order-108 pivot rule applied)
+signature: canary PIVOT; writer cadence repaired and protocol clean on both members (intervals=27611/21665, violations=0 fail_closed=0 dt=2ms kAckMatched(3) on every exchange, per-tick ack_state_seq==tick, ack_cmd_seq==cmd_seq_at_ready exact arrival, no SIM_LOCKSTEP_FAIL_CLOSED, no TROT_LOCKSTEP_WRITER_FAIL_CLOSED; command_seq delta=1 from tick 4236ms onward, delta 2-3 confined to first ~1200 rows pre-engagement/backlog); controller time still NOT 1:1 with sim time (cmd_time 1.414x/1.435x sim; wall_clock_motion override, reduced from ~2x at e65e155); controller hard posture limit on both members (baseline healthy cruise 44.6s then flip final_angle_deg=179.790 at sim 55.094s cycle_health=500 speed_median=3.4397; terrain cruise 33.8s then flip final_angle_deg=179.867 at sim 43.378s cycle_health=389 speed_median=3.4379); B0 FAIL (fixed_3mps=false, paired_baseline_lifecycle=false); tests 29/29 + 2/2 PASS; SHA 3273bd5 clean
+evidence:
+  controller_log_baseline: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_113510_baseline/controller.log
+  controller_log_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_113510_terrain/controller.log
+  trace_baseline: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_113510_baseline/lockstep_trace.csv
+  trace_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_113510_terrain/lockstep_trace.csv
+  run_manifest_baseline: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_113510_baseline/run_manifest.json
+  run_manifest_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_113510_terrain/run_manifest.json
+  b0_analyzer_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_113510_terrain/b0_analyzer.json
+git_status: clean (0 changed files; evidence docs committed separately)
+suggestion: |
+  Order-108 pivot rule applied: one controller update per physics tick from the
+  engagement handoff onward (trace clean, exact-pair ack, zero violations) yet
+  the authoritative controller gate fails (posture flip) on both members at
+  exact SHA 3273bd5. The 1:1-per-tick schedule is proven; the controller
+  internal clock is still NOT sim-synchronous (cmd_time ~1.42x sim time,
+  wall_clock_motion override, down from ~2x at e65e155) and the run ends in the
+  same posture-flip family. Classification: Phase-1 control-law/contact
+  robustness; no further verification-infrastructure changes. No holdout
+  pairs, no rerun, no tuning, no B1/threshold change. Next order may change
+  controller behavior (incl. the wall-clock motion-clock residual) while
+  preserving every B0 threshold/profile. Decision required before C-007/B1.
+artifacts: |
+  docs/research/evidence/order108_c006h/PREREGISTERED_MANIFEST.json
+  docs/research/evidence/order108_c006h/FORMAL_MANIFEST.json
+  docs/research/evidence/order108_c006h/SUMMARY.md
+  docs/research/evidence/order108_c006h/WILSON.json
+rollback: |
+  No runtime change. Stage-C flags off. 3273bd5 tested and recorded; prior
+  verified SHAs 2b3bc5d remain. Do not advance C-007/B1.
