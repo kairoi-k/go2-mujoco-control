@@ -231,6 +231,7 @@ go2_add_ctest(test_terrain_bootstrap_coordinator)
 # the production shaper's discrete stopping distance. End-to-end latency is
 # intentionally left as a later certification obligation.
 add_executable(test_terrain_bootstrap_c0 tests/test_terrain_bootstrap_c0.cpp)
+target_link_libraries(test_terrain_bootstrap_c0 unitree_sdk2)
 go2_add_ctest(test_terrain_bootstrap_c0)
 
 add_executable(analyze_contact_torque_replay tools/analysis/analyze_contact_torque_replay.cpp)
