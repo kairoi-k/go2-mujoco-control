@@ -222,6 +222,11 @@ add_executable(test_terrain_plan_fallback tests/test_terrain_plan_fallback.cpp)
 target_link_libraries(test_terrain_plan_fallback unitree_sdk2)
 go2_add_ctest(test_terrain_plan_fallback)
 
+# Development-only C0/C1 bootstrap policy seam. This is a static ownership
+# contract test; it does not authorize or execute a terrain simulation probe.
+add_executable(test_terrain_bootstrap_coordinator tests/test_terrain_bootstrap_coordinator.cpp)
+go2_add_ctest(test_terrain_bootstrap_coordinator)
+
 add_executable(analyze_contact_torque_replay tools/analysis/analyze_contact_torque_replay.cpp)
 target_include_directories(analyze_contact_torque_replay PRIVATE ${GO2_CPP_INCLUDE_DIRS})
 target_link_libraries(analyze_contact_torque_replay Eigen3::Eigen)
