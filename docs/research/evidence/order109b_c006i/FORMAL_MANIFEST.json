@@ -1,0 +1,1009 @@
+{
+  "branch": "phase2-b1-b3",
+  "canary": {
+    "command": "SIM_LOCKSTEP=1 bash example/cpp/scripts/run_phase2_b0_lockstep_pair.sh development 0",
+    "frozen_equivalence_comparator": "PASS on baseline and terrain against authoritative 20260901_045117 reference (dz p95 0.0207/0.0208 m; angle p95 max 3.081/3.458 deg)",
+    "status": "PASS",
+    "stop_rule": "passed; proceeded to all three pre-registered pairs"
+  },
+  "configuration": {
+    "duration_s": 40,
+    "no_b1_or_threshold_changes": true,
+    "profile": "fixed 3 m/s sustained-running",
+    "sim_lockstep": true,
+    "stage_c_execution": false,
+    "terrain_mode": "sensor_only",
+    "terrain_shadow_diagnostics": true,
+    "wall_timeout_s": 75
+  },
+  "ctest": {
+    "example_cpp": "31/31 PASS",
+    "simulate": "2/2 PASS"
+  },
+  "git_dirty": true,
+  "members": [
+    {
+      "b0_analyzer": null,
+      "controller_time": {
+        "cmd_time_vs_sim_time_slope": 0.9999999999999999,
+        "samples": 26560
+      },
+      "domain_id": "222",
+      "fixed_analyzer": {
+        "aerial_fraction": "0.339516",
+        "all_feet_low_fraction": "0.000594",
+        "base_z_p01_p99_m": "0.352644,0.369645",
+        "body_angle_p95_deg": "roll:2.229338,pitch:1.764053",
+        "cruise_window_s": "6.300..53.420",
+        "cycle_health_count": "357",
+        "final_angle_deg": "0.252336",
+        "final_speed_mps": "0.002165",
+        "foot_z_p95_m": "FR:0.113463,FL:0.110665,RR:0.104088,RL:0.112361",
+        "good_speed_window_s": "42.298000 (11.122..53.420)",
+        "pair_sync": "FR+RL:0.928947,FL+RR:0.866893",
+        "speed_median_mps": "3.254442",
+        "speed_p05_mps": "2.133604",
+        "speed_p95_mps": "3.636572",
+        "stage2_window_s": "4.300..55.420",
+        "stop_start_s": "55.422",
+        "stop_tail_samples": "165",
+        "stop_tail_speed_p95_mps": "0.002624",
+        "stop_tail_start_s": "56.922",
+        "three_contact_fraction": "0.000000",
+        "two_contact_fraction": "0.456324",
+        "validation": "PASS"
+      },
+      "git_dirty": "false",
+      "git_head": "5b95e8265c885a81f8488e4930e682aa55f05674",
+      "label": "canary-baseline",
+      "lockstep": {
+        "ack_state_mismatch": 0,
+        "all_one_update_per_tick": false,
+        "command_seq_delta_counts": {
+          "1": 26705,
+          "2": 998,
+          "3": 3
+        },
+        "dt_ms": [
+          2
+        ],
+        "handoff_tick_ms": 4132,
+        "intervals": 27707,
+        "one_update_per_tick_after_handoff": true,
+        "rows": 27708,
+        "violations": 0
+      },
+      "manifest_statuses": {
+        "analysis_status": "0",
+        "completion_status": "0",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "ground_truth_status": "0",
+        "phase1_quantitative_status": "0",
+        "quality_status": "0",
+        "safety_status": "0",
+        "terrain_analysis_status": "0"
+      },
+      "run_dir": "example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_122736_baseline"
+    },
+    {
+      "b0_analyzer": {
+        "acceptance_status": "PASS",
+        "analysis_status": "0",
+        "checks": {
+          "analyzer_hash": true,
+          "contract_hash": true,
+          "finite_map_age": true,
+          "fixed_3mps_analyzer": true,
+          "fixed_analyzer_hash": true,
+          "lidar_observation": true,
+          "lidar_provenance": true,
+          "map_telemetry": true,
+          "no_hidden_event": true,
+          "no_plan_consumer": true,
+          "no_plan_publish": true,
+          "no_terrain_actuation": true,
+          "paired_baseline_lifecycle": true,
+          "paired_control_interface": true,
+          "phase1_quantitative": true,
+          "planner_deadline": true,
+          "planner_does_not_safe_stop": true,
+          "planner_updated": true,
+          "sensor_only_flag": true,
+          "terrain_cap_not_requested": true,
+          "terrain_enabled": true
+        },
+        "completion_status": "0",
+        "contract": "b0-contract-v1.2",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "git_head": "5b95e8265c885a81f8488e4930e682aa55f05674",
+        "legacy_status_pass": true,
+        "paired_baseline_phase1": {},
+        "paired_comparison": {
+          "event_active": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.5
+          },
+          "event_target_vx_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.02
+          },
+          "event_type": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.5
+          },
+          "velocity_command_applied_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.01
+          },
+          "velocity_command_gait_duty": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 0.5,
+            "tolerance": 1e-05
+          },
+          "velocity_command_gait_foot_lift_m": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 1e-05
+          },
+          "velocity_command_gait_period_s": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 0.2,
+            "tolerance": 1e-05
+          },
+          "velocity_command_gait_step_length_m": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 1e-05
+          },
+          "velocity_command_requested_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 1e-06
+          },
+          "velocity_command_shaped_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.01
+          },
+          "wbc_full_requested_acc_x_mps2": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 11.894315451,
+            "tolerance": 0.2
+          },
+          "wbc_full_velocity_target_x_mps": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 1.799695422,
+            "tolerance": 0.02
+          }
+        },
+        "paired_contract": {
+          "same_controller_sha256": true,
+          "same_nonterrain_argv": true,
+          "same_profile_sha256": true,
+          "same_scene_sha256": true,
+          "same_simulator_sha256": true
+        },
+        "phase1_quantitative": {},
+        "quality_status": "0",
+        "run_dir": "/home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_122736_terrain",
+        "safety_status": "0",
+        "terrain_map_valid_fraction": 0.9998960679023038,
+        "terrain_planner_deadline_misses": 0.0,
+        "terrain_planner_updates": 1924.0,
+        "terrain_rows": 28865
+      },
+      "controller_time": {
+        "cmd_time_vs_sim_time_slope": 1.0,
+        "samples": 26714
+      },
+      "domain_id": "223",
+      "fixed_analyzer": {
+        "aerial_fraction": "0.321807",
+        "all_feet_low_fraction": "0.000633",
+        "base_z_p01_p99_m": "0.352182,0.370014",
+        "body_angle_p95_deg": "roll:2.493399,pitch:1.896717",
+        "cruise_window_s": "6.300..53.726",
+        "cycle_health_count": "356",
+        "final_angle_deg": "0.175883",
+        "final_speed_mps": "0.002158",
+        "foot_z_p95_m": "FR:0.113225,FL:0.110321,RR:0.104412,RL:0.113561",
+        "good_speed_window_s": "42.504000 (11.222..53.726)",
+        "pair_sync": "FR+RL:0.908109,FL+RR:0.848817",
+        "speed_median_mps": "3.264683",
+        "speed_p05_mps": "2.088353",
+        "speed_p95_mps": "3.597629",
+        "stage2_window_s": "4.300..55.726",
+        "stop_start_s": "55.728",
+        "stop_tail_samples": "201",
+        "stop_tail_speed_p95_mps": "0.002739",
+        "stop_tail_start_s": "57.228",
+        "three_contact_fraction": "0.000000",
+        "two_contact_fraction": "0.435120",
+        "validation": "PASS"
+      },
+      "git_dirty": "false",
+      "git_head": "5b95e8265c885a81f8488e4930e682aa55f05674",
+      "label": "canary-terrain",
+      "lockstep": {
+        "ack_state_mismatch": 0,
+        "all_one_update_per_tick": false,
+        "command_seq_delta_counts": {
+          "1": 26896,
+          "2": 976,
+          "3": 2,
+          "4": 2
+        },
+        "dt_ms": [
+          2
+        ],
+        "handoff_tick_ms": 4202,
+        "intervals": 27877,
+        "one_update_per_tick_after_handoff": true,
+        "rows": 27878,
+        "violations": 0
+      },
+      "manifest_statuses": {
+        "analysis_status": "0",
+        "completion_status": "0",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "ground_truth_status": "0",
+        "phase1_quantitative_status": "0",
+        "quality_status": "0",
+        "safety_status": "0",
+        "terrain_analysis_status": "0"
+      },
+      "run_dir": "example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_122736_terrain"
+    },
+    {
+      "b0_analyzer": null,
+      "controller_time": {
+        "cmd_time_vs_sim_time_slope": 0.9999999999999999,
+        "samples": 27126
+      },
+      "domain_id": "183",
+      "fixed_analyzer": {
+        "aerial_fraction": "0.327047",
+        "all_feet_low_fraction": "0.000580",
+        "base_z_p01_p99_m": "0.352911,0.369912",
+        "body_angle_p95_deg": "roll:2.640628,pitch:2.005580",
+        "cruise_window_s": "6.300..54.550",
+        "cycle_health_count": "365",
+        "final_angle_deg": "0.142021",
+        "final_speed_mps": "0.002242",
+        "foot_z_p95_m": "FR:0.113191,FL:0.110734,RR:0.104879,RL:0.112958",
+        "good_speed_window_s": "43.234000 (11.316..54.550)",
+        "pair_sync": "FR+RL:0.912746,FL+RR:0.858031",
+        "speed_median_mps": "3.256895",
+        "speed_p05_mps": "2.058381",
+        "speed_p95_mps": "3.623305",
+        "stage2_window_s": "4.300..56.550",
+        "stop_start_s": "56.552",
+        "stop_tail_samples": "294",
+        "stop_tail_speed_p95_mps": "0.003180",
+        "stop_tail_start_s": "58.052",
+        "three_contact_fraction": "0.000000",
+        "two_contact_fraction": "0.443731",
+        "validation": "PASS"
+      },
+      "git_dirty": "false",
+      "git_head": "5b95e8265c885a81f8488e4930e682aa55f05674",
+      "label": "holdout-r1-baseline",
+      "lockstep": {
+        "ack_state_mismatch": 0,
+        "all_one_update_per_tick": false,
+        "command_seq_delta_counts": {
+          "1": 27477,
+          "2": 898
+        },
+        "dt_ms": [
+          2
+        ],
+        "handoff_tick_ms": 4388,
+        "intervals": 28376,
+        "one_update_per_tick_after_handoff": true,
+        "rows": 28377,
+        "violations": 0
+      },
+      "manifest_statuses": {
+        "analysis_status": "0",
+        "completion_status": "0",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "ground_truth_status": "0",
+        "phase1_quantitative_status": "0",
+        "quality_status": "0",
+        "safety_status": "0",
+        "terrain_analysis_status": "0"
+      },
+      "run_dir": "example/cpp/experiments/_runs/phase2_b0_lockstep_holdout_fixed_3mps_r1_20260901_123111_baseline"
+    },
+    {
+      "b0_analyzer": {
+        "acceptance_status": "PASS",
+        "analysis_status": "0",
+        "checks": {
+          "analyzer_hash": true,
+          "contract_hash": true,
+          "finite_map_age": true,
+          "fixed_3mps_analyzer": true,
+          "fixed_analyzer_hash": true,
+          "lidar_observation": true,
+          "lidar_provenance": true,
+          "map_telemetry": true,
+          "no_hidden_event": true,
+          "no_plan_consumer": true,
+          "no_plan_publish": true,
+          "no_terrain_actuation": true,
+          "paired_baseline_lifecycle": true,
+          "paired_control_interface": true,
+          "phase1_quantitative": true,
+          "planner_deadline": true,
+          "planner_does_not_safe_stop": true,
+          "planner_updated": true,
+          "sensor_only_flag": true,
+          "terrain_cap_not_requested": true,
+          "terrain_enabled": true
+        },
+        "completion_status": "0",
+        "contract": "b0-contract-v1.2",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "git_head": "5b95e8265c885a81f8488e4930e682aa55f05674",
+        "legacy_status_pass": true,
+        "paired_baseline_phase1": {},
+        "paired_comparison": {
+          "event_active": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.5
+          },
+          "event_target_vx_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.02
+          },
+          "event_type": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.5
+          },
+          "velocity_command_applied_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.01
+          },
+          "velocity_command_gait_duty": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 0.3447532550000001,
+            "tolerance": 1e-05
+          },
+          "velocity_command_gait_foot_lift_m": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 1e-05
+          },
+          "velocity_command_gait_period_s": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 0.01999999999999999,
+            "tolerance": 1e-05
+          },
+          "velocity_command_gait_step_length_m": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 1e-05
+          },
+          "velocity_command_requested_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 1e-06
+          },
+          "velocity_command_shaped_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.01
+          },
+          "wbc_full_requested_acc_x_mps2": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 9.031037552,
+            "tolerance": 0.2
+          },
+          "wbc_full_velocity_target_x_mps": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 2.941429722,
+            "tolerance": 0.02
+          }
+        },
+        "paired_contract": {
+          "same_controller_sha256": true,
+          "same_nonterrain_argv": true,
+          "same_profile_sha256": true,
+          "same_scene_sha256": true,
+          "same_simulator_sha256": true
+        },
+        "phase1_quantitative": {},
+        "quality_status": "0",
+        "run_dir": "/home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_holdout_fixed_3mps_r1_20260901_123111_terrain",
+        "safety_status": "0",
+        "terrain_map_valid_fraction": 0.9999307335318972,
+        "terrain_planner_deadline_misses": 0.0,
+        "terrain_planner_updates": 1924.0,
+        "terrain_rows": 28874
+      },
+      "controller_time": {
+        "cmd_time_vs_sim_time_slope": 1.0,
+        "samples": 26723
+      },
+      "domain_id": "203",
+      "fixed_analyzer": {
+        "aerial_fraction": "0.313380",
+        "all_feet_low_fraction": "0.000506",
+        "base_z_p01_p99_m": "0.351206,0.369761",
+        "body_angle_p95_deg": "roll:2.717335,pitch:2.106293",
+        "cruise_window_s": "6.300..53.744",
+        "cycle_health_count": "354",
+        "final_angle_deg": "0.280644",
+        "final_speed_mps": "0.001492",
+        "foot_z_p95_m": "FR:0.112941,FL:0.110270,RR:0.104536,RL:0.113613",
+        "good_speed_window_s": "42.720000 (11.024..53.744)",
+        "pair_sync": "FR+RL:0.908144,FL+RR:0.830537",
+        "speed_median_mps": "3.258222",
+        "speed_p05_mps": "2.133279",
+        "speed_p95_mps": "3.589438",
+        "stage2_window_s": "4.300..55.744",
+        "stop_start_s": "55.746",
+        "stop_tail_samples": "92",
+        "stop_tail_speed_p95_mps": "0.001668",
+        "stop_tail_start_s": "57.246",
+        "three_contact_fraction": "0.000000",
+        "two_contact_fraction": "0.425301",
+        "validation": "PASS"
+      },
+      "git_dirty": "false",
+      "git_head": "5b95e8265c885a81f8488e4930e682aa55f05674",
+      "label": "holdout-r1-terrain",
+      "lockstep": {
+        "ack_state_mismatch": 0,
+        "all_one_update_per_tick": false,
+        "command_seq_delta_counts": {
+          "1": 26723,
+          "2": 1067,
+          "3": 3,
+          "4": 1
+        },
+        "dt_ms": [
+          2
+        ],
+        "handoff_tick_ms": 3984,
+        "intervals": 27795,
+        "one_update_per_tick_after_handoff": true,
+        "rows": 27796,
+        "violations": 0
+      },
+      "manifest_statuses": {
+        "analysis_status": "0",
+        "completion_status": "0",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "ground_truth_status": "0",
+        "phase1_quantitative_status": "0",
+        "quality_status": "0",
+        "safety_status": "0",
+        "terrain_analysis_status": "0"
+      },
+      "run_dir": "example/cpp/experiments/_runs/phase2_b0_lockstep_holdout_fixed_3mps_r1_20260901_123111_terrain"
+    },
+    {
+      "b0_analyzer": null,
+      "controller_time": {
+        "cmd_time_vs_sim_time_slope": 1.0,
+        "samples": 27406
+      },
+      "domain_id": "184",
+      "fixed_analyzer": {
+        "aerial_fraction": "0.334235",
+        "all_feet_low_fraction": "0.000615",
+        "base_z_p01_p99_m": "0.352476,0.369736",
+        "body_angle_p95_deg": "roll:2.278813,pitch:1.769493",
+        "cruise_window_s": "6.300..55.110",
+        "cycle_health_count": "369",
+        "final_angle_deg": "0.040996",
+        "final_speed_mps": "0.002328",
+        "foot_z_p95_m": "FR:0.113371,FL:0.110579,RR:0.104186,RL:0.112363",
+        "good_speed_window_s": "43.886000 (11.224..55.110)",
+        "pair_sync": "FR+RL:0.924196,FL+RR:0.862159",
+        "speed_median_mps": "3.255360",
+        "speed_p05_mps": "2.121502",
+        "speed_p95_mps": "3.627898",
+        "stage2_window_s": "4.300..57.110",
+        "stop_start_s": "57.112",
+        "stop_tail_samples": "211",
+        "stop_tail_speed_p95_mps": "0.003008",
+        "stop_tail_start_s": "58.612",
+        "three_contact_fraction": "0.000000",
+        "two_contact_fraction": "0.452120",
+        "validation": "PASS"
+      },
+      "git_dirty": "false",
+      "git_head": "5b95e8265c885a81f8488e4930e682aa55f05674",
+      "label": "holdout-r2-baseline",
+      "lockstep": {
+        "ack_state_mismatch": 0,
+        "all_one_update_per_tick": false,
+        "command_seq_delta_counts": {
+          "1": 27713,
+          "2": 918,
+          "6": 1
+        },
+        "dt_ms": [
+          2
+        ],
+        "handoff_tick_ms": 4222,
+        "intervals": 28633,
+        "one_update_per_tick_after_handoff": true,
+        "rows": 28634,
+        "violations": 0
+      },
+      "manifest_statuses": {
+        "analysis_status": "0",
+        "completion_status": "0",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "ground_truth_status": "0",
+        "phase1_quantitative_status": "0",
+        "quality_status": "0",
+        "safety_status": "0",
+        "terrain_analysis_status": "0"
+      },
+      "run_dir": "example/cpp/experiments/_runs/phase2_b0_lockstep_holdout_fixed_3mps_r2_20260901_123417_baseline"
+    },
+    {
+      "b0_analyzer": {
+        "acceptance_status": "PASS",
+        "analysis_status": "0",
+        "checks": {
+          "analyzer_hash": true,
+          "contract_hash": true,
+          "finite_map_age": true,
+          "fixed_3mps_analyzer": true,
+          "fixed_analyzer_hash": true,
+          "lidar_observation": true,
+          "lidar_provenance": true,
+          "map_telemetry": true,
+          "no_hidden_event": true,
+          "no_plan_consumer": true,
+          "no_plan_publish": true,
+          "no_terrain_actuation": true,
+          "paired_baseline_lifecycle": true,
+          "paired_control_interface": true,
+          "phase1_quantitative": true,
+          "planner_deadline": true,
+          "planner_does_not_safe_stop": true,
+          "planner_updated": true,
+          "sensor_only_flag": true,
+          "terrain_cap_not_requested": true,
+          "terrain_enabled": true
+        },
+        "completion_status": "0",
+        "contract": "b0-contract-v1.2",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "git_head": "5b95e8265c885a81f8488e4930e682aa55f05674",
+        "legacy_status_pass": true,
+        "paired_baseline_phase1": {},
+        "paired_comparison": {
+          "event_active": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.5
+          },
+          "event_target_vx_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.02
+          },
+          "event_type": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.5
+          },
+          "velocity_command_applied_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.01
+          },
+          "velocity_command_gait_duty": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 0.5,
+            "tolerance": 1e-05
+          },
+          "velocity_command_gait_foot_lift_m": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 1e-05
+          },
+          "velocity_command_gait_period_s": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 0.2,
+            "tolerance": 1e-05
+          },
+          "velocity_command_gait_step_length_m": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 1e-05
+          },
+          "velocity_command_requested_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 1e-06
+          },
+          "velocity_command_shaped_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.01
+          },
+          "wbc_full_requested_acc_x_mps2": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 11.894638168999998,
+            "tolerance": 0.2
+          },
+          "wbc_full_velocity_target_x_mps": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 3.0,
+            "tolerance": 0.02
+          }
+        },
+        "paired_contract": {
+          "same_controller_sha256": true,
+          "same_nonterrain_argv": true,
+          "same_profile_sha256": true,
+          "same_scene_sha256": true,
+          "same_simulator_sha256": true
+        },
+        "phase1_quantitative": {},
+        "quality_status": "0",
+        "run_dir": "/home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_holdout_fixed_3mps_r2_20260901_123417_terrain",
+        "safety_status": "0",
+        "terrain_map_valid_fraction": 0.9999309105983142,
+        "terrain_planner_deadline_misses": 0.0,
+        "terrain_planner_updates": 1930.0,
+        "terrain_rows": 28948
+      },
+      "controller_time": {
+        "cmd_time_vs_sim_time_slope": 1.0,
+        "samples": 26796
+      },
+      "domain_id": "204",
+      "fixed_analyzer": {
+        "aerial_fraction": "0.329635",
+        "all_feet_low_fraction": "0.000588",
+        "base_z_p01_p99_m": "0.352380,0.370081",
+        "body_angle_p95_deg": "roll:2.375133,pitch:1.821616",
+        "cruise_window_s": "6.300..53.892",
+        "cycle_health_count": "356",
+        "final_angle_deg": "0.191005",
+        "final_speed_mps": "0.001880",
+        "foot_z_p95_m": "FR:0.113612,FL:0.110277,RR:0.104531,RL:0.112924",
+        "good_speed_window_s": "42.448000 (11.444..53.892)",
+        "pair_sync": "FR+RL:0.918432,FL+RR:0.860691",
+        "speed_median_mps": "3.256145",
+        "speed_p05_mps": "1.993976",
+        "speed_p95_mps": "3.628656",
+        "stage2_window_s": "4.300..55.892",
+        "stop_start_s": "55.894",
+        "stop_tail_samples": "298",
+        "stop_tail_speed_p95_mps": "0.002692",
+        "stop_tail_start_s": "57.394",
+        "three_contact_fraction": "0.000000",
+        "two_contact_fraction": "0.449487",
+        "validation": "PASS"
+      },
+      "git_dirty": "false",
+      "git_head": "5b95e8265c885a81f8488e4930e682aa55f05674",
+      "label": "holdout-r2-terrain",
+      "lockstep": {
+        "ack_state_mismatch": 0,
+        "all_one_update_per_tick": false,
+        "command_seq_delta_counts": {
+          "1": 27209,
+          "2": 863,
+          "3": 3
+        },
+        "dt_ms": [
+          2
+        ],
+        "handoff_tick_ms": 4398,
+        "intervals": 28076,
+        "one_update_per_tick_after_handoff": true,
+        "rows": 28077,
+        "violations": 0
+      },
+      "manifest_statuses": {
+        "analysis_status": "0",
+        "completion_status": "0",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "ground_truth_status": "0",
+        "phase1_quantitative_status": "0",
+        "quality_status": "0",
+        "safety_status": "0",
+        "terrain_analysis_status": "0"
+      },
+      "run_dir": "example/cpp/experiments/_runs/phase2_b0_lockstep_holdout_fixed_3mps_r2_20260901_123417_terrain"
+    },
+    {
+      "b0_analyzer": null,
+      "controller_time": {
+        "cmd_time_vs_sim_time_slope": 0.9999999999999996,
+        "samples": 27131
+      },
+      "domain_id": "185",
+      "fixed_analyzer": {
+        "aerial_fraction": "0.329134",
+        "all_feet_low_fraction": "0.000497",
+        "base_z_p01_p99_m": "0.351554,0.369798",
+        "body_angle_p95_deg": "roll:2.912708,pitch:2.253159",
+        "cruise_window_s": "6.300..54.560",
+        "cycle_health_count": "365",
+        "final_angle_deg": "0.099919",
+        "final_speed_mps": "0.002403",
+        "foot_z_p95_m": "FR:0.112681,FL:0.110768,RR:0.105167,RL:0.113196",
+        "good_speed_window_s": "43.426000 (11.134..54.560)",
+        "pair_sync": "FR+RL:0.902569,FL+RR:0.859718",
+        "speed_median_mps": "3.253559",
+        "speed_p05_mps": "2.088574",
+        "speed_p95_mps": "3.624198",
+        "stage2_window_s": "4.300..56.560",
+        "stop_start_s": "56.562",
+        "stop_tail_samples": "229",
+        "stop_tail_speed_p95_mps": "0.003161",
+        "stop_tail_start_s": "58.062",
+        "three_contact_fraction": "0.000000",
+        "two_contact_fraction": "0.433237",
+        "validation": "PASS"
+      },
+      "git_dirty": "false",
+      "git_head": "5b95e8265c885a81f8488e4930e682aa55f05674",
+      "label": "holdout-r3-baseline",
+      "lockstep": {
+        "ack_state_mismatch": 0,
+        "all_one_update_per_tick": false,
+        "command_seq_delta_counts": {
+          "1": 27502,
+          "17": 1,
+          "2": 863,
+          "27": 1,
+          "3": 1,
+          "4": 1
+        },
+        "dt_ms": [
+          2
+        ],
+        "handoff_tick_ms": 4258,
+        "intervals": 28370,
+        "one_update_per_tick_after_handoff": true,
+        "rows": 28371,
+        "violations": 0
+      },
+      "manifest_statuses": {
+        "analysis_status": "0",
+        "completion_status": "0",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "ground_truth_status": "0",
+        "phase1_quantitative_status": "0",
+        "quality_status": "0",
+        "safety_status": "0",
+        "terrain_analysis_status": "0"
+      },
+      "run_dir": "example/cpp/experiments/_runs/phase2_b0_lockstep_holdout_fixed_3mps_r3_20260901_123722_baseline"
+    },
+    {
+      "b0_analyzer": {
+        "acceptance_status": "PASS",
+        "analysis_status": "0",
+        "checks": {
+          "analyzer_hash": true,
+          "contract_hash": true,
+          "finite_map_age": true,
+          "fixed_3mps_analyzer": true,
+          "fixed_analyzer_hash": true,
+          "lidar_observation": true,
+          "lidar_provenance": true,
+          "map_telemetry": true,
+          "no_hidden_event": true,
+          "no_plan_consumer": true,
+          "no_plan_publish": true,
+          "no_terrain_actuation": true,
+          "paired_baseline_lifecycle": true,
+          "paired_control_interface": true,
+          "phase1_quantitative": true,
+          "planner_deadline": true,
+          "planner_does_not_safe_stop": true,
+          "planner_updated": true,
+          "sensor_only_flag": true,
+          "terrain_cap_not_requested": true,
+          "terrain_enabled": true
+        },
+        "completion_status": "0",
+        "contract": "b0-contract-v1.2",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "git_head": "5b95e8265c885a81f8488e4930e682aa55f05674",
+        "legacy_status_pass": true,
+        "paired_baseline_phase1": {},
+        "paired_comparison": {
+          "event_active": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.5
+          },
+          "event_target_vx_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.02
+          },
+          "event_type": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.5
+          },
+          "velocity_command_applied_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.01
+          },
+          "velocity_command_gait_duty": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 0.37210603200000003,
+            "tolerance": 1e-05
+          },
+          "velocity_command_gait_foot_lift_m": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 1e-05
+          },
+          "velocity_command_gait_period_s": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 0.01999999999999999,
+            "tolerance": 1e-05
+          },
+          "velocity_command_gait_step_length_m": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 1e-05
+          },
+          "velocity_command_requested_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 1e-06
+          },
+          "velocity_command_shaped_mps": {
+            "diagnostic_pass": true,
+            "max_abs_difference": 0.0,
+            "tolerance": 0.01
+          },
+          "wbc_full_requested_acc_x_mps2": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 5.134787261,
+            "tolerance": 0.2
+          },
+          "wbc_full_velocity_target_x_mps": {
+            "diagnostic_pass": false,
+            "max_abs_difference": 2.98232175,
+            "tolerance": 0.02
+          }
+        },
+        "paired_contract": {
+          "same_controller_sha256": true,
+          "same_nonterrain_argv": true,
+          "same_profile_sha256": true,
+          "same_scene_sha256": true,
+          "same_simulator_sha256": true
+        },
+        "phase1_quantitative": {},
+        "quality_status": "0",
+        "run_dir": "/home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_holdout_fixed_3mps_r3_20260901_123722_terrain",
+        "safety_status": "0",
+        "terrain_map_valid_fraction": 0.9999305314345259,
+        "terrain_planner_deadline_misses": 0.0,
+        "terrain_planner_updates": 1919.0,
+        "terrain_rows": 28790
+      },
+      "controller_time": {
+        "cmd_time_vs_sim_time_slope": 0.9999999999999997,
+        "samples": 26638
+      },
+      "domain_id": "205",
+      "fixed_analyzer": {
+        "aerial_fraction": "0.324816",
+        "all_feet_low_fraction": "0.000719",
+        "base_z_p01_p99_m": "0.350636,0.369677",
+        "body_angle_p95_deg": "roll:2.681683,pitch:2.207627",
+        "cruise_window_s": "6.300..53.576",
+        "cycle_health_count": "355",
+        "final_angle_deg": "0.165391",
+        "final_speed_mps": "0.002217",
+        "foot_z_p95_m": "FR:0.113047,FL:0.110577,RR:0.104924,RL:0.113258",
+        "good_speed_window_s": "42.548000 (11.028..53.576)",
+        "pair_sync": "FR+RL:0.914079,FL+RR:0.837761",
+        "speed_median_mps": "3.249752",
+        "speed_p05_mps": "2.155730",
+        "speed_p95_mps": "3.609604",
+        "stage2_window_s": "4.300..55.576",
+        "stop_start_s": "55.578",
+        "stop_tail_samples": "109",
+        "stop_tail_speed_p95_mps": "0.002514",
+        "stop_tail_start_s": "57.078",
+        "three_contact_fraction": "0.000000",
+        "two_contact_fraction": "0.427024",
+        "validation": "PASS"
+      },
+      "git_dirty": "false",
+      "git_head": "5b95e8265c885a81f8488e4930e682aa55f05674",
+      "label": "holdout-r3-terrain",
+      "lockstep": {
+        "ack_state_mismatch": 0,
+        "all_one_update_per_tick": false,
+        "command_seq_delta_counts": {
+          "1": 26645,
+          "2": 1062,
+          "3": 6
+        },
+        "dt_ms": [
+          2
+        ],
+        "handoff_tick_ms": 4020,
+        "intervals": 27714,
+        "one_update_per_tick_after_handoff": true,
+        "rows": 27715,
+        "violations": 0
+      },
+      "manifest_statuses": {
+        "analysis_status": "0",
+        "completion_status": "0",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "ground_truth_status": "0",
+        "phase1_quantitative_status": "0",
+        "quality_status": "0",
+        "safety_status": "0",
+        "terrain_analysis_status": "0"
+      },
+      "run_dir": "example/cpp/experiments/_runs/phase2_b0_lockstep_holdout_fixed_3mps_r3_20260901_123722_terrain"
+    }
+  ],
+  "order": "109b",
+  "origin_sync": "0\t0",
+  "purpose": "C-006 exact-SHA canary followed by three serial fixed lockstep pairs",
+  "sample": {
+    "n": 3,
+    "pairs": [
+      {
+        "baseline_domain": 183,
+        "label": "holdout-r1",
+        "status": "PASS",
+        "terrain_domain": 203
+      },
+      {
+        "baseline_domain": 184,
+        "label": "holdout-r2",
+        "status": "PASS",
+        "terrain_domain": 204
+      },
+      {
+        "baseline_domain": 185,
+        "label": "holdout-r3",
+        "status": "PASS",
+        "terrain_domain": 205
+      }
+    ]
+  },
+  "tested_source_sha": "5b95e8265c885a81f8488e4930e682aa55f05674"
+}
