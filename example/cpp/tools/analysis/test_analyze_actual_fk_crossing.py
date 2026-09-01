@@ -66,7 +66,30 @@ class ActualFkCrossingTest(unittest.TestCase):
                 writer.writeheader(); writer.writerows(rows)
             report = actual_fk.analyze(path)
         self.assertEqual(report["phases"]["rear_ascent_support_exchange"]["status"], "missing")
-        self.assertEqual(report["body_posture_com"]["com_progression"].split()[0], "missing")
+        self.assertEqual(report["body_posture_com"]["com_progression"].split()[0], "unavailable")
+
+    def test_tick_quality_and_contact_penetration_are_separate(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = self.write_fixture(Path(raw))
+            with path.open(newline="") as source:
+                rows = list(csv.DictReader(source))
+            rows[2]["state_tick_s"] = rows[1]["state_tick_s"]  # duplicate
+            rows[3]["state_tick_s"] = "0.20"  # a gap
+            with path.open("w", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+                writer.writeheader(); writer.writerows(rows)
+            report = actual_fk.analyze(path)
+        quality = report["state_tick_quality"]
+        self.assertEqual(quality["duplicates"], 1)
+        self.assertGreaterEqual(quality["gaps"], 1)
+        points = [(0.0, 0.0, actual_fk.PATCH_OFFSET - .01),
+                  (0.0, 0.0, actual_fk.PATCH_OFFSET - .10),
+                  (0.0, 0.0, actual_fk.PATCH_OFFSET),
+                  (0.0, 0.0, actual_fk.PATCH_OFFSET)]
+        row = {"wbc_measured_contact_mask": "1"}
+        phase = actual_fk.phase_report("fixture", [row], [points], [None])
+        self.assertEqual(phase["contact_penetration"]["contact_samples"], 1)
+        self.assertEqual(phase["swing_clearance_collision"]["collision_samples"], 1)
 
 
 if __name__ == "__main__":
