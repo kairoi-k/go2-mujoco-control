@@ -128,12 +128,15 @@ int main()
     assert(!result.readiness.swept_volume_clear);
     assert(result.reason == "swept_patch_not_known_flat");
 
-    // Unknown space is never explored by C0. It can become traversable only
-    // after perception makes the same corridor known or C1 takes ownership.
+    // Unknown space is never explored by C0. Keep this strip beyond the
+    // current front-foot patch (which reaches x=0.225 m) but inside the
+    // 0.0774 m stopping corridor, so this specifically exercises the swept
+    // certificate rather than the local-known-flat prerequisite.
     auto unknown = FlatModel();
-    MakeUnknownStrip(unknown, 0.23, 0.27);
+    MakeUnknownStrip(unknown, 0.25, 0.27);
     result = go2_terrain::EvaluateTerrainBootstrapC0(Input(unknown));
     assert(result.readiness.dstop_valid);
+    assert(result.readiness.local_known_flat);
     assert(!result.readiness.swept_volume_clear);
     assert(result.reason == "swept_patch_not_known_flat");
 
