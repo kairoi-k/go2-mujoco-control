@@ -1,0 +1,14 @@
+{
+  "order": "110", "run_id": "order110_c007_dev", "status": "development_fail_stop", "acceptance": "not_applicable",
+  "source_sha": "77b52d647d3ebd9471d3b2ee100cfeb8c9298f6e",
+  "preregistered_manifest_sha256": "dd95ba49723248394f5b9066b4ff29e4506829620fb0f3af76049dcb78bd851c",
+  "run_manifest_sha256": "ab3d6575a6145f713e4c4bdf639297532923c76b77f2c75b4575284d277a21e6",
+  "phase1_json_sha256": "374fe75941125eba42b64ac4c64b0a5dac4160498cb4c2ed1e4095eb79df2e4b",
+  "terrain_json_sha256": "d3cd3456296216c439a7b563647925d4c51b6e24306f1b2d034b54874bd694a1",
+  "actual_fk_json_sha256": "d8b050e94b555f495d086beae72f66a4c5c51fe2c33abba0b1e4545dc5883c0b",
+  "execution": {"lock": "/tmp/go2_mujoco_experiment.lock", "domain_lock": "/tmp/unitree_mujoco_run_trot_domain_232.lock", "wall_timeout_s": 60, "stage_c_window": "v2 only", "v3_c": "shadow only, not consumed", "two_contact_execution": false},
+  "phase_observations": {"approach": "observed", "plan_adoption": "none", "plan_replacement": "none", "first_measured_touchdown": "not observed", "support_exchange": "not observed", "tabletop": "not observed", "exit_recovery": "not observed"},
+  "metrics": {"execution_plan_ids": 0, "plan_published": 0, "plan_consumed": 0, "required_plan_rejection_rows": 151, "planner_latency_p95_us": 1277.164, "planner_deadline_misses": 0, "support_margin_min_m": -0.0113894, "ground_truth_collision_rows": 0, "torque_saturation_fraction": 0.00012345679, "srbd_ok_fraction": 1.0, "id_wbc_ok_fraction": 1.0, "actual_fk_max_abs_error_m": 2.56662596e-9},
+  "stop_reason": "terrain failure diagnostic at 9.210 s: failure=4, failed_leg=RR, failed_reason=unknown, support_margin=-inf", "rerun_or_tuning": false,
+  "ctest": {"simulate": "2/2 passed", "example_cpp": "31/31 passed"}
+}

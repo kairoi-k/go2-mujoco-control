@@ -1,0 +1,12 @@
+{
+  "order": "110", "criterion": "C-007 B1 5cm development probe", "evidence_class": "development-only; not holdout or acceptance",
+  "source_sha": "77b52d647d3ebd9471d3b2ee100cfeb8c9298f6e", "branch": "phase2-b1-b3", "git_dirty_required": false,
+  "scene": "unitree_robots/go2/phase2_step_5cm.xml", "scene_sha256": "ab2106afe65c86827aae02158e3b35b5ebb61e2b14d3665ddbd7c971e7573b0e",
+  "config": "example/cpp/configs/phase2_b1_velocity_0p3.csv", "config_sha256": "61c260defafa21ef5c171380a4b93e972c59af34071e9e8f5dcf0b9f2b26190e", "seed": 11,
+  "binaries": {"controller": {"path": "example/cpp/build/real_trot_go2", "sha256": "c37c86002e2b36e82936ca9296e7ab8a03f922a887829cbcfcdae5aa798c1587"}, "simulator": {"path": "simulate/build/unitree_mujoco", "sha256": "52df364581d50aaf2324312922a15d676147b17058d8171bbc00a51d3a5d8f25"}},
+  "scripts": {"runner": {"path": "example/cpp/scripts/run_trot.sh", "sha256": "12fee43fc35283bba5b59119cc79f77bc2ad2386e765abdc908a0a4f6d3728c0"}, "phase1_analyzer_sha256": "060a3d92a03e0d0228a53e55cb00d0452d7c8353948d729b71a71c406e9d2916", "terrain_analyzer_sha256": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873", "actual_fk_analyzer_sha256": "fc243d889a250cd3b8ab73d60be1452464d27752d2b798716a824b060681119a"},
+  "contracts": {"b0_sha256": "2a00da526253dd3755fa6c469aa18a4e9ee2dba0f17762a55068cd10aee61dd6", "b1_sha256": "a4c38934382efca13883d367ada78e327013e637a256ec16f5d7bec5462b18f6", "b123_sha256": "ce18f0214240612fbfb54221e2621d88e363375dc796e2afa6e78dd3ca51d914"},
+  "command": "TROT_SEED=11 bash example/cpp/scripts/run_trot.sh 60 order110_c007_dev --headless --wall-clock-motion --wbc-full --gait-pattern running-trot --kernel raibert-trot --period 0.50 --duty 0.75 --step-length 0.15 --foot-lift 0.08 --tau-limit 45 --velocity-max-accel 0.80 --velocity-max-decel 1.20 --velocity-max-jerk 4.0 --velocity-command-script example/cpp/configs/phase2_b1_velocity_0p3.csv --terrain-planner --stage-c-execution --phase2-milestone B1 --domain-id 232 --scene-file unitree_robots/go2/phase2_step_5cm.xml --controller-duration 30",
+  "execution": {"stage_c": true, "window": "v2 only", "normal_terrain_crawl_sequencer_policy": false, "sequencer": "fallback only", "v3_c": false, "two_contact": false, "sim_lock": "/tmp/go2_mujoco_experiment.lock plus runner domain lock", "wall_timeout_s": 60},
+  "stop_rule": "any safety/model/contract failure closes Stage-C execution and stops; no rerun or tuning"
+}
