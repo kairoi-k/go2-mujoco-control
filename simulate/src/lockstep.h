@@ -1,5 +1,5 @@
 #pragma once
-// Verification-only sim-time lockstep coordinator (Order-103/105/106).
+// Verification-only sim-time lockstep coordinator (Order-103/105/106/107).
 //
 // Goal: never apply a controller command to a MuJoCo state the command was
 // not computed from. Contract:
@@ -12,23 +12,32 @@
 //     Every publish of one frozen state carries the SAME state_seq (its
 //     monotonic tick), so a 500 Hz controller always has a fresh observation
 //     and repeatedly sees the identical tick;
-//   * causal exchange (Order-106): the physics thread advances exactly one
-//     mj_step only when BOTH (a) a new LowCmd arrived after the FIRST
-//     publish of the frozen state (the sim-local arrival counter proves it)
-//     and (b) a matching ack{state_seq} for that state was received. The
-//     ack carries ONLY the full-width state_seq (unitree Error_.source() is
-//     uint32_t; LowState.tick is uint32_t; at 1 kHz that wraps at 2^32 ms,
-//     i.e. ~49.7 days). The command sequence is NOT carried: the sim counts
-//     LowCmd arrivals locally, so no cross-topic sequence matching and no
-//     width/wrap proof for a command_seq side-channel is needed;
-//   * duplicate acks are idempotent: the controller may write 1-2 LowCmds
-//     (500 Hz) per frozen state and ack it more than once. Acks on the
-//     rt/lockstep/ack topic from the single controller publisher are
-//     delivered in DDS writer order, so a late ack for the just-consumed
-//     state always arrives while the next exchange is still open and is
-//     tolerated. TRUE stale (older than the last consumed state) and future
-//     (newer than the published state) acks, plus missing acks/commands and
-//     timeouts, fail closed with a trace row;
+//   * causal exchange (Order-107): the physics thread advances exactly one
+//     mj_step only when the EXACT acked command has arrived AND the ack
+//     state_seq equals the current immutable physics state. Both sides count
+//     the SAME command stream (the controller increments one local command
+//     sequence per LowCmd write and carries it as the ack command_seq; the
+//     sim numbers LowCmd arrivals 1:1, so the acked command_seq equals the
+//     arrival ordinal of the acked cycle's own LowCmd). The ack pair
+//     {state_seq, lockstep_command_seq} is carried full-width in unitree
+//     Error_ (source_/state_ are uint32_t; LowState.tick is uint32_t):
+//     state_seq wraps at 2^32 ms (~49.7 days at 1 kHz) and command_seq wraps
+//     after 2^32 writes. Both are interpreted with uint32 modular comparison
+//     inside a bounded single-exchange window; half-space ambiguity fails
+//     closed;
+//   * independent latches: the sim latches the latest ack pair for the
+//     current frozen state and counts LowCmd arrivals. The exchange completes
+//     only when the acked command_seq resolves to an exact arrival that
+//     happened after the exchange opened (an older post-publish LowCmd, a
+//     duplicate, a reorder, a future/stale pair or a wrap ambiguity never
+//     grants), so an ack that arrives before its own command can never be
+//     unlocked by an older command. Ack-before-command and command-before-
+//     ack both complete the exchange exactly once;
+//   * ack validation: startup-phase acks (pre-handoff states) are ignored;
+//     future (newer than the published state) and TRUE stale (older than the
+//     last consumed state) acks fail closed. Duplicate acks are idempotent;
+//     a late ack for the just-consumed state (the Order-106 canary race) is
+//     tolerated; missing acks/commands and timeouts fail closed;
 //   * the side-channel is sequence metadata only (no truth/geometry); with
 //     the flag off this header has no effect on the wall-clock runner.
 //
@@ -138,61 +147,149 @@ public:
     WriteSummary();
   }
 
+  // ---- uint32 modular resolution helpers (Order-107) ----
+  // Resolve a uint32 wire state_seq to the uint64 sim-tick space nearest
+  // `ref` (the current published tick). Returns 1 (resolved, *out valid),
+  // 0 (exactly half the uint32 space away -> ambiguous -> fail closed), or
+  // -1 (resolves below tick 0 -> pre-epoch startup state -> ignore).
+  static int ResolveStateSeq(std::uint32_t wire, std::uint64_t ref,
+                             std::uint64_t *out)
+  {
+    const std::uint64_t w = wire;
+    const std::uint64_t r = ref & 0xFFFFFFFFu;
+    const std::uint64_t d =
+        (w >= r) ? (w - r) : ((1ULL << 32) - (r - w)); // (w - r) mod 2^32
+    if (d == 0)
+    {
+      *out = ref;
+      return 1;
+    }
+    if (d == (1ULL << 31)) return 0; // exact half-space: ambiguous
+    if (d < (1ULL << 31))
+    {
+      *out = ref + d;
+      return 1;
+    }
+    const std::uint64_t back = (1ULL << 32) - d;
+    if (back > ref) return -1; // resolves below tick 0: pre-epoch state
+    *out = ref - back;
+    return 1;
+  }
+
+  // Resolve a uint32 acked command_seq against the current exchange window
+  // of local arrival ordinals (window_open, arrivals]. Returns 1 (exact
+  // arrival in the window, *out is its ordinal), 0 (the acked command has
+  // not arrived yet: normal ack-before-own-command in-flight), or -1
+  // (outside the bounded single-exchange window: an older command, a wrap
+  // ambiguity or an unbounded window -> fail closed).
+  static int ResolveCommandSeq(std::uint32_t wire, std::uint64_t window_open,
+                               std::uint64_t arrivals, std::uint64_t *out)
+  {
+    const std::uint64_t n = arrivals - window_open; // window size
+    if (n >= (1ULL << 31)) return -1;               // unbounded window
+    const std::uint64_t m0 = (window_open + 1) & 0xFFFFFFFFu;
+    const std::uint64_t w = wire;
+    const std::uint64_t off =
+        (w >= m0) ? (w - m0) : ((1ULL << 32) - (m0 - w)); // (w - m0) mod 2^32
+    if (off < n)
+    {
+      *out = window_open + 1 + off;
+      return 1;
+    }
+    if (off < (1ULL << 31)) return 0; // ahead of the window: not arrived yet
+    return -1; // behind the window or half-space: stale/ambiguous
+  }
+
   // ---- event feed (DDS subscriber callbacks) ----
-  // Sim-local LowCmd arrival count. The exchange rule only needs "a newer
-  // LowCmd arrived after the first publish of the frozen state"; the count
-  // is never compared against a controller-side sequence, so no cross-topic
-  // sequence matching or width/wrap proof is required.
+  // Sim-local LowCmd arrival count. The sim numbers arrivals 1:1 with the
+  // controller's ack command_seq (both count the same command stream from
+  // their start), so the ordinal of an arrival IS the controller sequence of
+  // that cycle's own LowCmd. The counter is uint64 internally; the wire
+  // command_seq is uint32 and is interpreted modularly against the current
+  // exchange window (see ResolveCommandSeq).
   void OnCommandArrived()
   {
     cmd_seq_.fetch_add(1, std::memory_order_relaxed);
   }
 
-  // Order-106 causal handshake: the controller adapter acks {state_seq}
-  // (full-width Error_.source()) after each LowCmd write. Validation against
-  // the frozen-state bookkeeping:
-  //   * startup-phase acks (state_seq < the barrier handoff state) are
-  //     ignored: they reference pre-handoff wall-clock states;
-  //   * future (state_seq > published) and true-stale (state_seq < the last
-  //     consumed state) acks fail closed;
-  //   * a matching ack{state_seq == published} arms the exchange (duplicates
-  //     are idempotent: the controller may write 1-2 LowCmds per frozen
-  //     state and ack more than once);
-  //   * a late ack{state_seq == last consumed} (the controller was still
+  // Order-107 causal handshake: the controller adapter acks the exact pair
+  // {state_seq, command_seq} (Error_.source()/state(), both uint32_t) after
+  // each LowCmd write. Validation against the frozen-state bookkeeping:
+  //   * startup-phase acks (state resolves to a pre-handoff state) are
+  //     ignored: they reference pre-barrier wall-clock states;
+  //   * future (newer than the published state) and true-stale (older than
+  //     the last consumed state) acks fail closed;
+  //   * a matching ack{state_seq == published} is LATCHED for the open
+  //     exchange (duplicates are idempotent; the latest pair wins); it can
+  //     complete the exchange only when ResolveCommandSeq finds its exact
+  //     arrival ordinal in the current exchange window;
+  //   * a late ack for the just-consumed state (the controller was still
   //     computing on the just-frozen state when the sim advanced) is
   //     tolerated; per-topic DDS writer order guarantees it arrives while
   //     the next exchange is open, so it can never complete a stale state.
-  void OnAckReceived(std::uint64_t state_seq)
+  void OnAckReceived(std::uint32_t state_seq, std::uint32_t cmd_seq)
   {
     const char *reason = nullptr;
     std::uint32_t violation = 0;
     {
       std::lock_guard<std::mutex> lock(mutex_);
       if (!ack_validation_active_) return; // startup wall-clock phase
-      if (state_seq < barrier_state_seq_)
+      std::uint64_t v = 0;
+      const int r = ResolveStateSeq(state_seq, published_state_seq_, &v);
+      if (r == 0)
+      {
+        violation = kViolationAckStale;
+        reason = "ack state_seq half-space ambiguity";
+      }
+      else if (r < 0)
+      {
+        return; // resolves below tick 0: pre-epoch startup-phase state
+      }
+      else if (v < barrier_state_seq_)
+      {
         return; // startup-phase ack (pre-handoff state): not an exchange ack
-      if (state_seq > published_state_seq_)
+      }
+      else if (v > published_state_seq_)
       {
         violation = kViolationAckFuture;
         reason = "future ack for unpublished state";
       }
-      else if (state_seq < last_consumed_state_seq_)
+      else if (v < last_consumed_state_seq_)
       {
         violation = kViolationAckStale;
         reason = "stale ack older than the last consumed state";
       }
-      else if (state_seq == published_state_seq_ && exchange_open_)
+      else if (v == published_state_seq_ && exchange_open_)
       {
-        matching_ack_seen_ = true; // duplicate acks for the frozen state are idempotent
+        // Independent ack latch: the latest {state_seq, command_seq} pair
+        // for the frozen state. Duplicates are idempotent; a command_seq
+        // that already resolves outside the bounded exchange window (an
+        // older command or a wrap ambiguity) fails closed immediately. The
+        // exchange still needs ResolveCommandSeq to find the exact arrival.
+        std::uint64_t ordinal = 0;
+        const int m = ResolveCommandSeq(
+            cmd_seq, first_publish_seq_,
+            cmd_seq_.load(std::memory_order_relaxed), &ordinal);
+        if (m < 0)
+        {
+          violation = kViolationAckCmdMismatch;
+          reason = "ack command_seq outside the exchange window";
+        }
+        else
+        {
+          ack_latched_ = true;
+          ack_latched_state_ = state_seq;
+          ack_latched_cmd_ = cmd_seq;
+        }
       }
-      // state_seq == last_consumed_state_seq_ (or a closed-exchange matching
-      // state): late/duplicate ack for the just-consumed frozen state;
-      // idempotent and unable to complete the current exchange.
+      // v == last_consumed_state_seq_ (or a closed-exchange matching state):
+      // late/duplicate ack for the just-consumed frozen state; idempotent
+      // and unable to complete the current exchange.
     }
     if (reason != nullptr)
     {
       AddViolation(violation);
-      FailClosed(AckReason(reason, state_seq));
+      FailClosed(AckReason(reason, state_seq, cmd_seq));
     }
   }
 
@@ -261,10 +358,17 @@ public:
   //     closed);
   //   * otherwise it is a 1000 Hz republish of the same frozen state: the
   //     exchange state is unchanged and the same state_seq is published;
-  //   * the exchange completes (kStepGranted) when a matching ack was seen
-  //     AND the local LowCmd count exceeds the first-publish count (a new
-  //     command arrived after the controller first saw this state);
-  //   * missing ack/command and timeouts fail closed.
+  //   * the exchange completes (kStepGranted) when a matching
+  //     ack{state_seq == published} was latched AND its command_seq resolves
+  //     to an exact arrival in the exchange window (a command that arrived
+  //     after the first publish: only that exact acked command may be the
+  //     causal proof); the acked command's ordinal is the arrival of the
+  //     acked cycle's own LowCmd, so an older post-publish LowCmd, a
+  //     duplicate, a reorder or a wrap ambiguity can never grant;
+  //   * a latched ack whose command_seq is still ahead of the arrivals is
+  //     ack-before-own-command (reverse order): the exchange waits for the
+  //     exact arrival; a command_seq outside the bounded window and missing
+  //     ack/command timeouts fail closed.
   // The bridge serializes publishes with the physics step (sim mutex), and
   // NotifyStepCompleted runs inside the physics lock, so `sim_tick_ms` and
   // the consumed step_completed_ flag always refer to the same state.
@@ -296,7 +400,7 @@ public:
           last_published_tick_ = sim_tick_ms;
           first_publish_seq_ = cmd_seq_.load(std::memory_order_relaxed);
           first_publish_wall_us_ = NowUs();
-          matching_ack_seen_ = false;
+          ack_latched_ = false;
           exchange_open_ = true;
         }
       }
@@ -307,36 +411,46 @@ public:
       }
       if (fail_reason == nullptr && exchange_open_)
       {
-        if (matching_ack_seen_ &&
-            cmd_seq_.load(std::memory_order_relaxed) > first_publish_seq_)
+        const std::int64_t elapsed_us = NowUs() - first_publish_wall_us_;
+        if (ack_latched_)
         {
-          exchange_open_ = false;
-          last_consumed_state_seq_ = published_state_seq_;
-          Record(IntervalRecord{
-              published_state_seq_, interval_index_, "lockstep",
-              first_publish_seq_,
-              cmd_seq_.load(std::memory_order_relaxed),
-              NowUs() - first_publish_wall_us_, first_publish_wall_us_,
-              ExchangeTrigger::kAckMatched,
-              violations_.load(std::memory_order_relaxed),
-              published_state_seq_, 0});
-          ++interval_index_;
-          outcome = PublishOutcome::kStepGranted;
-        }
-        else if (NowUs() - first_publish_wall_us_ >
-                 static_cast<std::int64_t>(cfg_.exchange_timeout_s * 1e6))
-        {
-          if (matching_ack_seen_)
+          std::uint64_t ordinal = 0;
+          const int m = ResolveCommandSeq(
+              ack_latched_cmd_, first_publish_seq_,
+              cmd_seq_.load(std::memory_order_relaxed), &ordinal);
+          if (m == 1)
+          {
+            exchange_open_ = false;
+            last_consumed_state_seq_ = published_state_seq_;
+            Record(IntervalRecord{
+                published_state_seq_, interval_index_, "lockstep",
+                first_publish_seq_,
+                cmd_seq_.load(std::memory_order_relaxed),
+                NowUs() - first_publish_wall_us_, first_publish_wall_us_,
+                ExchangeTrigger::kAckMatched,
+                violations_.load(std::memory_order_relaxed),
+                ack_latched_state_, ack_latched_cmd_});
+            ++interval_index_;
+            outcome = PublishOutcome::kStepGranted;
+          }
+          else if (m < 0)
+          {
+            fail_violation = kViolationAckCmdMismatch;
+            fail_reason = "ack command_seq outside the exchange window";
+          }
+          else if (elapsed_us >
+                   static_cast<std::int64_t>(cfg_.exchange_timeout_s * 1e6))
           {
             fail_violation = kViolationExchangeTimeout;
-            fail_reason = "exchange timeout waiting for new LowCmd after "
-                          "state publish";
+            fail_reason = "exchange timeout waiting for the acked command "
+                          "arrival";
           }
-          else
-          {
-            fail_violation = kViolationAckMissing;
-            fail_reason = "exchange timeout waiting for controller ack";
-          }
+        }
+        else if (elapsed_us >
+                 static_cast<std::int64_t>(cfg_.exchange_timeout_s * 1e6))
+        {
+          fail_violation = kViolationAckMissing;
+          fail_reason = "exchange timeout waiting for controller ack";
         }
       }
     }
@@ -467,6 +581,14 @@ public:
     return cfg_.dt_ms;
   }
 
+  // Test-support seam: seeds the local arrival counter so the uint32
+  // command_seq wrap boundary (2^32 arrivals) can be exercised without
+  // injecting four billion messages. Not used by the production paths.
+  void SetCmdSeqBaseForTest(std::uint64_t base)
+  {
+    cmd_seq_.store(base, std::memory_order_relaxed);
+  }
+
   bool TraceOk() const
   {
     return trace_ok_;
@@ -517,13 +639,14 @@ private:
     violations_.fetch_or(flag, std::memory_order_relaxed);
   }
 
-  // Formats a fail-closed reason with the offending ack's state_seq. The
-  // ack callback is a single DDS thread, so thread-local storage suffices.
-  static const char *AckReason(const char *reason, std::uint64_t state_seq)
+  // Formats a fail-closed reason with the offending ack's pair. The ack
+  // callback is a single DDS thread, so thread-local storage suffices.
+  static const char *AckReason(const char *reason, std::uint32_t state_seq,
+                               std::uint32_t cmd_seq)
   {
-    thread_local char buf[160];
-    std::snprintf(buf, sizeof(buf), "%s state_seq=%llu", reason,
-                  static_cast<unsigned long long>(state_seq));
+    thread_local char buf[192];
+    std::snprintf(buf, sizeof(buf), "%s state_seq=%u command_seq=%u", reason,
+                  state_seq, cmd_seq);
     return buf;
   }
 
@@ -580,7 +703,9 @@ private:
   std::int64_t startup_begin_us_ = 0;
   bool ack_validation_active_ = false;
   bool exchange_open_ = false;
-  bool matching_ack_seen_ = false;
+  bool ack_latched_ = false;
+  std::uint32_t ack_latched_state_ = 0;
+  std::uint32_t ack_latched_cmd_ = 0;
   std::uint64_t first_publish_seq_ = 0;
   std::int64_t first_publish_wall_us_ = 0;
   std::uint64_t published_state_seq_ = 0;

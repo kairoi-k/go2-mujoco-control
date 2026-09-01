@@ -242,13 +242,12 @@ public:
     }
 };
 
-// Order-105/106 verification-only ack subscription: the controller adapter
-// publishes ack{state_seq} (unitree Error_ type repurposed as a
-// sequence-metadata carrier; Error_.source() is uint32_t and carries the
-// full-width frozen-state tick) on rt/lockstep/ack after each LowCmd write.
-// The command_seq side-channel is not carried (Order-106): the sim counts
-// LowCmd arrivals locally, so Error_.state() stays 0. Only created when the
-// lockstep flag is on.
+// Order-107 verification-only ack subscription: the controller adapter
+// publishes ack{state_seq, command_seq} (unitree Error_ type repurposed as
+// a sequence-metadata carrier; Error_.source()/state() are uint32_t and
+// carry the full-width frozen-state tick and the controller's exact
+// command_seq) on rt/lockstep/ack after each LowCmd write. Only created
+// when the lockstep flag is on.
 class LockstepAckSubscriber
     : public unitree::robot::SubscriptionBase<unitree_go::msg::dds_::Error_>
 {
@@ -260,7 +259,7 @@ public:
                   if (coord == nullptr) return;
                   const auto *m = static_cast<
                       const unitree_go::msg::dds_::Error_ *>(msg);
-                  coord->OnAckReceived(m->source());
+                  coord->OnAckReceived(m->source(), m->state());
               })
     {
     }

@@ -50,12 +50,11 @@ using unitree::robot::ChannelSubscriberPtr;
 #define GO2_TROT_TOPIC_LOWSTATE "rt/lowstate"
 #define GO2_TROT_TOPIC_HIGHSTATE "rt/sportmodestate"
 #endif
-// Order-105/106 verification-only causal handshake topic: the adapter
-// publishes ack{state_seq} (unitree Error_ repurposed as a sequence-metadata
-// carrier; Error_.source() is uint32_t and carries the full-width frozen-state
-// tick) after every LowCmd write when TROT_LOCKSTEP_ACK=1. The command_seq
-// side-channel is not carried (Order-106): the sim counts LowCmd arrivals
-// locally.
+// Order-107 verification-only causal handshake topic: the adapter
+// publishes ack{state_seq, command_seq} (unitree Error_ repurposed as a
+// sequence-metadata carrier; Error_.source()/state() are uint32_t and carry
+// the full-width frozen-state tick and the controller's exact command_seq)
+// after every LowCmd write when TROT_LOCKSTEP_ACK=1.
 #ifndef GO2_TROT_TOPIC_LOCKSTEP_ACK
 #define GO2_TROT_TOPIC_LOCKSTEP_ACK "rt/lockstep/ack"
 #endif
@@ -762,6 +761,14 @@ private:
     ChannelPublisherPtr<unitree_go::msg::dds_::LowCmd_> lowcmd_publisher_;
     ChannelPublisherPtr<unitree_go::msg::dds_::Error_> lockstep_ack_publisher_;
     bool lockstep_ack_enabled_ = false;
+    // Order-107: lockstep-local sequence epoch established at the first
+    // lockstep state consumed after the controller's lifecycle barrier
+    // (start-gait); the command sequence counts every LowCmd write 1:1 from
+    // the adapter's first ack (uint32, wraps after 2^32 writes) so the sim's
+    // exchange-local arrival ordinals match exactly.
+    bool lockstep_epoch_valid_ = false;
+    std::uint32_t lockstep_epoch_state_seq_ = 0;
+    std::uint32_t lockstep_cmd_seq_ = 0;
     ChannelSubscriberPtr<unitree_go::msg::dds_::LowState_> lowstate_subscriber_;
     ChannelSubscriberPtr<unitree_go::msg::dds_::SportModeState_>
         highstate_subscriber_;
