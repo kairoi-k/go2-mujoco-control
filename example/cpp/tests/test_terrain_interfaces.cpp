@@ -3079,7 +3079,9 @@ int main()
         go2_terrain::TerrainPlanner off_planner(off_config);
         go2_terrain::TerrainPlanner telemetry_planner(telemetry_config);
         const auto off_result = off_planner.Build(input, 7);
-        const auto telemetry_result = telemetry_planner.Build(input, 7);
+        go2_terrain::TerrainCandidateTelemetry telemetry_collector;
+        const auto telemetry_result = telemetry_planner.Build(
+            input, 7, &telemetry_collector);
         bool selected_same = true;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             selected_same = selected_same &&
@@ -3098,26 +3100,50 @@ int main()
                        telemetry_result.plan.input_hash == off_result.plan.input_hash &&
                        selected_same,
                    "telemetry changed the planner result") ||
-            !Check(telemetry_result.candidate_telemetry.enabled &&
-                       telemetry_result.candidate_telemetry.input_hash != 0 &&
-                       telemetry_result.candidate_telemetry.plan_hash == 7 &&
-                       !off_result.candidate_telemetry.enabled &&
-                       off_result.candidate_telemetry.input_hash == 0 &&
-                       off_result.candidate_telemetry.evaluated_candidates[0] == 0,
+            !Check(telemetry_collector.enabled &&
+                       telemetry_collector.input_hash != 0 &&
+                       telemetry_collector.plan_hash == 7 &&
+                       off_result.canonical_hash_invocations == 1 &&
+                       off_result.shadow_map_traversals == 1,
                    "planner candidate telemetry was not bounded/configured"))
             return 1;
-        auto make_mode = [&](bool shadow, bool telemetry) {
+        go2_terrain::TerrainCandidateTelemetry index_collector;
+        index_collector.Configure(true, 0x33, 0x44);
+        const auto indexed_a = go2_terrain::EvaluateFoothold(
+            *input.terrain, go2::Leg::FR, input.current_feet_base[0].x,
+            input.current_feet_base[0].y, planner_config.feasibility, nullptr,
+            std::numeric_limits<double>::infinity(), nullptr, &index_collector);
+        const auto indexed_b = go2_terrain::EvaluateFoothold(
+            *input.terrain, go2::Leg::FR, input.current_feet_base[0].x,
+            input.current_feet_base[0].y, planner_config.feasibility, nullptr,
+            std::numeric_limits<double>::infinity(), nullptr, &index_collector);
+        if (!Check(indexed_b.candidate_index == indexed_a.candidate_index + 1 &&
+                       index_collector.evaluated_candidates[0] >= 2,
+                   "candidate index was not monotonic across evaluations"))
+            return 1;
+        auto make_mode = [&](bool shadow) {
             auto mode_config = planner_config;
             mode_config.shadow_enabled = shadow;
-            mode_config.candidate_telemetry_enabled = telemetry;
+            mode_config.candidate_telemetry_enabled = false;
             mode_config.sensor_only = true;
             mode_config.allow_actuation = false;
             return go2_terrain::TerrainPlanner(mode_config).Build(input, 7);
         };
-        const auto mode00 = make_mode(false, false);
-        const auto mode10 = make_mode(true, false);
-        const auto mode01 = make_mode(false, true);
-        const auto mode11 = make_mode(true, true);
+        const auto mode00 = make_mode(false);
+        const auto mode10 = make_mode(true);
+        auto mode01_config = planner_config;
+        mode01_config.shadow_enabled = false;
+        mode01_config.candidate_telemetry_enabled = true;
+        mode01_config.sensor_only = true;
+        mode01_config.allow_actuation = false;
+        go2_terrain::TerrainCandidateTelemetry mode01_collector;
+        const auto mode01 = go2_terrain::TerrainPlanner(mode01_config).Build(
+            input, 7, &mode01_collector);
+        auto mode11_config = mode01_config;
+        mode11_config.shadow_enabled = true;
+        go2_terrain::TerrainCandidateTelemetry mode11_collector;
+        const auto mode11 = go2_terrain::TerrainPlanner(mode11_config).Build(
+            input, 7, &mode11_collector);
         if (!Check(mode00.canonical_hash_invocations == 0 &&
                        mode00.shadow_map_traversals == 0 &&
                        mode00.shadow_diagnostics.input_hash == 0 &&
@@ -3126,11 +3152,11 @@ int main()
                        mode10.shadow_diagnostics.input_hash != 0 &&
                        mode01.canonical_hash_invocations == 1 &&
                        mode01.shadow_map_traversals == 0 &&
-                       mode01.candidate_telemetry.input_hash != 0 &&
+                       mode01_collector.input_hash != 0 &&
                        mode11.canonical_hash_invocations == 1 &&
                        mode11.shadow_map_traversals == 1 &&
                        mode11.shadow_diagnostics.input_hash ==
-                           mode11.candidate_telemetry.input_hash,
+                           mode11_collector.input_hash,
                    "lazy provenance hash/map traversal matrix failed"))
             return 1;
     }

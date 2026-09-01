@@ -273,6 +273,7 @@ struct SafeFootholdRegion
     double support_margin_m = std::numeric_limits<double>::infinity();
     double collision_margin_m = std::numeric_limits<double>::infinity();
     std::uint32_t region_id = 0;
+    std::uint32_t candidate_index = 0;
     std::array<go2::Vec3, kMaxVertices> vertices{};
     std::size_t vertex_count = 0;
     go2::Vec3 center{};
@@ -320,6 +321,8 @@ struct FootholdCandidate
     bool surface_transition_required = false;
     bool surface_transition_intent_valid = false;
     bool hard_feasible = false;
+    // Monotonic index assigned by the optional diagnostics collector.
+    std::uint32_t candidate_index = 0;
 };
 
 inline double LegReachabilityMargin(
@@ -475,7 +478,8 @@ inline bool CheckSwingClearance(
     double *required_peak_phase = nullptr,
     double *leading_edge_phase = nullptr,
     bool *leading_edge_phase_valid = nullptr,
-    TerrainCandidateTelemetry *telemetry = nullptr)
+    TerrainCandidateTelemetry *telemetry = nullptr,
+    std::uint32_t candidate_index = 0)
 {
     minimum_clearance_m = std::numeric_limits<double>::infinity();
     if (failure_reason != nullptr)
@@ -498,7 +502,7 @@ inline bool CheckSwingClearance(
             *failure_reason = reason;
         if (telemetry != nullptr)
             telemetry->Record(leg, gate, model.epoch, position, &model, patch,
-                              path_sample);
+                              path_sample, candidate_index);
         return false;
     };
     if (!model.valid() || !std::isfinite(clearance_m) || clearance_m < 0.0)
@@ -1091,6 +1095,7 @@ inline FootholdCandidate EvaluateFoothold(
     const std::uint32_t candidate_index = telemetry != nullptr &&
         telemetry->enabled && static_cast<std::size_t>(leg) < go2::kLegCount
         ? telemetry->evaluated_candidates[static_cast<std::size_t>(leg)] : 0;
+    candidate.candidate_index = candidate_index;
     if (telemetry != nullptr)
         telemetry->ObserveCandidate(leg);
     const auto record_reject = [&](TerrainTelemetryGate gate,
@@ -1241,7 +1246,8 @@ inline FootholdCandidate EvaluateFoothold(
                 &swing_reject_reason, leg, &candidate.swing_lift_m,
                 &candidate.swing_peak_phase,
                 &candidate.swing_leading_edge_phase,
-                &candidate.swing_leading_edge_phase_valid, telemetry))
+                &candidate.swing_leading_edge_phase_valid, telemetry,
+                candidate_index))
         {
             candidate.reject_reason = swing_reject_reason;
             return candidate;
@@ -1415,6 +1421,7 @@ inline std::vector<SafeFootholdRegion> BuildSafeFootholdRegions(
             region.leg = leg;
             region.map_epoch = model.epoch;
             region.region_id = static_cast<std::uint32_t>(regions.size());
+            region.candidate_index = candidate.candidate_index;
             region.center = candidate.foot_position;
             region.normal = candidate.surface_normal;
             region.height_min_m = candidate.height_min_m;

@@ -288,7 +288,6 @@ struct TerrainPlannerResult
     std::array<std::shared_ptr<const TerrainShadowSnapshot>,
                kTerrainShadowFamilyCount> shadow_family_snapshots{};
     TerrainShadowDiagnostics shadow_diagnostics{};
-    TerrainCandidateTelemetry candidate_telemetry{};
     // Review-only counters make lazy provenance work auditable without
     // adding any per-update or per-cell log storage.
     std::uint8_t canonical_hash_invocations = 0;
@@ -660,11 +659,15 @@ public:
     const TerrainPlannerConfig &config() const { return config_; }
 
     TerrainPlannerResult Build(const TerrainPlannerInput &input,
-                               std::uint64_t plan_id) const
+                               std::uint64_t plan_id,
+                               TerrainCandidateTelemetry *collector = nullptr) const
     {
         TerrainPlannerResult result;
+        TerrainCandidateTelemetry *telemetry = nullptr;
+        if (config_.candidate_telemetry_enabled && collector != nullptr)
+            telemetry = collector;
         const bool hash_required = config_.shadow_enabled ||
-            config_.candidate_telemetry_enabled || input.has_stage_c_timing;
+            telemetry != nullptr || input.has_stage_c_timing;
         const std::uint64_t canonical_input_hash = hash_required
             ? TerrainPlannerInputHash(input) : 0;
         result.canonical_hash_invocations = hash_required ? 1 : 0;
@@ -693,15 +696,13 @@ public:
         result.plan.identity.generated_at_s = result.plan.generated_at_s;
         result.plan.identity.valid_until_s = result.plan.valid_until_s;
         result.plan.contact_timing.identity = result.plan.identity;
-        result.candidate_telemetry.Configure(
-            config_.candidate_telemetry_enabled,
-            config_.candidate_telemetry_enabled ? canonical_input_hash : 0,
-            plan_id);
+        if (telemetry != nullptr)
+            telemetry->Configure(true, canonical_input_hash, plan_id);
         result.plan.timing_bounds = input.terrain_timing_bounds;
         // C-001 fields remain provenance-complete; Stage-C timing is populated
         // only when the execution flag is explicitly enabled.
         result.plan.has_stage_c_timing = input.has_stage_c_timing;
-        BuildShadow(input, result, canonical_input_hash);
+        BuildShadow(input, result, canonical_input_hash, telemetry);
         result.plan.contact_timing.provenance = input.has_stage_c_timing
             ? TerrainTimingProvenance::kStageCPlanner
             : TerrainTimingProvenance::kLegacyPhase1;
@@ -829,7 +830,7 @@ public:
                 config_.feasibility,
                 future_base_displacement_valid[leg]
                     ? &future_base_displacement_base[leg] : nullptr,
-                (config_.candidate_telemetry_enabled ? &result.candidate_telemetry : nullptr));
+                telemetry);
             result.candidate_counts[leg] = result.regions[leg].size();
             for (const auto &region : result.regions[leg])
             {
@@ -1014,7 +1015,7 @@ public:
                     std::numeric_limits<double>::infinity(),
                     future_base_displacement_valid[leg]
                         ? &future_base_displacement_base[leg] : nullptr,
-                    (config_.candidate_telemetry_enabled ? &result.candidate_telemetry : nullptr));
+                    telemetry);
                 if (!candidate.hard_feasible ||
                     !has_surface_standoff(candidate.foot_position,
                                           candidate.uncertainty_m))
@@ -1034,7 +1035,7 @@ public:
                         &candidate.swing_peak_phase,
                         &candidate.swing_leading_edge_phase,
                         &candidate.swing_leading_edge_phase_valid,
-                        (config_.candidate_telemetry_enabled ? &result.candidate_telemetry : nullptr)))
+                        telemetry, candidate.candidate_index))
                 {
                     const auto reason = static_cast<std::size_t>(
                         swing_reject_reason);
@@ -1085,9 +1086,12 @@ public:
             if (options.empty())
             {
                 result.failed_leg = static_cast<int>(leg);
-                result.candidate_telemetry.failed_leg = result.failed_leg;
-                result.candidate_telemetry.failed_map_epoch =
-                    input.terrain != nullptr ? input.terrain->epoch : 0;
+                if (telemetry != nullptr)
+                {
+                    telemetry->failed_leg = result.failed_leg;
+                    telemetry->failed_map_epoch =
+                        input.terrain != nullptr ? input.terrain->epoch : 0;
+                }
                 for (std::size_t reason = 1;
                      reason < result.foothold_reject_counts.size(); ++reason)
                 {
@@ -1255,7 +1259,7 @@ public:
         }
         result.selected = best_feasible_selection;
         SeedTouchdownSelections(input, result);
-        PopulateFutureTouchdownSelections(input, result);
+        PopulateFutureTouchdownSelections(input, result, telemetry);
         PopulatePlan(input, result);
         TerrainPlannerInput coherent_input = input;
         bool retimed = false;
@@ -1306,7 +1310,8 @@ public:
 private:
     void BuildShadow(const TerrainPlannerInput &input,
                      TerrainPlannerResult &result,
-                     std::uint64_t canonical_input_hash) const;
+                     std::uint64_t canonical_input_hash,
+                     TerrainCandidateTelemetry *telemetry) const;
 
     static go2::Vec3 NominalTouchdownFoot(
         const TerrainPlannerInput &input, std::size_t leg)
@@ -1945,8 +1950,8 @@ private:
             std::isfinite(displacement.z);
     }
     void PopulateFutureTouchdownSelections(
-        const TerrainPlannerInput &input,
-        TerrainPlannerResult &result) const
+        const TerrainPlannerInput &input, TerrainPlannerResult &result,
+        TerrainCandidateTelemetry *telemetry) const
     {
         constexpr std::size_t kMaxFutureSwingEvaluations = 32;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -2075,7 +2080,7 @@ private:
                         config_.swing_clearance_m,
                         future_displacement_valid
                             ? &future_displacement : nullptr,
-                        (config_.candidate_telemetry_enabled ? &result.candidate_telemetry : nullptr));
+                        telemetry);
                     if (!candidate.hard_feasible)
                         continue;
                     const bool elevated_candidate =
@@ -2937,13 +2942,15 @@ private:
 
 inline void TerrainPlanner::BuildShadow(
     const TerrainPlannerInput &input, TerrainPlannerResult &result,
-    std::uint64_t canonical_input_hash) const
+    std::uint64_t canonical_input_hash,
+    TerrainCandidateTelemetry *telemetry) const
 {
     const auto start = std::chrono::steady_clock::now();
     auto &diag = result.shadow_diagnostics;
     diag = TerrainShadowDiagnostics{};
     diag.input_hash = canonical_input_hash;
     diag.input_state_stamp_s = input.state_stamp_s;
+    bool any_known = false;
     if (config_.shadow_enabled && input.terrain != nullptr)
     {
         diag.input_map_valid = input.terrain->valid();
@@ -2955,9 +2962,11 @@ inline void TerrainPlanner::BuildShadow(
         diag.input_map_epoch = input.terrain->epoch;
         diag.input_total_cells = input.terrain->cells.size();
         ++result.shadow_map_traversals;
-        for (const auto &cell : input.terrain->cells)
+        for (const auto &cell : input.terrain->cells) {
+            any_known = any_known || cell.known;
             if (cell.known)
                 ++diag.input_known_cells;
+        }
     }
     diag.deadline_us = config_.deadline_us;
     for (auto &value : diag.min_support_margin_m)
@@ -3012,9 +3021,6 @@ inline void TerrainPlanner::BuildShadow(
         finish();
         return;
     }
-    bool any_known = false;
-    for (const auto &cell : input.terrain->cells)
-        any_known = any_known || cell.known;
     if (!any_known) {
         reject(TerrainShadowFamily::kV2B, TerrainShadowRejectReason::kUnknownTerrain);
         reject(TerrainShadowFamily::kV3CDraft, TerrainShadowRejectReason::kUnknownTerrain);
@@ -3076,7 +3082,7 @@ inline void TerrainPlanner::BuildShadow(
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
         const auto regions = BuildSafeFootholdRegions(
             *input.terrain, static_cast<go2::Leg>(leg), config_.feasibility,
-            nullptr, (config_.candidate_telemetry_enabled ? &result.candidate_telemetry : nullptr));
+            nullptr, telemetry);
         diag.safe_region_candidate_count_by_leg[leg] = regions.size();
         double best_score = -std::numeric_limits<double>::infinity();
         for (const auto &region : regions) {
@@ -3091,7 +3097,7 @@ inline void TerrainPlanner::BuildShadow(
                     go2::ContactPatchToFootSite(region.center),
                     config_.swing_clearance_m, clearance, &clearance_reason,
                     static_cast<go2::Leg>(leg), &lift, nullptr,
-                    nullptr, nullptr, (config_.candidate_telemetry_enabled ? &result.candidate_telemetry : nullptr)))
+                    nullptr, nullptr, telemetry, region.candidate_index))
                 continue;
             FootholdCandidate candidate{};
             candidate.leg = static_cast<go2::Leg>(leg);
