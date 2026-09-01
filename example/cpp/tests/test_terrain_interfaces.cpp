@@ -3106,6 +3106,33 @@ int main()
                        off_result.candidate_telemetry.evaluated_candidates[0] == 0,
                    "planner candidate telemetry was not bounded/configured"))
             return 1;
+        auto make_mode = [&](bool shadow, bool telemetry) {
+            auto mode_config = planner_config;
+            mode_config.shadow_enabled = shadow;
+            mode_config.candidate_telemetry_enabled = telemetry;
+            mode_config.sensor_only = true;
+            mode_config.allow_actuation = false;
+            return go2_terrain::TerrainPlanner(mode_config).Build(input, 7);
+        };
+        const auto mode00 = make_mode(false, false);
+        const auto mode10 = make_mode(true, false);
+        const auto mode01 = make_mode(false, true);
+        const auto mode11 = make_mode(true, true);
+        if (!Check(mode00.canonical_hash_invocations == 0 &&
+                       mode00.shadow_map_traversals == 0 &&
+                       mode00.shadow_diagnostics.input_hash == 0 &&
+                       mode10.canonical_hash_invocations == 1 &&
+                       mode10.shadow_map_traversals == 1 &&
+                       mode10.shadow_diagnostics.input_hash != 0 &&
+                       mode01.canonical_hash_invocations == 1 &&
+                       mode01.shadow_map_traversals == 0 &&
+                       mode01.candidate_telemetry.input_hash != 0 &&
+                       mode11.canonical_hash_invocations == 1 &&
+                       mode11.shadow_map_traversals == 1 &&
+                       mode11.shadow_diagnostics.input_hash ==
+                           mode11.candidate_telemetry.input_hash,
+                   "lazy provenance hash/map traversal matrix failed"))
+            return 1;
     }
 
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";

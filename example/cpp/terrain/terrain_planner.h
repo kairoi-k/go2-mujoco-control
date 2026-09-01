@@ -289,6 +289,10 @@ struct TerrainPlannerResult
                kTerrainShadowFamilyCount> shadow_family_snapshots{};
     TerrainShadowDiagnostics shadow_diagnostics{};
     TerrainCandidateTelemetry candidate_telemetry{};
+    // Review-only counters make lazy provenance work auditable without
+    // adding any per-update or per-cell log storage.
+    std::uint8_t canonical_hash_invocations = 0;
+    std::uint8_t shadow_map_traversals = 0;
 };
 
 // Explicit C-003 bridge from the reviewed V2-B shadow family.  This is
@@ -659,9 +663,11 @@ public:
                                std::uint64_t plan_id) const
     {
         TerrainPlannerResult result;
-        const std::uint64_t canonical_input_hash =
-            (config_.candidate_telemetry_enabled || input.has_stage_c_timing)
-                ? TerrainPlannerInputHash(input) : 0;
+        const bool hash_required = config_.shadow_enabled ||
+            config_.candidate_telemetry_enabled || input.has_stage_c_timing;
+        const std::uint64_t canonical_input_hash = hash_required
+            ? TerrainPlannerInputHash(input) : 0;
+        result.canonical_hash_invocations = hash_required ? 1 : 0;
         result.touchdown_knot_by_leg.fill(-1);
         result.candidate_required.fill(false);
         for (auto &valid : result.selected_by_touchdown_valid)
@@ -689,12 +695,13 @@ public:
         result.plan.contact_timing.identity = result.plan.identity;
         result.candidate_telemetry.Configure(
             config_.candidate_telemetry_enabled,
-            canonical_input_hash, plan_id);
+            config_.candidate_telemetry_enabled ? canonical_input_hash : 0,
+            plan_id);
         result.plan.timing_bounds = input.terrain_timing_bounds;
         // C-001 fields remain provenance-complete; Stage-C timing is populated
         // only when the execution flag is explicitly enabled.
         result.plan.has_stage_c_timing = input.has_stage_c_timing;
-        BuildShadow(input, result);
+        BuildShadow(input, result, canonical_input_hash);
         result.plan.contact_timing.provenance = input.has_stage_c_timing
             ? TerrainTimingProvenance::kStageCPlanner
             : TerrainTimingProvenance::kLegacyPhase1;
@@ -1298,7 +1305,8 @@ public:
 
 private:
     void BuildShadow(const TerrainPlannerInput &input,
-                     TerrainPlannerResult &result) const;
+                     TerrainPlannerResult &result,
+                     std::uint64_t canonical_input_hash) const;
 
     static go2::Vec3 NominalTouchdownFoot(
         const TerrainPlannerInput &input, std::size_t leg)
@@ -2928,16 +2936,15 @@ private:
 };
 
 inline void TerrainPlanner::BuildShadow(
-    const TerrainPlannerInput &input, TerrainPlannerResult &result) const
+    const TerrainPlannerInput &input, TerrainPlannerResult &result,
+    std::uint64_t canonical_input_hash) const
 {
     const auto start = std::chrono::steady_clock::now();
     auto &diag = result.shadow_diagnostics;
     diag = TerrainShadowDiagnostics{};
-    diag.input_hash = config_.candidate_telemetry_enabled
-        ? result.candidate_telemetry.input_hash
-        : TerrainPlannerInputHash(input);
+    diag.input_hash = canonical_input_hash;
     diag.input_state_stamp_s = input.state_stamp_s;
-    if (input.terrain != nullptr)
+    if (config_.shadow_enabled && input.terrain != nullptr)
     {
         diag.input_map_valid = input.terrain->valid();
         diag.input_map_age_s = input.terrain->age_s;
@@ -2947,6 +2954,7 @@ inline void TerrainPlanner::BuildShadow(
             config_.feasibility.required_frame;
         diag.input_map_epoch = input.terrain->epoch;
         diag.input_total_cells = input.terrain->cells.size();
+        ++result.shadow_map_traversals;
         for (const auto &cell : input.terrain->cells)
             if (cell.known)
                 ++diag.input_known_cells;
