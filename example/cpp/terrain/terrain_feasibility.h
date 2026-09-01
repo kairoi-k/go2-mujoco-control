@@ -104,6 +104,8 @@ struct TerrainCandidateTelemetry
     bool enabled = false;
     std::uint64_t input_hash = 0;
     std::uint64_t plan_hash = 0;
+    int failed_leg = -1;
+    std::uint64_t failed_map_epoch = 0;
     std::array<std::array<std::uint32_t, kTerrainTelemetryGateCount>,
                go2::kLegCount> counts_by_leg{};
     std::array<std::uint32_t, go2::kLegCount> evaluated_candidates{};

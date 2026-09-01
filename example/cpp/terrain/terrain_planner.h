@@ -1001,6 +1001,9 @@ public:
             if (options.empty())
             {
                 result.failed_leg = static_cast<int>(leg);
+                result.candidate_telemetry.failed_leg = result.failed_leg;
+                result.candidate_telemetry.failed_map_epoch =
+                    input.terrain != nullptr ? input.terrain->epoch : 0;
                 for (std::size_t reason = 1;
                      reason < result.foothold_reject_counts.size(); ++reason)
                 {
