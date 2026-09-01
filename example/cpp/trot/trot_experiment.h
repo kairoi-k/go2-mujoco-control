@@ -42,7 +42,6 @@
 #include "terrain_crawl_sequencer.h"
 #include "terrain_planner.h"
 #include "terrain_plan_execution_adapter.h"
-#include "terrain_plan_before_motion.h"
 
 using unitree::robot::ChannelPublisherPtr;
 using unitree::robot::ChannelSubscriberPtr;
@@ -91,8 +90,6 @@ public:
           velocity_filter_({params_.velocity_filter_cutoff_hz}),
           velocity_command_shaper_(params_.velocity_command_shaper)
     {
-        terrain_plan_before_motion_gate_.SetEnabled(
-            params_.e1_plan_before_motion);
         runtime_gait_pattern_ = params_.gait_pattern;
         terrain_crawl_state_machine_.SetLegOrder(params_.terrain_leg_order);
         terrain_crawl_state_machine_.SetAdvancePolicy(
@@ -523,7 +520,6 @@ private:
     go2_terrain::TerrainPlanner terrain_planner_{};
     go2_terrain::TerrainPlanStore terrain_plan_store_{};
     go2_terrain::TerrainPlanExecutionAdapter terrain_plan_execution_adapter_{};
-    go2_terrain::PlanBeforeMotionGate terrain_plan_before_motion_gate_{};
     // Stage-C contact truth is filtered once, then fused only with bounded
     // last robust support. Planned masks never enter this safety state.
     go2_control::MeasuredContactFusion terrain_contact_fusion_{};

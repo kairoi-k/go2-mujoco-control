@@ -214,8 +214,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
             go2_terrain::TerrainCrawlSequencerState::kStage &&
         terrain_crawl_sequencer_output_.state !=
             go2_terrain::TerrainCrawlSequencerState::kResume;
-    const bool terrain_crawl_active = !params_.e1_plan_before_motion &&
-        terrain_window_active &&
+    const bool terrain_crawl_active = terrain_window_active &&
         (event_crawl_active ||
          (terrain_crawl_sequencer_output_.control_authority_active &&
           terrain_crawl_sequencer_output_.state !=
@@ -609,8 +608,7 @@ bool TrotExperiment::BuildGaitTargets(
             go2_terrain::TerrainCrawlSequencerState::kStage &&
         terrain_crawl_sequencer_output_.state !=
             go2_terrain::TerrainCrawlSequencerState::kResume;
-    const bool terrain_crawl_active =
-        !params_.e1_plan_before_motion && terrain_transfer_window_active_ &&
+    const bool terrain_crawl_active = terrain_transfer_window_active_ &&
         (event_crawl_active ||
          (terrain_crawl_sequencer_output_.control_authority_active &&
           terrain_crawl_sequencer_output_.state !=
@@ -715,7 +713,7 @@ bool TrotExperiment::BuildGaitTargets(
     const double adapter_now_s = static_cast<double>(state_snapshot.tick()) *
         1.0e-3;
     const bool stage_c_window = stage_c_execution_requested &&
-        (terrain_transfer_window_active_ || params_.e1_plan_before_motion);
+        terrain_transfer_window_active_;
     terrain_plan_execution_adapter_.SetEnabled(stage_c_window);
     if (stage_c_window)
     {
@@ -780,91 +778,6 @@ bool TrotExperiment::BuildGaitTargets(
         }
         if (!handoff.fallback_reason.empty())
             terrain_execution_fallback_reason_ = handoff.fallback_reason;
-    }
-    // E1 is checked after the existing whole-snapshot adapter handoff but
-    // before the kernel is allowed to generate a nonzero target.  A failed
-    // first request therefore returns the captured stand without motion.
-    if (params_.e1_plan_before_motion)
-    {
-        const auto published = terrain_plan_store_.LoadUsable(adapter_now_s);
-        const auto adopted = terrain_plan_execution_adapter_.adopted_plan();
-        std::shared_ptr<const go2_terrain::TerrainModel> warm_map;
-        {
-            std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
-            warm_map = terrain_model_;
-        }
-        std::array<bool, go2::kLegCount> measured_support{};
-        bool measured_support_valid = false;
-        {
-            std::lock_guard<std::mutex> lock(terrain_control_mutex_);
-            measured_support = terrain_control_snapshot_.measured_contact;
-            measured_support_valid = terrain_control_snapshot_.measured_valid;
-        }
-        const bool captured_stand = std::equal(
-            joint_targets.begin(), joint_targets.end(),
-            task_.stand_up_joint_pos_.begin());
-        const bool physical_zero_motion = !have_filtered_body_velocity_ ||
-            (latest_filtered_body_velocity_[0] == 0.0 &&
-             latest_filtered_body_velocity_[1] == 0.0 &&
-             latest_filtered_body_velocity_[2] == 0.0);
-        terrain_plan_before_motion_gate_.ObserveWarmHold(
-            captured_stand, physical_zero_motion);
-        go2_terrain::PlanBeforeMotionObservation observation;
-        observation.captured_stand = captured_stand;
-        observation.zero_motion = physical_zero_motion;
-        observation.map_valid = warm_map && warm_map->valid();
-        observation.coverage_valid = observation.map_valid &&
-            terrain_known_cells_ != 0;
-        observation.filtered_measured_support_valid = measured_support_valid;
-        observation.filtered_measured_support = measured_support;
-        observation.family_a_complete_timed_plan = published &&
-            go2_terrain::PlanBeforeMotionFamilyAComplete(*published);
-        observation.publishable_identity_epoch = published &&
-            published->identity.valid();
-        if (published)
-            observation.published_identity =
-                go2_terrain::MakePlanBeforeMotionIdentity(published->identity);
-        observation.whole_snapshot_published = published != nullptr;
-        observation.adapter_exactly_adopted = adopted != nullptr &&
-            adopted->identity.valid();
-        if (adopted)
-            observation.adopted_identity =
-                go2_terrain::MakePlanBeforeMotionIdentity(adopted->identity);
-        observation.gait_same_identity = adopted != nullptr &&
-            terrain_plan_execution_adapter_.using_plan();
-        observation.gait_identity = adopted
-            ? go2_terrain::MakePlanBeforeMotionIdentity(adopted->identity)
-            : go2_terrain::PlanBeforeMotionIdentity{};
-        observation.srbd_same_identity = observation.gait_same_identity;
-        observation.srbd_identity = observation.gait_identity;
-        observation.boundary_id = static_cast<std::uint64_t>(
-            state_snapshot.tick());
-        observation.nonzero_request = std::abs(requested_speed) > 0.0;
-        bool e1_motion_allowed =
-            terrain_plan_before_motion_gate_.OnCommandBoundary(observation);
-        if (e1_motion_allowed && params_.e1_p1_validate_only)
-        {
-            terrain_plan_before_motion_gate_.ValidateOnlyAfterArm();
-            e1_motion_allowed = false;
-        }
-        if (!e1_motion_allowed)
-        {
-            locomotion_kernel_->SetStanceHold(true, gait_time_s);
-            locomotion_kernel_->SetGaitStepLength(0.0);
-            locomotion_kernel_->SetGaitFootLift(0.0);
-            velocity_command_state_.shaped_mps = 0.0;
-            velocity_command_state_.applied_mps = 0.0;
-            wbc_speed_cmd_mps_ = 0.0;
-            if (terrain_plan_before_motion_gate_.safe_stop())
-            {
-                terrain_safe_stop_requested_.store(true);
-                task_.stop_requested_ = true;
-                task_.task_completion_requested_ = false;
-                task_.motion_stage_ = 3;
-            }
-            joint_targets = task_.stand_up_joint_pos_;
-            return true;
-        }
     }
     if (!locomotion_kernel_->Compute(gait_request, gait_result))
     {

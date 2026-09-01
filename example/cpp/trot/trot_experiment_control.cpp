@@ -238,8 +238,7 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         legacy_crawl_state == go2_terrain::TerrainCrawlState::kShiftCom ||
         legacy_crawl_state == go2_terrain::TerrainCrawlState::kCrawlStep ||
         legacy_crawl_state == go2_terrain::TerrainCrawlState::kAdvanceBody;
-    snapshot.terrain_transfer_window_active =
-        terrain_transfer_window_active_ || params_.e1_plan_before_motion;
+    snapshot.terrain_transfer_window_active = terrain_transfer_window_active_;
     snapshot.terrain_crawl_support_window_active =
         terrain_transfer_window_active_ &&
         ((terrain_crawl_sequencer_output_.control_authority_active &&
@@ -347,8 +346,7 @@ void TrotExperiment::UpdateTerrainRuntime()
     input.duty_factor = control.duty_factor;
     input.commanded_vx_mps = control.commanded_vx_mps;
     input.has_stage_c_timing = params_.stage_c_execution &&
-        (control.terrain_transfer_window_active ||
-         params_.e1_plan_before_motion);
+        control.terrain_transfer_window_active;
     input.terrain_timing_bounds.current_period_s = input.gait_period_s;
     input.terrain_timing_bounds.current_duty_factor = input.duty_factor;
     input.terrain_timing_bounds.window_start_s = input.state_stamp_s;

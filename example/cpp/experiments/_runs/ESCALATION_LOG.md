@@ -5183,3 +5183,30 @@ rollback: |
   Stage-C live route is re-enabled.
 acceptance: |
   Documentation append-only closure recorded before behavior implementation.
+
+---
+timestamp: 2026-09-01T18:10:00+0800
+run_id: Order-114 E1 prototype review freeze
+source_sha: fb86bd8 (reviewed prototype); frozen source surfaces restored to 4ed0157
+review: |
+  Prototype review is BLOCKED with three P1 findings. Zero simulator probes
+  were consumed: the P1 validate-only stage and the P2 single 5 cm crossing
+  were never run (P1/P2 unconsumed). The E1 plan-before-motion route is
+  FROZEN; the old Stage-C live route remains frozen as failed.
+implementation: |
+  All E1 behavior/build/test changes introduced by 31225fe, 94c7365, and
+  fb86bd8 are removed exactly back to the 4ed0157 surfaces: CMakeLists,
+  trot_cli, trot_experiment.h/control/gait, and trot_types. The added
+  terrain_plan_before_motion.h and test_plan_before_motion.cpp are deleted.
+  No other source files changed; the 4ed0157 append-only decision docs are
+  preserved untouched.
+validation: |
+  Full example/cpp and simulate builds pass; the original ctest suite (31
+  example/cpp plus 2 simulate) passes; git diff against 4ed0157 is docs-only;
+  behavior blobs equal 4ed0157.
+rollback: |
+  E1 is frozen. No terrain execution route is reopened by this record; keep
+  all Stage-C execution flags off.
+acceptance: |
+  E1 prototype route frozen and cleaned to the 4ed0157 baseline. Append-only
+  closure recorded.
