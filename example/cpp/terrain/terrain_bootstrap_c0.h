@@ -76,6 +76,7 @@ struct TerrainBootstrapC0Input
     std::array<go2::Vec3, go2::kLegCount> current_feet_base{};
     double forward_speed_mps = 0.0;
     double forward_acceleration_mps2 = 0.0;
+    double forward_direction_sign = 1.0;
     go2_trot::VelocityCommandShaperParams shaper{};
     double dt_s = 0.002;
 };
@@ -198,7 +199,8 @@ inline TerrainBootstrapC0Result EvaluateTerrainBootstrapC0(
     {
         const double alpha = static_cast<double>(sample) /
             static_cast<double>(samples);
-        const double dx = alpha * out.stop.distance_m;
+        const double direction = input.forward_direction_sign < 0.0 ? -1.0 : 1.0;
+        const double dx = direction * alpha * out.stop.distance_m;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             const auto &foot = input.current_feet_base[leg];

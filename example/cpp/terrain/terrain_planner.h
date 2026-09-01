@@ -136,6 +136,7 @@ struct TerrainPlannerInput
     // actuator path deliberately ignore these fields until a later order.
     TerrainTimingBounds terrain_timing_bounds{};
     bool has_stage_c_timing = false;
+    bool bootstrap_pretransfer = false;
 };
 
 inline std::uint64_t TerrainPlannerInputHash(const TerrainPlannerInput &input)
@@ -162,6 +163,7 @@ inline std::uint64_t TerrainPlannerInputHash(const TerrainPlannerInput &input)
     add(input.contact_schedule.measured_contact.data(), sizeof(input.contact_schedule.measured_contact));
     add(input.contact_schedule.planned_contact.data(), sizeof(input.contact_schedule.planned_contact));
     add(&input.has_stage_c_timing, sizeof(input.has_stage_c_timing));
+    add(&input.bootstrap_pretransfer, sizeof(input.bootstrap_pretransfer));
     add(&input.terrain_timing_bounds, sizeof(input.terrain_timing_bounds));
     if (input.terrain != nullptr) {
         add(input.terrain->frame_id.data(), input.terrain->frame_id.size());

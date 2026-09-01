@@ -717,7 +717,13 @@ bool TrotExperiment::BuildGaitTargets(
     terrain_plan_execution_adapter_.SetEnabled(stage_c_window);
     if (stage_c_window)
     {
-        const auto timed_plan = terrain_plan_store_.LoadUsable(adapter_now_s);
+        const bool bootstrap_dev =
+            Full2EnvDouble("TROT_TERRAIN_BOOTSTRAP_DEV", 0.0) > 0.5;
+        const auto timed_plan = bootstrap_dev &&
+                terrain_bootstrap_prearmed_plan_ &&
+                terrain_bootstrap_prearmed_plan_->usable_at(adapter_now_s)
+            ? terrain_bootstrap_prearmed_plan_
+            : terrain_plan_store_.LoadUsable(adapter_now_s);
         std::array<bool, go2::kLegCount> measured_support{};
         {
             std::lock_guard<std::mutex> lock(terrain_control_mutex_);
@@ -860,6 +866,31 @@ bool TrotExperiment::BuildGaitTargets(
             activate = go2_terrain::TerrainCrawlSequencer::TransferActivationReady(
                 *live_terrain_model, early_pose.base, early_pose.yaw_rad,
                 nominal_front_x);
+        }
+        if (activate &&
+            Full2EnvDouble("TROT_TERRAIN_BOOTSTRAP_DEV", 0.0) > 0.5)
+        {
+            const double bootstrap_now_s =
+                static_cast<double>(state_snapshot.tick()) * 1.0e-3;
+            const auto candidate =
+                terrain_plan_store_.LoadUsable(bootstrap_now_s);
+            const std::uint64_t candidate_plan_id =
+                terrain_bootstrap_candidate_plan_id_.load(
+                    std::memory_order_acquire);
+            const double measured_forward_speed = have_filtered_body_velocity_
+                ? std::abs(latest_filtered_body_velocity_[0])
+                : std::numeric_limits<double>::infinity();
+            activate = terrain_bootstrap_c0_ready_.load(
+                           std::memory_order_acquire) &&
+                candidate_plan_id != 0 && candidate &&
+                candidate->plan_id == candidate_plan_id &&
+                candidate->valid() && candidate->has_stage_c_timing &&
+                !candidate->v3_c_shadow &&
+                measured_forward_speed <= 0.05 &&
+                terrain_plan_execution_adapter_.IsLegalBoundary(
+                    bootstrap_now_s);
+            if (activate)
+                terrain_bootstrap_prearmed_plan_ = candidate;
         }
         if (activate)
         {

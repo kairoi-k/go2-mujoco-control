@@ -520,6 +520,10 @@ private:
     go2_terrain::TerrainPlanner terrain_planner_{};
     go2_terrain::TerrainPlanStore terrain_plan_store_{};
     go2_terrain::TerrainPlanExecutionAdapter terrain_plan_execution_adapter_{};
+    std::atomic<bool> terrain_bootstrap_c0_ready_{false};
+    std::atomic<std::uint64_t> terrain_bootstrap_candidate_plan_id_{0};
+    std::shared_ptr<const go2_terrain::TerrainMotionPlan>
+        terrain_bootstrap_prearmed_plan_;
     // Stage-C contact truth is filtered once, then fused only with bounded
     // last robust support. Planned masks never enter this safety state.
     go2_control::MeasuredContactFusion terrain_contact_fusion_{};

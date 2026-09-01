@@ -20,6 +20,7 @@
 #include "go2_inverse_kinematics.h"
 #include "motion_frame_utils.h"
 #include "full2_campaign_env.h"
+#include "terrain_bootstrap_c0.h"
 
 using namespace unitree::common;
 using namespace unitree::robot;
@@ -345,8 +346,15 @@ void TrotExperiment::UpdateTerrainRuntime()
     input.gait_period_s = control.gait_period_s;
     input.duty_factor = control.duty_factor;
     input.commanded_vx_mps = control.commanded_vx_mps;
+    const bool bootstrap_dev =
+        Full2EnvDouble("TROT_TERRAIN_BOOTSTRAP_DEV", 0.0) > 0.5;
+    input.bootstrap_pretransfer = bootstrap_dev &&
+        params_.stage_c_execution && params_.terrain_actuation &&
+        !params_.terrain_sensor_only &&
+        !control.terrain_transfer_window_active;
     input.has_stage_c_timing = params_.stage_c_execution &&
-        control.terrain_transfer_window_active;
+        (control.terrain_transfer_window_active ||
+         input.bootstrap_pretransfer);
     input.terrain_timing_bounds.current_period_s = input.gait_period_s;
     input.terrain_timing_bounds.current_duty_factor = input.duty_factor;
     input.terrain_timing_bounds.window_start_s = input.state_stamp_s;
@@ -559,6 +567,40 @@ void TrotExperiment::TerrainPlannerWorker()
                     built.model);
         }
         work.input.terrain = model.get();
+
+        bool bootstrap_c0_ready = false;
+        bool bootstrap_roi_ready = false;
+        if (work.input.bootstrap_pretransfer && model)
+        {
+            go2_terrain::TerrainBootstrapC0Input c0;
+            c0.terrain = model.get();
+            c0.feasibility = terrain_planner_.config().feasibility;
+            c0.current_feet_base = work.input.current_feet_base;
+            const auto body_velocity = go2_terrain::RotateWorldVectorToBase(
+                work.input.base_yaw_rad, work.input.base_velocity_world);
+            c0.forward_speed_mps = std::abs(body_velocity.x);
+            // Use the maximum permitted positive shaper acceleration as
+            // a conservative discrete-stop initial condition.
+            c0.forward_acceleration_mps2 =
+                params_.velocity_command_shaper.max_accel_mps2;
+            c0.forward_direction_sign = params_.direction_sign;
+            c0.shaper = params_.velocity_command_shaper;
+            c0.dt_s = dt_;
+            const auto c0_result = go2_terrain::EvaluateTerrainBootstrapC0(c0);
+            bootstrap_c0_ready = c0_result.readiness.valid();
+
+            const auto nominal_feet = go2::AllFootPositions(
+                task_.stand_up_joint_pos_);
+            const double nominal_front_x =
+                0.5 * (nominal_feet[0].x + nominal_feet[1].x);
+            bootstrap_roi_ready =
+                go2_terrain::TerrainCrawlSequencer::TransferActivationReady(
+                    *model, work.input.base_position_world,
+                    work.input.base_yaw_rad, nominal_front_x);
+        }
+        terrain_bootstrap_c0_ready_.store(
+            bootstrap_c0_ready, std::memory_order_release);
+
         const auto result = terrain_planner_.Build(work.input, work.plan_id);
         // Observer-only, opt-in machine-readable C-002 evidence. No shadow
         // field is copied into the legacy store or any control request.
@@ -929,6 +971,39 @@ void TrotExperiment::TerrainPlannerWorker()
                 terrain_velocity_cap_mps_.store(0.0);
                 terrain_safe_stop_requested_.store(true);
             }
+        }
+
+        if (work.input.bootstrap_pretransfer)
+        {
+            const auto prearmed = terrain_plan_store_.LoadUsable(
+                work.input.state_stamp_s);
+            const bool candidate_ready = bootstrap_roi_ready && prearmed &&
+                prearmed->valid() && prearmed->has_stage_c_timing &&
+                !prearmed->v3_c_shadow;
+            terrain_bootstrap_candidate_plan_id_.store(
+                candidate_ready ? prearmed->plan_id : 0,
+                std::memory_order_release);
+            if (candidate_ready)
+            {
+                terrain_velocity_cap_mps_.store(0.0);
+                terrain_safe_stop_requested_.store(false);
+            }
+            else if (bootstrap_c0_ready)
+            {
+                terrain_velocity_cap_mps_.store(
+                    std::numeric_limits<double>::infinity());
+                terrain_safe_stop_requested_.store(false);
+            }
+            else
+            {
+                terrain_velocity_cap_mps_.store(0.0);
+                terrain_safe_stop_requested_.store(true);
+            }
+        }
+        else
+        {
+            terrain_bootstrap_candidate_plan_id_.store(
+                0, std::memory_order_release);
         }
     }
 }
