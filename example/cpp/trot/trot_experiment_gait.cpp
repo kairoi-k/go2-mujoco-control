@@ -840,8 +840,13 @@ bool TrotExperiment::BuildGaitTargets(
         observation.boundary_id = static_cast<std::uint64_t>(
             state_snapshot.tick());
         observation.nonzero_request = std::abs(requested_speed) > 0.0;
-        const bool e1_motion_allowed =
+        bool e1_motion_allowed =
             terrain_plan_before_motion_gate_.OnCommandBoundary(observation);
+        if (e1_motion_allowed && params_.e1_p1_validate_only)
+        {
+            terrain_plan_before_motion_gate_.ValidateOnlyAfterArm();
+            e1_motion_allowed = false;
+        }
         if (!e1_motion_allowed)
         {
             locomotion_kernel_->SetStanceHold(true, gait_time_s);

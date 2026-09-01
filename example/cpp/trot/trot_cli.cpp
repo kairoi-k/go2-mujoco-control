@@ -36,6 +36,7 @@ void PrintTrotCliUsage()
            " [--gait-phase-offset fraction]"
            " [--terrain-sensor-only|--terrain-planner] [--stage-c-execution]"
            " [--e1-plan-before-motion]"
+           " [--e1-p1-validate-only]"
            " [--terrain-leg-order lateral|legacy]"
            " [--terrain-advance-body-before-second]"
            " [--impact-to-emergency-stop-delay s]"
@@ -119,6 +120,15 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.params.terrain_enabled = true;
                 cfg.params.terrain_sensor_only = true;
                 cfg.params.terrain_actuation = false;
+            }
+            else if (option == "--e1-p1-validate-only")
+            {
+                cfg.params.e1_p1_validate_only = true;
+                cfg.params.e1_plan_before_motion = true;
+                cfg.params.stage_c_execution = true;
+                cfg.params.terrain_enabled = true;
+                cfg.params.terrain_sensor_only = false;
+                cfg.params.terrain_actuation = true;
             }
             else if (option == "--e1-plan-before-motion")
             {
@@ -522,6 +532,8 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << (params.terrain_actuation ? "on" : "off") << "\n"
               << "  e1_plan_before_motion="
               << (params.e1_plan_before_motion ? "on" : "off") << "\n"
+              << "  e1_p1_validate_only="
+              << (params.e1_p1_validate_only ? "on" : "off") << "\n"
               << "  stage_c_execution="
               << (params.stage_c_execution ? "on" : "off") << "\n"
               << "  terrain_leg_order="
