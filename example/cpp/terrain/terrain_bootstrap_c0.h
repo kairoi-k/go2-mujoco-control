@@ -169,12 +169,19 @@ inline TerrainBootstrapC0Result EvaluateTerrainBootstrapC0(
         TerrainPatch patch;
         const auto &foot = input.current_feet_base[leg];
         if (!terrain->CoversPatch(
-                foot.x, foot.y, input.feasibility.foot_patch_radius_m) ||
-            !terrain->SamplePatch(
+                foot.x, foot.y, input.feasibility.foot_patch_radius_m))
+        {
+            out.reason = "local_patch_unavailable";
+            return out;
+        }
+        if (!terrain->SamplePatch(
                 foot.x, foot.y, input.feasibility.foot_patch_radius_m, patch) ||
             !patch.valid || !std::isfinite(patch.center_height_m))
         {
-            out.reason = "local_patch_unavailable";
+            // CoversPatch proved that the footprint lies inside the sensor
+            // window. A failed sample therefore means in-grid terrain is
+            // unknown/invalid, not that the observation window is absent.
+            out.reason = "local_patch_not_known_flat";
             return out;
         }
         reference_height[leg] = patch.center_height_m;
@@ -209,11 +216,18 @@ inline TerrainBootstrapC0Result EvaluateTerrainBootstrapC0(
             TerrainPatch patch;
             const double x = foot.x + dx;
             if (!terrain->CoversPatch(
-                    x, foot.y, input.feasibility.foot_patch_radius_m) ||
-                !terrain->SamplePatch(
-                    x, foot.y, input.feasibility.foot_patch_radius_m, patch))
+                    x, foot.y, input.feasibility.foot_patch_radius_m))
             {
                 out.reason = "swept_patch_unavailable";
+                return out;
+            }
+            if (!terrain->SamplePatch(
+                    x, foot.y, input.feasibility.foot_patch_radius_m, patch))
+            {
+                // Entirely unknown cells can make SamplePatch return false.
+                // The footprint is still inside the observed window, so this
+                // is a fail-closed known-flat failure rather than FOV loss.
+                out.reason = "swept_patch_not_known_flat";
                 return out;
             }
             out.minimum_map_edge_margin_m = std::min(
