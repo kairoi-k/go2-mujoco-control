@@ -8,6 +8,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mujoco_ver="${MUJOCO_VERSION:-3.3.6}"
 mujoco_dir="${HOME}/.mujoco/mujoco-${mujoco_ver}"
+mujoco_src_dir="${HOME}/.cache/mujoco-source-${mujoco_ver}"
 sdk2_src="${HOME}/.cache/unitree_sdk2"
 sdk2_prefix="${UNITREE_SDK2_PREFIX:-/opt/unitree_robotics}"
 
@@ -42,18 +43,36 @@ echo 'int main(){return 0;}' > /tmp/go2_env_cxx_smoke.cpp
 "${CXX}" /tmp/go2_env_cxx_smoke.cpp -o /tmp/go2_env_cxx_smoke
 rm -f /tmp/go2_env_cxx_smoke /tmp/go2_env_cxx_smoke.cpp
 
+mkdir -p "${HOME}/.mujoco" "${HOME}/downloads" "${HOME}/.cache"
 if [[ ! -d "${mujoco_dir}" ]]; then
-  mkdir -p "${HOME}/.mujoco" "${HOME}/downloads"
   archive="${HOME}/downloads/mujoco-${mujoco_ver}-linux-x86_64.tar.gz"
   wget -q \
     "https://github.com/google-deepmind/mujoco/releases/download/${mujoco_ver}/mujoco-${mujoco_ver}-linux-x86_64.tar.gz" \
     -O "${archive}"
   tar -xzf "${archive}" -C "${HOME}/.mujoco"
 fi
+
+# Release binaries provide include/ and lib/ but not the viewer sources that
+# this repository compiles directly. Hydrate exactly the matching tag's
+# simulate/ tree into the binary distribution before applying our pinned patch.
+if [[ ! -f "${mujoco_dir}/simulate/simulate.cc" ]]; then
+  src_archive="${HOME}/downloads/mujoco-${mujoco_ver}-source.tar.gz"
+  rm -rf "${mujoco_src_dir}"
+  mkdir -p "${mujoco_src_dir}"
+  wget -q \
+    "https://github.com/google-deepmind/mujoco/archive/refs/tags/${mujoco_ver}.tar.gz" \
+    -O "${src_archive}"
+  tar -xzf "${src_archive}" -C "${mujoco_src_dir}" --strip-components=1
+  test -f "${mujoco_src_dir}/simulate/simulate.cc"
+  rm -rf "${mujoco_dir}/simulate"
+  cp -a "${mujoco_src_dir}/simulate" "${mujoco_dir}/simulate"
+fi
+
 ln -sfn "${mujoco_dir}" "${repo_root}/simulate/mujoco"
 test -f "${repo_root}/simulate/mujoco/include/mujoco/mujoco.h"
+test -f "${repo_root}/simulate/mujoco/simulate/simulate.cc"
 # The simulator source calls the repository's passive render-snapshot seam.
-# A fresh upstream MuJoCo archive does not contain it, so bootstrap must apply
+# A fresh upstream source tree does not contain it, so bootstrap must apply
 # the pinned, idempotent repository patch before compiling simulate/.
 bash "${repo_root}/patches/apply_mujoco_passive_render_patch.sh"
 
