@@ -36,7 +36,20 @@ public:
     void ObserveWarmHold(bool captured_stand,bool zero_motion) noexcept { if(!enabled_||safe_stop()||motion_allowed())return; state_=(captured_stand&&zero_motion)?PlanBeforeMotionState::kReadyToArm:PlanBeforeMotionState::kWarmHold; }
     bool OnCommandBoundary(const PlanBeforeMotionObservation&o) {
         if(!enabled_) return true; if(safe_stop()) return false; if(!o.nonzero_request)return motion_allowed();
-        if(have_boundary_&&o.boundary_id==last_boundary_id_)return motion_allowed(); have_boundary_=true; last_boundary_id_=o.boundary_id;
+        if(have_boundary_&&o.boundary_id==last_boundary_id_)
+        {
+            if(motion_allowed() && !SamePlanBeforeMotionIdentity(
+                    o.published_identity, armed_identity_))
+                return Fail("replacement-identity-mismatch");
+            return motion_allowed();
+        }
+        if(motion_allowed())
+        {
+            if(!SamePlanBeforeMotionIdentity(o.published_identity, armed_identity_))
+                return Fail("replacement-identity-mismatch");
+            return true;
+        }
+        have_boundary_=true; last_boundary_id_=o.boundary_id;
         if(state_!=PlanBeforeMotionState::kReadyToArm)return Fail("warm-hold-not-ready");
         if(!o.map_valid||!o.coverage_valid)return Fail("map-or-coverage-not-ready");
         if(!o.filtered_measured_support_valid||Count(o.filtered_measured_support)<3)return Fail("filtered-measured-support-not-ready");

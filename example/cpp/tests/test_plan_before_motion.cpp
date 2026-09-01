@@ -52,6 +52,11 @@ int main()
         !Check(gate.motion_allowed(), "armed plan disallowed motion")) return 1;
     if (!Check(gate.OnCommandBoundary(Ready()),
                "duplicate boundary was not idempotent")) return 1;
+    auto armed_replacement = Ready(2);
+    armed_replacement.published_identity.plan_id++;
+    if (!Check(!gate.OnCommandBoundary(armed_replacement) && gate.safe_stop() &&
+                   gate.reason() == "replacement-identity-mismatch",
+               "replacement after arm was accepted")) return 1;
 
     auto mismatch = Ready(2);
     mismatch.adopted_identity.plan_epoch++;
