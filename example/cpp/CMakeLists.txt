@@ -141,6 +141,10 @@ add_executable(test_wbc_runtime_gate tests/test_wbc_runtime_gate.cpp)
 add_executable(test_lockstep_writer_gate tests/test_lockstep_writer_gate.cpp)
 go2_add_ctest(test_lockstep_writer_gate)
 
+# Order-109 verification-only state-synchronous motion clock (DDS-free).
+add_executable(test_lockstep_motion_clock tests/test_lockstep_motion_clock.cpp)
+go2_add_ctest(test_lockstep_motion_clock)
+
 add_executable(test_centroidal_wbc tests/test_centroidal_wbc.cpp)
 
 add_executable(test_preview_footstep_horizon tests/test_preview_footstep_horizon.cpp)

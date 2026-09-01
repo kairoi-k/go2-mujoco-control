@@ -26,6 +26,7 @@
 
 #include "go2_contact_torque_mapping.h"
 #include "contact_state_filter.h"
+#include "lockstep_motion_clock.h"
 #include "lockstep_writer_gate.h"
 #include "locomotion_kernel.h"
 #include "trot_task.h"
@@ -777,6 +778,8 @@ private:
     // state_seq the Order-107 ack carried). Flag-off: never engaged, so the
     // wall-clock writer loop is unchanged.
     lockstep_writer::WriterGate lockstep_writer_gate_;
+    // Order-109: authoritative motion elapsed time after lockstep handoff.
+    lockstep_motion::StateSynchronousClock lockstep_motion_clock_;
     std::uint32_t last_consumed_state_tick_ = 0;
     ChannelSubscriberPtr<unitree_go::msg::dds_::LowState_> lowstate_subscriber_;
     ChannelSubscriberPtr<unitree_go::msg::dds_::SportModeState_>

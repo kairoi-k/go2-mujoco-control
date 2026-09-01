@@ -1678,6 +1678,26 @@ double TrotExperiment::MotionClockStep(
     }
     }
 
+    // Order-109: after the established writer handoff, simulator state time
+    // is authoritative even when wall_clock_motion remains configured. The
+    // handoff rebase makes this one state delta continuous with running_time_;
+    // WriterGate has already rejected missing, reordered, or gapped ticks.
+    if (lockstep_ack_enabled_ && lockstep_writer_gate_.Engaged())
+    {
+        double state_synchronous_dt = 0.0;
+        if (lockstep_motion_clock_.Step(
+                state_snapshot.tick(), state_synchronous_dt))
+        {
+            motion_dt = state_synchronous_dt;
+            motion_clock_paused = false;
+        }
+        else
+        {
+            motion_dt = 0.0;
+            motion_clock_paused = true;
+        }
+    }
+
     last_motion_dt_s_ = motion_dt;
     last_state_tick_gap_s_ = state_tick_gap;
     last_clock_paused_ = state_clock_paused;

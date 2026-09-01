@@ -345,7 +345,13 @@ bool TrotExperiment::Init()
             if (lockstep_ack_enabled_ && lockstep_epoch_valid_)
             {
                 if (!lockstep_writer_gate_.Engaged())
+                {
                     lockstep_writer_gate_.Engage(last_consumed_state_tick_);
+                    // Rebase the motion clock at the exact handoff tick so
+                    // the first gated update advances time once, not twice
+                    // (or zero times) across the writer transition.
+                    lockstep_motion_clock_.Engage(last_consumed_state_tick_);
+                }
                 const lockstep_writer::WaitResult wait =
                     lockstep_writer_gate_.WaitForTick([this]() {
                         return writer_stop_.load() || finished_.load();
