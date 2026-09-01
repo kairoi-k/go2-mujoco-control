@@ -1,0 +1,68 @@
+{
+  "order": "112-diagnostic",
+  "criterion": "C-007 diagnostic probe",
+  "evidence_class": "development-only diagnosis; not acceptance",
+  "source_sha": "54561c0e021493a0c450415ff986c81a68fbd057",
+  "branch": "phase2-b1-b3",
+  "git_dirty_required": false,
+  "scene": "unitree_robots/go2/phase2_step_5cm.xml",
+  "config": "example/cpp/configs/phase2_b1_velocity_0p3.csv",
+  "seed": 11,
+  "artifacts": {
+    "unitree_robots/go2/phase2_step_5cm.xml": {
+      "sha256": "ab2106afe65c86827aae02158e3b35b5ebb61e2b14d3665ddbd7c971e7573b0e",
+      "bytes": 619
+    },
+    "example/cpp/configs/phase2_b1_velocity_0p3.csv": {
+      "sha256": "61c260defafa21ef5c171380a4b93e972c59af34071e9e8f5dcf0b9f2b26190e",
+      "bytes": 76
+    },
+    "example/cpp/scripts/run_trot.sh": {
+      "sha256": "12fee43fc35283bba5b59119cc79f77bc2ad2386e765abdc908a0a4f6d3728c0",
+      "bytes": 26907
+    },
+    "example/cpp/build/real_trot_go2": {
+      "sha256": "0f4e88422af4fd6584cd95c9d0b7ad2494706e1ed95f01e43dc96162f142d6df",
+      "bytes": 4521160
+    },
+    "simulate/build/unitree_mujoco": {
+      "sha256": "52df364581d50aaf2324312922a15d676147b17058d8171bbc00a51d3a5d8f25",
+      "bytes": 5040256
+    },
+    "example/cpp/tools/analysis/analyze_actual_fk_crossing.py": {
+      "sha256": "88b4d4bf47c626ced0dbcd6580cf6d877166a1971475f848c38fc714cdbd72d8",
+      "bytes": 20820
+    },
+    "example/cpp/tools/analyze_phase2_terrain.py": {
+      "sha256": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873",
+      "bytes": 26087
+    },
+    "example/cpp/scripts/analyze_phase1_velocity.py": {
+      "sha256": "060a3d92a03e0d0228a53e55cb00d0452d7c8353948d729b71a71c406e9d2916",
+      "bytes": 17836
+    },
+    "example/cpp/tools/analyze_phase2_b0.py": {
+      "sha256": "0d5ec9956dd345ce0aabf8333fbcca7ea7d4117011fd9f50c73505c2c68ed8c7",
+      "bytes": 12179
+    },
+    "docs/research/PHASE2_B1_ACCEPTANCE_CONTRACT.md": {
+      "sha256": "a4c38934382efca13883d367ada78e327013e637a256ec16f5d7bec5462b18f6",
+      "bytes": 4062
+    },
+    "docs/research/PHASE2_B123_ACCEPTANCE_CONTRACT_V2.md": {
+      "sha256": "cfadd533657ebb2fa42f1452d62a8a3064199c003888a3d9704f8ecc5367e897",
+      "bytes": 2753
+    }
+  },
+  "execution": {
+    "stage_c": "v2 only",
+    "crawl": "fallback only",
+    "v3_c": "off",
+    "sim_lock": "runner DDS domain flock plus simulator lifecycle lock",
+    "wall_timeout_s": 60,
+    "controller_duration_s": 30,
+    "domain_id": 232
+  },
+  "command": "TROT_SEED=11 TROT_TERRAIN_SHADOW_DIAGNOSTICS=1 bash example/cpp/scripts/run_trot.sh 60 order112_c007_diagnostic --headless --wall-clock-motion --wbc-full --gait-pattern running-trot --kernel raibert-trot --period 0.50 --duty 0.75 --step-length 0.15 --foot-lift 0.08 --tau-limit 45 --velocity-max-accel 0.80 --velocity-max-decel 1.20 --velocity-max-jerk 4.0 --velocity-command-script example/cpp/configs/phase2_b1_velocity_0p3.csv --terrain-planner --stage-c-execution --phase2-milestone B1 --domain-id 232 --scene-file unitree_robots/go2/phase2_step_5cm.xml --controller-duration 30",
+  "stop_rule": "stop on first failure; no rerun or tuning"
+}

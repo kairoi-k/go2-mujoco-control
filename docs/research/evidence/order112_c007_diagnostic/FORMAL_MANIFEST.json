@@ -1,0 +1,11 @@
+{
+  "order": "112-diagnostic",
+  "source_sha": "54561c0e021493a0c450415ff986c81a68fbd057",
+  "probe_status": "probe_exit_status=1",
+  "ctest_status": "example_cpp_ctest_exit=0\nsimulate_ctest_exit=0",
+  "bundle_path": "C:/Workspace/tmp/order112_diagnosis_bundle",
+  "diagnosis_sha256": "e794c975f3335b14635209cd13896d8afeca40205d88f104edb3a6e3a5fc89eb",
+  "first_causal_subgate_sha256": "e04f1a630b6ad9494b541b18b1d132a80710627177d3a070463df085ef400c49",
+  "map_epoch_witness_sha256": "7949660f243d1c941baeb5b415e2fae2af1b3a31b2663514a7aa1234e65d704f",
+  "no_rerun": true
+}
