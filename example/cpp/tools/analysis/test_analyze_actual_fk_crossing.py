@@ -96,6 +96,8 @@ class ActualFkCrossingTest(unittest.TestCase):
                 writer.writerow({"time_s": "9", "phase2_terrain_foot_contact_mask": "0"})
             report = actual_fk.analyze(data, gt)
         self.assertEqual(report["gt_time_quality"]["duplicates"], 1)
+        self.assertTrue(report["gt_time_quality"]["input_nonmonotonic"])
+        self.assertTrue(report["gt_time_quality"]["sorted_non_decreasing"])
         self.assertEqual(report["gt_alignment"]["status"], "unavailable")
         self.assertGreater(report["gt_alignment"]["unmatched"], 0)
         self.assertEqual(report["phases"]["front_ascent_first_touchdown"]["contact_witness_status"], "observed")
