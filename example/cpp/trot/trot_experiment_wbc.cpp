@@ -313,8 +313,12 @@ void TrotExperiment::UpdateWbcFull(
     // Gait and MPC consume the same adopted immutable snapshot. During the
     // v2 Stage-C window do not reload a newer store value behind gait's back;
     // an absent/expired adopted plan is a measured-support fallback.
+    const bool bootstrap_c0_owner =
+        Full2EnvDouble("TROT_TERRAIN_BOOTSTRAP_DEV", 0.0) > 0.5 &&
+        params_.stage_c_execution && !stage_c_window;
     const auto terrain_contact_plan =
-        params_.terrain_actuation && !params_.terrain_sensor_only
+        params_.terrain_actuation && !params_.terrain_sensor_only &&
+                !bootstrap_c0_owner
             ? (stage_c_window
                    ? (terrain_plan_execution_adapter_.using_plan() &&
                       terrain_plan_execution_adapter_.adopted_plan() &&
