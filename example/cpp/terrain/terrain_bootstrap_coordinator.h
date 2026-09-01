@@ -171,6 +171,13 @@ public:
                 owner_ = TerrainBootstrapOwner::kC0;
                 return Brake("armed_identity_missing");
             }
+            if (!input.c1.coherent_with(armed_plan_))
+            {
+                state_ = TerrainBootstrapState::kBrakeHold;
+                owner_ = TerrainBootstrapOwner::kC0;
+                armed_plan_ = {};
+                return Brake("c1_certificate_lost");
+            }
             if (input.crossing_complete)
             {
                 state_ = TerrainBootstrapState::kHold;
