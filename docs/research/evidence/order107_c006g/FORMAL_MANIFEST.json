@@ -1,0 +1,79 @@
+{
+  "order": "107",
+  "purpose": "C-006g formal manifest - exact-committed-SHA causal lockstep verification runs at approved commit e65e155 (Order-107: bind ack to the exact LowCmd across DDS topics)",
+  "tested_source_sha": "e65e155b0a5fb5789337b76b1b7201735e626223",
+  "preregistered_at": "2026-09-01T09:58:00+0800",
+  "result": {
+    "canary": "PIVOT - protocol clean on both members; authoritative controller gates failed (hard posture safety stop; robot flipped on both members). Full {state_seq, lockstep_command_seq} protocol: 0 violations, fail_closed=0, exact dt=2 ms, every exchange trigger kAckMatched(3), per-tick ack_state_seq==published tick, ack_cmd_seq resolves to an EXACT arrival (ack_cmd_seq==cmd_seq_at_ready, never >ready, never 0), no SIM_LOCKSTEP_FAIL_CLOSED in either simulator.log. The Order-106 ack-state-only fail-open (reviewer P2) is fixed. The canary fails the controller lifecycle/analyzer gates (posture flip) on both members - Order-107 pivot rule applies: verification infrastructure complete, protocol work stopped.",
+    "holdout_pairs_run": 0,
+    "holdout_pairs_pass": 0,
+    "required_3_of_3": "NOT ATTEMPTED - Order-107 pivot rule applied: authoritative controller gate failure at canary with zero protocol violations; protocol work stopped",
+    "stop_rule_applied": "Order-107 pivot: full {state_seq, command_seq} canary has zero protocol violations yet authoritative controller gate failed (hard posture limit, robot flipped on both members). Declared verification infrastructure complete; stopped protocol work. No holdout pairs, no replacement, no rerun, no tuning, no threshold/config/code/analyzer/contract edit.",
+    "ctests": "simulate ctest 2/2 PASS; example ctest 28/28 PASS (dev-suite evidence of coverage gap, not a substitute gate)"
+  },
+  "members": {
+    "canary_baseline": {
+      "run_dir": "example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_095853_baseline",
+      "domain_id": "222",
+      "git_head": "e65e155b0a5fb5789337b76b1b7201735e626223",
+      "git_dirty": "false",
+      "hashes": {
+        "simulator_sha256": "52df364581d50aaf2324312922a15d676147b17058d8171bbc00a51d3a5d8f25",
+        "controller_sha256": "062c397b964b24d4a127e1913ad550b51897240f2d7abefe8d4f0e84a2a9fc21",
+        "scenario_sha256": "12286418247d0e240ae131b5ae5c60f3a7a481d4754aefe4517476e937aa05b8",
+        "phase2_b0_analyzer_sha256": "0d5ec9956dd345ce0aabf8333fbcca7ea7d4117011fd9f50c73505c2c68ed8c7",
+        "phase2_fixed_3mps_analyzer_sha256": "39bc8b24774766c3800c053effe4804287ab2cb59e94ec9ff250edd0ab540f53",
+        "phase2_b123_analyzer_sha256": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873",
+        "phase2_b0_contract_sha256": "2a00da526253dd3755fa6c469aa18a4e9ee2dba0f17762a55068cd10aee61dd6",
+        "phase2_b123_contract_sha256": "ce18f0214240612fbfb54221e2621d88e363375dc796e2afa6e78dd3ca51d914",
+        "phase2_b1_contract_sha256": "a4c38934382efca13883d367ada78e327013e637a256ec16f5d7bec5462b18f6"
+      },
+      "lockstep_trace": {
+        "rows": 9707,
+        "intervals": 9707,
+        "violations": 0,
+        "fail_closed": 0,
+        "dt_ms": 2,
+        "trigger": "kAckMatched(3) on every lockstep row (9706/9706); per-tick ack_state_seq==sim_tick_ms (0 mismatches); ack_cmd_seq==cmd_seq_at_ready exact arrival (0 zero, 0 > ready)"
+      },
+      "controller_failure": "Trot hard posture limit (pitch=22.27 deg, roll=-4.43 deg, deviation_limit=0.384 rad) at ~35 s; hard safety limit reached; stopping. final_angle_deg=171.448.",
+      "analyzer": "FAIL - validation=FAIL; safety_status=1, completion_status=1; cycle_health_count=211, speed_median=3.311 m/s, stop_start_s=34.928, good_speed_window_s=11.716, final_angle_deg=171.448",
+      "ground_truth": "PASS (rows=21363, span 42.7 s, negative contact 0)",
+      "dynamics": "PASS (force-balance p95 within 20 N)",
+      "canary_comparator": "FAIL (diagnostic) - lockstep segment dz p95 0.2474 m, dpitch p95 4.146 deg, droll p95 156.652 deg (robot flipped in lockstep segment); startup segment tracked (dz p95 0.0078 m, dpitch 0.186 deg, droll 0.003 deg). Segment comparison is not the failure gate; the authoritative lifecycle/analyzer gate failed.",
+      "publish_consumer_actuation": "not evaluable as a PASS gate (baseline member has no terrain telemetry); terrain member counters all 0 below"
+    },
+    "canary_terrain": {
+      "run_dir": "example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_095853_terrain",
+      "domain_id": "223",
+      "git_head": "e65e155b0a5fb5789337b76b1b7201735e626223",
+      "git_dirty": "false",
+      "hashes": {
+        "simulator_sha256": "52df364581d50aaf2324312922a15d676147b17058d8171bbc00a51d3a5d8f25",
+        "controller_sha256": "062c397b964b24d4a127e1913ad550b51897240f2d7abefe8d4f0e84a2a9fc21",
+        "scenario_sha256": "12286418247d0e240ae131b5ae5c60f3a7a481d4754aefe4517476e937aa05b8",
+        "phase2_b0_analyzer_sha256": "0d5ec9956dd345ce0aabf8333fbcca7ea7d4117011fd9f50c73505c2c68ed8c7",
+        "phase2_fixed_3mps_analyzer_sha256": "39bc8b24774766c3800c053effe4804287ab2cb59e94ec9ff250edd0ab540f53",
+        "phase2_b123_analyzer_sha256": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873",
+        "phase2_b0_contract_sha256": "2a00da526253dd3755fa6c469aa18a4e9ee2dba0f17762a55068cd10aee61dd6",
+        "phase2_b123_contract_sha256": "ce18f0214240612fbfb54221e2621d88e363375dc796e2afa6e78dd3ca51d914",
+        "phase2_b1_contract_sha256": "a4c38934382efca13883d367ada78e327013e637a256ec16f5d7bec5462b18f6"
+      },
+      "lockstep_trace": {
+        "rows": 4789,
+        "intervals": 4789,
+        "violations": 0,
+        "fail_closed": 0,
+        "dt_ms": 2,
+        "trigger": "kAckMatched(3) on every lockstep row (4788/4788); per-tick ack_state_seq==sim_tick_ms (0 mismatches); ack_cmd_seq==cmd_seq_at_ready exact arrival (0 zero, 0 > ready)"
+      },
+      "controller_failure": "Trot hard posture limit (pitch=22.35 deg, roll=0.81 deg) at ~10 s sim time; hard safety limit reached; stopping. final_angle_deg=178.619.",
+      "analyzer": "FAIL - validation=FAIL; safety_status=1, completion_status=1; cycle_health_count=82<100, speed_median=2.776 m/s, stop_start_s=16.870, good_speed_window_s=2.260, final_angle_deg=178.619",
+      "ground_truth": "PASS (rows=21363, span 42.7 s, negative contact 0)",
+      "dynamics": "PASS (force-balance p95 within 20 N)",
+      "canary_comparator": "FAIL (diagnostic) - lockstep segment dz p95 0.2900 m, dpitch p95 16.629 deg, droll p95 178.331 deg (robot flipped in lockstep segment); startup segment tracked (dz p95 0.0000 m, dpitch 0.004 deg, droll 0.000 deg). Segment comparison is not the failure gate; the authoritative lifecycle/analyzer gate failed.",
+      "b0_analyzer": "FAIL - acceptance_status=FAIL; fixed_3mps_analyzer=false, paired_baseline_lifecycle=false (safety_status=1); contract hash, analyzer hash, lidar-only provenance, no_plan_publish/consumer, no_terrain_actuation, planner_does_not_safe_stop all true; terrain_map_valid_fraction=0.9998, planner_updates=395, deadline_misses=0",
+      "publish_consumer_actuation": "all 0 on every terrain row (terrain_plan_published, terrain_plan_consumed, terrain_gait_target_overrides, terrain_mpc_plan_consumed, terrain_has_stage_c_timing, wbc_terrain_planned_contact_mask, terrain_execution_adapter_updates)"
+    }
+  }
+}

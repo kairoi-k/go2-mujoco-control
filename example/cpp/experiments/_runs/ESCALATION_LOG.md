@@ -5086,3 +5086,36 @@ artifacts: |
 rollback: |
   No runtime change. Stage-C flags off. 97c766a tested and recorded; prior
   verified SHAs 2b3bc5d remain. Do not advance C-007/B1.
+
+---
+timestamp: 2026-09-01T10:01:00+08:00
+run_id: phase2_b0_lockstep_development_fixed_3mps_r0_20260901_095853
+trigger: T1 (authoritative controller gate failure; Order-107 pivot rule applied)
+signature: canary PIVOT; full {state_seq,command_seq} protocol clean on both members (violations=0 fail_closed=0 dt=2ms kAckMatched(3) on every exchange, per-tick ack_state_seq==tick, ack_cmd_seq==cmd_seq_at_ready exact arrival, no SIM_LOCKSTEP_FAIL_CLOSED); controller hard posture limit on both members (baseline flip final_angle_deg=171.448 stop_start_s=34.928 cycle_health=211 speed_median=3.311; terrain flip final_angle_deg=178.619 stop_start_s=16.870 cycle_health=82 speed_median=2.776); B0 FAIL (fixed_3mps=false, paired_baseline_lifecycle=false); tests 28/28 + 2/2 PASS; SHA e65e155 clean
+evidence:
+  controller_log_baseline: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_095853_baseline/controller.log
+  controller_log_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_095853_terrain/controller.log
+  trace_baseline: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_095853_baseline/lockstep_trace.csv
+  trace_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_095853_terrain/lockstep_trace.csv
+  run_manifest_baseline: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_095853_baseline/run_manifest.json
+  run_manifest_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_095853_terrain/run_manifest.json
+  b0_analyzer_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_095853_terrain/b0_analyzer.json
+git_status: clean (0 changed files; evidence docs committed separately)
+suggestion: |
+  Order-107 pivot rule applied: the full {state_seq, command_seq} canary has
+  zero protocol violations (the Order-106 reviewer-P2 fail-open is fixed -
+  ack_cmd_seq resolves to the exact arrival on every exchange) yet the
+  authoritative controller gate fails (posture flip) on both members at exact
+  SHA e65e155. Verification infrastructure declared complete; protocol work
+  stopped; no holdout pairs, no rerun, no tuning, no B1/threshold change.
+  Next order must repair inherited Phase-1 controller robustness under
+  deterministic scheduling without weakening B0. Decision required before
+  C-007/B1.
+artifacts: |
+  docs/research/evidence/order107_c006g/PREREGISTERED_MANIFEST.json
+  docs/research/evidence/order107_c006g/FORMAL_MANIFEST.json
+  docs/research/evidence/order107_c006g/SUMMARY.md
+  docs/research/evidence/order107_c006g/WILSON.json
+rollback: |
+  No runtime change. Stage-C flags off. e65e155 tested and recorded; prior
+  verified SHAs 2b3bc5d remain. Do not advance C-007/B1.
