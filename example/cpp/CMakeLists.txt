@@ -216,6 +216,12 @@ add_executable(test_terrain_interfaces tests/test_terrain_interfaces.cpp)
 target_link_libraries(test_terrain_interfaces unitree_sdk2)
 go2_add_ctest(test_terrain_interfaces)
 
+# Order-119: fallback must overwrite any terrain-mutated gait parameters while
+# remaining outside the timed terrain execution channel.
+add_executable(test_terrain_plan_fallback tests/test_terrain_plan_fallback.cpp)
+target_link_libraries(test_terrain_plan_fallback unitree_sdk2)
+go2_add_ctest(test_terrain_plan_fallback)
+
 add_executable(analyze_contact_torque_replay tools/analysis/analyze_contact_torque_replay.cpp)
 target_include_directories(analyze_contact_torque_replay PRIVATE ${GO2_CPP_INCLUDE_DIRS})
 target_link_libraries(analyze_contact_torque_replay Eigen3::Eigen)
