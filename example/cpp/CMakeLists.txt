@@ -227,6 +227,12 @@ go2_add_ctest(test_terrain_plan_fallback)
 add_executable(test_terrain_bootstrap_coordinator tests/test_terrain_bootstrap_coordinator.cpp)
 go2_add_ctest(test_terrain_bootstrap_coordinator)
 
+# Generic C0 envelope: current-foot corridors must remain known/flat through
+# the production shaper's discrete stopping distance. End-to-end latency is
+# intentionally left as a later certification obligation.
+add_executable(test_terrain_bootstrap_c0 tests/test_terrain_bootstrap_c0.cpp)
+go2_add_ctest(test_terrain_bootstrap_c0)
+
 add_executable(analyze_contact_torque_replay tools/analysis/analyze_contact_torque_replay.cpp)
 target_include_directories(analyze_contact_torque_replay PRIVATE ${GO2_CPP_INCLUDE_DIRS})
 target_link_libraries(analyze_contact_torque_replay Eigen3::Eigen)
