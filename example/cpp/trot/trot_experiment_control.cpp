@@ -1115,8 +1115,8 @@ void TrotExperiment::TestPrepareMotionClock(std::uint32_t handoff_tick)
     InitLowCmd();
     suppress_lowcmd_publish_for_test_ = true;
     lockstep_ack_enabled_ = true;
-    lockstep_writer_gate_.Engage(handoff_tick);
-    lockstep_motion_clock_.Engage(handoff_tick);
+    last_consumed_state_tick_ = handoff_tick;
+    EngageLockstepWriterIfNeeded();
     // Keep the production gait/timer consumers active for the call-chain
     // probe; these are existing controller fields, not test-time clocks.
     task_.gait_started_ = true;

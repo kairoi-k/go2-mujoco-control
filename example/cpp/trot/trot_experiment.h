@@ -137,6 +137,7 @@ private:
     void LowStateMessageHandler(const void *message);
     void HighStateMessageHandler(const void *message);
     void LowCmdWrite();
+    void EngageLockstepWriterIfNeeded();
     bool UpdateWbcShadowAndTorqueFf(
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
         bool have_state,

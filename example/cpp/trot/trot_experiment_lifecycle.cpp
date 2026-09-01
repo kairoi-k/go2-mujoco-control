@@ -344,14 +344,7 @@ bool TrotExperiment::Init()
             // lifecycle below is unchanged.
             if (lockstep_ack_enabled_ && lockstep_epoch_valid_)
             {
-                if (!lockstep_writer_gate_.Engaged())
-                {
-                    lockstep_writer_gate_.Engage(last_consumed_state_tick_);
-                    // Rebase the motion clock at the exact handoff tick so
-                    // the first gated update advances time once, not twice
-                    // (or zero times) across the writer transition.
-                    lockstep_motion_clock_.Engage(last_consumed_state_tick_);
-                }
+                EngageLockstepWriterIfNeeded();
                 const lockstep_writer::WaitResult wait =
                     lockstep_writer_gate_.WaitForTick([this]() {
                         return writer_stop_.load() || finished_.load();
@@ -380,6 +373,17 @@ bool TrotExperiment::Init()
         }
     });
     return true;
+}
+
+// The writer and the integration probe share this production handoff.
+void TrotExperiment::EngageLockstepWriterIfNeeded()
+{
+    if (lockstep_writer_gate_.Engaged())
+        return;
+    lockstep_writer_gate_.Engage(last_consumed_state_tick_);
+    // Rebase the motion clock at the exact handoff tick so the first gated
+    // update advances time once, not twice (or zero times) across transition.
+    lockstep_motion_clock_.Engage(last_consumed_state_tick_);
 }
 
 // --- TrotExperiment::Shutdown ---
