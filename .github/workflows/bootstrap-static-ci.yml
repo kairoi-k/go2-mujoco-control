@@ -6,6 +6,10 @@ on:
       - assistant/bootstrap-static-fixes-20260902
   workflow_dispatch:
 
+concurrency:
+  group: bootstrap-static-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-ctest:
     runs-on: ubuntu-latest
