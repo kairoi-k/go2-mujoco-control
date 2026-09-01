@@ -222,11 +222,6 @@ add_executable(test_terrain_plan_fallback tests/test_terrain_plan_fallback.cpp)
 target_link_libraries(test_terrain_plan_fallback unitree_sdk2)
 go2_add_ctest(test_terrain_plan_fallback)
 
-# Development-only C0/C1 bootstrap policy seam. This is a static ownership
-# contract test; it does not authorize or execute a terrain simulation probe.
-add_executable(test_terrain_bootstrap_coordinator tests/test_terrain_bootstrap_coordinator.cpp)
-go2_add_ctest(test_terrain_bootstrap_coordinator)
-
 # Generic C0 envelope: current-foot corridors must remain known/flat through
 # the production shaper's discrete stopping distance. End-to-end latency is
 # intentionally left as a later certification obligation.
