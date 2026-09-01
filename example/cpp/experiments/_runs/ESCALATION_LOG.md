@@ -5210,3 +5210,47 @@ rollback: |
 acceptance: |
   E1 prototype route frozen and cleaned to the 4ed0157 baseline. Append-only
   closure recorded.
+---
+timestamp: 2026-09-01T20:00:00+0800
+run_id: Order-115 Stage-C bootstrap architecture (DESIGN ONLY)
+source_sha: 3eacac1 (clean baseline after Order-114 E1 freeze)
+trace: |
+  Order-114 E1 prototype route is frozen and behavior surfaces restored to
+  4ed0157 at 3eacac1; the old Stage-C live route remains frozen as failed.
+  The only formally certifiable C006 baseline is order109b at 5b95e82
+  (canary + 3/3 holdout PASS, 31/31 + 2/2 ctest); the early wall-clock B0
+  failures (e65e155/3273bd5, cmd_time 1.4-2x sim) are residual risk only.
+  Oracle approved a dual-certificate C0/C1 architecture over BRH: C0 unlocks
+  certified local observation motion (known flat + swept volume + Dstop);
+  C1 locks timed contact transition execution. Deadlock resolution: C0 never
+  waits for C1; C0 failure brakes within viability first; C1 takes over only
+  once full ROI / Family-A / exact-ack are ready. Rejected: strict E1
+  full-plan-before-approach (observation deadlock), bare BRH, discrete
+  perception maneuvers, replay, NMPC.
+architecture: |
+  State machine HOLD->LOCAL_CERT_READY->APPROACH->OBSERVE_HOLD->
+  TRANSITION_PLAN_BUILD/PUBLISH/ADOPT->CROSSING; C0 failure prioritizes
+  BRAKE_HOLD. Readiness split: C0 local readiness vs C1 full-ROI/Family-A/
+  exact-ack readiness. Safety invariants: C0 never crosses the viability
+  boundary; C1 never crosses without full ROI and independent ack;
+  planned/measured separated, V3-C off, crawl fallback-only. Active
+  perception: continuous C0 bounded approach->OBSERVE_HOLD warming ROI;
+  discrete scripts and unknown probing forbidden.
+prototype_and_probes: |
+  One dual-certificate paper trace; P0 warm-map causality, P1 actual-FK
+  measurement-only chain, P2 static interface review. Not implemented, not
+  simulated, zero probes consumed.
+evidence_limits: |
+  Formal C006 is order109b/5b95e82 only. ROI warm-map causality, Dstop
+  budget, and consumer exact-ack remain future proof obligations.
+implementation: |
+  None. This order writes docs/research/PHASE2_STAGE_C_BOOTSTRAP_ARCHITECTURE.md
+  (DESIGN ONLY / NOT AUTHORIZED) and this append-only escalation record only.
+probe_validation: |
+  Zero simulator probes consumed in this documentation closure.
+rollback: |
+  No runtime change. All Stage-C execution flags stay off. 3eacac1 remains
+  the frozen baseline; prior verified SHA 5b95e82 remains the C006 reference.
+acceptance: |
+  Design document written; non-docs/_runs diff is zero; commit and push clean;
+  bundle delivered to C:\Workspace\tmp\order115_design_bundle.
