@@ -38,6 +38,23 @@ replace_once(
     "                       work.input.nominal_feet_base[1].x);",
 )
 
+# Publishing a pre-transfer candidate into the shared plan store is only an
+# ownership handoff mechanism. While C0 still owns locomotion, WBC must not
+# consume that candidate's contact schedule before the adapter has adopted it.
+replace_once(
+    "example/cpp/trot/trot_experiment_wbc.cpp",
+    "    const auto terrain_contact_plan =\n"
+    "        params_.terrain_actuation && !params_.terrain_sensor_only\n"
+    "            ? (stage_c_window",
+    "    const bool bootstrap_c0_owner =\n"
+    "        Full2EnvDouble(\"TROT_TERRAIN_BOOTSTRAP_DEV\", 0.0) > 0.5 &&\n"
+    "        params_.stage_c_execution && !stage_c_window;\n"
+    "    const auto terrain_contact_plan =\n"
+    "        params_.terrain_actuation && !params_.terrain_sensor_only &&\n"
+    "                !bootstrap_c0_owner\n"
+    "            ? (stage_c_window",
+)
+
 # This test must remain effective under the project's Release CMake build.
 replace_once(
     "example/cpp/tests/test_terrain_bootstrap_c0.cpp",
