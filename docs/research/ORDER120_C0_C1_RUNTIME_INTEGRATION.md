@@ -12,4 +12,6 @@ The transfer window can arm only after the measured body speed has settled to <=
 
 Follow-up review caught two static defects before runtime authorization: the valid stop-distance accumulator inherited its invalid infinity sentinel, and the Release CMake build compiled away the C0 test's assertions. The accumulator now starts from zero after input validation, the C0 test explicitly re-enables assertions in Release, and the planner worker uses the already-copied nominal-foot snapshot instead of reading TrotTask-owned storage.
 
+A further ownership audit found that WBC historically loaded any usable plan from the shared store outside the Stage-C transfer window. Because bootstrap deliberately publishes a C1 candidate before handoff, that would have leaked a future contact schedule into Phase-1/C0 ownership. Bootstrap mode now explicitly suppresses store-plan consumption in WBC until the transfer window is active; after activation it uses the adapter's adopted immutable plan as before.
+
 This is still only a development bootstrap gate. End-to-end sensor/queue/actuation/halt latency certification and a 5 cm dynamic probe remain separate obligations. The next gate is remote build/CTest; if clean, no further generic observer/infrastructure work is authorized before the bounded 5 cm development probe.
