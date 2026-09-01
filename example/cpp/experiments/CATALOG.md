@@ -27,6 +27,10 @@ Depending on the experiment, a directory may contain configuration snapshots, CS
 
 The exact `66dc3e8` head was independently revalidated on 2026-08-24 with three additional passes. The compact manifest is [`../../../docs/validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md`](../../../docs/validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md); raw `_runs/` output remains disposable and ignored.
 
+## C-007 development evidence — actual FK crossing
+
+`analyze_actual_fk_crossing.py` is a harness-only analyzer. It recomputes Go2 world FK from state tick, measured base pose/orientation, and the 12 measured joint positions, then uses only measured contact masks/forces and frozen 5 cm geometry for phase evidence. It reports missing/ambiguous phases and is not a frozen acceptance gate. Historical replay IDs: `order095_b1_shadow_u2`, `order095_b1_shadow_0`, `order096_b1_shadow_3`, `order096_b1_shadow_6`, and `order095_b1_shadow_u3`.
+
 ## Adding a new experiment
 
 Use [`../../../docs/EXPERIMENT_TEMPLATE.md`](../../../docs/EXPERIMENT_TEMPLATE.md). Record the question, exact intervention, held-fixed conditions, configuration, seed, protocol/metric semantics, artifact paths, result, and bounded interpretation.

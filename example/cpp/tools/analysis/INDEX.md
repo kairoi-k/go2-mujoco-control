@@ -12,5 +12,6 @@
 | `analyze_fullbody_wbc_replay.py`, `analyze_rate_aware_fallback.py`, `analyze_replay_torque_continuity.py`, `analyze_sequence_constrained_shadow.py`, `analyze_torque_rate_limit_shadow.py`, `analyze_torque_rate_limit_wrench_shadow.py`, `analyze_wbc_fallback_policy.py`, `analyze_wbc_task_features.py`, `analyze_wbc_torque_replay.py`, `analyze_wbc_wrench_components.py` | WBC/MPC replay and controller diagnostics | Current/supporting | Yes, only as declared replay/diagnostic evidence |
 | `perturb_ground_truth_orientation.py`, `perturb_replay_input.py`, `replay_rate_aware_state_machine.py`, `plot_lowcmd_lowstate_tracking.py` | Historical replay/perturbation tooling | Historical/diagnostic | No for new acceptance; preserve for provenance |
 | `analyze_acceleration_consistent_task_target.py`, `analyze_hold_candidate.py`, `analyze_perturbation_robustness.py` | Exploratory task and robustness probes | Historical/supporting | No without a new protocol owner and review |
+| `analyze_actual_fk_crossing.py` | C-007 harness-only measured FK crossing evidence | Development-only | No; never replaces frozen acceptance analyzers |
 
 When adding an analyzer, update this index and the experiment catalog in the same PR. Never rename old analyzer paths merely for cleanup.
