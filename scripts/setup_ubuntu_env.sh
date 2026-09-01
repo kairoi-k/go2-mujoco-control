@@ -20,6 +20,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
   libstdc++-14-dev \
   cmake \
   git \
+  patch \
   wget \
   curl \
   ca-certificates \
@@ -51,6 +52,10 @@ if [[ ! -d "${mujoco_dir}" ]]; then
 fi
 ln -sfn "${mujoco_dir}" "${repo_root}/simulate/mujoco"
 test -f "${repo_root}/simulate/mujoco/include/mujoco/mujoco.h"
+# The simulator source calls the repository's passive render-snapshot seam.
+# A fresh upstream MuJoCo archive does not contain it, so bootstrap must apply
+# the pinned, idempotent repository patch before compiling simulate/.
+bash "${repo_root}/patches/apply_mujoco_passive_render_patch.sh"
 
 if [[ ! -f "${sdk2_prefix}/lib/cmake/unitree_sdk2/unitree_sdk2Config.cmake" ]]; then
   if [[ ! -d "${sdk2_src}/.git" ]]; then
