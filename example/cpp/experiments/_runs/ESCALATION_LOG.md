@@ -5254,3 +5254,37 @@ rollback: |
 acceptance: |
   Design document written; non-docs/_runs diff is zero; commit and push clean;
   bundle delivered to C:\Workspace\tmp\order115_design_bundle.
+---
+timestamp: 2026-09-01T21:30:00+0800
+run_id: Order-115 correction (P1 fixes; supersedes the Order-115 block below it)
+source_sha: e613ad4 (original Order-115 doc); corrected doc in this follow-up commit
+correction: |
+  Append-only correction of the Order-115 architecture record. The original
+  Order-115 block above is untouched (append-only policy); this block is
+  authoritative for the corrected wording. Corrected doc:
+  docs/research/PHASE2_STAGE_C_BOOTSTRAP_ARCHITECTURE.md at the follow-up HEAD.
+summary: |
+  Safety sentence corrected: after C0 failure, BRAKE_HOLD takes priority over
+  any advancement (旧句'任何推进优先于 C0 失效后的安全刹停'被修正).
+  State machine corrected to OBSERVE_HOLD->C1_CANDIDATE_BUILD (C0/neutral
+  builder; C0 still holds the motion owner)->C1_CERTIFY (full ROI + complete
+  candidate)->PUBLISH->ADOPT_PENDING->C1_ARMED (independent acks then atomic
+  owner lease)->CROSSING; C1 must not be ready before BUILD. Added owner/token
+  and certification tuple plan_id/plan_epoch/map_epoch/state_seq/input_hash/
+  frame_id/valid_until/ack_deadline; any unknown/stale/frame/epoch/late-ack
+  mismatch revokes C1 and C0 BRAKE_HOLD preempts. Added admissible observation
+  viewpoint and full-latency Dstop proof obligation (PO-C0-2, sensor->filter->
+  planner->publish->adoption->actuation->halt); if C0 cannot safely reach, HOLD
+  instead of probing unknown (invariant 5, PO-OBS).
+implementation: |
+  None. Docs/_runs only: PHASE2_STAGE_C_BOOTSTRAP_ARCHITECTURE.md P1 fixes and
+  this append-only correction block. No behavior code, no tests, no simulation,
+  no _runs run artifacts.
+probe_validation: |
+  Zero simulator probes consumed in this documentation correction.
+rollback: |
+  No runtime change; all Stage-C execution flags stay off.
+acceptance: |
+  Doc P1 fixes applied; ESCALATION_LOG append-only (old blocks untouched);
+  non-docs/_runs diff zero; commit and push clean; bundle rebuilt at
+  C:\Workspace\tmp\order115_design_bundle.
