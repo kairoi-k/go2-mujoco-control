@@ -189,6 +189,8 @@ struct TrotParams
     bool terrain_actuation = false;
     // C-003 execution is deliberately opt-in and V2-B only.
     bool stage_c_execution = false;
+    // E1 plan-before-motion prototype; disabled preserves Phase1/B0.
+    bool e1_plan_before_motion = false;
     go2_terrain::TerrainCrawlLegOrder terrain_leg_order =
         go2_terrain::TerrainCrawlLegOrder::kLegacyFrontFirst;
     go2_terrain::TerrainCrawlAdvancePolicy terrain_advance_policy =
