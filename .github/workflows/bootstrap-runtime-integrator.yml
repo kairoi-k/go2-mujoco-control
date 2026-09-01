@@ -31,6 +31,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add example/cpp/terrain/terrain_bootstrap_c0.h \
                   example/cpp/trot/trot_experiment_control.cpp \
+                  example/cpp/trot/trot_experiment_gait.cpp \
                   example/cpp/trot/trot_experiment_wbc.cpp \
                   example/cpp/tests/test_terrain_bootstrap_c0.cpp
           git commit -m "fix: harden development C0-C1 bootstrap runtime"
