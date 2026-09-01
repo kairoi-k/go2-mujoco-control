@@ -63,6 +63,9 @@ struct TerrainPlannerConfig
     bool allow_actuation = false;
     // C-002 is always observer-only; these bounds only limit its work.
     bool shadow_enabled = true;
+    // Candidate provenance is bounded and observer-only. It is disabled by
+    // default so legacy planner execution has no diagnostic work.
+    bool candidate_telemetry_enabled = false;
     double shadow_max_two_contact_duration_s = 0.10;
     double shadow_max_body_projection_m = 0.060;
     double shadow_friction_coefficient = 0.50;
@@ -211,6 +214,7 @@ struct TerrainPlannerResult
     std::array<std::shared_ptr<const TerrainShadowSnapshot>,
                kTerrainShadowFamilyCount> shadow_family_snapshots{};
     TerrainShadowDiagnostics shadow_diagnostics{};
+    TerrainCandidateTelemetry candidate_telemetry{};
 };
 
 // Explicit C-003 bridge from the reviewed V2-B shadow family.  This is
@@ -606,6 +610,9 @@ public:
         result.plan.identity.generated_at_s = result.plan.generated_at_s;
         result.plan.identity.valid_until_s = result.plan.valid_until_s;
         result.plan.contact_timing.identity = result.plan.identity;
+        result.candidate_telemetry.Configure(
+            config_.candidate_telemetry_enabled,
+            TerrainPlannerInputHash(input), plan_id);
         result.plan.timing_bounds = input.terrain_timing_bounds;
         // C-001 fields remain provenance-complete; Stage-C timing is populated
         // only when the execution flag is explicitly enabled.
@@ -737,7 +744,8 @@ public:
                 *input.terrain, static_cast<go2::Leg>(leg),
                 config_.feasibility,
                 future_base_displacement_valid[leg]
-                    ? &future_base_displacement_base[leg] : nullptr);
+                    ? &future_base_displacement_base[leg] : nullptr,
+                (config_.candidate_telemetry_enabled ? &result.candidate_telemetry : nullptr));
             result.candidate_counts[leg] = result.regions[leg].size();
             for (const auto &region : result.regions[leg])
             {
@@ -921,7 +929,8 @@ public:
                     config_.feasibility, nullptr,
                     std::numeric_limits<double>::infinity(),
                     future_base_displacement_valid[leg]
-                        ? &future_base_displacement_base[leg] : nullptr);
+                        ? &future_base_displacement_base[leg] : nullptr,
+                    (config_.candidate_telemetry_enabled ? &result.candidate_telemetry : nullptr));
                 if (!candidate.hard_feasible ||
                     !has_surface_standoff(candidate.foot_position,
                                           candidate.uncertainty_m))
@@ -940,7 +949,8 @@ public:
                         static_cast<go2::Leg>(leg), &candidate.swing_lift_m,
                         &candidate.swing_peak_phase,
                         &candidate.swing_leading_edge_phase,
-                        &candidate.swing_leading_edge_phase_valid))
+                        &candidate.swing_leading_edge_phase_valid,
+                        (config_.candidate_telemetry_enabled ? &result.candidate_telemetry : nullptr)))
                 {
                     const auto reason = static_cast<std::size_t>(
                         swing_reject_reason);
@@ -1976,7 +1986,8 @@ private:
                         config_.feasibility, &swing_start,
                         config_.swing_clearance_m,
                         future_displacement_valid
-                            ? &future_displacement : nullptr);
+                            ? &future_displacement : nullptr,
+                        (config_.candidate_telemetry_enabled ? &result.candidate_telemetry : nullptr));
                     if (!candidate.hard_feasible)
                         continue;
                     const bool elevated_candidate =
@@ -2975,7 +2986,7 @@ inline void TerrainPlanner::BuildShadow(
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
         const auto regions = BuildSafeFootholdRegions(
             *input.terrain, static_cast<go2::Leg>(leg), config_.feasibility,
-            nullptr);
+            nullptr, (config_.candidate_telemetry_enabled ? &result.candidate_telemetry : nullptr));
         diag.safe_region_candidate_count_by_leg[leg] = regions.size();
         double best_score = -std::numeric_limits<double>::infinity();
         for (const auto &region : regions) {
@@ -2989,7 +3000,8 @@ inline void TerrainPlanner::BuildShadow(
                     *input.terrain, TerrainPlannerSwingStart(input, leg),
                     go2::ContactPatchToFootSite(region.center),
                     config_.swing_clearance_m, clearance, &clearance_reason,
-                    static_cast<go2::Leg>(leg), &lift))
+                    static_cast<go2::Leg>(leg), &lift, nullptr,
+                    nullptr, nullptr, (config_.candidate_telemetry_enabled ? &result.candidate_telemetry : nullptr)))
                 continue;
             FootholdCandidate candidate{};
             candidate.leg = static_cast<go2::Leg>(leg);

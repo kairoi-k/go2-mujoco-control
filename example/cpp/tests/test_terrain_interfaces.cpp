@@ -2919,6 +2919,113 @@ int main()
                    "caller could not observe endpoint identity immutability")) return 1;
     }
 
+    // Order112: each provenance surface is observer-only and bounded. Direct
+    // calls exercise independent foothold/path unknown gates without changing
+    // the legacy return values.
+    {
+        go2_terrain::TerrainCandidateTelemetry telemetry;
+        telemetry.Configure(true, 0x11, 0x22);
+        const auto outside = go2_terrain::EvaluateFoothold(
+            built.model, go2::Leg::FR, 2.0, 2.0, feasibility,
+            nullptr, std::numeric_limits<double>::infinity(), nullptr,
+            &telemetry);
+        if (!Check(!outside.hard_feasible &&
+                       telemetry.counts_by_leg[0][static_cast<std::size_t>(
+                           go2_terrain::TerrainTelemetryGate::kFootholdUnknownSurface)] == 1,
+                   "foothold unknown-surface telemetry was not isolated"))
+            return 1;
+        auto unknown_telemetry = go2_terrain::TerrainCandidateTelemetry{};
+        unknown_telemetry.Configure(true, 0x11, 0x22);
+        const auto unknown_candidate = go2_terrain::EvaluateFoothold(
+            unknown_built.model, go2::Leg::FR, 0.22, 0.0, feasibility,
+            nullptr, std::numeric_limits<double>::infinity(), nullptr,
+            &unknown_telemetry);
+        if (!Check(!unknown_candidate.hard_feasible &&
+                       unknown_telemetry.counts_by_leg[0][static_cast<std::size_t>(
+                           go2_terrain::TerrainTelemetryGate::kFootholdUnknownCell)] == 1,
+                   "foothold unknown-cell telemetry was not isolated"))
+            return 1;
+        double observed_clearance = 0.0;
+        go2_terrain::TerrainCandidateTelemetry path_telemetry;
+        path_telemetry.Configure(true, 0x11, 0x22);
+        const bool path_ok = go2_terrain::CheckSwingClearance(
+            built.model, {0.18, -0.10, -0.25}, {0.80, -0.10, -0.25},
+            0.03, observed_clearance, nullptr, go2::Leg::FR, nullptr,
+            nullptr, nullptr, nullptr, &path_telemetry);
+        if (!Check(!path_ok &&
+                       path_telemetry.counts_by_leg[0][static_cast<std::size_t>(
+                           go2_terrain::TerrainTelemetryGate::kSwingUnknownPathSample)] > 0,
+                   "swing unknown-path telemetry was not isolated"))
+            return 1;
+        go2_terrain::TerrainCandidateTelemetry cell_path_telemetry;
+        cell_path_telemetry.Configure(true, 0x11, 0x22);
+        const bool cell_path_ok = go2_terrain::CheckSwingClearance(
+            unknown_built.model, {0.18, 0.0, -0.25},
+            {0.28, 0.0, -0.25}, 0.03, observed_clearance, nullptr,
+            go2::Leg::FR, nullptr, nullptr, nullptr, nullptr,
+            &cell_path_telemetry);
+        if (!Check(!cell_path_ok &&
+                       cell_path_telemetry.counts_by_leg[0][static_cast<std::size_t>(
+                           go2_terrain::TerrainTelemetryGate::kSwingUnknownMapCell)] > 0,
+                   "swing unknown-cell telemetry was not isolated"))
+            return 1;
+        auto other_feasibility = feasibility;
+        other_feasibility.min_edge_margin_m = 10.0;
+        go2_terrain::TerrainCandidateTelemetry other_telemetry;
+        other_telemetry.Configure(true, 0x11, 0x22);
+        const auto other_candidate = go2_terrain::EvaluateFoothold(
+            built.model, go2::Leg::FR, 0.20, -0.10, other_feasibility,
+            nullptr, std::numeric_limits<double>::infinity(), nullptr,
+            &other_telemetry);
+        if (!Check(!other_candidate.hard_feasible &&
+                       other_telemetry.counts_by_leg[0][static_cast<std::size_t>(
+                           go2_terrain::TerrainTelemetryGate::kFootholdRejectOther)] == 1,
+                   "foothold other-reject telemetry was not isolated"))
+            return 1;
+        go2_terrain::TerrainCandidateTelemetry height_telemetry;
+        height_telemetry.Configure(true, 0x11, 0x22);
+        const bool height_ok = go2_terrain::CheckSwingClearance(
+            built.model, {0.18, -0.10, -0.32}, {0.28, -0.10, -0.32},
+            0.03, observed_clearance, nullptr, go2::Leg::FR, nullptr,
+            nullptr, nullptr, nullptr, &height_telemetry);
+        if (!Check(!height_ok &&
+                       height_telemetry.counts_by_leg[0][static_cast<std::size_t>(
+                           go2_terrain::TerrainTelemetryGate::kSwingHeight)] > 0,
+                   "swing height telemetry was not isolated"))
+            return 1;
+        go2_terrain::TerrainPlannerConfig off_config = planner_config;
+        off_config.candidate_telemetry_enabled = false;
+        go2_terrain::TerrainPlannerConfig telemetry_config = planner_config;
+        telemetry_config.candidate_telemetry_enabled = true;
+        go2_terrain::TerrainPlanner off_planner(off_config);
+        go2_terrain::TerrainPlanner telemetry_planner(telemetry_config);
+        const auto off_result = off_planner.Build(input, 7);
+        const auto telemetry_result = telemetry_planner.Build(input, 7);
+        bool selected_same = true;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            selected_same = selected_same &&
+                telemetry_result.selected[leg].hard_feasible ==
+                    off_result.selected[leg].hard_feasible &&
+                telemetry_result.selected[leg].reject_reason ==
+                    off_result.selected[leg].reject_reason &&
+                telemetry_result.selected[leg].foot_position.x ==
+                    off_result.selected[leg].foot_position.x &&
+                telemetry_result.selected[leg].foot_position.y ==
+                    off_result.selected[leg].foot_position.y &&
+                telemetry_result.selected[leg].foot_position.z ==
+                    off_result.selected[leg].foot_position.z;
+        if (!Check(telemetry_result.plan.status == off_result.plan.status &&
+                       telemetry_result.plan.failure == off_result.plan.failure &&
+                       telemetry_result.plan.input_hash == off_result.plan.input_hash &&
+                       selected_same,
+                   "telemetry changed the planner result") ||
+            !Check(telemetry_result.candidate_telemetry.enabled &&
+                       telemetry_result.candidate_telemetry.input_hash != 0 &&
+                       telemetry_result.candidate_telemetry.plan_hash == 7,
+                   "planner candidate telemetry was not bounded/configured"))
+            return 1;
+    }
+
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";
     return 0;
 }
