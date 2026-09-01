@@ -7,13 +7,28 @@
 #include <limits>
 #include <string>
 
-#include "terrain_bootstrap_coordinator.h"
 #include "terrain_feasibility.h"
 #include "terrain_model.h"
 #include "velocity_command.h"
 
 namespace go2_terrain
 {
+
+// Development-only readiness bits used by the runtime bootstrap gate. Keep
+// this deliberately small: final ownership leases/acks and end-to-end latency
+// certification remain separate acceptance work, not prerequisites to the
+// first bounded C0/C1 simulation probe.
+struct TerrainC0Readiness
+{
+    bool local_known_flat = false;
+    bool swept_volume_clear = false;
+    bool dstop_valid = false;
+
+    bool valid() const noexcept
+    {
+        return local_known_flat && swept_volume_clear && dstop_valid;
+    }
+};
 
 struct TerrainBootstrapStopEstimate
 {
