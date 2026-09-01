@@ -1,0 +1,179 @@
+name: Stage-C 5cm bootstrap development probe
+
+on:
+  push:
+    branches:
+      - assistant/bootstrap-static-fixes-20260902
+    paths:
+      - .github/workflows/bootstrap-stage-c-5cm-dev.yml
+  workflow_dispatch:
+
+concurrency:
+  group: stage-c-5cm-bootstrap-dev-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Bootstrap Ubuntu dependencies and build
+        env:
+          MUJOCO_VERSION: "3.3.6"
+        run: bash scripts/setup_ubuntu_env.sh
+
+      - name: Run bounded 5cm development probe
+        id: probe
+        continue-on-error: true
+        env:
+          TROT_TERRAIN_BOOTSTRAP_DEV: "1"
+          TROT_TERRAIN_SHADOW_DIAGNOSTICS: "1"
+          TROT_CPU_AUTOPIN: "1"
+          SIM_LOCKSTEP: "1"
+          SIM_LOCKSTEP_BARRIER_TIMEOUT_S: "120"
+          SIM_LOCKSTEP_EXCHANGE_TIMEOUT_S: "5"
+          SIM_LOCKSTEP_STEP_TIMEOUT_S: "5"
+        run: |
+          set +e
+          run_name="_runs/stage_c_bootstrap_5cm_dev_${GITHUB_RUN_ID}"
+          bash example/cpp/scripts/run_trot.sh 50 "$run_name" \
+            --controller-duration 30 \
+            --scene-file unitree_robots/go2/phase2_step_5cm.xml \
+            --headless \
+            --wbc-full \
+            --gait-pattern running-trot \
+            --kernel raibert-trot \
+            --velocity-command-script example/cpp/configs/phase2_b1_velocity_0p3.csv \
+            --wall-clock-motion \
+            --support-anchor-feedback --support-anchor-gain 0.35 \
+            --period 0.50 --duty 0.75 \
+            --step-length 0.13 --foot-lift 0.06 \
+            --wbc-reduced-contact-task \
+            --wbc-task-torque-feedforward \
+            --terrain-planner \
+            --stage-c-execution \
+            --domain-id 229
+          status=$?
+          echo "wrapper_status=$status" | tee "$GITHUB_WORKSPACE/probe_status.txt"
+          echo "run_dir=example/cpp/experiments/$run_name" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Summarize bootstrap milestones
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import math
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path("example/cpp/experiments/_runs")
+          matches = sorted(root.glob("stage_c_bootstrap_5cm_dev_*"))
+          if not matches:
+              raise SystemExit("no development run directory")
+          run = matches[-1]
+          print(f"PROBE_RUN_DIR={run}")
+          status = Path("probe_status.txt")
+          if status.exists():
+              print(status.read_text().strip())
+          data_path = run / "data.csv"
+          if not data_path.exists() or data_path.stat().st_size == 0:
+              print("MILESTONE data_csv=missing")
+              for name in ("controller.log", "simulator.log"):
+                  p = run / name
+                  if p.exists():
+                      print(f"--- {name} tail ---")
+                      print("\n".join(p.read_text(errors="replace").splitlines()[-120:]))
+              raise SystemExit(0)
+
+          df = pd.read_csv(data_path, low_memory=False)
+          time_col = "cmd_time_s" if "cmd_time_s" in df.columns else df.columns[0]
+
+          def numeric(name):
+              if name not in df.columns:
+                  return None
+              return pd.to_numeric(df[name], errors="coerce")
+
+          def max_value(name):
+              s = numeric(name)
+              return None if s is None or not s.notna().any() else float(s.max())
+
+          def first_where(mask):
+              idx = df.index[mask]
+              if len(idx) == 0:
+                  return None
+              value = pd.to_numeric(df.loc[idx[0], time_col], errors="coerce")
+              return None if pd.isna(value) else float(value)
+
+          published = max_value("terrain_plan_published") or 0.0
+          consumed = max_value("terrain_plan_consumed") or 0.0
+          adoptions = max_value("terrain_execution_adapter_adoptions") or 0.0
+          rejections = max_value("terrain_execution_adapter_rejections") or 0.0
+          using = numeric("terrain_execution_adapter_using_plan")
+          transfer = numeric("terrain_transfer_window_active")
+          plan_id = numeric("terrain_execution_adopted_plan_id")
+          safe_stop = max_value("terrain_safe_stop_requested") or 0.0
+          base_x = max_value("world_base_x_m")
+
+          first_publish = None
+          s = numeric("terrain_plan_published")
+          if s is not None:
+              first_publish = first_where(s > 0)
+          first_transfer = first_where(transfer > 0) if transfer is not None else None
+          first_adopt = first_where(using > 0) if using is not None else None
+
+          swing_times = []
+          touchdown_times = []
+          for leg in ("FR", "FL", "RR", "RL"):
+              inflight = numeric(f"terrain_execution_request_{leg}_in_flight")
+              if inflight is not None:
+                  t = first_where(inflight > 0)
+                  if t is not None:
+                      swing_times.append((t, leg))
+              err = numeric(f"terrain_execution_{leg}_touchdown_error_s")
+              if err is not None:
+                  # These arrays initialize to zero; a changed value is a
+                  # measured support transition relative to planned touchdown.
+                  t = first_where(err.abs() > 1.0e-9)
+                  if t is not None:
+                      touchdown_times.append((t, leg))
+
+          print(f"MILESTONE rows={len(df)}")
+          print(f"MILESTONE plan_published_max={published} first_t={first_publish}")
+          print(f"MILESTONE plan_consumed_max={consumed}")
+          print(f"MILESTONE transfer_window_first_t={first_transfer}")
+          print(f"MILESTONE adapter_adoptions_max={adoptions} first_using_plan_t={first_adopt}")
+          print(f"MILESTONE adapter_rejections_max={rejections}")
+          print(f"MILESTONE first_plan_swing={min(swing_times) if swing_times else None}")
+          print(f"MILESTONE first_measured_plan_touchdown={min(touchdown_times) if touchdown_times else None}")
+          print(f"MILESTONE safe_stop_requested_max={safe_stop}")
+          print(f"MILESTONE max_world_base_x_m={base_x}")
+          if plan_id is not None and plan_id.notna().any():
+              nonzero = plan_id[plan_id > 0]
+              print(f"MILESTONE adopted_plan_ids={sorted(set(int(v) for v in nonzero.tolist()))[:20]}")
+
+          for name in ("controller.log", "simulator.log"):
+              p = run / name
+              if p.exists():
+                  lines = p.read_text(errors="replace").splitlines()
+                  interesting = [line for line in lines if
+                      ("Terrain" in line or "terrain" in line or
+                       "safety" in line.lower() or "hard posture" in line.lower() or
+                       "lockstep" in line.lower())]
+                  print(f"--- {name} interesting tail ---")
+                  print("\n".join(interesting[-180:]))
+          PY
+
+      - name: Upload development evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-c-bootstrap-5cm-dev-${{ github.run_id }}
+          path: |
+            example/cpp/experiments/_runs/stage_c_bootstrap_5cm_dev_*/
+            probe_status.txt
+          if-no-files-found: warn
+          retention-days: 7
