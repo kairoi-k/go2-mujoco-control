@@ -41,9 +41,18 @@ void TrotExperiment::InitLowCmd()
 // --- TrotExperiment::LowStateMessageHandler ---
 void TrotExperiment::LowStateMessageHandler(const void *message)
 {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    low_state_ = *(unitree_go::msg::dds_::LowState_ *)message;
-    have_low_state_ = true;
+    const unitree_go::msg::dds_::LowState_ *msg =
+        static_cast<const unitree_go::msg::dds_::LowState_ *>(message);
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        low_state_ = *msg;
+        have_low_state_ = true;
+    }
+    // Order-108 verification-only tick gate: strictly-new-tick detection
+    // and (once engaged) stale/reorder/gap fail-closed. No-op for the
+    // wall-clock runner (adapter off -> gate never engaged).
+    if (lockstep_ack_enabled_)
+        lockstep_writer_gate_.OnLowState(msg->tick());
 }
 
 // --- TrotExperiment::HighStateMessageHandler ---
@@ -245,6 +254,10 @@ bool TrotExperiment::Init()
         std::cout << "Lockstep ack adapter enabled on "
                   << GO2_TROT_TOPIC_LOCKSTEP_ACK << "\n";
     }
+    // Order-108: fail closed if the writer waits longer than this for the
+    // next strictly-new tick (default matches SIM_LOCKSTEP_EXCHANGE_TIMEOUT_S).
+    lockstep_writer_gate_.SetTickWaitTimeoutS(
+        Full2EnvDouble("TROT_LOCKSTEP_TICK_TIMEOUT_S", 5.0));
 
     lowstate_subscriber_.reset(
         new ChannelSubscriber<unitree_go::msg::dds_::LowState_>(GO2_TROT_TOPIC_LOWSTATE));
@@ -320,11 +333,44 @@ bool TrotExperiment::Init()
         auto next = std::chrono::steady_clock::now();
         while (!writer_stop_.load() && !finished_.load())
         {
-            LowCmdWrite();
-            next += interval;
-            std::this_thread::sleep_until(next);
-            if (std::chrono::steady_clock::now() > next + interval * 4)
-                next = std::chrono::steady_clock::now();
+            // Order-108 verification-only tick gate: after the controller
+            // handoff (TROT_LOCKSTEP_ACK on AND the first lockstep state
+            // consumed post start-gait) the writer stops free-running on the
+            // wall clock and consumes exactly ONE new physics tick per loop
+            // iteration: one full LowCmdWrite/control update, one LowCmd
+            // publish, one ack of the exact {state_seq, command_seq} pair,
+            // then it waits for the next tick. Before the handoff -- and
+            // whenever the adapter is off -- the original wall-clock
+            // lifecycle below is unchanged.
+            if (lockstep_ack_enabled_ && lockstep_epoch_valid_)
+            {
+                if (!lockstep_writer_gate_.Engaged())
+                    lockstep_writer_gate_.Engage(last_consumed_state_tick_);
+                const lockstep_writer::WaitResult wait =
+                    lockstep_writer_gate_.WaitForTick([this]() {
+                        return writer_stop_.load() || finished_.load();
+                    });
+                if (wait == lockstep_writer::WaitResult::kAborted)
+                    break;
+                if (wait == lockstep_writer::WaitResult::kTimeout)
+                {
+                    // The gate already printed the
+                    // TROT_LOCKSTEP_WRITER_FAIL_CLOSED diagnostic.
+                    finished_.store(true);
+                    break;
+                }
+                LowCmdWrite();
+                lockstep_writer_gate_.RecordConsumed(
+                    last_consumed_state_tick_);
+            }
+            else
+            {
+                LowCmdWrite();
+                next += interval;
+                std::this_thread::sleep_until(next);
+                if (std::chrono::steady_clock::now() > next + interval * 4)
+                    next = std::chrono::steady_clock::now();
+            }
         }
     });
     return true;

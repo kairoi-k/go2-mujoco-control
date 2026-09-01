@@ -1119,6 +1119,10 @@ void TrotExperiment::PublishLockstepAck(std::uint32_t state_seq)
 {
     if (!lockstep_ack_enabled_ || !lockstep_ack_publisher_)
         return;
+    // Order-108: record the exact tick this control update consumed so the
+    // writer gate can detect the next strictly-new tick (and so Engage()
+    // clears old events without missing the first lockstep tick).
+    last_consumed_state_tick_ = state_seq;
     if (!lockstep_epoch_valid_ && task_.gait_started_)
     {
         // First lockstep state consumed after the controller's lifecycle

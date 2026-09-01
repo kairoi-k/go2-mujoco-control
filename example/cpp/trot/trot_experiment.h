@@ -26,6 +26,7 @@
 
 #include "go2_contact_torque_mapping.h"
 #include "contact_state_filter.h"
+#include "lockstep_writer_gate.h"
 #include "locomotion_kernel.h"
 #include "trot_task.h"
 #include "trot_types.h"
@@ -769,6 +770,14 @@ private:
     bool lockstep_epoch_valid_ = false;
     std::uint32_t lockstep_epoch_state_seq_ = 0;
     std::uint32_t lockstep_cmd_seq_ = 0;
+    // Order-108 verification-only tick gate: once the writer handoff has
+    // completed the lowcmd writer consumes exactly ONE new physics tick per
+    // loop iteration (see lockstep_writer_gate.h); last_consumed_state_tick_
+    // is the exact tick the most recent control update consumed (the same
+    // state_seq the Order-107 ack carried). Flag-off: never engaged, so the
+    // wall-clock writer loop is unchanged.
+    lockstep_writer::WriterGate lockstep_writer_gate_;
+    std::uint32_t last_consumed_state_tick_ = 0;
     ChannelSubscriberPtr<unitree_go::msg::dds_::LowState_> lowstate_subscriber_;
     ChannelSubscriberPtr<unitree_go::msg::dds_::SportModeState_>
         highstate_subscriber_;

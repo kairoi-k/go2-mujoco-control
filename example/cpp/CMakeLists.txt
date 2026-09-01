@@ -136,6 +136,11 @@ add_executable(test_motion_event_response tests/test_motion_event_response.cpp)
 
 add_executable(test_wbc_runtime_gate tests/test_wbc_runtime_gate.cpp)
 
+# Order-108 verification-only controller-side lockstep writer tick gate
+# (DDS-free; header-only in trot/lockstep_writer_gate.h).
+add_executable(test_lockstep_writer_gate tests/test_lockstep_writer_gate.cpp)
+go2_add_ctest(test_lockstep_writer_gate)
+
 add_executable(test_centroidal_wbc tests/test_centroidal_wbc.cpp)
 
 add_executable(test_preview_footstep_horizon tests/test_preview_footstep_horizon.cpp)
