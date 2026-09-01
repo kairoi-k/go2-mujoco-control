@@ -15,18 +15,20 @@ class DdsCapture {
   std::uint64_t capture_count() const noexcept { return next_capture_seq_.load() - 1; }
   const ImmutableRecordStore &records() const noexcept { return records_; }
   std::uint64_t lowstate_count() const noexcept { return lowstate_count_.load(); }
+  std::uint64_t lowcmd_count() const noexcept { return lowcmd_count_.load(); }
   std::uint64_t sport_count() const noexcept { return sport_count_.load(); }
   std::uint64_t lidar_count() const noexcept { return lidar_count_.load(); }
   std::uint64_t environment_count() const noexcept { return environment_count_.load(); }
  private:
   void OnLowState(const void *message);
+  void OnLowCmd(const void *) noexcept;
   void OnSportState(const void *message);
   void OnLidarMap(const void *message);
   void OnEnvironmentMap(const void *message);
   std::uint64_t NextCapture() noexcept { return next_capture_seq_.fetch_add(1); }
   std::uint32_t domain_id_;
   std::atomic<std::uint64_t> next_capture_seq_{1};
-  std::atomic<std::uint64_t> lowstate_count_{0}, sport_count_{0}, lidar_count_{0}, environment_count_{0};
+  std::atomic<std::uint64_t> lowstate_count_{0}, lowcmd_count_{0}, sport_count_{0}, lidar_count_{0}, environment_count_{0};
   ImmutableRecordStore records_;
   struct Impl;
   std::unique_ptr<Impl> impl_;

@@ -4,6 +4,7 @@
 #include <limits>
 #include <sstream>
 #include <unitree/idl/go2/HeightMap_.hpp>
+#include <unitree/idl/go2/LowCmd_.hpp>
 #include <unitree/idl/go2/LowState_.hpp>
 #include <unitree/idl/go2/SportModeState_.hpp>
 #include <unitree/robot/channel/channel_factory.hpp>
@@ -12,6 +13,7 @@ namespace go2_diagnostic {
 static std::uint64_t ReceiptNow(){return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());}
 struct DdsCapture::Impl {
   std::shared_ptr<unitree::robot::ChannelSubscriber<unitree_go::msg::dds_::LowState_>> low;
+  std::shared_ptr<unitree::robot::ChannelSubscriber<unitree_go::msg::dds_::LowCmd_>> lowcmd;
   std::shared_ptr<unitree::robot::ChannelSubscriber<unitree_go::msg::dds_::SportModeState_>> sport;
   std::shared_ptr<unitree::robot::ChannelSubscriber<unitree_go::msg::dds_::HeightMap_>> lidar;
   std::shared_ptr<unitree::robot::ChannelSubscriber<unitree_go::msg::dds_::HeightMap_>> environment;
@@ -25,10 +27,12 @@ DdsCapture::~DdsCapture() { Stop(); }
 bool DdsCapture::Start() {
   unitree::robot::ChannelFactory::Instance()->Init(domain_id_);
   impl_->low.reset(new unitree::robot::ChannelSubscriber<unitree_go::msg::dds_::LowState_>(TopicName(Topic::kLowState)));
+  impl_->lowcmd.reset(new unitree::robot::ChannelSubscriber<unitree_go::msg::dds_::LowCmd_>(TopicName(Topic::kLowCmd)));
   impl_->sport.reset(new unitree::robot::ChannelSubscriber<unitree_go::msg::dds_::SportModeState_>(TopicName(Topic::kSportModeState)));
   impl_->lidar.reset(new unitree::robot::ChannelSubscriber<unitree_go::msg::dds_::HeightMap_>(TopicName(Topic::kLidarHeightMap)));
   impl_->environment.reset(new unitree::robot::ChannelSubscriber<unitree_go::msg::dds_::HeightMap_>(TopicName(Topic::kEnvironmentHeightMap)));
   impl_->low->InitChannel([this](const void *m) { OnLowState(m); }, 32);
+  impl_->lowcmd->InitChannel([this](const void *m) { OnLowCmd(m); }, 32);
   impl_->sport->InitChannel([this](const void *m) { OnSportState(m); }, 32);
   impl_->lidar->InitChannel([this](const void *m) { OnLidarMap(m); }, 8);
   impl_->environment->InitChannel([this](const void *m) { OnEnvironmentMap(m); }, 8);
@@ -36,7 +40,7 @@ bool DdsCapture::Start() {
 }
 void DdsCapture::Stop() noexcept {
   if (!impl_) return;
-  impl_->low.reset(); impl_->sport.reset(); impl_->lidar.reset(); impl_->environment.reset();
+  impl_->low.reset(); impl_->lowcmd.reset(); impl_->sport.reset(); impl_->lidar.reset(); impl_->environment.reset();
   unitree::robot::ChannelFactory::Instance()->Release();
 }
 void DdsCapture::OnLowState(const void *message) {
@@ -48,6 +52,10 @@ void DdsCapture::OnLowState(const void *message) {
                               {}, {}, ReceiptNow(), 0.0, false, {}, false, false};
   records_.CommitCapture(capture);
   ++lowstate_count_;
+}
+void DdsCapture::OnLowCmd(const void *) noexcept {
+  // The typed callback deliberately does not inspect or retain LowCmd.
+  ++lowcmd_count_;
 }
 void DdsCapture::OnSportState(const void *message) {
   if (!message) return;

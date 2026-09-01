@@ -17,7 +17,7 @@ inline constexpr bool HasValidity(std::uint32_t bits, Validity bit) {
   return (bits & static_cast<std::uint32_t>(bit)) != 0;
 }
 
-enum class Topic : std::uint8_t { kLowState, kSportModeState, kLidarHeightMap, kEnvironmentHeightMap };
+enum class Topic : std::uint8_t { kLowState, kLowCmd, kSportModeState, kLidarHeightMap, kEnvironmentHeightMap };
 const char *TopicName(Topic topic) noexcept;
 
 enum class ConsumerIdentityKind : std::uint8_t { kAbsent, kAuthoritative };
