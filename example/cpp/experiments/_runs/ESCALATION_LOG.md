@@ -5054,3 +5054,35 @@ artifacts: |
 rollback: |
   No runtime change. Stage-C flags off. 1b29974 tested and recorded; prior
   verified SHA 2b3bc5d remains. Do not advance C-007/B1.
+---
+timestamp: 2026-09-01T09:15:00+08:00
+run_id: phase2_b0_lockstep_development_fixed_3mps_r0_20260901_090304
+trigger: T1 (authoritative gate failure)
+signature: canary FAIL; controller hard posture limit on both members (baseline flip at end final_angle_deg=179.9884 stop_start_s=67.284; terrain flip at ~10 s sim time cycle_health_count=64 speed_median=2.394); lockstep mechanism clean (violations=0 fail_closed=0 dt=2ms kAckMatched per-tick ack_state_seq==tick); tests 28/28 + 2/2 PASS; SHA 97c766a clean
+evidence:
+  controller_log_baseline: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_090304_baseline/controller.log
+  controller_log_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_090304_terrain/controller.log
+  trace_baseline: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_090304_baseline/lockstep_trace.csv
+  trace_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_090304_terrain/lockstep_trace.csv
+  run_manifest_baseline: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_090304_baseline/run_manifest.json
+  run_manifest_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_090304_terrain/run_manifest.json
+git_status: clean (0 changed files; evidence docs committed separately)
+suggestion: |
+  The Order-105 simulator fail-closed stale-ack race is fixed (0 violations,
+  no fail-closed, per-tick ack state_seq==published tick, kAckMatched on every
+  exchange). The canary now fails the controller-side authoritative gates:
+  both members hit the controller hard posture safety limit and flipped.
+  Baseline flipped at the very end after a healthy 3.35 m/s cruise; terrain
+  flipped early with an auto-brake degrade signature. Failure class is
+  controller-side dynamics (posture flip) under lockstep at 97c766a, closest
+  to the Order-101 pair-2 posture-stop family (wall-clock roll=178.557 deg).
+  No fix or rerun in this order (frozen stop rule). Any follow-up needs a new
+  reviewed commit; decision required before C-007/B1.
+artifacts: |
+  docs/research/evidence/order106_c006e/PREREGISTERED_MANIFEST.json
+  docs/research/evidence/order106_c006e/FORMAL_MANIFEST.json
+  docs/research/evidence/order106_c006e/SUMMARY.md
+  docs/research/evidence/order106_c006e/WILSON.json
+rollback: |
+  No runtime change. Stage-C flags off. 97c766a tested and recorded; prior
+  verified SHAs 2b3bc5d remain. Do not advance C-007/B1.

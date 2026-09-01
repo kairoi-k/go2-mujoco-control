@@ -1,0 +1,94 @@
+{
+  "order": "106",
+  "purpose": "C-006e formal manifest - exact-committed-SHA causal lockstep verification runs at approved commit 97c766a",
+  "tested_source_sha": "97c766a7340494625967b0583d9a495ef5130e86",
+  "preregistered_at": "2026-09-01T09:03:00+0800",
+  "result": {
+    "canary": "FAIL - authoritative controller gates failed on both members (hard posture safety stop; robot flipped). Lockstep mechanism itself clean on both members: 0 violations, fail_closed=0, exact dt=2 ms, per-tick ack state_seq==published tick on every lockstep row, exchange trigger kAckMatched on every exchange, no SIM_LOCKSTEP_FAIL_CLOSED in either simulator.log. The Order-105 stale-ack fail-closed race is fixed; the canary instead fails the controller lifecycle/analyzer gates (posture flip).",
+    "holdout_pairs_run": 0,
+    "holdout_pairs_pass": 0,
+    "required_3_of_3": "NOT ATTEMPTED - canary authoritative gate failure stopped verification before any holdout pair",
+    "stop_rule_applied": "stopped at canary (first authoritative gate failure); no replacement, no rerun, no tuning, no threshold/config/code/analyzer/contract edit",
+    "ctests": "simulate ctest 2/2 PASS; example ctest 28/28 PASS (dev-suite evidence of coverage gap, not a substitute gate)"
+  },
+  "members": {
+    "canary_baseline": {
+      "run_dir": "example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_090304_baseline",
+      "started_at": "2026-09-01T09:03:04+08:00",
+      "finished_at": "2026-09-01T09:04:31+08:00",
+      "domain_id": "222",
+      "git_head": "97c766a7340494625967b0583d9a495ef5130e86",
+      "git_dirty": "false",
+      "hashes": {
+        "simulator_sha256": "4ba25e94ac805808d519a33bf3c2e446e7b4f7b154c9916f5195f2b5728402ac",
+        "controller_sha256": "931858641a66edc46cbaba199c9143a491f86764ea09ca7354228d7ad033ea57",
+        "scenario_sha256": "12286418247d0e240ae131b5ae5c60f3a7a481d4754aefe4517476e937aa05b8",
+        "phase2_b0_analyzer_sha256": "0d5ec9956dd345ce0aabf8333fbcca7ea7d4117011fd9f50c73505c2c68ed8c7",
+        "phase2_fixed_3mps_analyzer_sha256": "39bc8b24774766c3800c053effe4804287ab2cb59e94ec9ff250edd0ab540f53",
+        "phase2_b123_analyzer_sha256": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873",
+        "phase2_b0_contract_sha256": "2a00da526253dd3755fa6c469aa18a4e9ee2dba0f17762a55068cd10aee61dd6",
+        "phase2_b123_contract_sha256": "ce18f0214240612fbfb54221e2621d88e363375dc796e2afa6e78dd3ca51d914",
+        "phase2_b1_contract_sha256": "a4c38934382efca13883d367ada78e327013e637a256ec16f5d7bec5462b18f6"
+      },
+      "lockstep_trace": {
+        "rows": 20225,
+        "barrier_tick_ms": 2276,
+        "intervals": 20225,
+        "violations": 0,
+        "fail_closed": 0,
+        "dt_ms": 2,
+        "exchange_wait_us": "p50=2993 p99=5007 max=5062",
+        "trigger": "kAckMatched on every lockstep row; per-tick ack_state_seq==sim_tick_ms; ack_cmd_seq=0 (command_seq side-channel removed as designed)"
+      },
+      "controller_failure": "Trot hard posture limit (roll=-179.96 deg at end; first breach pitch=22.4 deg at cmd_time 67.28 s); hard safety limit reached; stopping. final_angle_deg=179.9884.",
+      "analyzer": "FAIL - validation=FAIL; safety_status=1, completion_status=1; cycle_health_count=443, speed_median=3.348 m/s, stop_start_s=67.284, good_speed_window_s=31.652, final_angle_deg=179.9884",
+      "ground_truth": "PASS (rows=21363, span 42.7 s, negative contact 0)",
+      "dynamics": "PASS (p95 force-balance residual 15.68 N <= 20 N)",
+      "canary_comparator": "PASS (diagnostic; baseline tracked reference wall-clock run to the end: startup dz p95 0.0066 m; lockstep segment dz p95 0.0344 m, dpitch p95 3.923 deg, droll p95 4.246 deg). Segment comparison is not the failure gate; the authoritative lifecycle/analyzer gate failed.",
+      "publish_consumer_actuation": "not evaluable as a PASS gate (baseline member has no terrain telemetry); terrain member counters all 0 below"
+    },
+    "canary_terrain": {
+      "run_dir": "example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_090304_terrain",
+      "started_at": "2026-09-01T09:04:31+08:00",
+      "finished_at": "2026-09-01T09:04:38+08:00",
+      "domain_id": "223",
+      "git_head": "97c766a7340494625967b0583d9a495ef5130e86",
+      "git_dirty": "false",
+      "hashes": {
+        "simulator_sha256": "4ba25e94ac805808d519a33bf3c2e446e7b4f7b154c9916f5195f2b5728402ac",
+        "controller_sha256": "931858641a66edc46cbaba199c9143a491f86764ea09ca7354228d7ad033ea57",
+        "scenario_sha256": "12286418247d0e240ae131b5ae5c60f3a7a481d4754aefe4517476e937aa05b8",
+        "phase2_b0_analyzer_sha256": "0d5ec9956dd345ce0aabf8333fbcca7ea7d4117011fd9f50c73505c2c68ed8c7",
+        "phase2_fixed_3mps_analyzer_sha256": "39bc8b24774766c3800c053effe4804287ab2cb59e94ec9ff250edd0ab540f53",
+        "phase2_b123_analyzer_sha256": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873",
+        "phase2_b0_contract_sha256": "2a00da526253dd3755fa6c469aa18a4e9ee2dba0f17762a55068cd10aee61dd6",
+        "phase2_b123_contract_sha256": "ce18f0214240612fbfb54221e2621d88e363375dc796e2afa6e78dd3ca51d914",
+        "phase2_b1_contract_sha256": "a4c38934382efca13883d367ada78e327013e637a256ec16f5d7bec5462b18f6"
+      },
+      "lockstep_trace": {
+        "rows": 4104,
+        "barrier_tick_ms": 1838,
+        "intervals": 4104,
+        "violations": 0,
+        "fail_closed": 0,
+        "dt_ms": 2,
+        "exchange_wait_us": "p50=2999 p99=4029 max=7040",
+        "trigger": "kAckMatched on every lockstep row; per-tick ack_state_seq==sim_tick_ms; ack_cmd_seq=0 (command_seq side-channel removed as designed)"
+      },
+      "controller_failure": "Trot hard posture limit (first breach pitch=22.3 deg; then roll=179.9 deg); hard safety limit reached; stopping. stop_start_s=14.250, cycle_health_count=64, speed_median=2.394 m/s.",
+      "analyzer": "FAIL - validation=FAIL; safety_status=1, completion_status=1; stop_start_s=14.250, cycle_health_count=64<100, good_window_s=0.830<20, speed_median=2.3937, roll_p95=179.8181, pitch_p95=62.2431",
+      "b0": "FAIL - acceptance_status FAIL; checks failed: fixed_3mps_analyzer=false, paired_baseline_lifecycle=false; safety_status=1, completion=1",
+      "ground_truth": "PASS (rows=5023, span 10.04 s, negative contact 0)",
+      "dynamics": "PASS (p95 force-balance residual 12.11 N <= 20 N)",
+      "canary_comparator": "FAIL (dz p95 0.3009 m > 0.06 m, dpitch p95 28.029 deg > 6 deg, droll p95 179.556 deg > 6 deg in lockstep segment; robot flipped)",
+      "publish_consumer_actuation": "all zero on every terrain row: terrain_plan_published=0, terrain_plan_consumed=0, terrain_gait_target_overrides=0, terrain_mpc_plan_consumed=0, terrain_has_stage_c_timing=0, wbc_terrain_planned_contact_mask=0, terrain_execution_adapter_updates=0"
+    }
+  },
+  "diagnosis": "The Order-105 fail-closed race (stale ack for the just-published state classified kViolationAckStale) is fixed: both members ran the full lockstep protocol with 0 violations, fail_closed=0, exact dt=2 ms, every exchange completed on kAckMatched with per-tick ack state_seq==published tick, and no SIM_LOCKSTEP_FAIL_CLOSED line in either simulator.log. The canary instead fails the authoritative controller lifecycle/analyzer gates: both members hit the controller hard posture safety limit and flipped (baseline: flip at the very end after a healthy 3.35 m/s cruise, final_angle_deg=179.99; terrain: early flip at ~10 s sim time with auto-brake degrade signature cycle_health_count=64, speed_median=2.39). This is a distinct failure signature from the inherited auto-brake class (Order-102/104: stop ~11.5-11.7 s, cycle 44-45, speed 1.17-1.25) and from the Order-105 mechanism race; it most closely matches the Order-101 pair-2 posture-stop family (wall-clock roll=178.557 deg) but is observed under lockstep at 97c766a. Both members reproduced the flip independently; environment is exact-SHA and clean on both members (simulator 4ba25e94, controller 93185864, scene 12286418 all matching the frozen manifest). Lockstep mechanism is sound; the failure is controller-side dynamics, not a lockstep-exchange anomaly.",
+  "permanent_prior_failures": [
+    "Order-101 C-006 pair-2 wall-clock baseline posture safety stop roll=178.557 deg (docs/research/evidence/order101_c006/)",
+    "Order-102 C-006b pair-1 wall-clock baseline stop_start=11.500 s / cycle_health_count=44 / speed_median=1.170566 (docs/research/evidence/order102_c006b/)",
+    "Order-104 C-006d holdout r3 lockstep baseline stop_start=11.652 s / cycle_health_count=45 / speed_median=1.250163 (docs/ESCALATION/order104_c006d/)",
+    "Order-105 C-006e canary simulator fail-closed stale-ack race violations=32 (docs/research/evidence/order105_c006e/)"
+  ]
+}
