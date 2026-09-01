@@ -5154,3 +5154,32 @@ artifacts: |
 rollback: |
   No runtime change. Stage-C flags off. 3273bd5 tested and recorded; prior
   verified SHAs 2b3bc5d remain. Do not advance C-007/B1.
+
+---
+timestamp: 2026-09-01T00:00:00+0800
+run_id: Order-114 A/B E1 plan-before-motion closure
+source_sha: e14263d
+trace: |
+  Order113 cleanup is clean/pushed at e14263d. Order112 remains INCONCLUSIVE:
+  its collector was not connected to production logs, so terminal RR/subgate
+  evidence is unavailable; raw inputs and hashes are preserved. The isolated
+  diagnostic commit e975c87 was build/review BLOCKED and consumed zero
+  diagnostic simulator probes. The old Stage-C live route is frozen as failed.
+  Oracle selected one E1 plan-before-motion prototype and at most P1/P2.
+implementation: |
+  Pending in the following behavior commit: captured stand plus zero-motion
+  warm hold, then an atomic first-nonzero request gate requiring existing
+  map/coverage, filtered measured support, family-A >=3-contact complete timed
+  plan, publishable identity/epoch, whole-snapshot publication, exact adapter
+  adoption, and gait/SRBD identity agreement. Failure is a pre-motion
+  safe-stop. No thresholds, margins, gains, profiles, contracts, analyzers,
+  crawl policy, planned-as-measured path, or V3-C path are changed.
+probe_validation: |
+  Zero simulator probes in this documentation closure. P1 is validate-only:
+  after arm and before forward-command application, safe-stop. P2 requires
+  independent P1 approval and is one fixed 5 cm development crossing only.
+rollback: |
+  Keep the E1 flag off (Phase1/B0 behavior) or freeze the E1 route. No old
+  Stage-C live route is re-enabled.
+acceptance: |
+  Documentation append-only closure recorded before behavior implementation.
