@@ -2957,6 +2957,25 @@ int main()
                            go2_terrain::TerrainTelemetryGate::kSwingUnknownPathSample)] > 0,
                    "swing unknown-path telemetry was not isolated"))
             return 1;
+        auto region_unknown_map = map;
+        std::fill(region_unknown_map.data().begin(),
+                  region_unknown_map.data().end(),
+                  std::numeric_limits<float>::quiet_NaN());
+        region_unknown_map.data()[10 * region_unknown_map.width() + 14] = -0.25f;
+        const auto region_unknown_built = go2_terrain::BuildTerrainModel(
+            &region_unknown_map, 10.04, 8, go2_terrain::TerrainSource::kLidar);
+        go2_terrain::TerrainCandidateTelemetry region_telemetry;
+        region_telemetry.Configure(true, 0x11, 0x22);
+        const auto rejected_regions = go2_terrain::BuildSafeFootholdRegions(
+            region_unknown_built.model, go2::Leg::FR, feasibility, nullptr,
+            &region_telemetry);
+        if (!Check(region_telemetry.evaluated_candidates[0] > 0 &&
+                       (region_telemetry.counts_by_leg[0][static_cast<std::size_t>(
+                           go2_terrain::TerrainTelemetryGate::kFootholdUnknownCell)] > 0 ||
+                        region_telemetry.counts_by_leg[0][static_cast<std::size_t>(
+                           go2_terrain::TerrainTelemetryGate::kFootholdUnknownPatch)] > 0),
+                   "region-generation reject did not reach telemetry"))
+            return 1;
         go2_terrain::TerrainCandidateTelemetry cell_path_telemetry;
         cell_path_telemetry.Configure(true, 0x11, 0x22);
         const bool cell_path_ok = go2_terrain::CheckSwingClearance(
@@ -2993,6 +3012,66 @@ int main()
                            go2_terrain::TerrainTelemetryGate::kSwingHeight)] > 0,
                    "swing height telemetry was not isolated"))
             return 1;
+        auto stale_model = built.model;
+        stale_model.age_s = feasibility.max_cell_age_s + 0.01;
+        auto stale_feasibility = feasibility;
+        stale_feasibility.max_map_age_s = stale_model.age_s + 0.01;
+        go2_terrain::TerrainCandidateTelemetry stale_telemetry;
+        stale_telemetry.Configure(true, 0x11, 0x22);
+        const auto stale_candidate = go2_terrain::EvaluateFoothold(
+            stale_model, go2::Leg::FR, 0.20, -0.10, stale_feasibility,
+            nullptr, std::numeric_limits<double>::infinity(), nullptr,
+            &stale_telemetry);
+        const auto &stale_witness = stale_telemetry.first_witness_by_leg[0][
+            static_cast<std::size_t>(go2_terrain::TerrainTelemetryGate::kFootholdRejectOther)];
+        go2_terrain::TerrainPatch stale_patch;
+        built.model.SamplePatch(0.20, -0.10, feasibility.foot_patch_radius_m,
+                                stale_patch);
+        if (!Check(!stale_candidate.hard_feasible && stale_witness.valid &&
+                       stale_witness.patch_world.x == 0.20 &&
+                       stale_witness.patch_world.y == -0.10 &&
+                       std::isfinite(stale_witness.patch_world.z) &&
+                       stale_witness.patch_world.z == stale_patch.center_height_m,
+                   "stale witness did not retain exact candidate coordinates"))
+            return 1;
+        const auto base_hash = go2_terrain::TerrainPlannerInputHash(input);
+        const auto hash_changes = [&](const auto &mutate) {
+            auto changed = input;
+            go2_terrain::TerrainModel terrain_copy;
+            if (input.terrain != nullptr) {
+                terrain_copy = *input.terrain;
+                changed.terrain = &terrain_copy;
+            }
+            mutate(changed);
+            return go2_terrain::TerrainPlannerInputHash(changed) != base_hash;
+        };
+        if (!Check(hash_changes([](auto &v) { v.current_feet_base[0].x += 0.001; }) &&
+                       hash_changes([](auto &v) { v.nominal_feet_base[0].x += 0.001; }) &&
+                       hash_changes([](auto &v) { v.nominal_touchdown_feet_valid = true; }) &&
+                       hash_changes([](auto &v) { v.terrain_retarget_allowed_valid = true; }) &&
+                       hash_changes([](auto &v) { v.terrain_retarget_allowed[0] = true; }) &&
+                       hash_changes([](auto &v) { v.terrain_surface_transition_active = true; }) &&
+                       hash_changes([](auto &v) { v.terrain_surface_transition_required[0] = true; }) &&
+                       hash_changes([](auto &v) { v.terrain_transfer_hold_active = true; }) &&
+                       hash_changes([](auto &v) { v.terrain_crawl_support_window_active = true; }) &&
+                       hash_changes([](auto &v) { v.measured_support_geometry_valid = true; }) &&
+                       hash_changes([](auto &v) { v.measured_support_feet_world[0].x += 0.001; }) &&
+                       hash_changes([](auto &v) { v.measured_com_valid = true; }) &&
+                       hash_changes([](auto &v) { v.contact_schedule.measured_valid = false; }) &&
+                       hash_changes([](auto &v) { v.contact_schedule.planned_contact[0][0] = false; }) &&
+                       hash_changes([](auto &v) { v.next_touchdown_time_valid[0] = true; }) &&
+                       hash_changes([](auto &v) { v.terrain_timing_bounds.window_end_s += 0.001; }) &&
+                       hash_changes([](auto &v) { v.has_stage_c_timing = true; }) &&
+                       hash_changes([](auto &v) {
+                           auto *terrain = const_cast<go2_terrain::TerrainModel *>(v.terrain);
+                           terrain->epoch += 1;
+                       }) &&
+                       hash_changes([](auto &v) {
+                           auto *terrain = const_cast<go2_terrain::TerrainModel *>(v.terrain);
+                           terrain->cells[0].known = !terrain->cells[0].known;
+                       }),
+                   "canonical planner input hash missed a field mutation"))
+            return 1;
         go2_terrain::TerrainPlannerConfig off_config = planner_config;
         off_config.candidate_telemetry_enabled = false;
         go2_terrain::TerrainPlannerConfig telemetry_config = planner_config;
@@ -3021,7 +3100,10 @@ int main()
                    "telemetry changed the planner result") ||
             !Check(telemetry_result.candidate_telemetry.enabled &&
                        telemetry_result.candidate_telemetry.input_hash != 0 &&
-                       telemetry_result.candidate_telemetry.plan_hash == 7,
+                       telemetry_result.candidate_telemetry.plan_hash == 7 &&
+                       !off_result.candidate_telemetry.enabled &&
+                       off_result.candidate_telemetry.input_hash == 0 &&
+                       off_result.candidate_telemetry.evaluated_candidates[0] == 0,
                    "planner candidate telemetry was not bounded/configured"))
             return 1;
     }

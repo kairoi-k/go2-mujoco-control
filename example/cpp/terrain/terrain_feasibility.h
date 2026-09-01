@@ -1158,7 +1158,7 @@ inline FootholdCandidate EvaluateFoothold(
     if (model.age_s > config.max_cell_age_s)
     {
         record_reject(TerrainTelemetryGate::kFootholdRejectOther,
-                      candidate.foot_position, &patch);
+                      {x_m, y_m, patch.center_height_m}, &patch);
         candidate.reject_reason = FootholdRejectReason::kStale;
         return candidate;
     }
@@ -1403,7 +1403,7 @@ inline std::vector<SafeFootholdRegion> BuildSafeFootholdRegions(
             const FootholdCandidate candidate = EvaluateFoothold(
                 model, leg, x, y, config, nullptr,
                 std::numeric_limits<double>::infinity(),
-                future_base_displacement_base);
+                future_base_displacement_base, telemetry);
             if (!candidate.hard_feasible)
                 continue;
             const double half = std::min(
