@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -44,27 +43,19 @@ inline bool SameTerrainBootstrapKey(
         a.frame_id == b.frame_id;
 }
 
-// Development Family-A contract: one complete immutable Stage-C plan with
-// at least three planned contacts at every horizon knot. V3-C remains shadow
-// only. This intentionally checks no scene-specific geometry or thresholds.
-inline bool TerrainBootstrapFamilyAComplete(const TerrainMotionPlan &plan)
+struct TerrainBootstrapCandidate
 {
-    if (!plan.has_stage_c_timing || plan.v3_c_shadow ||
-        plan.input_hash == 0 || !plan.valid() ||
-        plan.contact_timing.provenance != TerrainTimingProvenance::kStageCPlanner ||
-        plan.horizon_knots == 0 || plan.horizon_knots > kTerrainPlanMaxKnots)
-        return false;
+    // These readiness bits come from the existing map/planner contracts. The
+    // coordinator does not reinterpret planner margins or change thresholds.
+    bool roi_ready = false;
+    bool family_a_complete = false;
+    TerrainBootstrapPlanKey key{};
 
-    for (std::size_t k = 0; k < plan.horizon_knots; ++k)
+    bool valid() const noexcept
     {
-        std::size_t contacts = 0;
-        for (bool contact : plan.contact_schedule.planned_contact[k])
-            contacts += contact ? 1U : 0U;
-        if (contacts < 3)
-            return false;
+        return roi_ready && family_a_complete && key.valid();
     }
-    return true;
-}
+};
 
 enum class TerrainBootstrapState : std::uint8_t
 {
@@ -86,8 +77,8 @@ enum class TerrainBootstrapOwner : std::uint8_t
 
 struct TerrainC0Readiness
 {
-    // These booleans are produced by existing perception/safety surfaces.
-    // The coordinator introduces no new margins or scene-specific checks.
+    // Existing perception/safety surfaces certify these conditions. No new
+    // margins or scene-specific checks are introduced here.
     bool local_known_flat = false;
     bool swept_volume_clear = false;
     bool dstop_valid = false;
@@ -123,8 +114,7 @@ struct TerrainBootstrapInput
     bool enabled = false;
     TerrainC0Readiness c0{};
     bool observation_motion_requested = false;
-    bool roi_ready = false;
-    const TerrainMotionPlan *candidate = nullptr;
+    TerrainBootstrapCandidate candidate{};
     bool legal_transfer_boundary = false;
     TerrainC1AdoptionEvidence c1{};
     bool crossing_started = false;
@@ -193,10 +183,7 @@ public:
             return C1("c1_owns_transition");
         }
 
-        const bool complete_candidate = input.roi_ready &&
-            input.candidate != nullptr &&
-            TerrainBootstrapFamilyAComplete(*input.candidate);
-        if (!complete_candidate)
+        if (!input.candidate.valid())
         {
             state_ = input.observation_motion_requested
                 ? TerrainBootstrapState::kObserve
@@ -207,7 +194,6 @@ public:
             return Hold("waiting_for_c1_candidate");
         }
 
-        const auto candidate_key = TerrainBootstrapKey(*input.candidate);
         if (!input.legal_transfer_boundary)
         {
             state_ = TerrainBootstrapState::kTransferHold;
@@ -215,13 +201,13 @@ public:
             return Hold("waiting_for_legal_transfer_boundary");
         }
 
-        // At the transfer boundary, a missing publication/adoption witness is
-        // a hold, while a present but incoherent witness is a safety fault.
+        // At the transfer boundary, absent adoption evidence is a hold. Once
+        // any publication/adoption witness appears, disagreement fails closed.
         const bool any_c1_evidence = input.c1.publish_succeeded ||
             input.c1.adapter_adopted || input.c1.published.valid() ||
             input.c1.adopted.valid() || input.c1.gait.valid() ||
             input.c1.srbd.valid();
-        if (!input.c1.coherent_with(candidate_key))
+        if (!input.c1.coherent_with(input.candidate.key))
         {
             if (!any_c1_evidence)
             {
@@ -235,7 +221,7 @@ public:
             return Brake("c1_identity_or_deadline_mismatch");
         }
 
-        armed_plan_ = candidate_key;
+        armed_plan_ = input.candidate.key;
         state_ = TerrainBootstrapState::kC1Armed;
         owner_ = TerrainBootstrapOwner::kC1;
         return C1("c1_armed");
