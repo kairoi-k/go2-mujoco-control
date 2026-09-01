@@ -68,6 +68,54 @@ class ActualFkCrossingTest(unittest.TestCase):
         self.assertEqual(report["phases"]["rear_ascent_support_exchange"]["status"], "missing")
         self.assertEqual(report["body_posture_com"]["com_progression"].split()[0], "unavailable")
 
+    def test_invalid_and_shuffled_state_ticks_are_reported(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = self.write_fixture(Path(raw))
+            with path.open(newline="") as source:
+                rows = list(csv.DictReader(source))
+            rows[2]["state_tick_s"] = "not-a-number"
+            rows[3]["state_tick_s"], rows[4]["state_tick_s"] = rows[4]["state_tick_s"], rows[3]["state_tick_s"]
+            with path.open("w", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+                writer.writeheader(); writer.writerows(rows)
+            report = actual_fk.analyze(path)
+        self.assertEqual(report["state_tick_quality"]["invalid"], 1)
+        self.assertFalse(report["state_tick_quality"]["all_analyzed_rows_finite"])
+        self.assertFalse(report["state_tick_quality"]["monotonic"])
+
+    def test_gt_over_tolerance_is_unavailable_and_measured_is_not_overridden(self):
+        with tempfile.TemporaryDirectory() as raw:
+            directory = Path(raw); data = self.write_fixture(directory)
+            gt = directory / "gt.csv"
+            fields = ["time_s", "phase2_terrain_foot_contact_mask"]
+            with gt.open("w", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerow({"time_s": "10", "phase2_terrain_foot_contact_mask": "0"})
+                writer.writerow({"time_s": "10", "phase2_terrain_foot_contact_mask": "0"})
+                writer.writerow({"time_s": "9", "phase2_terrain_foot_contact_mask": "0"})
+            report = actual_fk.analyze(data, gt)
+        self.assertEqual(report["gt_time_quality"]["duplicates"], 1)
+        self.assertEqual(report["gt_alignment"]["status"], "unavailable")
+        self.assertGreater(report["gt_alignment"]["unmatched"], 0)
+        self.assertEqual(report["phases"]["front_ascent_first_touchdown"]["contact_witness_status"], "observed")
+
+    def test_missing_measured_contact_is_ambiguous_not_gt_promoted(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = self.write_fixture(Path(raw))
+            with path.open(newline="") as source:
+                rows = list(csv.DictReader(source))
+            for row in rows:
+                row["wbc_measured_contact_mask"] = ""
+                for leg in actual_fk.LEGS:
+                    row["foot_force_" + leg] = ""
+            with path.open("w", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+                writer.writeheader(); writer.writerows(rows)
+            report = actual_fk.analyze(path)
+        self.assertEqual(report["phases"]["front_ascent_first_touchdown"]["contact_witness_status"], "unavailable")
+        self.assertEqual(report["phases"]["front_ascent_first_touchdown"]["status"], "ambiguous")
+
     def test_tick_quality_and_contact_penetration_are_separate(self):
         with tempfile.TemporaryDirectory() as raw:
             path = self.write_fixture(Path(raw))

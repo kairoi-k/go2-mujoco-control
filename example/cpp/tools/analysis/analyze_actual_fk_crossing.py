@@ -136,14 +136,13 @@ def gt_record(row):
 
 
 def tick_quality(rows, key="state_tick_s"):
-    ticks = [number(row, key) for row in rows]
-    ticks = [value for value in ticks if value is not None]
+    raw = [number(row, key) for row in rows]
+    ticks = [value for value in raw if value is not None]
     deltas = [right-left for left, right in zip(ticks, ticks[1:])]
     positive = [delta for delta in deltas if delta > 0]
-    return {"rows_with_tick": len(ticks), "monotonic": all(delta >= 0 for delta in deltas),
-            "duplicates": sum(delta == 0 for delta in deltas),
-            "backward": sum(delta < 0 for delta in deltas),
-            "gaps": sum(delta > .002001 for delta in deltas),
+    return {"rows_total": len(rows), "rows_with_finite_tick": len(ticks), "invalid": len(rows)-len(ticks),
+            "monotonic": all(delta >= 0 for delta in deltas), "duplicates": sum(delta == 0 for delta in deltas),
+            "backward": sum(delta < 0 for delta in deltas), "gaps": sum(delta > .002001 for delta in deltas),
             "dt_min_s": min(positive, default=None), "dt_median_s": statistics.median(positive) if positive else None,
             "dt_p95_s": percentile(positive, .95), "dt_max_s": max(positive, default=None),
             "dt_samples": len(positive), "nominal_dt_s": .002}
@@ -155,9 +154,18 @@ def percentile(values, fraction):
     return ordered[min(len(ordered)-1, int(math.ceil(fraction*len(ordered))-1))]
 
 
+GT_ALIGNMENT_TOLERANCE_S = .011
+
 def nearest_index(times, value):
     if value is None or not times: return None
     return min(range(len(times)), key=lambda i: abs(times[i]-value))
+
+def gt_time_quality(times, invalid):
+    deltas = [right-left for left, right in zip(times, times[1:])]
+    return {"rows_total": len(times)+invalid, "valid_time_rows": len(times), "invalid": invalid,
+            "sorted_non_decreasing": all(delta >= 0 for delta in deltas),
+            "duplicates": sum(delta == 0 for delta in deltas),
+            "nonmonotonic_input_checked_after_sort": "see sorted pair construction"}
 
 
 def phase_report(name, rows, feet, gt):
@@ -166,10 +174,11 @@ def phase_report(name, rows, feet, gt):
     contact = {leg: 0 for leg in LEGS}; force = {leg: 0 for leg in LEGS}
     penetration = {"contact_samples": 0, "max_m": 0.0, "within_tolerance": 0}
     swing = {"samples": 0, "collision_samples": 0, "clearance_min_m": None}
+    contact_source_available = False
     for i, (row, points) in enumerate(zip(rows, feet)):
-        row_mask, _ = measured_mask(row)
-        if gt[i] is not None: row_mask = gt[i]["mask"]
-        forces = gt[i]["forces"] if gt[i] is not None else measured_forces(row)[0]
+        row_mask, mask_source = measured_mask(row)
+        forces, force_source = measured_forces(row)
+        contact_source_available |= mask_source is not None or force_source is not None
         for index, (leg, point) in enumerate(zip(LEGS, points)):
             x, _, z = point; patch_z = z - PATCH_OFFSET
             surface_z = TABLE_Z if EDGE_X <= x <= TABLE_END_X else FLOOR_Z
@@ -187,8 +196,9 @@ def phase_report(name, rows, feet, gt):
                 clearance = patch_z-surface_z; swing["samples"] += 1
                 swing["clearance_min_m"] = clearance if swing["clearance_min_m"] is None else min(swing["clearance_min_m"], clearance)
                 if clearance < -PENETRATION_TOLERANCE_M: swing["collision_samples"] += 1
-    status = "observed" if any(sum(v.values()) for v in membership.values()) else "ambiguous"
-    return {"status": status, "samples": len(rows), "surface_membership": {leg: max(values, key=values.get) for leg, values in membership.items()},
+    status = "observed" if contact_source_available and any(sum(v.values()) for v in membership.values()) else "ambiguous"
+    return {"status": status, "samples": len(rows), "contact_witness_status": "observed" if contact_source_available else "unavailable",
+            "surface_membership": {leg: max(values, key=values.get) for leg, values in membership.items()},
             "surface_membership_counts": membership, "measured_contact_witness_samples": contact,
             "measured_contact_witness_total": sum(contact.values()), "measured_force_witness_samples": force,
             "contact_penetration": penetration,
@@ -199,13 +209,19 @@ def phase_report(name, rows, feet, gt):
 def analyze(data_path, gt_path=None):
     fields, rows = load_rows(data_path)
     forbidden = sorted(key for key in fields if any(token in key.lower() for token in FORBIDDEN))
-    gt_rows, gt_times = [], []
+    gt_rows, gt_times, gt_invalid = [], [], 0
     if gt_path:
-        gt_fields, gt_rows = load_rows(gt_path)
-        gt_times = [number(row, "time_s") for row in gt_rows]
-        gt_times = [value for value in gt_times if value is not None]
+        _, raw_gt = load_rows(gt_path)
+        pairs = [(number(row, "time_s"), index, row) for index, row in enumerate(raw_gt)]
+        gt_invalid = sum(time is None for time, _, _ in pairs)
+        pairs = sorted((time, index, row) for time, index, row in pairs if time is not None)
+        gt_times = [time for time, _, _ in pairs]; gt_rows = [row for _, _, row in pairs]
     feet, valid_rows, witnesses, align_deltas = [], [], [], []
+    invalid_state_rows = 0
     for row in rows:
+        if number(row, "state_tick_s") is None:
+            invalid_state_rows += 1
+            continue
         points = fk(row)
         if points is None: continue
         feet.append(points); valid_rows.append(row)
@@ -232,11 +248,30 @@ def analyze(data_path, gt_path=None):
                 logged = tuple(number(row, f"measured_fk_{leg}_foot_world_{axis}") for axis in AXES)
                 if all(value is not None for value in logged): per_leg[leg].append(max(abs(a-b) for a,b in zip(logged, point)))
     fk_check = {"status": "checked" if any(per_leg.values()) else "unavailable", "source": "measured_fk_* (post-C005 only)", "per_leg_m": {leg: {"samples": len(values), "median": statistics.median(values) if values else None, "p95": percentile(values,.95), "max": max(values, default=None)} for leg, values in per_leg.items()}, "max_abs_error_m": max((max(values) for values in per_leg.values() if values), default=None), "reason": None if any(per_leg.values()) else "measured_fk fields unavailable; not a failed cross-check"}
-    gt_aligned = sum(value is not None for value in align_deltas)
-    gt_alignment = {"status": "checked" if gt_aligned else "unavailable", "mode": "nearest state_tick_s to GT time_s; audit-only positions/base, contact mask/forces remain witnesses", "rows_aligned": gt_aligned, "max_abs_dt_s": max((v for v in align_deltas if v is not None), default=None), "median_abs_dt_s": statistics.median([v for v in align_deltas if v is not None]) if gt_aligned else None, "reason": None if gt_aligned else "ground-truth alignment unavailable"}
+    matched_deltas = [value for value in align_deltas if value is not None and value <= GT_ALIGNMENT_TOLERANCE_S]
+    all_deltas = [value for value in align_deltas if value is not None]
+    gt_aligned = len(matched_deltas)
+    gt_alignment = {"status": "checked" if gt_aligned and max(all_deltas, default=0.0) <= GT_ALIGNMENT_TOLERANCE_S else "unavailable", "mode": "sorted (time_s,row_index) pairs; nearest state_tick_s to GT time_s; audit-only GT compare", "rows_aligned": gt_aligned, "matched": gt_aligned, "unmatched": len(valid_rows)-gt_aligned, "nearest_dt_median_s": statistics.median(all_deltas) if all_deltas else None, "nearest_dt_p95_s": percentile(all_deltas,.95), "nearest_dt_max_s": max(all_deltas, default=None), "tolerance_s": GT_ALIGNMENT_TOLERANCE_S, "reason": None if gt_aligned and max(all_deltas, default=0.0) <= GT_ALIGNMENT_TOLERANCE_S else "missing/over-tolerance GT alignment"}
     mask_sources = sorted({measured_mask(row)[1] for row in valid_rows if measured_mask(row)[1]})
     force_sources = sorted({measured_forces(row)[1] for row in valid_rows if measured_forces(row)[1]})
-    return {"analyzer": "actual_fk_crossing", "evidence_class": "harness-only development evidence", "methodology": {"frame": "base_link x-forward/y-left/z-up; world = base_position + R(base_orientation)*foot_base", "quaternion_order": "w,x,y,z; RPY fallback roll,pitch,yaw intrinsic XYZ as production BodyToWorld convention", "leg_order": "FR,FL,RR,RL", "joint_order": "per leg hip,thigh,calf; q_state total 12", "fk_geometry_m": {"hip_x_front_rear": [.1934,-.1934], "hip_y_abs": .0465, "hip_link_y_abs": .0955, "thigh": .213, "calf": .213}}, "allowlist": {"state_tick_s": True, "base_pose_orientation": True, "q_state_12": True, "measured_contact_mask_forces": True, "safety_lifecycle": True, "frozen_terrain_geometry": {"floor_z_m": 0.0, "tabletop_x_m": [.70,1.20], "tabletop_z_m": .05}}, "forbidden_fields_present_but_ignored": forbidden, "input_rows": len(rows), "valid_fk_rows": len(valid_rows), "missing_required": [key for key in ("state_tick_s",) if key not in fields], "state_tick_quality": tick_quality(rows), "gt_alignment": gt_alignment, "contact_provenance": {"mask_sources": mask_sources, "force_sources": force_sources, "gt_mask_source": "phase2_terrain_foot_contact_mask (when supplied)", "gt_force_source": "<leg>_foot_contact_grf_world_z_N or <leg>_contact_grf_world_z_N (audit-only C002 witness)", "force_units": "N (normal/world-z estimate or GT GRF z)", "force_threshold_N": CONTACT_FORCE_THRESHOLD_N, "mask_bit_mapping": BIT_MAP, "temporal_alignment": "controller row state_tick_s; GT nearest time_s; no target/planned fields"}, "measured_fk_cross_check": fk_check, "body_posture_com": {"roll_abs_max_rad": max((abs(number(row,"imu_roll_rad")) for row in valid_rows if number(row,"imu_roll_rad") is not None), default=None), "pitch_abs_max_rad": max((abs(number(row,"imu_pitch_rad")) for row in valid_rows if number(row,"imu_pitch_rad") is not None), default=None), "com_progression": "unavailable (CoM is not allowlisted measured state)", "base_x_start_m": first_number(valid_rows[0],"world_base_x_m","base_pos_world_x_m"), "base_x_end_m": first_number(valid_rows[-1],"world_base_x_m","base_pos_world_x_m")}, "safety_lifecycle": {"status": "observed" if any(any(token in key.lower() for token in ("safety","lifecycle","stop","motion_stage","phase")) for key in fields) else "unavailable"}, "phases": phases, "overall_status": "observed" if first_front is not None else "ambiguous"}
+    gt_position_errors = {leg: [] for leg in LEGS}; gt_mask_compared = 0; gt_mask_disagreements = 0
+    gt_force_errors = {leg: [] for leg in LEGS}
+    for row, points in zip(valid_rows, feet):
+        index = nearest_index(gt_times, number(row, "state_tick_s")) if gt_rows else None
+        if index is None or abs(gt_times[index]-number(row, "state_tick_s")) > GT_ALIGNMENT_TOLERANCE_S: continue
+        record = gt_record(gt_rows[index])
+        if record is None: continue
+        measured, _ = measured_mask(row)
+        if measured is not None and record["mask"] is not None:
+            gt_mask_compared += 1; gt_mask_disagreements += measured != record["mask"]
+        for i, leg in enumerate(LEGS):
+            position = record["positions"][i]
+            if all(value is not None for value in position):
+                gt_position_errors[leg].append(max(abs(a-b) for a,b in zip(points[i], position)))
+            measured_force = measured_forces(row)[0][i]; gt_force = record["forces"][i]
+            if measured_force is not None and gt_force is not None: gt_force_errors[leg].append(abs(measured_force-gt_force))
+    gt_compare = {"status": "checked" if gt_mask_compared or any(gt_position_errors.values()) else "unavailable", "independent_of_measured_phase_witness": True, "mask_rows_compared": gt_mask_compared, "mask_disagreements": gt_mask_disagreements, "position_error_m": {leg: {"samples": len(values), "median": statistics.median(values) if values else None, "p95": percentile(values,.95), "max": max(values, default=None)} for leg, values in gt_position_errors.items()}, "force_abs_error_N": {leg: {"samples": len(values), "median": statistics.median(values) if values else None, "p95": percentile(values,.95), "max": max(values, default=None)} for leg, values in gt_force_errors.items()}}
+    return {"analyzer": "actual_fk_crossing", "evidence_class": "harness-only development evidence", "methodology": {"production_fk_exact_path": "example/cpp/trot/trot_experiment_diagnostics.cpp:898-905", "production_fk_symbol": "TrotExperiment::LogSample", "production_fk_source_slice": "state_snapshot.motor_state()[0..11].q -> go2::AllFootPositions -> go2_control::BodyToWorld(pose.base, pose.quaternion, body_feet[leg])", "production_fk_blob_sha": "a2d39cd6f7989c76e8dec49aa2fd6cd501d64191", "frame":  "base_link x-forward/y-left/z-up; world = base_position + R(base_orientation)*foot_base", "quaternion_order": "w,x,y,z; RPY fallback roll,pitch,yaw intrinsic XYZ as production BodyToWorld convention", "leg_order": "FR,FL,RR,RL", "joint_order": "per leg hip,thigh,calf; q_state total 12", "fk_geometry_m": {"hip_x_front_rear": [.1934,-.1934], "hip_y_abs": .0465, "hip_link_y_abs": .0955, "thigh": .213, "calf": .213}}, "allowlist": {"state_tick_s": True, "base_pose_orientation": True, "q_state_12": True, "measured_contact_mask_forces": True, "safety_lifecycle": True, "frozen_terrain_geometry": {"floor_z_m": 0.0, "tabletop_x_m": [.70,1.20], "tabletop_z_m": .05}}, "forbidden_fields_present_but_ignored": forbidden, "input_rows": len(rows), "valid_fk_rows": len(valid_rows), "missing_required": [key for key in ("state_tick_s",) if key not in fields], "state_tick_quality": {**tick_quality(rows), "invalid_rows_excluded": invalid_state_rows, "all_analyzed_rows_finite": invalid_state_rows == 0}, "gt_time_quality": gt_time_quality(gt_times, gt_invalid), "gt_alignment": gt_alignment, "gt_independent_compare": gt_compare, "contact_provenance": {"mask_sources": mask_sources, "force_sources": force_sources, "gt_mask_source": "phase2_terrain_foot_contact_mask (when supplied)", "gt_force_source": "<leg>_foot_contact_grf_world_z_N or <leg>_contact_grf_world_z_N (audit-only C002 witness)", "force_units": "N (normal/world-z estimate or GT GRF z)", "force_threshold_N": CONTACT_FORCE_THRESHOLD_N, "mask_bit_mapping": BIT_MAP, "temporal_alignment": "controller row state_tick_s; GT sorted (time_s,row_index), nearest time_s; no target/planned fields"}, "measured_fk_cross_check": fk_check, "body_posture_com": {"roll_abs_max_rad": max((abs(number(row,"imu_roll_rad")) for row in valid_rows if number(row,"imu_roll_rad") is not None), default=None), "pitch_abs_max_rad": max((abs(number(row,"imu_pitch_rad")) for row in valid_rows if number(row,"imu_pitch_rad") is not None), default=None), "com_progression": "unavailable (CoM is not allowlisted measured state)", "base_x_start_m": first_number(valid_rows[0],"world_base_x_m","base_pos_world_x_m"), "base_x_end_m": first_number(valid_rows[-1],"world_base_x_m","base_pos_world_x_m")}, "safety_lifecycle": {"status": "observed" if any(any(token in key.lower() for token in ("safety","lifecycle","stop","motion_stage","phase")) for key in fields) else "unavailable"}, "phases": phases, "overall_status": "observed" if first_front is not None else "ambiguous"}
 
 
 def main():
