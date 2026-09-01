@@ -22,5 +22,8 @@ if grep -q "void Simulate::PublishRenderSnapshot" "$source_file"; then
 fi
 
 cd "$repo_dir"
-patch --forward --batch -p0 < "$repo_dir/patches/mujoco-passive-render-snapshot.patch"
+# The stored patch was generated against temporary *.upstream filenames.
+# Normalize only those old-file headers so GNU patch targets the fresh archive.
+sed 's/\.upstream$//' "$repo_dir/patches/mujoco-passive-render-snapshot.patch" \
+  | patch --forward --batch -p0
 echo "Applied MuJoCo passive render patch to $vendor_dir"
