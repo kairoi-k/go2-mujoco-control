@@ -589,10 +589,9 @@ void TrotExperiment::TerrainPlannerWorker()
             const auto c0_result = go2_terrain::EvaluateTerrainBootstrapC0(c0);
             bootstrap_c0_ready = c0_result.readiness.valid();
 
-            const auto nominal_feet = go2::AllFootPositions(
-                task_.stand_up_joint_pos_);
             const double nominal_front_x =
-                0.5 * (nominal_feet[0].x + nominal_feet[1].x);
+                0.5 * (work.input.nominal_feet_base[0].x +
+                       work.input.nominal_feet_base[1].x);
             bootstrap_roi_ready =
                 go2_terrain::TerrainCrawlSequencer::TransferActivationReady(
                     *model, work.input.base_position_world,

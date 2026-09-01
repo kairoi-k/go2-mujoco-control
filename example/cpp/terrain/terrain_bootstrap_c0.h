@@ -40,6 +40,8 @@ inline TerrainBootstrapStopEstimate EstimateBootstrapStopDistance(
         params.max_jerk_mps3 <= 0.0)
         return out;
 
+    out.distance_m = 0.0;
+    out.time_s = 0.0;
     double speed = std::clamp(speed_mps, 0.0, params.max_speed_mps);
     double accel = std::clamp(
         acceleration_mps2, -params.max_decel_mps2, params.max_accel_mps2);
