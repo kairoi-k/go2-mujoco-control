@@ -10,4 +10,6 @@ Pre-transfer arbitration is deliberately small: no C1 candidate plus valid C0 le
 
 The transfer window can arm only after the measured body speed has settled to <=0.05 m/s, C0 is valid, the exact candidate plan id is still the usable store snapshot, and the execution adapter reports a legal boundary. That exact immutable shared_ptr is frozen for first C1 adoption so an asynchronous planner refresh cannot switch identity between hold and handoff. After adoption, the existing C-004 path remains authoritative: gait and SRBD/WBC consume the adapter's same adopted immutable snapshot.
 
+Follow-up review caught two static defects before runtime authorization: the valid stop-distance accumulator inherited its invalid infinity sentinel, and the Release CMake build compiled away the C0 test's assertions. The accumulator now starts from zero after input validation, the C0 test explicitly re-enables assertions in Release, and the planner worker uses the already-copied nominal-foot snapshot instead of reading TrotTask-owned storage.
+
 This is still only a development bootstrap gate. End-to-end sensor/queue/actuation/halt latency certification and a 5 cm dynamic probe remain separate obligations. The next gate is remote build/CTest; if clean, no further generic observer/infrastructure work is authorized before the bounded 5 cm development probe.
