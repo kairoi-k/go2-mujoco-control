@@ -118,6 +118,26 @@ class ActualFkCrossingTest(unittest.TestCase):
         self.assertEqual(report["phases"]["front_ascent_first_touchdown"]["contact_witness_status"], "unavailable")
         self.assertEqual(report["phases"]["front_ascent_first_touchdown"]["status"], "ambiguous")
 
+    def test_optional_gt_mask_absent_is_null_and_not_compared(self):
+        with tempfile.TemporaryDirectory() as raw:
+            directory = Path(raw)
+            data = self.write_fixture(directory)
+            gt = directory / "gt_force_only.csv"
+            fields = ["time_s", "FR_foot_contact_grf_world_z_N"]
+            with gt.open("w", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerow({"time_s": "0.06", "FR_foot_contact_grf_world_z_N": "8"})
+            report = actual_fk.analyze(data, gt)
+        record = actual_fk.gt_record({
+            "phase2_terrain_foot_contact_mask": "",
+            "FR_foot_contact_grf_world_z_N": "8",
+        })
+        self.assertIsNotNone(record)
+        self.assertIsNone(record["mask"])
+        self.assertEqual(report["gt_independent_compare"]["mask_rows_compared"], 0)
+        self.assertEqual(report["gt_independent_compare"]["mask_disagreements"], 0)
+
     def test_tick_quality_and_contact_penetration_are_separate(self):
         with tempfile.TemporaryDirectory() as raw:
             path = self.write_fixture(Path(raw))

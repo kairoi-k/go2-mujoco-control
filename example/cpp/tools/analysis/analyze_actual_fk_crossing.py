@@ -131,7 +131,7 @@ def gt_record(row):
     for leg in LEGS:
         positions.append(tuple(number(row, f"{leg}_pos_world_{axis}_m") for axis in AXES))
     base = tuple(number(row, f"base_pos_world_{axis}_m") for axis in AXES)
-    return {"mask": int(round(mask)) & 15 if mask is not None else 0,
+    return {"mask": int(round(mask)) & 15 if mask is not None else None,
             "forces": forces, "positions": positions, "base": base}
 
 
