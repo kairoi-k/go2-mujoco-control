@@ -1102,8 +1102,73 @@ void TrotExperiment::PublishLowCmdWithCrc()
     low_cmd_.crc() = crc32_core(
         (uint32_t *)&low_cmd_,
         (sizeof(unitree_go::msg::dds_::LowCmd_) >> 2) - 1);
+#ifdef GO2_TROT_TESTING
+    if (suppress_lowcmd_publish_for_test_)
+        return;
+#endif
     lowcmd_publisher_->Write(low_cmd_);
 }
+
+#ifdef GO2_TROT_TESTING
+void TrotExperiment::TestPrepareMotionClock(std::uint32_t handoff_tick)
+{
+    InitLowCmd();
+    suppress_lowcmd_publish_for_test_ = true;
+    lockstep_ack_enabled_ = true;
+    lockstep_writer_gate_.Engage(handoff_tick);
+    lockstep_motion_clock_.Engage(handoff_tick);
+    // Keep the production gait/timer consumers active for the call-chain
+    // probe; these are existing controller fields, not test-time clocks.
+    task_.gait_started_ = true;
+    task_.motion_stage_ = 2;
+    stop_brake_start_time_s_ = running_time_;
+    high_speed_stop_brake_start_time_s_ = running_time_;
+    high_speed_stop_hold_start_time_s_ = running_time_;
+}
+
+bool TrotExperiment::TestRunWallClockTick(
+    const unitree_go::msg::dds_::LowState_ &state)
+{
+    suppress_lowcmd_publish_for_test_ = true;
+    LowStateMessageHandler(&state);
+    if (!lockstep_writer_gate_.Engaged())
+        LowCmdWrite();
+    else
+        return false;
+    return true;
+}
+
+bool TrotExperiment::TestRunLockstepTick(
+    const unitree_go::msg::dds_::LowState_ &state)
+{
+    LowStateMessageHandler(&state);
+    if (!lockstep_writer_gate_.HasPendingTick())
+        return false; // duplicate publication: writer does not run
+    std::uint32_t pending_tick = 0;
+    if (lockstep_writer_gate_.WaitForTick(
+            []() { return false; }, &pending_tick) !=
+        lockstep_writer::WaitResult::kTick)
+        return false;
+    LowCmdWrite();
+    lockstep_writer_gate_.RecordConsumed(pending_tick);
+    return true;
+}
+
+TrotExperiment::TestMotionClockSample
+TrotExperiment::TestLastMotionClockSample() const
+{
+    TestMotionClockSample sample;
+    sample.motion_dt_s = last_motion_dt_s_;
+    sample.cmd_time_s = running_time_;
+    sample.gait_time_s = running_time_ - task_.gait_start_time_s_;
+    // These are the production elapsed-time consumers used by gait ramp,
+    // health governor, and timed stop paths, observed from their anchors.
+    sample.ramp_time_s = running_time_ - task_.gait_start_time_s_;
+    sample.governor_time_s = running_time_ - high_speed_stop_brake_start_time_s_;
+    sample.stop_time_s = running_time_ - stop_brake_start_time_s_;
+    return sample;
+}
+#endif
 
 // Order-107 verification-only ack: ack{state_seq, command_seq} published
 // only after the LowCmd write of the same control cycle, only when the

@@ -110,6 +110,23 @@ public:
     bool StopFileRequested() const;
     void Shutdown();
 
+#ifdef GO2_TROT_TESTING
+    struct TestMotionClockSample
+    {
+        double motion_dt_s = 0.0;
+        double cmd_time_s = 0.0;
+        double gait_time_s = 0.0;
+        double ramp_time_s = 0.0;
+        double governor_time_s = 0.0;
+        double stop_time_s = 0.0;
+    };
+
+    void TestPrepareMotionClock(std::uint32_t handoff_tick);
+    bool TestRunWallClockTick(const unitree_go::msg::dds_::LowState_ &state);
+    bool TestRunLockstepTick(const unitree_go::msg::dds_::LowState_ &state);
+    TestMotionClockSample TestLastMotionClockSample() const;
+#endif
+
 private:
     void EnvironmentHeightMapMessageHandler(const void *message);
     void LidarHeightMapMessageHandler(const void *message);
@@ -763,6 +780,9 @@ private:
     ChannelPublisherPtr<unitree_go::msg::dds_::LowCmd_> lowcmd_publisher_;
     ChannelPublisherPtr<unitree_go::msg::dds_::Error_> lockstep_ack_publisher_;
     bool lockstep_ack_enabled_ = false;
+#ifdef GO2_TROT_TESTING
+    bool suppress_lowcmd_publish_for_test_ = false;
+#endif
     // Order-107: lockstep-local sequence epoch established at the first
     // lockstep state consumed after the controller's lifecycle barrier
     // (start-gait); the command sequence counts every LowCmd write 1:1 from

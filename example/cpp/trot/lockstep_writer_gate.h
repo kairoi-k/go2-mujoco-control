@@ -179,6 +179,14 @@ public:
     return failed_closed_;
   }
 
+  // Test/diagnostic seam: reports whether a strictly new tick is pending
+  // without consuming it. It does not alter the production gate.
+  bool HasPendingTick() const
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return engaged_ && !failed_closed_ && handler_tick_ != consumed_tick_;
+  }
+
   std::uint32_t Violations() const
   {
     std::lock_guard<std::mutex> lock(mutex_);

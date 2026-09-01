@@ -145,6 +145,34 @@ go2_add_ctest(test_lockstep_writer_gate)
 add_executable(test_lockstep_motion_clock tests/test_lockstep_motion_clock.cpp)
 go2_add_ctest(test_lockstep_motion_clock)
 
+# Order-109b production call-chain integration test. The controller sources
+# are compiled unchanged except for a test-only publish suppression and
+# observability seam; the test drives TrotExperiment::LowCmdWrite itself.
+add_executable(test_lockstep_motion_clock_integration
+    tests/test_lockstep_motion_clock_integration.cpp
+    trot/trot_task.cpp
+    trot/trot_experiment_lifecycle.cpp
+    trot/trot_experiment_gait.cpp
+    trot/trot_experiment_wbc.cpp
+    trot/trot_experiment_diagnostics.cpp
+    trot/trot_experiment_control.cpp
+)
+target_compile_definitions(test_lockstep_motion_clock_integration
+    PRIVATE GO2_TROT_TESTING=1)
+target_link_libraries(test_lockstep_motion_clock_integration
+    unitree_sdk2 Eigen3::Eigen)
+if(EXISTS "${_go2_mujoco_lib}")
+    target_include_directories(test_lockstep_motion_clock_integration
+        PRIVATE "${_go2_mujoco_inc}")
+    target_link_libraries(test_lockstep_motion_clock_integration
+        "${_go2_mujoco_lib}")
+    target_compile_definitions(test_lockstep_motion_clock_integration
+        PRIVATE GO2_MODEL_PATH="${_go2_model_path}")
+    set_target_properties(test_lockstep_motion_clock_integration PROPERTIES
+        BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
+endif()
+go2_add_ctest(test_lockstep_motion_clock_integration)
+
 add_executable(test_centroidal_wbc tests/test_centroidal_wbc.cpp)
 
 add_executable(test_preview_footstep_horizon tests/test_preview_footstep_horizon.cpp)
