@@ -5288,3 +5288,47 @@ acceptance: |
   Doc P1 fixes applied; ESCALATION_LOG append-only (old blocks untouched);
   non-docs/_runs diff zero; commit and push clean; bundle rebuilt at
   C:\Workspace\tmp\order115_design_bundle.
+---
+timestamp: 2026-09-01T21:55:00+0800
+run_id: Order-116 bootstrap proof review (RECORD ONLY; architecture blocked)
+source_sha: e3af0df (clean baseline; proof bundle at C:\Workspace\tmp\order116_proof_bundle, manifest sha256 a5013c060813dfe2e5bfb0a8f10f73755f7b01432da941a11163a3720824b280)
+verdict: |
+  blocked / architecture_blocked. Independent review of the Order-116 proof
+  bundle: P0 observation/C0 insufficient (roi_cell_observation.csv per-cell
+  values and cell_stamp empty; rebuild_proof.py synthesizes rows from log
+  known=320; map_visibility_trace.json summary-only, no per-cell value/timestamp,
+  rays, transforms or sweep evidence). P1 open: p1_calculations.json verifies
+  only continuous jerk integral 0.183333m while velocity_command.h:139-169 uses
+  discrete Euler on clamped dt with saturation and overshoot correction, no
+  discrete worst-case recomputation; full-chain latency unclosed (p1_dstop.md
+  planner p95=1277.164us vs runtime_timing_trace.csv solver_p95=1281.301us,
+  neither worst-case, no paired timestamps or hard upper bounds). P2 open:
+  terrain_plan_execution_adapter.h ApplyToKernel ~182-203 writes gait setters
+  only when using_plan && last_request_.valid, fallback clears request without
+  proving overwrite of prior terrain gait parameters; TerrainMotionPlan/Identity
+  and lifecycle lockstep ack (trot_experiment_lifecycle.cpp:336-364) lack C0/C1
+  certificate, owner lease/token, per-consumer ack/deadline and explicit C0
+  invalidation/preemption.
+authorization: |
+  NONE. architecture_blocked: no behavior prototype, no actuation enablement,
+  no simulator invocation is authorized by this record.
+next_safe_step: |
+  Passive observability-only instrumentation only: record per-cell raw
+  value/validity/sampling timestamp, lidar rays, pose/map transforms, ROI and
+  swept-volume sets, and sensor-to-halt monotonic sequence with timestamps on
+  the same snapshot to build the C0 certificate; then re-review. No behavior
+  change.
+implementation: |
+  None. Docs/research/evidence/order116_bootstrap_proofs/SUMMARY.md and this
+  append-only escalation record only. No behavior code, no tests, no simulation,
+  no _runs run artifacts.
+probe_validation: |
+  Zero simulator probes consumed in this documentation closure.
+rollback: |
+  No runtime change. e3af0df remains the baseline; all Stage-C execution flags
+  stay off.
+acceptance: |
+  SUMMARY.md references bundle hash a5013c06; P0/P1/P2 and outcome recorded;
+  next_safe_step recorded without behavior authorization; ESCALATION_LOG
+  append-only (prior blocks untouched); non-docs diff zero; commit and push
+  clean; record bundle delivered to C:\Workspace\tmp\order116_record_bundle.
