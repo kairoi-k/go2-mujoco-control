@@ -19,7 +19,9 @@ jobs:
           fetch-depth: 2
 
       - name: Apply bootstrap runtime integration
-        run: python3 scripts/apply_bootstrap_runtime_integration.py
+        run: |
+          python3 scripts/apply_bootstrap_runtime_integration.py
+          python3 scripts/apply_bootstrap_runtime_followup.py
 
       - name: Commit integration
         run: |
@@ -33,6 +35,7 @@ jobs:
                   example/cpp/terrain/terrain_planner.h \
                   example/cpp/trot/trot_experiment.h \
                   example/cpp/trot/trot_experiment_control.cpp \
-                  example/cpp/trot/trot_experiment_gait.cpp
+                  example/cpp/trot/trot_experiment_gait.cpp \
+                  example/cpp/tests/test_terrain_bootstrap_c0.cpp
           git commit -m "feat: wire development C0-C1 bootstrap runtime"
           git push origin HEAD:assistant/bootstrap-static-fixes-20260902
