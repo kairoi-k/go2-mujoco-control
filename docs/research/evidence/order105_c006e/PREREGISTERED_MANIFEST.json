@@ -1,0 +1,72 @@
+{
+  "order": "105",
+  "purpose": "C-006e exact-committed-SHA causal lockstep verification of approved commit 1b29974 (Order-105 Phase A causal ack handshake; Phase B review approved; Phase C verification)",
+  "mode": "REVIEW then VERIFY",
+  "preregistered_at": "2026-09-01T08:08:39+0800",
+  "note": "Manifest frozen and written externally (outside the repo working tree) before any run; copied into the repo only with this evidence commit. No source/script/analyzer/contract/config file was modified after freeze. Run manifests record git_dirty=false on every member.",
+  "reviewer_approval": "commit 1b29974 reviewed and approved (verification-only causal ack handshake: state_seq tick side-channel, TROT_LOCKSTEP_ACK=1 adapter wired only under SIM_LOCKSTEP=1, exact one-mj_step advance on matching ack, fail-closed stale/future/duplicate/reordered/missing ack handling, new trace ack_state_seq/ack_cmd_seq columns with existing columns unchanged, unit tests, flag-off messages/control math unchanged, dev suites simulate ctest 2/2 and example ctest 28/28)",
+  "source": {
+    "git_commit": "1b29974eb58919686186641041d8e9bf728c123c",
+    "git_dirty_required": false,
+    "branch": "phase2-b1-b3",
+    "origin_sync": "origin/phase2-b1-b3 == 1b29974; no ahead/behind commits (verified before runs)"
+  },
+  "entrypoint": "example/cpp/scripts/run_phase2_b0_lockstep_pair.sh",
+  "canary": {
+    "label": "causal-lockstep vs authoritative Order-101 wall-clock PASS pair-1 (045117)",
+    "command": "SIM_LOCKSTEP=1 bash example/cpp/scripts/run_phase2_b0_lockstep_pair.sh development 0",
+    "ref_run": "phase2_b0_development_fixed_3mps_r0_20260901_045117_baseline/_terrain",
+    "comparator": "example/cpp/tools/compare_lockstep_canary.py",
+    "tolerances": "frozen: dz p95 <= 0.06 m, angle p95 <= 6 deg (script defaults; unchanged)",
+    "domains": "baseline=222, terrain=223"
+  },
+  "sample": {
+    "n": 3,
+    "design": "three independent serial lockstep fixed pairs after canary; all runs retained regardless of outcome; Stage-C execution off and terrain shadow diagnostics on for every member",
+    "pairs": [
+      {"label": "holdout-r1", "baseline_domain": 183, "terrain_domain": 203},
+      {"label": "holdout-r2", "baseline_domain": 184, "terrain_domain": 204},
+      {"label": "holdout-r3", "baseline_domain": 185, "terrain_domain": 205}
+    ]
+  },
+  "configuration": {
+    "duration_s": "40", "wall_timeout_s": "75", "terrain_mode": "sensor_only",
+    "terrain_actuation": false, "stage_c_execution": false, "terrain_planner": true,
+    "shadow_diagnostics": true, "scene": "unitree_robots/go2/scene_leg_lift_demo.xml",
+    "profile": "fixed 3 m/s sustained-running profile (no Phase-1 command profile)",
+    "tau_limit": "45", "period_s": "0.14", "duty": "0.44", "step_length_m": "0.50",
+    "foot_lift_m": "0.20", "kernel": "raibert-trot", "gait_pattern": "running-trot",
+    "preview_horizon": "4", "dds_preload": "/home/che/dds_base4000_preload.so",
+    "lockstep_env": {
+      "SIM_LOCKSTEP": "1",
+      "SIM_LOCKSTEP_BARRIER_TIMEOUT_S": "120",
+      "SIM_LOCKSTEP_EXCHANGE_TIMEOUT_S": "5",
+      "SIM_LOCKSTEP_STEP_TIMEOUT_S": "5",
+      "TROT_LOCKSTEP_ACK": "1 (set by run_trot.sh when SIM_LOCKSTEP=1)"
+    }
+  },
+  "hashes": {
+    "b0_contract": "2a00da526253dd3755fa6c469aa18a4e9ee2dba0f17762a55068cd10aee61dd6",
+    "b123_contract": "ce18f0214240612fbfb54221e2621d88e363375dc796e2afa6e78dd3ca51d914",
+    "b1_contract": "a4c38934382efca13883d367ada78e327013e637a256ec16f5d7bec5462b18f6",
+    "fixed_pair_script": "b0566c518b80d69e9eab105085227a442d88abebf37776c1c97aed7b32baa435",
+    "lockstep_pair_script": "3826a4de70ca18fa78e0e39f4ceca75e9e66b79105f538bb9a5053f045e22667",
+    "sustained_running_script": "478a58cc8fbfc3eda9ced50924b3a4b180c56ce43b6a7e3fda8d0cfe7cad1a53",
+    "sustained_sprint_script": "901f1a09440c2b858454a1289c3ca1272a7f60d774e5f492696e32d05e9e9fea",
+    "run_trot_script": "12fee43fc35283bba5b59119cc79f77bc2ad2386e765abdc908a0a4f6d3728c0",
+    "preload_source": "65100130add060af08f6404b03668f5018c9b039849bf62620cd99f362d38a3c",
+    "preload_binary": "5cfc8c514cdf0e99bd7db8837a3f031d93aa9beae00a0de16017ebf2fee535bd",
+    "b0_analyzer": "0d5ec9956dd345ce0aabf8333fbcca7ea7d4117011fd9f50c73505c2c68ed8c7",
+    "fixed_analyzer": "39bc8b24774766c3800c053effe4804287ab2cb59e94ec9ff250edd0ab540f53",
+    "terrain_analyzer": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873",
+    "contact_ground_truth_analyzer": "a5426a8f6af8dbb15202c48eb6411afd936456a2a34d5d5ba678ebe7b771886f",
+    "contact_dynamics_analyzer": "ba17187dd7d979e2dbdfd288c96f7193e496b7cf51c2b96cbcc1461a2f7bcd37",
+    "compare_lockstep_canary": "c061c9f5d63914ca5da0ca2aef628456afd27c4abd5eeadf5cd6dd1f3d0ca66f",
+    "manifest_writer": "3c50a8ae1bc7cc5fabfcf628da9bd69869169be402bdc32bbdaf9238f7f7a973",
+    "scene": "12286418247d0e240ae131b5ae5c60f3a7a481d4754aefe4517476e937aa05b8",
+    "simulator": "61857a5fdd93d2c9ff1253767a8556dc630a695ef4f7fcfd71258b50a2f906fd",
+    "controller": "d05a5884f02166c4e8bed55daf5e4ca07869d9a43b5906c24c0c1ed3cd7a42c7",
+    "simulate_config": "8f551da1c05b27ad2f80109d82971649486757ce9b34fd821d76443596677af7"
+  },
+  "stop_rule": "Any authoritative gate failure (lifecycle status, fixed 3 m/s analyzer, B0, lockstep trace exact-dt/zero-violations/per-tick ack state_seq/command_seq matching, canary segment comparison) stops verification immediately; no threshold/config/code/analyzer/contract tuning and no outcome-selected rerun. Order-101/102/104 wall-clock and lockstep failures remain separate and permanent; this order claims deterministic causal lockstep non-regression only, not WSL wall-clock robustness."
+}

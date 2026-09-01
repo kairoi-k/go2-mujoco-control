@@ -5022,3 +5022,35 @@ artifacts: |
 rollback: |
   No runtime change. Stage-C flags off and source 2b3bc5d remain rollback.
   Do not advance C-007/B1.
+---
+timestamp: 2026-09-01T08:11:39+08:00
+run_id: phase2_b0_lockstep_development_fixed_3mps_r0_20260901_080900
+trigger: T1 (authoritative gate failure)
+signature: canary FAIL; baseline fail-closed tick 2300 ack{2300,3}; terrain fail-closed tick 1924 ack{1924,5} after one clean exchange; violations=32; tests 28/28 + 2/2 PASS; SHA 1b29974 clean
+evidence:
+  simulator_log_baseline: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_080900_baseline/simulator.log
+  simulator_log_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_080900_terrain/simulator.log
+  trace_baseline: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_080900_baseline/lockstep_trace.csv
+  trace_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_080900_terrain/lockstep_trace.csv
+  run_manifest_baseline: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_080900_baseline/run_manifest.json
+  run_manifest_terrain: /home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260901_080900_terrain/run_manifest.json
+git_status: clean (0 changed files; evidence docs committed separately)
+suggestion: |
+  The Order-105 causal ack handshake fails closed at the first/second lockstep
+  exchange: the controller ack{state_seq, command_seq} for the just-published
+  state is delivered over DDS after published_state_seq_ advances to the next
+  tick, and the strict first-exchange filter (ignore only command_seq <=
+  barrier_seq_) classifies it as a stale ack. Both members reproduced it
+  (deterministic). No fix or rerun in this order (frozen stop rule). Any
+  follow-up needs a new reviewed commit that consumes/ignores the ack for the
+  barrier tick state (e.g. tolerate an ack whose state_seq equals the previous
+  published tick once per exchange transition) plus a real-latency unit test;
+  decision required before C-007/B1.
+artifacts: |
+  docs/research/evidence/order105_c006e/PREREGISTERED_MANIFEST.json
+  docs/research/evidence/order105_c006e/FORMAL_MANIFEST.json
+  docs/research/evidence/order105_c006e/SUMMARY.md
+  docs/research/evidence/order105_c006e/WILSON.json
+rollback: |
+  No runtime change. Stage-C flags off. 1b29974 tested and recorded; prior
+  verified SHA 2b3bc5d remains. Do not advance C-007/B1.

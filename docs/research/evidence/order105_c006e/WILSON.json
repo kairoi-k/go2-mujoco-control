@@ -1,0 +1,12 @@
+{
+  "order": "105",
+  "purpose": "C-006e exact-committed-SHA causal lockstep evidence - diagnostic Wilson for the stopped canary",
+  "note": "Diagnostic only. Verification stopped at the canary (first authoritative gate) after simulator fail-closed at the first/second lockstep exchange; zero holdout pairs ran, so no Wilson proportion is estimable and no acceptance gate is established. The failure is a deterministic causal-handshake race in commit 1b29974, not an inherited controller failure.",
+  "tested_source_sha": "1b29974eb58919686186641041d8e9bf728c123c",
+  "n": 3,
+  "pairs_run": 0,
+  "pairs_passed": 0,
+  "failed_gate": "canary baseline fail-closed: SIM_LOCKSTEP_FAIL_CLOSED reason=stale ack for older state state_seq=2300 command_seq=3 violations=32 (terrain reproduced: stale ack state_seq=1924 command_seq=5 after one clean exchange)",
+  "wilson_95_ci": null,
+  "level": "diagnostic"
+}
