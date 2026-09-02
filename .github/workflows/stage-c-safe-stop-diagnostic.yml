@@ -62,7 +62,7 @@ jobs:
             --wbc-task-torque-feedforward \
             --terrain-planner \
             --stage-c-execution \
-            --domain-id 233
+            --domain-id 232
           echo "WRAPPER_STATUS=$?"
           exit 0
 
