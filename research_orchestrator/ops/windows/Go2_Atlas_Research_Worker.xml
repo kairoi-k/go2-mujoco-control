@@ -7,13 +7,13 @@
   <Triggers>
     <LogonTrigger>
       <Enabled>true</Enabled>
-      <UserId>S-1-5-21-2167772717-3007645564-3196220427-1001</UserId>
+      <UserId>__ATLAS_USER_NAME__</UserId>
       <Delay>PT30S</Delay>
     </LogonTrigger>
   </Triggers>
   <Principals>
     <Principal id="Author">
-      <UserId>S-1-5-21-2167772717-3007645564-3196220427-1001</UserId>
+      <UserId>__ATLAS_USER_SID__</UserId>
       <LogonType>InteractiveToken</LogonType>
       <RunLevel>HighestAvailable</RunLevel>
     </Principal>

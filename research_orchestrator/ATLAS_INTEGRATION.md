@@ -92,15 +92,18 @@ In non-interactive WSL launch contexts, use
 `UV_BIN=/home/che/.local/bin/uv` if the login PATH does not contain `uv`.
 
 On this Windows/WSL host, the durable launcher is Windows Task Scheduler, not
-an SSH-started process or WSL user service. Import
-`research_orchestrator/ops/windows/Go2_Atlas_Research_Worker.xml` as the
-`Go2_Atlas_Research_Worker` task. It runs `wsl.exe` as the WSL user `che` at
-interactive Windows logon, keeps the host process alive, prevents duplicate
-instances, and retries after failure. This is intentional: the Ubuntu distro
-is registered for the interactive Windows account rather than SYSTEM. The
-task's `TEMPORAL_ADDRESS` is deliberately the Base Tailscale IPv4, not the
-MagicDNS/Funnel name. The versioned systemd unit under `ops/systemd/` remains
-available for Linux hosts where systemd is the actual host supervisor.
+an SSH-started process or WSL user service. Run
+`research_orchestrator/ops/windows/install_atlas_worker_task.ps1` from the
+interactive Windows account. The installer fills the current account SID,
+converts the UTF-8 template to Task Scheduler's UTF-16 format, registers and
+starts `Go2_Atlas_Research_Worker`, and prints its status. The task runs
+`wsl.exe` as the WSL user `che` at interactive Windows logon, keeps the host
+process alive, prevents duplicate instances, and retries after failure. This
+is intentional: the Ubuntu distro is registered for the interactive Windows
+account rather than SYSTEM. The task's `TEMPORAL_ADDRESS` is deliberately the
+Base Tailscale IPv4, not the MagicDNS/Funnel name. The versioned systemd unit
+under `ops/systemd/` remains available for Linux hosts where systemd is the
+actual host supervisor.
 
 No formal holdout is started by the generic workflow. A future approval
 workflow must add a human decision, frozen membership, separate domains, and
