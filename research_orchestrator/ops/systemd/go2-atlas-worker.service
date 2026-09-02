@@ -1,0 +1,21 @@
+[Unit]
+Description=Go2 Atlas research orchestration worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/che/dev/go2-workspace/research-orchestrator
+ExecStart=/home/che/dev/go2-workspace/research-orchestrator/research_orchestrator/scripts/start_atlas_worker.sh
+Environment=TEMPORAL_ADDRESS=100.90.49.95:7233
+Environment=ATLAS_WORKSPACE=/home/che/dev/go2-workspace/current
+Environment=ATLAS_ARTIFACT_ROOT=/home/che/dev/go2-workspace/atlas-artifacts
+Environment=ATLAS_MUJOCO_ROOT=/home/che/.mujoco/mujoco-3.3.6
+Environment=ATLAS_ADAPTER_READY=1
+Restart=on-failure
+RestartSec=10
+KillMode=mixed
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target

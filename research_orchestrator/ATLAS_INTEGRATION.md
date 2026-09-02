@@ -91,6 +91,14 @@ uv run python -m research_orchestrator.workers.atlas_worker --check
 In non-interactive WSL launch contexts, use
 `UV_BIN=/home/che/.local/bin/uv` if the login PATH does not contain `uv`.
 
+For WSL distributions with systemd enabled, install
+`research_orchestrator/ops/systemd/go2-atlas-worker.service` into
+`~/.config/systemd/user/`, run `systemctl --user daemon-reload`, and enable it
+with `systemctl --user enable --now go2-atlas-worker.service`. Enable user
+lingering for `che` if the worker must survive the absence of an interactive
+login. Its `TEMPORAL_ADDRESS` is deliberately the Base Tailscale IPv4, not the
+MagicDNS/Funnel name.
+
 No formal holdout is started by the generic workflow. A future approval
 workflow must add a human decision, frozen membership, separate domains, and
 an explicit evidence/rollback policy before binding those names to physical

@@ -37,6 +37,12 @@ Codex escalation path runs the logged-in local CLI with an explicit model,
 bounded timeout, read-only sandbox, ephemeral session, and strict output
 schema. API-key environment variables are removed by default.
 
+For Base auto-start, install the two versioned launchd plists from
+`research_orchestrator/ops/macos/` into `~/Library/LaunchAgents/`, create the
+`~/Library/Logs/Go2Research/` directory, then bootstrap them in the user GUI
+domain. The plists keep the Temporal UI on loopback and restart both Base
+processes after login or failure.
+
 For a no-cost control-plane smoke test:
 
 ```bash
