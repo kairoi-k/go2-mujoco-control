@@ -1,0 +1,307 @@
+name: Stage-C recovery patch
+
+on:
+  push:
+    branches:
+      - assistant/stage-c-gait-contact-ownership-20260902
+    paths:
+      - .github/workflows/stage-c-recovery-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: assistant/stage-c-gait-contact-ownership-20260902
+          fetch-depth: 1
+
+      - name: Apply bounded recovery-handoff fix and regression
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          header = Path("example/cpp/terrain/terrain_plan_execution_adapter.h")
+          text = header.read_text()
+
+          old = """        adopted_.reset();
+        using_plan_ = false;
+        fallback_age_steps_ = 0;
+"""
+          new = """        adopted_.reset();
+        using_plan_ = false;
+        recovery_pending_ = false;
+        fallback_age_steps_ = 0;
+"""
+          if text.count(old) != 1:
+              raise SystemExit("Reset recovery insertion site not unique")
+          text = text.replace(old, new)
+
+          old = """        for (bool flight : in_flight_)
+            if (flight)
+                return false;
+        return AtEventBoundary(*adopted_, now_s);
+"""
+          new = """        for (bool flight : in_flight_)
+            if (flight)
+                return false;
+        // Once measured-contact safety has retired execution, the stale
+        // snapshot no longer owns a future liftoff/touchdown boundary.  The
+        // next explicit adapter boundary may atomically adopt a fresh plan.
+        if (recovery_pending_)
+            return true;
+        return AtEventBoundary(*adopted_, now_s);
+"""
+          if text.count(old) != 1:
+              raise SystemExit("IsLegalBoundary recovery insertion site not unique")
+          text = text.replace(old, new)
+
+          old = """                adopted_ = std::make_shared<const TerrainMotionPlan>(*candidate);
+                result.adopted = true;
+                result.adopted_plan_id = candidate->plan_id;
+"""
+          new = """                adopted_ = std::make_shared<const TerrainMotionPlan>(*candidate);
+                recovery_pending_ = false;
+                result.adopted = true;
+                result.adopted_plan_id = candidate->plan_id;
+"""
+          if text.count(old) != 1:
+              raise SystemExit("adoption recovery clear site not unique")
+          text = text.replace(old, new)
+
+          old = """        const bool guard_safe_stop = contact_guard_active_ &&
+            contact_guard_age_ticks_ >= 5;
+        if (adopted_ && !guard_safe_stop && std::isfinite(now_s) &&
+            now_s <= adopted_->valid_until_s + grace_s_)
+"""
+          new = """        const bool guard_safe_stop = contact_guard_active_ &&
+            contact_guard_age_ticks_ >= 5;
+        // A safety fallback terminates the old execution transaction.  Keep
+        // its immutable snapshot for provenance, but do not resume it
+        // mid-transaction after the guard clears.  Recovery must either stay
+        // on measured-support fallback or atomically adopt a fresh candidate.
+        if (adopted_ && (guard_safe_stop ||
+            (std::isfinite(now_s) &&
+             now_s > adopted_->valid_until_s + grace_s_)))
+            recovery_pending_ = true;
+        const bool hold_for_recovery = recovery_pending_ && !result.adopted;
+        if (adopted_ && !guard_safe_stop && !hold_for_recovery &&
+            std::isfinite(now_s) &&
+            now_s <= adopted_->valid_until_s + grace_s_)
+"""
+          if text.count(old) != 1:
+              raise SystemExit("safe-stop recovery latch site not unique")
+          text = text.replace(old, new)
+
+          old = """    bool using_plan_ = false;
+    std::size_t fallback_age_steps_ = 0;
+"""
+          new = """    bool using_plan_ = false;
+    bool recovery_pending_ = false;
+    std::size_t fallback_age_steps_ = 0;
+"""
+          if text.count(old) != 1:
+              raise SystemExit("recovery state field insertion site not unique")
+          text = text.replace(old, new)
+          header.write_text(text)
+
+          test = Path("example/cpp/tests/test_terrain_plan_fallback.cpp")
+          text = test.read_text()
+          old = """bool Near(double a, double b)
+{
+    return std::abs(a - b) < 1.0e-12;
+}
+
+} // namespace
+"""
+          new = """bool Near(double a, double b)
+{
+    return std::abs(a - b) < 1.0e-12;
+}
+
+go2_terrain::TerrainMotionPlan MakeTimingPlan()
+{
+    go2_terrain::TerrainMotionPlan plan;
+    plan.plan_id = 11;
+    plan.input_hash = 101;
+    plan.plan_epoch = 11;
+    plan.map_epoch = 1;
+    plan.state_stamp_s = 1.0;
+    plan.generated_at_s = 1.0;
+    plan.valid_until_s = 1.20;
+    plan.identity.plan_id = plan.plan_id;
+    plan.identity.plan_epoch = plan.plan_epoch;
+    plan.identity.map_epoch = plan.map_epoch;
+    plan.identity.generated_at_s = plan.generated_at_s;
+    plan.identity.valid_until_s = plan.valid_until_s;
+    plan.frame_id = "base_link";
+    plan.status = go2_terrain::TerrainPlanStatus::kValid;
+    plan.horizon_knots = 3;
+    plan.has_stage_c_timing = true;
+    plan.timing_bounds.window_start_s = 1.0;
+    plan.timing_bounds.window_end_s = 1.20;
+    plan.timing_bounds.knot_dt_s = 0.10;
+    plan.contact_timing.identity = plan.identity;
+    plan.contact_timing.horizon_knots = 3;
+    plan.contact_timing.knot_dt_s = 0.10;
+    plan.contact_timing.period_s = 0.80;
+    plan.contact_timing.duty_factor = 0.75;
+    plan.contact_timing.provenance =
+        go2_terrain::TerrainTimingProvenance::kStageCPlanner;
+    plan.contact_schedule.provenance = plan.identity;
+    plan.contact_schedule.measured_contact = {false, true, true, true};
+    plan.contact_schedule.measured_valid = true;
+    plan.contact_schedule.planned_valid = true;
+    for (std::size_t k = 0; k < plan.horizon_knots; ++k)
+    {
+        plan.contact_schedule.planned_contact[k] =
+            k == 0 ? std::array<bool, go2::kLegCount>{false, true, true, true}
+                   : std::array<bool, go2::kLegCount>{true, true, true, true};
+        plan.body_reference[k].valid = true;
+        plan.body_reference[k].provenance = plan.identity;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            auto &foot = plan.predicted_foothold[k][leg];
+            foot.valid = true;
+            foot.provenance = plan.identity;
+            foot.position_world = {0.2, 0.1, 0.0};
+        }
+    }
+    auto &touchdown = plan.predicted_foothold[1][0];
+    touchdown.touchdown = true;
+    touchdown.touchdown_time_s = 1.10;
+    plan.contact_timing.touchdown_time_s[0] = 1.10;
+    plan.contact_timing.touchdown_time_valid[0] = true;
+    touchdown.swing_duration_s = 0.10;
+    touchdown.swing_start_position_valid = true;
+    touchdown.swing_start_position_world = {0.1, 0.1, 0.0};
+    return plan;
+}
+
+go2_terrain::TerrainMotionPlan MakeReplacement(
+    const go2_terrain::TerrainMotionPlan &source)
+{
+    auto plan = source;
+    plan.plan_id = 12;
+    plan.plan_epoch = 12;
+    plan.map_epoch = 2;
+    plan.identity.plan_id = plan.plan_id;
+    plan.identity.plan_epoch = plan.plan_epoch;
+    plan.identity.map_epoch = plan.map_epoch;
+    plan.contact_timing.identity = plan.identity;
+    plan.contact_schedule.provenance = plan.identity;
+    for (std::size_t k = 0; k < plan.horizon_knots; ++k)
+    {
+        plan.body_reference[k].provenance = plan.identity;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            plan.predicted_foothold[k][leg].provenance = plan.identity;
+    }
+    return plan;
+}
+
+} // namespace
+"""
+          if text.count(old) != 1:
+              raise SystemExit("fallback test helper insertion site not unique")
+          text = text.replace(old, new)
+
+          old = """    return 0;
+}
+"""
+          new = """    // Regression: once the measured-contact guard reaches its safe-stop
+    // threshold, the interrupted snapshot must not silently resume after the
+    // guard clears.  Keep measured-support fallback until a fresh immutable
+    // snapshot is atomically adopted at an explicit recovery boundary.
+    {
+        auto plan_a = MakeTimingPlan();
+        auto plan_b = MakeReplacement(plan_a);
+        if (!plan_a.valid() || !plan_b.valid())
+        {
+            std::cerr << "recovery fixtures are not valid Stage-C plans\\n";
+            return 1;
+        }
+        go2_terrain::TerrainPlanExecutionAdapter recovery(true, 0.10);
+        const std::array<bool, go2::kLegCount> measured{
+            false, true, true, true};
+        const auto first = recovery.Update(
+            &plan_a, 1.0, true, measured,
+            go2_control::GaitPattern::kDiagonalTrot,
+            0.8, 0.75, 0.12, 0.05);
+        if (!first.adopted || !first.using_plan ||
+            first.request.plan_id != plan_a.plan_id)
+        {
+            std::cerr << "recovery fixture failed to adopt initial plan\\n";
+            return 1;
+        }
+
+        recovery.SetContactGuard(true, 5);
+        const auto stopped = recovery.Update(
+            &plan_a, 1.05, false, measured,
+            go2_control::GaitPattern::kDiagonalTrot,
+            0.8, 0.75, 0.12, 0.05);
+        if (stopped.using_plan || !stopped.request.fallback ||
+            recovery.adopted_plan_id() != plan_a.plan_id ||
+            !recovery.IsLegalBoundary(1.05))
+        {
+            std::cerr << "safe-stop did not retire execution into recovery\\n";
+            return 1;
+        }
+
+        recovery.SetContactGuard(false, 0);
+        const auto blocked = recovery.Update(
+            &plan_b, 1.05, false, measured,
+            go2_control::GaitPattern::kDiagonalTrot,
+            0.8, 0.75, 0.12, 0.05);
+        if (blocked.using_plan || !blocked.request.fallback ||
+            !blocked.rejected ||
+            recovery.adopted_plan_id() != plan_a.plan_id)
+        {
+            std::cerr << "stale plan resumed before recovery boundary\\n";
+            return 1;
+        }
+
+        const auto recovered = recovery.Update(
+            &plan_b, 1.05, true, measured,
+            go2_control::GaitPattern::kDiagonalTrot,
+            0.8, 0.75, 0.12, 0.05);
+        if (!recovered.adopted || !recovered.using_plan ||
+            recovered.request.fallback ||
+            recovered.request.plan_id != plan_b.plan_id ||
+            recovery.adopted_plan_id() != plan_b.plan_id)
+        {
+            std::cerr << "fresh plan was not atomically adopted in recovery\\n";
+            return 1;
+        }
+    }
+
+    return 0;
+}
+"""
+          if text.count(old) != 1:
+              raise SystemExit("fallback test recovery insertion site not unique")
+          text = text.replace(old, new)
+          test.write_text(text)
+          PY
+
+      - name: Bootstrap Ubuntu dependencies and build
+        env:
+          MUJOCO_VERSION: "3.3.6"
+        run: bash scripts/setup_ubuntu_env.sh
+
+      - name: Run focused and interface regressions
+        run: |
+          ctest --test-dir example/cpp/build -R 'test_terrain_plan_fallback|test_terrain_interfaces|test_raibert_trot_kernel' --output-on-failure
+
+      - name: Persist verified source fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add example/cpp/terrain/terrain_plan_execution_adapter.h \
+                  example/cpp/tests/test_terrain_plan_fallback.cpp
+          git diff --cached --check
+          git commit -m "fix: recover Stage-C handoff after contact safe-stop"
+          git push origin HEAD:assistant/stage-c-gait-contact-ownership-20260902
