@@ -11,135 +11,268 @@ permissions:
   contents: write
 
 jobs:
-  patch-and-test:
+  patch-test-probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
           ref: assistant/stage-c-gait-contact-ownership-20260902
           fetch-depth: 1
 
-      - name: Apply bounded recovery-handoff fix
+      - name: Apply corrected recovery-handoff state machine
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path("example/cpp/terrain/terrain_plan_execution_adapter.h")
-          text = path.read_text()
+          header = Path("example/cpp/terrain/terrain_plan_execution_adapter.h")
+          text = header.read_text()
 
-          def block(lines):
-              return "\n".join(lines) + "\n"
+          old = """        adopted_.reset();
+        using_plan_ = false;
+        fallback_age_steps_ = 0;
+"""
+          new = """        adopted_.reset();
+        using_plan_ = false;
+        recovery_pending_ = false;
+        fallback_age_steps_ = 0;
+"""
+          if text.count(old) != 1:
+              raise SystemExit(f"reset patch site count={text.count(old)}")
+          text = text.replace(old, new)
 
-          replacements = [
-              (
-                  block([
-                      "        adopted_.reset();",
-                      "        using_plan_ = false;",
-                      "        fallback_age_steps_ = 0;",
-                  ]),
-                  block([
-                      "        adopted_.reset();",
-                      "        using_plan_ = false;",
-                      "        recovery_pending_ = false;",
-                      "        fallback_age_steps_ = 0;",
-                  ]),
-                  "reset",
-              ),
-              (
-                  block([
-                      "        for (bool flight : in_flight_)",
-                      "            if (flight)",
-                      "                return false;",
-                      "        return AtEventBoundary(*adopted_, now_s);",
-                  ]),
-                  block([
-                      "        for (bool flight : in_flight_)",
-                      "            if (flight)",
-                      "                return false;",
-                      "        // A safety fallback has retired execution ownership; the stale",
-                      "        // snapshot may remain for provenance but no longer owns a future",
-                      "        // liftoff/touchdown boundary for recovery handoff.",
-                      "        if (recovery_pending_)",
-                      "            return true;",
-                      "        return AtEventBoundary(*adopted_, now_s);",
-                  ]),
-                  "legal-boundary",
-              ),
-              (
-                  block([
-                      "                adopted_ = std::make_shared<const TerrainMotionPlan>(*candidate);",
-                      "                result.adopted = true;",
-                      "                result.adopted_plan_id = candidate->plan_id;",
-                  ]),
-                  block([
-                      "                adopted_ = std::make_shared<const TerrainMotionPlan>(*candidate);",
-                      "                recovery_pending_ = false;",
-                      "                result.adopted = true;",
-                      "                result.adopted_plan_id = candidate->plan_id;",
-                  ]),
-                  "adopt-clear",
-              ),
-              (
-                  block([
-                      "        const bool guard_safe_stop = contact_guard_active_ &&",
-                      "            contact_guard_age_ticks_ >= 5;",
-                      "        if (adopted_ && !guard_safe_stop && std::isfinite(now_s) &&",
-                      "            now_s <= adopted_->valid_until_s + grace_s_)",
-                  ]),
-                  block([
-                      "        const bool guard_safe_stop = contact_guard_active_ &&",
-                      "            contact_guard_age_ticks_ >= 5;",
-                      "        // Once safety fallback interrupts an adopted transaction, do not",
-                      "        // silently resume that stale timing after contact recovers. Hold",
-                      "        // measured-support fallback until a fresh whole snapshot is adopted.",
-                      "        if (adopted_ && (guard_safe_stop ||",
-                      "            (std::isfinite(now_s) &&",
-                      "             now_s > adopted_->valid_until_s + grace_s_)))",
-                      "            recovery_pending_ = true;",
-                      "        const bool hold_for_recovery = recovery_pending_ && !result.adopted;",
-                      "        if (adopted_ && !guard_safe_stop && !hold_for_recovery &&",
-                      "            std::isfinite(now_s) &&",
-                      "            now_s <= adopted_->valid_until_s + grace_s_)",
-                  ]),
-                  "recovery-latch",
-              ),
-              (
-                  block([
-                      "    bool using_plan_ = false;",
-                      "    std::size_t fallback_age_steps_ = 0;",
-                  ]),
-                  block([
-                      "    bool using_plan_ = false;",
-                      "    bool recovery_pending_ = false;",
-                      "    std::size_t fallback_age_steps_ = 0;",
-                  ]),
-                  "state-field",
-              ),
-          ]
+          old = """        for (bool flight : in_flight_)
+            if (flight)
+                return false;
+        return AtEventBoundary(*adopted_, now_s);
+"""
+          new = """        for (bool flight : in_flight_)
+            if (flight)
+                return false;
+        // A safe-stop/expiry retires timing ownership.  While the measured
+        // contact guard is still active it must keep the immutable snapshot
+        // frozen; once the guard clears, recovery itself is an explicit
+        // adapter boundary for atomically adopting a fresh whole snapshot.
+        if (recovery_pending_ && !contact_guard_active_)
+            return true;
+        return AtEventBoundary(*adopted_, now_s);
+"""
+          if text.count(old) != 1:
+              raise SystemExit(f"boundary patch site count={text.count(old)}")
+          text = text.replace(old, new)
 
-          for old, new, label in replacements:
-              if text.count(old) != 1:
-                  raise SystemExit(f"{label} patch site count={text.count(old)}")
-              text = text.replace(old, new)
-          path.write_text(text)
+          old = """        const bool same_plan = candidate_valid && adopted_ &&
+            SameIdentity(*candidate, *adopted_);
+        const bool boundary = event_boundary && IsLegalBoundary(now_s);
+        const bool guard_keeps_snapshot = contact_guard_active_ && adopted_ &&
+            !same_plan;
+        if (candidate_valid && (!guard_keeps_snapshot) &&
+            (!adopted_ || same_plan || boundary))
+        {
+            if (!same_plan)
+            {
+                adopted_ = std::make_shared<const TerrainMotionPlan>(*candidate);
+                result.adopted = true;
+                result.adopted_plan_id = candidate->plan_id;
+            }
+            using_plan_ = true;
+            fallback_age_steps_ = 0;
+            last_request_ = MakeRequest(*adopted_);
+            result.using_plan = true;
+            result.request = last_request_;
+        }
+        else if (candidate_valid && adopted_ && !boundary && !same_plan)
+        {
+            result.rejected = true;
+            result.rejected_plan_id = candidate->plan_id;
+            last_rejected_plan_id_ = candidate->plan_id;
+            last_rejection_reason_ = "not_at_event_boundary_or_in_flight";
+            result.rejection_reason = last_rejection_reason_;
+        }
+        const bool guard_safe_stop = contact_guard_active_ &&
+            contact_guard_age_ticks_ >= 5;
+        if (adopted_ && !guard_safe_stop && std::isfinite(now_s) &&
+            now_s <= adopted_->valid_until_s + grace_s_)
+        {
+            using_plan_ = true;
+            last_request_ = MakeRequest(*adopted_);
+            result.using_plan = true;
+            result.request = last_request_;
+        }
+        else
+        {
+            using_plan_ = false;
+            if (contact_guard_active_)
+                fallback_age_steps_ = contact_guard_age_ticks_;
+            else
+                ++fallback_age_steps_;
+            result.fallback_reason = contact_guard_active_
+                ? ContactGuardFallbackReason(fallback_age_steps_)
+                : MeasuredSupportFallbackReason(fallback_age_steps_);
+            last_fallback_reason_ = result.fallback_reason;
+            last_request_ = MakeFallbackRequest(
+                measured_support, fallback_pattern, fallback_period_s,
+                fallback_duty_factor, fallback_step_length_m,
+                fallback_foot_lift_m, result.fallback_reason);
+            result.request = last_request_;
+        }
+        UpdateFlightState(last_request_, now_s);
+        return result;
+"""
+          new = """        const bool same_plan = candidate_valid && adopted_ &&
+            SameIdentity(*candidate, *adopted_);
+        const bool guard_safe_stop = contact_guard_active_ &&
+            contact_guard_age_ticks_ >= 5;
+
+        // N+5 measured-contact safety has absolute priority over plan
+        // adoption.  Retain the immutable snapshot only as provenance and
+        // retire its execution ownership before considering any candidate.
+        if (guard_safe_stop)
+        {
+            if (adopted_)
+                recovery_pending_ = true;
+            if (candidate_valid && adopted_ && !same_plan)
+            {
+                result.rejected = true;
+                result.rejected_plan_id = candidate->plan_id;
+                last_rejected_plan_id_ = candidate->plan_id;
+                last_rejection_reason_ = "contact_guard_safe_stop";
+                result.rejection_reason = last_rejection_reason_;
+            }
+            using_plan_ = false;
+            fallback_age_steps_ = contact_guard_age_ticks_;
+            result.fallback_reason =
+                ContactGuardFallbackReason(fallback_age_steps_);
+            last_fallback_reason_ = result.fallback_reason;
+            last_request_ = MakeFallbackRequest(
+                measured_support, fallback_pattern, fallback_period_s,
+                fallback_duty_factor, fallback_step_length_m,
+                fallback_foot_lift_m, result.fallback_reason);
+            result.request = last_request_;
+            UpdateFlightState(last_request_, now_s);
+            return result;
+        }
+
+        const bool boundary = event_boundary && IsLegalBoundary(now_s);
+        const bool guard_keeps_snapshot = contact_guard_active_ && adopted_ &&
+            !same_plan;
+        if (guard_keeps_snapshot && candidate_valid)
+        {
+            result.rejected = true;
+            result.rejected_plan_id = candidate->plan_id;
+            last_rejected_plan_id_ = candidate->plan_id;
+            last_rejection_reason_ = "contact_guard_active";
+            result.rejection_reason = last_rejection_reason_;
+        }
+        if (candidate_valid && !guard_keeps_snapshot &&
+            (!adopted_ || same_plan || boundary))
+        {
+            if (!same_plan)
+            {
+                adopted_ = std::make_shared<const TerrainMotionPlan>(*candidate);
+                recovery_pending_ = false;
+                result.adopted = true;
+                result.adopted_plan_id = candidate->plan_id;
+            }
+            using_plan_ = true;
+            fallback_age_steps_ = 0;
+            last_request_ = MakeRequest(*adopted_);
+            result.using_plan = true;
+            result.request = last_request_;
+        }
+        else if (candidate_valid && adopted_ && !same_plan &&
+                 !result.rejected)
+        {
+            result.rejected = true;
+            result.rejected_plan_id = candidate->plan_id;
+            last_rejected_plan_id_ = candidate->plan_id;
+            last_rejection_reason_ = "not_at_event_boundary_or_in_flight";
+            result.rejection_reason = last_rejection_reason_;
+        }
+
+        const bool adopted_expired = adopted_ && std::isfinite(now_s) &&
+            now_s > adopted_->valid_until_s + grace_s_;
+        if (adopted_expired)
+            recovery_pending_ = true;
+        const bool hold_for_recovery = recovery_pending_ && !result.adopted;
+        if (adopted_ && !hold_for_recovery && std::isfinite(now_s) &&
+            now_s <= adopted_->valid_until_s + grace_s_)
+        {
+            using_plan_ = true;
+            last_request_ = MakeRequest(*adopted_);
+            result.using_plan = true;
+            result.request = last_request_;
+        }
+        else
+        {
+            using_plan_ = false;
+            if (contact_guard_active_)
+                fallback_age_steps_ = contact_guard_age_ticks_;
+            else
+                ++fallback_age_steps_;
+            result.fallback_reason = contact_guard_active_
+                ? ContactGuardFallbackReason(fallback_age_steps_)
+                : MeasuredSupportFallbackReason(fallback_age_steps_);
+            last_fallback_reason_ = result.fallback_reason;
+            last_request_ = MakeFallbackRequest(
+                measured_support, fallback_pattern, fallback_period_s,
+                fallback_duty_factor, fallback_step_length_m,
+                fallback_foot_lift_m, result.fallback_reason);
+            result.request = last_request_;
+        }
+        UpdateFlightState(last_request_, now_s);
+        return result;
+"""
+          if text.count(old) != 1:
+              raise SystemExit(f"Update patch site count={text.count(old)}")
+          text = text.replace(old, new)
+
+          old = """    bool using_plan_ = false;
+    std::size_t fallback_age_steps_ = 0;
+"""
+          new = """    bool using_plan_ = false;
+    bool recovery_pending_ = false;
+    std::size_t fallback_age_steps_ = 0;
+"""
+          if text.count(old) != 1:
+              raise SystemExit(f"state-field patch site count={text.count(old)}")
+          header.write_text(text.replace(old, new))
+
+          test = Path("example/cpp/tests/test_terrain_plan_recovery.cpp")
+          text = test.read_text()
+          old = """    if (!adapter.IsLegalBoundary(1.05))
+        return Fail("retired execution did not expose a recovery boundary");
+
+    adapter.SetContactGuard(false, 0);
+"""
+          new = """    if (adapter.IsLegalBoundary(1.05))
+        return Fail("active contact guard exposed a recovery boundary");
+
+    adapter.SetContactGuard(false, 0);
+    if (!adapter.IsLegalBoundary(1.05))
+        return Fail("cleared guard did not expose the recovery boundary");
+"""
+          if text.count(old) != 1:
+              raise SystemExit(f"recovery-test patch site count={text.count(old)}")
+          test.write_text(text.replace(old, new))
 
           cmake = Path("example/cpp/CMakeLists.txt")
           text = cmake.read_text()
-          old = block([
-              "add_executable(test_terrain_plan_fallback tests/test_terrain_plan_fallback.cpp)",
-              "target_link_libraries(test_terrain_plan_fallback unitree_sdk2)",
-              "go2_add_ctest(test_terrain_plan_fallback)",
-          ])
-          new = old + "\n" + block([
-              "# Stage-C safe-stop recovery must not resume an interrupted stale plan.",
-              "add_executable(test_terrain_plan_recovery tests/test_terrain_plan_recovery.cpp)",
-              "target_link_libraries(test_terrain_plan_recovery unitree_sdk2)",
-              "go2_add_ctest(test_terrain_plan_recovery)",
-          ])
-          if text.count(old) != 1:
-              raise SystemExit(f"CMake recovery test site count={text.count(old)}")
-          cmake.write_text(text.replace(old, new))
+          marker = """add_executable(test_terrain_plan_fallback tests/test_terrain_plan_fallback.cpp)
+target_link_libraries(test_terrain_plan_fallback unitree_sdk2)
+go2_add_ctest(test_terrain_plan_fallback)
+"""
+          addition = marker + """
+# Stage-C safe-stop recovery must never resume an interrupted stale plan.
+add_executable(test_terrain_plan_recovery tests/test_terrain_plan_recovery.cpp)
+target_link_libraries(test_terrain_plan_recovery unitree_sdk2)
+go2_add_ctest(test_terrain_plan_recovery)
+"""
+          if "add_executable(test_terrain_plan_recovery" not in text:
+              if text.count(marker) != 1:
+                  raise SystemExit(f"CMake patch site count={text.count(marker)}")
+              text = text.replace(marker, addition)
+          cmake.write_text(text)
           PY
 
       - name: Bootstrap Ubuntu dependencies and build
@@ -151,11 +284,125 @@ jobs:
         run: |
           ctest --test-dir example/cpp/build -R 'test_terrain_plan_recovery|test_terrain_plan_fallback|test_terrain_interfaces|test_raibert_trot_kernel' --output-on-failure
 
+      - name: Run full static guardrails
+        run: |
+          ctest --test-dir example/cpp/build --output-on-failure
+          ctest --test-dir simulate/build --output-on-failure
+
+      - name: Run bounded 5cm recovery probe
+        env:
+          TROT_TERRAIN_BOOTSTRAP_DEV: "1"
+          TROT_TERRAIN_SHADOW_DIAGNOSTICS: "1"
+          TROT_TERRAIN_DEBUG_SELECTION: "1"
+          TROT_TERRAIN_DEBUG_SUPPORT_POLYGON: "1"
+          TROT_CPU_AUTOPIN: "1"
+          SIM_LOCKSTEP: "1"
+          SIM_LOCKSTEP_BARRIER_TIMEOUT_S: "120"
+          SIM_LOCKSTEP_EXCHANGE_TIMEOUT_S: "5"
+          SIM_LOCKSTEP_STEP_TIMEOUT_S: "5"
+        run: |
+          set +e
+          run_name="_runs/stage_c_recovery_5cm_${GITHUB_RUN_ID}"
+          bash example/cpp/scripts/run_trot.sh 50 "$run_name" \
+            --controller-duration 30 \
+            --scene-file unitree_robots/go2/phase2_step_5cm.xml \
+            --headless \
+            --wbc-full \
+            --gait-pattern running-trot \
+            --kernel raibert-trot \
+            --velocity-command-script example/cpp/configs/phase2_b1_velocity_0p3.csv \
+            --wall-clock-motion \
+            --support-anchor-feedback --support-anchor-gain 0.35 \
+            --period 0.50 --duty 0.75 \
+            --step-length 0.13 --foot-lift 0.06 \
+            --wbc-reduced-contact-task \
+            --wbc-task-torque-feedforward \
+            --terrain-planner \
+            --stage-c-execution \
+            --domain-id 233
+          echo "WRAPPER_STATUS=$?" | tee probe_status.txt
+          exit 0
+
+      - name: Verify atomic consumers and summarize recovery
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          import pandas as pd
+
+          runs = sorted(Path("example/cpp/experiments/_runs").glob("stage_c_recovery_5cm_*"))
+          if not runs:
+              raise SystemExit("no recovery probe run directory")
+          run = runs[-1]
+          data = run / "data.csv"
+          log_path = run / "controller.log"
+          if not data.exists() or not log_path.exists():
+              raise SystemExit("recovery probe missing data/log")
+
+          df = pd.read_csv(data, low_memory=False)
+          n = lambda c: pd.to_numeric(df[c], errors="coerce") if c in df else None
+          stop = n("terrain_safe_stop_requested")
+          using = n("terrain_execution_adapter_using_plan")
+          adoptions = n("terrain_execution_adapter_adoptions")
+          base_x = n("world_base_x_m")
+          adopted = n("terrain_execution_adopted_plan_id")
+          stop_rows = [] if stop is None else list(df.index[stop > 0])
+          print(f"RECOVERY_PROBE rows={len(df)} safe_stop_rows={len(stop_rows)}")
+          if base_x is not None and base_x.notna().any():
+              print(f"RECOVERY_PROBE max_world_base_x_m={float(base_x.max())}")
+          if adoptions is not None and adoptions.notna().any():
+              print(f"RECOVERY_PROBE adapter_adoptions_max={float(adoptions.max())}")
+          if adopted is not None and adopted.notna().any():
+              ids = sorted(set(int(v) for v in adopted.dropna() if v > 0))
+              print(f"RECOVERY_PROBE adopted_plan_ids={ids[:30]}")
+          if stop_rows:
+              i = int(stop_rows[0])
+              print(f"RECOVERY_PROBE first_safe_stop_index={i}")
+              if using is not None:
+                  later = using.loc[i+1:]
+                  print(f"RECOVERY_PROBE using_plan_after_stop_max={float(later.max()) if len(later) else 0.0}")
+              if adoptions is not None:
+                  before = float(adoptions.loc[:i].max()) if i >= 0 else 0.0
+                  after = float(adoptions.loc[i+1:].max()) if i + 1 < len(adoptions) else before
+                  print(f"RECOVERY_PROBE adoptions_before_stop={before} after_stop={after}")
+
+          log = log_path.read_text(errors="replace")
+          rx = re.compile(
+              r"STAGE_C_IDENTITY consumer=(gait|mpc) plan_id=(\d+) "
+              r"plan_epoch=(\d+) map_epoch=(\d+) input_hash=(\d+) "
+              r"adapter_plan_id=(\d+) match=(\d+)")
+          by = {"gait": set(), "mpc": set()}
+          for consumer, pid, pep, mep, ih, adapter_pid, match in rx.findall(log):
+              tup = tuple(map(int, (pid, pep, mep, ih)))
+              if int(match) != 1 or int(adapter_pid) != int(pid):
+                  raise SystemExit(f"identity mismatch {consumer} {tup}")
+              by[consumer].add(tup)
+          if not by["gait"] or not by["mpc"]:
+              raise SystemExit(f"missing Stage-C consumer identity evidence: {by}")
+          common = by["gait"] & by["mpc"]
+          if not common:
+              raise SystemExit(f"gait/MPC share no atomic plan identity: {by}")
+          print(f"ATOMIC_IDENTITY_PASS common={sorted(common)}")
+          PY
+
       - name: Persist verified recovery fix
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add example/cpp/terrain/terrain_plan_execution_adapter.h example/cpp/CMakeLists.txt
+          git add example/cpp/terrain/terrain_plan_execution_adapter.h \
+                  example/cpp/tests/test_terrain_plan_recovery.cpp \
+                  example/cpp/CMakeLists.txt
           git diff --cached --check
-          git commit -m "fix: recover Stage-C handoff after contact safe-stop"
+          git commit -m "fix: recover Stage-C only after contact guard clears"
           git push origin HEAD:assistant/stage-c-gait-contact-ownership-20260902
+
+      - name: Upload recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-c-recovery-5cm-${{ github.run_id }}
+          path: |
+            example/cpp/experiments/_runs/stage_c_recovery_5cm_*/
+            probe_status.txt
+          if-no-files-found: warn
+          retention-days: 7
