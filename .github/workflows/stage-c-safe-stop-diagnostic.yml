@@ -1,0 +1,147 @@
+name: Stage-C safe-stop diagnostic
+
+on:
+  push:
+    branches:
+      - assistant/stage-c-gait-contact-ownership-20260902
+    paths:
+      - .github/workflows/stage-c-safe-stop-diagnostic.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage-c-safe-stop-diagnostic-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap Ubuntu dependencies and build
+        env:
+          MUJOCO_VERSION: "3.3.6"
+        run: bash scripts/setup_ubuntu_env.sh
+
+      - name: Run static guardrails
+        run: |
+          ctest --test-dir example/cpp/build --output-on-failure
+          ctest --test-dir simulate/build --output-on-failure
+
+      - name: Run bounded 5cm probe
+        env:
+          TROT_TERRAIN_BOOTSTRAP_DEV: "1"
+          TROT_TERRAIN_SHADOW_DIAGNOSTICS: "1"
+          TROT_TERRAIN_DEBUG_SELECTION: "1"
+          TROT_TERRAIN_DEBUG_SUPPORT_POLYGON: "1"
+          TROT_CPU_AUTOPIN: "1"
+          SIM_LOCKSTEP: "1"
+          SIM_LOCKSTEP_BARRIER_TIMEOUT_S: "120"
+          SIM_LOCKSTEP_EXCHANGE_TIMEOUT_S: "5"
+          SIM_LOCKSTEP_STEP_TIMEOUT_S: "5"
+        run: |
+          set +e
+          run_name="_runs/stage_c_safe_stop_diag_${GITHUB_RUN_ID}"
+          bash example/cpp/scripts/run_trot.sh 50 "$run_name" \
+            --controller-duration 30 \
+            --scene-file unitree_robots/go2/phase2_step_5cm.xml \
+            --headless \
+            --wbc-full \
+            --gait-pattern running-trot \
+            --kernel raibert-trot \
+            --velocity-command-script example/cpp/configs/phase2_b1_velocity_0p3.csv \
+            --wall-clock-motion \
+            --support-anchor-feedback --support-anchor-gain 0.35 \
+            --period 0.50 --duty 0.75 \
+            --step-length 0.13 --foot-lift 0.06 \
+            --wbc-reduced-contact-task \
+            --wbc-task-torque-feedforward \
+            --terrain-planner \
+            --stage-c-execution \
+            --domain-id 233
+          echo "WRAPPER_STATUS=$?"
+          exit 0
+
+      - name: Diagnose first safe-stop transition
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          runs = sorted(Path("example/cpp/experiments/_runs").glob("stage_c_safe_stop_diag_*"))
+          if not runs:
+              raise SystemExit("no probe run directory")
+          run = runs[-1]
+          print(f"RUN={run}")
+          p = run / "data.csv"
+          if not p.exists():
+              raise SystemExit("missing data.csv")
+          df = pd.read_csv(p, low_memory=False)
+          n = lambda c: pd.to_numeric(df[c], errors="coerce") if c in df else None
+          stop = n("terrain_safe_stop_requested")
+          if stop is None:
+              raise SystemExit("missing safe-stop column")
+          hits = df.index[stop > 0]
+          print(f"ROWS={len(df)} SAFE_STOP_ROWS={len(hits)}")
+          if len(hits):
+              i = int(hits[0])
+              print(f"FIRST_SAFE_STOP_INDEX={i}")
+              cols = [
+                "cmd_time_s","state_tick_s","world_base_x_m","world_base_z_m",
+                "body_velocity_x_mps","velocity_command_requested_mps",
+                "velocity_command_shaped_mps","velocity_command_applied_mps",
+                "terrain_safe_stop_requested","terrain_velocity_cap_mps",
+                "terrain_plan_status","terrain_plan_failure","terrain_plan_id",
+                "terrain_plan_epoch","terrain_plan_valid","terrain_plan_published",
+                "terrain_plan_consumed","terrain_planner_rejections",
+                "terrain_dominant_foothold_reject","terrain_failed_leg",
+                "terrain_failed_leg_reject","terrain_support_failure_knot",
+                "terrain_support_failure_contact_mask","terrain_support_failure_margin_m",
+                "terrain_execution_plan_id","terrain_execution_plan_usable",
+                "terrain_execution_adopted_plan_id","terrain_execution_rejected_plan_id",
+                "terrain_execution_fallback_reason","terrain_execution_adapter_using_plan",
+                "terrain_execution_boundary_reason","terrain_transfer_hold_active",
+                "terrain_transfer_window_active","terrain_crawl_state",
+                "terrain_event_sequencer_state","terrain_event_sequencer_active_leg",
+                "terrain_event_sequencer_control_authority",
+                "terrain_event_sequencer_authority_block_reason",
+                "contact_FR","contact_FL","contact_RR","contact_RL"
+              ]
+              cols = [c for c in cols if c in df]
+              lo, hi = max(0, i-12), min(len(df), i+13)
+              print("SAFE_STOP_WINDOW_BEGIN")
+              print(df.loc[lo:hi-1, cols].to_csv(index=True))
+              print("SAFE_STOP_WINDOW_END")
+          else:
+              print("NO_SAFE_STOP")
+
+          for c in ["world_base_x_m","terrain_plan_published","terrain_plan_consumed",
+                    "terrain_execution_adapter_adoptions","terrain_execution_adapter_rejections"]:
+              s=n(c)
+              if s is not None and s.notna().any(): print(f"MAX {c}={s.max()}")
+
+          log = run / "controller.log"
+          if log.exists():
+              lines = log.read_text(errors="replace").splitlines()
+              keys = ("Terrain failure diagnostic", "Terrain support reject",
+                      "STAGE_C_IDENTITY", "safe", "Safe", "fallback", "Fallback",
+                      "candidate", "C0", "C1")
+              selected=[line for line in lines if any(k in line for k in keys)]
+              print("CONTROLLER_DIAGNOSTICS_BEGIN")
+              for line in selected[-250:]: print(line)
+              print("CONTROLLER_DIAGNOSTICS_END")
+          PY
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-c-safe-stop-diagnostic-${{ github.run_id }}
+          path: example/cpp/experiments/_runs/stage_c_safe_stop_diag_*/
+          if-no-files-found: warn
+          retention-days: 7
