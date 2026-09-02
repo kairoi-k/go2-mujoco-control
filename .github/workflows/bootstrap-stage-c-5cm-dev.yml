@@ -21,6 +21,22 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Apply bounded C1 handoff hypothesis
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("example/cpp/trot/trot_experiment_gait.cpp")
+          text = path.read_text()
+          old = """            activate = terrain_bootstrap_c0_ready_.load(\n                           std::memory_order_acquire) &&\n                candidate_plan_id != 0 && candidate &&\n"""
+          new = """            // C0 readiness authorizes observation motion only. Once a complete\n            // C1 candidate is ready and the body has settled at the boundary,\n            // C0 is expected to have gone false and must not veto handoff.\n            activate = candidate_plan_id != 0 && candidate &&\n"""
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f"expected exactly one C0 handoff gate, found {count}")
+          path.write_text(text.replace(old, new))
+          print("Applied development-only C1 handoff hypothesis")
+          PY
+
       - name: Bootstrap Ubuntu dependencies and build
         env:
           MUJOCO_VERSION: "3.3.6"
