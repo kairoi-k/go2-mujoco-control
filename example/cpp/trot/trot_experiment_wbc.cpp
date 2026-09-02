@@ -1369,6 +1369,24 @@ void TrotExperiment::UpdateWbcFull(
                 mpc_in.measured_contact = measured_contact;
                 mpc_in.measured_contact_valid = true;
                 ++terrain_mpc_plan_consumed_count_;
+                static std::uint64_t last_logged_stage_c_mpc_plan_id = 0;
+                if (terrain_plan->plan_id != last_logged_stage_c_mpc_plan_id)
+                {
+                    const auto adopted = terrain_plan_execution_adapter_.adopted_plan();
+                    const bool identity_match = adopted &&
+                        adopted->plan_id == terrain_plan->plan_id &&
+                        adopted->plan_epoch == terrain_plan->plan_epoch &&
+                        adopted->map_epoch == terrain_plan->map_epoch &&
+                        adopted->input_hash == terrain_plan->input_hash;
+                    std::cout << "STAGE_C_IDENTITY consumer=mpc plan_id="
+                              << terrain_plan->plan_id
+                              << " plan_epoch=" << terrain_plan->plan_epoch
+                              << " map_epoch=" << terrain_plan->map_epoch
+                              << " input_hash=" << terrain_plan->input_hash
+                              << " adapter_plan_id=" << (adopted ? adopted->plan_id : 0)
+                              << " match=" << (identity_match ? 1 : 0) << "\n";
+                    last_logged_stage_c_mpc_plan_id = terrain_plan->plan_id;
+                }
             }
             else
                 mpc_in.contact = fallback_mpc_contact;

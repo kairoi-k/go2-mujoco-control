@@ -808,6 +808,28 @@ bool TrotExperiment::BuildGaitTargets(
                   << gait_time_s << std::endl;
         return false;
     }
+    if (gait_result.execution_request_valid &&
+        gait_result.execution_plan_id != 0)
+    {
+        static std::uint64_t last_logged_stage_c_gait_plan_id = 0;
+        if (gait_result.execution_plan_id != last_logged_stage_c_gait_plan_id)
+        {
+            const auto adopted = terrain_plan_execution_adapter_.adopted_plan();
+            const bool identity_match = adopted &&
+                adopted->plan_id == gait_result.execution_plan_id &&
+                adopted->plan_epoch == gait_result.execution_plan_epoch &&
+                adopted->map_epoch == gait_result.execution_map_epoch &&
+                adopted->input_hash == gait_result.execution_input_hash;
+            std::cout << "STAGE_C_IDENTITY consumer=gait plan_id="
+                      << gait_result.execution_plan_id
+                      << " plan_epoch=" << gait_result.execution_plan_epoch
+                      << " map_epoch=" << gait_result.execution_map_epoch
+                      << " input_hash=" << gait_result.execution_input_hash
+                      << " adapter_plan_id=" << (adopted ? adopted->plan_id : 0)
+                      << " match=" << (identity_match ? 1 : 0) << "\n";
+            last_logged_stage_c_gait_plan_id = gait_result.execution_plan_id;
+        }
+    }
     kernel_footstep_plan_valid_ = gait_result.footstep_plan_valid;
     kernel_velocity_error_x_mps_ = gait_result.velocity_error_x_mps;
     kernel_nominal_velocity_x_mps_ = gait_result.nominal_velocity_x_mps;
@@ -897,9 +919,10 @@ bool TrotExperiment::BuildGaitTargets(
             const double measured_forward_speed = have_filtered_body_velocity_
                 ? std::abs(latest_filtered_body_velocity_[0])
                 : std::numeric_limits<double>::infinity();
-            activate = terrain_bootstrap_c0_ready_.load(
-                           std::memory_order_acquire) &&
-                candidate_plan_id != 0 && candidate &&
+            // C0 readiness authorizes observation motion only. Once a complete
+            // C1 candidate is ready and the body has settled at the boundary,
+            // C0 is expected to have gone false and must not veto handoff.
+            activate = candidate_plan_id != 0 && candidate &&
                 candidate->plan_id == candidate_plan_id &&
                 candidate->valid() && candidate->has_stage_c_timing &&
                 !candidate->v3_c_shadow &&

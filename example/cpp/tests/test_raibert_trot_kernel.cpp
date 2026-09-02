@@ -198,6 +198,48 @@ bool CheckPreviewPersistsWithinCycle()
                 first.preview_terminal_velocity_x_mps);
 }
 
+bool CheckTimedExecutionOwnsSwingSupport()
+{
+    auto kernel = MakeKernel();
+    auto request = Request(0.20, 0.105);
+    request.has_execution_request = true;
+    request.execution.valid = true;
+    request.execution.plan_id = 41;
+    request.execution.plan_epoch = 42;
+    request.execution.map_epoch = 43;
+    request.execution.input_hash = 44;
+    request.execution.valid_from_s = 0.0;
+    request.execution.valid_until_s = 1.0;
+    request.execution.period_s = 0.8;
+    request.execution.duty_factor = 0.75;
+    request.execution.foot_lift_m = 0.05;
+    request.execution.scheduled_support_valid = true;
+    request.execution.scheduled_support = {false, true, true, true};
+    const std::size_t fr = static_cast<std::size_t>(go2::Leg::FR);
+    request.execution.liftoff_time_valid[fr] = true;
+    request.execution.touchdown_time_valid[fr] = true;
+    request.execution.liftoff_time_s[fr] = 0.10;
+    request.execution.touchdown_time_s[fr] = 0.30;
+
+    go2_control::GaitKernelResult planned{};
+    if (!kernel.Compute(request, planned))
+        return false;
+    if (!planned.execution_request_valid ||
+        planned.execution_plan_id != 41 ||
+        planned.execution_plan_epoch != 42 ||
+        planned.execution_map_epoch != 43 ||
+        planned.execution_input_hash != 44 ||
+        !(planned.feet[fr].z > 1.0e-4))
+        return false;
+
+    auto nominal_kernel = MakeKernel();
+    auto nominal_request = Request(0.20, 0.105);
+    go2_control::GaitKernelResult nominal{};
+    if (!nominal_kernel.Compute(nominal_request, nominal))
+        return false;
+    return !nominal.execution_request_valid && Near(nominal.feet[fr].z, 0.0);
+}
+
 bool CheckSpeedAdaptiveStanceUsesMeasuredTravel()
 {
     go2_control::GaitKernelParams gait{};
@@ -236,6 +278,7 @@ int main()
         !CheckResetAndInvalidInput() ||
         !CheckPreviewHorizonClosesLoop() ||
         !CheckPreviewPersistsWithinCycle() ||
+        !CheckTimedExecutionOwnsSwingSupport() ||
         !CheckSpeedAdaptiveStanceUsesMeasuredTravel())
     {
         std::cerr << "Raibert trot kernel checks failed\n";

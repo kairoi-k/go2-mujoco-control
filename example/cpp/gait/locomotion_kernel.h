@@ -200,6 +200,10 @@ struct GaitExecutionRequest
     // leg is in flight it must not be replaced by a newer partial snapshot.
     std::array<std::uint64_t, go2::kLegCount> endpoint_identity{};
     std::array<bool, go2::kLegCount> endpoint_valid{};
+    // Exact planner-owned support row for this control instant. This remains
+    // planned contact only; measured_support is the independent safety input.
+    std::array<bool, go2::kLegCount> scheduled_support{};
+    bool scheduled_support_valid = false;
     std::array<bool, go2::kLegCount> measured_support{};
     bool fallback = false;
     std::string fallback_reason;

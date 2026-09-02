@@ -194,6 +194,19 @@ public:
         request.execution = last_request_;
         if (!request.has_execution_request)
             request.execution = {};
+        if (request.has_execution_request && adopted_)
+        {
+            std::array<std::size_t, kTerrainPlanMaxKnots> plan_index{};
+            const double knot_dt_s = adopted_->contact_timing.knot_dt_s;
+            if (BuildTerrainPlanHorizonIndices(
+                    *adopted_, gait_time_s, knot_dt_s, knot_dt_s, 1,
+                    plan_index))
+            {
+                request.execution.scheduled_support =
+                    adopted_->contact_schedule.planned_contact[plan_index[0]];
+                request.execution.scheduled_support_valid = true;
+            }
+        }
         if (last_request_.valid)
         {
             kernel.SetGaitPattern(last_request_.pattern);

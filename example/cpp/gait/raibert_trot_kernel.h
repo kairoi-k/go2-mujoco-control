@@ -156,6 +156,17 @@ public:
             return false;
         }
 
+        const auto &execution = request.execution;
+        const bool timed_execution =
+            request.has_execution_request && execution.valid &&
+            execution.scheduled_support_valid && !execution.fallback &&
+            execution.plan_id != 0 && execution.plan_epoch != 0 &&
+            execution.map_epoch != 0 && execution.input_hash != 0 &&
+            std::isfinite(execution.valid_from_s) &&
+            std::isfinite(execution.valid_until_s) &&
+            request.gait_time_s + 1.0e-9 >= execution.valid_from_s &&
+            request.gait_time_s <= execution.valid_until_s + 1.0e-9;
+
         // [Fix 2026-08-13] 连续相位累积: phase += dt / current_period
         // 旧实现 elapsed/period 在换挡(period 渐变)时 cycle_position 瞬移;
         // 新实现 period 变化只影响未来增量, 无跳变.
@@ -272,6 +283,16 @@ public:
         result.period_s = params_.gait.period_s;
         result.duty_factor = params_.gait.duty_factor;
         result.step_length_m = params_.gait.step_length_m;
+        if (timed_execution)
+        {
+            // This acknowledgement is emitted only by the branch that below
+            // consumes scheduled_support for the actual stance/swing choice.
+            result.execution_request_valid = true;
+            result.execution_plan_id = execution.plan_id;
+            result.execution_plan_epoch = execution.plan_epoch;
+            result.execution_map_epoch = execution.map_epoch;
+            result.execution_input_hash = execution.input_hash;
+        }
 
         const RaibertFootstepPlannerParams planner_params{
             params_.gait.period_s,
@@ -385,7 +406,26 @@ public:
             double x_offset = 0.0;
             double y_offset = 0.0;
             double z_offset = 0.0;
-            if (leg_phase < stance_duration)
+            const bool scheduled_stance = timed_execution
+                ? execution.scheduled_support[leg]
+                : leg_phase < stance_duration;
+            double execution_swing_phase = 0.0;
+            if (timed_execution && !scheduled_stance)
+            {
+                if (!execution.liftoff_time_valid[leg] ||
+                    !execution.touchdown_time_valid[leg] ||
+                    !std::isfinite(execution.liftoff_time_s[leg]) ||
+                    !std::isfinite(execution.touchdown_time_s[leg]) ||
+                    execution.touchdown_time_s[leg] <=
+                        execution.liftoff_time_s[leg])
+                    return false;
+                execution_swing_phase = std::clamp(
+                    (request.gait_time_s - execution.liftoff_time_s[leg]) /
+                        (execution.touchdown_time_s[leg] -
+                         execution.liftoff_time_s[leg]),
+                    0.0, 1.0);
+            }
+            if (scheduled_stance)
             {
                 const double stance_phase = leg_phase / stance_duration;
                 x_offset =
@@ -397,8 +437,9 @@ public:
             }
             else
             {
-                const double swing_phase =
-                    (leg_phase - stance_duration) / swing_duration;
+                const double swing_phase = timed_execution
+                    ? execution_swing_phase
+                    : (leg_phase - stance_duration) / swing_duration;
                 const double swing_start_x =
                     state.stance_start_x_m -
                     params_.gait.direction_sign *
@@ -423,8 +464,10 @@ public:
                             params_.gait.swing_reach_phase);
                 const double swing_z_phase = std::min(
                     1.0, swing_phase / swing_progress_end);
+                const double active_foot_lift_m = timed_execution
+                    ? execution.foot_lift_m : params_.gait.foot_lift_m;
                 z_offset =
-                    params_.gait.foot_lift_m *
+                    active_foot_lift_m *
                     std::sin(kPi * swing_z_phase) *
                     std::sin(kPi * swing_z_phase) *
                     (1.0 - 0.9 * std::max(0.0, swing_phase - 0.75) / 0.25);
