@@ -275,10 +275,16 @@ def shutil_which(name: str) -> str | None:
 
 def _start_command(settings: LocalLLMSettings) -> list[str]:
     schema = json.dumps(LOCAL_DIAGNOSIS_SCHEMA, ensure_ascii=False, separators=(",", ":"))
+    model_arg = str(settings.model_path)
+    # WSL can inspect a Windows file through /mnt/c, but a native Windows
+    # executable needs a Windows drive path in its argv.
+    if model_arg.startswith("/mnt/"):
+        drive, _, rest = model_arg[len("/mnt/") :].partition("/")
+        model_arg = drive.upper() + ":\\" + rest.replace("/", "\\")
     return [
         str(settings.server_exe),
         "-m",
-        str(settings.model_path),
+        model_arg,
         "--host",
         settings.host,
         "--port",
