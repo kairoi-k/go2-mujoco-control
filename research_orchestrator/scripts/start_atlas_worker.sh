@@ -22,4 +22,4 @@ export TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-100.90.49.95:7233}"
 export ATLAS_ADAPTER_READY=1
 
 cd "$control_plane_root"
-exec "$uv_bin" run python -m research_orchestrator.workers.atlas_worker
+exec "$uv_bin" run python -m research_orchestrator.workers.atlas_worker "$@"
