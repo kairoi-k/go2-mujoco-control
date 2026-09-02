@@ -68,7 +68,7 @@ cd /home/che/dev/go2-workspace/research-orchestrator
 ATLAS_WORKSPACE=/home/che/dev/go2-workspace/current \
 ATLAS_ARTIFACT_ROOT=/home/che/dev/go2-workspace/atlas-artifacts \
 ATLAS_MUJOCO_ROOT=/home/che/.mujoco/mujoco-3.3.6 \
-TEMPORAL_ADDRESS=mac-mini.tail4a075c.ts.net:7233 \
+TEMPORAL_ADDRESS=100.90.49.95:7233 \
 ATLAS_ADAPTER_READY=1 \
 uv run python -m research_orchestrator.workers.atlas_worker --check
 ```

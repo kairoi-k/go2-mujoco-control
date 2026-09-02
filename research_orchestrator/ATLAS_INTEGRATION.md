@@ -18,7 +18,8 @@ This separation keeps the existing Atlas research worktree untouched while
 making the physical source revision explicit in every experiment. The worker
 requires `ATLAS_WORKSPACE`, `ATLAS_ARTIFACT_ROOT`, `ATLAS_MUJOCO_ROOT`, and
 `ATLAS_ADAPTER_READY=1`. It connects to the Base Temporal dev server through
-the Base Tailscale address.
+the Base Tailscale IPv4 (`100.90.49.95:7233`); the MagicDNS/Funnel name is not
+used from WSL because WSL currently resolves it to the public Funnel ingress.
 
 ## Activity contract
 
@@ -62,8 +63,8 @@ accepts a validated result containing an observed failure timestamp.
 
 The verified Atlas host facts are:
 
-- Tailscale reaches Atlas at `100.106.114.65`; Base reaches Temporal through
-  `mac-mini.tail4a075c.ts.net:7233`.
+- Tailscale reaches Atlas at `100.106.114.65`; Base Temporal listens on
+  `100.90.49.95:7233`.
 - Ubuntu-22.04 WSL is available and uses Python 3.12 through `uv`.
 - MuJoCo 3.3.6 and Unitree SDK2 are installed.
 - The pinned source built both simulator/controller targets and passed 26
@@ -78,7 +79,7 @@ cd /home/che/dev/go2-workspace/research-orchestrator
 ATLAS_WORKSPACE=/home/che/dev/go2-workspace/current \
 ATLAS_ARTIFACT_ROOT=/home/che/dev/go2-workspace/atlas-artifacts \
 ATLAS_MUJOCO_ROOT=/home/che/.mujoco/mujoco-3.3.6 \
-TEMPORAL_ADDRESS=mac-mini.tail4a075c.ts.net:7233 \
+TEMPORAL_ADDRESS=100.90.49.95:7233 \
 ATLAS_ADAPTER_READY=1 \
 uv run python -m research_orchestrator.workers.atlas_worker --check
 ```

@@ -12,7 +12,10 @@ export RESEARCH_REPO_ROOT="$control_plane_root"
 export ATLAS_WORKSPACE="${ATLAS_WORKSPACE:-/home/che/dev/go2-workspace/current}"
 export ATLAS_ARTIFACT_ROOT="${ATLAS_ARTIFACT_ROOT:-/home/che/dev/go2-workspace/atlas-artifacts}"
 export ATLAS_MUJOCO_ROOT="${ATLAS_MUJOCO_ROOT:-/home/che/.mujoco/mujoco-3.3.6}"
-export TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-mac-mini.tail4a075c.ts.net:7233}"
+# WSL currently resolves the MagicDNS/Funnel name to the public Funnel
+# ingress. Use the Base Tailscale IPv4 for raw Temporal gRPC; override this
+# value when the Base tailnet address changes.
+export TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-100.90.49.95:7233}"
 export ATLAS_ADAPTER_READY=1
 
 cd "$control_plane_root"
