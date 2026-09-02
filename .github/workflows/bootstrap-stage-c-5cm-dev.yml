@@ -8,6 +8,9 @@ on:
       - .github/workflows/bootstrap-stage-c-5cm-dev.yml
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
   group: stage-c-5cm-bootstrap-dev-${{ github.ref }}
   cancel-in-progress: true
@@ -21,26 +24,52 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Apply bounded C1 handoff hypothesis
+      - name: Apply source-owned C1 handoff and atomic identity telemetry
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path("example/cpp/trot/trot_experiment_gait.cpp")
-          text = path.read_text()
-          old = """            activate = terrain_bootstrap_c0_ready_.load(\n                           std::memory_order_acquire) &&\n                candidate_plan_id != 0 && candidate &&\n"""
-          new = """            // C0 readiness authorizes observation motion only. Once a complete\n            // C1 candidate is ready and the body has settled at the boundary,\n            // C0 is expected to have gone false and must not veto handoff.\n            activate = candidate_plan_id != 0 && candidate &&\n"""
-          count = text.count(old)
-          if count != 1:
-              raise SystemExit(f"expected exactly one C0 handoff gate, found {count}")
-          path.write_text(text.replace(old, new))
-          print("Applied development-only C1 handoff hypothesis")
+          gait = Path("example/cpp/trot/trot_experiment_gait.cpp")
+          text = gait.read_text()
+          old_gate = """            activate = terrain_bootstrap_c0_ready_.load(\n                           std::memory_order_acquire) &&\n                candidate_plan_id != 0 && candidate &&\n"""
+          new_gate = """            // C0 readiness authorizes observation motion only. Once a complete\n            // C1 candidate is ready and the body has settled at the boundary,\n            // C0 is expected to have gone false and must not veto handoff.\n            activate = candidate_plan_id != 0 && candidate &&\n"""
+          if old_gate in text:
+              if text.count(old_gate) != 1:
+                  raise SystemExit("expected exactly one stale C0 handoff gate")
+              text = text.replace(old_gate, new_gate)
+          elif new_gate not in text:
+              raise SystemExit("C1 handoff site not recognized")
+
+          old_compute = """    if (!locomotion_kernel_->Compute(gait_request, gait_result))\n    {\n        std::cerr << \"Locomotion kernel failed at gait_time=\"\n                  << gait_time_s << std::endl;\n        return false;\n    }\n    kernel_footstep_plan_valid_ = gait_result.footstep_plan_valid;\n"""
+          new_compute = """    if (!locomotion_kernel_->Compute(gait_request, gait_result))\n    {\n        std::cerr << \"Locomotion kernel failed at gait_time=\"\n                  << gait_time_s << std::endl;\n        return false;\n    }\n    // Read-only Stage-C proof: the kernel reports the exact immutable\n    // TerrainExecutionRequest identity it actually consumed. Log once per\n    // plan so runtime evidence can be joined to adapter and SRBD-MPC identity.\n    if (gait_result.execution_request_valid &&\n        gait_result.execution_plan_id != 0)\n    {\n        static std::uint64_t last_logged_stage_c_gait_plan_id = 0;\n        if (gait_result.execution_plan_id !=\n            last_logged_stage_c_gait_plan_id)\n        {\n            const auto adopted =\n                terrain_plan_execution_adapter_.adopted_plan();\n            const bool identity_match = adopted &&\n                adopted->plan_id == gait_result.execution_plan_id &&\n                adopted->plan_epoch == gait_result.execution_plan_epoch &&\n                adopted->map_epoch == gait_result.execution_map_epoch &&\n                adopted->input_hash == gait_result.execution_input_hash;\n            std::cout << \"STAGE_C_IDENTITY consumer=gait plan_id=\"\n                      << gait_result.execution_plan_id\n                      << \" plan_epoch=\" << gait_result.execution_plan_epoch\n                      << \" map_epoch=\" << gait_result.execution_map_epoch\n                      << \" input_hash=\" << gait_result.execution_input_hash\n                      << \" adapter_plan_id=\"\n                      << (adopted ? adopted->plan_id : 0)\n                      << \" match=\" << (identity_match ? 1 : 0) << \"\\n\";\n            last_logged_stage_c_gait_plan_id =\n                gait_result.execution_plan_id;\n        }\n    }\n    kernel_footstep_plan_valid_ = gait_result.footstep_plan_valid;\n"""
+          if "STAGE_C_IDENTITY consumer=gait" not in text:
+              if text.count(old_compute) != 1:
+                  raise SystemExit("gait Compute proof site not recognized")
+              text = text.replace(old_compute, new_compute)
+          gait.write_text(text)
+
+          wbc = Path("example/cpp/trot/trot_experiment_wbc.cpp")
+          text = wbc.read_text()
+          old_mpc = """                ++terrain_mpc_plan_consumed_count_;\n"""
+          new_mpc = """                ++terrain_mpc_plan_consumed_count_;\n                // Read-only companion to the gait-consumer proof above.\n                // terrain_plan is the exact adapter-adopted snapshot used to\n                // populate SRBD-MPC's contact schedule and terrain identity.\n                static std::uint64_t last_logged_stage_c_mpc_plan_id = 0;\n                if (terrain_plan->plan_id !=\n                    last_logged_stage_c_mpc_plan_id)\n                {\n                    const auto adopted =\n                        terrain_plan_execution_adapter_.adopted_plan();\n                    const bool identity_match = adopted &&\n                        adopted->plan_id == terrain_plan->plan_id &&\n                        adopted->plan_epoch == terrain_plan->plan_epoch &&\n                        adopted->map_epoch == terrain_plan->map_epoch &&\n                        adopted->input_hash == terrain_plan->input_hash;\n                    std::cout << \"STAGE_C_IDENTITY consumer=mpc plan_id=\"\n                              << terrain_plan->plan_id\n                              << \" plan_epoch=\" << terrain_plan->plan_epoch\n                              << \" map_epoch=\" << terrain_plan->map_epoch\n                              << \" input_hash=\" << terrain_plan->input_hash\n                              << \" adapter_plan_id=\"\n                              << (adopted ? adopted->plan_id : 0)\n                              << \" match=\" << (identity_match ? 1 : 0)\n                              << \"\\n\";\n                    last_logged_stage_c_mpc_plan_id =\n                        terrain_plan->plan_id;\n                }\n"""
+          if "STAGE_C_IDENTITY consumer=mpc" not in text:
+              if text.count(old_mpc) != 1:
+                  raise SystemExit(
+                      f"expected one SRBD-MPC consume site, found {text.count(old_mpc)}")
+              text = text.replace(old_mpc, new_mpc)
+          wbc.write_text(text)
+          print("Applied source-owned C1 handoff + atomic identity telemetry")
           PY
 
       - name: Bootstrap Ubuntu dependencies and build
         env:
           MUJOCO_VERSION: "3.3.6"
         run: bash scripts/setup_ubuntu_env.sh
+
+      - name: Run static CTest guardrails
+        run: |
+          ctest --test-dir example/cpp/build --output-on-failure
+          ctest --test-dir simulate/build --output-on-failure
 
       - name: Run bounded 5cm development probe
         id: probe
@@ -82,7 +111,6 @@ jobs:
         if: always()
         run: |
           python3 - <<'PY'
-          import math
           from pathlib import Path
           import pandas as pd
 
@@ -98,25 +126,17 @@ jobs:
           data_path = run / "data.csv"
           if not data_path.exists() or data_path.stat().st_size == 0:
               print("MILESTONE data_csv=missing")
-              for name in ("controller.log", "simulator.log"):
-                  p = run / name
-                  if p.exists():
-                      print(f"--- {name} tail ---")
-                      print("\n".join(p.read_text(errors="replace").splitlines()[-120:]))
               raise SystemExit(0)
 
           df = pd.read_csv(data_path, low_memory=False)
           time_col = "cmd_time_s" if "cmd_time_s" in df.columns else df.columns[0]
-
           def numeric(name):
               if name not in df.columns:
                   return None
               return pd.to_numeric(df[name], errors="coerce")
-
           def max_value(name):
               s = numeric(name)
               return None if s is None or not s.notna().any() else float(s.max())
-
           def first_where(mask):
               idx = df.index[mask]
               if len(idx) == 0:
@@ -133,14 +153,10 @@ jobs:
           plan_id = numeric("terrain_execution_adopted_plan_id")
           safe_stop = max_value("terrain_safe_stop_requested") or 0.0
           base_x = max_value("world_base_x_m")
-
-          first_publish = None
           s = numeric("terrain_plan_published")
-          if s is not None:
-              first_publish = first_where(s > 0)
+          first_publish = first_where(s > 0) if s is not None else None
           first_transfer = first_where(transfer > 0) if transfer is not None else None
           first_adopt = first_where(using > 0) if using is not None else None
-
           swing_times = []
           touchdown_times = []
           for leg in ("FR", "FL", "RR", "RL"):
@@ -151,12 +167,9 @@ jobs:
                       swing_times.append((t, leg))
               err = numeric(f"terrain_execution_{leg}_touchdown_error_s")
               if err is not None:
-                  # These arrays initialize to zero; a changed value is a
-                  # measured support transition relative to planned touchdown.
                   t = first_where(err.abs() > 1.0e-9)
                   if t is not None:
                       touchdown_times.append((t, leg))
-
           print(f"MILESTONE rows={len(df)}")
           print(f"MILESTONE plan_published_max={published} first_t={first_publish}")
           print(f"MILESTONE plan_consumed_max={consumed}")
@@ -170,18 +183,69 @@ jobs:
           if plan_id is not None and plan_id.notna().any():
               nonzero = plan_id[plan_id > 0]
               print(f"MILESTONE adopted_plan_ids={sorted(set(int(v) for v in nonzero.tolist()))[:20]}")
-
-          for name in ("controller.log", "simulator.log"):
-              p = run / name
-              if p.exists():
-                  lines = p.read_text(errors="replace").splitlines()
-                  interesting = [line for line in lines if
-                      ("Terrain" in line or "terrain" in line or
-                       "safety" in line.lower() or "hard posture" in line.lower() or
-                       "lockstep" in line.lower())]
-                  print(f"--- {name} interesting tail ---")
-                  print("\n".join(interesting[-180:]))
+          log = run / "controller.log"
+          if log.exists():
+              for line in log.read_text(errors="replace").splitlines():
+                  if "STAGE_C_IDENTITY" in line:
+                      print(line)
           PY
+
+      - name: Verify adapter-gait-MPC atomic identity
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          import pandas as pd
+
+          runs = sorted(Path("example/cpp/experiments/_runs").glob(
+              "stage_c_bootstrap_5cm_dev_*"))
+          if not runs:
+              raise SystemExit("no development run directory")
+          run = runs[-1]
+          log = (run / "controller.log").read_text(errors="replace")
+          rx = re.compile(
+              r"STAGE_C_IDENTITY consumer=(gait|mpc) plan_id=(\d+) "
+              r"plan_epoch=(\d+) map_epoch=(\d+) input_hash=(\d+) "
+              r"adapter_plan_id=(\d+) match=(\d+)")
+          by_consumer = {"gait": set(), "mpc": set()}
+          for consumer, pid, pep, mep, ih, adapter_pid, match in rx.findall(log):
+              tup = tuple(map(int, (pid, pep, mep, ih)))
+              if int(match) != 1 or int(adapter_pid) != int(pid):
+                  raise SystemExit(
+                      f"atomic identity mismatch consumer={consumer} tuple={tup} adapter={adapter_pid}")
+              by_consumer[consumer].add(tup)
+          if not by_consumer["gait"]:
+              raise SystemExit("no gait consumer identity evidence")
+          if not by_consumer["mpc"]:
+              raise SystemExit("no MPC consumer identity evidence")
+          common = by_consumer["gait"] & by_consumer["mpc"]
+          if not common:
+              raise SystemExit(
+                  f"gait/MPC consumed no common atomic tuple: {by_consumer}")
+
+          df = pd.read_csv(run / "data.csv", low_memory=False)
+          adopted = pd.to_numeric(
+              df["terrain_execution_adopted_plan_id"], errors="coerce")
+          adopted_ids = set(int(v) for v in adopted.dropna() if v > 0)
+          common_adopted = [t for t in common if t[0] in adopted_ids]
+          if not common_adopted:
+              raise SystemExit(
+                  f"common gait/MPC tuple not present in adapter adoption: common={common} adopted={adopted_ids}")
+          print(f"ATOMIC_IDENTITY_PASS common={sorted(common_adopted)}")
+          PY
+
+      - name: Persist verified source changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add example/cpp/trot/trot_experiment_gait.cpp \
+                  example/cpp/trot/trot_experiment_wbc.cpp
+          if git diff --cached --quiet; then
+            echo "Verified source changes already committed"
+          else
+            git commit -m "fix: make C1 handoff source-owned and log atomic consumers"
+            git push origin HEAD:assistant/bootstrap-static-fixes-20260902
+          fi
 
       - name: Upload development evidence
         if: always()
