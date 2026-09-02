@@ -65,6 +65,7 @@ public:
     {
         adopted_.reset();
         using_plan_ = false;
+        recovery_pending_ = false;
         fallback_age_steps_ = 0;
         last_rejected_plan_id_ = 0;
         last_rejection_reason_.clear();
@@ -86,6 +87,12 @@ public:
         for (bool flight : in_flight_)
             if (flight)
                 return false;
+        // A safe-stop/expiry retires timing ownership. While the measured
+        // contact guard is still active it must keep the immutable snapshot
+        // frozen; once the guard clears, recovery itself is an explicit
+        // adapter boundary for atomically adopting a fresh whole snapshot.
+        if (recovery_pending_ && !contact_guard_active_)
+            return true;
         return AtEventBoundary(*adopted_, now_s);
     }
 
@@ -122,15 +129,56 @@ public:
         }
         const bool same_plan = candidate_valid && adopted_ &&
             SameIdentity(*candidate, *adopted_);
+        const bool guard_safe_stop = contact_guard_active_ &&
+            contact_guard_age_ticks_ >= 5;
+
+        // N+5 measured-contact safety has absolute priority over plan
+        // adoption. Retain the immutable snapshot only as provenance and
+        // retire its execution ownership before considering any candidate.
+        if (guard_safe_stop)
+        {
+            if (adopted_)
+                recovery_pending_ = true;
+            if (candidate_valid && adopted_ && !same_plan)
+            {
+                result.rejected = true;
+                result.rejected_plan_id = candidate->plan_id;
+                last_rejected_plan_id_ = candidate->plan_id;
+                last_rejection_reason_ = "contact_guard_safe_stop";
+                result.rejection_reason = last_rejection_reason_;
+            }
+            using_plan_ = false;
+            fallback_age_steps_ = contact_guard_age_ticks_;
+            result.fallback_reason =
+                ContactGuardFallbackReason(fallback_age_steps_);
+            last_fallback_reason_ = result.fallback_reason;
+            last_request_ = MakeFallbackRequest(
+                measured_support, fallback_pattern, fallback_period_s,
+                fallback_duty_factor, fallback_step_length_m,
+                fallback_foot_lift_m, result.fallback_reason);
+            result.request = last_request_;
+            UpdateFlightState(last_request_, now_s);
+            return result;
+        }
+
         const bool boundary = event_boundary && IsLegalBoundary(now_s);
         const bool guard_keeps_snapshot = contact_guard_active_ && adopted_ &&
             !same_plan;
-        if (candidate_valid && (!guard_keeps_snapshot) &&
+        if (guard_keeps_snapshot && candidate_valid)
+        {
+            result.rejected = true;
+            result.rejected_plan_id = candidate->plan_id;
+            last_rejected_plan_id_ = candidate->plan_id;
+            last_rejection_reason_ = "contact_guard_active";
+            result.rejection_reason = last_rejection_reason_;
+        }
+        if (candidate_valid && !guard_keeps_snapshot &&
             (!adopted_ || same_plan || boundary))
         {
             if (!same_plan)
             {
                 adopted_ = std::make_shared<const TerrainMotionPlan>(*candidate);
+                recovery_pending_ = false;
                 result.adopted = true;
                 result.adopted_plan_id = candidate->plan_id;
             }
@@ -140,7 +188,8 @@ public:
             result.using_plan = true;
             result.request = last_request_;
         }
-        else if (candidate_valid && adopted_ && !boundary && !same_plan)
+        else if (candidate_valid && adopted_ && !same_plan &&
+                 !result.rejected)
         {
             result.rejected = true;
             result.rejected_plan_id = candidate->plan_id;
@@ -148,9 +197,13 @@ public:
             last_rejection_reason_ = "not_at_event_boundary_or_in_flight";
             result.rejection_reason = last_rejection_reason_;
         }
-        const bool guard_safe_stop = contact_guard_active_ &&
-            contact_guard_age_ticks_ >= 5;
-        if (adopted_ && !guard_safe_stop && std::isfinite(now_s) &&
+
+        const bool adopted_expired = adopted_ && std::isfinite(now_s) &&
+            now_s > adopted_->valid_until_s + grace_s_;
+        if (adopted_expired)
+            recovery_pending_ = true;
+        const bool hold_for_recovery = recovery_pending_ && !result.adopted;
+        if (adopted_ && !hold_for_recovery && std::isfinite(now_s) &&
             now_s <= adopted_->valid_until_s + grace_s_)
         {
             using_plan_ = true;
@@ -370,6 +423,7 @@ private:
     bool enabled_ = false;
     double grace_s_ = kDefaultGraceS;
     bool using_plan_ = false;
+    bool recovery_pending_ = false;
     std::size_t fallback_age_steps_ = 0;
     std::shared_ptr<const TerrainMotionPlan> adopted_;
     std::array<bool, go2::kLegCount> in_flight_{};

@@ -222,6 +222,11 @@ add_executable(test_terrain_plan_fallback tests/test_terrain_plan_fallback.cpp)
 target_link_libraries(test_terrain_plan_fallback unitree_sdk2)
 go2_add_ctest(test_terrain_plan_fallback)
 
+# Stage-C safe-stop recovery must never resume an interrupted stale plan.
+add_executable(test_terrain_plan_recovery tests/test_terrain_plan_recovery.cpp)
+target_link_libraries(test_terrain_plan_recovery unitree_sdk2)
+go2_add_ctest(test_terrain_plan_recovery)
+
 # Generic C0 envelope: current-foot corridors must remain known/flat through
 # the production shaper's discrete stopping distance. End-to-end latency is
 # intentionally left as a later certification obligation.

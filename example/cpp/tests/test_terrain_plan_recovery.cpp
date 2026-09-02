@@ -121,10 +121,12 @@ int main()
     if (stopped.using_plan || !stopped.request.fallback ||
         adapter.adopted_plan_id() != plan_a.plan_id)
         return Fail("safe-stop did not retire active execution");
-    if (!adapter.IsLegalBoundary(1.05))
-        return Fail("retired execution did not expose a recovery boundary");
+    if (adapter.IsLegalBoundary(1.05))
+        return Fail("active contact guard exposed a recovery boundary");
 
     adapter.SetContactGuard(false, 0);
+    if (!adapter.IsLegalBoundary(1.05))
+        return Fail("cleared guard did not expose the recovery boundary");
     const auto blocked = adapter.Update(
         &plan_b, 1.05, false, measured,
         go2_control::GaitPattern::kDiagonalTrot,
