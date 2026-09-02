@@ -91,13 +91,15 @@ uv run python -m research_orchestrator.workers.atlas_worker --check
 In non-interactive WSL launch contexts, use
 `UV_BIN=/home/che/.local/bin/uv` if the login PATH does not contain `uv`.
 
-For WSL distributions with systemd enabled, install
-`research_orchestrator/ops/systemd/go2-atlas-worker.service` into
-`~/.config/systemd/user/`, run `systemctl --user daemon-reload`, and enable it
-with `systemctl --user enable --now go2-atlas-worker.service`. Enable user
-lingering for `che` if the worker must survive the absence of an interactive
-login. Its `TEMPORAL_ADDRESS` is deliberately the Base Tailscale IPv4, not the
-MagicDNS/Funnel name.
+On this Windows/WSL host, the durable launcher is Windows Task Scheduler, not
+an SSH-started process or WSL user service. Import
+`research_orchestrator/ops/windows/Go2_Atlas_Research_Worker.xml` as the
+`Go2_Atlas_Research_Worker` task. It runs `wsl.exe` as the WSL user `che` at
+boot, keeps the host process alive, prevents duplicate instances, and retries
+after failure. The task's `TEMPORAL_ADDRESS` is deliberately the Base
+Tailscale IPv4, not the MagicDNS/Funnel name. The versioned systemd unit under
+`ops/systemd/` remains available for Linux hosts where systemd is the actual
+host supervisor.
 
 No formal holdout is started by the generic workflow. A future approval
 workflow must add a human decision, frozen membership, separate domains, and
