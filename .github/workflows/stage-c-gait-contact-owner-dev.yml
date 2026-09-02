@@ -1,0 +1,285 @@
+name: Stage-C gait contact ownership development proof
+
+on:
+  push:
+    branches:
+      - assistant/stage-c-gait-contact-ownership-20260902
+    paths:
+      - .github/workflows/stage-c-gait-contact-owner-dev.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stage-c-gait-contact-owner-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Apply planner-owned gait contact slice
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # 1) Carry the exact current planner schedule row through the
+          # immutable execution request.  Measured support stays separate.
+          path = Path("example/cpp/gait/locomotion_kernel.h")
+          text = path.read_text()
+          old = """    std::array<std::uint64_t, go2::kLegCount> endpoint_identity{};\n    std::array<bool, go2::kLegCount> endpoint_valid{};\n    std::array<bool, go2::kLegCount> measured_support{};\n"""
+          new = """    std::array<std::uint64_t, go2::kLegCount> endpoint_identity{};\n    std::array<bool, go2::kLegCount> endpoint_valid{};\n    // Exact planner-owned support row for this control instant. This remains\n    // planned contact only; measured_support is the independent safety input.\n    std::array<bool, go2::kLegCount> scheduled_support{};\n    bool scheduled_support_valid = false;\n    std::array<bool, go2::kLegCount> measured_support{};\n"""
+          if "scheduled_support_valid" not in text:
+              if text.count(old) != 1:
+                  raise SystemExit("GaitExecutionRequest seam not recognized")
+              text = text.replace(old, new)
+          path.write_text(text)
+
+          # 2) The adapter samples the same immutable plan timeline used by
+          # WBC/MPC and places exactly one row in the gait request.
+          path = Path("example/cpp/terrain/terrain_plan_execution_adapter.h")
+          text = path.read_text()
+          old = """        request.execution = last_request_;\n        if (!request.has_execution_request)\n            request.execution = {};\n        if (last_request_.valid)\n"""
+          new = """        request.execution = last_request_;\n        if (!request.has_execution_request)\n            request.execution = {};\n        if (request.has_execution_request && adopted_)\n        {\n            std::array<std::size_t, kTerrainPlanMaxKnots> plan_index{};\n            const double knot_dt_s = adopted_->contact_timing.knot_dt_s;\n            if (BuildTerrainPlanHorizonIndices(\n                    *adopted_, gait_time_s, knot_dt_s, knot_dt_s, 1,\n                    plan_index))\n            {\n                request.execution.scheduled_support =\n                    adopted_->contact_schedule.planned_contact[plan_index[0]];\n                request.execution.scheduled_support_valid = true;\n            }\n        }\n        if (last_request_.valid)\n"""
+          if "plan_index{}" not in text:
+              if text.count(old) != 1:
+                  raise SystemExit("adapter ApplyToKernel seam not recognized")
+              text = text.replace(old, new)
+          path.write_text(text)
+
+          # 3) Raibert is the frozen B1 kernel. It must actually use the
+          # planner row for stance/swing selection rather than merely ack it.
+          path = Path("example/cpp/gait/raibert_trot_kernel.h")
+          text = path.read_text()
+          old = """            return false;\n        }\n\n        // [Fix 2026-08-13] 连续相位累积: phase += dt / current_period\n"""
+          new = """            return false;\n        }\n\n        const auto &execution = request.execution;\n        const bool timed_execution =\n            request.has_execution_request && execution.valid &&\n            execution.scheduled_support_valid && !execution.fallback &&\n            execution.plan_id != 0 && execution.plan_epoch != 0 &&\n            execution.map_epoch != 0 && execution.input_hash != 0 &&\n            std::isfinite(execution.valid_from_s) &&\n            std::isfinite(execution.valid_until_s) &&\n            request.gait_time_s + 1.0e-9 >= execution.valid_from_s &&\n            request.gait_time_s <= execution.valid_until_s + 1.0e-9;\n\n        // [Fix 2026-08-13] 连续相位累积: phase += dt / current_period\n"""
+          if "const bool timed_execution" not in text:
+              if text.count(old) != 1:
+                  raise SystemExit("Raibert execution gate seam not recognized")
+              text = text.replace(old, new)
+
+          old = """        result.period_s = params_.gait.period_s;\n        result.duty_factor = params_.gait.duty_factor;\n        result.step_length_m = params_.gait.step_length_m;\n\n        const RaibertFootstepPlannerParams planner_params{\n"""
+          new = """        result.period_s = params_.gait.period_s;\n        result.duty_factor = params_.gait.duty_factor;\n        result.step_length_m = params_.gait.step_length_m;\n        if (timed_execution)\n        {\n            // This acknowledgement is emitted only by the branch that below\n            // consumes scheduled_support for the actual stance/swing choice.\n            result.execution_request_valid = true;\n            result.execution_plan_id = execution.plan_id;\n            result.execution_plan_epoch = execution.plan_epoch;\n            result.execution_map_epoch = execution.map_epoch;\n            result.execution_input_hash = execution.input_hash;\n        }\n\n        const RaibertFootstepPlannerParams planner_params{\n"""
+          if "acknowledgement is emitted only" not in text:
+              if text.count(old) != 1:
+                  raise SystemExit("Raibert result identity seam not recognized")
+              text = text.replace(old, new)
+
+          old = """            double x_offset = 0.0;\n            double y_offset = 0.0;\n            double z_offset = 0.0;\n            if (leg_phase < stance_duration)\n            {\n                const double stance_phase = leg_phase / stance_duration;\n"""
+          new = """            double x_offset = 0.0;\n            double y_offset = 0.0;\n            double z_offset = 0.0;\n            const bool scheduled_stance = timed_execution\n                ? execution.scheduled_support[leg]\n                : leg_phase < stance_duration;\n            double execution_swing_phase = 0.0;\n            if (timed_execution && !scheduled_stance)\n            {\n                if (!execution.liftoff_time_valid[leg] ||\n                    !execution.touchdown_time_valid[leg] ||\n                    !std::isfinite(execution.liftoff_time_s[leg]) ||\n                    !std::isfinite(execution.touchdown_time_s[leg]) ||\n                    execution.touchdown_time_s[leg] <=\n                        execution.liftoff_time_s[leg])\n                    return false;\n                execution_swing_phase = std::clamp(\n                    (request.gait_time_s - execution.liftoff_time_s[leg]) /\n                        (execution.touchdown_time_s[leg] -\n                         execution.liftoff_time_s[leg]),\n                    0.0, 1.0);\n            }\n            if (scheduled_stance)\n            {\n                const double stance_phase = leg_phase / stance_duration;\n"""
+          if "const bool scheduled_stance" not in text:
+              if text.count(old) != 1:
+                  raise SystemExit("Raibert stance/swing seam not recognized")
+              text = text.replace(old, new)
+
+          old = """            else\n            {\n                const double swing_phase =\n                    (leg_phase - stance_duration) / swing_duration;\n                const double swing_start_x =\n"""
+          new = """            else\n            {\n                const double swing_phase = timed_execution\n                    ? execution_swing_phase\n                    : (leg_phase - stance_duration) / swing_duration;\n                const double swing_start_x =\n"""
+          if "? execution_swing_phase" not in text:
+              if text.count(old) != 1:
+                  raise SystemExit("Raibert swing phase seam not recognized")
+              text = text.replace(old, new)
+
+          old = """                z_offset =\n                    params_.gait.foot_lift_m *\n                    std::sin(kPi * swing_z_phase) *\n"""
+          new = """                const double active_foot_lift_m = timed_execution\n                    ? execution.foot_lift_m : params_.gait.foot_lift_m;\n                z_offset =\n                    active_foot_lift_m *\n                    std::sin(kPi * swing_z_phase) *\n"""
+          if "active_foot_lift_m" not in text:
+              if text.count(old) != 1:
+                  raise SystemExit("Raibert foot lift seam not recognized")
+              text = text.replace(old, new)
+          path.write_text(text)
+
+          # 4) Pin the behavior: at a nominal all-stance instant, a planner
+          # row that releases FR must make FR execute swing timing and must
+          # return the exact plan identity. Without the request FR stays stance.
+          path = Path("example/cpp/tests/test_raibert_trot_kernel.cpp")
+          text = path.read_text()
+          marker = """bool CheckSpeedAdaptiveStanceUsesMeasuredTravel()\n{\n"""
+          if "CheckTimedExecutionOwnsSwingSupport" not in text:
+              insert = r'''bool CheckTimedExecutionOwnsSwingSupport()
+{
+    auto kernel = MakeKernel();
+    auto request = Request(0.20, 0.105);
+    request.has_execution_request = true;
+    request.execution.valid = true;
+    request.execution.plan_id = 41;
+    request.execution.plan_epoch = 42;
+    request.execution.map_epoch = 43;
+    request.execution.input_hash = 44;
+    request.execution.valid_from_s = 0.0;
+    request.execution.valid_until_s = 1.0;
+    request.execution.period_s = 0.8;
+    request.execution.duty_factor = 0.75;
+    request.execution.foot_lift_m = 0.05;
+    request.execution.scheduled_support_valid = true;
+    request.execution.scheduled_support = {false, true, true, true};
+    const std::size_t fr = static_cast<std::size_t>(go2::Leg::FR);
+    request.execution.liftoff_time_valid[fr] = true;
+    request.execution.touchdown_time_valid[fr] = true;
+    request.execution.liftoff_time_s[fr] = 0.10;
+    request.execution.touchdown_time_s[fr] = 0.30;
+
+    go2_control::GaitKernelResult planned{};
+    if (!kernel.Compute(request, planned))
+        return false;
+    if (!planned.execution_request_valid ||
+        planned.execution_plan_id != 41 ||
+        planned.execution_plan_epoch != 42 ||
+        planned.execution_map_epoch != 43 ||
+        planned.execution_input_hash != 44 ||
+        !(planned.feet[fr].z > 1.0e-4))
+        return false;
+
+    auto nominal_kernel = MakeKernel();
+    auto nominal_request = Request(0.20, 0.105);
+    go2_control::GaitKernelResult nominal{};
+    if (!nominal_kernel.Compute(nominal_request, nominal))
+        return false;
+    return !nominal.execution_request_valid &&
+           Near(nominal.feet[fr].z, 0.0);
+}
+
+'''
+              if text.count(marker) != 1:
+                  raise SystemExit("Raibert unit-test insertion seam not recognized")
+              text = text.replace(marker, insert + marker)
+              old_main = """        !CheckPreviewHorizonClosesLoop() ||\n        !CheckPreviewPersistsWithinCycle() ||\n        !CheckSpeedAdaptiveStanceUsesMeasuredTravel())\n"""
+              new_main = """        !CheckPreviewHorizonClosesLoop() ||\n        !CheckPreviewPersistsWithinCycle() ||\n        !CheckTimedExecutionOwnsSwingSupport() ||\n        !CheckSpeedAdaptiveStanceUsesMeasuredTravel())\n"""
+              if text.count(old_main) != 1:
+                  raise SystemExit("Raibert unit-test main seam not recognized")
+              text = text.replace(old_main, new_main)
+          path.write_text(text)
+
+          # 5) Persist the already-probed C1 handoff rule in source: C0 owns
+          # observation motion, but once settled it must not veto C1 adoption.
+          path = Path("example/cpp/trot/trot_experiment_gait.cpp")
+          text = path.read_text()
+          old = """            activate = terrain_bootstrap_c0_ready_.load(\n                           std::memory_order_acquire) &&\n                candidate_plan_id != 0 && candidate &&\n"""
+          new = """            // C0 readiness authorizes observation motion only. Once a complete\n            // C1 candidate is ready and the body has settled at the boundary,\n            // C0 is expected to have gone false and must not veto handoff.\n            activate = candidate_plan_id != 0 && candidate &&\n"""
+          if old in text:
+              if text.count(old) != 1:
+                  raise SystemExit("C0/C1 handoff seam ambiguous")
+              text = text.replace(old, new)
+          elif new not in text:
+              raise SystemExit("C0/C1 handoff seam not recognized")
+
+          old = """    if (!locomotion_kernel_->Compute(gait_request, gait_result))\n    {\n        std::cerr << \"Locomotion kernel failed at gait_time=\"\n                  << gait_time_s << std::endl;\n        return false;\n    }\n    kernel_footstep_plan_valid_ = gait_result.footstep_plan_valid;\n"""
+          new = """    if (!locomotion_kernel_->Compute(gait_request, gait_result))\n    {\n        std::cerr << \"Locomotion kernel failed at gait_time=\"\n                  << gait_time_s << std::endl;\n        return false;\n    }\n    if (gait_result.execution_request_valid &&\n        gait_result.execution_plan_id != 0)\n    {\n        static std::uint64_t last_logged_stage_c_gait_plan_id = 0;\n        if (gait_result.execution_plan_id !=\n            last_logged_stage_c_gait_plan_id)\n        {\n            const auto adopted =\n                terrain_plan_execution_adapter_.adopted_plan();\n            const bool identity_match = adopted &&\n                adopted->plan_id == gait_result.execution_plan_id &&\n                adopted->plan_epoch == gait_result.execution_plan_epoch &&\n                adopted->map_epoch == gait_result.execution_map_epoch &&\n                adopted->input_hash == gait_result.execution_input_hash;\n            std::cout << \"STAGE_C_IDENTITY consumer=gait plan_id=\"\n                      << gait_result.execution_plan_id\n                      << \" plan_epoch=\" << gait_result.execution_plan_epoch\n                      << \" map_epoch=\" << gait_result.execution_map_epoch\n                      << \" input_hash=\" << gait_result.execution_input_hash\n                      << \" adapter_plan_id=\"\n                      << (adopted ? adopted->plan_id : 0)\n                      << \" match=\" << (identity_match ? 1 : 0) << \"\\n\";\n            last_logged_stage_c_gait_plan_id =\n                gait_result.execution_plan_id;\n        }\n    }\n    kernel_footstep_plan_valid_ = gait_result.footstep_plan_valid;\n"""
+          if "STAGE_C_IDENTITY consumer=gait" not in text:
+              if text.count(old) != 1:
+                  raise SystemExit("gait identity proof seam not recognized")
+              text = text.replace(old, new)
+          path.write_text(text)
+
+          # MPC already consumes the adopted snapshot; persist the matching
+          # identity proof that the previous dynamic workflow demonstrated.
+          path = Path("example/cpp/trot/trot_experiment_wbc.cpp")
+          text = path.read_text()
+          old = """                ++terrain_mpc_plan_consumed_count_;\n"""
+          new = """                ++terrain_mpc_plan_consumed_count_;\n                static std::uint64_t last_logged_stage_c_mpc_plan_id = 0;\n                if (terrain_plan->plan_id != last_logged_stage_c_mpc_plan_id)\n                {\n                    const auto adopted =\n                        terrain_plan_execution_adapter_.adopted_plan();\n                    const bool identity_match = adopted &&\n                        adopted->plan_id == terrain_plan->plan_id &&\n                        adopted->plan_epoch == terrain_plan->plan_epoch &&\n                        adopted->map_epoch == terrain_plan->map_epoch &&\n                        adopted->input_hash == terrain_plan->input_hash;\n                    std::cout << \"STAGE_C_IDENTITY consumer=mpc plan_id=\"\n                              << terrain_plan->plan_id\n                              << \" plan_epoch=\" << terrain_plan->plan_epoch\n                              << \" map_epoch=\" << terrain_plan->map_epoch\n                              << \" input_hash=\" << terrain_plan->input_hash\n                              << \" adapter_plan_id=\"\n                              << (adopted ? adopted->plan_id : 0)\n                              << \" match=\" << (identity_match ? 1 : 0)\n                              << \"\\n\";\n                    last_logged_stage_c_mpc_plan_id = terrain_plan->plan_id;\n                }\n"""
+          if "STAGE_C_IDENTITY consumer=mpc" not in text:
+              if text.count(old) != 1:
+                  raise SystemExit("MPC identity proof seam not recognized")
+              text = text.replace(old, new)
+          path.write_text(text)
+
+          print("Applied Stage-C gait contact-ownership slice")
+          PY
+
+      - name: Bootstrap Ubuntu dependencies and build
+        env:
+          MUJOCO_VERSION: "3.3.6"
+        run: bash scripts/setup_ubuntu_env.sh
+
+      - name: Run static CTest guardrails
+        run: |
+          ctest --test-dir example/cpp/build --output-on-failure
+          ctest --test-dir simulate/build --output-on-failure
+
+      - name: Run bounded 5cm development probe
+        env:
+          TROT_TERRAIN_BOOTSTRAP_DEV: "1"
+          TROT_TERRAIN_SHADOW_DIAGNOSTICS: "1"
+          TROT_CPU_AUTOPIN: "1"
+          SIM_LOCKSTEP: "1"
+          SIM_LOCKSTEP_BARRIER_TIMEOUT_S: "120"
+          SIM_LOCKSTEP_EXCHANGE_TIMEOUT_S: "5"
+          SIM_LOCKSTEP_STEP_TIMEOUT_S: "5"
+        run: |
+          run_name="_runs/stage_c_gait_owner_${GITHUB_RUN_ID}"
+          bash example/cpp/scripts/run_trot.sh 50 "$run_name" \
+            --controller-duration 30 \
+            --scene-file unitree_robots/go2/phase2_step_5cm.xml \
+            --headless \
+            --wbc-full \
+            --gait-pattern running-trot \
+            --kernel raibert-trot \
+            --velocity-command-script example/cpp/configs/phase2_b1_velocity_0p3.csv \
+            --wall-clock-motion \
+            --support-anchor-feedback --support-anchor-gain 0.35 \
+            --period 0.50 --duty 0.75 \
+            --step-length 0.13 --foot-lift 0.06 \
+            --wbc-reduced-contact-task \
+            --wbc-task-torque-feedforward \
+            --terrain-planner \
+            --stage-c-execution \
+            --domain-id 231
+
+      - name: Verify gait and MPC consumed one atomic plan
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          import pandas as pd
+
+          runs = sorted(Path("example/cpp/experiments/_runs").glob(
+              "stage_c_gait_owner_*"))
+          if not runs:
+              raise SystemExit("no development run directory")
+          run = runs[-1]
+          log = (run / "controller.log").read_text(errors="replace")
+          rx = re.compile(
+              r"STAGE_C_IDENTITY consumer=(gait|mpc) plan_id=(\d+) "
+              r"plan_epoch=(\d+) map_epoch=(\d+) input_hash=(\d+) "
+              r"adapter_plan_id=(\d+) match=(\d+)")
+          seen = {"gait": set(), "mpc": set()}
+          for consumer, pid, pep, mep, ih, adapter_pid, match in rx.findall(log):
+              tup = tuple(map(int, (pid, pep, mep, ih)))
+              if int(match) != 1 or int(adapter_pid) != int(pid):
+                  raise SystemExit(f"identity mismatch {consumer} {tup}")
+              seen[consumer].add(tup)
+          if not seen["gait"]:
+              raise SystemExit("no gait consumer identity evidence")
+          if not seen["mpc"]:
+              raise SystemExit("no MPC consumer identity evidence")
+          common = seen["gait"] & seen["mpc"]
+          if not common:
+              raise SystemExit(f"gait/MPC atomic tuple mismatch: {seen}")
+
+          df = pd.read_csv(run / "data.csv", low_memory=False)
+          adopted = pd.to_numeric(df["terrain_execution_adopted_plan_id"], errors="coerce")
+          adopted_ids = set(int(v) for v in adopted.dropna() if v > 0)
+          common = [t for t in common if t[0] in adopted_ids]
+          if not common:
+              raise SystemExit("common tuple missing from adapter adoption telemetry")
+          print(f"GAIT_CONTACT_OWNERSHIP_PASS common={sorted(common)}")
+          print(f"SAFE_STOP_MAX={pd.to_numeric(df['terrain_safe_stop_requested'], errors='coerce').max()}")
+          print(f"MAX_WORLD_BASE_X={pd.to_numeric(df['world_base_x_m'], errors='coerce').max()}")
+          PY
+
+      - name: Persist verified source slice
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add example/cpp/gait/locomotion_kernel.h \
+                  example/cpp/gait/raibert_trot_kernel.h \
+                  example/cpp/terrain/terrain_plan_execution_adapter.h \
+                  example/cpp/tests/test_raibert_trot_kernel.cpp \
+                  example/cpp/trot/trot_experiment_gait.cpp \
+                  example/cpp/trot/trot_experiment_wbc.cpp
+          git commit -m "fix: let Stage-C plan own Raibert contact state"
+          git push origin HEAD:assistant/stage-c-gait-contact-ownership-20260902
