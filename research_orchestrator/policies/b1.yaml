@@ -1,0 +1,19 @@
+schema_version: policy.v1
+policy_id: b1
+status: draft
+purpose: B1 probe contract reserved for later Atlas integration and explicit review.
+allowed_profiles:
+  - b1-probe
+allowed_activity_names:
+  - build_source
+  - run_unit_tests
+  - run_dev_probe
+  - run_b1_probe
+  - extract_failure_window
+max_duration_s: 900
+controller_mutation_allowed: false
+acceptance_claim_allowed: false
+requires_human_approval_for_formal: true
+notes:
+  - Draft contract only; B1 semantics and acceptance thresholds are not defined here.
+  - No controller algorithm, physics setting, or acceptance threshold may be changed by the worker.

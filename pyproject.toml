@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "go2-mujoco-control-research-orchestrator"
+version = "0.1.0"
+description = "Local Temporal control plane for reproducible Go2 MuJoCo research"
+requires-python = ">=3.11,<3.15"
+dependencies = [
+  "PyYAML>=6.0,<7",
+  "pydantic>=2.7,<3",
+  "temporalio>=1.15,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<9",
+]
+
+[tool.setuptools.packages.find]
+include = ["research_orchestrator*"]
+
+[tool.setuptools.package-data]
+research_orchestrator = ["policies/*.yaml", "schemas/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["research_orchestrator/tests"]

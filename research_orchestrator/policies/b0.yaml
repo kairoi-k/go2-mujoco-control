@@ -1,0 +1,22 @@
+schema_version: policy.v1
+policy_id: b0
+status: wip
+purpose: Sensor-only development and holdout contracts; terrain observation must not actuate the controller.
+allowed_profiles:
+  - b0-development
+  - b0-holdout
+allowed_activity_names:
+  - build_source
+  - run_unit_tests
+  - run_dev_probe
+  - run_b0_member
+  - run_b0_holdout
+  - extract_failure_window
+max_duration_s: 900
+controller_mutation_allowed: false
+acceptance_claim_allowed: false
+requires_human_approval_for_formal: true
+notes:
+  - WIP contract only; no B0 acceptance claim is granted by this file.
+  - Formal holdout execution remains a separate, human-approved checkpoint.
+  - The Atlas adapter must use an allowlisted operation map, never arbitrary shell from a spec.

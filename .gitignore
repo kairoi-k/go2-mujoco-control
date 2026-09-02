@@ -15,6 +15,7 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .venv/
+*.egg-info/
 venv/
 
 # IDE / local workspace
@@ -48,6 +49,9 @@ example/cpp/experiments/go2_reactive_acceptance_verified_v5_2026-08-19/
 
 # Local simulator executables
 simulate/mujoco
+
+# Local Temporal development state
+.temporal/
 
 # Reactive WBC runtime outputs; keep curated READMEs, scripts, and media.
 example/cpp/experiments/go2_reactive_*/data.csv

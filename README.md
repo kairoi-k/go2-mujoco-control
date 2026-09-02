@@ -153,6 +153,16 @@ Phase 2 extends the model-based stack toward sensor-derived terrain representati
 
 It remains active research. `main` does **not** currently claim completed or repeatable obstacle-crossing capability.
 
+## Local research orchestration (WIP)
+
+The Base-side Temporal control plane lives under
+[`research_orchestrator/`](research_orchestrator/README.md). Its first fixture
+workflow validates source-pinned experiment/result/diagnosis contracts without
+starting MuJoCo or modifying the controller. Atlas execution is a separate,
+fail-closed worker contract and does not grant B0/B1 acceptance claims. The
+bring-up boundary is documented in
+[`research_orchestrator/ATLAS_INTEGRATION.md`](research_orchestrator/ATLAS_INTEGRATION.md).
+
 ## Companion tracks
 
 Learning-based work is kept separate from this controller:
