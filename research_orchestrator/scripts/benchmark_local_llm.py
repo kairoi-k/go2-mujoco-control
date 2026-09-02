@@ -85,7 +85,7 @@ def _post(base_url: str, model: str, prompt: str, timeout_s: float) -> tuple[str
         "temperature": 0.1,
         "top_p": 0.9,
         "seed": 42,
-        "max_tokens": 768,
+        "max_tokens": 1536,
         "stream": False,
         "response_format": {
             "type": "json_schema",
