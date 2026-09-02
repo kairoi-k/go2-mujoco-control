@@ -6,7 +6,7 @@ hosts the only worker allowed to start MuJoCo/controller processes.
 
 ```text
 Base / Mac mini
-  Temporal dev server (Tailscale address, local SQLite)
+  Temporal dev server (wildcard gRPC bind, loopback UI, local SQLite)
   agent task queue: validation, deterministic diagnosis, optional read-only Codex
         |
         | atlas task queue: fixed physical Activities
@@ -28,8 +28,11 @@ research_orchestrator/scripts/start_temporal_dev.sh
 research_orchestrator/scripts/start_agent_worker.sh
 ```
 
-The Temporal server binds to the current Base Tailscale IPv4 address only and
-stores state in `.temporal/dev.sqlite`. The worker uses the same address. The
+The Temporal dev server must use a wildcard gRPC bind for the CLI's internal
+dynamic service discovery to work across hosts; its UI remains loopback-only.
+It stores state in `.temporal/dev.sqlite`. The worker uses the Base Tailscale
+IPv4 as its client address. Keep the unauthenticated dev ports on the private
+Base/Tailscale network only; this is not a production Temporal deployment. The
 Codex escalation path runs the logged-in local CLI with an explicit model,
 bounded timeout, read-only sandbox, ephemeral session, and strict output
 schema. API-key environment variables are removed by default.

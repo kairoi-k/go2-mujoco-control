@@ -20,6 +20,10 @@ requires `ATLAS_WORKSPACE`, `ATLAS_ARTIFACT_ROOT`, `ATLAS_MUJOCO_ROOT`, and
 `ATLAS_ADAPTER_READY=1`. It connects to the Base Temporal dev server through
 the Base Tailscale IPv4 (`100.90.49.95:7233`); the MagicDNS/Funnel name is not
 used from WSL because WSL currently resolves it to the public Funnel ingress.
+The Base dev server uses a wildcard gRPC bind because the Temporal CLI's
+internal dynamic service endpoints otherwise advertise loopback addresses;
+the UI stays on Base loopback and the unauthenticated dev ports must remain on
+the private Base/Tailscale network only.
 
 ## Activity contract
 
@@ -83,6 +87,9 @@ TEMPORAL_ADDRESS=100.90.49.95:7233 \
 ATLAS_ADAPTER_READY=1 \
 uv run python -m research_orchestrator.workers.atlas_worker --check
 ```
+
+In non-interactive WSL launch contexts, use
+`UV_BIN=/home/che/.local/bin/uv` if the login PATH does not contain `uv`.
 
 No formal holdout is started by the generic workflow. A future approval
 workflow must add a human decision, frozen membership, separate domains, and

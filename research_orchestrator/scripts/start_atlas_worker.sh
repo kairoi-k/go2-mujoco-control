@@ -3,6 +3,9 @@ set -euo pipefail
 
 control_plane_root="$(cd "$(dirname "$0")/../.." && pwd)"
 uv_bin="${UV_BIN:-$(command -v uv || true)}"
+if [[ -z "$uv_bin" && -x /home/che/.local/bin/uv ]]; then
+  uv_bin=/home/che/.local/bin/uv
+fi
 if [[ -z "$uv_bin" || ! -x "$uv_bin" ]]; then
   echo "uv is not available" >&2
   exit 1
