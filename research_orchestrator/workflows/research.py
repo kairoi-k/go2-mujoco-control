@@ -29,6 +29,7 @@ class ResearchWorkflow:
         if not isinstance(spec, dict):
             raise ValueError("validate_experiment returned a non-object payload")
 
+        preflight: list[dict[str, Any]] = []
         if spec.get("execution_mode") == "fixture":
             result = await workflow.execute_activity(
                 "run_fixture_probe",
@@ -37,12 +38,33 @@ class ResearchWorkflow:
                 retry_policy=_once(),
             )
         elif spec.get("execution_mode") == "atlas":
+            if spec.get("profile") != "b0-development":
+                raise ValueError(
+                    "formal B0 holdout and B1 activities require a separate human-approved workflow"
+                )
             wall_timeout_s = float(spec.get("wall_timeout_s", 60.0))
+            atlas_queue = str(spec.get("atlas_task_queue", "atlas"))
+            for activity_name, timeout_s in (
+                ("build_source", 900.0),
+                ("run_unit_tests", 900.0),
+            ):
+                receipt = await workflow.execute_activity(
+                    activity_name,
+                    spec,
+                    task_queue=atlas_queue,
+                    start_to_close_timeout=timedelta(seconds=timeout_s),
+                    retry_policy=_once(),
+                )
+                if not isinstance(receipt, dict):
+                    raise ValueError(f"{activity_name} returned a non-object receipt")
+                preflight.append(receipt)
+                if receipt.get("status") != "completed":
+                    raise ValueError(f"{activity_name} did not complete successfully")
             result = await workflow.execute_activity(
                 "run_dev_probe",
                 spec,
-                task_queue=str(spec.get("atlas_task_queue", "atlas")),
-                start_to_close_timeout=timedelta(seconds=wall_timeout_s),
+                task_queue=atlas_queue,
+                start_to_close_timeout=timedelta(seconds=wall_timeout_s + 60.0),
                 retry_policy=_once(),
             )
         else:
@@ -76,6 +98,7 @@ class ResearchWorkflow:
         return {
             "schema_version": "research_run.v1",
             "experiment": spec,
+            "preflight": preflight,
             "result": result,
             "diagnosis": diagnosis,
             "next_action": next_action,

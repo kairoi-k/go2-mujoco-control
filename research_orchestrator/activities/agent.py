@@ -119,16 +119,23 @@ async def validate_experiment(payload: dict[str, Any]) -> dict[str, Any]:
             non_retryable=True,
         )
     local_sha, local_dirty = _local_source_state(repo_root)
-    if local_sha != spec.source.git_sha:
+    expected_control_plane = spec.control_plane if spec.execution_mode.value == "atlas" else spec.source
+    if expected_control_plane is None:
         raise ApplicationError(
-            "worker checkout HEAD does not match experiment source.git_sha",
-            type="SOURCE_SHA_MISMATCH",
+            "Atlas experiments must carry an explicit control_plane revision",
+            type="CONTROL_PLANE_REVISION_REQUIRED",
             non_retryable=True,
         )
-    if local_dirty != spec.source.dirty:
+    if local_sha != expected_control_plane.git_sha:
         raise ApplicationError(
-            "worker checkout dirty state does not match experiment source.dirty",
-            type="SOURCE_DIRTY_MISMATCH",
+            "agent worker checkout HEAD does not match the pinned control_plane.git_sha",
+            type="CONTROL_PLANE_SHA_MISMATCH",
+            non_retryable=True,
+        )
+    if local_dirty != expected_control_plane.dirty:
+        raise ApplicationError(
+            "agent worker checkout dirty state does not match control_plane.dirty",
+            type="CONTROL_PLANE_DIRTY_MISMATCH",
             non_retryable=True,
         )
     policy = load_policy(spec.policy_id.value)
@@ -196,7 +203,7 @@ async def run_fixture_probe(payload: dict[str, Any]) -> dict[str, Any]:
 
 def classify_result_payload(payload: dict[str, Any]) -> dict[str, Any]:
     result = _result(payload)
-    if result.status != RunStatus.COMPLETED:
+    if result.status in {RunStatus.TIMEOUT, RunStatus.DEFERRED, RunStatus.REJECTED} or result.verdict == Verdict.RUNNER_FAILURE:
         failure_class = FailureClass.RUNNER_FAILURE
         action = ActionType.ESCALATE
         summary = "The runner did not produce a completed result; preserve the failure bundle and inspect the worker path."
@@ -377,6 +384,8 @@ def diagnose_with_codex_payload(
         "result": result.model_dump(mode="json"),
         "deterministic_diagnosis": baseline.model_dump(mode="json"),
     }
+    if spec is not None and spec.control_plane is not None:
+        bundle["experiment"]["control_plane"] = spec.control_plane.model_dump(mode="json")
     prompt = (
         "You are a bounded research-diagnosis assistant for a Go2 MuJoCo study. "
         "Use only the JSON bundle below and, if needed, read repository files. "

@@ -11,6 +11,10 @@ allowed_activity_names:
   - run_b1_probe
   - extract_failure_window
 max_duration_s: 900
+allowed_parameter_names:
+  - fixture_verdict
+  - scenario
+  - domain_id
 controller_mutation_allowed: false
 acceptance_claim_allowed: false
 requires_human_approval_for_formal: true

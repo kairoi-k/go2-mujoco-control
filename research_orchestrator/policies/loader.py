@@ -21,6 +21,7 @@ class Policy(BaseModel):
     allowed_profiles: list[ProbeProfile] = Field(min_length=1)
     allowed_activity_names: list[str] = Field(min_length=1)
     max_duration_s: float = Field(gt=0, le=3600)
+    allowed_parameter_names: list[str] = Field(default_factory=list)
     controller_mutation_allowed: bool
     acceptance_claim_allowed: bool
     requires_human_approval_for_formal: bool
@@ -47,6 +48,11 @@ def validate_spec_against_policy(spec: ExperimentSpec, policy: Policy) -> None:
     if spec.duration_s > policy.max_duration_s:
         raise ValueError(
             f"duration_s={spec.duration_s} exceeds {policy.policy_id} limit {policy.max_duration_s}"
+        )
+    unknown_parameters = sorted(set(spec.parameters) - set(policy.allowed_parameter_names))
+    if unknown_parameters:
+        raise ValueError(
+            "parameters are not allowed by the policy: " + ", ".join(unknown_parameters)
         )
     if policy.controller_mutation_allowed:
         raise ValueError("research policies must not enable controller mutation in this phase")

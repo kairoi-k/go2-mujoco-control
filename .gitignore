@@ -52,6 +52,7 @@ simulate/mujoco
 
 # Local Temporal development state
 .temporal/
+.orchestration/
 
 # Reactive WBC runtime outputs; keep curated READMEs, scripts, and media.
 example/cpp/experiments/go2_reactive_*/data.csv

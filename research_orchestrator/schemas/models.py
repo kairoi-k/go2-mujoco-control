@@ -123,6 +123,10 @@ class ExperimentSpec(SchemaBase):
     wall_timeout_s: float = Field(gt=0, le=7200)
     seed: int = Field(ge=0, le=2_147_483_647)
     source: SourceRevision
+    # The physical experiment source may be a different checkout/revision
+    # from the Base control-plane checkout that validates and diagnoses it.
+    # Keeping both revisions explicit prevents cross-machine source drift.
+    control_plane: SourceRevision | None = None
     parameters: dict[str, Any] = Field(default_factory=dict)
     atlas_task_queue: str = Field(default="atlas", pattern=r"^[a-z][a-z0-9._-]{0,63}$")
     allow_codex: bool = False
@@ -250,6 +254,7 @@ class ActivityReceipt(SchemaBase):
 class WorkflowResult(SchemaBase):
     schema_version: Literal["research_run.v1"] = "research_run.v1"
     experiment: ExperimentSpec
+    preflight: list[ActivityReceipt] = Field(default_factory=list, max_length=10)
     result: Result
     diagnosis: Diagnosis
     next_action: NextAction

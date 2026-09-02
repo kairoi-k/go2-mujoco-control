@@ -1,91 +1,98 @@
 # Local research orchestration (WIP)
 
-This package is the Base-side control plane for the `go2-mujoco-control`
-research repository. It uses a local Temporal development server and a Python
-SDK worker. The first runnable path is intentionally synthetic:
+This package is the local control plane for the `go2-mujoco-control` research
+repository. Base hosts Temporal and the agent worker; Atlas/Ubuntu-22.04 WSL
+hosts the only worker allowed to start MuJoCo/controller processes.
 
 ```text
-experiment.v1
-  -> ResearchWorkflow
-  -> fixture result.v1
-  -> deterministic diagnosis.v1
-  -> next_action.v1 (human checkpoint)
+Base / Mac mini
+  Temporal dev server (Tailscale address, local SQLite)
+  agent task queue: validation, deterministic diagnosis, optional read-only Codex
+        |
+        | atlas task queue: fixed physical Activities
+        v
+Atlas / WSL
+  exact source SHA, fixed CMake/CTest, reviewed runner, hashed artifacts
 ```
 
-The fixture path does not start MuJoCo, run a controller, alter C++ files, or
-claim a B0/B1 result. An Atlas execution spec is accepted only through the
-fixed `atlas` task queue, and the current Atlas worker is fail-closed until its
-Linux/WSL adapter is implemented and verified.
+The physical source revision and the Base control-plane revision are recorded
+separately in `experiment.v1`. This is required because the long-lived Atlas
+research checkout may be on a reviewed Phase 2 branch while the orchestration
+code evolves independently.
 
-## Base setup
-
-The Base machine already has the Temporal CLI, Codex CLI, and GitHub CLI. From
-the repository root:
+## Base
 
 ```bash
 uv sync --extra dev
-mkdir -p .temporal
-temporal server start-dev --db-filename .temporal/dev.sqlite
+research_orchestrator/scripts/start_temporal_dev.sh
+research_orchestrator/scripts/start_agent_worker.sh
 ```
 
-In a second terminal, start the Base worker:
+The Temporal server binds to the current Base Tailscale IPv4 address only and
+stores state in `.temporal/dev.sqlite`. The worker uses the same address. The
+Codex escalation path runs the logged-in local CLI with an explicit model,
+bounded timeout, read-only sandbox, ephemeral session, and strict output
+schema. API-key environment variables are removed by default.
 
-```bash
-RESEARCH_REPO_ROOT="$PWD" \
-  .venv/bin/python -m research_orchestrator.workers.agent_worker
-```
-
-In a third terminal, create and execute the no-cost fixture workflow:
+For a no-cost control-plane smoke test:
 
 ```bash
 .venv/bin/python -m research_orchestrator.cli make-fixture \
-  --repo "$PWD" \
-  --output /tmp/go2-base-fixture.json
+  --repo "$PWD" --output /tmp/go2-base-fixture.json
 .venv/bin/python -m research_orchestrator.cli run \
-  --spec /tmp/go2-base-fixture.json
+  --spec /tmp/go2-base-fixture.json --address "${TEMPORAL_ADDRESS:-100.90.49.95:7233}"
 ```
 
-The generated spec records the exact Git SHA, ref, and dirty state. The final
-JSON contains the validated experiment, result, diagnosis, and next action.
+## Atlas development workflow
 
-Codex is an escalation path, not the default loop. To explicitly test it with
-an unknown fixture, add `--fixture-verdict UNKNOWN --allow-codex`; this invokes
-the logged-in Codex CLI with a bounded prompt, read-only sandbox, ephemeral
-session, and output schema. By default the worker removes API-key variables so
-the Base path uses the local ChatGPT login rather than silently switching to a
-metered API. The worker defaults to medium reasoning and the model/timeout are
-configurable through `CODEX_MODEL`, `CODEX_REASONING_EFFORT`, and
-`CODEX_TIMEOUT_S`. No Codex activity is allowed to edit or push the repository.
+The current verified Atlas source checkout is `/home/che/dev/go2-workspace/current`
+on branch `phase2-b1-b3`; its source SHA must be read live before making a
+spec. The separate control-plane checkout is
+`/home/che/dev/go2-workspace/research-orchestrator`.
 
-## Atlas contract
-
-Inspect the contract without starting a worker:
+On Base, create a spec using the exact Atlas SHA:
 
 ```bash
-.venv/bin/python -m research_orchestrator.workers.atlas_worker --check
+.venv/bin/python -m research_orchestrator.cli make-atlas-spec \
+  --repo "$PWD" \
+  --source-sha <40-character-atlas-sha> \
+  --source-ref phase2-b1-b3 \
+  --scenario accel_1_to_3 \
+  --output /tmp/go2-atlas-development.json
 ```
 
-The reserved Activity set is:
+On Atlas, install/verify the worker:
 
-```text
-build_source
-run_unit_tests
-run_dev_probe
-run_b0_member
-run_b0_holdout
-run_b1_probe
-extract_failure_window
+```bash
+cd /home/che/dev/go2-workspace/research-orchestrator
+ATLAS_WORKSPACE=/home/che/dev/go2-workspace/current \
+ATLAS_ARTIFACT_ROOT=/home/che/dev/go2-workspace/atlas-artifacts \
+ATLAS_MUJOCO_ROOT=/home/che/.mujoco/mujoco-3.3.6 \
+TEMPORAL_ADDRESS=mac-mini.tail4a075c.ts.net:7233 \
+ATLAS_ADAPTER_READY=1 \
+uv run python -m research_orchestrator.workers.atlas_worker --check
 ```
 
-The future adapter must bind these names to an allowlisted operation map for
-the existing checkout scripts and analyzers. Inputs are structured specs, not
-`shell`, executable paths, or arbitrary argument arrays. Each operation must
-record the source SHA, effective profile, semantic environment, artifact
-hashes, and analyzer status. Physical runs use one attempt by default because
-Temporal retrying a run after an acknowledgement boundary can duplicate the
-experiment.
+Start the worker with the same variables and omit `--check`. The worker is
+serialized to one physical Activity at a time. The first actual workflow runs
+`build_source`, `run_unit_tests`, and then the fixed sensor-only
+`run_dev_probe`; it returns `result.v1`, preflight receipts, and artifact
+references back to Base.
 
-`policies/b0.yaml` is a WIP sensor-only contract and `policies/b1.yaml` is a
-draft. Neither grants an acceptance claim, changes a controller algorithm, or
-defines missing B1 thresholds. Formal holdouts remain explicit human-approved
-checkpoints.
+The fixed development profiles are `steps`, `accel_1_to_3`, `brake_3_to_0`,
+`ramp`, and `varying`. The adapter constructs their paths and arguments; a
+spec cannot provide shell text, executable paths, arbitrary arguments, or
+environment assignments. Formal B0 holdout, B1, and acceptance claims remain
+behind an explicit human-approved workflow and are currently rejected by the
+worker.
+
+## Safety and provenance
+
+- Atlas requires a clean checkout at the exact `source.git_sha`.
+- Build and test commands are fixed CMake/CTest invocations; physical runs use
+  the existing `example/cpp/scripts/run_trot.sh` through a fixed argv map.
+- Every run preserves bounded logs, CSV/JSON evidence, the existing manifest,
+  source SHA, runner hash, and artifact SHA-256 values outside the checkout.
+- Temporal retries for physical/model calls are disabled (`maximum_attempts=1`).
+- No Activity edits controller sources, changes gains/physics/thresholds, or
+  treats a development pass as B0/B1 acceptance.

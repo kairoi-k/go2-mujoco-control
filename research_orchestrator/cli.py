@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
+import re
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +23,7 @@ from .schemas.models import (
     Verdict,
     WorkflowResult,
 )
+from .activities.atlas import DEV_SCENARIO_DURATIONS
 from .workflows.research import ResearchWorkflow
 
 
@@ -37,6 +40,11 @@ def _git(repo_root: Path, *args: str, check: bool = True) -> str:
 
 
 def make_fixture_spec(repo_root: Path, args: argparse.Namespace) -> ExperimentSpec:
+    source = SourceRevision(
+        git_sha=_git(repo_root, "rev-parse", "HEAD"),
+        git_ref=_git(repo_root, "symbolic-ref", "--short", "-q", "HEAD", check=False) or "detached",
+        dirty=bool(_git(repo_root, "status", "--porcelain")),
+    )
     return ExperimentSpec(
         experiment_id=args.experiment_id,
         question="Verify Base Temporal wiring without executing controller or MuJoCo code.",
@@ -46,12 +54,50 @@ def make_fixture_spec(repo_root: Path, args: argparse.Namespace) -> ExperimentSp
         duration_s=1.0,
         wall_timeout_s=30.0,
         seed=0,
-        source=SourceRevision(
-            git_sha=_git(repo_root, "rev-parse", "HEAD"),
-            git_ref=_git(repo_root, "symbolic-ref", "--short", "-q", "HEAD", check=False) or "detached",
-            dirty=bool(_git(repo_root, "status", "--porcelain")),
-        ),
+        source=source,
+        control_plane=source,
         parameters={"fixture_verdict": args.fixture_verdict},
+        allow_codex=args.allow_codex,
+        requested_at=datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+    )
+
+
+def make_atlas_spec(repo_root: Path, args: argparse.Namespace) -> ExperimentSpec:
+    if re.fullmatch(r"[0-9a-f]{40}", args.source_sha.lower()) is None:
+        raise ValueError("--source-sha must be a 40-character lowercase hexadecimal Git SHA")
+    control_plane = SourceRevision(
+        git_sha=_git(repo_root, "rev-parse", "HEAD"),
+        git_ref=_git(repo_root, "symbolic-ref", "--short", "-q", "HEAD", check=False) or "detached",
+        dirty=bool(_git(repo_root, "status", "--porcelain")),
+    )
+    duration_s = (
+        args.duration_s
+        if args.duration_s is not None
+        else DEV_SCENARIO_DURATIONS[args.scenario]
+    )
+    wall_timeout_s = (
+        args.wall_timeout_s
+        if args.wall_timeout_s is not None
+        else duration_s + 60.0
+    )
+    profile = ProbeProfile(args.profile)
+    policy = PolicyId.B0 if profile.value.startswith("b0-") else PolicyId.B1
+    return ExperimentSpec(
+        experiment_id=args.experiment_id,
+        question=args.question,
+        policy_id=policy,
+        profile=profile,
+        execution_mode=ExecutionMode.ATLAS,
+        duration_s=duration_s,
+        wall_timeout_s=wall_timeout_s,
+        seed=args.seed,
+        source=SourceRevision(
+            git_sha=args.source_sha.lower(),
+            git_ref=args.source_ref,
+            dirty=False,
+        ),
+        control_plane=control_plane,
+        parameters={"scenario": args.scenario, "domain_id": args.domain_id},
         allow_codex=args.allow_codex,
         requested_at=datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
     )
@@ -85,9 +131,27 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     fixture.add_argument("--allow-codex", action="store_true")
 
+    atlas = subparsers.add_parser("make-atlas-spec", help="write a source-pinned Atlas development spec")
+    atlas.add_argument("--repo", type=Path, default=Path.cwd(), help="Base control-plane checkout")
+    atlas.add_argument("--output", type=Path, required=True)
+    atlas.add_argument("--source-sha", required=True, help="exact Git SHA in the Atlas source checkout")
+    atlas.add_argument("--source-ref", default="phase2-b1-b3")
+    atlas.add_argument("--experiment-id", default="atlas-development-smoke")
+    atlas.add_argument(
+        "--question",
+        default="Run the fixed sensor-only development probe on the pinned Atlas source.",
+    )
+    atlas.add_argument("--profile", choices=[item.value for item in ProbeProfile], default="b0-development")
+    atlas.add_argument("--scenario", choices=sorted(DEV_SCENARIO_DURATIONS), default="accel_1_to_3")
+    atlas.add_argument("--duration-s", type=float)
+    atlas.add_argument("--wall-timeout-s", type=float)
+    atlas.add_argument("--domain-id", type=int, default=190)
+    atlas.add_argument("--seed", type=int, default=0)
+    atlas.add_argument("--allow-codex", action="store_true")
+
     run = subparsers.add_parser("run", help="execute one spec against the local Temporal server")
     run.add_argument("--spec", type=Path, required=True)
-    run.add_argument("--address", default="localhost:7233")
+    run.add_argument("--address", default=os.environ.get("TEMPORAL_ADDRESS", "localhost:7233"))
     run.add_argument("--namespace", default="default")
     run.add_argument("--task-queue", default="agent")
     run.add_argument("--workflow-id")
@@ -98,6 +162,13 @@ def main() -> None:
     args = _build_parser().parse_args()
     if args.command == "make-fixture":
         spec = make_fixture_spec(args.repo.resolve(), args)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(spec.model_dump(mode="json"), indent=2) + "\n", encoding="utf-8")
+        print(args.output.resolve())
+        return
+
+    if args.command == "make-atlas-spec":
+        spec = make_atlas_spec(args.repo.resolve(), args)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(spec.model_dump(mode="json"), indent=2) + "\n", encoding="utf-8")
         print(args.output.resolve())

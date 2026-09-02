@@ -50,6 +50,7 @@ async def serve() -> None:
     worker = Worker(
         client,
         task_queue=settings.atlas_task_queue,
+        max_concurrent_activities=1,
         activities=[
             build_source,
             run_unit_tests,
