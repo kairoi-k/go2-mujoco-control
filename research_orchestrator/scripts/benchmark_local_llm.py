@@ -152,6 +152,8 @@ def run(base_url: str, model: str, timeout_s: float, real_case: Path | None) -> 
             + json.dumps(case["bundle"], ensure_ascii=False, sort_keys=True)
         )
         started = time.perf_counter()
+        content = ""
+        response: dict[str, Any] = {}
         row: dict[str, Any] = {"case_id": case["case_id"], "expected": case["expected"]}
         try:
             content, response = _post(base_url, model, prompt, timeout_s)
@@ -180,6 +182,10 @@ def run(base_url: str, model: str, timeout_s: float, real_case: Path | None) -> 
                     "error": type(exc).__name__ + ": " + str(exc)[:400],
                 }
             )
+            if content:
+                row["raw_content"] = content[:2000]
+            if response:
+                row["response_keys"] = sorted(response)
         rows.append(row)
     latencies = [int(row["latency_ms"]) for row in rows if row.get("ok")]
     successes = [row for row in rows if row.get("ok")]
