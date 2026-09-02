@@ -1,4 +1,4 @@
-"""Atlas worker entry point for the fail-closed Activity contract."""
+"""Atlas worker entry point for the bounded, fail-closed Activity adapter."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def _check_environment() -> list[str]:
     elif not Path(workspace).expanduser().resolve().is_dir():
         issues.append("ATLAS_WORKSPACE does not resolve to a directory")
     if os.environ.get("ATLAS_ADAPTER_READY") != "1":
-        issues.append("ATLAS_ADAPTER_READY=1 is required; the current activity bodies are contract-only")
+        issues.append("ATLAS_ADAPTER_READY=1 is required to enable the reviewed Atlas adapter")
     print(f"required_task_queue={settings.atlas_task_queue}")
     print("registered_activities=" + ",".join(ATLAS_ACTIVITY_NAMES))
     return issues
