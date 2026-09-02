@@ -405,8 +405,10 @@ async def _stop_server(settings: LocalLLMSettings, running: _RunningServer | Non
                 except subprocess.TimeoutExpired:
                     pass
         running.log_handle.close()
-    if _port_is_open(settings):
-        _process_cleanup(settings)
+    # WSL process handles do not always own the lifetime of a native Windows
+    # child. Always perform the marker-scoped Windows cleanup, even when the
+    # loopback forwarding socket has already disappeared.
+    _process_cleanup(settings)
 
 
 def _compact_bundle(result: Result, baseline: Diagnosis, spec: ExperimentSpec) -> dict[str, Any]:
@@ -686,8 +688,11 @@ async def diagnose_with_local_llm(payload: dict[str, Any]) -> dict[str, Any]:
             "Local inference was not enabled for this Atlas experiment.",
         )
 
-    settings = settings_from_env()
-    prompt = _prompt(result, baseline, spec)
+    try:
+        settings = settings_from_env()
+        prompt = _prompt(result, baseline, spec)
+    except ApplicationError as exc:
+        return local_llm_failure_diagnosis(result, str(exc.type or "LOCAL_LLM_ERROR"), str(exc))
     root = Path(os.environ.get("ATLAS_ARTIFACT_ROOT", ".")).expanduser().resolve()
     log_path = root / spec.experiment_id / "local_llm" / "server.log"
     running: _RunningServer | None = None
