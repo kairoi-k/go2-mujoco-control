@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Go2 local diagnosis response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "failure_class",
+    "confidence",
+    "summary",
+    "evidence",
+    "hypothesis",
+    "recommended_action",
+    "recommended_profile",
+    "recommended_parameters",
+    "needs_human_review"
+  ],
+  "properties": {
+    "failure_class": {
+      "type": "string",
+      "enum": [
+        "PASS_DEV",
+        "FAIL_TIMING",
+        "FAIL_CONTACT",
+        "FAIL_WBC",
+        "FAIL_PLANNER",
+        "FAIL_SAFE_STOP",
+        "RUNNER_FAILURE",
+        "UNKNOWN"
+      ]
+    },
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "summary": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "evidence": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["signal", "value"],
+        "properties": {
+          "signal": {"type": "string", "minLength": 1, "maxLength": 120},
+          "value": {"type": "string", "maxLength": 500}
+        }
+      }
+    },
+    "hypothesis": {"type": ["string", "null"], "maxLength": 2000},
+    "recommended_action": {
+      "type": "string",
+      "enum": ["advance", "rerun", "collect_evidence", "checkpoint", "escalate", "stop"]
+    },
+    "recommended_profile": {
+      "type": ["string", "null"],
+      "enum": ["b0-development", "b0-holdout", "b1-probe", null]
+    },
+    "recommended_parameters": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "number", "boolean", "null"]
+      }
+    },
+    "needs_human_review": {"type": "boolean"}
+  }
+}

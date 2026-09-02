@@ -13,6 +13,7 @@ Base / Mac mini
         v
 Atlas / WSL
   exact source SHA, fixed CMake/CTest, reviewed runner, hashed artifacts
+  serialized local llama.cpp diagnosis on the RTX 5080
 ```
 
 The physical source revision and the Base control-plane revision are recorded
@@ -95,6 +96,50 @@ environment assignments. Formal B0 holdout, B1, and acceptance claims remain
 behind an explicit human-approved workflow and are currently rejected by the
 worker.
 
+## Atlas local LLM
+
+Atlas owns local inference because its RTX 5080 is the only GPU in this
+deployment. The reviewed runtime is the native Windows CUDA build of
+`llama.cpp`; WSL starts it with a fixed loopback address, a pinned model path,
+JSON-schema-constrained output, and no inherited proxy or API credentials. The
+default deployment is `gpt-oss-20b-MXFP4` with 32K context. The model, runtime,
+quantization, prompt/response hashes, token counts, and latency are recorded in
+an `inference.v1` receipt.
+
+Enable it only on an Atlas development spec:
+
+```bash
+.venv/bin/python -m research_orchestrator.cli make-atlas-spec \
+  --repo "$PWD" --source-sha <atlas-sha> --scenario accel_1_to_3 \
+  --allow-local-llm --force-local-llm --output /tmp/go2-atlas-local-llm.json
+```
+
+The local Activity starts the server on demand and stops it in `finally`; it is
+registered on the same single-concurrency Atlas queue. Every physical Activity
+also refuses to start while the reserved loopback port is occupied. Thus the
+sequence is: fixed build/test/probe, deterministic classification, optional
+Atlas local diagnosis, then optional read-only Codex escalation. Local model
+failure produces a fail-closed diagnosis and never edits the controller.
+
+The Atlas worker environment pins the deployment without putting machine paths
+in experiment JSON:
+
+```text
+ATLAS_LLM_SERVER_EXE=/mnt/c/Users/w1881/go2-local-llm/bin/llama-server.exe
+ATLAS_LLM_MODEL_PATH=/mnt/c/Users/w1881/go2-local-llm/models/gpt-oss-20b-MXFP4.gguf
+ATLAS_LLM_PORT=8090
+ATLAS_LLM_MODEL_ID=gpt-oss-20b-MXFP4
+ATLAS_LLM_MODEL_REVISION=ggml-org/gpt-oss-20b-GGUF@ef9b12f2ff56c69cf32153a02784e7a3c88bf524
+ATLAS_LLM_QUANTIZATION=MXFP4
+ATLAS_LLM_RUNTIME_VERSION=llama.cpp-b10766-cuda13.3
+ATLAS_LLM_REASONING=on
+ATLAS_LLM_REASONING_FORMAT=deepseek
+# Set this after the deployment hash is verified; the Activity can then fail
+# closed if the model file changes.
+ATLAS_LLM_MODEL_SHA256=<verified-model-sha256>
+ATLAS_LLM_VERIFY_MODEL_HASH=1
+```
+
 ## Safety and provenance
 
 - Atlas requires a clean checkout at the exact `source.git_sha`.
@@ -103,5 +148,7 @@ worker.
 - Every run preserves bounded logs, CSV/JSON evidence, the existing manifest,
   source SHA, runner hash, and artifact SHA-256 values outside the checkout.
 - Temporal retries for physical/model calls are disabled (`maximum_attempts=1`).
+- Local inference is loopback-only, on-demand, serialized with physical work,
+  and bounded by a JSON schema plus explicit confidence/escalation rules.
 - No Activity edits controller sources, changes gains/physics/thresholds, or
   treats a development pass as B0/B1 acceptance.

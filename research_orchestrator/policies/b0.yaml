@@ -12,11 +12,13 @@ allowed_activity_names:
   - run_b0_member
   - run_b0_holdout
   - extract_failure_window
+  - diagnose_with_local_llm
 max_duration_s: 900
 allowed_parameter_names:
   - fixture_verdict
   - scenario
   - domain_id
+  - force_local_llm
 controller_mutation_allowed: false
 acceptance_claim_allowed: false
 requires_human_approval_for_formal: true

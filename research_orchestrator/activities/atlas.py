@@ -24,6 +24,7 @@ from typing import Any, NoReturn
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
+from .local_llm import local_llm_is_active
 from ..schemas.models import (
     ActivityReceipt,
     ArtifactRef,
@@ -46,6 +47,7 @@ ATLAS_ACTIVITY_NAMES = (
     "run_b0_holdout",
     "run_b1_probe",
     "extract_failure_window",
+    "diagnose_with_local_llm",
 )
 
 # These are the existing reviewed velocity profiles. Their durations are part
@@ -139,6 +141,11 @@ def _ensure_source(spec: ExperimentSpec) -> Path:
             "ATLAS_SOURCE_REPOSITORY_MISMATCH",
         )
     workspace = _workspace()
+    if local_llm_is_active():
+        _invalid(
+            "Atlas physical Activities refuse to run while the reserved local LLM port is active",
+            "ATLAS_LOCAL_LLM_ACTIVE",
+        )
     head, dirty = _git_state(workspace)
     if head != spec.source.git_sha:
         _invalid(

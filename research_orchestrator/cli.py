@@ -57,6 +57,8 @@ def make_fixture_spec(repo_root: Path, args: argparse.Namespace) -> ExperimentSp
         source=source,
         control_plane=source,
         parameters={"fixture_verdict": args.fixture_verdict},
+        allow_local_llm=args.allow_local_llm,
+        local_llm_timeout_s=args.local_llm_timeout_s,
         allow_codex=args.allow_codex,
         requested_at=datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
     )
@@ -97,7 +99,13 @@ def make_atlas_spec(repo_root: Path, args: argparse.Namespace) -> ExperimentSpec
             dirty=False,
         ),
         control_plane=control_plane,
-        parameters={"scenario": args.scenario, "domain_id": args.domain_id},
+        parameters={
+            "scenario": args.scenario,
+            "domain_id": args.domain_id,
+            **({"force_local_llm": True} if args.force_local_llm else {}),
+        },
+        allow_local_llm=args.allow_local_llm,
+        local_llm_timeout_s=args.local_llm_timeout_s,
         allow_codex=args.allow_codex,
         requested_at=datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
     )
@@ -130,6 +138,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=Verdict.PASS_DEV.value,
     )
     fixture.add_argument("--allow-codex", action="store_true")
+    fixture.add_argument("--allow-local-llm", action="store_true")
+    fixture.add_argument("--local-llm-timeout-s", type=int, default=360)
 
     atlas = subparsers.add_parser("make-atlas-spec", help="write a source-pinned Atlas development spec")
     atlas.add_argument("--repo", type=Path, default=Path.cwd(), help="Base control-plane checkout")
@@ -148,6 +158,9 @@ def _build_parser() -> argparse.ArgumentParser:
     atlas.add_argument("--domain-id", type=int, default=190)
     atlas.add_argument("--seed", type=int, default=0)
     atlas.add_argument("--allow-codex", action="store_true")
+    atlas.add_argument("--allow-local-llm", action="store_true")
+    atlas.add_argument("--force-local-llm", action="store_true")
+    atlas.add_argument("--local-llm-timeout-s", type=int, default=360)
 
     run = subparsers.add_parser("run", help="execute one spec against the local Temporal server")
     run.add_argument("--spec", type=Path, required=True)

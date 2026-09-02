@@ -21,6 +21,7 @@ from ..activities.atlas import (
     run_dev_probe,
     run_unit_tests,
 )
+from ..activities.local_llm import diagnose_with_local_llm
 from ..config import WorkerSettings
 
 
@@ -59,6 +60,7 @@ async def serve() -> None:
             run_b0_holdout,
             run_b1_probe,
             extract_failure_window,
+            diagnose_with_local_llm,
         ],
     )
     print(

@@ -74,6 +74,8 @@ class ActionType(str, Enum):
 
 class DiagnosisSource(str, Enum):
     DETERMINISTIC = "deterministic"
+    LOCAL_LLM = "local_llm"
+    LOCAL_LLM_ERROR = "local_llm_error"
     CODEX = "codex"
     CODEX_ERROR = "codex_error"
 
@@ -129,6 +131,12 @@ class ExperimentSpec(SchemaBase):
     control_plane: SourceRevision | None = None
     parameters: dict[str, Any] = Field(default_factory=dict)
     atlas_task_queue: str = Field(default="atlas", pattern=r"^[a-z][a-z0-9._-]{0,63}$")
+    # Local inference is opt-in and is executed on the serialized Atlas queue.
+    # The experiment can request it for an unknown result, or force it for a
+    # controlled integration/benchmark run. It cannot provide model paths or
+    # server arguments; those are pinned in the Atlas worker environment.
+    allow_local_llm: bool = False
+    local_llm_timeout_s: int = Field(default=360, ge=30, le=1800)
     allow_codex: bool = False
     codex_timeout_s: int = Field(default=90, ge=10, le=600)
     requested_at: str = Field(min_length=1, max_length=80)
@@ -169,7 +177,7 @@ class ResultMetrics(SchemaBase):
 class EvidencePoint(SchemaBase):
     signal: str = Field(min_length=1, max_length=120)
     value: str = Field(max_length=500)
-    source: Literal["result", "artifact", "codex"]
+    source: Literal["result", "artifact", "local_llm", "codex"]
 
 
 class FailureWindow(SchemaBase):
@@ -203,6 +211,26 @@ class Result(SchemaBase):
     notes: list[str] = Field(default_factory=list, max_length=50)
 
 
+class InferenceReceipt(SchemaBase):
+    """Non-secret provenance for one bounded local-model call."""
+
+    schema_version: Literal["inference.v1"] = "inference.v1"
+    engine: Literal["llama.cpp"]
+    model_id: str = Field(min_length=1, max_length=200)
+    model_revision: str = Field(min_length=1, max_length=200)
+    quantization: str = Field(min_length=1, max_length=80)
+    runtime_version: str = Field(min_length=1, max_length=120)
+    model_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    prompt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    response_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    context_tokens: int = Field(ge=0)
+    prompt_tokens: int = Field(ge=0)
+    completion_tokens: int = Field(ge=0)
+    reasoning_tokens: int = Field(default=0, ge=0)
+    latency_ms: int = Field(ge=0)
+    endpoint_profile: Literal["atlas-loopback"] = "atlas-loopback"
+
+
 class Diagnosis(SchemaBase):
     schema_version: Literal["diagnosis.v1"] = "diagnosis.v1"
     experiment_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{2,63}$")
@@ -218,6 +246,7 @@ class Diagnosis(SchemaBase):
     requires_codex: bool = False
     requires_human_review: bool = False
     error_code: str | None = Field(default=None, pattern=r"^[A-Z0-9_-]{1,80}$")
+    inference: "InferenceReceipt | None" = None
 
     @field_validator("recommended_parameters")
     @classmethod

@@ -79,6 +79,29 @@ class ResearchWorkflow:
         if not isinstance(diagnosis, dict):
             raise ValueError("classify_result returned a non-object payload")
 
+        # Local inference belongs to Atlas because that is where the 5080 and
+        # its model files live. It is opt-in; by default deterministic known
+        # failures stop here and only an unresolved diagnosis is eligible.
+        force_local_llm = spec.get("parameters", {}).get("force_local_llm") is True
+        if (
+            spec.get("execution_mode") == "atlas"
+            and spec.get("allow_local_llm") is True
+            and (diagnosis.get("requires_codex") is True or force_local_llm)
+        ):
+            diagnosis = await workflow.execute_activity(
+                "diagnose_with_local_llm",
+                args=[
+                    {"result": result, "baseline": diagnosis, "spec": spec},
+                ],
+                task_queue=str(spec.get("atlas_task_queue", "atlas")),
+                start_to_close_timeout=timedelta(
+                    seconds=float(spec.get("local_llm_timeout_s", 360)) + 30
+                ),
+                retry_policy=_once(),
+            )
+            if not isinstance(diagnosis, dict):
+                raise ValueError("diagnose_with_local_llm returned a non-object payload")
+
         if diagnosis.get("requires_codex") is True and spec.get("allow_codex") is True:
             diagnosis = await workflow.execute_activity(
                 "diagnose_with_codex",

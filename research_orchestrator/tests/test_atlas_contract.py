@@ -10,4 +10,5 @@ def test_atlas_activity_set_is_explicit_and_minimal():
         "run_b0_holdout",
         "run_b1_probe",
         "extract_failure_window",
+        "diagnose_with_local_llm",
     )
