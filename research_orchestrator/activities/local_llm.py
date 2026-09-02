@@ -370,6 +370,7 @@ async def _start_server(settings: LocalLLMSettings, log_path: Path) -> _RunningS
         while time.monotonic() < deadline:
             if process.poll() is not None:
                 log_handle.close()
+                _process_cleanup(settings)
                 raise ApplicationError(
                     "Atlas local LLM server exited during startup",
                     type="LOCAL_LLM_START_FAILED",
@@ -712,10 +713,10 @@ async def diagnose_with_local_llm(payload: dict[str, Any]) -> dict[str, Any]:
         receipt = InferenceReceipt(
             engine="llama.cpp",
             model_id=settings.model_id,
-        model_revision=settings.model_revision,
-        quantization=settings.quantization,
-        runtime_version=settings.runtime_version,
-        model_sha256=settings.model_sha256,
+            model_revision=settings.model_revision,
+            quantization=settings.quantization,
+            runtime_version=settings.runtime_version,
+            model_sha256=settings.model_sha256,
             prompt_sha256=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
             response_sha256=hashlib.sha256(content.encode("utf-8")).hexdigest(),
             context_tokens=prompt_tokens + completion_tokens,
