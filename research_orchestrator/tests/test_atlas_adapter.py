@@ -1,7 +1,7 @@
 import pytest
 from temporalio.exceptions import ApplicationError
 
-from research_orchestrator.activities.atlas import DEV_SCENARIO_DURATIONS, _scenario
+from research_orchestrator.activities.atlas import DEV_SCENARIO_DURATIONS, _copy_file, _scenario
 from research_orchestrator.schemas.models import ExperimentSpec
 
 
@@ -36,3 +36,15 @@ def test_development_profile_rejects_partial_duration():
 def test_development_profile_rejects_non_development_domain():
     with pytest.raises(ApplicationError):
         _scenario(_spec(parameters={"scenario": "accel_1_to_3", "domain_id": 22}))
+
+
+def test_copy_file_accepts_a_log_already_in_the_artifact_root(tmp_path):
+    root = tmp_path / "artifacts"
+    source = root / "atlas-adapter-smoke" / "atlas_process.log"
+    source.parent.mkdir(parents=True)
+    source.write_text("ok\n", encoding="utf-8")
+
+    ref = _copy_file(source, source, root)
+
+    assert ref is not None
+    assert ref.relative_path == "atlas-adapter-smoke/atlas_process.log"

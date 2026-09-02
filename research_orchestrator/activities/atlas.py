@@ -210,6 +210,8 @@ def _copy_file(source: Path, target: Path, root: Path) -> ArtifactRef | None:
     size = source.stat().st_size
     if size > _MAX_ARTIFACT_BYTES:
         return None
+    if source.resolve() == target.resolve():
+        return _artifact_ref(source, root)
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, target)
     return _artifact_ref(target, root)
