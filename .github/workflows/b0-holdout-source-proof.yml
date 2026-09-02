@@ -1,0 +1,58 @@
+name: B0 fresh holdout source proof
+
+on:
+  push:
+    branches:
+      - assistant/b0-holdout-ci-20260903
+    paths:
+      - .github/workflows/b0-holdout-source-proof.yml
+
+permissions:
+  contents: read
+
+jobs:
+  b0-holdout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SOURCE_SHA: "01af319b0438e4d1541519733ef16aabb6b6e214"
+      MUJOCO_VERSION: "3.3.6"
+    steps:
+      - name: Checkout immutable source under test
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+
+      - name: Verify clean immutable source
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+          echo "B0_SOURCE_SHA=$SOURCE_SHA"
+
+      - name: Bootstrap Ubuntu dependencies and build
+        run: bash scripts/setup_ubuntu_env.sh
+
+      - name: Run full frozen B0 holdout sequentially
+        run: |
+          set -euo pipefail
+          scenarios=(steps accel_1_to_3 brake_3_to_0 ramp varying)
+          for repeat in 1 2 3; do
+            for scenario in "${scenarios[@]}"; do
+              echo "=== B0 HOLDOUT profile=$scenario repeat=$repeat ==="
+              bash example/cpp/scripts/run_phase2_b0_pair.sh "$scenario" holdout "$repeat"
+            done
+            echo "=== B0 HOLDOUT fixed_3mps repeat=$repeat ==="
+            bash example/cpp/scripts/run_phase2_b0_fixed_pair.sh holdout "$repeat"
+          done
+          echo "B0_FROZEN_HOLDOUT_ALL_MEMBERS_PASS"
+
+      - name: Upload B0 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b0-holdout-${{ github.run_id }}
+          path: |
+            example/cpp/experiments/_runs/phase2_b0_holdout_*/
+          if-no-files-found: warn
+          retention-days: 14
