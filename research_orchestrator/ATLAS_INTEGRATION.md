@@ -95,11 +95,12 @@ On this Windows/WSL host, the durable launcher is Windows Task Scheduler, not
 an SSH-started process or WSL user service. Import
 `research_orchestrator/ops/windows/Go2_Atlas_Research_Worker.xml` as the
 `Go2_Atlas_Research_Worker` task. It runs `wsl.exe` as the WSL user `che` at
-boot, keeps the host process alive, prevents duplicate instances, and retries
-after failure. The task's `TEMPORAL_ADDRESS` is deliberately the Base
-Tailscale IPv4, not the MagicDNS/Funnel name. The versioned systemd unit under
-`ops/systemd/` remains available for Linux hosts where systemd is the actual
-host supervisor.
+interactive Windows logon, keeps the host process alive, prevents duplicate
+instances, and retries after failure. This is intentional: the Ubuntu distro
+is registered for the interactive Windows account rather than SYSTEM. The
+task's `TEMPORAL_ADDRESS` is deliberately the Base Tailscale IPv4, not the
+MagicDNS/Funnel name. The versioned systemd unit under `ops/systemd/` remains
+available for Linux hosts where systemd is the actual host supervisor.
 
 No formal holdout is started by the generic workflow. A future approval
 workflow must add a human decision, frozen membership, separate domains, and
