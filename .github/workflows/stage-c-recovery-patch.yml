@@ -67,7 +67,7 @@ jobs:
             --wbc-task-torque-feedforward \
             --terrain-planner \
             --stage-c-execution \
-            --domain-id 233
+            --domain-id 223
           echo "WRAPPER_STATUS=$?" | tee probe_status.txt
           exit 0
 
