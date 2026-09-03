@@ -5377,3 +5377,48 @@ root_cause_update: |
 acceptance: |
   B1 FAIL / not accepted. B2 and B3 not started. Raw evidence remains in the
   two named ignored run directories; no archive or formal holdout was created.
+---
+timestamp: 2026-09-04T02:30:00+08:00
+run_id: recovery Stage-C preview-tail r3-r3b development
+source_sha: b09a65805429c3bea5ea4a07ab0d605916785c57 (clean; pushed)
+mode: exploration; user-authorized development; no milestone acceptance claim
+implementation: |
+  0663485 extended the published Stage-C plan with post-touchdown terminal
+  support padding, preserving the event schedule while keeping the plan usable
+  across the complete SRBD-MPC preview horizon. b09a658 added diagnostics and
+  tests around the preview tail and plan lifecycle. Controller CTest was 43/43
+  and simulator CTest was 2/2. Controller sha256 was
+  071971c4042255477786a4a18bf4ba8ef4c4304a363124bf4f6c80856eb7441b;
+  simulator sha256 was
+  52df364581d50aaf2324312922a15d676147b17058d8171bbc00a51d3a5d8f25.
+r3: |
+  stage_c_bootstrap_5cm_dev_r3_20260904_previewtail is infrastructure-invalid:
+  DDS participant allocation failed before the controller produced a valid
+  manifest or motion trace. It consumes no B1 probe and carries no behavior
+  verdict.
+r3b: |
+  stage_c_bootstrap_5cm_dev_r3b_20260904_previewtail, clean b09a658, seed 11,
+  domain 230. Basic controller/simulator/safety/quality/ground-truth/dynamics/
+  completion statuses were zero; frozen Phase1 and terrain analyzers both
+  failed. plan274 was generated at state 9.152s, adopted at 9.156s and valid
+  through 10.012s. SRBD-MPC consumed the plan five times, versus three in r2,
+  so the preview-tail repair reached its intended consumer.
+root_cause_update: |
+  The first behavior break was at state 9.410s while plan274 was still usable.
+  Planned FR liftoff caused WBC load redistribution: commanded FR force went
+  to zero, while RL support rapidly unloaded and then lost measured contact.
+  The fused contact mask fell 14->6; measured-support:N+5 fallback cleared the
+  plan. Fallback then allowed the nominal running-trot topology/reference to
+  re-enter while MPC/WBC/ID did not share one contact authority. No foot gained
+  force-supported platform contact; there was no crossing or stable exit.
+next_change: |
+  Introduce a single ContactAuthority transaction consumed by gait, MPC, WBC
+  and ID; after N+5, atomically invalidate old MPC state, keep the fused safe
+  topology/body hold, and forbid nominal gait reinjection. Add support-leg
+  preload/min-normal-force protection for the planned three-leg interval.
+  Separately, evaluate V2-B only over the execution horizon and append its
+  terminal hold once after candidate selection to remove redundant tail work.
+acceptance: |
+  B1 FAIL / not accepted. The preview-tail defect is closed, exposing a more
+  local contact-authority and support-load blocker. B2 and B3 remain unstarted.
+  Raw r1/r2/r3/r3b evidence is retained; no formal holdout was created.
