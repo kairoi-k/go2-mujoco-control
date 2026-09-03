@@ -5332,3 +5332,48 @@ acceptance: |
   next_safe_step recorded without behavior authorization; ESCALATION_LOG
   append-only (prior blocks untouched); non-docs diff zero; commit and push
   clean; record bundle delivered to C:\Workspace\tmp\order116_record_bundle.
+---
+timestamp: 2026-09-04T00:55:00+08:00
+run_id: recovery Stage-C endpoint/pre-shift r1-r2 development
+source_sha: 4faa2216964a8ce2d88a2dbba6f91e82265afb0a
+mode: exploration; user-authorized development; no milestone acceptance claim
+implementation: |
+  7d555c99 made the Stage-C adapter fail closed, normalized/validated the
+  world/body pose seam, converted planner contact-patch endpoints once into
+  foot-site body coordinates, and made gait consume the exact absolute
+  liftoff/touchdown transaction. 4faa221 added a plan-owned 0.20s four-foot
+  preparation with a measured-state Hermite body reference, 15mm planned
+  three-foot margin, actual measured-contact propagation and bridge identity
+  checks. Controller CTest was 43/43 and simulator CTest was 2/2; the fixed
+  3mps B0 development pair passed all 20 B0 checks. These are checkpoints,
+  not B1 acceptance.
+r1: |
+  stage_c_bootstrap_5cm_dev_r1_20260903_215500, clean 7d555c99. plan293 was
+  generated at 9.186s, adopted at 9.190s and consumed by gait/MPC/WBC. FR
+  liftoff began at 9.226s with only 40ms preparation. RL, still scheduled as
+  support, unloaded below the 5N evidence threshold and measured mask fell
+  14->6. The adapter reached measured-support:N+5 and withdrew the plan.
+  Legacy terrain_exec_* fields remained zero because that telemetry belongs
+  to the old transfer executor; they do not prove the Stage-C plan was absent.
+r2: |
+  stage_c_bootstrap_5cm_dev_r2_20260904_recovery, clean 4faa221, controller
+  sha256 99b7702953a229188bac0a3700a5656f3116b516632612e23b86b1c332651bbe,
+  simulator sha256 52df364581d50aaf2324312922a15d676147b17058d8171bbc00a51d3a5d8f25.
+  Basic controller/simulator/safety/quality/ground-truth/dynamics/completion
+  statuses were zero; frozen Phase1 and terrain analyzers both failed.
+  plan319 was generated 9.574s, published 9.576s, adopted 9.578s and reached
+  its FR liftoff at 9.774s. RL unloaded during the three-foot interval;
+  measured mask reached 6, measured-support:N+5 fallback occurred at 9.898s
+  and the run stopped. Minimum observed support margin was -0.010699m. No leg
+  obtained force-supported platform contact; no crossing or stable exit.
+root_cause_update: |
+  The preparation timing itself executed, but SRBD-MPC acknowledged plan319
+  only three times. Before liftoff, its terrain contact mask and body reference
+  were no longer available while gait/adapter still owned plan319. The plan's
+  roughly 0.50s horizon placed touchdown near its end and could not cover the
+  complete 8-knot, 0.05s MPC horizon through transfer. The next authorized
+  change is plan-side post-touchdown terminal support padding with unchanged
+  events; no consumer retime or threshold change.
+acceptance: |
+  B1 FAIL / not accepted. B2 and B3 not started. Raw evidence remains in the
+  two named ignored run directories; no archive or formal holdout was created.
