@@ -22,8 +22,12 @@ jobs:
             xargs -0 -r -n1 python3 -m py_compile
       - name: Run repository hygiene checker
         run: python3 example/cpp/tools/check_repo_hygiene.py
+      - name: Test raw-run quarantine guard
+        run: python3 example/cpp/tools/test_quarantine_raw_run.py
       - name: Check internal references
         run: |
+          test -f AGENTS.md
+          test -f example/cpp/tools/quarantine_raw_run.py
           test -f docs/REPOSITORY_GOVERNANCE.md
           test -f example/cpp/tools/analysis/INDEX.md
           test -f docs/RESEARCH_INDEX.md

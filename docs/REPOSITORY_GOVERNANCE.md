@@ -30,7 +30,7 @@ Tags are annotated, immutable identity records. Never move or force-update a tag
 
 ## Evidence storage
 
-Keep compact protocols, summaries, manifests, and acceptance records in Git. Keep raw `_runs/`, build directories, caches, temporary logs, and generated media ignored unless a documented delivery requires a specific retained artifact. Do not delete unique failure bundles, checkpoints, videos, or unpromoted research evidence during cleanup. Classify local artifacts before removal: disposable/reproducible, unique evidence, or unknown.
+Keep compact protocols, summaries, manifests, and acceptance records in Git. Keep raw `_runs/`, build directories, caches, temporary logs, and generated media ignored unless a documented delivery requires a specific retained artifact. Raw `_runs/` are never directly deleted, overwritten, or renamed by an agent: failed, dirty, smoke, stale, unreferenced, and semantically reproducible runs remain raw evidence. Space cleanup must create a per-file SHA-256 manifest and move one direct child through `example/cpp/tools/quarantine_raw_run.py` to the workspace archive quarantine outside the Git worktree; permanent purge requires a new user message naming that exact quarantined path and an independently verified matching copy. A subagent recommendation is not deletion authorization. Build products and caches remain disposable after path checks.
 
 ## Configuration precedence
 
