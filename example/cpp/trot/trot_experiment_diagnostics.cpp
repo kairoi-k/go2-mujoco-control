@@ -248,7 +248,8 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_shadow_id_wbc_normal_force_fr_n"
          << ",wbc_shadow_id_wbc_normal_force_fl_n"
          << ",wbc_shadow_id_wbc_normal_force_rr_n"
-         << ",wbc_shadow_id_wbc_normal_force_rl_n";
+         << ",wbc_shadow_id_wbc_normal_force_rl_n"
+         << ",terrain_contact_authority_mode";
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         csv_ << ",wbc_shadow_id_wbc_force_" << kLegNames[leg]
              << "_x_n,wbc_shadow_id_wbc_force_" << kLegNames[leg]
@@ -1462,7 +1463,8 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[0]
          << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[1]
          << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[2]
-         << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[3];
+         << "," << wbc_shadow_diagnostics_.id_wbc_normal_force_n[3]
+         << "," << wbc_shadow_diagnostics_.terrain_contact_authority_mode;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         csv_ << "," << wbc_shadow_diagnostics_.id_wbc_force_world_n[leg][0]

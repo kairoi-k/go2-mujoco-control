@@ -730,10 +730,12 @@ bool TrotExperiment::BuildGaitTargets(
     if (terrain_contact_fusion_.guard_active())
         locomotion_kernel_->SetStanceHold(true, gait_time_s);
     else if (stage_c_window &&
-             terrain_contact_authority_.mode() ==
-                 go2_terrain::ContactAuthorityMode::kPlanned)
-        // Support restored while the adopted plan still owns the transfer:
-        // release the guard stance hold so execution can continue.
+             terrain_contact_authority_.mode() !=
+                 go2_terrain::ContactAuthorityMode::kSafeHold)
+        // Guard released: release the stance hold whenever the authority
+        // is not freezing the support topology. kPlanned resumes transfer
+        // execution; kPhaseOne (nominal gait, no adopted plan) must also
+        // resume walking or the body stays pinned before the platform.
         locomotion_kernel_->SetStanceHold(false, gait_time_s);
     const double adapter_now_s = static_cast<double>(state_snapshot.tick()) *
         1.0e-3;
