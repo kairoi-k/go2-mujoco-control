@@ -47,10 +47,10 @@ The official model card is
 
 ## Real closed-loop verification
 
-The selected model then ran `atlas-qwen3coder-e2e-20260903` through Base
+The selected model then ran `atlas-qwen3coder-default-e2e-20260903` through Base
 Temporal → Atlas preflight (`build_source`, `run_unit_tests`) → local LLM →
 Base. It returned `PASS_DEV`, `source=local_llm`, confidence `1.0`, model hash
-matching the pin, and about 1.02 s inference latency. No cloud Codex call was
+matching the pin, and 1.146 s inference latency. No cloud Codex call was
 needed. This does not establish formal B0/B1 acceptance; those remain an
 explicit human checkpoint.
 
