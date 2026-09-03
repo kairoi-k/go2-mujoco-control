@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 
+#include "cartesian_world_trot.h"
 #include "locomotion_kernel.h"
 #include "terrain_motion_plan.h"
 
@@ -184,7 +185,8 @@ public:
             }
             using_plan_ = true;
             fallback_age_steps_ = 0;
-            last_request_ = MakeRequest(*adopted_);
+            last_request_ = MakeRequest(
+                *adopted_, measured_support, fallback_pattern);
             result.using_plan = true;
             result.request = last_request_;
         }
@@ -198,16 +200,20 @@ public:
             result.rejection_reason = last_rejection_reason_;
         }
 
+        // Expiry retires execution at the plan boundary itself.  grace_s_ is
+        // reserved for bounded recovery/diagnostics; it must never extend
+        // the usable interval handed to BuildTerrainPlanHorizonIndices.
         const bool adopted_expired = adopted_ && std::isfinite(now_s) &&
-            now_s > adopted_->valid_until_s + grace_s_;
+            now_s > adopted_->valid_until_s;
         if (adopted_expired)
             recovery_pending_ = true;
         const bool hold_for_recovery = recovery_pending_ && !result.adopted;
         if (adopted_ && !hold_for_recovery && std::isfinite(now_s) &&
-            now_s <= adopted_->valid_until_s + grace_s_)
+            now_s <= adopted_->valid_until_s)
         {
             using_plan_ = true;
-            last_request_ = MakeRequest(*adopted_);
+            last_request_ = MakeRequest(
+                *adopted_, measured_support, fallback_pattern);
             result.using_plan = true;
             result.request = last_request_;
         }
@@ -235,11 +241,25 @@ public:
     // Translate the current whole request into the kernel in one operation.
     // Fallback requests intentionally restore the nominal Phase-1 gait
     // parameters even though they are not exposed as timed terrain execution.
-    void ApplyToKernel(go2_control::LocomotionKernel &kernel,
+    bool ApplyToKernel(go2_control::LocomotionKernel &kernel,
                        go2_control::GaitKernelRequest &request,
                        double gait_time_s,
                        const std::array<go2::Vec3, go2::kLegCount> &neutral_feet)
         const
+    {
+        return ApplyToKernel(
+            kernel, request, gait_time_s, neutral_feet, go2::Vec3{},
+            std::array<double, 4>{1.0, 0.0, 0.0, 0.0}, false);
+    }
+
+    bool ApplyToKernel(
+        go2_control::LocomotionKernel &kernel,
+        go2_control::GaitKernelRequest &request,
+        double gait_time_s,
+        const std::array<go2::Vec3, go2::kLegCount> &neutral_feet,
+        const go2::Vec3 &base_world,
+        const std::array<double, 4> &quaternion_world_from_body,
+        bool frame_source_valid) const
     {
         request.gait_time_s = gait_time_s;
         request.neutral_feet = neutral_feet;
@@ -249,15 +269,80 @@ public:
             request.execution = {};
         if (request.has_execution_request && adopted_)
         {
+            // Keep an invalid active request visible to the kernel caller on
+            // failure.  This is deliberately not rewritten as nominal
+            // fallback: the caller must observe the false return and fail
+            // the whole control tick.
+            request.execution.frame_valid = false;
             std::array<std::size_t, kTerrainPlanMaxKnots> plan_index{};
             const double knot_dt_s = adopted_->contact_timing.knot_dt_s;
-            if (BuildTerrainPlanHorizonIndices(
+            if (!BuildTerrainPlanHorizonIndices(
                     *adopted_, gait_time_s, knot_dt_s, knot_dt_s, 1,
                     plan_index))
+                return false;
+
+            auto converted = request.execution;
+            converted.scheduled_support =
+                adopted_->contact_schedule.planned_contact[plan_index[0]];
+            converted.scheduled_support_valid = true;
+            double quaternion_norm_squared = 0.0;
+            for (double value : quaternion_world_from_body)
             {
-                request.execution.scheduled_support =
-                    adopted_->contact_schedule.planned_contact[plan_index[0]];
-                request.execution.scheduled_support_valid = true;
+                if (!std::isfinite(value))
+                    return false;
+                quaternion_norm_squared += value * value;
+            }
+            if (!frame_source_valid || !Finite(base_world) ||
+                !std::isfinite(quaternion_norm_squared) ||
+                quaternion_norm_squared <= 1.0e-12)
+                return false;
+            const double inverse_norm =
+                1.0 / std::sqrt(quaternion_norm_squared);
+            if (!std::isfinite(inverse_norm) || inverse_norm <= 0.0)
+                return false;
+            std::array<double, 4> quaternion{};
+            for (std::size_t i = 0; i < quaternion.size(); ++i)
+            {
+                quaternion[i] = quaternion_world_from_body[i] * inverse_norm;
+                if (!std::isfinite(quaternion[i]))
+                    return false;
+            }
+            const std::array<double, 4> inverse{
+                quaternion[0], -quaternion[1], -quaternion[2],
+                -quaternion[3]};
+            converted.world_up_base =
+                go2_control::RotateByQuat(inverse, {0.0, 0.0, 1.0});
+            if (!Finite(converted.world_up_base))
+                return false;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                if (!converted.endpoint_valid[leg])
+                    continue;
+                const auto start_world = converted.swing_start[leg];
+                if (!Finite(start_world))
+                    return false;
+                // Planner footholds are contact-patch coordinates while
+                // gait/FK targets are calibrated foot-site coordinates.
+                const auto endpoint_site = go2::ContactPatchToFootSite(
+                    converted.swing_endpoint[leg]);
+                if (!Finite(endpoint_site))
+                    return false;
+                converted.swing_start[leg] = go2_control::WorldToBody(
+                    base_world, quaternion, start_world);
+                converted.swing_endpoint[leg] = go2_control::WorldToBody(
+                    base_world, quaternion, endpoint_site);
+                if (!Finite(converted.swing_start[leg]) ||
+                    !Finite(converted.swing_endpoint[leg]))
+                    return false;
+            }
+            converted.frame_valid = true;
+            request.execution = converted;
+            // Validate the fully converted request at this seam.  A malformed
+            // timing tuple must fail before any kernel setter or Compute call.
+            if (!go2_control::ValidateActiveGaitExecution(request))
+            {
+                request.execution.frame_valid = false;
+                return false;
             }
         }
         if (last_request_.valid)
@@ -268,6 +353,7 @@ public:
             kernel.SetGaitStepLength(last_request_.step_length_m);
             kernel.SetGaitFootLift(last_request_.foot_lift_m);
         }
+        return true;
     }
 
 private:
@@ -327,12 +413,22 @@ private:
         add(&endpoint, sizeof(endpoint));
         return hash == 0 ? 1 : hash;
     }
+    static bool Finite(const go2::Vec3 &value) noexcept
+    {
+        return std::isfinite(value.x) && std::isfinite(value.y) &&
+            std::isfinite(value.z);
+    }
+
     static go2_control::GaitExecutionRequest MakeRequest(
-        const TerrainMotionPlan &plan)
+        const TerrainMotionPlan &plan,
+        const std::array<bool, go2::kLegCount> &measured_support,
+        go2_control::GaitPattern pattern)
     {
         go2_control::GaitExecutionRequest request;
         request.valid = true;
-        request.pattern = go2_control::GaitPattern::kCrawl;
+        // Terrain plans do not own gait topology.  The runtime gait supplied
+        // to Update remains authoritative while the active plan is applied.
+        request.pattern = pattern;
         request.plan_id = plan.plan_id;
         request.plan_epoch = plan.plan_epoch;
         request.map_epoch = plan.map_epoch;
@@ -345,18 +441,18 @@ private:
         request.duty_factor = plan.contact_timing.duty_factor;
         request.step_length_m = 0.0;
         request.foot_lift_m = 0.05;
+        request.frame_valid = false;
         request.touchdown_time_s = plan.contact_timing.touchdown_time_s;
         request.touchdown_time_valid = plan.contact_timing.touchdown_time_valid;
         request.liftoff_time_s = plan.contact_timing.liftoff_time_s;
         request.liftoff_time_valid = plan.contact_timing.liftoff_time_valid;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            request.measured_support[leg] =
-                plan.contact_schedule.measured_contact[leg];
+            request.measured_support[leg] = measured_support[leg];
             request.stance_start_time_s[leg] = plan.state_stamp_s;
             request.stance_end_time_s[leg] = plan.valid_until_s;
             request.stance_interval_valid[leg] =
-                request.touchdown_time_valid[leg] ||
+                request.touchdown_time_valid[leg] &&
                 request.liftoff_time_valid[leg];
             for (std::size_t k = 0; k < plan.horizon_knots; ++k)
             {

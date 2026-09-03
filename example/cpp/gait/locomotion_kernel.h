@@ -196,6 +196,12 @@ struct GaitExecutionRequest
     std::array<bool, go2::kLegCount> stance_interval_valid{};
     std::array<go2::Vec3, go2::kLegCount> swing_start{};
     std::array<go2::Vec3, go2::kLegCount> swing_endpoint{};
+    // ApplyToKernel converts immutable world-frame plan endpoints into the
+    // current body frame before a locomotion kernel may consume them.
+    go2::Vec3 world_up_base{0.0, 0.0, 1.0};
+    // A request is not executable until the adapter validates the source
+    // frame and converts all planner-owned endpoints into body coordinates.
+    bool frame_valid = false;
     // Endpoint identity is deliberately separate from coordinates: once a
     // leg is in flight it must not be replaced by a newer partial snapshot.
     std::array<std::uint64_t, go2::kLegCount> endpoint_identity{};
@@ -224,6 +230,106 @@ struct GaitKernelRequest
     double body_velocity_z_mps = 0.0;
     bool have_body_velocity = false;
 };
+
+inline bool GaitExecutionVecFinite(const go2::Vec3 &value) noexcept
+{
+    return std::isfinite(value.x) && std::isfinite(value.y) &&
+        std::isfinite(value.z);
+}
+
+inline bool GaitExecutionWorldUpValid(const go2::Vec3 &value) noexcept
+{
+    if (!GaitExecutionVecFinite(value))
+        return false;
+    const double norm_squared = value.x * value.x + value.y * value.y +
+        value.z * value.z;
+    return std::isfinite(norm_squared) && norm_squared > 1.0e-12;
+}
+
+// has_execution_request is an ownership claim, not an optional hint.  A
+// non-fallback claim must be complete before either kernel is allowed to
+// compute; otherwise the old nominal gait would silently take ownership.
+inline bool ValidateActiveGaitExecution(
+    const GaitKernelRequest &request) noexcept
+{
+    if (!request.has_execution_request || request.execution.fallback)
+        return true;
+
+    const auto &execution = request.execution;
+    if (!execution.valid || execution.plan_id == 0 ||
+        execution.plan_epoch == 0 || execution.map_epoch == 0 ||
+        execution.input_hash == 0 || !execution.scheduled_support_valid ||
+        !execution.frame_valid || !GaitExecutionWorldUpValid(
+            execution.world_up_base) ||
+        !std::isfinite(request.gait_time_s) ||
+        !std::isfinite(execution.valid_from_s) ||
+        !std::isfinite(execution.valid_until_s) ||
+        execution.valid_until_s < execution.valid_from_s ||
+        request.gait_time_s + 1.0e-9 < execution.valid_from_s ||
+        request.gait_time_s > execution.valid_until_s + 1.0e-9 ||
+        !std::isfinite(execution.phase_origin_s) ||
+        !std::isfinite(execution.phase_origin) ||
+        !std::isfinite(execution.period_s) || execution.period_s <= 0.0 ||
+        !std::isfinite(execution.duty_factor) ||
+        execution.duty_factor <= 0.0 || execution.duty_factor >= 1.0 ||
+        !std::isfinite(execution.step_length_m) ||
+        execution.step_length_m < 0.0 ||
+        !std::isfinite(execution.foot_lift_m) ||
+        execution.foot_lift_m < 0.0)
+    {
+        return false;
+    }
+
+    constexpr double kTimeToleranceS = 1.0e-9;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const bool have_liftoff = execution.liftoff_time_valid[leg];
+        const bool have_touchdown = execution.touchdown_time_valid[leg];
+        const bool have_interval = have_liftoff && have_touchdown;
+        if (have_liftoff != have_touchdown)
+            return false;
+        if (execution.stance_interval_valid[leg] != have_interval)
+            return false;
+        if (execution.endpoint_valid[leg] != have_interval)
+            return false;
+        if (execution.endpoint_valid[leg] &&
+            (!GaitExecutionVecFinite(execution.swing_start[leg]) ||
+             !GaitExecutionVecFinite(execution.swing_endpoint[leg])))
+        {
+            return false;
+        }
+        if (have_interval)
+        {
+            const double liftoff = execution.liftoff_time_s[leg];
+            const double touchdown = execution.touchdown_time_s[leg];
+            if (!std::isfinite(liftoff) || !std::isfinite(touchdown) ||
+                touchdown <= liftoff)
+            {
+                return false;
+            }
+
+            const bool scheduled_stance = execution.scheduled_support[leg];
+            const bool in_absolute_swing =
+                request.gait_time_s + kTimeToleranceS >= liftoff &&
+                request.gait_time_s < touchdown;
+            if (scheduled_stance && in_absolute_swing)
+                return false;
+            if (!scheduled_stance &&
+                (request.gait_time_s + kTimeToleranceS < liftoff ||
+                 request.gait_time_s >= touchdown))
+            {
+                return false;
+            }
+        }
+        else if (!execution.scheduled_support[leg])
+        {
+            // A planned swing without an absolute interval cannot safely
+            // select a phase or a nominal endpoint.
+            return false;
+        }
+    }
+    return true;
+}
 
 struct GaitKernelResult
 {
@@ -342,15 +448,10 @@ public:
             return false;
         }
 
-        const bool timed_execution = request.has_execution_request &&
-            request.execution.valid &&
-            std::isfinite(request.execution.valid_from_s) &&
-            std::isfinite(request.execution.valid_until_s) &&
-            request.gait_time_s >= request.execution.valid_from_s &&
-            request.gait_time_s <= request.execution.valid_until_s &&
-            request.execution.period_s > 0.0 &&
-            request.execution.duty_factor > 0.0 &&
-            request.execution.duty_factor < 1.0;
+        if (!ValidateActiveGaitExecution(request))
+            return false;
+        const bool timed_execution =
+            request.has_execution_request && !request.execution.fallback;
         const double effective_gait_time = timed_execution
             ? std::max(0.0, request.gait_time_s)
             : std::max(0.0, request.gait_time_s - phase_origin_gait_time_s_);
@@ -409,6 +510,15 @@ public:
                 request.execution.liftoff_time_valid[leg] &&
                 request.execution.touchdown_time_valid[leg])
             {
+                const auto &start = request.execution.swing_start[leg];
+                const auto &endpoint = request.execution.swing_endpoint[leg];
+                const auto &world_up = request.execution.world_up_base;
+                if (!std::isfinite(start.x) || !std::isfinite(start.y) ||
+                    !std::isfinite(start.z) || !std::isfinite(endpoint.x) ||
+                    !std::isfinite(endpoint.y) ||
+                    !std::isfinite(endpoint.z) ||
+                    !GaitExecutionWorldUpValid(world_up))
+                    return false;
                 const double liftoff = request.execution.liftoff_time_s[leg];
                 const double touchdown = request.execution.touchdown_time_s[leg];
                 if (request.gait_time_s >= liftoff &&
@@ -418,25 +528,24 @@ public:
                         (request.gait_time_s - liftoff) /
                             (touchdown - liftoff), 0.0, 1.0);
                     const double smooth = Smoothstep(u);
-                    result.feet[leg].x = request.execution.swing_start[leg].x +
-                        smooth * (request.execution.swing_endpoint[leg].x -
-                                  request.execution.swing_start[leg].x);
-                    result.feet[leg].y = request.execution.swing_start[leg].y +
-                        smooth * (request.execution.swing_endpoint[leg].y -
-                                  request.execution.swing_start[leg].y);
-                    result.feet[leg].z = request.execution.swing_start[leg].z +
-                        smooth * (request.execution.swing_endpoint[leg].z -
-                                  request.execution.swing_start[leg].z) +
-                        request.execution.foot_lift_m * std::sin(kPi * u);
-                    result.touchdown_target_feet_base[leg] =
-                        request.execution.swing_endpoint[leg];
+                    const double lift = request.execution.foot_lift_m *
+                        std::sin(kPi * u);
+                    result.feet[leg].x = start.x +
+                        smooth * (endpoint.x - start.x) +
+                        world_up.x * lift;
+                    result.feet[leg].y = start.y +
+                        smooth * (endpoint.y - start.y) +
+                        world_up.y * lift;
+                    result.feet[leg].z = start.z +
+                        smooth * (endpoint.z - start.z) +
+                        world_up.z * lift;
+                    result.touchdown_target_feet_base[leg] = endpoint;
                     continue;
                 }
                 if (request.gait_time_s >= touchdown)
                 {
-                    result.feet[leg] = request.execution.swing_endpoint[leg];
-                    result.touchdown_target_feet_base[leg] =
-                        request.execution.swing_endpoint[leg];
+                    result.feet[leg] = endpoint;
+                    result.touchdown_target_feet_base[leg] = endpoint;
                     continue;
                 }
             }

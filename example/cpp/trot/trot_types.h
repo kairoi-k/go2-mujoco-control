@@ -233,6 +233,8 @@ struct WorldPose
     double yaw_rad = 0.0;
 };
 
+constexpr double kWorldPoseQuaternionNormEpsilon = 1.0e-6;
+
 struct CycleDiagnostics
 {
     double max_abs_roll_rad = 0.0;
@@ -437,6 +439,65 @@ inline WorldPose ComputeWorldPose(
         imu_world.z - imu_offset_world.z};
     pose.yaw_rad = low_state.imu_state().rpy()[2];
     return pose;
+}
+
+inline bool TryComputeValidatedNormalizedWorldPose(
+    const unitree_go::msg::dds_::LowState_ &low_state,
+    const unitree_go::msg::dds_::SportModeState_ &high_state,
+    WorldPose &out)
+{
+    // Keep the output unusable on every failure path, including when callers
+    // reuse an output object from a previous valid sample.
+    out = WorldPose{};
+
+    const std::array<double, 4> raw_quaternion = {
+        low_state.imu_state().quaternion()[0],
+        low_state.imu_state().quaternion()[1],
+        low_state.imu_state().quaternion()[2],
+        low_state.imu_state().quaternion()[3]};
+    const go2::Vec3 imu_world = {
+        high_state.position()[0],
+        high_state.position()[1],
+        high_state.position()[2]};
+    const double yaw_rad = low_state.imu_state().rpy()[2];
+    if (!std::isfinite(imu_world.x) || !std::isfinite(imu_world.y) ||
+        !std::isfinite(imu_world.z) || !std::isfinite(yaw_rad))
+        return false;
+
+    double quaternion_norm_squared = 0.0;
+    for (double value : raw_quaternion)
+    {
+        if (!std::isfinite(value))
+            return false;
+        quaternion_norm_squared += value * value;
+    }
+    if (!std::isfinite(quaternion_norm_squared))
+        return false;
+    const double quaternion_norm = std::sqrt(quaternion_norm_squared);
+    if (!std::isfinite(quaternion_norm) ||
+        quaternion_norm <= kWorldPoseQuaternionNormEpsilon)
+        return false;
+
+    WorldPose candidate;
+    for (std::size_t i = 0; i < candidate.quaternion.size(); ++i)
+        candidate.quaternion[i] = raw_quaternion[i] / quaternion_norm;
+    const go2::Vec3 imu_offset_world =
+        RotateByQuaternion(candidate.quaternion, {-0.02557, 0.0, 0.04232});
+    candidate.base = {
+        imu_world.x - imu_offset_world.x,
+        imu_world.y - imu_offset_world.y,
+        imu_world.z - imu_offset_world.z};
+    candidate.yaw_rad = yaw_rad;
+    if (!std::isfinite(imu_offset_world.x) ||
+        !std::isfinite(imu_offset_world.y) ||
+        !std::isfinite(imu_offset_world.z) ||
+        !std::isfinite(candidate.base.x) ||
+        !std::isfinite(candidate.base.y) ||
+        !std::isfinite(candidate.base.z))
+        return false;
+
+    out = candidate;
+    return true;
 }
 
 inline std::array<go2::Vec3, go2::kLegCount> ComputeWorldFeet(

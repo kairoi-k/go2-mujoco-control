@@ -731,6 +731,24 @@ bool TrotExperiment::BuildGaitTargets(
         1.0e-3;
     const bool stage_c_window = stage_c_execution_requested &&
         terrain_transfer_window_active_;
+    WorldPose adapter_pose{};
+    if (stage_c_window)
+    {
+        if (!have_high_state)
+        {
+            std::cerr << "Stage-C execution requires a valid world pose\n";
+            return false;
+        }
+        // SnapshotState exposes availability, but no high-state tick or
+        // cross-topic freshness relation.  Do not claim same-tick freshness;
+        // only the validated numerical pose gates Stage-C execution.
+        if (!TryComputeValidatedNormalizedWorldPose(
+                state_snapshot, high_state_snapshot, adapter_pose))
+        {
+            std::cerr << "Stage-C execution rejected invalid world pose\n";
+            return false;
+        }
+    }
     terrain_plan_execution_adapter_.SetEnabled(stage_c_window);
     if (stage_c_window)
     {
@@ -752,8 +770,13 @@ bool TrotExperiment::BuildGaitTargets(
             timed_plan.get(), adapter_now_s, adapter_boundary,
             measured_support, runtime_gait_pattern_, params_.period_s,
             params_.duty_factor, params_.step_length_m, params_.foot_lift_m);
-        terrain_plan_execution_adapter_.ApplyToKernel(
-            *locomotion_kernel_, gait_request, adapter_now_s, feet);
+        if (!terrain_plan_execution_adapter_.ApplyToKernel(
+            *locomotion_kernel_, gait_request, adapter_now_s, feet,
+            adapter_pose.base, adapter_pose.quaternion, true))
+        {
+            std::cerr << "Stage-C execution rejected world-frame request\n";
+            return false;
+        }
         ++terrain_execution_adapter_updates_;
         terrain_execution_adapter_using_plan_ = handoff.using_plan;
         terrain_execution_request_plan_id_ = handoff.request.plan_id;

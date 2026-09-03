@@ -213,11 +213,18 @@ bool CheckTimedExecutionOwnsSwingSupport()
     request.execution.period_s = 0.8;
     request.execution.duty_factor = 0.75;
     request.execution.foot_lift_m = 0.05;
+    request.execution.frame_valid = true;
+    const double diagonal = std::sqrt(0.5);
+    request.execution.world_up_base = {diagonal, 0.0, diagonal};
     request.execution.scheduled_support_valid = true;
     request.execution.scheduled_support = {false, true, true, true};
     const std::size_t fr = static_cast<std::size_t>(go2::Leg::FR);
+    request.execution.endpoint_valid[fr] = true;
+    request.execution.swing_start[fr] = {0.20, -0.10, -0.30};
+    request.execution.swing_endpoint[fr] = {0.40, 0.10, -0.20};
     request.execution.liftoff_time_valid[fr] = true;
     request.execution.touchdown_time_valid[fr] = true;
+    request.execution.stance_interval_valid[fr] = true;
     request.execution.liftoff_time_s[fr] = 0.10;
     request.execution.touchdown_time_s[fr] = 0.30;
 
@@ -229,7 +236,80 @@ bool CheckTimedExecutionOwnsSwingSupport()
         planned.execution_plan_epoch != 42 ||
         planned.execution_map_epoch != 43 ||
         planned.execution_input_hash != 44 ||
-        !(planned.feet[fr].z > 1.0e-4))
+        !Near(planned.feet[fr].x, 0.30 + diagonal * 0.05) ||
+        !Near(planned.feet[fr].y, 0.0) ||
+        !Near(planned.feet[fr].z, -0.25 + diagonal * 0.05) ||
+        !Near(planned.touchdown_target_feet_base[fr].x, 0.40) ||
+        !Near(planned.touchdown_target_feet_base[fr].y, 0.10) ||
+        !Near(planned.touchdown_target_feet_base[fr].z, -0.20))
+        return false;
+
+    request.gait_time_s = 0.30;
+    request.execution.scheduled_support[fr] = true;
+    go2_control::GaitKernelResult touchdown{};
+    if (!kernel.Compute(request, touchdown) ||
+        !Near(touchdown.feet[fr].x, 0.40) ||
+        !Near(touchdown.feet[fr].y, 0.10) ||
+        !Near(touchdown.feet[fr].z, -0.20))
+        return false;
+
+    auto invalid_frame_kernel = MakeKernel();
+    request.gait_time_s = 0.20;
+    request.execution.frame_valid = false;
+    go2_control::GaitKernelResult invalid_frame{};
+    if (invalid_frame_kernel.Compute(request, invalid_frame))
+        return false;
+
+    auto invalid_world_up_kernel = MakeKernel();
+    request.execution.frame_valid = true;
+    request.execution.world_up_base = {};
+    go2_control::GaitKernelResult invalid_world_up{};
+    if (invalid_world_up_kernel.Compute(request, invalid_world_up))
+        return false;
+
+    auto incomplete_kernel = MakeKernel();
+    auto incomplete = request;
+    incomplete.execution.world_up_base = {0.0, 0.0, 1.0};
+    incomplete.execution.plan_id = 0;
+    go2_control::GaitKernelResult incomplete_result{};
+    if (incomplete_kernel.Compute(incomplete, incomplete_result))
+        return false;
+
+    auto stance_conflict_kernel = MakeKernel();
+    auto stance_conflict = request;
+    stance_conflict.execution.world_up_base = {0.0, 0.0, 1.0};
+    stance_conflict.execution.scheduled_support[fr] = true;
+    go2_control::GaitKernelResult stance_conflict_result{};
+    if (stance_conflict_kernel.Compute(stance_conflict,
+                                       stance_conflict_result))
+        return false;
+
+    auto early_swing_kernel = MakeKernel();
+    auto early_swing = request;
+    early_swing.execution.world_up_base = {0.0, 0.0, 1.0};
+    early_swing.execution.scheduled_support[fr] = false;
+    early_swing.gait_time_s = 0.05;
+    go2_control::GaitKernelResult early_swing_result{};
+    if (early_swing_kernel.Compute(early_swing, early_swing_result))
+        return false;
+
+    auto late_swing_kernel = MakeKernel();
+    auto late_swing = request;
+    late_swing.execution.world_up_base = {0.0, 0.0, 1.0};
+    late_swing.execution.scheduled_support[fr] = false;
+    late_swing.gait_time_s = 0.30;
+    go2_control::GaitKernelResult late_swing_result{};
+    if (late_swing_kernel.Compute(late_swing, late_swing_result))
+        return false;
+
+    auto fallback_kernel = MakeKernel();
+    auto fallback = request;
+    fallback.execution.fallback = true;
+    fallback.execution.frame_valid = false;
+    fallback.execution.world_up_base = {};
+    go2_control::GaitKernelResult fallback_result{};
+    if (!fallback_kernel.Compute(fallback, fallback_result) ||
+        fallback_result.execution_request_valid)
         return false;
 
     auto nominal_kernel = MakeKernel();

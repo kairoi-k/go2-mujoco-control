@@ -2889,16 +2889,25 @@ int main()
             {-0.3, -0.1, 0.0}, {-0.3, 0.1, 0.0}}};
         kernel_request.has_execution_request = true;
         kernel_request.execution.valid = true;
+        kernel_request.execution.plan_id = 1;
+        kernel_request.execution.plan_epoch = 1;
+        kernel_request.execution.map_epoch = 1;
+        kernel_request.execution.input_hash = 1;
         kernel_request.execution.valid_from_s = 1.0;
         kernel_request.execution.valid_until_s = 1.4;
         kernel_request.execution.phase_origin_s = 1.0;
         kernel_request.execution.phase_origin = 0.25;
         kernel_request.execution.period_s = 0.8;
         kernel_request.execution.duty_factor = 0.75;
+        kernel_request.execution.frame_valid = true;
+        kernel_request.execution.world_up_base = {0.0, 0.0, 1.0};
+        kernel_request.execution.scheduled_support_valid = true;
+        kernel_request.execution.scheduled_support = {false, true, true, true};
         kernel_request.execution.liftoff_time_s[0] = 1.0;
         kernel_request.execution.touchdown_time_s[0] = 1.2;
         kernel_request.execution.liftoff_time_valid[0] = true;
         kernel_request.execution.touchdown_time_valid[0] = true;
+        kernel_request.execution.stance_interval_valid[0] = true;
         kernel_request.execution.endpoint_valid[0] = true;
         kernel_request.execution.swing_start[0] = {0.3, -0.1, 0.0};
         kernel_request.execution.swing_endpoint[0] = {0.5, -0.1, 0.05};
@@ -2906,7 +2915,7 @@ int main()
         if (!Check(kernel.Compute(kernel_request, swing_a),
                    "timed gait request was rejected") ||
             !Check(swing_a.execution_request_valid &&
-                       swing_a.execution_plan_id == 0,
+                       swing_a.execution_plan_id == 1,
                    "timed gait provenance was not reported")) return 1;
         kernel_request.gait_time_s = 1.15;
         if (!Check(kernel.Compute(kernel_request, swing_b) &&
@@ -2917,6 +2926,18 @@ int main()
         kernel_request.execution.swing_endpoint[0].x = 0.9;
         if (!Check(immutable_endpoint.x == 0.5,
                    "caller could not observe endpoint identity immutability")) return 1;
+        auto invalid_frame_request = kernel_request;
+        invalid_frame_request.execution.frame_valid = false;
+        go2_control::GaitKernelResult invalid_frame_result;
+        if (!Check(!kernel.Compute(invalid_frame_request, invalid_frame_result),
+                   "hand-coded kernel accepted an invalid execution frame")) return 1;
+        auto invalid_world_up_request = kernel_request;
+        invalid_world_up_request.execution.frame_valid = true;
+        invalid_world_up_request.execution.world_up_base = {};
+        go2_control::GaitKernelResult invalid_world_up_result;
+        if (!Check(!kernel.Compute(invalid_world_up_request,
+                                   invalid_world_up_result),
+                   "hand-coded kernel accepted an invalid world-up vector")) return 1;
     }
 
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";

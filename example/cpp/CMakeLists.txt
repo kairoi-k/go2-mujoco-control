@@ -99,6 +99,7 @@ add_executable(test_cartesian_world_trot tests/test_cartesian_world_trot.cpp)
 go2_add_ctest(test_cartesian_world_trot)
 
 add_executable(test_motion_frame_utils tests/test_motion_frame_utils.cpp)
+target_link_libraries(test_motion_frame_utils unitree_sdk2 Eigen3::Eigen)
 
 add_executable(test_velocity_filter tests/test_velocity_filter.cpp)
 add_executable(test_velocity_command tests/test_velocity_command.cpp)

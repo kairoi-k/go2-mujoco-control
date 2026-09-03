@@ -156,16 +156,11 @@ public:
             return false;
         }
 
+        if (!ValidateActiveGaitExecution(request))
+            return false;
         const auto &execution = request.execution;
         const bool timed_execution =
-            request.has_execution_request && execution.valid &&
-            execution.scheduled_support_valid && !execution.fallback &&
-            execution.plan_id != 0 && execution.plan_epoch != 0 &&
-            execution.map_epoch != 0 && execution.input_hash != 0 &&
-            std::isfinite(execution.valid_from_s) &&
-            std::isfinite(execution.valid_until_s) &&
-            request.gait_time_s + 1.0e-9 >= execution.valid_from_s &&
-            request.gait_time_s <= execution.valid_until_s + 1.0e-9;
+            request.has_execution_request && !execution.fallback;
 
         // [Fix 2026-08-13] 连续相位累积: phase += dt / current_period
         // 旧实现 elapsed/period 在换挡(period 渐变)时 cycle_position 瞬移;
@@ -412,11 +407,14 @@ public:
             double execution_swing_phase = 0.0;
             if (timed_execution && !scheduled_stance)
             {
-                if (!execution.liftoff_time_valid[leg] ||
+                if (!execution.endpoint_valid[leg] ||
+                    !execution.liftoff_time_valid[leg] ||
                     !execution.touchdown_time_valid[leg] ||
                     !std::isfinite(execution.liftoff_time_s[leg]) ||
                     !std::isfinite(execution.touchdown_time_s[leg]) ||
                     execution.touchdown_time_s[leg] <=
+                        execution.liftoff_time_s[leg] ||
+                    request.gait_time_s + 1.0e-9 <
                         execution.liftoff_time_s[leg])
                     return false;
                 execution_swing_phase = std::clamp(
@@ -424,6 +422,58 @@ public:
                         (execution.touchdown_time_s[leg] -
                          execution.liftoff_time_s[leg]),
                     0.0, 1.0);
+            }
+            const bool endpoint_transaction = timed_execution &&
+                execution.endpoint_valid[leg] &&
+                execution.liftoff_time_valid[leg] &&
+                execution.touchdown_time_valid[leg];
+            if (endpoint_transaction)
+            {
+                const auto &start = execution.swing_start[leg];
+                const auto &endpoint = execution.swing_endpoint[leg];
+                const auto &world_up = execution.world_up_base;
+                const double liftoff = execution.liftoff_time_s[leg];
+                const double touchdown = execution.touchdown_time_s[leg];
+                if (!std::isfinite(start.x) || !std::isfinite(start.y) ||
+                    !std::isfinite(start.z) || !std::isfinite(endpoint.x) ||
+                    !std::isfinite(endpoint.y) ||
+                    !std::isfinite(endpoint.z) ||
+                    !go2_control::GaitExecutionWorldUpValid(world_up) ||
+                    !std::isfinite(liftoff) ||
+                    !std::isfinite(touchdown) || touchdown <= liftoff)
+                    return false;
+                if (!scheduled_stance &&
+                    request.gait_time_s + 1.0e-9 >= liftoff &&
+                    request.gait_time_s < touchdown)
+                {
+                    const double u = std::clamp(
+                        (request.gait_time_s - liftoff) /
+                            (touchdown - liftoff),
+                        0.0, 1.0);
+                    const double progress = Smoothstep(u);
+                    const double sine = std::sin(kPi * u);
+                    const double lift = execution.foot_lift_m * sine * sine *
+                        (1.0 - 0.9 * std::max(0.0, u - 0.75) / 0.25);
+                    result.feet[leg] = {
+                        start.x + progress * (endpoint.x - start.x) +
+                            world_up.x * lift,
+                        start.y + progress * (endpoint.y - start.y) +
+                            world_up.y * lift,
+                        start.z + progress * (endpoint.z - start.z) +
+                            world_up.z * lift};
+                    result.touchdown_target_x_m[leg] =
+                        endpoint.x - request.neutral_feet[leg].x;
+                    result.touchdown_target_feet_base[leg] = endpoint;
+                    continue;
+                }
+                if (scheduled_stance && request.gait_time_s >= touchdown)
+                {
+                    result.feet[leg] = endpoint;
+                    result.touchdown_target_x_m[leg] =
+                        endpoint.x - request.neutral_feet[leg].x;
+                    result.touchdown_target_feet_base[leg] = endpoint;
+                    continue;
+                }
             }
             if (scheduled_stance)
             {

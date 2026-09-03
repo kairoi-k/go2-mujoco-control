@@ -86,7 +86,11 @@ int main()
     SpyKernel kernel;
     go2_control::GaitKernelRequest request;
     std::array<go2::Vec3, go2::kLegCount> neutral_feet{};
-    adapter.ApplyToKernel(kernel, request, 1.0, neutral_feet);
+    if (!adapter.ApplyToKernel(kernel, request, 1.0, neutral_feet))
+    {
+        std::cerr << "fallback application unexpectedly failed\n";
+        return 1;
+    }
 
     if (request.has_execution_request)
     {
