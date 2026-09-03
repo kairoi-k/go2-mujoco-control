@@ -126,3 +126,197 @@ class ResearchWorkflow:
             "diagnosis": diagnosis,
             "next_action": next_action,
         }
+
+
+@workflow.defn
+class AutonomousResearchWorkflow:
+    """Run the unattended, source-pinned development -> B0 -> B1 state machine."""
+
+    @workflow.run
+    async def run(self, spec_payload: dict[str, Any]) -> dict[str, Any]:
+        spec = await workflow.execute_activity(
+            "validate_experiment",
+            spec_payload,
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=_once(),
+        )
+        if not isinstance(spec, dict):
+            raise ValueError("validate_experiment returned a non-object payload")
+        if spec.get("autonomous") is not True:
+            raise ValueError("AutonomousResearchWorkflow requires autonomous=true")
+
+        preflight: list[dict[str, Any]] = []
+        campaigns: list[dict[str, Any]] = []
+        execution_mode = spec.get("execution_mode")
+        if execution_mode == "fixture":
+            result = await workflow.execute_activity(
+                "run_fixture_probe",
+                spec,
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=_once(),
+            )
+            diagnosis = await workflow.execute_activity(
+                "classify_result",
+                result,
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=_once(),
+            )
+            next_action = await workflow.execute_activity(
+                "decide_next_action",
+                args=[spec, diagnosis],
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=_once(),
+            )
+            return {
+                "schema_version": "research_run.v1",
+                "experiment": spec,
+                "preflight": preflight,
+                "result": result,
+                "diagnosis": diagnosis,
+                "next_action": next_action,
+                "campaigns": campaigns,
+            }
+
+        if execution_mode != "atlas":
+            raise ValueError("execution_mode must be 'fixture' or 'atlas'")
+        if spec.get("profile") != "b0-development":
+            raise ValueError(
+                "autonomous campaigns must start from b0-development; the state machine owns formal transitions"
+            )
+
+        atlas_queue = str(spec.get("atlas_task_queue", "atlas"))
+        for activity_name, timeout_s in (
+            ("build_source", 900.0),
+            ("run_unit_tests", 900.0),
+        ):
+            receipt = await workflow.execute_activity(
+                activity_name,
+                spec,
+                task_queue=atlas_queue,
+                start_to_close_timeout=timedelta(seconds=timeout_s),
+                retry_policy=_once(),
+            )
+            if not isinstance(receipt, dict):
+                raise ValueError(f"{activity_name} returned a non-object receipt")
+            preflight.append(receipt)
+            if receipt.get("status") != "completed":
+                raise ValueError(f"{activity_name} did not complete successfully")
+
+        result = await workflow.execute_activity(
+            "run_dev_probe",
+            spec,
+            task_queue=atlas_queue,
+            start_to_close_timeout=timedelta(seconds=float(spec.get("wall_timeout_s", 60.0)) + 60.0),
+            retry_policy=_once(),
+        )
+        diagnosis = await workflow.execute_activity(
+            "classify_result",
+            result,
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=_once(),
+        )
+
+        # Autonomous mode always gives the pinned Atlas model the observed
+        # result. It is advisory: deterministic gates, not model optimism,
+        # decide whether the campaign may advance.
+        if spec.get("allow_local_llm") is True:
+            diagnosis = await workflow.execute_activity(
+                "diagnose_with_local_llm",
+                args=[{"result": result, "baseline": diagnosis, "spec": spec}],
+                task_queue=atlas_queue,
+                start_to_close_timeout=timedelta(
+                    seconds=float(spec.get("local_llm_timeout_s", 360)) + 30
+                ),
+                retry_policy=_once(),
+            )
+
+        if diagnosis.get("requires_codex") is True and spec.get("allow_codex") is True:
+            diagnosis = await workflow.execute_activity(
+                "diagnose_with_codex",
+                args=[result, diagnosis, spec],
+                start_to_close_timeout=timedelta(
+                    seconds=float(spec.get("codex_timeout_s", 90)) + 15
+                ),
+                retry_policy=_once(),
+            )
+
+        # A failed development run is terminal for this immutable source
+        # revision. Preserve an observed failure window, then stop; never
+        # silently reinterpret a failed development gate as B0 evidence.
+        if result.get("status") != "completed" or result.get("verdict") != "PASS_DEV":
+            if result.get("failure_window") is not None:
+                await workflow.execute_activity(
+                    "extract_failure_window",
+                    {"spec": spec, "result": result},
+                    task_queue=atlas_queue,
+                    start_to_close_timeout=timedelta(seconds=30),
+                    retry_policy=_once(),
+                )
+            next_action = await workflow.execute_activity(
+                "decide_next_action",
+                args=[spec, diagnosis],
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=_once(),
+            )
+            return {
+                "schema_version": "research_run.v1",
+                "experiment": spec,
+                "preflight": preflight,
+                "result": result,
+                "diagnosis": diagnosis,
+                "next_action": next_action,
+                "campaigns": campaigns,
+            }
+
+        b0_campaign = await workflow.execute_activity(
+            "run_b0_holdout",
+            spec,
+            task_queue=atlas_queue,
+            start_to_close_timeout=timedelta(seconds=10_800),
+            heartbeat_timeout=timedelta(seconds=180),
+            retry_policy=_once(),
+        )
+        if not isinstance(b0_campaign, dict):
+            raise ValueError("run_b0_holdout returned a non-object campaign receipt")
+        campaigns.append(b0_campaign)
+        diagnosis = await workflow.execute_activity(
+            "classify_campaign",
+            {"spec": spec, "campaign": b0_campaign},
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=_once(),
+        )
+
+        if b0_campaign.get("acceptance_status") == "PASS":
+            b1_campaign = await workflow.execute_activity(
+                "run_b1_probe",
+                {"spec": spec, "b0_campaign": b0_campaign},
+                task_queue=atlas_queue,
+                start_to_close_timeout=timedelta(seconds=2_400),
+                heartbeat_timeout=timedelta(seconds=180),
+                retry_policy=_once(),
+            )
+            if not isinstance(b1_campaign, dict):
+                raise ValueError("run_b1_probe returned a non-object campaign receipt")
+            campaigns.append(b1_campaign)
+            diagnosis = await workflow.execute_activity(
+                "classify_campaign",
+                {"spec": spec, "campaign": b1_campaign},
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=_once(),
+            )
+
+        next_action = await workflow.execute_activity(
+            "decide_next_action",
+            args=[spec, diagnosis],
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=_once(),
+        )
+        return {
+            "schema_version": "research_run.v1",
+            "experiment": spec,
+            "preflight": preflight,
+            "result": result,
+            "diagnosis": diagnosis,
+            "next_action": next_action,
+            "campaigns": campaigns,
+        }

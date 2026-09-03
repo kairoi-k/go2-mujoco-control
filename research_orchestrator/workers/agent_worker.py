@@ -10,13 +10,14 @@ from temporalio.worker import Worker
 
 from ..activities.agent import (
     classify_result,
+    classify_campaign,
     decide_next_action,
     diagnose_with_codex,
     run_fixture_probe,
     validate_experiment,
 )
 from ..config import WorkerSettings
-from ..workflows.research import ResearchWorkflow
+from ..workflows.research import AutonomousResearchWorkflow, ResearchWorkflow
 
 
 async def serve() -> None:
@@ -26,11 +27,12 @@ async def serve() -> None:
     worker = Worker(
         client,
         task_queue=settings.agent_task_queue,
-        workflows=[ResearchWorkflow],
+        workflows=[ResearchWorkflow, AutonomousResearchWorkflow],
         activities=[
             validate_experiment,
             run_fixture_probe,
             classify_result,
+            classify_campaign,
             diagnose_with_codex,
             decide_next_action,
         ],

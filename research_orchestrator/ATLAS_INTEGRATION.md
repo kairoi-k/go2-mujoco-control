@@ -59,8 +59,12 @@ manifest, timeout, source drift, or lifecycle failure is retained as runner
 failure. A failure window is created only when a timestamp is actually
 present; the adapter never invents one.
 
-`run_b0_member`, `run_b0_holdout`, and `run_b1_probe` are registered but fail
-closed with `ATLAS_FORMAL_APPROVAL_REQUIRED`. `extract_failure_window` only
+`run_b0_member`, `run_b0_holdout`, and `run_b1_probe` execute only when the
+validated spec sets `autonomous=true`. They bind to the source checkout's
+frozen B0/B1 manifests and existing reviewed runners; no command, path, domain,
+scene, or parameter is accepted from free-form experiment input. B0 executes
+all 18 members serially and B1 executes its development case plus three
+holdouts only after a same-run B0 PASS receipt. `extract_failure_window` only
 accepts a validated result containing an observed failure timestamp.
 
 ## Bring-up and verification
@@ -105,7 +109,10 @@ Base Tailscale IPv4, not the MagicDNS/Funnel name. The versioned systemd unit
 under `ops/systemd/` remains available for Linux hosts where systemd is the
 actual host supervisor.
 
-No formal holdout is started by the generic workflow. A future approval
-workflow must add a human decision, frozen membership, separate domains, and
-an explicit evidence/rollback policy before binding those names to physical
-commands.
+The generic one-shot workflow remains available for development-only work.
+The autonomous workflow is the unattended path: it records a `campaign.v1`
+receipt for every formal stage, never retries physical/model activities, keeps
+all members serialized, and stops on any failed prerequisite or analyzer
+gate. It does not edit controller sources or make an external acceptance
+claim, so a failed campaign is a valid scientific result rather than a reason
+to relax the contract.

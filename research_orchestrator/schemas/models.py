@@ -139,6 +139,10 @@ class ExperimentSpec(SchemaBase):
     local_llm_timeout_s: int = Field(default=360, ge=30, le=1800)
     allow_codex: bool = False
     codex_timeout_s: int = Field(default=90, ge=10, le=600)
+    # Autonomous mode executes the frozen campaign state machine without a
+    # human approval activity. It does not authorize controller source
+    # mutation; the current phase is evidence collection and evaluation.
+    autonomous: bool = False
     requested_at: str = Field(min_length=1, max_length=80)
 
     @field_validator("parameters")
@@ -280,6 +284,46 @@ class ActivityReceipt(SchemaBase):
     artifacts: list[ArtifactRef] = Field(default_factory=list, max_length=100)
 
 
+class CampaignMember(SchemaBase):
+    """One immutable member of a frozen B0/B1 campaign."""
+
+    schema_version: Literal["campaign_member.v1"] = "campaign_member.v1"
+    member_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{2,100}$")
+    stage: Literal["b0", "b1"]
+    case: str = Field(min_length=1, max_length=100)
+    profile: str | None = Field(default=None, max_length=200)
+    repeat: int = Field(default=0, ge=0, le=3)
+    baseline_domain: int | None = Field(default=None, ge=0, le=232)
+    terrain_domain: int | None = Field(default=None, ge=0, le=232)
+    status: Literal["completed", "failed", "timeout", "skipped"]
+    passed: bool = False
+    exit_code: int | None = None
+    acceptance_status: Literal["PASS", "FAIL", "UNAVAILABLE", "BLOCKED"]
+    failure_reasons: list[str] = Field(default_factory=list, max_length=30)
+    artifacts: list[ArtifactRef] = Field(default_factory=list, max_length=100)
+
+
+class CampaignReceipt(SchemaBase):
+    """Aggregate, machine-readable receipt for an autonomous campaign."""
+
+    schema_version: Literal["campaign.v1"] = "campaign.v1"
+    campaign_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{2,100}$")
+    experiment_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{2,63}$")
+    stage: Literal["b0", "b1"]
+    contract: str = Field(min_length=1, max_length=200)
+    manifest_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    status: Literal["completed", "failed", "skipped"]
+    acceptance_status: Literal["PASS", "FAIL", "BLOCKED"]
+    prerequisite_passed: bool | None = None
+    members_total: int = Field(ge=0, le=64)
+    members_passed: int = Field(ge=0, le=64)
+    members_failed: int = Field(ge=0, le=64)
+    source: SourceRevision
+    members: list[CampaignMember] = Field(default_factory=list, max_length=64)
+    failure_reasons: list[str] = Field(default_factory=list, max_length=100)
+    artifacts: list[ArtifactRef] = Field(default_factory=list, max_length=100)
+
+
 class WorkflowResult(SchemaBase):
     schema_version: Literal["research_run.v1"] = "research_run.v1"
     experiment: ExperimentSpec
@@ -287,3 +331,4 @@ class WorkflowResult(SchemaBase):
     result: Result
     diagnosis: Diagnosis
     next_action: NextAction
+    campaigns: list[CampaignReceipt] = Field(default_factory=list, max_length=4)

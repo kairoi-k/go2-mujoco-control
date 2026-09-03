@@ -1,7 +1,15 @@
 import pytest
 from temporalio.exceptions import ApplicationError
 
-from research_orchestrator.activities.atlas import DEV_SCENARIO_DURATIONS, _copy_file, _scenario
+from research_orchestrator.activities.atlas import (
+    B0_HOLDOUT_PROFILES,
+    B0_HOLDOUT_REPEATS,
+    _b0_holdout_members,
+    _copy_file,
+    _scenario,
+    _validate_b0_manifest,
+    DEV_SCENARIO_DURATIONS,
+)
 from research_orchestrator.schemas.models import ExperimentSpec
 
 
@@ -48,3 +56,24 @@ def test_copy_file_accepts_a_log_already_in_the_artifact_root(tmp_path):
 
     assert ref is not None
     assert ref.relative_path == "atlas-adapter-smoke/atlas_process.log"
+
+
+def test_frozen_b0_members_are_exactly_18():
+    manifest = {
+        "contract": "b0-contract-v1.2",
+        "profiles": list(B0_HOLDOUT_PROFILES),
+        "repeats": [
+            {"repeat": repeat, "terrain_domain": terrain, "baseline_domain": baseline}
+            for repeat, terrain, baseline in B0_HOLDOUT_REPEATS
+        ],
+        "fixed_3mps_repeats": [
+            {"repeat": repeat, "terrain_domain": terrain + 3, "baseline_domain": baseline + 3}
+            for repeat, terrain, baseline in B0_HOLDOUT_REPEATS
+        ],
+        "terrain_mode": "sensor_only",
+    }
+    _validate_b0_manifest(manifest)
+    members = _b0_holdout_members(manifest)
+    assert len(members) == 18
+    assert members[0]["terrain_domain"] == 200
+    assert members[-1]["terrain_domain"] == 205

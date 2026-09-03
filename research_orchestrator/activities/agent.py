@@ -18,6 +18,7 @@ from temporalio.exceptions import ApplicationError
 from ..policies import load_policy, validate_spec_against_policy
 from ..schemas.models import (
     ActionType,
+    CampaignReceipt,
     Diagnosis,
     DiagnosisSource,
     EvidencePoint,
@@ -260,6 +261,117 @@ async def classify_result(payload: dict[str, Any]) -> dict[str, Any]:
     return classify_result_payload(payload)
 
 
+def _campaign(payload: Any) -> CampaignReceipt:
+    try:
+        return CampaignReceipt.model_validate(payload)
+    except ValidationError as exc:
+        raise ApplicationError(
+            "invalid campaign.v1 payload",
+            type="INVALID_CAMPAIGN",
+            non_retryable=True,
+            details=[str(exc)],
+        ) from exc
+
+
+def classify_campaign_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Classify a frozen campaign without reducing analyzer evidence to prose."""
+
+    if not isinstance(payload, dict):
+        raise ApplicationError(
+            "campaign classifier requires an object",
+            type="INVALID_CAMPAIGN",
+            non_retryable=True,
+        )
+    spec = _spec(payload.get("spec"))
+    campaign = _campaign(payload.get("campaign"))
+    if campaign.experiment_id != spec.experiment_id:
+        raise ApplicationError(
+            "campaign and spec experiment_id differ",
+            type="INVALID_CAMPAIGN",
+            non_retryable=True,
+        )
+
+    evidence = [
+        EvidencePoint(signal="campaign.stage", value=campaign.stage, source="artifact"),
+        EvidencePoint(
+            signal="campaign.acceptance_status",
+            value=campaign.acceptance_status,
+            source="artifact",
+        ),
+        EvidencePoint(
+            signal="campaign.members_passed",
+            value=str(campaign.members_passed),
+            source="artifact",
+        ),
+        EvidencePoint(
+            signal="campaign.members_total",
+            value=str(campaign.members_total),
+            source="artifact",
+        ),
+    ]
+    if campaign.manifest_sha256:
+        evidence.append(
+            EvidencePoint(
+                signal="campaign.manifest_sha256",
+                value=campaign.manifest_sha256,
+                source="artifact",
+            )
+        )
+
+    if campaign.acceptance_status == "PASS":
+        failure_class = FailureClass.PASS_DEV
+        if campaign.stage == "b0":
+            action = ActionType.ADVANCE
+            recommended_profile = ProbeProfile.B1_PROBE
+            summary = "The frozen B0 campaign passed; the autonomous state machine may enter B1."
+        else:
+            action = ActionType.STOP
+            recommended_profile = None
+            summary = "The frozen B1 campaign passed; the autonomous campaign completed."
+        confidence = 1.0
+    else:
+        reasons = " ".join(campaign.failure_reasons).lower()
+        if any(token in reasons for token in ("phase1", "quality", "undershoot", "overshoot", "steady_state", "timing")):
+            failure_class = FailureClass.FAIL_TIMING
+        elif any(token in reasons for token in ("planner", "terrain", "plan", "support", "clearance")):
+            failure_class = FailureClass.FAIL_PLANNER
+        elif any(token in reasons for token in ("safety", "posture", "contact", "safe_stop")):
+            failure_class = FailureClass.FAIL_SAFE_STOP
+        elif any(member.status in {"timeout", "skipped"} for member in campaign.members):
+            failure_class = FailureClass.RUNNER_FAILURE
+        else:
+            failure_class = FailureClass.UNKNOWN
+        action = ActionType.STOP
+        recommended_profile = None
+        details = "; ".join(campaign.failure_reasons[:5]) or "no member-level failure reason was available"
+        summary = (
+            f"The frozen {campaign.stage.upper()} campaign failed; no approval wait or unsafe bypass is allowed. "
+            f"{details}"
+        )
+        confidence = 1.0 if failure_class != FailureClass.UNKNOWN else 0.0
+        for reason in campaign.failure_reasons[:10]:
+            evidence.append(EvidencePoint(signal="campaign.failure", value=reason, source="artifact"))
+
+    diagnosis = Diagnosis(
+        experiment_id=spec.experiment_id,
+        source=DiagnosisSource.DETERMINISTIC,
+        failure_class=failure_class,
+        confidence=confidence,
+        summary=summary,
+        evidence=evidence[:20],
+        recommended_action=action,
+        recommended_profile=recommended_profile,
+        requires_codex=False,
+        requires_human_review=not spec.autonomous,
+    )
+    return diagnosis.model_dump(mode="json")
+
+
+@activity.defn(name="classify_campaign")
+async def classify_campaign(payload: dict[str, Any]) -> dict[str, Any]:
+    return classify_campaign_payload(payload)
+
+
 def _codex_failure_diagnosis(result: Result, error_code: str, summary: str) -> Diagnosis:
     return Diagnosis(
         experiment_id=result.experiment_id,
@@ -495,9 +607,14 @@ def decide_next_action_payload(
 ) -> dict[str, Any]:
     spec = _spec(spec_payload)
     diagnosis = _diagnosis(diagnosis_payload)
+    autonomous = spec.autonomous
     guardrails = [
         "No controller algorithm or acceptance threshold mutation is authorized.",
-        "Do not run formal B0/B1 without explicit human approval.",
+        (
+            "Autonomous mode has no human approval gate; transitions are permitted only through the frozen manifest and prerequisite chain."
+            if autonomous
+            else "Formal B0/B1 execution requires an explicit human-approved workflow."
+        ),
         "Any proposed parameters must pass the policy validator before execution.",
         "Atlas commands must come from an allowlisted adapter operation, never the experiment JSON.",
     ]
@@ -506,26 +623,37 @@ def decide_next_action_payload(
         FailureClass.RUNNER_FAILURE,
         FailureClass.FAIL_SAFE_STOP,
     }:
-        action = ActionType.ESCALATE
+        action = ActionType.STOP if autonomous else ActionType.ESCALATE
         rationale = diagnosis.summary
         proposed_profile = None
     elif diagnosis.failure_class == FailureClass.PASS_DEV:
-        action = ActionType.CHECKPOINT
-        rationale = "Development probe passed; stop at the formal checkpoint until a human approves the holdout."
-        proposed_profile = None
+        if autonomous:
+            action = (
+                ActionType.STOP
+                if diagnosis.recommended_action == ActionType.STOP
+                else ActionType.ADVANCE
+            )
+            rationale = diagnosis.summary
+            proposed_profile = diagnosis.recommended_profile or ProbeProfile.B0_HOLDOUT
+        else:
+            action = ActionType.CHECKPOINT
+            rationale = "Development probe passed; stop at the formal checkpoint until a human approves the holdout."
+            proposed_profile = None
     else:
         action = diagnosis.recommended_action
-        if action not in {ActionType.RERUN, ActionType.COLLECT_EVIDENCE}:
+        if autonomous:
+            action = ActionType.STOP
+        elif action not in {ActionType.RERUN, ActionType.COLLECT_EVIDENCE}:
             action = ActionType.COLLECT_EVIDENCE
         rationale = diagnosis.summary
-        proposed_profile = spec.profile
+        proposed_profile = None if autonomous else spec.profile
     next_action = NextAction(
         experiment_id=spec.experiment_id,
         action=action,
         rationale=rationale,
         proposed_profile=proposed_profile,
         proposed_parameters=diagnosis.recommended_parameters,
-        requires_approval=True,
+        requires_approval=not autonomous,
         guardrails=guardrails,
     )
     return next_action.model_dump(mode="json")

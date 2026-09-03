@@ -13,6 +13,7 @@ allowed_activity_names:
   - run_b0_holdout
   - extract_failure_window
   - diagnose_with_local_llm
+  - classify_campaign
 max_duration_s: 900
 allowed_parameter_names:
   - fixture_verdict
@@ -21,8 +22,8 @@ allowed_parameter_names:
   - force_local_llm
 controller_mutation_allowed: false
 acceptance_claim_allowed: false
-requires_human_approval_for_formal: true
+requires_human_approval_for_formal: false
 notes:
-  - WIP contract only; no B0 acceptance claim is granted by this file.
-  - Formal holdout execution remains a separate, human-approved checkpoint.
+  - WIP contract only; the worker may compute an automatic PASS/FAIL receipt but must not make an external acceptance claim.
+  - Autonomous execution is allowed only through the frozen manifest and all 18 members; a failure is a valid terminal outcome.
   - The Atlas adapter must use an allowlisted operation map, never arbitrary shell from a spec.

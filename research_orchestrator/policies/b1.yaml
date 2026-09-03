@@ -10,6 +10,7 @@ allowed_activity_names:
   - run_dev_probe
   - run_b1_probe
   - extract_failure_window
+  - classify_campaign
 max_duration_s: 900
 allowed_parameter_names:
   - fixture_verdict
@@ -17,7 +18,7 @@ allowed_parameter_names:
   - domain_id
 controller_mutation_allowed: false
 acceptance_claim_allowed: false
-requires_human_approval_for_formal: true
+requires_human_approval_for_formal: false
 notes:
-  - Draft contract only; B1 semantics and acceptance thresholds are not defined here.
+  - Draft contract only; autonomous B1 execution is blocked unless the same run has a current B0 PASS receipt.
   - No controller algorithm, physics setting, or acceptance threshold may be changed by the worker.

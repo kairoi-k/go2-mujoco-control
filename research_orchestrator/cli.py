@@ -24,7 +24,7 @@ from .schemas.models import (
     WorkflowResult,
 )
 from .activities.atlas import DEV_SCENARIO_DURATIONS
-from .workflows.research import ResearchWorkflow
+from .workflows.research import AutonomousResearchWorkflow, ResearchWorkflow
 
 
 def _git(repo_root: Path, *args: str, check: bool = True) -> str:
@@ -60,6 +60,7 @@ def make_fixture_spec(repo_root: Path, args: argparse.Namespace) -> ExperimentSp
         allow_local_llm=args.allow_local_llm,
         local_llm_timeout_s=args.local_llm_timeout_s,
         allow_codex=args.allow_codex,
+        autonomous=args.autonomous,
         requested_at=datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
     )
 
@@ -104,9 +105,10 @@ def make_atlas_spec(repo_root: Path, args: argparse.Namespace) -> ExperimentSpec
             "domain_id": args.domain_id,
             **({"force_local_llm": True} if args.force_local_llm else {}),
         },
-        allow_local_llm=args.allow_local_llm,
+        allow_local_llm=args.allow_local_llm or args.autonomous,
         local_llm_timeout_s=args.local_llm_timeout_s,
         allow_codex=args.allow_codex,
+        autonomous=args.autonomous,
         requested_at=datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
     )
 
@@ -115,8 +117,9 @@ async def run_workflow(
     spec: ExperimentSpec, address: str, namespace: str, task_queue: str, workflow_id: str
 ) -> WorkflowResult:
     client = await Client.connect(address, namespace=namespace)
+    workflow_type = AutonomousResearchWorkflow if spec.autonomous else ResearchWorkflow
     raw = await client.execute_workflow(
-        ResearchWorkflow.run,
+        workflow_type.run,
         spec.model_dump(mode="json"),
         id=workflow_id,
         task_queue=task_queue,
@@ -140,8 +143,12 @@ def _build_parser() -> argparse.ArgumentParser:
     fixture.add_argument("--allow-codex", action="store_true")
     fixture.add_argument("--allow-local-llm", action="store_true")
     fixture.add_argument("--local-llm-timeout-s", type=int, default=360)
+    fixture.add_argument("--autonomous", action="store_true")
 
-    atlas = subparsers.add_parser("make-atlas-spec", help="write a source-pinned Atlas development spec")
+    atlas = subparsers.add_parser(
+        "make-atlas-spec",
+        help="write a source-pinned Atlas development or unattended campaign spec",
+    )
     atlas.add_argument("--repo", type=Path, default=Path.cwd(), help="Base control-plane checkout")
     atlas.add_argument("--output", type=Path, required=True)
     atlas.add_argument("--source-sha", required=True, help="exact Git SHA in the Atlas source checkout")
@@ -161,6 +168,11 @@ def _build_parser() -> argparse.ArgumentParser:
     atlas.add_argument("--allow-local-llm", action="store_true")
     atlas.add_argument("--force-local-llm", action="store_true")
     atlas.add_argument("--local-llm-timeout-s", type=int, default=360)
+    atlas.add_argument(
+        "--autonomous",
+        action="store_true",
+        help="run development -> frozen B0 -> prerequisite-gated B1 without approval",
+    )
 
     run = subparsers.add_parser("run", help="execute one spec against the local Temporal server")
     run.add_argument("--spec", type=Path, required=True)

@@ -92,9 +92,20 @@ references back to Base.
 The fixed development profiles are `steps`, `accel_1_to_3`, `brake_3_to_0`,
 `ramp`, and `varying`. The adapter constructs their paths and arguments; a
 spec cannot provide shell text, executable paths, arbitrary arguments, or
-environment assignments. Formal B0 holdout, B1, and acceptance claims remain
-behind an explicit human-approved workflow and are currently rejected by the
-worker.
+environment assignments. An autonomous spec runs the fixed state machine:
+development -> all 18 B0 members -> B1 development plus three holdouts when
+B0 passes. There is no approval activity. A failed gate is recorded as a
+terminal result, and B1 is never started after a B0 failure.
+
+Start an unattended campaign from Base with the exact Atlas source SHA:
+
+```bash
+.venv/bin/python -m research_orchestrator.cli make-atlas-spec \
+  --repo "$PWD" --source-sha <atlas-sha> --source-ref phase2-b1-b3 \
+  --scenario accel_1_to_3 --autonomous --output /tmp/go2-autonomous.json
+.venv/bin/python -m research_orchestrator.cli run \
+  --spec /tmp/go2-autonomous.json --address "${TEMPORAL_ADDRESS:-100.90.49.95:7233}"
+```
 
 ## Atlas local LLM
 
@@ -108,7 +119,11 @@ latency are recorded in an `inference.v1` receipt. The measured fallback is
 `gpt-oss-20b-MXFP4`; see `LOCAL_LLM_BENCHMARK.md` for the candidate comparison
 and exact Atlas artifact paths.
 
-Enable it only on an Atlas development spec:
+In autonomous mode the pinned local model is automatically enabled and is
+called after the development probe. Enable `--allow-codex` only when cloud
+diagnostic escalation is desired; the Codex activity remains read-only.
+
+For a single non-autonomous development spec, enable it explicitly:
 
 ```bash
 .venv/bin/python -m research_orchestrator.cli make-atlas-spec \
@@ -119,9 +134,10 @@ Enable it only on an Atlas development spec:
 The local Activity starts the server on demand and stops it in `finally`; it is
 registered on the same single-concurrency Atlas queue. Every physical Activity
 also refuses to start while the reserved loopback port is occupied. Thus the
-sequence is: fixed build/test/probe, deterministic classification, optional
-Atlas local diagnosis, then optional read-only Codex escalation. Local model
-failure produces a fail-closed diagnosis and never edits the controller.
+autonomous sequence is: fixed build/test/probe, local diagnosis, frozen B0,
+deterministic campaign classification, prerequisite-gated B1, and final
+machine-readable receipt. Local model failure never changes a gate or edits
+the controller.
 
 The Atlas worker environment pins the deployment without putting machine paths
 in experiment JSON:
@@ -152,4 +168,6 @@ ATLAS_LLM_VERIFY_MODEL_HASH=1
 - Local inference is loopback-only, on-demand, serialized with physical work,
   and bounded by a JSON schema plus explicit confidence/escalation rules.
 - No Activity edits controller sources, changes gains/physics/thresholds, or
-  treats a development pass as B0/B1 acceptance.
+  treats a development pass as B0/B1 acceptance. The formal analyzer's
+  PASS/FAIL is recorded automatically, while the policy deliberately does not
+  make an external acceptance claim.
