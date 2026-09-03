@@ -217,6 +217,49 @@ struct TerrainPlannerResult
 
 inline constexpr double kV2BPreparationDurationS = 0.20;
 inline constexpr double kV2BMinimumSupportMarginM = 0.015;
+inline constexpr std::size_t kV2BExecutionTouchdownTailKnots = 3;
+inline constexpr std::size_t kV2BSrbdMpcHorizonKnots = 8;
+inline constexpr double kV2BSrbdMpcMinKnotDtS = 0.020;
+inline constexpr double kV2BSrbdMpcMaxKnotDtS = 0.050;
+
+// The V2-B execution events belong to the configured execution window.  The
+// plan snapshot also carries a conservative terminal preview so an
+// asynchronous SRBD-MPC consumer can start at any point through touchdown
+// without falling off the published plan.  Keep this calculation shared by
+// the V2-B shadow builder and its bridge.
+inline double TerrainV2BSrbdMpcKnotDt(double gait_period_s) noexcept
+{
+    if (!std::isfinite(gait_period_s) || gait_period_s <= 0.0)
+        return std::numeric_limits<double>::quiet_NaN();
+    return std::clamp(
+        gait_period_s / static_cast<double>(kV2BSrbdMpcHorizonKnots),
+        kV2BSrbdMpcMinKnotDtS, kV2BSrbdMpcMaxKnotDtS);
+}
+
+inline std::size_t TerrainV2BExecutionTouchdownKnot(
+    std::size_t execution_horizon) noexcept
+{
+    return execution_horizon > kV2BExecutionTouchdownTailKnots
+        ? execution_horizon - kV2BExecutionTouchdownTailKnots : 0;
+}
+
+inline std::size_t TerrainV2BPreviewHorizonKnots(
+    std::size_t execution_horizon, double plan_knot_dt_s,
+    double gait_period_s) noexcept
+{
+    if (execution_horizon == 0 || execution_horizon > kTerrainPlanMaxKnots ||
+        !std::isfinite(plan_knot_dt_s) || plan_knot_dt_s <= 0.0)
+        return 0;
+    const double mpc_dt_s = TerrainV2BSrbdMpcKnotDt(gait_period_s);
+    if (!std::isfinite(mpc_dt_s))
+        return 0;
+    const auto preview_tail_knots = static_cast<std::size_t>(std::ceil(
+        static_cast<double>(kV2BSrbdMpcHorizonKnots) * mpc_dt_s /
+            plan_knot_dt_s - 1.0e-12));
+    if (preview_tail_knots >= kTerrainPlanMaxKnots - execution_horizon)
+        return kTerrainPlanMaxKnots;
+    return execution_horizon + preview_tail_knots;
+}
 
 inline bool SameTerrainPlanIdentity(const TerrainPlanIdentity &a,
                                     const TerrainPlanIdentity &b) noexcept
@@ -337,6 +380,13 @@ inline bool BuildV2BExecutionPlanFromShadow(
             shadow.contact_timing.touchdown_time_s[touchdown_leg],
             &touchdown_knot) ||
         liftoff_knot < prep_knots || touchdown_knot <= liftoff_knot)
+        return false;
+    const std::size_t execution_horizon =
+        touchdown_knot + kV2BExecutionTouchdownTailKnots;
+    const std::size_t required_preview_horizon =
+        TerrainV2BPreviewHorizonKnots(
+            execution_horizon, dt, shadow.period_s);
+    if (required_preview_horizon == 0 || horizon < required_preview_horizon)
         return false;
     for (std::size_t k = 0; k < horizon; ++k) {
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
@@ -3171,6 +3221,8 @@ inline void TerrainPlanner::BuildShadow(
         [](std::uint64_t count) { return count > 0; });
 
     const double dt = config_.knot_dt_s;
+    const std::size_t execution_horizon = std::clamp<std::size_t>(
+        config_.horizon_knots, 1, kTerrainPlanMaxKnots);
     const std::size_t minimum_horizon = static_cast<std::size_t>(
         std::ceil(0.4 / dt - 1.0e-12)) + 1;
     const std::size_t maximum_horizon = static_cast<std::size_t>(
@@ -3184,9 +3236,16 @@ inline void TerrainPlanner::BuildShadow(
         finish();
         return;
     }
-    const std::size_t shadow_horizon = std::clamp<std::size_t>(
+    const std::size_t bounded_shadow_horizon = std::clamp<std::size_t>(
         horizon, minimum_horizon,
         std::min(maximum_horizon, kTerrainPlanMaxKnots));
+    const std::size_t v2b_preview_horizon =
+        TerrainV2BPreviewHorizonKnots(
+            execution_horizon, dt, input.gait_period_s);
+    // Only V2-B carries the complete terminal preview.  V3-C keeps its
+    // original bounded observer horizon and candidate identity/hash.
+    const std::size_t v2b_shadow_horizon = v2b_preview_horizon == 0
+        ? 0 : std::max(bounded_shadow_horizon, v2b_preview_horizon);
     const bool bounds_valid = input.has_stage_c_timing &&
         input.terrain_timing_bounds.valid();
 
@@ -3225,7 +3284,12 @@ inline void TerrainPlanner::BuildShadow(
         candidate.contact_timing.identity = result.plan.identity;
         candidate.contact_timing.period_s = candidate.period_s;
         candidate.contact_timing.duty_factor = candidate.duty_factor;
-        candidate.contact_timing.horizon_knots = shadow_horizon;
+        const std::size_t family_horizon =
+            family == TerrainShadowFamily::kV2B
+                ? v2b_shadow_horizon : bounded_shadow_horizon;
+        if (family_horizon == 0)
+            return false;
+        candidate.contact_timing.horizon_knots = family_horizon;
         candidate.contact_timing.knot_dt_s = dt;
         candidate.contact_timing.provenance =
             TerrainTimingProvenance::kStageCPlanner;
@@ -3238,8 +3302,9 @@ inline void TerrainPlanner::BuildShadow(
                 std::ceil(0.20 / dt - 1.0e-12));
             const std::size_t lift = prep_knots +
                 (variant / go2::kLegCount) % 2;
-            const std::size_t touch = shadow_horizon - 3;
-            if (lift >= shadow_horizon || touch <= lift)
+            const std::size_t touch = TerrainV2BExecutionTouchdownKnot(
+                execution_horizon);
+            if (lift >= family_horizon || touch <= lift)
                 return false;
             events.push_back({lift, leg, false});
             events.push_back({touch, leg, true});
@@ -3262,7 +3327,7 @@ inline void TerrainPlanner::BuildShadow(
                 std::floor(config_.shadow_max_two_contact_duration_s / dt +
                            1.0e-9));
             const std::size_t run = std::min<std::size_t>(3, max_run);
-            if (run == 0 || pair_start + run + 2 >= shadow_horizon)
+            if (run == 0 || pair_start + run + 2 >= family_horizon)
                 return false;
             const std::size_t pair_end = pair_start + run;
             events.push_back({pair_start - 1, off[0], false});
@@ -3281,7 +3346,7 @@ inline void TerrainPlanner::BuildShadow(
         });
         std::array<bool, go2::kLegCount> state{true, true, true, true};
         std::size_t next_event = 0;
-        for (std::size_t k = 0; k < shadow_horizon; ++k) {
+        for (std::size_t k = 0; k < family_horizon; ++k) {
             while (next_event < events.size() && events[next_event].knot == k) {
                 state[events[next_event].leg] = events[next_event].touchdown;
                 ++next_event;
@@ -3289,7 +3354,7 @@ inline void TerrainPlanner::BuildShadow(
             candidate.contact_schedule.planned_contact[k] = state;
         }
         for (const auto &event : events) {
-            if (event.knot == 0 || event.knot >= shadow_horizon ||
+            if (event.knot == 0 || event.knot >= family_horizon ||
                 event.leg >= go2::kLegCount)
                 return false;
             const double event_time = input.state_stamp_s +
@@ -3444,7 +3509,10 @@ inline void TerrainPlanner::BuildShadow(
                     }
                 }
             }
-            for (std::size_t k = 0; k < shadow_horizon; ++k) {
+            const std::size_t family_horizon =
+                family == TerrainShadowFamily::kV2B
+                    ? v2b_shadow_horizon : bounded_shadow_horizon;
+            for (std::size_t k = 0; k < family_horizon; ++k) {
                 if (failure != TerrainShadowRejectReason::kNone)
                     break;
                 const auto contacts = candidate.contact_schedule.planned_contact[k];

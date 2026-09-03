@@ -607,7 +607,7 @@ struct TerrainMotionPlan
                     contact_timing.knot_dt_s;
             if (state_stamp_s < timing_bounds.window_start_s ||
                 !std::isfinite(last_knot_time) ||
-                last_knot_time > timing_bounds.window_end_s + 1.0e-9)
+                last_knot_time > valid_until_s + 1.0e-9)
                 return false;
             bool have_previous_touchdown = false;
             double previous_touchdown_time = -std::numeric_limits<double>::infinity();

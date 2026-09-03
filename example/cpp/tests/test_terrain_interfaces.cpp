@@ -986,6 +986,14 @@ int main()
     go2_terrain::TerrainPlanner planner(planner_config);
     const auto planned = planner.Build(input, 7);
     const auto replayed = planner.Build(input, 7);
+    const std::size_t expected_v3_shadow_horizon = std::clamp<std::size_t>(
+        planner_config.horizon_knots,
+        static_cast<std::size_t>(std::ceil(
+            0.4 / planner_config.knot_dt_s - 1.0e-12)) + 1,
+        std::min(
+            static_cast<std::size_t>(std::floor(
+                0.8 / planner_config.knot_dt_s + 1.0e-12)) + 1,
+            go2_terrain::kTerrainPlanMaxKnots));
     if (!Check(planned.shadow_snapshot &&
                    planned.shadow_family_snapshots[0] &&
                    planned.shadow_family_snapshots[1] &&
@@ -1023,17 +1031,25 @@ int main()
         !Check([&]() {
                    const auto &a = *planned.shadow_family_snapshots[0];
                    const auto &b = *planned.shadow_family_snapshots[1];
+                   if (b.contact_timing.horizon_knots !=
+                       expected_v3_shadow_horizon)
+                       return false;
                    bool a_has_three = false;
                    bool b_has_two = false;
                    std::size_t b_two_run = 0;
                    std::size_t b_max_two_run = 0;
                    for (std::size_t k = 0; k < a.contact_timing.horizon_knots; ++k) {
-                       std::size_t a_count = 0, b_count = 0;
+                       std::size_t a_count = 0;
                        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
                            a_count += a.contact_schedule.planned_contact[k][leg] ? 1U : 0U;
-                           b_count += b.contact_schedule.planned_contact[k][leg] ? 1U : 0U;
                        }
                        if (a_count >= 3) a_has_three = true;
+                       if (a_count < 3) return false;
+                   }
+                   for (std::size_t k = 0; k < b.contact_timing.horizon_knots; ++k) {
+                       std::size_t b_count = 0;
+                       for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                           b_count += b.contact_schedule.planned_contact[k][leg] ? 1U : 0U;
                        if (b_count == 2) {
                            b_has_two = true;
                            ++b_two_run;
@@ -1047,7 +1063,7 @@ int main()
                            b_max_two_run = std::max(b_max_two_run, b_two_run);
                            b_two_run = 0;
                        }
-                       if (a_count < 3 || b_count < 2) return false;
+                       if (b_count < 2) return false;
                    }
                    b_max_two_run = std::max(b_max_two_run, b_two_run);
                    bool has_liftoff = false, has_touchdown = false;
@@ -1110,12 +1126,24 @@ int main()
                    "V2-B preparation schedule was not built"))
             return 1;
         const auto &v2b = *stage_c.shadow_family_snapshots[0];
+        const std::size_t execution_horizon = planner_config.horizon_knots;
+        const std::size_t expected_preview_horizon =
+            go2_terrain::TerrainV2BPreviewHorizonKnots(
+                execution_horizon, planner_config.knot_dt_s,
+                v2b.period_s);
         std::size_t event_leg = go2::kLegCount;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
             if (v2b.contact_timing.liftoff_time_valid[leg])
                 event_leg = leg;
         }
         const double dt = v2b.contact_timing.knot_dt_s;
+        const double mpc_dt = go2_terrain::TerrainV2BSrbdMpcKnotDt(
+            v2b.period_s);
+        const std::size_t mpc_horizon =
+            go2_terrain::kV2BSrbdMpcHorizonKnots;
+        const std::size_t expected_preview_horizon_hard =
+            24 + static_cast<std::size_t>(std::ceil(
+                8.0 * 0.05 / 0.02 - 1.0e-12));
         const std::size_t prep_knots = static_cast<std::size_t>(
             std::ceil(go2_terrain::kV2BPreparationDurationS / dt - 1.0e-12));
         const std::size_t liftoff_knot = event_leg < go2::kLegCount
@@ -1128,6 +1156,24 @@ int main()
                   (v2b.contact_timing.touchdown_time_s[event_leg] -
                    stage_c_input.state_stamp_s) / dt))
             : 0;
+        bool preview_tail_complete =
+            expected_preview_horizon > touchdown_knot &&
+            v2b.contact_timing.horizon_knots == expected_preview_horizon &&
+            touchdown_knot == go2_terrain::TerrainV2BExecutionTouchdownKnot(
+                execution_horizon);
+        for (std::size_t k = touchdown_knot;
+             preview_tail_complete && k < v2b.contact_timing.horizon_knots;
+             ++k) {
+            preview_tail_complete =
+                std::all_of(v2b.contact_schedule.planned_contact[k].begin(),
+                            v2b.contact_schedule.planned_contact[k].end(),
+                            [](bool contact) { return contact; }) &&
+                v2b.body_reference[k].valid;
+            for (std::size_t leg = 0;
+                 preview_tail_complete && leg < go2::kLegCount; ++leg)
+                preview_tail_complete =
+                    v2b.predicted_foothold[k][leg].valid;
+        }
         bool pre_lift_full_contact = event_leg < go2::kLegCount;
         for (std::size_t k = 0; k < liftoff_knot; ++k) {
             pre_lift_full_contact = pre_lift_full_contact && std::all_of(
@@ -1188,10 +1234,25 @@ int main()
         if (!Check(v2b.contact_schedule.measured_contact ==
                        stage_c_input.contact_schedule.measured_contact,
                    "V2-B replaced measured contacts with synthetic support") ||
+            !Check(planner_config.horizon_knots == 24 &&
+                       std::abs(dt - 0.02) < 1.0e-12 &&
+                       std::abs(mpc_dt - 0.05) < 1.0e-12 &&
+                       mpc_horizon == 8 &&
+                       expected_preview_horizon_hard == 44 &&
+                       expected_preview_horizon == 44 &&
+                       v2b.contact_timing.horizon_knots == 44,
+                   "V2-B preview contract was not the hard 24/44, .02/.05, 8-knot case") ||
             !Check(event_leg < go2::kLegCount &&
                        liftoff_knot >= prep_knots &&
                        touchdown_knot > liftoff_knot,
                    "V2-B preparation events overlapped or started early") ||
+            !Check(touchdown_knot == 21 &&
+                       (liftoff_knot == prep_knots ||
+                        liftoff_knot == prep_knots + 1) &&
+                       std::abs(v2b.contact_timing.touchdown_time_s[event_leg] -
+                                (stage_c_input.state_stamp_s + 21.0 * 0.02)) <
+                           1.0e-12,
+                   "V2-B execution event knots moved from the original window") ||
             !Check(pre_lift_full_contact,
                    "V2-B preparation released a foot before liftoff") ||
             !Check(std::abs(body0.position.x -
@@ -1213,9 +1274,31 @@ int main()
             !Check(finite_body_reference,
                    "V2-B Hermite body reference was not finite") ||
             !Check(support_safe,
-                   "V2-B three-foot body reference missed the 15mm margin"))
+                   "V2-B three-foot body reference missed the 15mm margin") ||
+            !Check(preview_tail_complete,
+                   "V2-B preview tail did not retain four complete footholds"))
             return 1;
 
+        const auto input_timing_bounds = stage_c_input.terrain_timing_bounds;
+        const auto timing_bounds_equal =
+            [](const go2_terrain::TerrainTimingBounds &a,
+               const go2_terrain::TerrainTimingBounds &b) {
+                return a.current_period_s == b.current_period_s &&
+                    a.current_duty_factor == b.current_duty_factor &&
+                    a.min_period_s == b.min_period_s &&
+                    a.max_period_s == b.max_period_s &&
+                    a.min_duty_factor == b.min_duty_factor &&
+                    a.max_duty_factor == b.max_duty_factor &&
+                    a.window_start_s == b.window_start_s &&
+                    a.window_end_s == b.window_end_s &&
+                    a.knot_dt_s == b.knot_dt_s &&
+                    a.next_touchdown_time_s == b.next_touchdown_time_s &&
+                    a.next_touchdown_time_valid == b.next_touchdown_time_valid &&
+                    a.earliest_touchdown_time_s ==
+                        b.earliest_touchdown_time_s &&
+                    a.latest_touchdown_time_s == b.latest_touchdown_time_s &&
+                    a.touchdown_window_valid == b.touchdown_window_valid;
+            };
         go2_terrain::TerrainMotionPlan bridged;
         if (!Check(go2_terrain::BuildV2BExecutionPlanFromShadow(
                        v2b, stage_c_input, &bridged) && bridged.valid(),
@@ -1223,6 +1306,149 @@ int main()
             !Check(bridged.contact_schedule.measured_contact ==
                        stage_c_input.contact_schedule.measured_contact,
                    "V2-B bridge changed measured contacts"))
+            return 1;
+        std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
+            bridge_indices{};
+        bool bridge_preview_ok = std::isfinite(mpc_dt) &&
+            bridged.horizon_knots == expected_preview_horizon &&
+            std::abs(bridged.valid_until_s -
+                     (bridged.state_stamp_s + static_cast<double>(
+                         expected_preview_horizon - 1) * dt)) < 1.0e-12 &&
+            timing_bounds_equal(bridged.timing_bounds, input_timing_bounds) &&
+            bridged.valid();
+        bool bridge_indices_match = true;
+        const auto expected_plan_index = [&](double now_s,
+                                             std::size_t consumer_knot) {
+            const double age_s = std::max(
+                0.0, now_s - stage_c_input.state_stamp_s);
+            return static_cast<std::size_t>(std::floor(
+                (age_s + static_cast<double>(consumer_knot) * mpc_dt) /
+                    dt + 1.0e-9));
+        };
+        const std::array<double, 3> preview_times{
+                 stage_c_input.state_stamp_s,
+                 v2b.contact_timing.liftoff_time_s[event_leg],
+                 v2b.contact_timing.touchdown_time_s[event_leg]};
+        for (const double now_s : preview_times) {
+            const bool indices_built =
+                go2_terrain::BuildTerrainPlanHorizonIndices(
+                    bridged, now_s, dt, mpc_dt, mpc_horizon,
+                    bridge_indices);
+            bridge_preview_ok = bridge_preview_ok && indices_built;
+            bridge_indices_match = bridge_indices_match && indices_built;
+            if (indices_built) {
+                for (std::size_t k = 0; k < mpc_horizon; ++k)
+                    bridge_indices_match =
+                        bridge_indices_match &&
+                        bridge_indices[k] == expected_plan_index(now_s, k);
+            }
+        }
+        bridge_preview_ok = bridge_preview_ok && bridge_indices_match;
+        auto old_24_knot_plan = bridged;
+        old_24_knot_plan.horizon_knots = execution_horizon;
+        old_24_knot_plan.contact_timing.horizon_knots = execution_horizon;
+        std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
+            old_24_indices{};
+        const bool old_24_valid = old_24_knot_plan.valid();
+        const bool old_24_preview_built =
+            go2_terrain::BuildTerrainPlanHorizonIndices(
+                old_24_knot_plan,
+                v2b.contact_timing.touchdown_time_s[event_leg],
+                dt, mpc_dt, mpc_horizon, old_24_indices);
+        const double old_24_age_s = 21.0 * 0.02;
+        const std::size_t old_24_index0_hard =
+            static_cast<std::size_t>(std::floor(
+                (old_24_age_s + 0.0 * 0.05) / 0.02 + 1.0e-9));
+        const std::size_t old_24_index1_hard =
+            static_cast<std::size_t>(std::floor(
+                (old_24_age_s + 1.0 * 0.05) / 0.02 + 1.0e-9));
+        const std::size_t old_24_index2_hard =
+            static_cast<std::size_t>(std::floor(
+                (old_24_age_s + 2.0 * 0.05) / 0.02 + 1.0e-9));
+        const bool old_24_prefix_match = old_24_valid &&
+            old_24_indices[0] == 21 && old_24_indices[1] == 23 &&
+            old_24_index0_hard == 21 && old_24_index1_hard == 23 &&
+            old_24_index2_hard == 26 && old_24_index2_hard >= execution_horizon;
+        const bool old_24_touchdown_failed = old_24_valid &&
+            !old_24_preview_built;
+        for (std::size_t k = 0;
+             bridge_preview_ok && k < bridged.horizon_knots; ++k) {
+            bridge_preview_ok =
+                go2_terrain::SameTerrainPlanIdentity(
+                    bridged.body_reference[k].provenance,
+                    bridged.identity);
+            if (k >= touchdown_knot)
+                bridge_preview_ok = bridge_preview_ok &&
+                    std::all_of(
+                        bridged.contact_schedule.planned_contact[k].begin(),
+                        bridged.contact_schedule.planned_contact[k].end(),
+                        [](bool contact) { return contact; });
+            for (std::size_t leg = 0;
+                 bridge_preview_ok && leg < go2::kLegCount; ++leg) {
+                const auto &foot = bridged.predicted_foothold[k][leg];
+                bridge_preview_ok =
+                    !bridged.contact_schedule.planned_contact[k][leg] ||
+                    (foot.valid && go2_terrain::SameTerrainPlanIdentity(
+                        foot.provenance, bridged.identity));
+            }
+        }
+        if (!Check(bridge_preview_ok,
+                   "V2-B plan did not cover adopt/liftoff/touchdown MPC previews") ||
+            !Check(old_24_prefix_match && old_24_touchdown_failed,
+                   "old 24-knot touchdown preview did not fail first at k=2/index26") ||
+            !Check(timing_bounds_equal(bridged.timing_bounds,
+                                       input_timing_bounds),
+                   "V2-B bridge changed timing bounds") ||
+            !Check(bridged.contact_timing.liftoff_time_s[event_leg] ==
+                       v2b.contact_timing.liftoff_time_s[event_leg] &&
+                       bridged.contact_timing.touchdown_time_s[event_leg] ==
+                           v2b.contact_timing.touchdown_time_s[event_leg],
+                   "V2-B bridge changed execution event times"))
+            return 1;
+
+        go2_terrain::TerrainPlanStore preview_store;
+        const bool store_published = preview_store.Publish(bridged);
+        const auto stored_preview =
+            preview_store.LoadUsable(preview_times[0]);
+        go2_terrain::TerrainPlanExecutionAdapter preview_adapter(true);
+        const auto adoption = preview_adapter.Update(
+            stored_preview ? stored_preview.get() : nullptr,
+            preview_times[0], true,
+            stage_c_input.contact_schedule.measured_contact,
+            go2_control::GaitPattern::kDiagonalTrot,
+            v2b.period_s, v2b.duty_factor, 0.12, 0.05);
+        const auto adapter_preview = preview_adapter.adopted_plan();
+        bool adopted_preview_ok = store_published && stored_preview &&
+            adoption.adopted && adoption.using_plan && adapter_preview &&
+            preview_adapter.adopted_plan_id() == bridged.plan_id &&
+            adapter_preview->valid() &&
+            go2_terrain::SameTerrainPlanIdentity(
+                stored_preview->identity, adapter_preview->identity) &&
+            stored_preview->input_hash == adapter_preview->input_hash &&
+            stored_preview->horizon_knots == adapter_preview->horizon_knots &&
+            timing_bounds_equal(
+                stored_preview->timing_bounds, adapter_preview->timing_bounds);
+        std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
+            store_indices{}, adapter_indices{};
+        for (const double now_s : preview_times) {
+            const bool store_ok = stored_preview &&
+                go2_terrain::BuildTerrainPlanHorizonIndices(
+                    *stored_preview, now_s, dt, mpc_dt, mpc_horizon,
+                    store_indices);
+            const bool adapter_ok = adapter_preview &&
+                go2_terrain::BuildTerrainPlanHorizonIndices(
+                    *adapter_preview, now_s, dt, mpc_dt, mpc_horizon,
+                    adapter_indices);
+            adopted_preview_ok = adopted_preview_ok && store_ok && adapter_ok;
+            if (store_ok && adapter_ok) {
+                for (std::size_t k = 0; k < mpc_horizon; ++k)
+                    adopted_preview_ok = adopted_preview_ok &&
+                        store_indices[k] == adapter_indices[k] &&
+                        adapter_indices[k] == expected_plan_index(now_s, k);
+            }
+        }
+        if (!Check(adopted_preview_ok,
+                   "44-knot plan did not survive store/adoption preview path"))
             return 1;
 
         auto state_mismatch = stage_c_input;
