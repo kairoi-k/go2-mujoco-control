@@ -1084,6 +1084,182 @@ int main()
                "sensor-only planner performed actuation selection"))
         return 1;
 
+    // A promoted V2-B schedule must prepare a stable three-foot support
+    // target before liftoff and preserve the input's measured contacts.
+    {
+        auto stage_c_input = input;
+        stage_c_input.has_stage_c_timing = true;
+        stage_c_input.base_velocity_world = {0.03, -0.02, 0.01};
+        stage_c_input.contact_schedule.measured_contact =
+            {true, true, true, true};
+        stage_c_input.contact_schedule.measured_valid = true;
+        stage_c_input.terrain_timing_bounds.current_period_s =
+            stage_c_input.gait_period_s;
+        stage_c_input.terrain_timing_bounds.current_duty_factor =
+            stage_c_input.duty_factor;
+        stage_c_input.terrain_timing_bounds.window_start_s =
+            stage_c_input.state_stamp_s;
+        stage_c_input.terrain_timing_bounds.window_end_s =
+            stage_c_input.state_stamp_s +
+            static_cast<double>(planner_config.horizon_knots - 1) *
+                planner_config.knot_dt_s;
+        stage_c_input.terrain_timing_bounds.knot_dt_s =
+            planner_config.knot_dt_s;
+        const auto stage_c = planner.Build(stage_c_input, 8);
+        if (!Check(stage_c.shadow_family_snapshots[0] != nullptr,
+                   "V2-B preparation schedule was not built"))
+            return 1;
+        const auto &v2b = *stage_c.shadow_family_snapshots[0];
+        std::size_t event_leg = go2::kLegCount;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
+            if (v2b.contact_timing.liftoff_time_valid[leg])
+                event_leg = leg;
+        }
+        const double dt = v2b.contact_timing.knot_dt_s;
+        const std::size_t prep_knots = static_cast<std::size_t>(
+            std::ceil(go2_terrain::kV2BPreparationDurationS / dt - 1.0e-12));
+        const std::size_t liftoff_knot = event_leg < go2::kLegCount
+            ? static_cast<std::size_t>(std::llround(
+                  (v2b.contact_timing.liftoff_time_s[event_leg] -
+                   stage_c_input.state_stamp_s) / dt))
+            : 0;
+        const std::size_t touchdown_knot = event_leg < go2::kLegCount
+            ? static_cast<std::size_t>(std::llround(
+                  (v2b.contact_timing.touchdown_time_s[event_leg] -
+                   stage_c_input.state_stamp_s) / dt))
+            : 0;
+        bool pre_lift_full_contact = event_leg < go2::kLegCount;
+        for (std::size_t k = 0; k < liftoff_knot; ++k) {
+            pre_lift_full_contact = pre_lift_full_contact && std::all_of(
+                v2b.contact_schedule.planned_contact[k].begin(),
+                v2b.contact_schedule.planned_contact[k].end(),
+                [](bool contact) { return contact; });
+        }
+        bool support_safe = true;
+        for (std::size_t k = liftoff_knot; k < touchdown_knot; ++k) {
+            std::array<go2::Vec3, go2::kLegCount> feet{};
+            const auto contacts = v2b.contact_schedule.planned_contact[k];
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg) {
+                if (contacts[leg])
+                    feet[leg] = v2b.predicted_foothold[k][leg].position_world;
+            }
+            support_safe = support_safe &&
+                go2_terrain::SupportMargin2D(
+                    feet, contacts, v2b.body_reference[k].position, 0.0,
+                    planner_config.max_two_contact_line_error_m) + 1.0e-9 >=
+                    go2_terrain::kV2BMinimumSupportMarginM;
+        }
+        const auto &body0 = v2b.body_reference[0];
+        const auto &body1 = v2b.body_reference[1];
+        const auto &body_lift = v2b.body_reference[liftoff_knot];
+        const double first_step = std::hypot(
+            body1.position.x - body0.position.x,
+            body1.position.y - body0.position.y);
+        const double total_shift = std::hypot(
+            body_lift.position.x - body0.position.x,
+            body_lift.position.y - body0.position.y);
+        bool finite_body_reference = true;
+        bool held_after_liftoff = true;
+        for (std::size_t k = 0; k < v2b.contact_timing.horizon_knots; ++k) {
+            const auto &body = v2b.body_reference[k];
+            finite_body_reference = finite_body_reference &&
+                std::isfinite(body.position.x) &&
+                std::isfinite(body.position.y) &&
+                std::isfinite(body.position.z) &&
+                std::isfinite(body.linear_velocity.x) &&
+                std::isfinite(body.linear_velocity.y) &&
+                std::isfinite(body.linear_velocity.z) &&
+                std::isfinite(body.linear_acceleration.x) &&
+                std::isfinite(body.linear_acceleration.y) &&
+                std::isfinite(body.linear_acceleration.z);
+            if (k >= liftoff_knot) {
+                held_after_liftoff = held_after_liftoff &&
+                    body.position.x == body_lift.position.x &&
+                    body.position.y == body_lift.position.y &&
+                    body.position.z == body_lift.position.z &&
+                    body.linear_velocity.x == 0.0 &&
+                    body.linear_velocity.y == 0.0 &&
+                    body.linear_velocity.z == 0.0 &&
+                    body.linear_acceleration.x == 0.0 &&
+                    body.linear_acceleration.y == 0.0 &&
+                    body.linear_acceleration.z == 0.0;
+            }
+        }
+        if (!Check(v2b.contact_schedule.measured_contact ==
+                       stage_c_input.contact_schedule.measured_contact,
+                   "V2-B replaced measured contacts with synthetic support") ||
+            !Check(event_leg < go2::kLegCount &&
+                       liftoff_knot >= prep_knots &&
+                       touchdown_knot > liftoff_knot,
+                   "V2-B preparation events overlapped or started early") ||
+            !Check(pre_lift_full_contact,
+                   "V2-B preparation released a foot before liftoff") ||
+            !Check(std::abs(body0.position.x -
+                                stage_c_input.base_position_world.x) < 1.0e-12 &&
+                       std::abs(body0.position.y -
+                                stage_c_input.base_position_world.y) < 1.0e-12 &&
+                       std::abs(body0.position.z -
+                                stage_c_input.base_position_world.z) < 1.0e-12 &&
+                       body0.linear_velocity.x ==
+                           stage_c_input.base_velocity_world.x &&
+                       body0.linear_velocity.y ==
+                           stage_c_input.base_velocity_world.y &&
+                       body0.linear_velocity.z ==
+                           stage_c_input.base_velocity_world.z &&
+                       first_step <= total_shift + 1.0e-12,
+                   "V2-B body preparation was discontinuous at knot zero") ||
+            !Check(held_after_liftoff,
+                   "V2-B body reference did not settle at liftoff") ||
+            !Check(finite_body_reference,
+                   "V2-B Hermite body reference was not finite") ||
+            !Check(support_safe,
+                   "V2-B three-foot body reference missed the 15mm margin"))
+            return 1;
+
+        go2_terrain::TerrainMotionPlan bridged;
+        if (!Check(go2_terrain::BuildV2BExecutionPlanFromShadow(
+                       v2b, stage_c_input, &bridged) && bridged.valid(),
+                   "consistent V2-B snapshot did not bridge") ||
+            !Check(bridged.contact_schedule.measured_contact ==
+                       stage_c_input.contact_schedule.measured_contact,
+                   "V2-B bridge changed measured contacts"))
+            return 1;
+
+        auto state_mismatch = stage_c_input;
+        state_mismatch.state_stamp_s += dt;
+        auto map_mismatch = stage_c_input;
+        auto mismatched_map = *stage_c_input.terrain;
+        ++mismatched_map.epoch;
+        map_mismatch.terrain = &mismatched_map;
+        auto hash_mismatch = v2b;
+        hash_mismatch.body_reference[0].position.x += 0.001;
+        auto short_horizon = v2b;
+        short_horizon.contact_timing.horizon_knots = prep_knots;
+        short_horizon.shadow_hash =
+            go2_terrain::TerrainShadowSnapshotHash(short_horizon);
+        auto incomplete_event = v2b;
+        incomplete_event.contact_timing.touchdown_time_valid[event_leg] = false;
+        incomplete_event.shadow_hash =
+            go2_terrain::TerrainShadowSnapshotHash(incomplete_event);
+        go2_terrain::TerrainMotionPlan rejected;
+        if (!Check(!go2_terrain::BuildV2BExecutionPlanFromShadow(
+                       v2b, state_mismatch, &rejected),
+                   "V2-B bridge accepted a state mismatch") ||
+            !Check(!go2_terrain::BuildV2BExecutionPlanFromShadow(
+                       v2b, map_mismatch, &rejected),
+                   "V2-B bridge accepted a map mismatch") ||
+            !Check(!go2_terrain::BuildV2BExecutionPlanFromShadow(
+                       hash_mismatch, stage_c_input, &rejected),
+                   "V2-B bridge accepted a snapshot hash mismatch") ||
+            !Check(!go2_terrain::BuildV2BExecutionPlanFromShadow(
+                       short_horizon, stage_c_input, &rejected),
+                   "V2-B bridge accepted a short horizon") ||
+            !Check(!go2_terrain::BuildV2BExecutionPlanFromShadow(
+                       incomplete_event, stage_c_input, &rejected),
+                   "V2-B bridge accepted an incomplete event"))
+            return 1;
+    }
+
     // Invalid sensor provenance is rejected independently by both shadow families.
     {
         auto stale_input = input;
