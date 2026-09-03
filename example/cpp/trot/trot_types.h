@@ -280,6 +280,7 @@ struct WbcShadowDiagnostics
     int terrain_contact_grace_remaining_ticks = 0;
     int terrain_contact_fallback_stage = 0;
     std::string terrain_contact_fusion_reason = "none";
+    int terrain_contact_authority_mode = 0;
     std::uint64_t mpc_update_count = 0;
     int mpc_contact_mask_k0 = 0;
     int mpc_min_contact_count = 0;

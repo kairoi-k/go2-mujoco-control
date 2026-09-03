@@ -153,10 +153,15 @@ public:
             result.fallback_reason =
                 ContactGuardFallbackReason(fallback_age_steps_);
             last_fallback_reason_ = result.fallback_reason;
+            // N+5 inside the transfer window is a Stage-C safe hold, not a
+            // return to the Phase-1 nominal gait. safe_hold keeps the fused
+            // support topology frozen and prevents ApplyToKernel from writing
+            // the nominal running-trot parameters back into the kernel.
             last_request_ = MakeFallbackRequest(
                 measured_support, fallback_pattern, fallback_period_s,
                 fallback_duty_factor, fallback_step_length_m,
-                fallback_foot_lift_m, result.fallback_reason);
+                fallback_foot_lift_m, result.fallback_reason,
+                /*safe_hold=*/true);
             result.request = last_request_;
             UpdateFlightState(last_request_, now_s);
             return result;
@@ -231,7 +236,8 @@ public:
             last_request_ = MakeFallbackRequest(
                 measured_support, fallback_pattern, fallback_period_s,
                 fallback_duty_factor, fallback_step_length_m,
-                fallback_foot_lift_m, result.fallback_reason);
+                fallback_foot_lift_m, result.fallback_reason,
+                /*safe_hold=*/contact_guard_active_);
             result.request = last_request_;
         }
         UpdateFlightState(last_request_, now_s);
@@ -239,8 +245,9 @@ public:
     }
 
     // Translate the current whole request into the kernel in one operation.
-    // Fallback requests intentionally restore the nominal Phase-1 gait
-    // parameters even though they are not exposed as timed terrain execution.
+    // Fallback requests restore the nominal Phase-1 gait parameters only while
+    // no guard is active; a guard-driven fallback is a Stage-C safe hold that
+    // freezes the fused support topology instead of reinjecting Phase-1 gait.
     bool ApplyToKernel(go2_control::LocomotionKernel &kernel,
                        go2_control::GaitKernelRequest &request,
                        double gait_time_s,
@@ -345,7 +352,7 @@ public:
                 return false;
             }
         }
-        if (last_request_.valid)
+        if (last_request_.valid && !last_request_.safe_hold)
         {
             kernel.SetGaitPattern(last_request_.pattern);
             kernel.SetGaitPeriod(last_request_.period_s);
@@ -474,7 +481,8 @@ private:
     static go2_control::GaitExecutionRequest MakeFallbackRequest(
         const std::array<bool, go2::kLegCount> &measured_support,
         go2_control::GaitPattern pattern, double period_s, double duty,
-        double step, double lift, const std::string &reason)
+        double step, double lift, const std::string &reason,
+        bool safe_hold = false)
     {
         go2_control::GaitExecutionRequest request;
         request.valid = true;
@@ -485,6 +493,7 @@ private:
         request.foot_lift_m = lift;
         request.measured_support = measured_support;
         request.fallback = true;
+        request.safe_hold = safe_hold;
         request.fallback_reason = reason;
         return request;
     }

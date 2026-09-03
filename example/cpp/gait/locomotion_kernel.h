@@ -212,6 +212,11 @@ struct GaitExecutionRequest
     bool scheduled_support_valid = false;
     std::array<bool, go2::kLegCount> measured_support{};
     bool fallback = false;
+    // Stage-C safe hold. Set by the terrain adapter when the measured-support
+    // guard reaches N+5 inside the transfer window: consumers must freeze the
+    // fused safe topology and must not let the nominal Phase-1 gait
+    // parameters/topology reinject until measured support is restored.
+    bool safe_hold = false;
     std::string fallback_reason;
 };
 

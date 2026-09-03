@@ -42,6 +42,7 @@
 #include "terrain_crawl_sequencer.h"
 #include "terrain_planner.h"
 #include "terrain_plan_execution_adapter.h"
+#include "terrain_contact_authority.h"
 
 using unitree::robot::ChannelPublisherPtr;
 using unitree::robot::ChannelSubscriberPtr;
@@ -520,6 +521,8 @@ private:
     go2_terrain::TerrainPlanner terrain_planner_{};
     go2_terrain::TerrainPlanStore terrain_plan_store_{};
     go2_terrain::TerrainPlanExecutionAdapter terrain_plan_execution_adapter_{};
+    // Single Stage-C contact authority shared by gait, MPC and WBC.
+    go2_terrain::TerrainContactAuthority terrain_contact_authority_{};
     std::atomic<bool> terrain_bootstrap_c0_ready_{false};
     std::atomic<std::uint64_t> terrain_bootstrap_candidate_plan_id_{0};
     std::shared_ptr<const go2_terrain::TerrainMotionPlan>

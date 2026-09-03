@@ -14,6 +14,7 @@
 #include "terrain_crawl_script.h"
 #include "terrain_crawl_sequencer.h"
 #include "terrain_plan_execution_adapter.h"
+#include "terrain_contact_authority.h"
 #include "full2_campaign_env.h"
 
 namespace
@@ -3340,6 +3341,95 @@ int main()
         if (!Check(!kernel.Compute(invalid_world_up_request,
                                    invalid_world_up_result),
                    "hand-coded kernel accepted an invalid world-up vector")) return 1;
+    }
+
+    // Order CA1: the Stage-C single contact authority. Gait, MPC and WBC must
+    // consume the same topology; after N+5 the frozen fused hold replaces the
+    // nominal running-trot horizon instead of reinjecting it.
+    {
+        const auto plan = make_timing_plan();
+        const std::array<bool, go2::kLegCount> fused_three{
+            false, true, true, true};
+        const std::array<bool, go2::kLegCount> fused_two{
+            false, true, true, false};
+        const std::array<bool, go2::kLegCount> measured_three{
+            false, true, true, true};
+        go2_terrain::TerrainContactAuthority authority;
+        if (!Check(authority.mode() ==
+                       go2_terrain::ContactAuthorityMode::kPhaseOne,
+                   "ca1: authority default is not kPhaseOne"))
+            return 1;
+        // Outside the Stage-C window the authority stays Phase-1.
+        authority.Update(false, true, false, 0, fused_three, measured_three,
+                         &plan, 1.05);
+        if (!Check(authority.mode() ==
+                       go2_terrain::ContactAuthorityMode::kPhaseOne,
+                   "ca1: authority left kPhaseOne outside the window"))
+            return 1;
+        // Usable plan, no guard -> kPlanned, knot-0 from the plan row.
+        authority.Update(true, true, false, 0, fused_three, measured_three,
+                         &plan, 1.05);
+        if (!Check(authority.mode() ==
+                       go2_terrain::ContactAuthorityMode::kPlanned &&
+                       authority.topology() ==
+                           plan.contact_schedule.planned_contact[0],
+                   "ca1: authority did not enter kPlanned with plan knot-0"))
+            return 1;
+        // Guard active below N+5 -> kPlanned with the fused knot-0 safety
+        // boundary (future knots stay on the atomic plan).
+        authority.Update(true, true, true, 3, fused_two, measured_three,
+                         &plan, 1.05);
+        if (!Check(authority.mode() ==
+                       go2_terrain::ContactAuthorityMode::kPlanned &&
+                       authority.topology() == fused_two,
+                   "ca1: authority lost the fused knot-0 safety boundary"))
+            return 1;
+        // N+5 -> kSafeHold: topology freezes on fused and the retired plan
+        // identity is recorded atomically for the MPC invalidation.
+        authority.Update(true, true, true, 5, fused_two, measured_three,
+                         &plan, 1.05);
+        if (!Check(authority.mode() ==
+                       go2_terrain::ContactAuthorityMode::kSafeHold &&
+                       authority.topology() == fused_two &&
+                       authority.safe_hold_plan_id() == plan.plan_id &&
+                       authority.safe_hold_epoch() == plan.plan_epoch,
+                   "ca1: authority did not enter kSafeHold at N+5"))
+            return 1;
+        // Safe-hold horizon fill keeps the frozen fused topology for the
+        // whole MPC preview; no nominal Phase-1 gait row may re-enter.
+        std::array<std::array<bool, go2::kLegCount>,
+                   go2_terrain::kTerrainContactMaxKnots> hold_contact{};
+        const int hold_horizon = 8;
+        if (!Check(authority.FillHorizon(
+                       hold_contact, hold_horizon, 1.05,
+                       plan.contact_timing.knot_dt_s, 0.05, &plan) &&
+                       hold_contact[0] == fused_two &&
+                       hold_contact[hold_horizon - 1] == fused_two &&
+                       hold_contact[hold_horizon - 1][0] == false,
+                   "ca1: safe-hold horizon did not freeze the fused topology"))
+            return 1;
+        // Support restored while the plan is still usable -> kPlanned again.
+        authority.Update(true, true, false, 0, fused_three, measured_three,
+                         &plan, 1.05);
+        if (!Check(authority.mode() ==
+                       go2_terrain::ContactAuthorityMode::kPlanned,
+                   "ca1: authority did not return to kPlanned after recovery"))
+            return 1;
+        // Plan expired, no guard -> kPhaseOne (window may still be open).
+        authority.Update(true, false, false, 0, fused_three, measured_three,
+                         &plan, 1.30);
+        if (!Check(authority.mode() ==
+                       go2_terrain::ContactAuthorityMode::kPhaseOne,
+                   "ca1: authority did not leave the window after expiry"))
+            return 1;
+        // No usable plan but guard active -> kSafeHold (no Phase-1 injection).
+        authority.Update(true, false, true, 6, fused_two, measured_three,
+                         &plan, 1.30);
+        if (!Check(authority.mode() ==
+                       go2_terrain::ContactAuthorityMode::kSafeHold &&
+                       authority.topology() == fused_two,
+                   "ca1: authority did not hold fused without a usable plan"))
+            return 1;
     }
 
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";

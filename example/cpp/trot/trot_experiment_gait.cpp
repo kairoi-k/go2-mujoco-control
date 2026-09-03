@@ -725,12 +725,18 @@ bool TrotExperiment::BuildGaitTargets(
     terrain_plan_execution_adapter_.SetContactGuard(
         terrain_contact_fusion_.guard_active(),
         terrain_contact_fusion_.low_support_age_ticks());
-    if (terrain_contact_fusion_.guard_active())
-        locomotion_kernel_->SetStanceHold(true, gait_time_s);
-    const double adapter_now_s = static_cast<double>(state_snapshot.tick()) *
-        1.0e-3;
     const bool stage_c_window = stage_c_execution_requested &&
         terrain_transfer_window_active_;
+    if (terrain_contact_fusion_.guard_active())
+        locomotion_kernel_->SetStanceHold(true, gait_time_s);
+    else if (stage_c_window &&
+             terrain_contact_authority_.mode() ==
+                 go2_terrain::ContactAuthorityMode::kPlanned)
+        // Support restored while the adopted plan still owns the transfer:
+        // release the guard stance hold so execution can continue.
+        locomotion_kernel_->SetStanceHold(false, gait_time_s);
+    const double adapter_now_s = static_cast<double>(state_snapshot.tick()) *
+        1.0e-3;
     WorldPose adapter_pose{};
     if (stage_c_window)
     {

@@ -1168,7 +1168,36 @@ void TrotExperiment::UpdateWbcFull(
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             mpc_in.foot_from_com_world[leg] =
                 dyn.foot_pos_world[leg] - dyn.com_world;
-        if (task_.gait_started_ &&
+        // Single contact authority for the Stage-C window. Gait, MPC and WBC
+        // consume the same topology; after N+5 the frozen fused hold replaces
+        // the nominal running-trot horizon instead of reinjecting it.
+        terrain_contact_authority_.Update(
+            stage_c_window,
+            terrain_plan_execution_adapter_.using_plan(),
+            contact_fusion.guard_active,
+            contact_fusion.low_support_age_ticks,
+            contact_fusion.fused_contact,
+            measured_contact,
+            terrain_plan_execution_adapter_.adopted_plan().get(),
+            terrain_now_s);
+        const bool authority_safe_hold =
+            terrain_contact_authority_.mode() ==
+            go2_terrain::ContactAuthorityMode::kSafeHold;
+        wbc_shadow_diagnostics_.terrain_contact_authority_mode =
+            static_cast<int>(terrain_contact_authority_.mode());
+        if (authority_safe_hold)
+        {
+            // N+5 safe hold: the whole MPC preview stays on the fused
+            // support topology; no nominal gait/plan horizon may re-enter.
+            terrain_contact_authority_.FillHorizon(
+                mpc_in.contact, mpc_params.horizon, terrain_now_s,
+                terrain_planner_.config().knot_dt_s, mpc_params.dt_s,
+                terrain_plan_execution_adapter_.adopted_plan().get());
+            mpc_in.has_time_indexed_footholds = false;
+            mpc_in.has_time_indexed_reference = false;
+            mpc_in.has_terrain_plan = false;
+        }
+        else if (task_.gait_started_ &&
             (task_.motion_stage_ == 2 || WbcStopHoldActive()))
         {
             if (WbcStopHoldActive() || high_speed_stop_support)
@@ -2193,6 +2222,30 @@ void TrotExperiment::UpdateWbcFull(
             // solution when the swinging foot passes its apex.
             id_params.w_force_track = terrain_stance_reference_valid_
                 ? 0.50 : 0.10;
+        }
+        // Stage-C support-leg preload: while the adopted plan owns the
+        // transfer, every measured support leg keeps a minimum normal force
+        // so the liftoff load redistribution cannot unload a support leg
+        // below the measured-contact threshold. This is the same per-leg
+        // min-normal-force mechanism as the swing force handoff above, scoped
+        // to the plan-owned window. Safe-hold (N+5) keeps the natural fused
+        // distribution instead of forcing an unstable support set.
+        if (stage_c_window &&
+            terrain_contact_authority_.mode() ==
+                go2_terrain::ContactAuthorityMode::kPlanned)
+        {
+            const double support_preload_n = std::max(
+                0.0, Full2EnvDouble("TROT_TERRAIN_SUPPORT_PRELOAD_N", 15.0));
+            if (support_preload_n > 0.0)
+            {
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                {
+                    if (qp_contact[leg])
+                        id_params.min_normal_n_by_leg[leg] = std::max(
+                            id_params.min_normal_n_by_leg[leg],
+                            support_preload_n);
+                }
+            }
         }
     }
     bool solved =
