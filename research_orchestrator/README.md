@@ -102,9 +102,11 @@ Atlas owns local inference because its RTX 5080 is the only GPU in this
 deployment. The reviewed runtime is the native Windows CUDA build of
 `llama.cpp`; WSL starts it with a fixed loopback address, a pinned model path,
 JSON-schema-constrained output, and no inherited proxy or API credentials. The
-default deployment is `gpt-oss-20b-MXFP4` with 32K context. The model, runtime,
-quantization, prompt/response hashes, token counts, and latency are recorded in
-an `inference.v1` receipt.
+default deployment is `Qwen3-Coder-30B-A3B-Instruct-Q2_K_L` with 16K context.
+The model, runtime, quantization, prompt/response hashes, token counts, and
+latency are recorded in an `inference.v1` receipt. The measured fallback is
+`gpt-oss-20b-MXFP4`; see `LOCAL_LLM_BENCHMARK.md` for the candidate comparison
+and exact Atlas artifact paths.
 
 Enable it only on an Atlas development spec:
 
@@ -126,17 +128,16 @@ in experiment JSON:
 
 ```text
 ATLAS_LLM_SERVER_EXE=/mnt/c/Users/w1881/go2-local-llm/bin/llama-server.exe
-ATLAS_LLM_MODEL_PATH=/mnt/c/Users/w1881/go2-local-llm/models/gpt-oss-20b-MXFP4.gguf
+ATLAS_LLM_MODEL_PATH=/mnt/c/Users/w1881/go2-local-llm/models/Qwen3-Coder-30B-A3B-Instruct-Q2_K_L.gguf
 ATLAS_LLM_PORT=8090
-ATLAS_LLM_MODEL_ID=gpt-oss-20b-MXFP4
-ATLAS_LLM_MODEL_REVISION=ggml-org/gpt-oss-20b-GGUF@ef9b12f2ff56c69cf32153a02784e7a3c88bf524
-ATLAS_LLM_QUANTIZATION=MXFP4
+ATLAS_LLM_MODEL_ID=Qwen3-Coder-30B-A3B-Instruct-Q2_K_L
+ATLAS_LLM_MODEL_REVISION=unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF@b17cb02dd882d5b6ab62fc777ad2995f19668350
+ATLAS_LLM_QUANTIZATION=Q2_K_L
 ATLAS_LLM_RUNTIME_VERSION=llama.cpp-b10766-cuda13.3
-ATLAS_LLM_REASONING=on
-ATLAS_LLM_REASONING_FORMAT=deepseek
-# Set this after the deployment hash is verified; the Activity can then fail
-# closed if the model file changes.
-ATLAS_LLM_MODEL_SHA256=<verified-model-sha256>
+ATLAS_LLM_CTX_SIZE=16384
+ATLAS_LLM_REASONING=off
+ATLAS_LLM_REASONING_FORMAT=none
+ATLAS_LLM_MODEL_SHA256=7add73b0607b498f79157a5f4e4ccddc14ad7afd61d76655e064e1e92476267e
 ATLAS_LLM_VERIFY_MODEL_HASH=1
 ```
 

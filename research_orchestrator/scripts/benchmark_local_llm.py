@@ -206,7 +206,7 @@ def run(base_url: str, model: str, timeout_s: float, real_case: Path | None) -> 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://127.0.0.1:8090")
-    parser.add_argument("--model", default="gpt-oss-20b-MXFP4")
+    parser.add_argument("--model", default="Qwen3-Coder-30B-A3B-Instruct-Q2_K_L")
     parser.add_argument("--timeout-s", type=float, default=180.0)
     parser.add_argument("--real-result", type=Path)
     parser.add_argument("--output", type=Path)

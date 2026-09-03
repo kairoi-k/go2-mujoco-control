@@ -140,7 +140,7 @@ def settings_from_env() -> LocalLLMSettings:
     model_path = Path(
         os.environ.get(
             "ATLAS_LLM_MODEL_PATH",
-            "/mnt/c/Users/w1881/go2-local-llm/models/gpt-oss-20b-MXFP4.gguf",
+            "/mnt/c/Users/w1881/go2-local-llm/models/Qwen3-Coder-30B-A3B-Instruct-Q2_K_L.gguf",
         )
     ).expanduser()
     host = os.environ.get("ATLAS_LLM_HOST", "127.0.0.1").strip()
@@ -157,15 +157,20 @@ def settings_from_env() -> LocalLLMSettings:
             type="LOCAL_LLM_CONFIG_INVALID",
             non_retryable=True,
         )
-    model_sha256 = os.environ.get("ATLAS_LLM_MODEL_SHA256", "").strip().lower() or None
+    # Keep the default model fail-closed even when the worker is launched
+    # without the repository's wrapper script.
+    model_sha256 = os.environ.get(
+        "ATLAS_LLM_MODEL_SHA256",
+        "7add73b0607b498f79157a5f4e4ccddc14ad7afd61d76655e064e1e92476267e",
+    ).strip().lower() or None
     if model_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", model_sha256):
         raise ApplicationError(
             "ATLAS_LLM_MODEL_SHA256 must be a lowercase SHA-256 value",
             type="LOCAL_LLM_CONFIG_INVALID",
             non_retryable=True,
         )
-    reasoning_mode = os.environ.get("ATLAS_LLM_REASONING", "on").strip().lower()
-    reasoning_format = os.environ.get("ATLAS_LLM_REASONING_FORMAT", "deepseek").strip().lower()
+    reasoning_mode = os.environ.get("ATLAS_LLM_REASONING", "off").strip().lower()
+    reasoning_format = os.environ.get("ATLAS_LLM_REASONING_FORMAT", "none").strip().lower()
     if reasoning_mode not in {"on", "off", "auto"} or reasoning_format not in {
         "none",
         "deepseek",
@@ -181,16 +186,16 @@ def settings_from_env() -> LocalLLMSettings:
         model_path=model_path,
         host=host,
         port=_int_env("ATLAS_LLM_PORT", 8090, 1024, 65535),
-        model_id=os.environ.get("ATLAS_LLM_MODEL_ID", "gpt-oss-20b-MXFP4").strip(),
+        model_id=os.environ.get("ATLAS_LLM_MODEL_ID", "Qwen3-Coder-30B-A3B-Instruct-Q2_K_L").strip(),
         model_revision=os.environ.get(
             "ATLAS_LLM_MODEL_REVISION",
-            "ggml-org/gpt-oss-20b-GGUF@ef9b12f2ff56c69cf32153a02784e7a3c88bf524",
+            "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF@b17cb02dd882d5b6ab62fc777ad2995f19668350",
         ).strip(),
-        quantization=os.environ.get("ATLAS_LLM_QUANTIZATION", "MXFP4").strip(),
+        quantization=os.environ.get("ATLAS_LLM_QUANTIZATION", "Q2_K_L").strip(),
         runtime_version=os.environ.get("ATLAS_LLM_RUNTIME_VERSION", "llama.cpp-b10766-cuda13.3").strip(),
         model_sha256=model_sha256,
         verify_model_hash=os.environ.get("ATLAS_LLM_VERIFY_MODEL_HASH", "1").strip() == "1",
-        context_size=_int_env("ATLAS_LLM_CTX_SIZE", 32768, 2048, 131072),
+        context_size=_int_env("ATLAS_LLM_CTX_SIZE", 16384, 2048, 131072),
         batch_size=_int_env("ATLAS_LLM_BATCH_SIZE", 4096, 256, 16384),
         ubatch_size=_int_env("ATLAS_LLM_UBATCH_SIZE", 4096, 128, 16384),
         reasoning_budget=_int_env("ATLAS_LLM_REASONING_BUDGET", 2048, 0, 16384),
