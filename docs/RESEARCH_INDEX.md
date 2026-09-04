@@ -14,6 +14,17 @@ quantitative gates. The varying profile includes 0.6, 1.4, 2.3, and 2.8 m/s.
 See [the quantitative acceptance](validation/PHASE1_QUANTITATIVE_ACCEPTANCE_2026-08-25.md)
 and [the closeout](validation/PHASE1_RUNTIME_VELOCITY_CLOSEOUT_2026-08-25.md).
 This is the pre-Phase 2 dynamic baseline; current Phase 2 status is in
+[`CURRENT.md`](../CURRENT.md).
+
+## Milestone: Phase 2 terrain-sensor-only varying non-regression (2026-08-28)
+
+Accepted as historical non-regression evidence at exact SHA `70b7740` on
+`phase2-b1-b3`. With `terrain_lidar=true` and `--terrain-sensor-only`, three
+independent varying runs passed both the frozen quantitative and strict gates.
+This is sensor-only terrain observation: it is not terrain actuation, obstacle
+crossing, or current full-B0 acceptance. See [the evidence summary](research/evidence/phase2_terrain_sensor_velocity_20260828/SUMMARY.md).
+Later terrain ownership and runtime changes mean this historical passing path
+must not be assumed identical to the current head.
 
 ## Implementation
 

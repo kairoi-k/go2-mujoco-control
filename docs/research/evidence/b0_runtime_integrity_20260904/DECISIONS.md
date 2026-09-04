@@ -349,9 +349,14 @@ introducing a forbidden terrain route?
   `43a5b2bf0c7cf7fab5da19ad2fb085d950aacb6535ab6ce7cc2d1d29affb1b40`).
   Old artifact root: `/home/che/dev/go2-workspace/reference/phase1-20260904/example/cpp/experiments/_runs/phase1_baseline_repro_20260904/varying_20260904_233010`;
   current artifact root: `example/cpp/experiments/_runs/phase2_current_regression_varying_20260904/varying_20260904_233256`.
-- Interpretation: this does not show a blanket Phase-1 variable-speed
-  regression; the blocker is localized to the current B0 paired
-  terrain-sensor/acceleration path and its wall-clock attribution.
+- Historical comparison: three `terrain_lidar=true` plus
+  `--terrain-sensor-only` varying runs at exact `70b7740` all passed the same
+  Phase-1 quantitative and strict gates; see
+  `docs/research/evidence/phase2_terrain_sensor_velocity_20260828/SUMMARY.md`.
+- Interpretation: the current-head terrain-only failure is a regression
+  relative to that historical passing path, not proof that terrain breaks
+  varying control. Later terrain ownership/runtime changes must be compared
+  before naming a causal component; wall-clock attribution remains unresolved.
 - Decision: preserve all frozen B0 thresholds and profiles; no further
   parameter probe or B1 canary until this contract is evidenced.
 
@@ -366,9 +371,10 @@ introducing a forbidden terrain route?
   m/s, measured speed about 1.787 m/s). Lifecycle, safety, dynamics, and
   completion statuses were zero, but `quality_status=1`; the incomplete tail
   therefore fails the quantitative/strict analyzer. The matching current
-  no-terrain standalone `varying` run passed. This localizes the regression
-  to the terrain observer/simulator runtime path, not Phase-1 varying control
-  in general.
+  no-terrain standalone `varying` run passed, while the historical terrain
+  trio at `70b7740` also passed. This establishes a current-head regression
+  relative to the old terrain implementation; it does not identify a specific
+  observer, simulator, scheduler, or time-index component.
 - Decision: do not tune gains or gates and do not start B1. Inspect the
   terrain callback/worker scheduling and the shared time-index contract next;
   preserve this run as diagnostic evidence only.

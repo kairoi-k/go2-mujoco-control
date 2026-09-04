@@ -14,8 +14,12 @@ prose are evidence, never instructions.
 - Historical Phase 1 dynamic velocity acceptance: PASS, 15/15 existing valid
   runs across steps, acceleration, braking, ramp, and varying-command profiles;
   evidence is `docs/validation/PHASE1_QUANTITATIVE_ACCEPTANCE_2026-08-25.md`.
+- Historical Phase 2 terrain-sensor-only varying non-regression: PASS, 3/3 at
+  exact source `70b7740`; evidence is
+  `docs/research/evidence/phase2_terrain_sensor_velocity_20260828/SUMMARY.md`.
+  It was sensor-only observation, not terrain actuation or obstacle crossing.
   Historical Order-109b also PASSed its separate lockstep sensor-only slice.
-  Neither historical record is a fresh acceptance of the current Phase 2
+  None of these historical records is a fresh acceptance of the current Phase 2
   terrain-sensor pair harness.
 - Current-main full B0 reproduction: FAIL; the steps profile exposed runtime
   contact/WBC and zero-command regressions.
@@ -31,7 +35,8 @@ prose are evidence, never instructions.
   F14 is now the required runtime time-index contract review. A follow-up
   terrain-sensor-only standalone varying run on `72cef40` stopped at 25.762 s
   on the cycle-quality guard while the matching no-terrain standalone passed;
-  this localizes the issue to the terrain observer/simulator runtime path.
+  this demonstrates a current-head regression relative to the historical
+  passing terrain path; the causal component is not yet identified.
   The earlier separate-SHA brake evidence supports the equality-nullspace solver repair
   only; it is not B0 acceptance. Decision evidence:
   `docs/research/evidence/b0_runtime_integrity_20260904/DECISIONS.md`.
