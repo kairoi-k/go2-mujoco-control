@@ -75,6 +75,13 @@ REQUIRED_FILES = (
     "example/cpp/experiments/CATALOG.md",
 )
 REQUIRED_DOC_MARKERS = {
+    "CURRENT.md": (
+        "Stage C",
+        "TerrainBelief",
+        "TerrainExecutionState",
+        "B0, B1, B2, and B3 are acceptance milestones",
+    ),
+    "AGENTS.md": ("CURRENT.md", "Stage C", "TerrainExecutionState"),
     "README.md": ("CURRENT.md",),
     "CONTRIBUTING.md": ("CURRENT.md", "AGENTS.md"),
     "docs/README.md": (
@@ -82,7 +89,12 @@ REQUIRED_DOC_MARKERS = {
         "PHASE2_ACCEPTANCE.md",
         "PHASE2_HOLDOUT_MANIFEST.json",
     ),
-    "docs/ARCHITECTURE.md": ("CURRENT.md", "not a Phase 2 route"),
+    "docs/ARCHITECTURE.md": (
+        "CURRENT.md",
+        "not a Phase 2 route",
+        "TerrainBelief",
+        "TerrainExecutionState",
+    ),
     "docs/REPRODUCIBILITY.md": (
         "CURRENT.md",
         "/tmp/go2_mujoco_experiment.lock",

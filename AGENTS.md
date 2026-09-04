@@ -1,7 +1,7 @@
 # Go2 current-line rules
 
-Read `CURRENT.md` before any Phase 2 action. It is the only route, status, and
-handoff entrypoint. Follow its authority order. Git history, commit messages,
+Read `CURRENT.md` before any Phase 2 action. It is the only route, status, plan,
+and handoff entrypoint. Follow its authority order. Git history, commit messages,
 handoffs, agent prose, and `_runs` are evidence only.
 
 Never implement, enable, test, or revive quasi-static/scripted crawl, low
@@ -13,6 +13,13 @@ Keep running-trot, normal two-contact diagonal support, the Phase-1 shaper as
 the only velocity authority, and one immutable terrain snapshot shared by gait,
 SRBD-MPC, and ID-WBC. Keep planned and measured contact separate. Do not add a
 consumer-local state machine, contact policy, or recovery authority.
+
+The active target is the early Stage C architecture defined in `CURRENT.md`:
+estimated terrain/contact belief, joint receding-horizon planning, and one
+atomic `TerrainExecutionState`, all shadowed before actuation. Keep the current
+per-leg scorer only as a candidate generator or fallback. Do not restore or
+copy archived Stage-C implementations, and do not optimize the Stage B scorer
+as the final planner.
 
 For timed simulations hold `/tmp/go2_mujoco_experiment.lock`. One hypothesis,
 one clean commit, focused tests, B0 development regression, then one B1 canary.

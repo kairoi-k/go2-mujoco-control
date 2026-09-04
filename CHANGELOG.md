@@ -15,6 +15,9 @@
   repository. Its canonical package remains in `kairoi-k/go2-isaaclab-rl`.
 - Documentation was consolidated around one authority chain and historical
   leg-lift/multi-step assets were explicitly removed from Phase 2 guidance.
+- `CURRENT.md` now activates the high-ceiling Stage C plan: estimated terrain
+  belief, joint receding-horizon planning, atomic execution state, shadow
+  validation first, and staged B0-B3 capability release.
 
 ## 2026-08-19
 
