@@ -33,6 +33,16 @@ inline struct SimulationConfig
     // Track the Go2 base body in the GUI camera for long-run recordings.
     bool camera_follow = false;
 
+    // Publish simulated terrain sensing only for terrain-enabled runs.  The
+    // default keeps the accepted Phase 1 simulator path unchanged.
+    bool terrain_lidar = false;
+    // Order-103 verification-only sim-time lockstep harness. Off by default;
+    // the wall-clock runner is unchanged.
+    bool lockstep = false;
+    std::filesystem::path lockstep_trace;
+    double initial_x_m = 0.0;
+    double initial_y_m = 0.0;
+
     // Disturbance push on the base link (disabled when push_time_s < 0).
     double push_time_s = -1.0;
     double push_force_x_n = 0.0;
@@ -85,6 +95,11 @@ inline po::variables_map helper(int argc, char** argv)
         ("ground-truth-log", po::value<std::filesystem::path>(&config.ground_truth_log), "MuJoCo contact-force CSV output path")
         ("headless", po::bool_switch(&config.headless), "Run without a GUI window (no GLFW)")
         ("camera-follow", po::bool_switch(&config.camera_follow), "Track the Go2 base body with the GUI camera")
+        ("terrain-lidar", po::bool_switch(&config.terrain_lidar), "Publish simulated terrain sensor maps")
+        ("lockstep", po::bool_switch(&config.lockstep), "Verification-only sim-time lockstep harness (Order-103)")
+        ("lockstep-trace", po::value<std::filesystem::path>(&config.lockstep_trace), "Lockstep interval trace CSV output path")
+        ("initial-x", po::value<double>(&config.initial_x_m), "Initial base world x (harness only)")
+        ("initial-y", po::value<double>(&config.initial_y_m), "Initial base world y (harness only)")
         ("push-time", po::value<double>(&config.push_time_s), "Disturbance push start time (s); <0 disables")
         ("push-force-x", po::value<double>(&config.push_force_x_n), "Disturbance push force along world x (N)")
         ("push-torque-pitch", po::value<double>(&config.push_torque_pitch_nm), "Disturbance pitch torque (Nm)")

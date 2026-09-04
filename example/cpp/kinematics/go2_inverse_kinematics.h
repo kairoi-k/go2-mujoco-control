@@ -90,25 +90,33 @@ inline bool AllLegInverseKinematicsClamped(
     std::array<Vec3, kLegCount> &foot_positions,
     std::array<double, kJointCount> &joint_positions)
 {
-    if (AllLegInverseKinematics(foot_positions, joint_positions))
-        return true;
-    for (int iter = 0; iter < 16; ++iter)
+    // Clamp each leg independently. A single unreachable swing target must
+    // not retract otherwise-valid stance feet, because those feet are also
+    // the WBC measured support anchors during a terrain transfer.
+    for (std::size_t leg_index = 0; leg_index < kLegCount; ++leg_index)
     {
-        for (std::size_t leg_index = 0; leg_index < kLegCount; ++leg_index)
+        const auto leg = static_cast<Leg>(leg_index);
+        LegJointPositions leg_joints;
+        bool reachable = LegInverseKinematics(
+            leg, foot_positions[leg_index], leg_joints);
+        for (int iter = 0; !reachable && iter < 16; ++iter)
         {
-            const LegGeometry geometry =
-                Geometry(static_cast<Leg>(leg_index));
-            foot_positions[leg_index].x =
-                geometry.hip_x +
+            const LegGeometry geometry = Geometry(leg);
+            foot_positions[leg_index].x = geometry.hip_x +
                 0.88 * (foot_positions[leg_index].x - geometry.hip_x);
-            foot_positions[leg_index].y =
-                geometry.hip_y +
+            foot_positions[leg_index].y = geometry.hip_y +
                 0.88 * (foot_positions[leg_index].y - geometry.hip_y);
+            reachable = LegInverseKinematics(
+                leg, foot_positions[leg_index], leg_joints);
         }
-        if (AllLegInverseKinematics(foot_positions, joint_positions))
-            return true;
+        if (!reachable)
+            return false;
+        const std::size_t joint_index = leg_index * kJointsPerLeg;
+        joint_positions[joint_index] = leg_joints.hip;
+        joint_positions[joint_index + 1] = leg_joints.thigh;
+        joint_positions[joint_index + 2] = leg_joints.calf;
     }
-    return false;
+    return true;
 }
 
 } // namespace go2

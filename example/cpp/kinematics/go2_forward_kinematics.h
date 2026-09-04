@@ -27,6 +27,25 @@ struct Vec3
     double z = 0.0;
 };
 
+// The MuJoCo foot collision sphere is centered at the FK foot site while its
+// contact patch is one calibrated radius below that site. Terrain planner
+// elevations are contact-patch heights; WBC FK measurements are site heights.
+constexpr double kFootSiteToContactPatchOffsetM = 0.022;
+
+inline Vec3 ContactPatchToFootSite(const Vec3 &contact_patch)
+{
+    Vec3 site = contact_patch;
+    site.z += kFootSiteToContactPatchOffsetM;
+    return site;
+}
+
+inline Vec3 FootSiteToContactPatch(const Vec3 &foot_site)
+{
+    Vec3 contact_patch = foot_site;
+    contact_patch.z -= kFootSiteToContactPatchOffsetM;
+    return contact_patch;
+}
+
 struct LegGeometry
 {
     double hip_x;

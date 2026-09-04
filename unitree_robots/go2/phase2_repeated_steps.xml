@@ -1,0 +1,14 @@
+<mujoco model="go2 phase2 repeated steps">
+  <include file="go2.xml" />
+  <statistic center="1.4 0 0.25" extent="2.2" />
+  <asset>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.12" />
+  </asset>
+  <worldbody>
+    <geom name="phase2_floor" size="0 0 0.05" type="plane" material="groundplane" />
+    <geom name="phase2_step_a" pos="0.90 0 0.025" type="box" size="0.20 0.75 0.025" />
+    <geom name="phase2_step_b" pos="1.45 0 0.075" type="box" size="0.20 0.75 0.075" />
+    <geom name="phase2_step_c" pos="2.00 0 0.025" type="box" size="0.20 0.75 0.025" />
+  </worldbody>
+</mujoco>

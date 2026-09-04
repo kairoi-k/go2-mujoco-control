@@ -172,10 +172,13 @@ public:
         {
             const int geom = foot_geom_[leg];
             const int body = model_->geom_bodyid[geom];
+            // The named foot geom is offset from the calf body origin.  Its
+            // position must match mj_jacGeom's point; using body xpos here
+            // silently paired a calf-origin lever arm with a foot Jacobian.
             out.foot_pos_world[leg] = Eigen::Vector3d(
-                data_->xpos[3 * body + 0],
-                data_->xpos[3 * body + 1],
-                data_->xpos[3 * body + 2]);
+                data_->geom_xpos[3 * geom + 0],
+                data_->geom_xpos[3 * geom + 1],
+                data_->geom_xpos[3 * geom + 2]);
             mj_jacGeom(model_, data_, jacp, jacr, geom);
             const mjtNum point[3] = {
                 out.foot_pos_world[leg].x(),

@@ -183,7 +183,10 @@ struct TrotParams
     bool wall_clock_motion = false;
     bool reactive_events = false;
     bool auto_environment = false;
+    bool terrain_enabled = false;
+    bool terrain_sensor_only = false;
     bool runtime_velocity_command = false;
+    double gait_phase_offset = 0.0;
     std::string velocity_command_script_path;
     VelocityCommandProfile velocity_command_profile;
     VelocityCommandShaperParams velocity_command_shaper{};
@@ -256,6 +259,26 @@ struct WbcShadowDiagnostics
     bool constraint_feasible = false;
     int active_contacts = 0;
     int contact_mask = 0;
+    int measured_contact_mask = 0;
+    int scheduled_contact_mask = 0;
+    int terrain_planned_contact_mask = 0;
+    int terrain_raw_contact_mask = 0;
+    int terrain_fused_contact_mask = 0;
+    int terrain_robust_support_mask = 0;
+    bool terrain_contact_guard_active = false;
+    int terrain_contact_guard_age_ticks = 0;
+    int terrain_contact_grace_remaining_ticks = 0;
+    int terrain_contact_fallback_stage = 0;
+    std::string terrain_contact_fusion_reason = "none";
+    std::uint64_t mpc_update_count = 0;
+    int mpc_contact_mask_k0 = 0;
+    int mpc_min_contact_count = 0;
+    double mpc_reference_x_first_m = 0.0;
+    double mpc_reference_x_last_m = 0.0;
+    double mpc_reference_vx_first_mps = 0.0;
+    double mpc_reference_vx_last_mps = 0.0;
+    bool terrain_contact_coherent = false;
+    std::uint64_t terrain_plan_id = 0;
     int iterations = 0;
     double residual_norm = 0.0;
     double desired_force_x_n = 0.0;
@@ -265,6 +288,27 @@ struct WbcShadowDiagnostics
     double task_residual_norm = 0.0;
     double max_radial_friction_ratio = 0.0;
     double min_contact_normal_force_n = 0.0;
+    // Final ID-WBC normal-force allocation, retained per leg so terrain
+    // telemetry can distinguish a declared swing from a stance leg that the
+    // optimizer has effectively unloaded.
+    std::array<double, go2::kLegCount> id_wbc_normal_force_n{};
+    // Order-088 diagnostic values are populated for every solve but only
+    // emitted when TROT_TERRAIN_TELEMETRY is enabled during SHIFT/SWING.
+    std::array<double, go2::kLegCount> terrain_telemetry_commanded_normal_force_n{};
+    std::array<bool, go2::kLegCount> terrain_telemetry_wbc_saturated{};
+    std::array<std::array<double, 3>, go2::kLegCount> id_wbc_force_world_n{};
+    std::array<double, go2::kLegCount> id_wbc_friction_ratio{};
+    std::array<bool, go2::kLegCount> id_wbc_friction_active{};
+    std::array<std::array<double, 3>, go2::kLegCount> id_wbc_contact_normal{};
+    std::array<double, kMotorCount> id_wbc_tau_nm{};
+    std::array<std::array<double, 3>, go2::kLegCount>
+        id_wbc_swing_acc_world_mps2{};
+    double id_wbc_qp_cost = 0.0;
+    double id_wbc_w_base_angular = 0.0;
+    double id_wbc_w_stance_no_slip = 0.0;
+    double id_wbc_w_swing = 0.0;
+    double id_wbc_w_force_track = 0.0;
+    double id_wbc_w_posture = 0.0;
     double elapsed_us = 0.0;
     bool within_budget = true;
     double max_abs_tau = 0.0;
@@ -282,6 +326,16 @@ struct WbcShadowDiagnostics
     bool feedforward_applied = false;
     bool feedforward_reduced_task_gate = false;
     double feedforward_max_abs_tau = 0.0;
+    bool terrain_hold_force_telemetry = false;
+    std::array<double, go2::kLegCount> terrain_hold_wbc_normal_force_n{};
+    double terrain_hold_cost_base_linear = 0.0;
+    double terrain_hold_cost_base_angular = 0.0;
+    double terrain_hold_cost_stance_no_slip = 0.0;
+    double terrain_hold_cost_swing = 0.0;
+    double terrain_hold_cost_force_regularization = 0.0;
+    double terrain_hold_cost_force_tracking = 0.0;
+    double terrain_hold_cost_posture = 0.0;
+    double terrain_hold_cost_torque = 0.0;
 };
 
 inline uint32_t crc32_core(uint32_t *ptr, uint32_t len)

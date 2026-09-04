@@ -11,6 +11,7 @@
 
 #include "contact_wrench_projected_allocator.h"
 #include "contact_state_filter.h"
+#include "full2_campaign_env.h"
 #include "go2_contact_torque_mapping.h"
 #include "go2_inverse_kinematics.h"
 #include "motion_frame_utils.h"
@@ -40,9 +41,18 @@ void TrotExperiment::InitLowCmd()
 // --- TrotExperiment::LowStateMessageHandler ---
 void TrotExperiment::LowStateMessageHandler(const void *message)
 {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    low_state_ = *(unitree_go::msg::dds_::LowState_ *)message;
-    have_low_state_ = true;
+    const unitree_go::msg::dds_::LowState_ *msg =
+        static_cast<const unitree_go::msg::dds_::LowState_ *>(message);
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        low_state_ = *msg;
+        have_low_state_ = true;
+    }
+    // Order-108 verification-only tick gate: strictly-new-tick detection
+    // and (once engaged) stale/reorder/gap fail-closed. No-op for the
+    // wall-clock runner (adapter off -> gate never engaged).
+    if (lockstep_ack_enabled_)
+        lockstep_writer_gate_.OnLowState(msg->tick());
 }
 
 // --- TrotExperiment::HighStateMessageHandler ---
@@ -68,6 +78,24 @@ void TrotExperiment::EnvironmentHeightMapMessageHandler(const void *message)
                   << environment_heightmap_.stamp()
                   << " cells=" << environment_heightmap_.data().size()
                   << " frame=" << environment_heightmap_.frame_id() << "\n";
+    }
+}
+
+void TrotExperiment::LidarHeightMapMessageHandler(const void *message)
+{
+    if (message == nullptr)
+        return;
+    std::lock_guard<std::mutex> lock(terrain_map_mutex_);
+    const bool first_message = !have_lidar_heightmap_;
+    lidar_heightmap_ =
+        *static_cast<const unitree_go::msg::dds_::HeightMap_ *>(message);
+    have_lidar_heightmap_ = true;
+    if (first_message)
+    {
+        std::cerr << "Lidar map received: stamp="
+                  << lidar_heightmap_.stamp()
+                  << " cells=" << lidar_heightmap_.data().size()
+                  << " frame=" << lidar_heightmap_.frame_id() << "\n";
     }
 }
 
@@ -169,6 +197,11 @@ bool TrotExperiment::Init()
     WriteCsvHeader();
     InitLowCmd();
 
+    go2_terrain::TerrainPlannerConfig terrain_config;
+    terrain_config.sensor_only = params_.terrain_sensor_only;
+    terrain_config.allow_actuation = false;
+    terrain_planner_ = go2_terrain::TerrainPlanner(terrain_config);
+
     if (params_.wbc_full)
     {
 #ifdef GO2_MODEL_PATH
@@ -191,6 +224,25 @@ bool TrotExperiment::Init()
     lowcmd_publisher_.reset(
         new ChannelPublisher<unitree_go::msg::dds_::LowCmd_>(GO2_TROT_TOPIC_LOWCMD));
     lowcmd_publisher_->InitChannel();
+
+    // Order-105/106 verification-only causal handshake: when the sim runs
+    // with the lockstep flag the harness also sets TROT_LOCKSTEP_ACK=1, so
+    // this adapter acks {state_seq} after every LowCmd write. Off by
+    // default; the flag never changes control math.
+    if (Full2EnvDouble("TROT_LOCKSTEP_ACK", 0.0) > 0.5)
+    {
+        lockstep_ack_publisher_.reset(
+            new ChannelPublisher<unitree_go::msg::dds_::Error_>(
+                GO2_TROT_TOPIC_LOCKSTEP_ACK));
+        lockstep_ack_publisher_->InitChannel();
+        lockstep_ack_enabled_ = true;
+        std::cout << "Lockstep ack adapter enabled on "
+                  << GO2_TROT_TOPIC_LOCKSTEP_ACK << "\n";
+    }
+    // Order-108: fail closed if the writer waits longer than this for the
+    // next strictly-new tick (default matches SIM_LOCKSTEP_EXCHANGE_TIMEOUT_S).
+    lockstep_writer_gate_.SetTickWaitTimeoutS(
+        Full2EnvDouble("TROT_LOCKSTEP_TICK_TIMEOUT_S", 5.0));
 
     lowstate_subscriber_.reset(
         new ChannelSubscriber<unitree_go::msg::dds_::LowState_>(GO2_TROT_TOPIC_LOWSTATE));
@@ -226,6 +278,22 @@ bool TrotExperiment::Init()
                   << GO2_TROT_TOPIC_ENVIRONMENT_MAP << "\n";
     }
 
+    if (params_.terrain_enabled)
+    {
+        lidar_heightmap_subscriber_.reset(
+            new ChannelSubscriber<unitree_go::msg::dds_::HeightMap_>(
+                GO2_TROT_TOPIC_LIDAR_MAP));
+        lidar_heightmap_subscriber_->InitChannel(
+            std::bind(
+                &TrotExperiment::LidarHeightMapMessageHandler,
+                this,
+                std::placeholders::_1),
+            1);
+        std::cout << "Terrain lidar map: " << GO2_TROT_TOPIC_LIDAR_MAP
+                  << " sensor_only="
+                  << (params_.terrain_sensor_only ? "on" : "off") << "\n";
+    }
+
     std::cout << "Waiting for natural settle...\n";
     if (!WaitForNaturalSettle(8.0))
     {
@@ -234,21 +302,71 @@ bool TrotExperiment::Init()
     }
     CaptureWorldReference();
 
+    if (params_.terrain_enabled)
+    {
+        terrain_worker_stop_.store(false);
+        terrain_planner_thread_ = std::thread(
+            &TrotExperiment::TerrainPlannerWorker, this);
+    }
     writer_stop_.store(false);
     low_cmd_write_thread_ = std::thread([this]() {
+        PinCurrentThreadToEnv("TROT_WRITER_CPU");
         const auto interval = std::chrono::microseconds(
             static_cast<int64_t>(dt_ * 1000000.0));
         auto next = std::chrono::steady_clock::now();
         while (!writer_stop_.load() && !finished_.load())
         {
-            LowCmdWrite();
-            next += interval;
-            std::this_thread::sleep_until(next);
-            if (std::chrono::steady_clock::now() > next + interval * 4)
-                next = std::chrono::steady_clock::now();
+            // Order-108 verification-only tick gate: after the controller
+            // handoff (TROT_LOCKSTEP_ACK on AND the first lockstep state
+            // consumed post start-gait) the writer stops free-running on the
+            // wall clock and consumes exactly ONE new physics tick per loop
+            // iteration: one full LowCmdWrite/control update, one LowCmd
+            // publish, one ack of the exact {state_seq, command_seq} pair,
+            // then it waits for the next tick. Before the handoff -- and
+            // whenever the adapter is off -- the original wall-clock
+            // lifecycle below is unchanged.
+            if (lockstep_ack_enabled_ && lockstep_epoch_valid_)
+            {
+                EngageLockstepWriterIfNeeded();
+                const lockstep_writer::WaitResult wait =
+                    lockstep_writer_gate_.WaitForTick([this]() {
+                        return writer_stop_.load() || finished_.load();
+                    });
+                if (wait == lockstep_writer::WaitResult::kAborted)
+                    break;
+                if (wait == lockstep_writer::WaitResult::kTimeout)
+                {
+                    // The gate already printed the
+                    // TROT_LOCKSTEP_WRITER_FAIL_CLOSED diagnostic.
+                    finished_.store(true);
+                    break;
+                }
+                LowCmdWrite();
+                lockstep_writer_gate_.RecordConsumed(
+                    last_consumed_state_tick_);
+            }
+            else
+            {
+                LowCmdWrite();
+                next += interval;
+                std::this_thread::sleep_until(next);
+                if (std::chrono::steady_clock::now() > next + interval * 4)
+                    next = std::chrono::steady_clock::now();
+            }
         }
     });
     return true;
+}
+
+// The writer and the integration probe share this production handoff.
+void TrotExperiment::EngageLockstepWriterIfNeeded()
+{
+    if (lockstep_writer_gate_.Engaged())
+        return;
+    lockstep_writer_gate_.Engage(last_consumed_state_tick_);
+    // Rebase the motion clock at the exact handoff tick so the first gated
+    // update advances time once, not twice (or zero times) across transition.
+    lockstep_motion_clock_.Engage(last_consumed_state_tick_);
 }
 
 // --- TrotExperiment::Shutdown ---
@@ -257,6 +375,10 @@ void TrotExperiment::Shutdown()
     writer_stop_.store(true);
     if (low_cmd_write_thread_.joinable())
         low_cmd_write_thread_.join();
+    terrain_worker_stop_.store(true);
+    terrain_work_cv_.notify_all();
+    if (terrain_planner_thread_.joinable())
+        terrain_planner_thread_.join();
     csv_.close();
 }
 

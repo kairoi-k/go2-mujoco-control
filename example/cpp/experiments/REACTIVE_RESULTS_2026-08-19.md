@@ -21,4 +21,4 @@ python3 example/cpp/tools/analyze_reactive_events.py \
   example/cpp/experiments/go2_reactive_low_friction_push08_2026-08-19
 ```
 
-设计说明见 [`docs/REACTIVE_ENVIRONMENT_ADAPTATION.md`](../../docs/REACTIVE_ENVIRONMENT_ADAPTATION.md)。
+设计说明见 [`docs/REACTIVE_ENVIRONMENT_ADAPTATION.md`](../../../docs/REACTIVE_ENVIRONMENT_ADAPTATION.md)。

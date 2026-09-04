@@ -159,6 +159,7 @@ struct GaitKernelRequest
 {
     double gait_time_s = 0.0;
     std::array<go2::Vec3, go2::kLegCount> neutral_feet{};
+
     // State inputs reserved for feedback-driven classical kernels.
     // Body-frame velocity: x forward, y left, z up.
     // The caller must convert sensor/world velocity before filling it.
@@ -174,6 +175,11 @@ struct GaitKernelResult
     int cycle_index = 0;
     std::array<go2::Vec3, go2::kLegCount> feet{};
     std::array<double, go2::kLegCount> touchdown_target_x_m{};
+    // Exact nominal touchdown endpoints in the body frame.  The terrain
+    // planner uses these as the Phase-1 geometric reference even when a leg
+    // is already in swing; feet is the instantaneous commanded trajectory.
+    std::array<go2::Vec3, go2::kLegCount> touchdown_target_feet_base{};
+    bool touchdown_target_feet_valid = false;
     double velocity_error_x_mps = 0.0;
     double nominal_velocity_x_mps = 0.0;  // [Fix 2026-08-13] kernel 当前生效目标速度 (换挡后 world 同步用)
     bool footstep_plan_valid = false;
@@ -195,6 +201,7 @@ public:
         const GaitKernelRequest &request,
         GaitKernelResult &result) = 0;
     virtual void SetGaitStepLength(double) {}
+    virtual void SetGaitPattern(GaitPattern) {}
     virtual void SetGaitPeriod(double) {}
     virtual void SetGaitDuty(double) {}
     virtual void SetGaitFootLift(double) {}
@@ -215,6 +222,11 @@ public:
     const char *Name() const noexcept override
     {
         return "hand-coded-trot";
+    }
+
+    void SetGaitPattern(GaitPattern pattern) override
+    {
+        params_.pattern = pattern;
     }
 
     void SetGaitStepLength(double step_m) override
@@ -277,10 +289,12 @@ public:
             return false;
         }
 
-        result.phase = cycle_position - std::floor(cycle_position);
+        result.phase = WrapUnitPhase(cycle_position);
         result.cycle_index = static_cast<int>(std::floor(cycle_position));
         result.feet = request.neutral_feet;
         result.touchdown_target_x_m.fill(0.0);
+        result.touchdown_target_feet_base = request.neutral_feet;
+        result.touchdown_target_feet_valid = true;
         result.velocity_error_x_mps = 0.0;
         result.footstep_plan_valid = false;
         result.period_s = params_.period_s;
@@ -303,8 +317,8 @@ public:
 
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const double leg_phase = GaitLegPhase(
-                leg, result.phase, params_.pattern);
+            const double leg_phase =
+                GaitLegPhase(leg, result.phase, params_.pattern);
             double x_offset = 0.0;
             double z_offset = 0.0;
             if (leg_phase < stance_duration)
@@ -325,6 +339,8 @@ public:
                     params_.foot_lift_m * std::sin(kPi * swing_phase);
             }
             x_offset *= params_.direction_sign;
+            result.touchdown_target_feet_base[leg].x +=
+                params_.direction_sign * half_step;
             result.feet[leg].x += gait_blend * x_offset;
             result.feet[leg].z += gait_blend * z_offset;
         }

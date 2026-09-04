@@ -21,6 +21,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#if defined(__linux__)
+#include <sched.h>
+#endif
 #include <cstring>
 #include <array>
 #include <filesystem>
@@ -39,6 +42,7 @@
 #include "array_safety.h"
 #include "unitree_sdk2_bridge.h"
 #include "param.h"
+#include "lockstep.h"
 
 #define MUJOCO_PLUGIN_DIR "mujoco_plugin"
 #define NUM_MOTOR_IDL_GO 20
@@ -89,6 +93,9 @@ public:
   std::vector<double> f_ = {0, 0, 0};
 };
 inline ElasticBand elastic_band;
+
+// Order-103 verification-only lockstep coordinator (null when disabled).
+lockstep::Coordinator *g_lockstep = nullptr;
 
 
 namespace
@@ -182,6 +189,7 @@ namespace
       foot_body_ids_.fill(-1);
       foot_geom_ids_.fill(-1);
       geom_leg_ids_.assign(model->ngeom, -1);
+      terrain_geom_ids_.assign(model->ngeom, false);
       leg_root_body_ids_.fill(-1);
       obstacle_geom_id_ = mj_name2id(model, mjOBJ_GEOM, "reactive_obstacle");
 
@@ -220,6 +228,9 @@ namespace
 
       for (int geom_id = 0; geom_id < model->ngeom; ++geom_id)
       {
+        const char *geom_name = mj_id2name(model, mjOBJ_GEOM, geom_id);
+        terrain_geom_ids_[geom_id] = geom_name != nullptr &&
+            std::strncmp(geom_name, "phase2_step", 11) == 0;
         const int geom_body_id = model->geom_bodyid[geom_id];
         for (std::size_t leg = 0; leg < leg_root_body_ids_.size(); ++leg)
         {
@@ -274,7 +285,10 @@ namespace
                  << ",total_contact_moment_world_x_Nm,total_contact_moment_world_y_Nm,total_contact_moment_world_z_Nm";
         stream_ << ",reactive_obstacle_contact_count,reactive_obstacle_contact_force_N"
                  << ",reactive_obstacle_contact_normal_force_N"
-                 << ",reactive_obstacle_contact_other_geom_id";
+                 << ",reactive_obstacle_contact_other_geom_id"
+                 << ",phase2_terrain_foot_contact_mask"
+                 << ",phase2_terrain_nonfoot_contact_count"
+                 << ",phase2_terrain_nonfoot_contact_force_N";
         for (const char *leg : kLegs)
         {
           stream_ << "," << leg << "_sensor_force_site_x_N"
@@ -464,6 +478,47 @@ namespace
       }
     }
 
+    void ComputePhase2TerrainContact(
+        const mjModel *model, const mjData *data, int *foot_contact_mask,
+        int *nonfoot_contact_count, double *nonfoot_contact_force_N) const
+    {
+      *foot_contact_mask = 0;
+      *nonfoot_contact_count = 0;
+      *nonfoot_contact_force_N = 0.0;
+      mjtNum contact_force[6];
+      for (int contact_id = 0; contact_id < data->ncon; ++contact_id)
+      {
+        const mjContact &contact = data->contact[contact_id];
+        if (contact.exclude != 0 || contact.efc_address < 0 ||
+            contact.geom[0] < 0 || contact.geom[1] < 0)
+          continue;
+        const int terrain_side = terrain_geom_ids_[contact.geom[0]] ? 0
+            : (terrain_geom_ids_[contact.geom[1]] ? 1 : -1);
+        if (terrain_side < 0)
+          continue;
+        const int robot_geom = contact.geom[1 - terrain_side];
+        if (model->geom_bodyid[robot_geom] == 0)
+          continue;
+        bool foot_contact = false;
+        for (std::size_t leg = 0; leg < foot_geom_ids_.size(); ++leg)
+        {
+          if (robot_geom == foot_geom_ids_[leg])
+          {
+            *foot_contact_mask |= 1 << static_cast<int>(leg);
+            foot_contact = true;
+            break;
+          }
+        }
+        if (foot_contact)
+          continue;
+        mj_contactForce(model, data, contact_id, contact_force);
+        ++(*nonfoot_contact_count);
+        *nonfoot_contact_force_N += std::hypot(
+            contact_force[0],
+            std::hypot(contact_force[1], contact_force[2]));
+      }
+    }
+
     void Log(const mjModel *model, mjData *data)
     {
       if (!ready_ || model != model_ || !stream_)
@@ -532,6 +587,12 @@ namespace
                              &obstacle_contact_force_N,
                              &obstacle_contact_normal_force_N,
                              &obstacle_contact_other_geom_id);
+      int terrain_foot_contact_mask = 0;
+      int terrain_nonfoot_contact_count = 0;
+      double terrain_nonfoot_contact_force_N = 0.0;
+      ComputePhase2TerrainContact(
+          model, data, &terrain_foot_contact_mask,
+          &terrain_nonfoot_contact_count, &terrain_nonfoot_contact_force_N);
       stream_ << std::setprecision(12) << data->time
               << "," << step_index_
               << "," << total_mass_kg_
@@ -574,7 +635,10 @@ namespace
               << "," << obstacle_contact_count
               << "," << obstacle_contact_force_N
               << "," << obstacle_contact_normal_force_N
-              << "," << obstacle_contact_other_geom_id;
+              << "," << obstacle_contact_other_geom_id
+              << "," << terrain_foot_contact_mask
+              << "," << terrain_nonfoot_contact_count
+              << "," << terrain_nonfoot_contact_force_N;
 
       for (std::size_t i = 0; i < kLegs.size(); ++i)
       {
@@ -702,6 +766,7 @@ namespace
     std::array<int, 4> foot_geom_ids_ = {-1, -1, -1, -1};
     std::array<int, 4> leg_root_body_ids_ = {-1, -1, -1, -1};
     std::vector<int> geom_leg_ids_;
+    std::vector<bool> terrain_geom_ids_;
     std::ofstream stream_;
     double total_mass_kg_ = 0.0;
     std::uint64_t step_index_ = 0;
@@ -1156,6 +1221,45 @@ namespace
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
 
+      // Order-103 lockstep gate: once the ready barrier is complete, wait
+      // for the exchange handshake WITHOUT holding the sim mutex, then take
+      // the mutex only for the single frozen step. Before the barrier the
+      // wall-clock path below runs unchanged (identical startup). Holding
+      // the mutex during the wait would deadlock the bridge handshake.
+      if (param::config.lockstep && g_lockstep != nullptr && m != nullptr &&
+          sim.run && g_lockstep->BarrierComplete())
+      {
+        const lockstep::WaitOutcome outcome =
+            g_lockstep->WaitForStepPermission();
+        if (outcome == lockstep::WaitOutcome::kReady)
+        {
+          {
+            const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
+            // inject noise identically to the wall-clock path
+            if (sim.ctrl_noise_std)
+            {
+              mjtNum rate = mju_exp(-m->opt.timestep / mju_max(sim.ctrl_noise_rate, mjMINVAL));
+              mjtNum scale = sim.ctrl_noise_std * mju_sqrt(1 - rate * rate);
+              for (int i = 0; i < m->nu; i++)
+              {
+                ctrlnoise[i] = rate * ctrlnoise[i] + scale * mju_standardNormal(nullptr);
+                d->ctrl[i] = ctrlnoise[i];
+              }
+            }
+            mj_step(m, d);
+            ground_truth_logger.Log(m, d);
+            sim.AddToHistory();
+            // Notify under the sim mutex so the bridge's publish tick and
+            // the step-completed flag always refer to the same frozen state.
+            g_lockstep->NotifyStepCompleted(
+                static_cast<std::uint64_t>(std::llround(d->time * 1000.0)));
+          }
+        }
+        if (shutdown_requested)
+          sim.exitrequest.store(1);
+        continue;
+      }
+
       {
         // lock the sim mutex
         const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
@@ -1292,8 +1396,31 @@ namespace
 
 //-------------------------------------- physics_thread --------------------------------------------
 
+namespace
+{
+void PinSimulatorThreadToEnv(const char *env_name)
+{
+#if defined(__linux__)
+  const char *value = std::getenv(env_name);
+  if (value == nullptr || value[0] == 0)
+    return;
+  char *end = nullptr;
+  const long cpu = std::strtol(value, &end, 10);
+  if (end == value || *end != 0 || cpu < 0 || cpu >= CPU_SETSIZE)
+    return;
+  cpu_set_t cpu_set{};
+  CPU_ZERO(&cpu_set);
+  CPU_SET(static_cast<int>(cpu), &cpu_set);
+  if (sched_setaffinity(0, sizeof(cpu_set), &cpu_set) != 0)
+    std::cerr << "Unable to pin " << env_name << " to CPU " << cpu << "\n";
+#else
+  (void)env_name;
+#endif
+}
+}
 void PhysicsThread(mj::Simulate *sim, const char *filename)
 {
+  PinSimulatorThreadToEnv("TROT_SIM_PHYSICS_CPU");
   // request loadmodel if file given (otherwise drag-and-drop)
   if (filename != nullptr)
   {
@@ -1317,8 +1444,17 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
         sim->Load(m, d, filename);
       }
       ConfigureCamera(sim);
+      if (std::isfinite(param::config.initial_x_m) && m->nq >= 1)
+        d->qpos[0] = param::config.initial_x_m;
+      if (std::isfinite(param::config.initial_y_m) && m->nq >= 2)
+        d->qpos[1] = param::config.initial_y_m;
       mj_forward(m, d);
       ground_truth_logger.Configure(m);
+      if (param::config.lockstep && g_lockstep != nullptr)
+      {
+        g_lockstep->SetDtMs(static_cast<std::uint64_t>(
+            std::llround(m->opt.timestep * 1000.0)));
+      }
 
       // allocate ctrlnoise
       free(ctrlnoise);
@@ -1332,6 +1468,8 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
   }
 
   PhysicsLoop(*sim);
+  if (g_lockstep != nullptr)
+    g_lockstep->WriteSummary();
   ground_truth_logger.Close();
 
   // delete everything we allocated
@@ -1357,8 +1495,6 @@ void *UnitreeSdk2BridgeThread(void *arg)
   }
 
   unitree::robot::ChannelFactory::Instance()->Init(param::config.domain_id, param::config.interface);
-  std::cout << "Unitree DDS bridge ready" << std::endl;
-
 
   int body_id = mj_name2id(m, mjOBJ_BODY, "torso_link");
   if (body_id < 0) {
@@ -1373,6 +1509,10 @@ void *UnitreeSdk2BridgeThread(void *arg)
     interface = std::make_unique<Go2Bridge>(m, d, sim_mutex);
   }
   interface->start();
+  // The harness waits for this marker before starting the controller.  It
+  // must follow channel construction and the bridge thread launch; emitting
+  // it before start leaves a DDS participant/channel startup race.
+  std::cout << "Unitree DDS bridge ready" << std::endl;
   
   while (true)
   {
@@ -1478,6 +1618,30 @@ int main(int argc, char **argv)
   std::filesystem::path proj_dir = std::filesystem::path(getExecutableDir()).parent_path();
   param::config.load_from_yaml(proj_dir / "config.yaml");
   param::helper(argc, argv);
+  if (param::config.lockstep)
+  {
+    lockstep::Coordinator::Config lockstep_cfg;
+    lockstep_cfg.dt_ms = 2; // overridden from m->opt.timestep after load
+    lockstep_cfg.trace_path =
+        param::config.lockstep_trace.empty()
+            ? std::string("lockstep_trace.csv")
+            : param::config.lockstep_trace.string();
+    if (const char *v = std::getenv("SIM_LOCKSTEP_BARRIER_TIMEOUT_S"))
+      lockstep_cfg.barrier_timeout_s = std::strtod(v, nullptr);
+    if (const char *v = std::getenv("SIM_LOCKSTEP_EXCHANGE_TIMEOUT_S"))
+      lockstep_cfg.exchange_timeout_s = std::strtod(v, nullptr);
+    if (const char *v = std::getenv("SIM_LOCKSTEP_STEP_TIMEOUT_S"))
+      lockstep_cfg.step_wait_timeout_s = std::strtod(v, nullptr);
+    g_lockstep = new lockstep::Coordinator(lockstep_cfg);
+    g_lockstep->SetAbortCallback(
+        []() { return shutdown_requested != 0; });
+    std::cout << "LOCKSTEP: verification-only sim-time lockstep enabled"
+              << " trace=" << lockstep_cfg.trace_path << "\n";
+  }
+  if (const char *value = std::getenv("TROT_INITIAL_X_M"))
+    param::config.initial_x_m = std::strtod(value, nullptr);
+  if (const char *value = std::getenv("TROT_INITIAL_Y_M"))
+    param::config.initial_y_m = std::strtod(value, nullptr);
   if(param::config.robot_scene.is_relative()) {
     param::config.robot_scene = proj_dir.parent_path() / "unitree_robots" / param::config.robot / param::config.robot_scene;
   }

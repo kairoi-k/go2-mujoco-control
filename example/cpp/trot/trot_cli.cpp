@@ -33,6 +33,8 @@ void PrintTrotCliUsage()
            " [--velocity-max-decel a] [--velocity-max-jerk j]"
            " [--forever] [--stop-file path]"
            " [--auto-environment]"
+           " [--gait-phase-offset fraction]"
+           " [--terrain-sensor-only]"
            " [--impact-to-emergency-stop-delay s]"
            " [--task stand-walk-lie]"
            " [--goal-x m] [--goal-y m] [--goal-tol m]\n";
@@ -56,15 +58,6 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
 
     for (int i = 4; i < argc; ++i)
     {
-        const std::string option = argv[i];
-        auto require_value = [&](const char *name) -> std::string {
-            if (i + 1 >= argc)
-                throw std::invalid_argument(std::string(name) + " requires a value");
-            return argv[++i];
-        };
-        try
-        {
-
         const std::string option = argv[i];
         auto require_value = [&](const char *name) -> std::string {
             if (i + 1 >= argc)
@@ -93,6 +86,10 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
             else if (option == "--gait-pattern")
             {
                 const std::string value = require_value("--gait-pattern");
+                if (value == "crawl")
+                    throw std::invalid_argument(
+                        "retired terrain actuation option 'crawl'; "
+                        "use running-trot and read CURRENT.md");
                 if (!go2_control::ParseGaitPattern(
                         value.c_str(), cfg.params.gait_pattern))
                     throw std::invalid_argument(
@@ -118,6 +115,21 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.params.auto_environment = true;
                 cfg.params.reactive_events = true;
             }
+            else if (option == "--terrain-sensor-only")
+            {
+                cfg.params.terrain_enabled = true;
+                cfg.params.terrain_sensor_only = true;
+            }
+            else if (option == "--stage-c-execution" ||
+                     option == "--terrain-planner" ||
+                     option == "--terrain-leg-order" ||
+                     option == "--terrain-advance-body-before-second")
+                throw std::invalid_argument(
+                    "retired terrain actuation option '" + option +
+                    "'; use --terrain-sensor-only and read CURRENT.md");
+            else if (option == "--gait-phase-offset")
+                cfg.params.gait_phase_offset =
+                    std::stod(require_value("--gait-phase-offset"));
             else if (option == "--impact-to-emergency-stop-delay")
             {
                 cfg.params.impact_to_emergency_stop_delay_s =
@@ -321,12 +333,6 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
             if (error_out) *error_out = error.what();
             return false;
         }
-        }
-        catch (const std::exception &error)
-        {
-            if (error_out) *error_out = error.what();
-            return false;
-        }
     }
     if (cfg.params.runtime_velocity_command &&
         (cfg.params.cartesian_world || !cfg.params.wbc_full ||
@@ -347,6 +353,13 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
         return false;
     }
 
+    if (!std::isfinite(cfg.params.gait_phase_offset) ||
+        cfg.params.gait_phase_offset < 0.0 ||
+        cfg.params.gait_phase_offset >= 1.0)
+    {
+        if (error_out) *error_out = "gait phase offset must be in [0,1)";
+        return false;
+    }
     if (!cfg.params.event_script_path.empty() &&
         !go2_control::LoadMotionEventScript(
             cfg.params.event_script_path, cfg.params.event_schedule,
@@ -460,6 +473,8 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << "  cartesian_world="
               << (params.cartesian_world ? "on" : "off") << "\n"
               << "  auto_environment=" << (params.auto_environment ? "on" : "off") << "\n"
+              << "  terrain_sensor_only="
+              << (params.terrain_sensor_only ? "on" : "off") << "\n"
               << "  reactive_events="
               << ((params.reactive_events || params.auto_environment || !params.event_schedule.empty()) ? "on" : "off") << "\n"
               << "  impact_to_emergency_stop_delay="

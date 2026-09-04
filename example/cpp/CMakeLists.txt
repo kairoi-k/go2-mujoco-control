@@ -16,6 +16,7 @@ set(GO2_CPP_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/wbc
     ${CMAKE_CURRENT_SOURCE_DIR}/util
     ${CMAKE_CURRENT_SOURCE_DIR}/leg_lift
+    ${CMAKE_CURRENT_SOURCE_DIR}/terrain
 )
 include_directories(${GO2_CPP_INCLUDE_DIRS})
 
@@ -105,7 +106,16 @@ go2_add_ctest(test_velocity_command)
 
 add_executable(test_trot_task tests/test_trot_task.cpp trot/trot_task.cpp)
 
+add_executable(test_lean_route_guard
+    tests/test_lean_route_guard.cpp
+    trot/trot_cli.cpp
+    trot/trot_task.cpp)
+target_link_libraries(test_lean_route_guard unitree_sdk2 Eigen3::Eigen)
+go2_add_ctest(test_lean_route_guard)
+
 add_executable(test_contact_state_filter tests/test_contact_state_filter.cpp)
+add_executable(test_contact_fusion_fault_harness tests/test_contact_fusion_fault_harness.cpp)
+go2_add_ctest(test_contact_fusion_fault_harness)
 
 set(CMAKE_BUILD_TYPE Release)
 
@@ -132,6 +142,43 @@ add_executable(test_dynamic_acceleration_target tests/test_dynamic_acceleration_
 add_executable(test_motion_event_response tests/test_motion_event_response.cpp)
 
 add_executable(test_wbc_runtime_gate tests/test_wbc_runtime_gate.cpp)
+
+# Order-108 verification-only controller-side lockstep writer tick gate
+# (DDS-free; header-only in trot/lockstep_writer_gate.h).
+add_executable(test_lockstep_writer_gate tests/test_lockstep_writer_gate.cpp)
+go2_add_ctest(test_lockstep_writer_gate)
+
+# Order-109 verification-only state-synchronous motion clock (DDS-free).
+add_executable(test_lockstep_motion_clock tests/test_lockstep_motion_clock.cpp)
+go2_add_ctest(test_lockstep_motion_clock)
+
+# Order-109b production call-chain integration test. The controller sources
+# are compiled unchanged except for a test-only publish suppression and
+# observability seam; the test drives TrotExperiment::LowCmdWrite itself.
+add_executable(test_lockstep_motion_clock_integration
+    tests/test_lockstep_motion_clock_integration.cpp
+    trot/trot_task.cpp
+    trot/trot_experiment_lifecycle.cpp
+    trot/trot_experiment_gait.cpp
+    trot/trot_experiment_wbc.cpp
+    trot/trot_experiment_diagnostics.cpp
+    trot/trot_experiment_control.cpp
+)
+target_compile_definitions(test_lockstep_motion_clock_integration
+    PRIVATE GO2_TROT_TESTING=1)
+target_link_libraries(test_lockstep_motion_clock_integration
+    unitree_sdk2 Eigen3::Eigen)
+if(EXISTS "${_go2_mujoco_lib}")
+    target_include_directories(test_lockstep_motion_clock_integration
+        PRIVATE "${_go2_mujoco_inc}")
+    target_link_libraries(test_lockstep_motion_clock_integration
+        "${_go2_mujoco_lib}")
+    target_compile_definitions(test_lockstep_motion_clock_integration
+        PRIVATE GO2_MODEL_PATH="${_go2_model_path}")
+    set_target_properties(test_lockstep_motion_clock_integration PROPERTIES
+        BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
+endif()
+go2_add_ctest(test_lockstep_motion_clock_integration)
 
 add_executable(test_centroidal_wbc tests/test_centroidal_wbc.cpp)
 
@@ -171,6 +218,10 @@ endif()
 add_executable(test_srbd_mpc tests/test_srbd_mpc.cpp)
 target_link_libraries(test_srbd_mpc Eigen3::Eigen)
 go2_add_ctest(test_srbd_mpc)
+
+add_executable(test_terrain_interfaces tests/test_terrain_interfaces.cpp)
+target_link_libraries(test_terrain_interfaces unitree_sdk2)
+go2_add_ctest(test_terrain_interfaces)
 
 add_executable(analyze_contact_torque_replay tools/analysis/analyze_contact_torque_replay.cpp)
 target_include_directories(analyze_contact_torque_replay PRIVATE ${GO2_CPP_INCLUDE_DIRS})

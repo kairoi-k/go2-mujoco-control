@@ -40,6 +40,20 @@ void TrotExperiment::WriteCsvHeader()
          << ",environment_map_valid,environment_map_age_s"
          << ",obstacle_center_distance_m,obstacle_left_distance_m,obstacle_right_distance_m"
          << ",obstacle_center_height_m,obstacle_left_height_m,obstacle_right_height_m"
+         << ",terrain_enabled,terrain_sensor_only,terrain_actuation"
+         << ",terrain_map_valid,terrain_map_source,terrain_map_epoch"
+         << ",terrain_map_age_s,terrain_known_cells,terrain_feasible_regions"
+         << ",terrain_plan_status,terrain_plan_id,terrain_plan_epoch,terrain_plan_valid"
+         << ",terrain_planner_updates,terrain_planner_rejections"
+         << ",terrain_planner_deadline_misses,terrain_solver_elapsed_us"
+         << ",terrain_safe_stop_requested,terrain_velocity_cap_mps"
+         << ",terrain_plan_published,terrain_plan_consumed"
+         << ",terrain_gait_target_overrides,terrain_mpc_plan_consumed"
+         << ",terrain_plan_failure,terrain_committed_touchdowns"
+         << ",terrain_min_edge_margin_m,terrain_min_uncertainty_edge_margin_m"
+         << ",terrain_min_slope_rad,terrain_max_roughness_m,terrain_min_reachability_margin_m,terrain_min_swing_clearance_m"
+         << ",terrain_min_support_margin_m,terrain_min_uncertainty_support_margin_m"
+         << ",terrain_plan_contact_rejections"
          << ",support_foot_kinematics_valid,support_foot_count,support_foot_speed_mps"
          << ",support_low_friction_evidence"
          << ",low_friction_accumulation"
@@ -550,6 +564,59 @@ void TrotExperiment::LogSample(
             contact_count += contact_flags[leg];
         }
     }
+    double terrain_last_failure = 0.0;
+    double terrain_min_edge_margin_m = 0.0;
+    double terrain_min_uncertainty_edge_margin_m = 0.0;
+    double terrain_min_slope_rad = 0.0;
+    double terrain_max_roughness_m = 0.0;
+    double terrain_min_reachability_margin_m = 0.0;
+    double terrain_min_swing_clearance_m = 0.0;
+    double terrain_min_support_margin_m = 0.0;
+    double terrain_min_uncertainty_support_margin_m = 0.0;
+    std::uint64_t terrain_committed_touchdowns = 0;
+    std::uint64_t terrain_plan_contact_rejections = 0;
+
+    std::shared_ptr<const go2_terrain::TerrainModel> terrain_model;
+    double terrain_last_map_age_s = std::numeric_limits<double>::infinity();
+    double terrain_last_solver_us = 0.0;
+    double terrain_last_plan_status = 0.0;
+    std::size_t terrain_known_cells = 0;
+    std::size_t terrain_feasible_regions = 0;
+    std::uint64_t terrain_planner_updates = 0;
+    std::uint64_t terrain_planner_rejections = 0;
+    std::uint64_t terrain_planner_deadline_misses = 0;
+    bool terrain_latest_plan_valid = false;
+    std::uint64_t terrain_plan_published = 0;
+    if (params_.terrain_enabled)
+    {
+        std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
+        terrain_model = terrain_model_;
+        terrain_last_map_age_s = terrain_last_map_age_s_;
+        terrain_last_solver_us = terrain_last_solver_us_;
+        terrain_last_failure = terrain_last_failure_;
+        terrain_min_edge_margin_m = terrain_min_edge_margin_m_;
+        terrain_min_uncertainty_edge_margin_m =
+            terrain_min_uncertainty_edge_margin_m_;
+        terrain_min_slope_rad = terrain_min_slope_rad_;
+        terrain_max_roughness_m = terrain_max_roughness_m_;
+        terrain_min_reachability_margin_m =
+            terrain_min_reachability_margin_m_;
+        terrain_min_swing_clearance_m = terrain_min_swing_clearance_m_;
+        terrain_min_support_margin_m = terrain_min_support_margin_m_;
+        terrain_min_uncertainty_support_margin_m =
+            terrain_min_uncertainty_support_margin_m_;
+        terrain_last_plan_status = terrain_last_plan_status_;
+        terrain_committed_touchdowns = terrain_committed_touchdowns_;
+        terrain_known_cells = terrain_known_cells_;
+        terrain_feasible_regions = terrain_feasible_regions_;
+        terrain_planner_updates = terrain_planner_updates_;
+        terrain_planner_rejections = terrain_planner_rejections_;
+        terrain_planner_deadline_misses = terrain_planner_deadline_misses_;
+        terrain_latest_plan_valid = terrain_latest_plan_valid_;
+    }
+    constexpr bool terrain_safe_stop_requested = false;
+    const double terrain_velocity_cap_mps =
+        std::numeric_limits<double>::infinity();
 
     // SECTION: log-state-summary (time, clock, pose, velocity, imu)
     csv_ << running_time_ << "," << state_tick_s << ","
@@ -603,6 +670,43 @@ void TrotExperiment::LogSample(
          << "," << latest_motion_sensor_.obstacle_center_height_m
          << "," << latest_motion_sensor_.obstacle_left_height_m
          << "," << latest_motion_sensor_.obstacle_right_height_m
+         << "," << (params_.terrain_enabled ? 1 : 0)
+         << "," << (params_.terrain_sensor_only ? 1 : 0)
+         << "," << 0
+         << "," << ((terrain_model && terrain_model->valid()) ? 1 : 0)
+         << "," << (terrain_model
+                           ? go2_terrain::TerrainSourceName(
+                                 terrain_model->source)
+                           : "none")
+         << "," << (terrain_model ? terrain_model->epoch : 0)
+         << "," << terrain_last_map_age_s
+         << "," << terrain_known_cells
+         << "," << terrain_feasible_regions
+         << "," << static_cast<int>(terrain_last_plan_status)
+         << "," << terrain_plan_id_.load()
+         << "," << terrain_plan_epoch_.load()
+         << "," << (terrain_latest_plan_valid ? 1 : 0)
+         << "," << terrain_planner_updates
+         << "," << terrain_planner_rejections
+         << "," << terrain_planner_deadline_misses
+         << "," << terrain_last_solver_us
+         << "," << (terrain_safe_stop_requested ? 1 : 0)
+         << "," << terrain_velocity_cap_mps
+         << "," << terrain_plan_published
+         << "," << 0
+         << "," << 0
+         << "," << 0
+         << "," << terrain_last_failure
+         << "," << terrain_committed_touchdowns
+         << "," << terrain_min_edge_margin_m
+         << "," << terrain_min_uncertainty_edge_margin_m
+         << "," << terrain_min_slope_rad
+         << "," << terrain_max_roughness_m
+         << "," << terrain_min_reachability_margin_m
+         << "," << terrain_min_swing_clearance_m
+         << "," << terrain_min_support_margin_m
+         << "," << terrain_min_uncertainty_support_margin_m
+         << "," << terrain_plan_contact_rejections
          << "," << (latest_motion_sensor_.have_support_foot_kinematics ? 1 : 0)
          << "," << latest_motion_sensor_.support_foot_count
          << "," << latest_motion_sensor_.support_foot_speed_mps

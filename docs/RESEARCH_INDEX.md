@@ -2,6 +2,9 @@
 
 This repository records **model-based Go2 control in MuJoCo**. Isaac Lab velocity RL and Kine2Go imitation are maintained in separate companion repositories.
 
+This index records accepted Phase 1 and general repository claims. It does not
+define the current Phase 2 route; use [`CURRENT.md`](../CURRENT.md).
+
 ## Implementation
 
 **Stand-walk-lie sequencing + `--wbc-full` Raibert trot**, 2026-08-18 (`2b82dae`).
