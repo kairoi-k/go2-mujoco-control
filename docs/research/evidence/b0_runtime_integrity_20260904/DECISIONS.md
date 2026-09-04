@@ -342,6 +342,16 @@ introducing a forbidden terrain route?
 - Scope: trace simulation tick, controller tick, state timestamp, command
   application, and analyzer sample index as one causal chain; test a shared
   simulation-tick barrier or a recorded/replayed time-indexed schedule.
+
+- Reference check: fresh standalone `varying` passed on old `524680be`
+  (run-manifest SHA `2ac305dc8a6cd931dc17473a8f277af2e669b579ff904f58c54f3381d1217178`)
+  and also on the current integrated head `a305de3` (run-manifest SHA
+  `43a5b2bf0c7cf7fab5da19ad2fb085d950aacb6535ab6ce7cc2d1d29affb1b40`).
+  Old artifact root: `/home/che/dev/go2-workspace/reference/phase1-20260904/example/cpp/experiments/_runs/phase1_baseline_repro_20260904/varying_20260904_233010`;
+  current artifact root: `example/cpp/experiments/_runs/phase2_current_regression_varying_20260904/varying_20260904_233256`.
+- Interpretation: this does not show a blanket Phase-1 variable-speed
+  regression; the blocker is localized to the current B0 paired
+  terrain-sensor/acceleration path and its wall-clock attribution.
 - Decision: preserve all frozen B0 thresholds and profiles; no further
   parameter probe or B1 canary until this contract is evidenced.
 
