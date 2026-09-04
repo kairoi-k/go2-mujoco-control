@@ -257,10 +257,38 @@ repair that restores Phase 1 without introducing a forbidden terrain route?
   no gain/cap sweep. A pass still requires a fresh full exact-SHA B0.
 - Interpretation limit: a pass supports swing tracking authority only; it does
   not establish B0, obstacle clearance, B1, or Stage C actuation.
+- Result on exact clean `f95349cc0928ee4ca62cc71d2f160ab5612803ab` with the
+  recorded `FULL2_SWING_ACC=80`: both members completed and kept ID-WBC and
+  solver validity at 1.0. Baseline contact loss was 0.2281 and terrain was
+  0.2407, both within the contact gate. Baseline nevertheless exceeded the
+  frozen 45-Nm saturation fraction at 0.0030845; terrain stayed below that
+  gate at 0.0029670 but exceeded the positive speed excursion at 0.5052 m/s.
+  Thus neither member supplied a complete quantitative pass, although the
+  observed contact-loss improvement is useful evidence.
+- Decision: do not promote the environment override or rerun it. F11 does not
+  isolate a sufficient repair; the next review must address coupled runtime
+  margin (swing authority, speed lead, and torque saturation) as one coherent
+  control-path issue rather than tuning one cap at a time.
+
+### F12 — Architecture review required before another probe
+
+- Trigger: F9 localized the reference-feasibility mismatch; F10 rejected
+  amplitude-only repair by early swing-foot collision; F11 improved contact
+  loss but still failed independent frozen margins on the exact pair.
+- Review question: can the current short-period running-trot reference and
+  wall-clock execution path satisfy the frozen B0 margins with one shared,
+  physically feasible plan, or must Phase 1 expose a bounded, time-indexed
+  reference/authority contract before more tuning?
+- Required output before source changes: reconcile target foot geometry,
+  measured support, applied velocity, Cartesian swing request, torque margin,
+  and scheduler timing on the same tick index; identify whether the failure is
+  deterministic control feasibility or realtime delivery variance. No new
+  canary, threshold change, contact fabrication, or local swing retiming is
+  authorized until this review is recorded.
 
 ## Current choice
 
-Execute the preregistered F11 acceleration pair once. Only a fresh full
+Complete F12's architecture review before any new canary. Only a fresh full
 exact-SHA B0 pass permits the Stage C shadow path and smallest dynamic B1 slice
 to resume.
 

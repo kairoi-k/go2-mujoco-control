@@ -3,7 +3,7 @@
   "status": "open_not_acceptance",
   "date": "2026-09-04",
   "branch": "fix/phase2-b0-runtime-integrity",
-  "current_candidate": "68ddc67061bdbd23ee3b154b09658392a9c171f0",
+  "current_candidate": "f95349cc0928ee4ca62cc71d2f160ab5612803ab",
   "frozen_acceptance_contract": "docs/research/PHASE2_ACCEPTANCE.md",
   "decision_record": "docs/research/evidence/b0_runtime_integrity_20260904/DECISIONS.md",
   "raw_evidence_root": "example/cpp/experiments/_runs",
@@ -36,7 +36,9 @@
     "phase2_b0_development_accel_1_to_3_r0_20260904_214453_baseline": "4bb4a70787205cd18168d1e2889254b30c9b6ee5fe5ba8c3412a9fc6ebaacec0",
     "phase2_b0_development_accel_1_to_3_r0_20260904_214453_terrain": "3a87bf3ff754a8db051205d6cfa82237daf0c63b48b9823d78b94bacb3f83a8d",
     "phase2_b0_development_accel_1_to_3_r0_20260904_214952_baseline": "99257270138a0e15cc4b9210302a75b2930870400b3b330c04bbbcb81878841e",
-    "phase2_b0_development_accel_1_to_3_r0_20260904_214952_terrain": "abc5039a5a662396b55e492a8ff4bea5428283493a0313c5d6f012f3e2f17f2f"
+    "phase2_b0_development_accel_1_to_3_r0_20260904_214952_terrain": "abc5039a5a662396b55e492a8ff4bea5428283493a0313c5d6f012f3e2f17f2f",
+    "phase2_b0_development_accel_1_to_3_r0_20260904_215640_baseline": "1310ddfd9f7feda50ff56f9f6cd2b1fb68e869fe81b43cf18d00899b9311666d",
+    "phase2_b0_development_accel_1_to_3_r0_20260904_215640_terrain": "31f1d8b8f2b189e17e06d0b082a4ab308cb29c116d1bca0a3377c8ef2bb43584"
   },
   "archive_refs": {
     "refs/archive/b0-zero-lift-failure-20260904": "2b5648a0721ac0208124df5b525c8cf06ae9529b",
