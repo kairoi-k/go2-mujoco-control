@@ -56,7 +56,7 @@ def normalized_argv(value):
         if skip_next:
             skip_next = False
             continue
-        if item in ("--terrain-sensor-only", "--terrain-planner"):
+        if item == "--terrain-sensor-only":
             continue
         if item == "--domain-id":
             skip_next = True
@@ -176,6 +176,16 @@ def main():
         phase1.get("quantitative_pass") is True)
     run_manifest = manifest(args.run_dir)
     artifact_manifest = run_manifest.get("artifacts", {})
+    retired_route_flags = {
+        "--terrain-planner",
+        "--stage-c-execution",
+        "--terrain-leg-order",
+        "--terrain-advance-body-before-second",
+        "--staged-start",
+    }
+    effective_argv = run_manifest.get("effective_argv", [])
+    checks["retired_route_absent"] = not any(
+        item in retired_route_flags for item in effective_argv)
     contract_path = args.run_dir.parents[4] / "docs" / "research" / \
         "PHASE2_ACCEPTANCE.md"
     holdout_path = args.run_dir.parents[4] / "docs" / "research" / \

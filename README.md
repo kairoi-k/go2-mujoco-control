@@ -2,6 +2,9 @@
 
 Research fork of [`unitreerobotics/unitree_mujoco`](https://github.com/unitreerobotics/unitree_mujoco) for Go2 **stand → walk → lie** and model-based diagonal trot control in MuJoCo.
 
+Current Phase 2 work starts at [`CURRENT.md`](CURRENT.md). It is the sole route,
+status, and handoff authority; historical experiment notes are evidence only.
+
 ![stand-walk-lie](docs/media/stand_walk_lie_wbcfull.gif)
 
 The C++ result is a 500 Hz LowCmd state machine: stand-up, settle, `--wbc-full` trot, blend back to stand, lie-down. On this tree the sequenced / 64-cycle plant is **18-DoF ID-WBC + SRBD MPC**. The earlier `go2sim full` slow-trot result remains a historical **0.130 ± 0.011 m/s** baseline. The exact `66dc3e8` head has now passed three independent strict revalidations of the separate wall-clock **3 m/s-class running-trot** profile in MuJoCo; this is a simulation-only claim and does not imply sim-to-real or natural-animal gait. Watch [`docs/media/stand_walk_lie_wbcfull.mp4`](docs/media/stand_walk_lie_wbcfull.mp4). The independent Isaac Lab velocity-RL track is maintained in [`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl); imitation work is in [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
@@ -62,6 +65,7 @@ docs/              architecture, reproducibility, research history
 
 ## Docs
 
+- [`CURRENT.md`](CURRENT.md) — current Phase 2 route, status, and authority
 - [`docs/RESEARCH_INDEX.md`](docs/RESEARCH_INDEX.md) — claims vs this tree
 - [`go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl) — Isaac Lab velocity RL companion
 - [`docs/RESEARCH_HISTORY.md`](docs/RESEARCH_HISTORY.md) — milestone history

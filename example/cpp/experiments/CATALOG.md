@@ -14,7 +14,8 @@ Depending on the experiment, a directory may contain configuration snapshots, CS
 - **Supporting:** retained runs that document development, repeatability, or failure analysis.
 - **Historical:** useful for provenance, not current claims.
 
-`_runs/` output is gitignored.
+`_runs/` is immutable raw evidence. Most generated members are gitignored; any
+tracked evidence already present there is retained and is never an instruction.
 
 ## Current indexed — `--wbc-full` on mainline `go2sim task` / `full`
 
@@ -25,7 +26,7 @@ Depending on the experiment, a directory may contain configuration snapshots, CS
 - [`go2_sustained_sprint_3mps_wallclock_2026-08-22/`](go2_sustained_sprint_3mps_wallclock_2026-08-22/README.md) — four independent 40 s wall-clock phase runs plus a release-default smoke run. All passed the strict speed, attitude, safety, dynamics, contact, and controlled-stop checks; the report records the exact acceptance semantics and OneDrive demo.
 - [`go2_sustained_running_3mps_wallclock_2026-08-22/`](go2_sustained_running_3mps_wallclock_2026-08-22/README.md) — independent `running-trot` gait, three wall-clock repeats, and a gait-specific strict analyzer covering aerial fraction, diagonal synchrony, clearance, speed, attitude, and stop hold.
 
-The exact `66dc3e8` head was independently revalidated on 2026-08-24 with three additional passes. The compact manifest is [`../../../docs/validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md`](../../../docs/validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md); raw `_runs/` output remains disposable and ignored.
+The exact `66dc3e8` head was independently revalidated on 2026-08-24 with three additional passes. The compact manifest is [`../../../docs/validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md`](../../../docs/validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md); raw `_runs/` output remains evidence-only and must not be rewritten or used as an execution plan.
 
 ## Adding a new experiment
 

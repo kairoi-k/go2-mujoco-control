@@ -39,9 +39,11 @@ export TROT_DYNAMICS_TOLERANCE_N="${TROT_DYNAMICS_TOLERANCE_N:-20}"
 export TROT_CPU_AUTOPIN="${TROT_CPU_AUTOPIN:-1}"
 export TROT_TERRAIN_SHADOW_DIAGNOSTICS="${TROT_TERRAIN_SHADOW_DIAGNOSTICS:-1}"
 export GO2_PROFILE_PATH=""
-# Same DDS transport preload as the authoritative wall-clock PASS pair.
-if [[ -f /home/che/dds_base4000_preload.so ]]; then
-  export LD_PRELOAD=/home/che/dds_base4000_preload.so
+# Optional DDS transport preload is host configuration, never a repository
+# path. An unset or missing preload keeps the portable default.
+dds_preload="${GO2_DDS_PRELOAD:-}"
+if [[ -n "$dds_preload" && -f "$dds_preload" ]]; then
+  export LD_PRELOAD="$dds_preload"
 fi
 
 stamp="$(date +%Y%m%d_%H%M%S)"
