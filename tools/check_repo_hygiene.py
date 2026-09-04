@@ -22,6 +22,7 @@ FORBIDDEN_NAMES = {
     "CTestTestfile.cmake",
 }
 FORBIDDEN_PREFIXES = ("._",)
+FORBIDDEN_TRACKED_PREFIXES = ("example/cpp/experiments/_runs/",)
 # `.obj` is intentionally allowed: Unitree robot/scene meshes are source assets.
 FORBIDDEN_SUFFIXES = (
     ".o",
@@ -124,6 +125,9 @@ def main() -> int:
         path = root / rel
         parts = set(Path(rel).parts)
         name = path.name
+
+        if rel.startswith(FORBIDDEN_TRACKED_PREFIXES):
+            problems.append(f"tracked runtime evidence path: {rel}")
 
         if parts & FORBIDDEN_PARTS:
             problems.append(f"forbidden generated/private path: {rel}")

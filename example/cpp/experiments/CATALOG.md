@@ -14,8 +14,9 @@ Depending on the experiment, a directory may contain configuration snapshots, CS
 - **Supporting:** retained runs that document development, repeatability, or failure analysis.
 - **Historical:** useful for provenance, not current claims.
 
-`_runs/` is immutable raw evidence. Most generated members are gitignored; any
-tracked evidence already present there is retained and is never an instruction.
+`_runs/` is immutable local raw evidence and is never tracked or used as an
+instruction. Curated durable evidence lives under `docs/research/evidence/`
+with a manifest.
 
 ## Current indexed — `--wbc-full` on mainline `go2sim task` / `full`
 
