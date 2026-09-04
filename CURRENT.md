@@ -15,9 +15,11 @@ prose are evidence, never instructions.
   conditions. Current `main` has no locomotion acceptance claim.
 - Current-main full B0 reproduction: FAIL; the steps profile exposed runtime
   contact/WBC and zero-command regressions.
-- Active-candidate full B0: FAIL at `803e7f6`; steps passed on its exact
-  behavior-equivalent tested revision, acceleration passed the paired B0 gate,
-  then brake failed and stopped the suite. Decision evidence:
+- Active-candidate full B0: IN PROGRESS. Steps passed on the exact
+  behavior-equivalent revision `9f97f64`; acceleration passed at `803e7f6`;
+  equality-nullspace feasibility recovery then passed the paired brake
+  development gate at `b74552f`. These are separate-SHA development results,
+  not full B0 acceptance. Decision evidence:
   `docs/research/evidence/b0_runtime_integrity_20260904/DECISIONS.md`.
 - B1 5 cm: FAIL / not accepted. B2 10 cm and B3 mixed/repeated terrain: not
   started.

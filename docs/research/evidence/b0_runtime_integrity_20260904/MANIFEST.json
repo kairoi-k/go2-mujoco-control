@@ -3,7 +3,7 @@
   "status": "open_not_acceptance",
   "date": "2026-09-04",
   "branch": "fix/phase2-b0-runtime-integrity",
-  "current_candidate": "803e7f6f37286a173031ca2438c55041242e7acf",
+  "current_candidate": "b74552fb018a4d7308fcb3d3d03212af8c58fe41",
   "frozen_acceptance_contract": "docs/research/PHASE2_ACCEPTANCE.md",
   "decision_record": "docs/research/evidence/b0_runtime_integrity_20260904/DECISIONS.md",
   "raw_evidence_root": "example/cpp/experiments/_runs",
@@ -26,7 +26,9 @@
     "phase2_b0_development_brake_3_to_0_r0_20260904_210106_baseline": "ae31a2c2d06a7ad3e1336d4f56b0a6a5808c79023671c3cb29f156a1f463a0de",
     "phase2_b0_development_brake_3_to_0_r0_20260904_210106_terrain": "3c0fdaa30f572c9a64a3d42c12f1f4b8593dff51e67f71eb4651f54e9e89cf38",
     "phase2_b0_development_brake_3_to_0_r0_20260904_211440_baseline": "73e17df51886a0794e232149d2b117c7ab1f637c116b6b2b3e48589a8c922cef",
-    "phase2_b0_development_brake_3_to_0_r0_20260904_211440_terrain": "1124ceb2fabd7603a2fcc3a4d0a1e3502ae2f15554b5d5b9c14f42468ea01e11"
+    "phase2_b0_development_brake_3_to_0_r0_20260904_211440_terrain": "1124ceb2fabd7603a2fcc3a4d0a1e3502ae2f15554b5d5b9c14f42468ea01e11",
+    "phase2_b0_development_brake_3_to_0_r0_20260904_212336_baseline": "1b6d04987772e36feb72e936b01b35d123d7482436fdf03425ac257ce409ede2",
+    "phase2_b0_development_brake_3_to_0_r0_20260904_212336_terrain": "37cc07248b72162ee97f224a3dfda7187c513ef281f01d5724961dfe99ae0045"
   },
   "archive_refs": {
     "refs/archive/b0-zero-lift-failure-20260904": "2b5648a0721ac0208124df5b525c8cf06ae9529b",

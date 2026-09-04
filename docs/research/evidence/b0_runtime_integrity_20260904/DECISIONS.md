@@ -139,7 +139,7 @@ repair that restores Phase 1 without introducing a forbidden terrain route?
   next isolate why a nominal contact schedule can remain disconnected from
   measured support and why stale fallback torque crosses contact epochs.
 
-### F8 — Planned: equality-nullspace feasibility recovery
+### F8 — Development-supported: equality-nullspace feasibility recovery
 
 - Question: are isolated transition failures caused by the mixed-scale KKT
   formulation rather than physical infeasibility?
@@ -156,12 +156,22 @@ repair that restores Phase 1 without introducing a forbidden terrain route?
 - Interpretation limit: this can establish numerical formulation robustness;
   it cannot justify stale cross-contact fallback, contact fabrication, B0 or
   B1 acceptance.
+- Revision: `b74552fb018a4d7308fcb3d3d03212af8c58fe41`, clean.
+- Evidence: `phase2_b0_development_brake_3_to_0_r0_20260904_212336_{baseline,terrain}`.
+- Result: paired brake B0 PASS. Both members completed with ID-WBC validity
+  1.0; solver-budget validity was 0.9197137536 and 0.9198647258. Recovery was
+  exercised twice in baseline and once in terrain. All three recovered solves
+  became equality/inequality feasible; maximum final recorded inequality
+  violation was 0.000004820, with recovery corrections of 0.8793 to 2.4255.
+- Decision: retain provisionally and run the complete B0 suite on one new
+  exact clean SHA. This is evidence for the formulation, not yet acceptance.
 
 ## Current choice
 
-Continue from the reverted `803e7f6` source behavior with one contact-timing
-hypothesis at a time. The chosen direction must eliminate the brake failure
-while preserving the exact steps and acceleration behavior. Full exact-SHA B0
-must pass before the Stage C shadow path and smallest dynamic B1 slice resume.
+Run the complete B0 suite on the exact clean candidate after this record is
+committed. It must preserve steps and acceleration while repeating the brake
+result and passing ramp, varying, and fixed 3 m/s. Stop at the first failure.
+Only a full exact-SHA pass permits the Stage C shadow path and smallest dynamic
+B1 slice to resume.
 
 The raw run-manifest hashes used by this record are frozen in `MANIFEST.json`.
