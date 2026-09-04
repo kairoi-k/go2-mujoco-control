@@ -24,6 +24,9 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   exact source `70b7740`; evidence is
   `docs/research/evidence/phase2_terrain_sensor_velocity_20260828/SUMMARY.md`.
   It was sensor-only observation, not terrain actuation or obstacle crossing.
+  The broader archived 8/28 campaign also ran all five profile names, with
+  mixed repeat outcomes and retries; see the indexed matrix in
+  docs/research/evidence/phase2_terrain_sensor_velocity_20260828/ALL_PROFILES.md.
   Historical Order-109b also PASSed its separate lockstep sensor-only slice.
   None of these historical records is a fresh acceptance of the current Phase 2
   terrain-sensor pair harness.

@@ -28,6 +28,11 @@ Later terrain ownership and runtime changes mean this historical passing path
 must not be assumed identical to the current head. Its bundle identity and raw
 manifest hashes are recorded in [the evidence manifest](research/evidence/phase2_terrain_sensor_velocity_20260828/MANIFEST.json).
 
+The raw 8/28 campaign was broader than that compact accepted subset: it also
+contains steps, acceleration, braking, and ramp runs. The per-profile PASS/FAIL
+and retry matrix is indexed in [the campaign record](research/evidence/phase2_terrain_sensor_velocity_20260828/ALL_PROFILES.md);
+mixed repeats are not promoted to a single all-green B0 claim.
+
 ## Historical lockstep sensor-only slice (2026-09-01)
 
 Order-109b passed a separate fixed-3 m/s lockstep sensor-only slice at exact
