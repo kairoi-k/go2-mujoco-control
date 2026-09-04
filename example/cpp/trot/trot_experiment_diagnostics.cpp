@@ -94,6 +94,11 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_shadow_feedforward_gate_reason"
          << ",wbc_shadow_feedforward_max_abs_tau"
          << ",wbc_full_srbd_ok,wbc_full_id_ok,wbc_full_eq_residual"
+         << ",wbc_full_id_attempt_qp_converged"
+         << ",wbc_full_id_attempt_solution_finite"
+         << ",wbc_full_id_attempt_eq_residual"
+         << ",wbc_full_id_attempt_max_tau_violation_nm"
+         << ",wbc_full_id_attempt_max_abs_tau_nm"
          << ",wbc_full_velocity_target_x_mps,wbc_full_requested_acc_x_mps2"
          << ",wbc_full_srbd_acc_x_mps2,wbc_full_id_qdd_x_mps2"
          << ",wbc_full_id_contact_force_x_n";
@@ -786,6 +791,11 @@ void TrotExperiment::LogSample(
          << "," << (wbc_shadow_diagnostics_.srbd_ok ? 1 : 0)
          << "," << (wbc_shadow_diagnostics_.id_wbc_ok ? 1 : 0)
          << "," << wbc_shadow_diagnostics_.id_eq_residual
+         << "," << (wbc_shadow_diagnostics_.id_attempt_qp_converged ? 1 : 0)
+         << "," << (wbc_shadow_diagnostics_.id_attempt_solution_finite ? 1 : 0)
+         << "," << wbc_shadow_diagnostics_.id_attempt_eq_residual
+         << "," << wbc_shadow_diagnostics_.id_attempt_max_tau_violation_nm
+         << "," << wbc_shadow_diagnostics_.id_attempt_max_abs_tau_nm
          << "," << wbc_shadow_diagnostics_.full_velocity_target_x_mps
          << "," << wbc_shadow_diagnostics_.full_requested_acc_x_mps2
          << "," << wbc_shadow_diagnostics_.full_srbd_acc_x_mps2

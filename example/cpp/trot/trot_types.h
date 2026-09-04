@@ -320,6 +320,11 @@ struct WbcShadowDiagnostics
     double full_id_contact_force_x_n = 0.0;
     bool id_wbc_ok = false;
     double id_eq_residual = 0.0;
+    bool id_attempt_qp_converged = false;
+    bool id_attempt_solution_finite = false;
+    double id_attempt_eq_residual = 0.0;
+    double id_attempt_max_tau_violation_nm = 0.0;
+    double id_attempt_max_abs_tau_nm = 0.0;
     int feedforward_gate_code =
         static_cast<int>(go2_control::WbcFeedforwardGateCode::kDisabled);
     bool feedforward_ready = false;

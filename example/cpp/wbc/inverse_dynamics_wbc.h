@@ -91,6 +91,11 @@ struct IdWbcCostTerms
 struct IdWbcOutput
 {
     bool ok = false;
+    // Preserve solver-attempt status even when the caller falls back to the
+    // last accepted command.  This makes a rare invalid tick diagnosable
+    // without changing plant authority or relaxing a safety constraint.
+    bool qp_converged = false;
+    bool solution_finite = false;
     bool terrain_plan_consumed = false;
     go2_terrain::TerrainPlanIdentity terrain_plan{};
     std::array<bool, go2::kLegCount> measured_contact{};
@@ -363,11 +368,13 @@ inline bool SolveInverseDynamicsWbc(
     settings.feasibility_tol = 1e-4;
     const bool qp_ok =
         SolveDenseQpEq(H, g, Aineq, bineq, Aeq, beq, x, iters, settings);
+    output.qp_converged = qp_ok;
+    output.iterations = iters;
     if (x.size() != n || !x.allFinite())
         return false;
 
+    output.solution_finite = true;
     output.ok = true;
-    output.iterations = iters;
     output.qdd = x.head<nqdd>();
     output.force = x.tail<nf>();
     output.tau = Mj * output.qdd + hj - Jj_t * output.force;

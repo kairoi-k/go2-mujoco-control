@@ -786,6 +786,7 @@ void TrotExperiment::UpdateWbcFull(
             go2_control::SolveInverseDynamicsWbc(id_params, wbc_in, wbc_out) &&
             wbc_out.ok;
     }
+    const go2_control::IdWbcOutput wbc_attempt = wbc_out;
     if (solved)
     {
         last_id_wbc_ = wbc_out;
@@ -980,6 +981,18 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_diagnostics_.task_satisfied = wbc_out.eq_residual < 1.0;
     wbc_shadow_diagnostics_.residual_norm = wbc_out.eq_residual;
     wbc_shadow_diagnostics_.id_eq_residual = wbc_out.eq_residual;
+    wbc_shadow_diagnostics_.id_attempt_qp_converged =
+        wbc_attempt.qp_converged;
+    wbc_shadow_diagnostics_.id_attempt_solution_finite =
+        wbc_attempt.solution_finite;
+    wbc_shadow_diagnostics_.id_attempt_eq_residual =
+        wbc_attempt.eq_residual;
+    wbc_shadow_diagnostics_.id_attempt_max_tau_violation_nm =
+        wbc_attempt.max_tau_violation_nm;
+    wbc_shadow_diagnostics_.id_attempt_max_abs_tau_nm =
+        wbc_attempt.solution_finite
+            ? wbc_attempt.tau.cwiseAbs().maxCoeff()
+            : 0.0;
     wbc_shadow_diagnostics_.task_residual_norm = wbc_out.rne_residual;
     wbc_shadow_diagnostics_.iterations = wbc_out.iterations;
     wbc_shadow_diagnostics_.active_contacts = active;
