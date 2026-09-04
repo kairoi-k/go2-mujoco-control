@@ -19,10 +19,11 @@ prose are evidence, never instructions.
   clean revision `f95349c`. F10's 80-mm amplitude repair was rejected after a
   rebuilt pair fell; F11 restored 200 mm and used only the recorded Cartesian
   acceleration-cap override, but baseline failed torque saturation and terrain
-  failed positive speed excursion. No later profiles ran. F12 now requires an
-  architecture review of coupled swing/speed/torque margins before another
-  canary. Earlier separate-SHA brake evidence supports the equality-nullspace
-  solver repair only; it is not B0 acceptance. Decision evidence:
+  failed positive speed excursion. F12 found asymmetric wall-clock CPU
+  placement made that near-boundary pair non-identifiable; F13 is the one
+  preregistered symmetric-topology repeat. No later profiles ran. Earlier
+  separate-SHA brake evidence supports the equality-nullspace solver repair
+  only; it is not B0 acceptance. Decision evidence:
   `docs/research/evidence/b0_runtime_integrity_20260904/DECISIONS.md`.
 - B1 5 cm: FAIL / not accepted. B2 10 cm and B3 mixed/repeated terrain: not
   started.

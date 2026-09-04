@@ -285,11 +285,43 @@ repair that restores Phase 1 without introducing a forbidden terrain route?
   deterministic control feasibility or realtime delivery variance. No new
   canary, threshold change, contact fabrication, or local swing retiming is
   authorized until this review is recorded.
+- Review evidence: F11 had identical source, controller, simulator, scene and
+  profile hashes, but the wall-clock harness deliberately assigned different
+  CPU topologies. Baseline used controller `3,4`, simulator `2`, and terrain
+  worker `4`; terrain used controller `4`, simulator `2,5`, lidar `5`, physics
+  and bridge `2`, and terrain worker `6`. Their state-gap p95 was 4 ms in both
+  members, yet same-index paired diagnostics diverged by up to 2.748 m/s in
+  applied/WBC target velocity, 0.0549 m in step length, and 4.3013 m/s2 in
+  requested acceleration. This is sufficient realtime-path variance to make a
+  near-boundary torque/overshoot result non-attributable to terrain logic.
+- Review conclusion: the control-path hypothesis is not yet identifiable from
+  asymmetric wall-clock pairs. First hold the F11 reference and solver fixed,
+  make both members use the same explicit CPU placement, and repeat one accel
+  pair. This is a harness-validity probe, not a gate relaxation.
+
+### F13 — Preregistered: symmetric wall-clock pair
+
+- Question: does explicit identical CPU placement remove the F11 paired
+  command/timing divergence and make the remaining B0 margins attributable?
+- Single intervention: retain exact source `f95349c`, `FULL2_SWING_ACC=80`,
+  200-mm high-speed lift, and every controller setting; set both members to
+  `TROT_CPU_AFFINITY_CTRL=4`, `TROT_CPU_AFFINITY_SIM=2,5`,
+  `TROT_CPU_AFFINITY_WRITER=3`, `TROT_CPU_AFFINITY_TERRAIN=6`,
+  `TROT_SIM_LIDAR_CPU=5`, `TROT_SIM_PHYSICS_CPU=2`, and
+  `TROT_SIM_BRIDGE_CPU=2`. No source, profile, scene, threshold, contact or
+  timing change is allowed.
+- Criterion: both members complete with lifecycle zero; paired applied/WBC
+  velocity, gait duty, step length and lift remain within the analyzer's
+  declared tolerances; each member meets the frozen accel Phase-1 gate. Stop
+  at the first failure. A pass only validates the harness/control comparison;
+  it still requires the complete exact-SHA B0 suite.
+- Interpretation limit: this cannot establish B0, B1, or realtime hardware
+  performance; it only determines whether the previous wall-clock pair was
+  experimentally identifiable.
 
 ## Current choice
 
-Complete F12's architecture review before any new canary. Only a fresh full
-exact-SHA B0 pass permits the Stage C shadow path and smallest dynamic B1 slice
-to resume.
+Execute the single F13 symmetric accel pair. Only a fresh full exact-SHA B0
+pass permits the Stage C shadow path and smallest dynamic B1 slice to resume.
 
 The raw run-manifest hashes used by this record are frozen in `MANIFEST.json`.
