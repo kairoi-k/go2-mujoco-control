@@ -17,6 +17,7 @@ int main()
     assert(std::abs(stopped.duty_factor - 0.75) < 1.0e-9);
     assert(std::abs(sprint.period_s - 0.14) < 1.0e-9);
     assert(std::abs(sprint.duty_factor - 0.44) < 1.0e-9);
+    assert(std::abs(sprint.foot_lift_m - 0.080) < 1.0e-9);
     assert(sprint.step_length_m > 0.0);
     assert(std::abs(probe.period_s - 0.50) < 1.0e-9);
     assert(std::abs(probe.duty_factor - 0.75) < 1.0e-9);

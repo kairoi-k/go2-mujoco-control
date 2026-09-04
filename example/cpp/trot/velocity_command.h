@@ -234,7 +234,11 @@ inline ContinuousVelocityGaitSchedule ScheduleContinuousVelocityGait(
     constexpr double kLowSpeedFootLiftM = 0.035;
     constexpr double kHighSpeedPeriodS = 0.14;
     constexpr double kHighSpeedDuty = 0.44;
-    constexpr double kHighSpeedFootLiftM = 0.200;
+    // The 3 m/s swing window is only 78.4 ms. A 0.20 m flat-ground lift
+    // demands about 11.8 m/s descent and arrives roughly 40--47 mm late in
+    // measured FK. Keep the flat reference within demonstrated tracking
+    // speed; obstacle clearance is a separate planner-owned quantity.
+    constexpr double kHighSpeedFootLiftM = 0.080;
     ContinuousVelocityGaitSchedule schedule;
     if (low_speed_support)
     {
