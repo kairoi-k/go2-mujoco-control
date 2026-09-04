@@ -91,12 +91,6 @@ public:
           velocity_command_shaper_(params_.velocity_command_shaper)
     {
         runtime_gait_pattern_ = params_.gait_pattern;
-        terrain_crawl_state_machine_.SetLegOrder(params_.terrain_leg_order);
-        terrain_crawl_state_machine_.SetAdvancePolicy(
-            params_.terrain_advance_policy);
-        terrain_crawl_sequencer_.SetLegOrder(params_.terrain_leg_order);
-        terrain_crawl_sequencer_.SetAdvancePolicy(
-            params_.terrain_advance_policy);
         task_.Configure(task_mode, goal);
         motion_event_response_enabled_ =
             params_.reactive_events || params_.auto_environment ||
@@ -277,9 +271,9 @@ private:
         std::array<go2::Vec3, go2::kLegCount> measured_feet_world{};
         bool measured_com_valid = false;
         go2::Vec3 measured_com_world{};
-        bool terrain_crawl_support_window_active = false;
+        bool terrain_measured_support_window_active = false;
         bool terrain_transfer_window_active = false;
-        std::size_t terrain_crawl_support_lifted_leg = go2::kLegCount;
+        std::size_t terrain_support_excluded_leg = go2::kLegCount;
         bool terrain_transfer_hold_active = false;
         std::array<bool, go2::kLegCount>
             terrain_transfer_hold_contact{};

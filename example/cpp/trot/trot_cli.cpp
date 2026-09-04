@@ -86,6 +86,10 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
             else if (option == "--gait-pattern")
             {
                 const std::string value = require_value("--gait-pattern");
+                if (value == "crawl")
+                    throw std::invalid_argument(
+                        "retired terrain actuation option 'crawl'; "
+                        "use running-trot and read CURRENT.md");
                 if (!go2_control::ParseGaitPattern(
                         value.c_str(), cfg.params.gait_pattern))
                     throw std::invalid_argument(
@@ -115,7 +119,6 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
             {
                 cfg.params.terrain_enabled = true;
                 cfg.params.terrain_sensor_only = true;
-                cfg.params.terrain_actuation = false;
             }
             else if (option == "--stage-c-execution" ||
                      option == "--terrain-planner" ||
@@ -489,13 +492,6 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << (params.terrain_actuation ? "on" : "off") << "\n"
               << "  stage_c_execution="
               << (params.stage_c_execution ? "on" : "off") << "\n"
-              << "  terrain_leg_order="
-              << go2_terrain::TerrainCrawlLegOrderName(
-                     params.terrain_leg_order) << "\n"
-              << "  terrain_advance_policy="
-              << (params.terrain_advance_policy ==
-                          go2_terrain::TerrainCrawlAdvancePolicy::kBeforeSecondStep
-                      ? "before-second" : "after-second") << "\n"
               << "  reactive_events="
               << ((params.reactive_events || params.auto_environment || !params.event_schedule.empty()) ? "on" : "off") << "\n"
               << "  impact_to_emergency_stop_delay="

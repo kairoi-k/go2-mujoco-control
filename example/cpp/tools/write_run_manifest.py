@@ -48,12 +48,10 @@ def main() -> int:
         analyzer_path = options.cpp_dir / "tools" / "analysis" / name
         analyzers[name] = sha256(analyzer_path) if analyzer_path.is_file() else ""
     phase2_contract_path = options.repo / "docs" / "research" / \
-        "PHASE2_B0_ACCEPTANCE_CONTRACT.md"
+        "PHASE2_ACCEPTANCE.md"
+    phase2_holdout_path = options.repo / "docs" / "research" / \
+        "PHASE2_HOLDOUT_MANIFEST.json"
     phase2_analyzer_path = options.cpp_dir / "tools" / "analyze_phase2_b0.py"
-    phase2_terrain_contract_path = options.repo / "docs" / "research" / \
-        "PHASE2_B123_ACCEPTANCE_CONTRACT.md"
-    phase2_b1_contract_path = options.repo / "docs" / "research" / \
-        "PHASE2_B1_ACCEPTANCE_CONTRACT.md"
     phase2_terrain_analyzer_path = options.cpp_dir / "tools" / \
         "analyze_phase2_terrain.py"
     sustained_analyzer_path = options.cpp_dir / "tools" / "analysis" / \
@@ -83,14 +81,12 @@ def main() -> int:
             "controller_sha256": metadata.get("controller_sha256", ""),
             "scenario_sha256": metadata.get("scene_sha256", ""),
             "event_script_sha256": metadata.get("event_script_sha256", ""),
-            "phase2_b0_contract_sha256": sha256(phase2_contract_path)
+            "phase2_acceptance_contract_sha256": sha256(phase2_contract_path)
             if phase2_contract_path.is_file() else "",
+            "phase2_holdout_manifest_sha256": sha256(phase2_holdout_path)
+            if phase2_holdout_path.is_file() else "",
             "phase2_b0_analyzer_sha256": sha256(phase2_analyzer_path)
             if phase2_analyzer_path.is_file() else "",
-            "phase2_b123_contract_sha256": sha256(phase2_terrain_contract_path)
-            if phase2_terrain_contract_path.is_file() else "",
-            "phase2_b1_contract_sha256": sha256(phase2_b1_contract_path)
-            if phase2_b1_contract_path.is_file() else "",
             "phase2_b123_analyzer_sha256": sha256(phase2_terrain_analyzer_path)
             if phase2_terrain_analyzer_path.is_file() else "",
             "phase2_fixed_3mps_analyzer_sha256": sha256(sustained_analyzer_path)

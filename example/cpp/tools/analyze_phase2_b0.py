@@ -177,12 +177,17 @@ def main():
     run_manifest = manifest(args.run_dir)
     artifact_manifest = run_manifest.get("artifacts", {})
     contract_path = args.run_dir.parents[4] / "docs" / "research" / \
-        "PHASE2_B0_ACCEPTANCE_CONTRACT.md"
+        "PHASE2_ACCEPTANCE.md"
+    holdout_path = args.run_dir.parents[4] / "docs" / "research" / \
+        "PHASE2_HOLDOUT_MANIFEST.json"
     analyzer_path = args.run_dir.parents[4] / "example" / "cpp" / \
         "tools" / "analyze_phase2_b0.py"
     checks["contract_hash"] = (
-        artifact_manifest.get("phase2_b0_contract_sha256") ==
+        artifact_manifest.get("phase2_acceptance_contract_sha256") ==
         sha256(contract_path) if contract_path.is_file() else False)
+    checks["holdout_manifest_hash"] = (
+        artifact_manifest.get("phase2_holdout_manifest_sha256") ==
+        sha256(holdout_path) if holdout_path.is_file() else False)
     checks["analyzer_hash"] = (
         artifact_manifest.get("phase2_b0_analyzer_sha256") ==
         sha256(analyzer_path) if analyzer_path.is_file() else False)

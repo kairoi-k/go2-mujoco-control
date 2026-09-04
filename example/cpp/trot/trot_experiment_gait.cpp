@@ -144,10 +144,8 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         ? last_motion_dt_s_
         : dt_;
     double requested_mps = params_.velocity_command_profile.Sample(gait_time_s);
-    const bool flat_crawl_debug =
-        Full2EnvDouble("TROT_TERRAIN_DEBUG_FLAT_CRAWL", 0.0) > 0.5;
-    const bool staged_start_debug =
-        Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) > 0.5;
+    constexpr bool flat_crawl_debug = false;
+    constexpr bool staged_start_debug = false;
     const bool low_stance_active =
         go2_terrain::TerrainCrawlLowStanceActive(
             terrain_crawl_sequencer_output_.state,
@@ -527,12 +525,8 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         applied_mps = high_speed_health_cap_mps_;
     }
     velocity_command_state_.applied_mps = applied_mps;
-    const auto schedule = terrain_crawl_active
-        ? ScheduleTerrainCrawl(applied_mps, low_stance_active)
-        : velocity_gait_scheduler_.Step(applied_mps, dt);
-    runtime_gait_pattern_ = terrain_crawl_active
-        ? go2_control::GaitPattern::kCrawl
-        : params_.gait_pattern;
+    const auto schedule = velocity_gait_scheduler_.Step(applied_mps, dt);
+    runtime_gait_pattern_ = params_.gait_pattern;
     locomotion_kernel_->SetGaitPattern(runtime_gait_pattern_);
     locomotion_kernel_->SetGaitEffectiveSpeedConvention(true);
     locomotion_kernel_->SetGaitSlewLimits(0.060, 0.020, 0.020);
@@ -540,15 +534,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     locomotion_kernel_->SetGaitDuty(schedule.duty_factor);
     locomotion_kernel_->SetGaitStepLength(schedule.step_length_m);
     locomotion_kernel_->SetGaitFootLift(schedule.foot_lift_m);
-    const bool terrain_stage_servo = terrain_window_active &&
-        !flat_crawl_debug && std::isfinite(terrain_staging_error_m_);
-    wbc_speed_cmd_mps_ = terrain_stage_servo
-        ? terrain_stage_direction_ * applied_mps
-        : (terrain_crawl_active &&
-            terrain_crawl_state_machine_.state() ==
-                go2_terrain::TerrainCrawlState::kStage
-            ? params_.direction_sign * applied_mps
-            : std::abs(params_.direction_sign) * applied_mps);
+    wbc_speed_cmd_mps_ = std::abs(params_.direction_sign) * applied_mps;
     runtime_gait_step_length_m_ = schedule.step_length_m;
     runtime_gait_foot_lift_m_ = schedule.foot_lift_m;
     runtime_gait_regime_ = schedule.regime;
@@ -568,7 +554,7 @@ bool TrotExperiment::BuildGaitTargets(
         go2_terrain::TerrainCrawlLowStanceActive(
             terrain_crawl_sequencer_output_.state,
             terrain_crawl_sequencer_output_.control_authority_active,
-            Full2EnvDouble("TROT_TERRAIN_DEBUG_FLAT_CRAWL", 0.0) > 0.5);
+            false);
     if (low_stance_active)
     {
         for (auto &foot : feet)
@@ -823,10 +809,8 @@ bool TrotExperiment::BuildGaitTargets(
         params_.terrain_actuation && !params_.terrain_sensor_only
             ? terrain_plan_store_.LoadUsable(terrain_now_s)
             : nullptr;
-    const bool flat_crawl_debug =
-        Full2EnvDouble("TROT_TERRAIN_DEBUG_FLAT_CRAWL", 0.0) > 0.5;
-    const bool staged_start_debug =
-        Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) > 0.5;
+    constexpr bool flat_crawl_debug = false;
+    constexpr bool staged_start_debug = false;
     const bool full_v2_body_advance =
         !flat_crawl_debug && !staged_start_debug &&
         terrain_crawl_sequencer_output_.state ==

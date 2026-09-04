@@ -117,10 +117,10 @@ struct TerrainPlannerInput
     bool terrain_transfer_hold_active = false;
     std::array<bool, go2::kLegCount>
         terrain_transfer_hold_contact{};
-    // During sequencer-owned SHIFT/SWING/COMMIT/ADVANCE, support validation
-    // consumes the same measured feet and COM as the pre-swing margin gate.
-    bool terrain_crawl_support_window_active = false;
-    std::size_t terrain_crawl_support_lifted_leg = go2::kLegCount;
+    // A future dynamic execution owner may request validation against the
+    // same measured feet and COM used by its support gate.
+    bool terrain_measured_support_window_active = false;
+    std::size_t terrain_support_excluded_leg = go2::kLegCount;
     bool measured_support_geometry_valid = false;
     std::array<go2::Vec3, go2::kLegCount> measured_support_feet_world{};
     std::array<bool, go2::kLegCount> measured_support_contact{};
@@ -438,14 +438,17 @@ inline double SupportMargin2D(
 inline double TerrainPlannerMeasuredSupportMargin(
     const TerrainPlannerInput &input) noexcept
 {
-    if (!input.terrain_crawl_support_window_active ||
+    if (!input.terrain_measured_support_window_active ||
         !input.measured_support_geometry_valid || !input.measured_com_valid)
         return -std::numeric_limits<double>::infinity();
-    return TerrainMeasuredSupportMargin(
-        input.measured_support_feet_world,
-        input.measured_support_contact,
-        input.terrain_crawl_support_lifted_leg,
-        input.measured_com_world);
+    auto contact = input.measured_support_contact;
+    if (input.terrain_support_excluded_leg < go2::kLegCount)
+        contact[input.terrain_support_excluded_leg] = false;
+    // Running-trot may legitimately retain only a diagonal pair. Evaluate
+    // the measured set directly and never synthesize a third contact.
+    return SupportMargin2D(
+        input.measured_support_feet_world, contact,
+        input.measured_com_world, 0.0, 0.040);
 }
 
 // Sequencer-owned terrain swings must start at the measured foot site. The
@@ -454,7 +457,7 @@ inline double TerrainPlannerMeasuredSupportMargin(
 inline go2::Vec3 TerrainPlannerSwingStart(
     const TerrainPlannerInput &input, std::size_t leg) noexcept
 {
-    if (input.terrain_crawl_support_window_active &&
+    if (input.terrain_measured_support_window_active &&
         input.measured_support_geometry_valid && leg < go2::kLegCount)
     {
         const auto &measured = input.measured_support_feet_world[leg];
@@ -656,7 +659,7 @@ public:
             const auto staging = MeasureTerrainStagingReference(
                 *input.terrain, input.base_position_world,
                 input.base_yaw_rad, nominal_front_x,
-                TerrainCrawlStateMachine::kCanonicalStandoffM);
+                0.25);
             result.plan.staging_target_valid = staging.valid;
             result.plan.staging_target_world_x_m = staging.target_world_x_m;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -1395,7 +1398,7 @@ private:
         }
         for (std::size_t k = 0; k < support_horizon; ++k)
         {
-            if (input.terrain_crawl_support_window_active)
+            if (input.terrain_measured_support_window_active)
             {
                 const double margin = TerrainPlannerMeasuredSupportMargin(input);
                 result.plan.min_support_margin_m = std::min(
@@ -1600,7 +1603,7 @@ private:
         }
         for (std::size_t k = 0; k < support_horizon; ++k)
         {
-            if (input.terrain_crawl_support_window_active)
+            if (input.terrain_measured_support_window_active)
             {
                 const double margin = TerrainPlannerMeasuredSupportMargin(input);
                 result.plan.min_support_margin_m = std::min(

@@ -18,7 +18,6 @@
 #include "motion_event_response.h"
 #include "raibert_trot_kernel.h"
 #include "wbc_runtime_gate.h"
-#include "terrain_crawl_script.h"
 #include "velocity_command.h"
 
 namespace go2_trot {
@@ -186,13 +185,11 @@ struct TrotParams
     bool auto_environment = false;
     bool terrain_enabled = false;
     bool terrain_sensor_only = false;
-    bool terrain_actuation = false;
-    // C-003 execution is deliberately opt-in and V2-B only.
-    bool stage_c_execution = false;
-    go2_terrain::TerrainCrawlLegOrder terrain_leg_order =
-        go2_terrain::TerrainCrawlLegOrder::kLegacyFrontFirst;
-    go2_terrain::TerrainCrawlAdvancePolicy terrain_advance_policy =
-        go2_terrain::TerrainCrawlAdvancePolicy::kAfterSecondStep;
+    // The retired terrain actuation route is deliberately not configurable.
+    // Instance-style reads remain source-compatible while evaluating to
+    // compile-time false in every production and test build.
+    static constexpr bool terrain_actuation = false;
+    static constexpr bool stage_c_execution = false;
     bool runtime_velocity_command = false;
     double gait_phase_offset = 0.0;
     std::string velocity_command_script_path;

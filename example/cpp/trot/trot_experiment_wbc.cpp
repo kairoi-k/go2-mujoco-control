@@ -188,7 +188,7 @@ void TrotExperiment::UpdateWbcFull(
         terrain_crawl_sequencer_output_.state ==
             go2_terrain::TerrainCrawlSequencerState::kShift &&
         !terrain_crawl_sequencer_output_.flat_ground_mode &&
-        Full2EnvDouble("TROT_TERRAIN_DEBUG_STAGED_START", 0.0) <= 0.5;
+        true;
     const bool low_stance_active =
         go2_terrain::TerrainCrawlLowStanceActive(
             sequencer_state,

@@ -228,26 +228,6 @@ inline ContinuousVelocityGaitSchedule ScheduleContinuousVelocityGait(
         std::max(0.20, 2.0 * schedule.duty_factor);
     return schedule;
 }
-// The terrain-transfer crawl is deliberately independent of the Phase 1
-// low-speed qualification timer: entering the declared transfer window is
-// the authority for this schedule, not an inferred speed threshold.
-inline ContinuousVelocityGaitSchedule ScheduleTerrainCrawl(
-    double velocity_mps, bool low_stance = false) noexcept
-{
-    const double speed = std::clamp(
-        std::isfinite(velocity_mps) ? std::abs(velocity_mps) : 0.0,
-        0.0, 0.30);
-    ContinuousVelocityGaitSchedule schedule;
-    schedule.period_s = low_stance ? 0.60 : 0.50;
-    schedule.duty_factor = low_stance ? 0.85 : 0.80;
-    schedule.foot_lift_m = low_stance ? 0.025 : 0.035;
-    schedule.step_length_m = std::min(
-        low_stance ? 0.035 : std::numeric_limits<double>::infinity(),
-        speed * schedule.period_s / (2.0 * schedule.duty_factor));
-    schedule.regime = "terrain-crawl";
-    return schedule;
-}
-
 class ContinuousVelocityGaitScheduler
 {
 public:

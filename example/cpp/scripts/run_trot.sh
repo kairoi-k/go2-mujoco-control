@@ -27,7 +27,6 @@ sim_lockstep_trace=""
 sim_initial_args=()
 sim_push_args=()
 phase2_milestone=""
-staged_start=false
 sim_affinity="${TROT_CPU_AFFINITY_SIM:-}"
 ctrl_affinity="${TROT_CPU_AFFINITY_CTRL:-}"
 writer_affinity="${TROT_CPU_AFFINITY_WRITER:-}"
@@ -62,10 +61,21 @@ filtered_controller_args=()
 profile_path="${GO2_PROFILE_PATH:-}"
 for ((i = 0; i < ${#controller_args[@]}; ++i)); do
   arg="${controller_args[$i]}"
-  if [[ "$arg" == "--terrain-sensor-only" || "$arg" == "--terrain-planner" ]]; then
+  if [[ "$arg" == "--terrain-sensor-only" ]]; then
     sim_terrain_lidar=true
   fi
-  if [[ "$arg" == "--controller-duration" ]]; then
+  if [[ "$arg" == "--stage-c-execution" ||
+        "$arg" == "--terrain-planner" ||
+        "$arg" == "--terrain-leg-order" ||
+        "$arg" == "--terrain-advance-body-before-second" ||
+        "$arg" == "--staged-start" ]]; then
+    echo "retired terrain route '$arg'; read CURRENT.md" >&2
+    exit 2
+  elif [[ "$arg" == "--gait-pattern" &&
+          "${controller_args[$((i + 1))]:-}" == "crawl" ]]; then
+    echo "retired terrain route '--gait-pattern crawl'; read CURRENT.md" >&2
+    exit 2
+  elif [[ "$arg" == "--controller-duration" ]]; then
     if (( i + 1 >= ${#controller_args[@]} )); then
       echo "--controller-duration requires a value" >&2
       exit 2
@@ -80,10 +90,6 @@ for ((i = 0; i < ${#controller_args[@]}; ++i)); do
   elif [[ "$arg" == "--camera-follow" ]]; then
     # simulator-only flag: track the robot body in the GUI camera
     sim_camera_follow=true
-  elif [[ "$arg" == "--staged-start" ]]; then
-    # Debug-only harness switch. Consume it here so the controller contract
-    # and its argv remain unchanged.
-    staged_start=true
   elif [[ "$arg" == "--initial-x" || "$arg" == "--initial-y" ]]; then
     if (( i + 1 >= ${#controller_args[@]} )); then
       echo "$arg requires a value" >&2
@@ -169,43 +175,6 @@ export TROT_SIM_LIDAR_CPU="$sim_lidar_affinity"
 export TROT_SIM_PHYSICS_CPU="$sim_physics_affinity"
 export TROT_SIM_BRIDGE_CPU="$sim_bridge_affinity"
 controller_args=("${filtered_controller_args[@]}")
-
-if [[ "$staged_start" == true ]]; then
-  if [[ "$sim_terrain_lidar" != true ]]; then
-    echo "--staged-start requires --terrain-sensor-only or --terrain-planner" >&2
-    exit 2
-  fi
-  # The debug pose is derived from the measured 5 cm-step edge and the
-  # observed edge-minus-base basin target. Allow an explicit override for
-  # holdout scenes whose measured edge is intentionally different.
-  staged_edge_minus_base="${TROT_STAGED_START_EDGE_MINUS_BASE_M:-0.324}"
-  staged_start_x="${TROT_STAGED_START_BASE_X_M:-}"
-  if [[ -z "$staged_start_x" ]]; then
-    staged_start_x="$(python3 - "$scene_file" "$staged_edge_minus_base" <<'PY2'
-import re
-import sys
-
-text = open(sys.argv[1], encoding="utf-8").read()
-match = re.search(
-    r"name=\"phase2_step_5cm\"\s+pos=\"([^\"]+)\"\s+type=\"box\"\s+size=\"([^\"]+)\"",
-    text,
-)
-if match is None:
-    raise SystemExit("unable to derive staged pose from phase2_step_5cm geometry")
-pos = [float(value) for value in match.group(1).split()]
-size = [float(value) for value in match.group(2).split()]
-# Account for the measured 94 mm startup settling translation before
-# controller lifecycle begins; the resulting observed base is at the
-# edge-minus-base basin target.
-print(f"{pos[0] - size[0] - float(sys.argv[2]) + 0.094:.6f}")
-PY2
-)" || exit 2
-  fi
-  sim_initial_args+=(--initial-x "$staged_start_x")
-  export TROT_TERRAIN_DEBUG_STAGED_START=1
-  export TROT_STAGED_START_BASE_X_M="$staged_start_x"
-  export TROT_STAGED_START_EDGE_MINUS_BASE_M="$staged_edge_minus_base"
-fi
 
 if (( ${#controller_args[@]} > 0 )) && [[ "${controller_args[0]}" != --* ]]; then
   echo "Unexpected positional controller argument '${controller_args[0]}'; use --controller-duration <s> for controller duration." >&2

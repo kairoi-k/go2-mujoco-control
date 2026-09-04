@@ -1,0 +1,91 @@
+{
+  "status": "frozen; terrain actuation remains disabled until a candidate passes fresh B0",
+  "b0": {
+    "contract": "b0-contract-v1.2",
+    "source_base": "71d0e9ba7ca1097e840fe878aa30207f6f63600d",
+    "acceptance_epoch": "b0-v1.2-epoch-22",
+    "implementation_head": "2fefd71ce59e54fbd4a2a3fd0cf9a34a1d9c7ca9",
+    "supersedes_epoch_evidence": "epoch-21 formal holdout did not pass: preserve its evidence and do not mix it into a later verdict",
+    "terrain_mode": "sensor_only",
+    "scene": "unitree_robots/go2/scene_leg_lift_demo.xml",
+    "profiles": [
+      "steps",
+      "accel_1_to_3",
+      "brake_3_to_0",
+      "ramp",
+      "varying"
+    ],
+    "repeats": [
+      {"repeat": 1, "terrain_domain": 200, "baseline_domain": 180},
+      {"repeat": 2, "terrain_domain": 201, "baseline_domain": 181},
+      {"repeat": 3, "terrain_domain": 202, "baseline_domain": 182}
+    ],
+    "fixed_3mps_repeats": [
+      {"repeat": 1, "terrain_domain": 203, "baseline_domain": 183},
+      {"repeat": 2, "terrain_domain": 204, "baseline_domain": 184},
+      {"repeat": 3, "terrain_domain": 205, "baseline_domain": 185}
+    ],
+    "anti_memorization_status": "B0 flat regression has no obstacle; pose, phase, and seed perturbations are deferred to B1-B3 holdout"
+  },
+  "b1": {
+    "contract": "b1-contract-v1.0",
+    "source_base": "71d0e9ba7ca1097e840fe878aa30207f6f63600d",
+    "prerequisite": "fresh full b0-contract-v1.2 PASS on the exact B1 candidate SHA",
+    "implementation_head": "TO_BE_FROZEN_BEFORE_FIRST_TUNING_RUN",
+    "terrain_mode": "planner_actuation",
+    "controller_inputs": "state_estimation_plus_lidar_terrain_model_only",
+    "profile": "example/cpp/configs/phase1_velocity_steps.csv",
+    "development": [
+      {
+        "case": "dev_centered",
+        "scene": "unitree_robots/go2/phase2_step_5cm.xml",
+        "initial_x_m": 0.0,
+        "initial_y_m": 0.0,
+        "gait_phase_offset": 0.0,
+        "seed": 11
+      }
+    ],
+    "holdout": [
+      {
+        "case": "holdout_a",
+        "scene": "unitree_robots/go2/phase2_step_5cm_holdout_a.xml",
+        "obstacle_center_x_m": 0.85,
+        "obstacle_center_y_m": 0.10,
+        "initial_x_m": -0.10,
+        "initial_y_m": 0.0,
+        "gait_phase_offset": 0.17,
+        "seed": 101,
+        "domain_id": 210
+      },
+      {
+        "case": "holdout_b",
+        "scene": "unitree_robots/go2/phase2_step_5cm_holdout_b.xml",
+        "obstacle_center_x_m": 1.05,
+        "obstacle_center_y_m": -0.12,
+        "initial_x_m": 0.08,
+        "initial_y_m": 0.0,
+        "gait_phase_offset": 0.41,
+        "seed": 102,
+        "domain_id": 211
+      },
+      {
+        "case": "holdout_c",
+        "scene": "unitree_robots/go2/phase2_step_5cm_holdout_c.xml",
+        "obstacle_center_x_m": 0.95,
+        "obstacle_center_y_m": 0.16,
+        "initial_x_m": -0.04,
+        "initial_y_m": 0.0,
+        "gait_phase_offset": 0.68,
+        "seed": 103,
+        "domain_id": 212
+      }
+    ],
+    "anti_memorization": {
+      "initial_x_varies": true,
+      "gait_phase_varies": true,
+      "obstacle_position_varies": true,
+      "controller_reads_ground_truth": false,
+      "harness_reads_ground_truth_for_scoring_only": true
+    }
+  }
+}

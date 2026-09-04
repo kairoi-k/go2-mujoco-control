@@ -227,28 +227,9 @@ void TrotExperiment::PublishTerrainControlSnapshot(
             state_snapshot, measured_pose);
         snapshot.measured_feet_valid = true;
     }
-    const auto sequencer_state = terrain_crawl_sequencer_output_.state;
-    const auto legacy_crawl_state = terrain_crawl_state_machine_.state();
-    const bool sequencer_support_state =
-        sequencer_state == go2_terrain::TerrainCrawlSequencerState::kShift ||
-        sequencer_state == go2_terrain::TerrainCrawlSequencerState::kSwing ||
-        sequencer_state == go2_terrain::TerrainCrawlSequencerState::kCommit ||
-        sequencer_state == go2_terrain::TerrainCrawlSequencerState::kAdvance;
-    const bool legacy_support_state =
-        legacy_crawl_state == go2_terrain::TerrainCrawlState::kShiftCom ||
-        legacy_crawl_state == go2_terrain::TerrainCrawlState::kCrawlStep ||
-        legacy_crawl_state == go2_terrain::TerrainCrawlState::kAdvanceBody;
-    snapshot.terrain_transfer_window_active = terrain_transfer_window_active_;
-    snapshot.terrain_crawl_support_window_active =
-        terrain_transfer_window_active_ &&
-        ((terrain_crawl_sequencer_output_.control_authority_active &&
-          sequencer_support_state) || legacy_support_state);
-    snapshot.terrain_crawl_support_lifted_leg =
-        terrain_crawl_sequencer_output_.active_leg;
-    if (snapshot.terrain_crawl_support_lifted_leg >= go2::kLegCount &&
-        legacy_support_state)
-        snapshot.terrain_crawl_support_lifted_leg =
-            terrain_crawl_state_machine_.com_target_leg();
+    snapshot.terrain_transfer_window_active = false;
+    snapshot.terrain_measured_support_window_active = false;
+    snapshot.terrain_support_excluded_leg = go2::kLegCount;
     snapshot.terrain_transfer_hold_active = terrain_transfer_hold_active_;
     snapshot.terrain_transfer_hold_contact = terrain_transfer_hold_contact_;
     snapshot.terrain_surface_transition_active =
@@ -276,18 +257,6 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         snapshot.terrain_surface_transition_required[
             pending_transition_leg] = true;
     }
-    // SHIFT_COM/CRAWL_STEP are deliberately replanned as a standing/crawl
-    // support problem. Reflect the sequencer's full measured support to the
-    // planner even before a terrain target has been prepared; otherwise the
-    // planner rejects its fresh plateau candidate and only the old snapshot
-    // remains available.
-    if (terrain_transfer_window_active_ &&
-        terrain_crawl_state_machine_.UsesCrawlExecution())
-    {
-        snapshot.terrain_transfer_hold_active = true;
-        snapshot.terrain_transfer_hold_contact = snapshot.measured_contact;
-    }
-
     {
         std::lock_guard<std::mutex> lock(terrain_control_mutex_);
         terrain_control_snapshot_ = snapshot;
@@ -364,10 +333,10 @@ void TrotExperiment::UpdateTerrainRuntime()
         control.have_nominal_touchdown_feet;
     input.contact_schedule.measured_contact = control.measured_contact;
     input.contact_schedule.measured_valid = control.measured_valid;
-    input.terrain_crawl_support_window_active =
-        control.terrain_crawl_support_window_active;
-    input.terrain_crawl_support_lifted_leg =
-        control.terrain_crawl_support_lifted_leg;
+    input.terrain_measured_support_window_active =
+        control.terrain_measured_support_window_active;
+    input.terrain_support_excluded_leg =
+        control.terrain_support_excluded_leg;
     input.measured_support_geometry_valid = control.measured_feet_valid;
     input.measured_support_feet_world = control.measured_feet_world;
     input.measured_support_contact = control.measured_support_contact;

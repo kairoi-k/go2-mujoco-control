@@ -1,9 +1,12 @@
 # Documentation
 
-Start here when reading the repository as a research artifact or contributing to the code.
+For current Phase 2 work, start at [`CURRENT.md`](../CURRENT.md); it is the
+only route and status authority. This page indexes general architecture and
+older accepted Phase 1 evidence only.
 
 | Document | Purpose |
 |---|---|
+| [`CURRENT.md`](../CURRENT.md) | current Phase 2 route, status, and authority |
 | [`RESEARCH_INDEX.md`](RESEARCH_INDEX.md) | claims, evidence, and claim boundary |
 | [`RESEARCH_HISTORY.md`](RESEARCH_HISTORY.md) | milestone history |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | simulator/controller runtime and control architecture |

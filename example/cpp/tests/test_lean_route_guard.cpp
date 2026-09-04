@@ -29,6 +29,9 @@ bool ExpectRetired(const std::initializer_list<const char *> args)
 
 int main()
 {
+    static_assert(!go2_trot::TrotParams::terrain_actuation);
+    static_assert(!go2_trot::TrotParams::stage_c_execution);
+
     go2_trot::TrotCliConfig sensor_only;
     std::string error;
     if (!Parse({"real_trot_go2", "lo", "1", "out.csv",
@@ -50,7 +53,9 @@ int main()
         !ExpectRetired({"real_trot_go2", "lo", "1", "out.csv",
                         "--terrain-leg-order", "lateral"}) ||
         !ExpectRetired({"real_trot_go2", "lo", "1", "out.csv",
-                        "--terrain-advance-body-before-second"}))
+                        "--terrain-advance-body-before-second"}) ||
+        !ExpectRetired({"real_trot_go2", "lo", "1", "out.csv",
+                        "--gait-pattern", "crawl"}))
     {
         std::cerr << "a retired terrain route was accepted\n";
         return 1;

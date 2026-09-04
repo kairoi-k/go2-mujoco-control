@@ -705,7 +705,7 @@ void TestCallbackOrderCommandBeforeAck()
 // publish) is already present in the exchange; the UPDATED ack for a NEWER
 // command (computed from the current state) arrives BEFORE that command.
 // The older command must never unlock the exchange; physics advances only
-// after the exact newer LowCmd callback (WORKER_ORDERS.md Order 107 step 4).
+// after the exact newer LowCmd callback (Order 107 step 4).
 void TestP2OldPostPublishNeverSteps()
 {
     lockstep::Coordinator::Config cfg;

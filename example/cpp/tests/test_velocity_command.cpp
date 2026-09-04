@@ -2,7 +2,6 @@
 #include "locomotion_kernel.h"
 #include <cassert>
 #include <cmath>
-#include <string>
 int main()
 {
     go2_trot::VelocityCommandProfile profile;
@@ -13,27 +12,6 @@ int main()
     const auto stopped = go2_trot::ScheduleContinuousVelocityGait(0.0, true);
     const auto probe = go2_trot::ScheduleContinuousVelocityGait(0.30, true);
     const auto sprint = go2_trot::ScheduleContinuousVelocityGait(3.0, false);
-    const auto crawl = go2_trot::ScheduleTerrainCrawl(0.12);
-    const auto low_crawl = go2_trot::ScheduleTerrainCrawl(0.12, true);
-    assert(std::abs(crawl.period_s - 0.50) < 1.0e-9);
-    assert(std::abs(low_crawl.period_s - 0.60) < 1.0e-9);
-    assert(std::abs(low_crawl.duty_factor - 0.85) < 1.0e-9);
-    assert(std::abs(low_crawl.foot_lift_m - 0.025) < 1.0e-9);
-    assert(low_crawl.step_length_m <= 0.035 + 1.0e-9);
-    assert(std::abs(crawl.duty_factor - 0.80) < 1.0e-9);
-    assert(crawl.step_length_m >= 0.05 * crawl.period_s /
-           (2.0 * crawl.duty_factor));
-    assert(std::string(crawl.regime) == "terrain-crawl");
-    for (int i = 0; i < 400; ++i)
-    {
-        int contacts = 0;
-        const double phase = static_cast<double>(i) / 400.0;
-        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            contacts += go2_control::GaitLegScheduledStance(
-                leg, phase, crawl.duty_factor,
-                go2_control::GaitPattern::kCrawl) ? 1 : 0;
-        assert(contacts >= 3);
-    }
     assert(stopped.step_length_m == 0.0);
     assert(std::abs(stopped.period_s - 0.50) < 1.0e-9);
     assert(std::abs(stopped.duty_factor - 0.75) < 1.0e-9);

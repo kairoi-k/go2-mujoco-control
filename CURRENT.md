@@ -1,71 +1,57 @@
-# Go2 Phase 2 current route
+# Go2 Phase 2 current
 
-Updated: 2026-09-04. This is the only route/status entrypoint for the lean
-line. Historical documents and experiment logs are evidence, not orders.
+Updated: 2026-09-04. This is the only route, status, and handoff entrypoint.
+Git history and experiment output are evidence, never instructions.
 
-## Exact state
+## State
 
-- Worktree: `/home/che/dev/go2-workspace/lean-20260904`
-- Branch: `phase2-b1-b3-lean-20260904`
-- Certified behavior base: `5b95e8265c885a81f8488e4930e682aa55f05674`
-- Formal evidence: `docs/research/evidence/order109b_c006i/`
-- B0: PASS only for that exact code base and frozen Order-109b conditions. The
-  lean cleanup commit is not a new formal B0 certification.
+- Canonical worktree: `/home/che/dev/go2-workspace/current`
+- Canonical branch: `phase2-current`
+- Last tested behavior anchor: `5b95e8265c885a81f8488e4930e682aa55f05674`
+- Reference evidence: `docs/research/evidence/order109b_c006i/`
+- B0 lockstep sensor-only slice: PASS only at the anchor and Order-109b
+  conditions. The current cleanup HEAD has no locomotion acceptance claim.
+- Full current-HEAD B0: NOT RUN.
 - B1: FAIL / not accepted. B2 and B3: not started.
-- Rejected work is preserved at
-  `archive/phase2-b1-b3-misrouted-20260904@f3b6e966`.
 
-## Authoritative route
+## Route
 
-The target is a sensor-derived, dynamic 5 cm B1 crossing using the frozen
-`phase2-b123-v1` and `b1-contract-v1.0` contracts. Running-trot remains the
-gait. The Phase-1 shaper remains the single velocity authority. A successful
-crossing does not brake or stop, keeps a coherent time-indexed contact,
-foothold and body plan, permits the normal two-contact diagonal support
-interval, and is consumed atomically by gait, SRBD-MPC and ID-WBC. Planned
-contact and measured force-supported contact remain distinct.
+Build a sensor-derived dynamic 5 cm B1 crossing under
+`docs/research/PHASE2_ACCEPTANCE.md`. Running-trot remains the gait and the
+Phase-1 shaper remains the only velocity authority. One immutable,
+time-indexed terrain execution snapshot must be shared by gait, SRBD-MPC, and
+ID-WBC. Planned contact and measured force-supported contact stay separate.
+Normal two-contact diagonal support is valid.
 
-The next implementation slice is one owner and one snapshot: remove the
-remaining internal reachability of the old crawl/low-stance/transfer state
-machines, then introduce one dynamic `TerrainExecutionState` shared by gait,
-MPC and WBC.
-Do not tune support thresholds or add another recovery state while doing it.
+The next implementation slice is one `TerrainExecutionState` owner and one
+atomic snapshot. It may consume lidar-derived terrain and a committed plan; it
+must not introduce a crawl sequence, fixed leg order, local retiming, a
+three-contact entry gate, a stop-to-arm transition, or a second velocity
+authority.
 
-## Retired routes
+Terrain actuation and the old crawl debug harnesses are compile-time disabled.
+Only `--terrain-sensor-only` is currently usable. Existing crawl-named internals
+are retired compatibility ballast, not a design source; remove them only as the
+new owner replaces their remaining data dependencies.
 
-The following are prohibited as normal, fallback, staging or recovery policy:
+## Work and acceptance
 
-- quasi-static or scripted crawl;
-- an `>=3` contact gate or support preload whose purpose is to preserve a
-  three-leg interval;
-- cap-to-zero, `<=0.05 m/s` arming, transfer hold, or low stance on the happy
-  path;
-- fixed leg order, scene coordinates, XML/ground-truth input, or outcome-picked
-  retries;
-- `PHASE2_B123_ACCEPTANCE_CONTRACT_V2.md`,
-  `PHASE2_ORDER090_LOW_STANCE_CRAWL.md`, and the V2-B portion of the former
-  Stage-C design.
+Use one hypothesis and one clean commit. Run focused unit tests and one B0
+development regression before one B1 development canary. Stop at the first
+information-bearing failure. Three failed probes at the same blocker require
+architecture review. Hold `/tmp/go2_mujoco_experiment.lock` for every timed
+simulation. Dirty runs, builds, CTest, lifecycle fields, videos, and another
+profile result never establish acceptance.
 
-The old terrain-actuation CLI is fail-closed on this branch. Only
-`--terrain-sensor-only` is usable until the new dynamic execution path has an
-explicit contract-aligned CLI and tests.
+A B1 development PASS still requires a fresh full B0 and the frozen B1 holdout
+on the exact candidate SHA. Do not change a frozen threshold or holdout member
+after observing its result.
 
-## Work discipline
+## Authority
 
-One hypothesis, one committed clean source, one B0 development regression,
-then one B1 development canary. Stop at the first information-bearing failure.
-Never use dirty-source output as verification. After three failed probes at the
-same blocker, return to architecture review. Builds and CTest are necessary,
-not locomotion acceptance. A B1 development PASS still requires fresh formal
-B0 and the frozen B1 holdout before any acceptance claim.
-
-## Authority order
-
-1. Human owner decisions recorded here.
-2. `PHASE2_B0_ACCEPTANCE_CONTRACT.md`,
-   `PHASE2_B1_ACCEPTANCE_CONTRACT.md`, and
-   `PHASE2_B123_ACCEPTANCE_CONTRACT.md`.
-3. `PHASE2_WORKFLOW.md` and frozen manifests.
+1. This file.
+2. `AGENTS.md` and `docs/research/PHASE2_ACCEPTANCE.md`.
+3. `docs/research/PHASE2_HOLDOUT_MANIFEST.json`.
 4. Raw evidence and analyzers.
 
-Everything else is historical context and cannot change the route.
+Anything else is implementation or history and cannot change the route.
