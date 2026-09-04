@@ -328,10 +328,11 @@ bool TrotExperiment::Init()
             if (lockstep_ack_enabled_ && lockstep_epoch_valid_)
             {
                 EngageLockstepWriterIfNeeded();
+                std::uint32_t pending_tick = 0;
                 const lockstep_writer::WaitResult wait =
                     lockstep_writer_gate_.WaitForTick([this]() {
                         return writer_stop_.load() || finished_.load();
-                    });
+                    }, &pending_tick);
                 if (wait == lockstep_writer::WaitResult::kAborted)
                     break;
                 if (wait == lockstep_writer::WaitResult::kTimeout)
@@ -341,9 +342,12 @@ bool TrotExperiment::Init()
                     finished_.store(true);
                     break;
                 }
-                LowCmdWrite();
-                lockstep_writer_gate_.RecordConsumed(
-                    last_consumed_state_tick_);
+                if (!LowCmdWrite(pending_tick, true))
+                {
+                    finished_.store(true);
+                    break;
+                }
+                lockstep_writer_gate_.RecordConsumed(pending_tick);
             }
             else
             {

@@ -53,6 +53,7 @@ enum ViolationFlag : std::uint32_t
   kViolationTickReorder = 1u << 0, // backward tick (stale/reorder)
   kViolationTickGap = 1u << 1,     // forward tick not exactly +dt
   kViolationTickTimeout = 1u << 2, // no new tick within the wait timeout
+  kViolationSnapshotMismatch = 1u << 3, // writer saw a different state tick
 };
 
 class WriterGate
@@ -165,6 +166,14 @@ public:
   {
     std::lock_guard<std::mutex> lock(mutex_);
     consumed_tick_ = tick;
+  }
+
+  // The writer must run on the exact state tick returned by WaitForTick.
+  // Applying a command to any other snapshot breaks the causal exchange.
+  void FailSnapshotMismatch()
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    FailClosed(kViolationSnapshotMismatch, "state snapshot tick mismatch");
   }
 
   bool Engaged() const

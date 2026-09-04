@@ -340,7 +340,9 @@ static_assert(TrotTask::kGaitBlendDuration == kGaitBlendDuration);
 // CONTROL LOOP — 500Hz LowCmdWrite state machine (see docs/CODE_GUIDE.md)
 
 // --- TrotExperiment::LowCmdWrite ---
-void TrotExperiment::LowCmdWrite()
+bool TrotExperiment::LowCmdWrite(
+    std::uint32_t expected_state_tick,
+    bool enforce_state_tick)
 {
     // ROADMAP LowCmdWrite: stand-up -> gait -> wbc -> limits -> lie-down/stop -> publish
     // Jump via SECTION: markers below.
@@ -355,7 +357,7 @@ void TrotExperiment::LowCmdWrite()
     //   L133: log-sample
 
     if (finished_.load())
-        return;
+        return false;
 
     unitree_go::msg::dds_::LowState_ state_snapshot{};
     unitree_go::msg::dds_::SportModeState_ high_state_snapshot{};
@@ -363,7 +365,13 @@ void TrotExperiment::LowCmdWrite()
     bool have_high_state = false;
     if (!SnapshotState(state_snapshot, high_state_snapshot,
                        have_state, have_high_state))
-        return;
+        return false;
+    if (enforce_state_tick &&
+        state_snapshot.tick() != expected_state_tick)
+    {
+        lockstep_writer_gate_.FailSnapshotMismatch();
+        return false;
+    }
 
     bool motion_clock_paused = false;
     const double motion_dt = MotionClockStep(state_snapshot, motion_clock_paused);
@@ -492,6 +500,7 @@ void TrotExperiment::LowCmdWrite()
     PublishLockstepAck(state_snapshot.tick());
     // SECTION: log-sample
         LogSample(state_snapshot, have_state, high_state_snapshot, have_high_state);
+    return true;
 }
 
 void TrotExperiment::PublishLowCmdWithCrc()
@@ -529,10 +538,9 @@ bool TrotExperiment::TestRunWallClockTick(
     suppress_lowcmd_publish_for_test_ = true;
     LowStateMessageHandler(&state);
     if (!lockstep_writer_gate_.Engaged())
-        LowCmdWrite();
+        return LowCmdWrite();
     else
         return false;
-    return true;
 }
 
 bool TrotExperiment::TestRunLockstepTick(
@@ -546,7 +554,8 @@ bool TrotExperiment::TestRunLockstepTick(
             []() { return false; }, &pending_tick) !=
         lockstep_writer::WaitResult::kTick)
         return false;
-    LowCmdWrite();
+    if (!LowCmdWrite(pending_tick, true))
+        return false;
     lockstep_writer_gate_.RecordConsumed(pending_tick);
     return true;
 }

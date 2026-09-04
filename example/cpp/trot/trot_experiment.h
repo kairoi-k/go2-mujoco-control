@@ -124,7 +124,9 @@ private:
     bool CaptureWorldReference();
     void LowStateMessageHandler(const void *message);
     void HighStateMessageHandler(const void *message);
-    void LowCmdWrite();
+    bool LowCmdWrite(
+        std::uint32_t expected_state_tick = 0,
+        bool enforce_state_tick = false);
     void EngageLockstepWriterIfNeeded();
     bool UpdateWbcShadowAndTorqueFf(
         const unitree_go::msg::dds_::LowState_ &state_snapshot,

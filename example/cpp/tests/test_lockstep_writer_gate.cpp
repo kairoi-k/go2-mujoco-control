@@ -311,6 +311,20 @@ void TestGapFailClosed()
           "gap violation flag set");
 }
 
+void TestSnapshotMismatchFailClosed()
+{
+    lockstep_writer::WriterGate::Config cfg;
+    cfg.tick_wait_timeout_s = 1.0;
+    lockstep_writer::WriterGate gate(cfg);
+    gate.SetFailClosedHandler([](const char *) {});
+
+    gate.FailSnapshotMismatch();
+    Check(gate.FailedClosed(), "snapshot mismatch fails closed");
+    Check((gate.Violations() &
+           lockstep_writer::kViolationSnapshotMismatch) != 0,
+          "snapshot mismatch violation flag set");
+}
+
 // Abort predicate (external stop) returns kAborted without failing closed.
 void TestAbortWhileWaiting()
 {
@@ -378,6 +392,7 @@ int main()
     TestHandoffFirstLockstepTickNotMissed();
     TestReorderStaleFailClosed();
     TestGapFailClosed();
+    TestSnapshotMismatchFailClosed();
     TestAbortWhileWaiting();
     TestWrapTickArithmetic();
 
