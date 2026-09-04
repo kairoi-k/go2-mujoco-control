@@ -5,7 +5,9 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <condition_variable>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -13,6 +15,7 @@
 #include <vector>
 
 #include <unitree/common/thread/thread.hpp>
+#include <unitree/idl/go2/Error_.hpp>
 #include <unitree/idl/go2/HeightMap_.hpp>
 #include <unitree/idl/go2/LowCmd_.hpp>
 #include <unitree/idl/go2/LowState_.hpp>
@@ -21,6 +24,8 @@
 #include <unitree/robot/channel/channel_subscriber.hpp>
 
 #include "go2_contact_torque_mapping.h"
+#include "lockstep_motion_clock.h"
+#include "lockstep_writer_gate.h"
 #include "locomotion_kernel.h"
 #include "trot_task.h"
 #include "trot_types.h"
@@ -29,6 +34,9 @@
 #include "srbd_mpc.h"
 #include "inverse_dynamics_wbc.h"
 #include "cartesian_world_trot.h"
+#include "terrain_model.h"
+#include "terrain_motion_plan.h"
+#include "terrain_planner.h"
 
 using unitree::robot::ChannelPublisherPtr;
 using unitree::robot::ChannelSubscriberPtr;
@@ -39,8 +47,19 @@ using unitree::robot::ChannelSubscriberPtr;
 #define GO2_TROT_TOPIC_LOWSTATE "rt/lowstate"
 #define GO2_TROT_TOPIC_HIGHSTATE "rt/sportmodestate"
 #endif
+// Order-107 verification-only causal handshake topic: the adapter
+// publishes ack{state_seq, command_seq} (unitree Error_ repurposed as a
+// sequence-metadata carrier; Error_.source()/state() are uint32_t and carry
+// the full-width frozen-state tick and the controller's exact command_seq)
+// after every LowCmd write when TROT_LOCKSTEP_ACK=1.
+#ifndef GO2_TROT_TOPIC_LOCKSTEP_ACK
+#define GO2_TROT_TOPIC_LOCKSTEP_ACK "rt/lockstep/ack"
+#endif
 #ifndef GO2_TROT_TOPIC_ENVIRONMENT_MAP
 #define GO2_TROT_TOPIC_ENVIRONMENT_MAP "rt/go2/environment_heightmap"
+#endif
+#ifndef GO2_TROT_TOPIC_LIDAR_MAP
+#define GO2_TROT_TOPIC_LIDAR_MAP "rt/go2/lidar_heightmap"
 #endif
 
 class TrotExperiment
@@ -79,8 +98,26 @@ public:
     bool StopFileRequested() const;
     void Shutdown();
 
+#ifdef GO2_TROT_TESTING
+    struct TestMotionClockSample
+    {
+        double motion_dt_s = 0.0;
+        double cmd_time_s = 0.0;
+        double gait_time_s = 0.0;
+        double ramp_time_s = 0.0;
+        double governor_time_s = 0.0;
+        double stop_time_s = 0.0;
+    };
+
+    void TestPrepareMotionClock(std::uint32_t handoff_tick);
+    bool TestRunWallClockTick(const unitree_go::msg::dds_::LowState_ &state);
+    bool TestRunLockstepTick(const unitree_go::msg::dds_::LowState_ &state);
+    TestMotionClockSample TestLastMotionClockSample() const;
+#endif
+
 private:
     void EnvironmentHeightMapMessageHandler(const void *message);
+    void LidarHeightMapMessageHandler(const void *message);
     void InitLowCmd();
     void WriteCsvHeader();
     bool WaitForNaturalSettle(double timeout_s);
@@ -88,6 +125,7 @@ private:
     void LowStateMessageHandler(const void *message);
     void HighStateMessageHandler(const void *message);
     void LowCmdWrite();
+    void EngageLockstepWriterIfNeeded();
     bool UpdateWbcShadowAndTorqueFf(
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
         bool have_state,
@@ -142,6 +180,7 @@ private:
     bool PhaseLieDown(std::array<double, go2_trot::kMotorCount> &joint_targets);
     double UpdateCartesianForceBlend();
     void PublishLowCmdWithCrc();
+    void PublishLockstepAck(std::uint32_t state_seq);
     void LogSample(
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
         bool have_state,
@@ -168,6 +207,13 @@ private:
         const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
         bool have_high_state,
         double motion_dt);
+    void UpdateTerrainRuntime();
+    void TerrainPlannerWorker();
+    void PublishTerrainControlSnapshot(
+        const unitree_go::msg::dds_::LowState_ &state_snapshot,
+        const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
+        bool have_high_state);
+    void PinCurrentThreadToEnv(const char *env_name);
     void UpdateCycleDiagnostics(
         double phase,
         const unitree_go::msg::dds_::LowState_ &state_snapshot,
@@ -185,6 +231,37 @@ private:
     void ResetCycleDiagnostics();
 
 private:
+    struct TerrainPlannerWork
+    {
+        bool have_map = false;
+        unitree_go::msg::dds_::HeightMap_ map{};
+        std::uint64_t map_epoch = 0;
+        std::uint64_t plan_id = 0;
+        go2_terrain::TerrainPlannerInput input{};
+    };
+
+    struct TerrainControlSnapshot
+    {
+        bool valid = false;
+        double state_stamp_s = 0.0;
+        double base_yaw_rad = 0.0;
+        double base_roll_rad = 0.0;
+        double base_pitch_rad = 0.0;
+        std::array<double, 4> base_quaternion{};
+        go2::Vec3 imu_position_world{};
+        go2::Vec3 base_velocity_world{};
+        bool have_base_position_world = false;
+        double gait_phase = 0.0;
+        double gait_period_s = 0.0;
+        double duty_factor = 0.0;
+        double commanded_vx_mps = 0.0;
+        std::array<double, go2_trot::kMotorCount> joint_positions{};
+        std::array<go2::Vec3, go2::kLegCount> nominal_feet_base{};
+        std::array<bool, go2::kLegCount> measured_contact{};
+        bool have_commanded_body_feet = false;
+        bool measured_valid = false;
+    };
+
     static constexpr double kEmergencyStopPostHoldDurationS = 1.50;
 
     TrotTask task_;
@@ -245,6 +322,7 @@ private:
     double emergency_stop_finish_time_s_ = 0.0;
     go2_control::FirstOrderVelocityFilter velocity_filter_;
     go2_trot::VelocityCommandShaper velocity_command_shaper_;
+    go2_trot::ContinuousVelocityGaitScheduler velocity_gait_scheduler_;
     go2_control::Vector3 latest_world_velocity_{};
     go2_control::Vector3 latest_raw_body_velocity_{};
     go2_control::Vector3 latest_filtered_body_velocity_{};
@@ -378,18 +456,84 @@ private:
     unitree_go::msg::dds_::LowState_ low_state_{};
     unitree_go::msg::dds_::SportModeState_ high_state_{};
     unitree_go::msg::dds_::HeightMap_ environment_heightmap_{};
+    unitree_go::msg::dds_::HeightMap_ lidar_heightmap_{};
     bool have_low_state_ = false;
     bool have_high_state_ = false;
     bool have_environment_heightmap_ = false;
+    bool have_lidar_heightmap_ = false;
 
+    go2_terrain::TerrainPlanner terrain_planner_{};
+    std::shared_ptr<const go2_terrain::TerrainModel> terrain_model_;
+    std::atomic<std::uint64_t> terrain_map_epoch_{0};
+    std::atomic<std::uint64_t> terrain_plan_epoch_{0};
+    std::atomic<std::uint64_t> terrain_plan_id_{0};
+    double terrain_last_update_s_ = -1.0e9;
+    double terrain_last_map_age_s_ = std::numeric_limits<double>::infinity();
+    double terrain_last_solver_us_ = 0.0;
+    double terrain_last_plan_status_ = 0.0;
+    double terrain_last_failure_ = 0.0;
+    double terrain_min_edge_margin_m_ = 0.0;
+    double terrain_min_uncertainty_edge_margin_m_ = 0.0;
+    double terrain_min_slope_rad_ = 0.0;
+    double terrain_max_roughness_m_ = 0.0;
+    double terrain_min_reachability_margin_m_ = 0.0;
+    double terrain_min_swing_clearance_m_ = 0.0;
+    double terrain_min_support_margin_m_ = 0.0;
+    double terrain_min_uncertainty_support_margin_m_ = 0.0;
+    std::uint64_t terrain_committed_touchdowns_ = 0;
+    std::size_t terrain_known_cells_ = 0;
+    std::size_t terrain_feasible_regions_ = 0;
+    std::uint64_t terrain_planner_updates_ = 0;
+    std::uint64_t terrain_planner_rejections_ = 0;
+    std::uint64_t terrain_planner_deadline_misses_ = 0;
+    bool terrain_latest_plan_valid_ = false;
+
+    std::mutex terrain_diagnostics_mutex_;
+    std::mutex terrain_control_mutex_;
+    TerrainControlSnapshot terrain_control_snapshot_{};
+    std::atomic<std::uint64_t> terrain_control_generation_{0};
+    double terrain_last_control_snapshot_s_ = -1.0e9;
+    std::mutex terrain_work_mutex_;
+    std::condition_variable terrain_work_cv_;
+    TerrainPlannerWork terrain_pending_work_{};
+    bool terrain_work_pending_ = false;
+    std::atomic<bool> terrain_worker_stop_{false};
+    std::thread terrain_planner_thread_;
+
+    std::mutex terrain_map_mutex_;
     std::mutex state_mutex_;
     std::ofstream csv_;
     std::atomic<bool> finished_{false};
     ChannelSubscriberPtr<unitree_go::msg::dds_::HeightMap_>
         environment_heightmap_subscriber_;
+    ChannelSubscriberPtr<unitree_go::msg::dds_::HeightMap_>
+        lidar_heightmap_subscriber_;
     std::atomic<bool> external_stop_requested_{false};
 
     ChannelPublisherPtr<unitree_go::msg::dds_::LowCmd_> lowcmd_publisher_;
+    ChannelPublisherPtr<unitree_go::msg::dds_::Error_> lockstep_ack_publisher_;
+    bool lockstep_ack_enabled_ = false;
+#ifdef GO2_TROT_TESTING
+    bool suppress_lowcmd_publish_for_test_ = false;
+#endif
+    // Order-107: lockstep-local sequence epoch established at the first
+    // lockstep state consumed after the controller's lifecycle barrier
+    // (start-gait); the command sequence counts every LowCmd write 1:1 from
+    // the adapter's first ack (uint32, wraps after 2^32 writes) so the sim's
+    // exchange-local arrival ordinals match exactly.
+    bool lockstep_epoch_valid_ = false;
+    std::uint32_t lockstep_epoch_state_seq_ = 0;
+    std::uint32_t lockstep_cmd_seq_ = 0;
+    // Order-108 verification-only tick gate: once the writer handoff has
+    // completed the lowcmd writer consumes exactly ONE new physics tick per
+    // loop iteration (see lockstep_writer_gate.h); last_consumed_state_tick_
+    // is the exact tick the most recent control update consumed (the same
+    // state_seq the Order-107 ack carried). Flag-off: never engaged, so the
+    // wall-clock writer loop is unchanged.
+    lockstep_writer::WriterGate lockstep_writer_gate_;
+    // Order-109: authoritative motion elapsed time after lockstep handoff.
+    lockstep_motion::StateSynchronousClock lockstep_motion_clock_;
+    std::uint32_t last_consumed_state_tick_ = 0;
     ChannelSubscriberPtr<unitree_go::msg::dds_::LowState_> lowstate_subscriber_;
     ChannelSubscriberPtr<unitree_go::msg::dds_::SportModeState_>
         highstate_subscriber_;

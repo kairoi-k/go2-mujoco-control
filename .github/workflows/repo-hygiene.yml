@@ -21,7 +21,7 @@ jobs:
           find . -type f -name '*.py' -not -path './.git/*' -print0 |
             xargs -0 -r -n1 python3 -m py_compile
       - name: Run repository hygiene checker
-        run: python3 example/cpp/tools/check_repo_hygiene.py
+        run: python3 tools/check_repo_hygiene.py
       - name: Check internal references
         run: |
           test -f docs/REPOSITORY_GOVERNANCE.md

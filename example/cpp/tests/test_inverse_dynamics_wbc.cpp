@@ -53,7 +53,74 @@ int main()
     passed &= Check(
         std::abs(fz - dyn.mass_kg * 9.81) < 40.0, "ID-WBC gravity");
     passed &= Check(out.tau.cwiseAbs().maxCoeff() < 35.0, "tau limit");
+    passed &= Check(std::isfinite(out.cost_terms.base_linear) &&
+                        std::isfinite(out.cost_terms.stance_no_slip) &&
+                        std::isfinite(out.cost_terms.torque),
+                    "ID-WBC objective terms are not finite");
+    passed &= Check(out.cost_terms.force_regularization >= 0.0,
+                    "ID-WBC force cost is negative");
 
+    // A terrain hold must keep every selected contact physically loadable,
+    // rather than allowing the solver to satisfy the base equations with a
+    // near-zero held-foot force.
+    go2_control::IdWbcParams loaded_params = {};
+    loaded_params.min_normal_n = 20.0;
+    go2_control::IdWbcOutput loaded;
+    passed &= Check(
+        go2_control::SolveInverseDynamicsWbc(
+            loaded_params, input, loaded) && loaded.ok,
+        "loaded-contact ID-WBC failed");
+    for (int i = 0; i < 4; ++i)
+        passed &= Check(
+            loaded.force[3 * i + 2] >= 19.9,
+            "held contact fell below minimum normal force");
+
+    // A raised support plane must constrain force along its normal, not
+    // world-Z. This catches the mixed-height cone regression while retaining
+    // the flat default when normals are not supplied.
+    const Eigen::Vector3d tilted_normal = Eigen::Vector3d(-0.10, 0.0, 0.995).normalized();
+    input.contact_normal.fill(tilted_normal);
+    input.contact_normal_valid.fill(true);
+    go2_control::IdWbcOutput tilted;
+    passed &= Check(
+        go2_control::SolveInverseDynamicsWbc(loaded_params, input, tilted) &&
+            tilted.ok,
+        "tilted-contact ID-WBC failed");
+    for (int i = 0; i < 4; ++i)
+        passed &= Check(
+            tilted.normal_force[i] >= 19.9 && tilted.normal_force[i] <= 180.1,
+            "tilted contact normal limits");
+    input.contact_normal_valid.fill(false);
+
+    input.has_terrain_plan = true;
+    input.terrain_plan.plan_id = 5;
+    input.terrain_plan.plan_epoch = 6;
+    input.terrain_plan.map_epoch = 7;
+    input.terrain_plan.generated_at_s = 1.0;
+    input.terrain_plan.valid_until_s = 2.0;
+    input.measured_contact.fill(true);
+    input.measured_contact_valid = true;
+    input.planned_contact = input.contact;
+    input.planned_contact_valid = true;
+    go2_control::IdWbcOutput terrain;
+    passed &= Check(
+        go2_control::SolveInverseDynamicsWbc({}, input, terrain) &&
+            terrain.ok && terrain.terrain_plan_consumed &&
+            terrain.terrain_plan.plan_epoch == 6,
+        "terrain ID-WBC identity/contact interface failed");
+    // A planned-only leg may be metadata for prediction, never a WBC
+    // safety contact.
+    input.measured_contact[3] = false;
+    input.fused_contact = input.measured_contact;
+    input.fused_contact_valid = true;
+    input.contact[3] = true;
+    go2_control::IdWbcOutput planned_only;
+    passed &= Check(
+        !go2_control::SolveInverseDynamicsWbc({}, input, planned_only),
+        "planned contact entered ID-WBC safety mask");
+    input.measured_contact[3] = true;
+    input.contact[3] = false;
+    input.has_terrain_plan = false;
     input.contact = {true, false, false, true};
     go2_control::IdWbcOutput two;
     passed &= Check(

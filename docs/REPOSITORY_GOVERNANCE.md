@@ -2,6 +2,10 @@
 
 ## Source of truth
 
+Root [`CURRENT.md`](../CURRENT.md) is the sole route/status authority for the
+active Phase 2 research line. The repository rules below remain general
+governance and cannot supersede that route.
+
 | Scope | Canonical repository | Boundary |
 |---|---|---|
 | Model-based MuJoCo Go2 control | `kairoi-k/go2-mujoco-control` | C++ controller, simulator integration, MuJoCo scenes, and model-based evidence |

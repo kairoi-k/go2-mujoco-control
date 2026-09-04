@@ -3,10 +3,14 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <limits>
 #include <iomanip>
 #include <iostream>
+#if defined(__linux__)
+#include <sched.h>
+#endif
 #include <sstream>
 #include <thread>
 
@@ -74,6 +78,257 @@ void FillObstacleScan(
 } // namespace
 
 using namespace go2_trot;
+
+void TrotExperiment::PinCurrentThreadToEnv(const char *env_name)
+{
+#if defined(__linux__)
+    const char *value = std::getenv(env_name);
+    if (value == nullptr || value[0] == 0)
+        return;
+    char *end = nullptr;
+    const long cpu = std::strtol(value, &end, 10);
+    if (end == value || *end != 0 || cpu < 0 || cpu >= CPU_SETSIZE)
+        return;
+    cpu_set_t cpu_set{};
+    CPU_ZERO(&cpu_set);
+    CPU_SET(static_cast<int>(cpu), &cpu_set);
+    if (sched_setaffinity(0, sizeof(cpu_set), &cpu_set) != 0)
+        std::cerr << "Unable to pin " << env_name << " to CPU "
+                  << cpu << "\n";
+#else
+    (void)env_name;
+#endif
+}
+
+void TrotExperiment::PublishTerrainControlSnapshot(
+    const unitree_go::msg::dds_::LowState_ &state_snapshot,
+    const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
+    bool have_high_state)
+{
+    if (!params_.terrain_enabled ||
+        !std::isfinite(running_time_) ||
+        running_time_ - terrain_last_control_snapshot_s_ < 0.050)
+        return;
+
+    TerrainControlSnapshot snapshot;
+    snapshot.valid = true;
+    const double gait_period_s = kernel_period_s_ > 0.05
+        ? kernel_period_s_ : params_.period_s;
+    const double duty_factor = kernel_duty_factor_ > 0.1
+        ? kernel_duty_factor_ : params_.duty_factor;
+    snapshot.state_stamp_s =
+        static_cast<double>(state_snapshot.tick()) * 1.0e-3;
+    if (!std::isfinite(snapshot.state_stamp_s))
+        return;
+    snapshot.gait_phase = current_phase_;
+    snapshot.gait_period_s = gait_period_s;
+    snapshot.duty_factor = duty_factor;
+    snapshot.commanded_vx_mps = kernel_nominal_velocity_x_mps_;
+    snapshot.base_velocity_world = have_world_velocity_
+        ? go2::Vec3{latest_world_velocity_[0], latest_world_velocity_[1],
+                    latest_world_velocity_[2]}
+        : go2::Vec3{};
+    snapshot.base_roll_rad = state_snapshot.imu_state().rpy()[0];
+    snapshot.base_pitch_rad = state_snapshot.imu_state().rpy()[1];
+    snapshot.base_yaw_rad = state_snapshot.imu_state().rpy()[2];
+    for (std::size_t axis = 0; axis < snapshot.base_quaternion.size(); ++axis)
+        snapshot.base_quaternion[axis] =
+            state_snapshot.imu_state().quaternion()[axis];
+    snapshot.have_base_position_world = have_high_state;
+    if (have_high_state)
+    {
+        snapshot.imu_position_world = {
+            high_state_snapshot.position()[0],
+            high_state_snapshot.position()[1],
+            high_state_snapshot.position()[2]};
+    }
+
+    for (std::size_t i = 0; i < kMotorCount; ++i)
+        snapshot.joint_positions[i] = state_snapshot.motor_state()[i].q();
+    snapshot.have_commanded_body_feet = have_commanded_body_feet_;
+    if (snapshot.have_commanded_body_feet)
+        snapshot.nominal_feet_base = commanded_body_feet_;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        snapshot.measured_contact[leg] =
+            state_snapshot.foot_force()[leg] >= kContactForceThreshold;
+    snapshot.measured_valid = true;
+
+    {
+        std::lock_guard<std::mutex> lock(terrain_control_mutex_);
+        terrain_control_snapshot_ = snapshot;
+    }
+    terrain_control_generation_.fetch_add(1, std::memory_order_release);
+    terrain_last_control_snapshot_s_ = running_time_;
+    terrain_work_cv_.notify_one();
+}
+
+void TrotExperiment::UpdateTerrainRuntime()
+{
+    if (!params_.terrain_enabled)
+        return;
+
+    TerrainControlSnapshot control;
+    {
+        std::lock_guard<std::mutex> lock(terrain_control_mutex_);
+        control = terrain_control_snapshot_;
+    }
+    if (!control.valid || !std::isfinite(control.state_stamp_s) ||
+        control.state_stamp_s - terrain_last_update_s_ < 0.050)
+        return;
+
+    TerrainPlannerWork work;
+    work.map_epoch = ++terrain_map_epoch_;
+    work.plan_id = ++terrain_plan_id_;
+    auto &input = work.input;
+    input.state_stamp_s = control.state_stamp_s;
+    input.base_yaw_rad = control.base_yaw_rad;
+    const go2::Vec3 imu_offset_world = RotateByQuaternion(
+        control.base_quaternion, {-0.02557, 0.0, 0.04232});
+    if (control.have_base_position_world)
+    {
+        input.base_position_world = {
+            control.imu_position_world.x - imu_offset_world.x,
+            control.imu_position_world.y - imu_offset_world.y,
+            control.imu_position_world.z - imu_offset_world.z};
+    }
+    input.base_velocity_world = control.base_velocity_world;
+    input.base_roll_rad = control.base_roll_rad;
+    input.base_pitch_rad = control.base_pitch_rad;
+    input.base_height_m = input.base_position_world.z;
+    input.gait_phase = control.gait_phase;
+    input.gait_period_s = control.gait_period_s;
+    input.duty_factor = control.duty_factor;
+    input.commanded_vx_mps = control.commanded_vx_mps;
+    input.current_feet_base = go2::AllFootPositions(control.joint_positions);
+    input.nominal_feet_base = control.have_commanded_body_feet
+        ? control.nominal_feet_base
+        : go2::AllFootPositions(task_.stand_up_joint_pos_);
+    input.contact_schedule.measured_contact = control.measured_contact;
+    input.contact_schedule.measured_valid = control.measured_valid;
+    go2_control::FillTrotContactSchedulePhase(
+        input.gait_phase, input.gait_period_s, input.duty_factor,
+        static_cast<int>(terrain_planner_.config().horizon_knots),
+        terrain_planner_.config().knot_dt_s,
+        input.contact_schedule.planned_contact,
+        params_.gait_pattern);
+    // The gait helper fills contact bits only; validity is an explicit
+    // planned-vs-measured interface contract.
+    input.contact_schedule.planned_valid = true;
+
+    {
+        std::lock_guard<std::mutex> lock(terrain_map_mutex_);
+        work.have_map = have_lidar_heightmap_;
+        if (work.have_map)
+            work.map = lidar_heightmap_;
+    }
+    terrain_last_update_s_ = control.state_stamp_s;
+
+    {
+        std::lock_guard<std::mutex> lock(terrain_work_mutex_);
+        terrain_pending_work_ = std::move(work);
+        terrain_work_pending_ = true;
+    }
+}
+
+void TrotExperiment::TerrainPlannerWorker()
+{
+#if defined(__linux__)
+    // Sensor-only terrain is an observer. Keep its best-effort work from
+    // preempting the accepted 500 Hz Phase 1 command writer when the runner
+    // pins the controller process to one CPU.
+    if (params_.terrain_sensor_only)
+    {
+        sched_param scheduler_params{};
+        (void)sched_setscheduler(0, SCHED_IDLE, &scheduler_params);
+    }
+#endif
+    PinCurrentThreadToEnv("TROT_TERRAIN_CPU");
+    std::uint64_t consumed_generation = 0;
+    for (;;)
+    {
+        {
+            std::unique_lock<std::mutex> lock(terrain_work_mutex_);
+            terrain_work_cv_.wait(lock, [this, &consumed_generation]() {
+                return terrain_worker_stop_.load() ||
+                    terrain_control_generation_.load(
+                        std::memory_order_acquire) > consumed_generation;
+            });
+            if (terrain_worker_stop_.load())
+                return;
+            consumed_generation = terrain_control_generation_.load(
+                std::memory_order_acquire);
+        }
+
+        UpdateTerrainRuntime();
+
+        TerrainPlannerWork work;
+        {
+            std::lock_guard<std::mutex> lock(terrain_work_mutex_);
+            if (!terrain_work_pending_)
+                continue;
+            work = std::move(terrain_pending_work_);
+            terrain_work_pending_ = false;
+        }
+
+        std::shared_ptr<const go2_terrain::TerrainModel> model;
+        if (work.have_map)
+        {
+            const auto built = go2_terrain::BuildTerrainModel(
+                &work.map, work.input.state_stamp_s, work.map_epoch,
+                go2_terrain::TerrainSource::kLidar);
+            if (built.ok())
+                model = std::make_shared<const go2_terrain::TerrainModel>(
+                    built.model);
+        }
+        work.input.terrain = model.get();
+        const auto result = terrain_planner_.Build(work.input, work.plan_id);
+
+        std::size_t known_cells = 0;
+        std::size_t feasible_regions = 0;
+        if (model)
+        {
+            for (const auto &cell : model->cells)
+                if (cell.known)
+                    ++known_cells;
+            for (const auto &regions : result.regions)
+                feasible_regions += regions.size();
+        }
+        {
+            std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
+            terrain_plan_epoch_.store(result.plan.plan_epoch);
+            terrain_model_ = model;
+            terrain_last_map_age_s_ = model
+                ? model->age_s : std::numeric_limits<double>::infinity();
+            terrain_known_cells_ = known_cells;
+            terrain_feasible_regions_ = feasible_regions;
+            terrain_last_solver_us_ = result.plan.solver.elapsed_us;
+            terrain_last_plan_status_ = static_cast<double>(
+                static_cast<int>(result.plan.status));
+            terrain_last_failure_ = static_cast<double>(
+                static_cast<int>(result.plan.failure));
+            terrain_min_edge_margin_m_ = result.plan.min_edge_margin_m;
+            terrain_min_uncertainty_edge_margin_m_ =
+                result.plan.min_uncertainty_inflated_edge_margin_m;
+            terrain_min_slope_rad_ = result.plan.min_slope_rad;
+            terrain_max_roughness_m_ = result.plan.max_roughness_m;
+            terrain_min_reachability_margin_m_ =
+                result.plan.min_reachability_margin_m;
+            terrain_min_swing_clearance_m_ =
+                result.plan.min_swing_clearance_m;
+            terrain_min_support_margin_m_ = result.plan.min_support_margin_m;
+            terrain_min_uncertainty_support_margin_m_ =
+                result.plan.min_uncertainty_inflated_support_margin_m;
+            terrain_committed_touchdowns_ = result.plan.committed_touchdowns;
+            ++terrain_planner_updates_;
+            if (result.plan.solver.deadline_miss)
+                ++terrain_planner_deadline_misses_;
+            if (!result.publishable)
+                ++terrain_planner_rejections_;
+            terrain_latest_plan_valid_ = result.plan.valid();
+        }
+
+    }
+}
 
 static_assert(TrotTask::kStandUpDuration == kStandUpDuration);
 static_assert(TrotTask::kStandSettleDuration == kStandSettleDuration);
@@ -225,9 +480,16 @@ void TrotExperiment::LowCmdWrite()
         state_snapshot, have_state,
         high_state_snapshot, have_high_state,
         joint_targets);
+    PublishTerrainControlSnapshot(
+        state_snapshot, high_state_snapshot, have_high_state);
 
     // SECTION: publish-lowcmd
     PublishLowCmdWithCrc();
+    // Order-107: after the LowCmd is published in this cycle, increment the
+    // local command sequence and emit the verification-only
+    // ack{state_seq, command_seq} for the exact state snapshot consumed by
+    // this control period (no-op when the adapter is off).
+    PublishLockstepAck(state_snapshot.tick());
     // SECTION: log-sample
         LogSample(state_snapshot, have_state, high_state_snapshot, have_high_state);
 }
@@ -237,7 +499,105 @@ void TrotExperiment::PublishLowCmdWithCrc()
     low_cmd_.crc() = crc32_core(
         (uint32_t *)&low_cmd_,
         (sizeof(unitree_go::msg::dds_::LowCmd_) >> 2) - 1);
+#ifdef GO2_TROT_TESTING
+    if (suppress_lowcmd_publish_for_test_)
+        return;
+#endif
     lowcmd_publisher_->Write(low_cmd_);
+}
+
+#ifdef GO2_TROT_TESTING
+void TrotExperiment::TestPrepareMotionClock(std::uint32_t handoff_tick)
+{
+    InitLowCmd();
+    suppress_lowcmd_publish_for_test_ = true;
+    lockstep_ack_enabled_ = true;
+    last_consumed_state_tick_ = handoff_tick;
+    EngageLockstepWriterIfNeeded();
+    // Keep the production gait/timer consumers active for the call-chain
+    // probe; these are existing controller fields, not test-time clocks.
+    task_.gait_started_ = true;
+    task_.motion_stage_ = 2;
+    stop_brake_start_time_s_ = running_time_;
+    high_speed_stop_brake_start_time_s_ = running_time_;
+    high_speed_stop_hold_start_time_s_ = running_time_;
+}
+
+bool TrotExperiment::TestRunWallClockTick(
+    const unitree_go::msg::dds_::LowState_ &state)
+{
+    suppress_lowcmd_publish_for_test_ = true;
+    LowStateMessageHandler(&state);
+    if (!lockstep_writer_gate_.Engaged())
+        LowCmdWrite();
+    else
+        return false;
+    return true;
+}
+
+bool TrotExperiment::TestRunLockstepTick(
+    const unitree_go::msg::dds_::LowState_ &state)
+{
+    LowStateMessageHandler(&state);
+    if (!lockstep_writer_gate_.HasPendingTick())
+        return false; // duplicate publication: writer does not run
+    std::uint32_t pending_tick = 0;
+    if (lockstep_writer_gate_.WaitForTick(
+            []() { return false; }, &pending_tick) !=
+        lockstep_writer::WaitResult::kTick)
+        return false;
+    LowCmdWrite();
+    lockstep_writer_gate_.RecordConsumed(pending_tick);
+    return true;
+}
+
+TrotExperiment::TestMotionClockSample
+TrotExperiment::TestLastMotionClockSample() const
+{
+    TestMotionClockSample sample;
+    sample.motion_dt_s = last_motion_dt_s_;
+    sample.cmd_time_s = running_time_;
+    sample.gait_time_s = running_time_ - task_.gait_start_time_s_;
+    // These are the production elapsed-time consumers used by gait ramp,
+    // health governor, and timed stop paths, observed from their anchors.
+    sample.ramp_time_s = running_time_ - task_.gait_start_time_s_;
+    sample.governor_time_s = running_time_ - high_speed_stop_brake_start_time_s_;
+    sample.stop_time_s = running_time_ - stop_brake_start_time_s_;
+    return sample;
+}
+#endif
+
+// Order-107 verification-only ack: ack{state_seq, command_seq} published
+// only after the LowCmd write of the same control cycle, only when the
+// adapter is enabled. `state_seq` is the tick side-channel of the LowState
+// snapshot the cycle consumed (Error_.source(), uint32_t; wraps at 2^32 ms
+// ~ 49.7 days at 1 kHz). The lockstep-local sequence epoch is established at
+// the first lockstep state consumed after the controller's lifecycle
+// barrier (start-gait); every subsequent LowCmd write increments the local
+// command_seq (Error_.state(), uint32_t) and the ack carries the exact pair,
+// so the simulator can bind the ack to the acked cycle's own LowCmd arrival.
+// No control math or message payload changes.
+void TrotExperiment::PublishLockstepAck(std::uint32_t state_seq)
+{
+    if (!lockstep_ack_enabled_ || !lockstep_ack_publisher_)
+        return;
+    // Order-108: record the exact tick this control update consumed so the
+    // writer gate can detect the next strictly-new tick (and so Engage()
+    // clears old events without missing the first lockstep tick).
+    last_consumed_state_tick_ = state_seq;
+    if (!lockstep_epoch_valid_ && task_.gait_started_)
+    {
+        // First lockstep state consumed after the controller's lifecycle
+        // barrier anchors the local epoch; the command sequence keeps
+        // counting 1:1 with every LowCmd write from the adapter's first ack.
+        lockstep_epoch_state_seq_ = state_seq;
+        lockstep_epoch_valid_ = true;
+    }
+    ++lockstep_cmd_seq_;
+    unitree_go::msg::dds_::Error_ ack;
+    ack.source(state_seq);
+    ack.state(lockstep_cmd_seq_);
+    lockstep_ack_publisher_->Write(ack);
 }
 
 bool TrotExperiment::PhaseStandUp(std::array<double, go2_trot::kMotorCount> &joint_targets)
@@ -742,6 +1102,26 @@ double TrotExperiment::MotionClockStep(
         motion_dt = 0.0;
         motion_clock_paused = true;
     }
+    }
+
+    // Order-109: after the established writer handoff, simulator state time
+    // is authoritative even when wall_clock_motion remains configured. The
+    // handoff rebase makes this one state delta continuous with running_time_;
+    // WriterGate has already rejected missing, reordered, or gapped ticks.
+    if (lockstep_ack_enabled_ && lockstep_writer_gate_.Engaged())
+    {
+        double state_synchronous_dt = 0.0;
+        if (lockstep_motion_clock_.Step(
+                state_snapshot.tick(), state_synchronous_dt))
+        {
+            motion_dt = state_synchronous_dt;
+            motion_clock_paused = false;
+        }
+        else
+        {
+            motion_dt = 0.0;
+            motion_clock_paused = true;
+        }
     }
 
     last_motion_dt_s_ = motion_dt;

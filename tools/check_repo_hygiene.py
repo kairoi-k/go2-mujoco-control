@@ -48,6 +48,43 @@ TEXT_SUFFIXES = {
 MACHINE_LOCAL_MARKERS = ("/home/che/", "C:\\Users\\", "/tmp/kine2go")
 SELF_PATH = "tools/check_repo_hygiene.py"
 UPSTREAM_DOC_PREFIX = "docs/upstream/"
+EVIDENCE_PREFIXES = (
+    "docs/research/evidence/",
+    "docs/validation/",
+    "example/cpp/experiments/",
+)
+MACHINE_PORTABLE_PREFIXES = (
+    ".github/",
+    "example/cpp/configs/",
+    "example/cpp/scripts/",
+    "example/cpp/tools/",
+    "patches/",
+    "scripts/",
+    "simulate/",
+    "simulate_python/",
+    "tools/",
+)
+REQUIRED_FILES = (
+    "AGENTS.md",
+    "CURRENT.md",
+    "README.md",
+    "docs/REPOSITORY_GOVERNANCE.md",
+    "docs/research/PHASE2_ACCEPTANCE.md",
+    "docs/research/PHASE2_HOLDOUT_MANIFEST.json",
+    "example/cpp/experiments/CATALOG.md",
+)
+PHASE2_SOURCE_PREFIXES = (
+    "example/cpp/gait/",
+    "example/cpp/terrain/",
+    "example/cpp/trot/",
+)
+FORBIDDEN_PHASE2_SOURCE_TOKENS = (
+    "GaitExecutionRequest",
+    "GaitPattern::kCrawl",
+    "TerrainCrawl",
+    "stage_c_execution",
+    "terrain_crawl",
+)
 MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 
 
@@ -79,6 +116,10 @@ def main() -> int:
     root = Path(__file__).resolve().parents[1]
     problems: list[str] = []
 
+    for rel in REQUIRED_FILES:
+        if not (root / rel).is_file():
+            problems.append(f"missing required file: {rel}")
+
     for rel in tracked_files(root):
         path = root / rel
         parts = set(Path(rel).parts)
@@ -98,13 +139,22 @@ def main() -> int:
                 text = path.read_text(encoding="utf-8")
             except UnicodeDecodeError:
                 continue
-            if rel != SELF_PATH:
+            portable_text = rel.startswith(MACHINE_PORTABLE_PREFIXES) and not \
+                rel.startswith(EVIDENCE_PREFIXES)
+            if rel != SELF_PATH and portable_text:
                 for marker in MACHINE_LOCAL_MARKERS:
                     if marker in text:
                         problems.append(f"machine-local absolute path in {rel}: {marker}")
+            if rel.startswith(PHASE2_SOURCE_PREFIXES):
+                for token in FORBIDDEN_PHASE2_SOURCE_TOKENS:
+                    if token in text:
+                        problems.append(
+                            f"retired Phase 2 source token in {rel}: {token}"
+                        )
             # Upstream READMEs are kept verbatim and may reference assets that were not
             # copied into this research fork; validate links only for maintained docs.
-            if path.suffix == ".md" and not rel.startswith(UPSTREAM_DOC_PREFIX):
+            if path.suffix == ".md" and \
+                    not rel.startswith((UPSTREAM_DOC_PREFIX,) + EVIDENCE_PREFIXES):
                 check_markdown_links(root, rel, text, problems)
 
     if problems:

@@ -136,14 +136,17 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     if (!velocity_command_initialized_ || gait_time_s <= 1.0e-9)
     {
         velocity_command_shaper_.Reset(0.0);
+        velocity_gait_scheduler_.Reset();
         velocity_command_initialized_ = true;
     }
     const double dt = (std::isfinite(last_motion_dt_s_) &&
                        last_motion_dt_s_ > 1.0e-4)
         ? last_motion_dt_s_
         : dt_;
+    const double requested_mps =
+        params_.velocity_command_profile.Sample(gait_time_s);
     velocity_command_state_ = velocity_command_shaper_.Step(
-        params_.velocity_command_profile.Sample(gait_time_s), dt);
+        requested_mps, dt);
     const bool zero_command_profile_finished =
         !params_.velocity_command_profile.points.empty() &&
         params_.velocity_command_profile.points.back().velocity_mps <= 1.0e-6 &&
@@ -197,7 +200,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         applied_mps = high_speed_health_cap_mps_;
     }
     velocity_command_state_.applied_mps = applied_mps;
-    const auto schedule = ScheduleContinuousVelocityGait(applied_mps);
+    const auto schedule = velocity_gait_scheduler_.Step(applied_mps, dt);
     locomotion_kernel_->SetGaitEffectiveSpeedConvention(true);
     locomotion_kernel_->SetGaitSlewLimits(0.060, 0.020, 0.020);
     locomotion_kernel_->SetGaitPeriod(schedule.period_s);
@@ -220,7 +223,10 @@ bool TrotExperiment::BuildGaitTargets(
     auto feet = go2::AllFootPositions(task_.stand_up_joint_pos_);
     go2_control::GaitKernelResult gait_result{};
     go2_control::GaitKernelRequest gait_request{};
-    gait_request.gait_time_s = gait_time_s;
+    const double phase_period_s = params_.period_s > 0.0
+        ? params_.period_s : kDefaultPeriodS;
+    gait_request.gait_time_s =
+        gait_time_s + params_.gait_phase_offset * phase_period_s;
     gait_request.neutral_feet = feet;
     if (have_filtered_body_velocity_)
     {

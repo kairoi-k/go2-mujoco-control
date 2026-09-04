@@ -1,0 +1,12 @@
+<mujoco model="go2 phase2 5cm step holdout a">
+  <include file="go2.xml" />
+  <statistic center="0.6 0.1 0.2" extent="1.4" />
+  <asset>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.12" />
+  </asset>
+  <worldbody>
+    <geom name="phase2_floor" size="0 0 0.05" type="plane" material="groundplane" />
+    <geom name="phase2_step_5cm" pos="0.85 0.10 0.025" type="box" size="0.25 0.75 0.025" />
+  </worldbody>
+</mujoco>

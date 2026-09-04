@@ -7,18 +7,20 @@
 
 #include <array>
 #include <cmath>
+#include <cstdint>
 
 #include <Eigen/Dense>
 
 #include "dense_qp.h"
 #include "go2_forward_kinematics.h"
+#include "terrain_control_interface.h"
 #include "locomotion_kernel.h"
 
 namespace go2_control
 {
 
 constexpr int kSrbdStateSize = 12;
-constexpr int kSrbdMaxHorizon = 12;
+constexpr int kSrbdMaxHorizon = 24;
 constexpr int kSrbdForceSize = 12;
 
 struct SrbdMpcParams
@@ -48,7 +50,29 @@ struct SrbdMpcInput
         Eigen::Matrix<double, kSrbdStateSize, 1>::Zero();
     Eigen::Matrix<double, kSrbdStateSize, 1> reference =
         Eigen::Matrix<double, kSrbdStateSize, 1>::Zero();
+    bool has_time_indexed_reference = false;
+    std::array<Eigen::Matrix<double, kSrbdStateSize, 1>,
+               kSrbdMaxHorizon>
+        reference_horizon{};
     std::array<Eigen::Vector3d, go2::kLegCount> foot_from_com_world{};
+    // Optional Stage-B contract.  When enabled, every scheduled contact knot
+    // must have a valid foot position; the solver never mixes this sequence
+    // with the legacy single-anchor field.
+    bool has_time_indexed_footholds = false;
+    std::array<std::array<Eigen::Vector3d, go2::kLegCount>,
+               kSrbdMaxHorizon>
+        foot_from_com_world_horizon{};
+    std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon>
+        foot_valid{};
+    std::uint64_t plan_id = 0;
+    std::uint64_t plan_epoch = 0;
+    // Planner input identity is diagnostic provenance; it is not a solver
+    // decision variable and remains optional for legacy/flat inputs.
+    std::uint64_t terrain_input_hash = 0;
+    bool has_terrain_plan = false;
+    go2_terrain::TerrainPlanIdentity terrain_plan{};
+    std::array<bool, go2::kLegCount> measured_contact{};
+    bool measured_contact_valid = false;
     std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon> contact{};
 };
 
@@ -59,6 +83,8 @@ struct SrbdMpcOutput
     double cost = 0.0;
     Eigen::Matrix<double, kSrbdForceSize, 1> first_force =
         Eigen::Matrix<double, kSrbdForceSize, 1>::Zero();
+    bool terrain_plan_consumed = false;
+    go2_terrain::TerrainPlanIdentity terrain_plan{};
     Eigen::Vector3d first_linear_acc = Eigen::Vector3d::Zero();
     Eigen::Vector3d first_angular_acc = Eigen::Vector3d::Zero();
     Eigen::Matrix<double, kSrbdStateSize, 1> predicted_state =
@@ -98,6 +124,69 @@ inline Eigen::Matrix<double, kSrbdStateSize, kSrbdForceSize> SrbdBd(
         B.block<3, 3>(9, c) = dt * inv_m * Eigen::Matrix3d::Identity();
     }
     return B;
+}
+
+inline const Eigen::Vector3d &SrbdFootAt(
+    const SrbdMpcInput &input, int knot, std::size_t leg)
+{
+    // Only valid timed entries are consumed. This keeps unused swing entries
+    // out of the dynamics without silently replacing a required contact
+    // lever arm (the validator rejects that case).
+    return input.has_time_indexed_footholds &&
+            input.foot_valid[static_cast<std::size_t>(knot)][leg]
+        ? input.foot_from_com_world_horizon[static_cast<std::size_t>(knot)][leg]
+        : input.foot_from_com_world[leg];
+}
+
+inline bool ValidateSrbdFootHorizon(const SrbdMpcParams &params,
+                                    const SrbdMpcInput &input)
+{
+    if (!input.has_time_indexed_footholds)
+        return true;
+    for (int k = 0; k < params.horizon; ++k)
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            // A lever arm is required exactly where a contact wrench may be
+            // applied. Unscheduled legs have no prediction and must not make
+            // a complete snapshot fail due to an unused Eigen value.
+            if (!input.contact[k][leg])
+            {
+                if (input.foot_valid[k][leg] &&
+                    !SrbdFootAt(input, k, leg).allFinite())
+                    return false;
+                continue;
+            }
+            if (!input.foot_valid[k][leg] ||
+                !SrbdFootAt(input, k, leg).allFinite())
+                return false;
+        }
+    }
+    return true;
+}
+
+inline bool ValidateSrbdReferenceHorizon(const SrbdMpcParams &params,
+                                         const SrbdMpcInput &input)
+{
+    if (!input.has_time_indexed_reference)
+        return true;
+    for (int k = 0; k < params.horizon; ++k)
+        if (!input.reference_horizon[static_cast<std::size_t>(k)].allFinite())
+            return false;
+    return true;
+}
+
+inline bool ValidateSrbdTerrainReference(const SrbdMpcInput &input)
+{
+    if (!input.has_terrain_plan)
+        return true;
+    if (!input.terrain_plan.valid() || !input.measured_contact_valid ||
+        input.plan_id == 0 || input.plan_epoch == 0)
+        return false;
+    // Plan, map and validity identity are one atomic provenance token. Do
+    // not pair a fresh horizon with another plan.
+    return input.terrain_plan.plan_id == input.plan_id &&
+        input.terrain_plan.plan_epoch == input.plan_epoch;
 }
 
 inline Eigen::Matrix<double, kSrbdStateSize, 1> SrbdGravity(
@@ -143,7 +232,10 @@ inline bool SolveSrbdMpc(
         !(params.friction_mu >= 0.0) ||
         !input.state.allFinite() ||
         !input.reference.allFinite() ||
-        !params.inertia_com_world.allFinite())
+        !params.inertia_com_world.allFinite() ||
+        !ValidateSrbdFootHorizon(params, input) ||
+        !ValidateSrbdReferenceHorizon(params, input) ||
+        !ValidateSrbdTerrainReference(input))
     {
         return false;
     }
@@ -160,15 +252,20 @@ inline bool SolveSrbdMpc(
     Eigen::Matrix<double, kSrbdStateSize, 1> x_pred = input.state;
     for (int k = 0; k < N; ++k)
     {
-        const auto B = SrbdBd(params, input.foot_from_com_world, input.contact[k]);
+        std::array<Eigen::Vector3d, go2::kLegCount> feet{};
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            feet[leg] = SrbdFootAt(input, k, leg);
+        const auto B = SrbdBd(params, feet, input.contact[k]);
         x_pred = A * x_pred + g;
         d.segment<kSrbdStateSize>(kSrbdStateSize * k) = x_pred;
         Eigen::Matrix<double, kSrbdStateSize, kSrbdStateSize> Ak =
             Eigen::Matrix<double, kSrbdStateSize, kSrbdStateSize>::Identity();
         for (int j = k; j >= 0; --j)
         {
-            const auto Bj = SrbdBd(
-                params, input.foot_from_com_world, input.contact[j]);
+            std::array<Eigen::Vector3d, go2::kLegCount> feet_j{};
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                feet_j[leg] = SrbdFootAt(input, j, leg);
+            const auto Bj = SrbdBd(params, feet_j, input.contact[j]);
             H_xu.block(
                 kSrbdStateSize * k, kSrbdForceSize * j,
                 kSrbdStateSize, kSrbdForceSize) = Ak * Bj;
@@ -185,11 +282,17 @@ inline bool SolveSrbdMpc(
     {
         Qblk.block<kSrbdStateSize, kSrbdStateSize>(
             kSrbdStateSize * k, kSrbdStateSize * k) = Q;
-        Eigen::Matrix<double, kSrbdStateSize, 1> knot_ref = input.reference;
-        knot_ref[3] = input.reference[3] +
-            static_cast<double>(k + 1) * params.dt_s * input.reference[9];
-        knot_ref[4] = input.reference[4] +
-            static_cast<double>(k + 1) * params.dt_s * input.reference[10];
+        Eigen::Matrix<double, kSrbdStateSize, 1> knot_ref =
+            input.has_time_indexed_reference
+                ? input.reference_horizon[static_cast<std::size_t>(k)]
+                : input.reference;
+        if (!input.has_time_indexed_reference)
+        {
+            knot_ref[3] = input.reference[3] +
+                static_cast<double>(k + 1) * params.dt_s * input.reference[9];
+            knot_ref[4] = input.reference[4] +
+                static_cast<double>(k + 1) * params.dt_s * input.reference[10];
+        }
         xref.segment<kSrbdStateSize>(kSrbdStateSize * k) = knot_ref;
     }
     Eigen::MatrixXd H = H_xu.transpose() * Qblk * H_xu;
@@ -280,28 +383,35 @@ inline bool SolveSrbdMpc(
             continue;
         const Eigen::Vector3d f = output.first_force.segment<3>(3 * leg);
         fsum += f;
-        tau += input.foot_from_com_world[leg].cross(f);
+        tau += SrbdFootAt(input, 0, leg).cross(f);
     }
     output.first_linear_acc = fsum / params.mass_kg +
         Eigen::Vector3d(0.0, 0.0, -params.gravity_mps2);
+    if (input.has_terrain_plan)
+    {
+        output.terrain_plan_consumed = true;
+        output.terrain_plan = input.terrain_plan;
+    }
     output.first_angular_acc = inertia_ldlt.solve(tau);
     return true;
 }
 
 // Diagonal trot contact from the kernel phase (0-1), then dt/period ahead.
+template <std::size_t Horizon>
 inline void FillTrotContactSchedulePhase(
     double phase,
     double period_s,
     double duty,
     int horizon,
     double dt_s,
-    std::array<std::array<bool, go2::kLegCount>, kSrbdMaxHorizon> &contact,
+    std::array<std::array<bool, go2::kLegCount>, Horizon> &contact,
     GaitPattern pattern = GaitPattern::kDiagonalTrot)
 {
     contact = {};
     if (!(period_s > 0.0))
         return;
-    for (int k = 0; k < horizon && k < kSrbdMaxHorizon; ++k)
+    for (int k = 0;
+         k < horizon && k < static_cast<int>(Horizon); ++k)
     {
         double a = phase + static_cast<double>(k) * dt_s / period_s;
         a -= std::floor(a);

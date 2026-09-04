@@ -45,3 +45,15 @@ link_libraries(
 add_executable(unitree_mujoco ${SIM_SRC} src/main.cc)
 
 add_executable(jstest src/joystick/jstest.cc src/joystick/joystick.cc)
+
+# ---- Order-103 lockstep verification tests ----
+enable_testing()
+
+add_executable(test_lockstep src/tests/test_lockstep.cpp)
+target_include_directories(test_lockstep PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_test(NAME test_lockstep COMMAND test_lockstep)
+
+add_test(NAME test_lockstep_sim
+  COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/run_lockstep_sim_tests.sh
+          $<TARGET_FILE:unitree_mujoco>
+          ${CMAKE_CURRENT_BINARY_DIR})

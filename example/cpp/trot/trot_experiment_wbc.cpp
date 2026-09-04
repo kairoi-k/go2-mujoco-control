@@ -434,6 +434,7 @@ void TrotExperiment::UpdateWbcFull(
             for (int k = 0; k < mpc_params.horizon; ++k)
                 mpc_in.contact[k] = qp_contact;
         }
+
         go2_control::SrbdMpcOutput mpc_out;
         if (go2_control::SolveSrbdMpc(mpc_params, mpc_in, mpc_out) && mpc_out.ok)
             last_srbd_ = mpc_out;

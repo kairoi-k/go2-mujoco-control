@@ -6,14 +6,22 @@
 #include <unitree/robot/channel/channel_subscriber.hpp>
 #include <unitree/dds_wrapper/robots/go2/go2.h>
 #include <unitree/dds_wrapper/robots/g1/g1.h>
+#include <unitree/idl/go2/Error_.hpp>
 #include <unitree/idl/go2/HeightMap_.hpp>
 #include <unitree/idl/hg/BmsState_.hpp>
 #include <unitree/idl/hg/IMUState_.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <array>
 #include <cmath>
+#include <chrono>
 #include <iostream>
+#include <cstdlib>
+#if defined(__linux__)
+#include <sched.h>
+#endif
+#include <thread>
 #include <vector>
 #include <limits>
 #include <mutex>
@@ -21,6 +29,14 @@
 
 #include "param.h"
 #include "physics_joystick.h"
+#include "lockstep.h"
+
+// Order-103 verification-only lockstep coordinator, owned by main.cc.
+namespace lockstep
+{
+class Coordinator;
+}
+extern lockstep::Coordinator *g_lockstep;
 
 #define MOTOR_SENSOR_NUM 3
 
@@ -49,6 +65,8 @@ public:
         }
 
     }
+
+    virtual ~UnitreeSDK2BridgeBase() = default;
 
     virtual void start() {}
 
@@ -98,7 +116,26 @@ protected:
         return std::unique_lock<std::recursive_mutex>(*sim_mutex_);
     }
 
-    // Sensor data indices
+    void PinCurrentThreadToEnv(const char *env_name)
+    {
+#if defined(__linux__)
+        const char *value = std::getenv(env_name);
+        if (value == nullptr || value[0] == 0)
+            return;
+        char *end = nullptr;
+        const long cpu = std::strtol(value, &end, 10);
+        if (end == value || *end != 0 || cpu < 0 || cpu >= CPU_SETSIZE)
+            return;
+        cpu_set_t cpu_set{};
+        CPU_ZERO(&cpu_set);
+        CPU_SET(static_cast<int>(cpu), &cpu_set);
+        if (sched_setaffinity(0, sizeof(cpu_set), &cpu_set) != 0)
+            std::cerr << "Unable to pin " << env_name << " to CPU " << cpu << "\n";
+#else
+        (void)env_name;
+#endif
+    }
+
     int imu_quat_adr_ = -1;
     int imu_gyro_adr_ = -1;
     int imu_acc_adr_ = -1;
@@ -186,6 +223,48 @@ class RobotBridge : public UnitreeSDK2BridgeBase
 using HighState_t = unitree::robot::go2::publisher::SportModeState;
 using WirelessController_t = unitree::robot::go2::publisher::WirelessController;
 
+// LowCmd subscription that counts every DDS arrival so the lockstep
+// exchange rule can wait for a full controller write period. Message state
+// handling is identical to SubscriptionBase's default handler; the
+// wall-clock path keeps the plain LowCmd_t and is byte-identical.
+template <typename MsgType>
+class CountingLowCmd : public unitree::robot::SubscriptionBase<MsgType>
+{
+public:
+    CountingLowCmd(const std::string &topic, lockstep::Coordinator *coord)
+        : unitree::robot::SubscriptionBase<MsgType>(
+              topic, [this, coord](const void *msg) {
+                  if (coord != nullptr) coord->OnCommandArrived();
+                  std::lock_guard<std::mutex> lock(this->mutex_);
+                  this->msg_ = *(const MsgType *)msg;
+              })
+    {
+    }
+};
+
+// Order-107 verification-only ack subscription: the controller adapter
+// publishes ack{state_seq, command_seq} (unitree Error_ type repurposed as
+// a sequence-metadata carrier; Error_.source()/state() are uint32_t and
+// carry the full-width frozen-state tick and the controller's exact
+// command_seq) on rt/lockstep/ack after each LowCmd write. Only created
+// when the lockstep flag is on.
+class LockstepAckSubscriber
+    : public unitree::robot::SubscriptionBase<unitree_go::msg::dds_::Error_>
+{
+public:
+    explicit LockstepAckSubscriber(const std::string &topic,
+                                   lockstep::Coordinator *coord)
+        : unitree::robot::SubscriptionBase<unitree_go::msg::dds_::Error_>(
+              topic, [coord](const void *msg) {
+                  if (coord == nullptr) return;
+                  const auto *m = static_cast<
+                      const unitree_go::msg::dds_::Error_ *>(msg);
+                  coord->OnAckReceived(m->source(), m->state());
+              })
+    {
+    }
+};
+
 public:
     RobotBridge(
         mjModel *model,
@@ -193,13 +272,30 @@ public:
         std::recursive_mutex *sim_mutex)
         : UnitreeSDK2BridgeBase(model, data, sim_mutex)
     {
-        lowcmd = std::make_shared<LowCmd_t>("rt/lowcmd");
+        if (param::config.lockstep)
+        {
+            lowcmd = std::make_shared<CountingLowCmd<typename LowCmd_t::MsgType>>(
+                "rt/lowcmd", g_lockstep);
+            lockstep_ack_subscriber_ =
+                std::make_shared<LockstepAckSubscriber>("rt/lockstep/ack",
+                                                        g_lockstep);
+        }
+        else
+        {
+            lowcmd = std::make_shared<LowCmd_t>("rt/lowcmd");
+        }
         lowstate = std::make_unique<LowState_t>();
         lowstate->joystick = joystick;
         highstate = std::make_unique<HighState_t>();
         environment_heightmap = unitree::robot::ChannelFactory::Instance()
             ->CreateSendChannel<unitree_go::msg::dds_::HeightMap_>(
                 "rt/go2/environment_heightmap");
+        lidar_heightmap = unitree::robot::ChannelFactory::Instance()
+            ->CreateSendChannel<unitree_go::msg::dds_::HeightMap_>(
+                "rt/go2/lidar_heightmap");
+        lidar_world_z_.assign(kLidarWorldCellCount,
+                              std::numeric_limits<double>::quiet_NaN());
+        lidar_world_t_.assign(kLidarWorldCellCount, -1.0e9);
         wireless_controller = std::make_unique<WirelessController_t>();
         wireless_controller->joystick = joystick;
     }
@@ -208,10 +304,68 @@ public:
     {
         thread_ = std::make_shared<unitree::common::RecurrentThread>(
             "unitree_bridge", UT_CPU_ID_NONE, 1000, [this]() { this->run(); });
+        if (param::config.terrain_lidar)
+        {
+            terrain_lidar_stop_.store(false);
+            terrain_lidar_thread_ = std::thread(
+                [this]() { TerrainLidarLoop(); });
+        }
     }
+
+    ~RobotBridge() override
+    {
+        terrain_lidar_stop_.store(true);
+        if (terrain_lidar_thread_.joinable())
+            terrain_lidar_thread_.join();
+    }
+
+private:
+    void TerrainLidarLoop()
+    {
+#if defined(__linux__)
+        sched_param scheduler_params{};
+        (void)sched_setscheduler(0, SCHED_IDLE, &scheduler_params);
+#endif
+        PinCurrentThreadToEnv("TROT_SIM_LIDAR_CPU");
+        mjModel *sensor_model = mj_copyModel(nullptr, mj_model_);
+        if (sensor_model == nullptr)
+            return;
+        mjData *sensor_data = mj_makeData(sensor_model);
+        if (sensor_data == nullptr)
+        {
+            mj_deleteModel(sensor_model);
+            return;
+        }
+        auto next = std::chrono::steady_clock::now();
+        while (!terrain_lidar_stop_.load())
+        {
+            {
+                auto sim_lock = LockSimulation();
+                if (mj_data_ != nullptr)
+                {
+                    mju_copy(sensor_data->qpos, mj_data_->qpos, sensor_model->nq);
+                    mju_copy(sensor_data->qvel, mj_data_->qvel, sensor_model->nv);
+                    sensor_data->time = mj_data_->time;
+                }
+            }
+            mj_fwdPosition(sensor_model, sensor_data);
+            PublishLidarHeightMap(sensor_model, sensor_data);
+            next += std::chrono::milliseconds(50);
+            std::this_thread::sleep_until(next);
+            if (std::chrono::steady_clock::now() > next +
+                    std::chrono::milliseconds(50))
+                next = std::chrono::steady_clock::now();
+        }
+        mj_deleteData(sensor_data);
+        mj_deleteModel(sensor_model);
+    }
+
+public:
 
     void PublishEnvironmentHeightMap()
     {
+        if (!param::config.terrain_lidar)
+            return;
         constexpr float kResolution = 0.10f;
         constexpr uint32_t kWidth = 16;
         constexpr uint32_t kHeight = 16;
@@ -305,26 +459,284 @@ public:
         last_environment_map_publish_s_ = sim_time;
     }
 
+    // Sensor-only local elevation map.  Rays are cast through the MuJoCo
+    // scene so occlusion is real, but the controller receives only this
+    // lidar-derived observation.  Heights are expressed relative to
+    // base_link; unknown cells remain NaN and are never filled by the oracle.
+    void PublishLidarHeightMap(
+        const mjModel *sensor_model,
+        mjData *sensor_data)
+    {
+        if (!param::config.terrain_lidar || !lidar_heightmap ||
+            sensor_model == nullptr)
+            return;
+        if (sensor_data == nullptr)
+            return;
+        const double sim_time = sensor_data->time;
+        if (sim_time - last_lidar_map_publish_s_ < kLidarPublishPeriodS)
+            return;
+        const int base_body_id = mj_name2id(
+            sensor_model, mjOBJ_BODY, "base_link");
+        if (base_body_id < 0)
+            return;
+        last_lidar_map_publish_s_ = sim_time;
+        const mjtNum *base_pos = sensor_data->xpos + 3 * base_body_id;
+        const mjtNum *base_mat = sensor_data->xmat + 9 * base_body_id;
+        struct Ring { double elevation_deg; int count; };
+        static constexpr Ring rings[] = {
+            {-15.0, 48}, {-25.0, 48}, {-35.0, 36}, {-45.0, 36},
+            {-55.0, 24}, {-65.0, 24}, {-75.0, 16}, {-5.0, 16},
+            {5.0, 16}};
+        const double origin[3] = {
+            base_pos[0] + 0.15 * base_mat[0],
+            base_pos[1] + 0.15 * base_mat[3],
+            base_pos[2] + 0.05};
+        int geom_id_out[1] = {-1};
+        for (const Ring &ring : rings)
+        {
+            const double elevation = ring.elevation_deg * M_PI / 180.0;
+            const bool forward_only = std::abs(ring.elevation_deg) < 10.0;
+            for (int i = 0; i < ring.count; ++i)
+            {
+                const double azimuth = forward_only
+                    ? (-40.0 + 80.0 * i /
+                       std::max(1, ring.count - 1)) * M_PI / 180.0
+                    : 2.0 * M_PI * i / ring.count;
+                const mjtNum direction_body[3] = {
+                    std::cos(elevation) * std::cos(azimuth),
+                    std::cos(elevation) * std::sin(azimuth),
+                    std::sin(elevation)};
+                mjtNum direction_world[3];
+                mju_mulMatVec(direction_world, base_mat, direction_body, 3, 3);
+                mjtNum ray_origin[3] = {origin[0], origin[1], origin[2]};
+                bool accepted = false;
+                mjtNum distance = -1.0;
+                for (int bounce = 0; bounce < 3; ++bounce)
+                {
+                    distance = mj_ray(
+                        sensor_model, sensor_data, ray_origin, direction_world,
+                        nullptr, 1, base_body_id, geom_id_out);
+                    if (distance < 0.0 || geom_id_out[0] < 0)
+                        break;
+                    const int geom_id = geom_id_out[0];
+                    const bool skip =
+                        sensor_model->geom_bodyid[geom_id] != 0 ||
+                        (sensor_model->geom_contype[geom_id] == 0 &&
+                         sensor_model->geom_conaffinity[geom_id] == 0);
+                    if (!skip)
+                    {
+                        accepted = true;
+                        break;
+                    }
+                    ray_origin[0] += direction_world[0] * (distance + 0.01);
+                    ray_origin[1] += direction_world[1] * (distance + 0.01);
+                    ray_origin[2] += direction_world[2] * (distance + 0.01);
+                }
+                if (!accepted)
+                    continue;
+                const double hit_x = ray_origin[0] +
+                    distance * direction_world[0];
+                const double hit_y = ray_origin[1] +
+                    distance * direction_world[1];
+                const double hit_z = ray_origin[2] +
+                    distance * direction_world[2];
+                const int ix = static_cast<int>(std::floor(
+                    (hit_x - kLidarWorldOriginX) / kLidarWorldResolution));
+                const int iy = static_cast<int>(std::floor(
+                    (hit_y - kLidarWorldOriginY) / kLidarWorldResolution));
+                if (ix < 0 || ix >= kLidarWorldWidth ||
+                    iy < 0 || iy >= kLidarWorldHeight)
+                    continue;
+                const std::size_t index = static_cast<std::size_t>(iy) *
+                    kLidarWorldWidth + static_cast<std::size_t>(ix);
+                if (!std::isfinite(lidar_world_z_[index]) ||
+                    hit_z < lidar_world_z_[index])
+                    lidar_world_z_[index] = hit_z;
+                lidar_world_t_[index] = sim_time;
+            }
+        }
+
+        unitree_go::msg::dds_::HeightMap_ map;
+        map.stamp(sim_time);
+        map.frame_id("base_link");
+        map.resolution(kLidarWindowResolution);
+        map.width(kLidarWindowWidth);
+        map.height(kLidarWindowHeight);
+        map.origin() = {kLidarWindowOriginX, kLidarWindowOriginY};
+        map.data().assign(kLidarWindowCellCount,
+                          std::numeric_limits<float>::quiet_NaN());
+        const double yaw = std::atan2(base_mat[3], base_mat[0]);
+        const double c = std::cos(yaw), s = std::sin(yaw);
+        // Dense downward elevation sweep over the published local window.
+        // It remains a sensor-derived ray observation through the scene.
+        // Occluded or missed rays leave the corresponding cells unknown.
+        for (uint32_t iy = 0; iy < kLidarWindowHeight; ++iy)
+        {
+            for (uint32_t ix = 0; ix < kLidarWindowWidth; ++ix)
+            {
+                const double local_x = kLidarWindowOriginX +
+                    (static_cast<double>(ix) + 0.5) * kLidarWindowResolution;
+                const double local_y = kLidarWindowOriginY +
+                    (static_cast<double>(iy) + 0.5) * kLidarWindowResolution;
+                const double world_x = base_pos[0] + c * local_x - s * local_y;
+                const double world_y = base_pos[1] + s * local_x + c * local_y;
+                mjtNum ray_origin[3] = {world_x, world_y,
+                    base_pos[2] + 1.0};
+                const mjtNum direction[3] = {0.0, 0.0, -1.0};
+                bool accepted = false;
+                mjtNum distance = -1.0;
+                for (int bounce = 0; bounce < 16; ++bounce)
+                {
+                    distance = mj_ray(
+                        sensor_model, sensor_data, ray_origin, direction,
+                        nullptr, 1, base_body_id, geom_id_out);
+                    if (distance < 0.0 || geom_id_out[0] < 0)
+                        break;
+                    const int geom_id = geom_id_out[0];
+                    if (sensor_model->geom_bodyid[geom_id] == 0 &&
+                        (sensor_model->geom_contype[geom_id] != 0 ||
+                         sensor_model->geom_conaffinity[geom_id] != 0))
+                    {
+                        accepted = true;
+                        break;
+                    }
+                    ray_origin[2] -= distance + 0.01;
+                }
+                if (!accepted)
+                    continue;
+                const double hit_z = ray_origin[2] - distance;
+                const int gx = static_cast<int>(std::floor(
+                    (world_x - kLidarWorldOriginX) / kLidarWorldResolution));
+                const int gy = static_cast<int>(std::floor(
+                    (world_y - kLidarWorldOriginY) / kLidarWorldResolution));
+                if (gx < 0 || gx >= kLidarWorldWidth ||
+                    gy < 0 || gy >= kLidarWorldHeight)
+                    continue;
+                const std::size_t index = static_cast<std::size_t>(gy) *
+                    kLidarWorldWidth + static_cast<std::size_t>(gx);
+                if (!std::isfinite(lidar_world_z_[index]) ||
+                    hit_z < lidar_world_z_[index])
+                    lidar_world_z_[index] = hit_z;
+                lidar_world_t_[index] = sim_time;
+            }
+        }
+        for (uint32_t iy = 0; iy < kLidarWindowHeight; ++iy)
+        {
+            for (uint32_t ix = 0; ix < kLidarWindowWidth; ++ix)
+            {
+                const double local_x = kLidarWindowOriginX +
+                    (static_cast<double>(ix) + 0.5) * kLidarWindowResolution;
+                const double local_y = kLidarWindowOriginY +
+                    (static_cast<double>(iy) + 0.5) * kLidarWindowResolution;
+                const double world_x = base_pos[0] + c * local_x - s * local_y;
+                const double world_y = base_pos[1] + s * local_x + c * local_y;
+                const int gx = static_cast<int>(std::floor(
+                    (world_x - kLidarWorldOriginX) / kLidarWorldResolution));
+                const int gy = static_cast<int>(std::floor(
+                    (world_y - kLidarWorldOriginY) / kLidarWorldResolution));
+                if (gx < 0 || gx >= kLidarWorldWidth ||
+                    gy < 0 || gy >= kLidarWorldHeight)
+                    continue;
+                const std::size_t index = static_cast<std::size_t>(gy) *
+                    kLidarWorldWidth + static_cast<std::size_t>(gx);
+                if (sim_time - lidar_world_t_[index] > kLidarMemoryS)
+                    continue;
+                const double world_z = lidar_world_z_[index];
+                if (std::isfinite(world_z))
+                    map.data()[static_cast<std::size_t>(iy) *
+                               kLidarWindowWidth + ix] = static_cast<float>(
+                                   world_z - base_pos[2]);
+            }
+        }
+        (void)lidar_heightmap->Write(map, 0);
+    }
+
     virtual void run()
+    {
+        static thread_local bool affinity_initialized = false;
+        if (!affinity_initialized)
+        {
+            PinCurrentThreadToEnv("TROT_SIM_BRIDGE_CPU");
+            affinity_initialized = true;
+        }
+        if (param::config.lockstep && g_lockstep != nullptr)
+        {
+            RunLockstep();
+            return;
+        }
+        RunWallClock();
+    }
+
+    // Wall-clock path: unchanged from the accepted Phase-1 bridge loop.
+    void RunWallClock()
     {
         auto sim_lock = LockSimulation();
         if(!mj_data_) return;
         if(lowstate->joystick) { lowstate->joystick->update(); }
-        // lowcmd
+        ApplyLatestCommand();
+        PublishStateSnapshot(/*blocking_lowstate=*/false);
+    }
+
+    // Lockstep path (Order-103/105/106): the frozen physics state is
+    // republished at the 1000 Hz bridge rate until the causal exchange for
+    // it completes (new LowCmd after the first publish + matching
+    // ack{state_seq}), then physics steps exactly once. Startup (before the
+    // ready barrier) is identical to the wall-clock path; the frozen
+    // discipline starts at the handoff tick. Each publish registers its
+    // monotonic tick as the ack state_seq side-channel before the LowState
+    // is sent; repeated publishes of the same frozen state keep the same
+    // state_seq. The sim mutex is held across the publish so the tick read
+    // and the consumed step-completed flag always refer to the same state
+    // (NotifyStepCompleted runs inside the physics lock).
+    void RunLockstep()
+    {
+        if (!g_lockstep->BarrierComplete())
         {
-            std::lock_guard<std::mutex> lock(lowcmd->mutex_);
-            for(int i(0); i<num_motor_; i++) {
-                auto & m = lowcmd->msg_.motor_cmd()[i];
-                mj_data_->ctrl[i] = m.tau() +
-                                    m.kp() * (m.q() - mj_data_->sensordata[i]) +
-                                    m.kd() * (m.dq() - mj_data_->sensordata[i + num_motor_]);
-            }
+            RunWallClock();
+            g_lockstep->OnStartupPublish(CurrentTickMs());
+            return;
         }
+        auto sim_lock = LockSimulation();
+        if (!mj_data_) return;
+        if (g_lockstep->FailedClosed()) return;
+        const std::uint64_t sim_tick_ms = CurrentTickMs();
+        const lockstep::PublishOutcome outcome =
+            g_lockstep->OnPublish(sim_tick_ms);
+        PublishStateSnapshot(/*blocking_lowstate=*/true);
+        if (outcome == lockstep::PublishOutcome::kStepGranted)
+        {
+            ApplyLatestCommand();
+            g_lockstep->NotifyCommandApplied();
+        }
+    }
 
-        PublishEnvironmentHeightMap();
+    std::uint64_t CurrentTickMs() const
+    {
+        return static_cast<std::uint64_t>(
+            std::llround(mj_data_->time * 1000.0));
+    }
 
+    void ApplyLatestCommand()
+    {
+        auto sim_lock = LockSimulation();
+        if (!mj_data_) return;
+        std::lock_guard<std::mutex> lock(lowcmd->mutex_);
+        for(int i(0); i<num_motor_; i++) {
+            auto & m = lowcmd->msg_.motor_cmd()[i];
+            mj_data_->ctrl[i] = m.tau() +
+                                m.kp() * (m.q() - mj_data_->sensordata[i]) +
+                                m.kd() * (m.dq() - mj_data_->sensordata[i + num_motor_]);
+        }
+    }
+
+    void PublishStateSnapshot(bool blocking_lowstate)
+    {
+        auto sim_lock = LockSimulation();
+        if (!mj_data_) return;
+        const bool lowstate_locked =
+            blocking_lowstate ? (lowstate->lock(), true) : lowstate->trylock();
         // lowstate
-        if(lowstate->trylock()) {
+        if(lowstate_locked) {
             for(int i(0); i<num_motor_; i++) {
                 lowstate->msg_.motor_state()[i].q() = mj_data_->sensordata[i];
                 lowstate->msg_.motor_state()[i].dq() = mj_data_->sensordata[i + num_motor_];
@@ -435,13 +847,36 @@ public:
 
     std::unique_ptr<HighState_t> highstate;
     unitree::robot::ChannelPtr<unitree_go::msg::dds_::HeightMap_> environment_heightmap;
+    unitree::robot::ChannelPtr<unitree_go::msg::dds_::HeightMap_> lidar_heightmap;
     std::unique_ptr<WirelessController_t> wireless_controller;
-    std::shared_ptr<LowCmd_t> lowcmd;
+    std::shared_ptr<unitree::robot::SubscriptionBase<typename LowCmd_t::MsgType>> lowcmd;
+    std::shared_ptr<LockstepAckSubscriber> lockstep_ack_subscriber_;
     std::unique_ptr<LowState_t> lowstate;
     
 private:
+    static constexpr float kLidarWorldResolution = 0.05f;
+    static constexpr int kLidarWorldWidth = 440;
+    static constexpr int kLidarWorldHeight = 80;
+    static constexpr float kLidarWorldOriginX = -2.0f;
+    static constexpr float kLidarWorldOriginY = -2.0f;
+    static constexpr uint32_t kLidarWindowWidth = 32;
+    static constexpr uint32_t kLidarWindowHeight = 10;
+    static constexpr std::size_t kLidarWindowCellCount =
+        static_cast<std::size_t>(kLidarWindowWidth) * kLidarWindowHeight;
+    static constexpr float kLidarWindowResolution = 0.05f;
+    static constexpr float kLidarWindowOriginX = -0.45f;
+    static constexpr float kLidarWindowOriginY = -0.225f;
+    static constexpr double kLidarMemoryS = 1.5;
+    static constexpr double kLidarPublishPeriodS = 0.050;
+    static constexpr std::size_t kLidarWorldCellCount =
+        static_cast<std::size_t>(kLidarWorldWidth) * kLidarWorldHeight;
+    std::vector<double> lidar_world_z_;
+    std::vector<double> lidar_world_t_;
+    double last_lidar_map_publish_s_ = -1.0e9;
     double last_environment_map_publish_s_ = -1.0e9;
     unitree::common::RecurrentThreadPtr thread_;
+    std::atomic<bool> terrain_lidar_stop_{false};
+    std::thread terrain_lidar_thread_;
 };
 
 using Go2Bridge = RobotBridge<unitree::robot::go2::subscription::LowCmd, unitree::robot::go2::publisher::LowState>;

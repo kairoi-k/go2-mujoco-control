@@ -129,6 +129,9 @@ fi
 if [[ "$wall_clock_motion" == "1" ]]; then
   sim_args+=(--wall-clock-motion)
 fi
+if [[ "${SUSTAINED_SPRINT_TERRAIN_SENSOR_ONLY:-0}" == "1" ]]; then
+  sim_args+=(--terrain-sensor-only)
+fi
 
 cd "$repo_dir"
 exec bash example/cpp/scripts/run_trot.sh "$wall_timeout_s" "$experiment_name" "${sim_args[@]}"

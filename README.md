@@ -4,6 +4,9 @@ Model-based locomotion research for the Unitree Go2 in MuJoCo: a **500 Hz LowCmd
 
 Research fork of [`unitreerobotics/unitree_mujoco`](https://github.com/unitreerobotics/unitree_mujoco).
 
+Current Phase 2 work starts at [`CURRENT.md`](CURRENT.md). It is the sole route,
+status, and handoff authority; historical experiment notes are evidence only.
+
 ![stand-walk-lie](docs/media/stand_walk_lie_wbcfull.gif)
 
 ## Current results

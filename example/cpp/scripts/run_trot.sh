@@ -21,23 +21,61 @@ controller_args=("$@")
 controller_duration_s="$timeout_s"
 sim_headless=false
 sim_camera_follow=false
+sim_terrain_lidar=false
+sim_lockstep=false
+sim_lockstep_trace=""
+sim_initial_args=()
 sim_push_args=()
+phase2_milestone=""
 sim_affinity="${TROT_CPU_AFFINITY_SIM:-}"
 ctrl_affinity="${TROT_CPU_AFFINITY_CTRL:-}"
+writer_affinity="${TROT_CPU_AFFINITY_WRITER:-}"
+terrain_affinity="${TROT_CPU_AFFINITY_TERRAIN:-}"
+sim_affinity_auto=false
+sim_lidar_affinity="${TROT_SIM_LIDAR_CPU:-}"
+sim_physics_affinity="${TROT_SIM_PHYSICS_CPU:-}"
+sim_bridge_affinity="${TROT_SIM_BRIDGE_CPU:-}"
 if [[ "${TROT_CPU_AUTOPIN:-1}" != "0" &&
       -z "$sim_affinity" && -z "$ctrl_affinity" ]]; then
   cpu_count="$(nproc 2>/dev/null || echo 0)"
-  if [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 4 )); then
+  if [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 5 )); then
     # MuJoCo and the DDS controller must not compete for the same WSL core.
     sim_affinity=2
+    sim_affinity_auto=true
+    ctrl_affinity=3,4
+    writer_affinity="${writer_affinity:-3}"
+    terrain_affinity="${terrain_affinity:-4}"
+  elif [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 4 )); then
+    sim_affinity=2
+    sim_affinity_auto=true
     ctrl_affinity=3
   fi
+fi
+if [[ -z "$writer_affinity" && "$ctrl_affinity" =~ ^[0-9]+ ]]; then
+  writer_affinity="${ctrl_affinity%%,*}"
+fi
+if [[ -z "$terrain_affinity" && "$ctrl_affinity" == *,* ]]; then
+  terrain_affinity="${ctrl_affinity##*,}"
 fi
 filtered_controller_args=()
 profile_path="${GO2_PROFILE_PATH:-}"
 for ((i = 0; i < ${#controller_args[@]}; ++i)); do
   arg="${controller_args[$i]}"
-  if [[ "$arg" == "--controller-duration" ]]; then
+  if [[ "$arg" == "--terrain-sensor-only" ]]; then
+    sim_terrain_lidar=true
+  fi
+  if [[ "$arg" == "--stage-c-execution" ||
+        "$arg" == "--terrain-planner" ||
+        "$arg" == "--terrain-leg-order" ||
+        "$arg" == "--terrain-advance-body-before-second" ||
+        "$arg" == "--staged-start" ]]; then
+    echo "retired terrain route '$arg'; read CURRENT.md" >&2
+    exit 2
+  elif [[ "$arg" == "--gait-pattern" &&
+          "${controller_args[$((i + 1))]:-}" == "crawl" ]]; then
+    echo "retired terrain route '--gait-pattern crawl'; read CURRENT.md" >&2
+    exit 2
+  elif [[ "$arg" == "--controller-duration" ]]; then
     if (( i + 1 >= ${#controller_args[@]} )); then
       echo "--controller-duration requires a value" >&2
       exit 2
@@ -52,6 +90,39 @@ for ((i = 0; i < ${#controller_args[@]}; ++i)); do
   elif [[ "$arg" == "--camera-follow" ]]; then
     # simulator-only flag: track the robot body in the GUI camera
     sim_camera_follow=true
+  elif [[ "$arg" == "--initial-x" || "$arg" == "--initial-y" ]]; then
+    if (( i + 1 >= ${#controller_args[@]} )); then
+      echo "$arg requires a value" >&2
+      exit 2
+    fi
+    # simulator-only harness variation: keep the controller unaware of the
+    # initial pose used for development evidence.
+    sim_initial_args+=("$arg" "${controller_args[$((i + 1))]}")
+    i=$((i + 1))
+  elif [[ "$arg" == "--phase2-milestone" ]]; then
+    if (( i + 1 >= ${#controller_args[@]} )); then
+      echo "--phase2-milestone requires B1, B2, or B3" >&2
+      exit 2
+    fi
+    phase2_milestone="${controller_args[$((i + 1))]^^}"
+    if [[ "$phase2_milestone" != "B1" &&
+          "$phase2_milestone" != "B2" &&
+          "$phase2_milestone" != "B3" ]]; then
+      echo "--phase2-milestone requires B1, B2, or B3" >&2
+      exit 2
+    fi
+    i=$((i + 1))
+  elif [[ "$arg" == "--velocity-command-script" ]]; then
+    if (( i + 1 >= ${#controller_args[@]} )); then
+      echo "--velocity-command-script requires a path" >&2
+      exit 2
+    fi
+    profile_path="${controller_args[$((i + 1))]}"
+    if [[ "$profile_path" != /* ]]; then
+      profile_path="$repo_dir/$profile_path"
+    fi
+    filtered_controller_args+=("$arg" "${controller_args[$((i + 1))]}")
+    i=$((i + 1))
   elif [[ "$arg" == "--scene-file" ]]; then
     if (( i + 1 >= ${#controller_args[@]} )); then
       echo "--scene-file requires a value" >&2
@@ -73,6 +144,36 @@ for ((i = 0; i < ${#controller_args[@]}; ++i)); do
     filtered_controller_args+=("$arg")
   fi
 done
+if [[ "$sim_terrain_lidar" == true && "$sim_affinity_auto" == true ]]; then
+  cpu_count="$(nproc 2>/dev/null || echo 0)"
+  if [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 6 )); then
+    # Keep controller-side DDS callbacks on the terrain CPU. The accepted
+    # 500 Hz writer is explicitly pinned to writer_affinity below; leaving
+    # the process-wide mask at "3,4" lets an unpinned lidar callback preempt
+    # that writer and perturb the inherited Phase 1 wall-clock contract.
+    # Terrain DDS callbacks must not share the process-wide mask with the
+    # accepted 500 Hz writer. Explicit controller affinity is handled by the
+    # outer auto-pin guard; this path owns the terrain default.
+    ctrl_affinity=4
+    writer_affinity="${writer_affinity:-3}"
+    terrain_affinity="${terrain_affinity:-4}"
+    if [[ -z "${TROT_CPU_AFFINITY_TERRAIN:-}" ]] &&
+       [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 7 )); then
+      # Keep the planner worker off CPU4, which carries controller-side DDS
+      # callbacks. The accepted writer remains isolated on CPU3.
+      terrain_affinity=6
+    fi
+    sim_affinity=2,5
+    sim_lidar_affinity="${sim_lidar_affinity:-5}"
+    sim_physics_affinity="${sim_physics_affinity:-2}"
+    sim_bridge_affinity="${sim_bridge_affinity:-2}"
+  fi
+fi
+export TROT_WRITER_CPU="$writer_affinity"
+export TROT_TERRAIN_CPU="$terrain_affinity"
+export TROT_SIM_LIDAR_CPU="$sim_lidar_affinity"
+export TROT_SIM_PHYSICS_CPU="$sim_physics_affinity"
+export TROT_SIM_BRIDGE_CPU="$sim_bridge_affinity"
 controller_args=("${filtered_controller_args[@]}")
 
 if (( ${#controller_args[@]} > 0 )) && [[ "${controller_args[0]}" != --* ]]; then
@@ -171,7 +272,17 @@ fi
 
 metadata_file="$experiment_dir/run_metadata.txt"
 environment_file="$experiment_dir/environment.txt"
-env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_)" >"$environment_file" || true
+
+# Order-103/105 verification-only lockstep: env-opt-in, default OFF. The
+# frozen interval discipline and the causal ack handshake are enforced
+# inside the simulator; here we only forward the flag, the trace path and the
+# controller ack adapter flag. The wall-clock runner is unchanged when off.
+if [[ "${SIM_LOCKSTEP:-0}" == "1" ]]; then
+  sim_lockstep=true
+  sim_lockstep_trace="${SIM_LOCKSTEP_TRACE:-$experiment_dir/lockstep_trace.csv}"
+  export TROT_LOCKSTEP_ACK=1
+fi
+env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_|SIM_LOCKSTEP)" >"$environment_file" || true
 {
   printf "started_at=%s\n" "$(date --iso-8601=seconds)"
   printf "git_head=%s\n" "$(git -C "$repo_dir" rev-parse HEAD)"
@@ -180,12 +291,22 @@ env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_)" >"$environment
   printf "simulator_sha256=%s\n" "$(sha256sum "$simulator" | cut -d" " -f1)"
   printf "controller_sha256=%s\n" "$(sha256sum "$controller" | cut -d" " -f1)"
   printf "scene_sha256=%s\n" "$(sha256sum "$scene_file" | cut -d" " -f1)"
+  printf "scene_file=%s\n" "$scene_file"
+  printf "phase2_milestone=%s\n" "$phase2_milestone"
   printf "display=%s\n" "$display_value"
   printf "runtime_dir=%s\n" "$runtime_dir"
   printf "headless=%s\n" "$([[ "$sim_headless" == true ]] && echo true || echo false)"
   printf "camera_follow=%s\n" "$([[ "$sim_camera_follow" == true ]] && echo true || echo false)"
+  printf "terrain_lidar=%s\n" "$([[ "$sim_terrain_lidar" == true ]] && echo true || echo false)"
+  printf "lockstep=%s\n" "$([[ "$sim_lockstep" == true ]] && echo true || echo false)"
+  printf "lockstep_trace=%s\n" "$sim_lockstep_trace"
   printf "sim_cpu_affinity=%s\n" "${sim_affinity:-auto}"
   printf "controller_cpu_affinity=%s\n" "${ctrl_affinity:-auto}"
+  printf "controller_writer_cpu_affinity=%s\n" "${writer_affinity:-auto}"
+  printf "terrain_worker_cpu_affinity=%s\n" "${terrain_affinity:-auto}"
+  printf "sim_lidar_cpu_affinity=%s\n" "${sim_lidar_affinity:-auto}"
+  printf "sim_physics_cpu_affinity=%s\n" "${sim_physics_affinity:-auto}"
+  printf "sim_bridge_cpu_affinity=%s\n" "${sim_bridge_affinity:-auto}"
   printf "argv=%s\n" "$*"
   printf "controller_argv_shell="
   printf "%q " "${controller_args[@]}"
@@ -268,6 +389,10 @@ PULSE_SERVER="$pulse_server" \
   --ground-truth-log "$ground_truth_file" \
   $([[ "$sim_headless" == true ]] && printf %s --headless) \
   $([[ "$sim_camera_follow" == true ]] && printf %s --camera-follow) \
+  $([[ "$sim_terrain_lidar" == true ]] && printf %s --terrain-lidar) \
+  $([[ "$sim_lockstep" == true ]] && printf %s --lockstep) \
+  $([[ "$sim_lockstep" == true ]] && printf '%s %s' --lockstep-trace "$sim_lockstep_trace") \
+  "${sim_initial_args[@]}" \
   "${sim_push_args[@]}" \
   >"$experiment_dir/simulator.log" 2>&1 &
 sim_pid=$!
@@ -422,6 +547,37 @@ fi
   printf "contact_ground_truth_dynamics_analysis_file=%s\n" "$ground_truth_dynamics_analysis_file"
   printf "dynamics_tolerance_n=%s\n" "$dynamics_tolerance_n"
   printf "completion_status=%s\n" "$completion_status"
+} >>"$metadata_file"
+
+phase1_quantitative_status=0
+terrain_analysis_status=0
+if [[ -n "$phase2_milestone" ]]; then
+  if [[ -z "$profile_path" || ! -f "$profile_path" ]]; then
+    echo "A Phase 2 milestone run requires --velocity-command-script." >&2
+    phase1_quantitative_status=1
+    terrain_analysis_status=1
+  else
+    if ! python3 "$cpp_dir/scripts/analyze_phase1_velocity.py" \
+        "$experiment_dir" --profile "$profile_path" \
+        --json-out "$experiment_dir/phase1_quantitative.json" \
+        --require-quantitative >"$experiment_dir/phase1_quantitative.log" 2>&1; then
+      echo "Phase 1 quantitative analysis failed; see $experiment_dir/phase1_quantitative.log" >&2
+      phase1_quantitative_status=1
+    fi
+    if ! python3 "$cpp_dir/tools/analyze_phase2_terrain.py" \
+        "$experiment_dir" --milestone "$phase2_milestone" \
+        --scene "$scene_file" \
+        --json-out "$experiment_dir/phase2_terrain_analysis.json" \
+        >"$experiment_dir/phase2_terrain_analysis.log" 2>&1; then
+      echo "Phase 2 terrain analysis failed; see $experiment_dir/phase2_terrain_analysis.log" >&2
+      terrain_analysis_status=1
+    fi
+  fi
+fi
+
+{
+  printf "phase1_quantitative_status=%s\n" "$phase1_quantitative_status"
+  printf "terrain_analysis_status=%s\n" "$terrain_analysis_status"
   printf "finished_at=%s\n" "$(date --iso-8601=seconds)"
 } >>"$metadata_file"
 
@@ -432,8 +588,44 @@ if ! python3 "$cpp_dir/tools/write_run_manifest.py" "$experiment_dir" \
   manifest_status=1
 fi
 
+lockstep_status=0
+if [[ "$sim_lockstep" == true ]]; then
+  if [[ ! -s "$experiment_dir/lockstep_trace.csv" ]]; then
+    echo "Lockstep trace missing; see $experiment_dir/simulator.log" >&2
+    lockstep_status=1
+  elif grep -q "SIM_LOCKSTEP_FAIL_CLOSED" "$experiment_dir/simulator.log"; then
+    echo "Simulator failed closed during lockstep; see $experiment_dir/simulator.log" >&2
+    lockstep_status=1
+  else
+    if ! python3 - "$experiment_dir/lockstep_trace.csv" <<'PY3'
+import sys
+path = sys.argv[1]
+rows = []
+for line in open(path):
+    line = line.strip()
+    if not line or line.startswith("#") or line.startswith("sim_tick_ms"):
+        continue
+    cols = line.split(",")
+    rows.append((int(cols[0]), int(cols[8])))
+if not rows:
+    sys.exit(1)
+diffs = {rows[i + 1][0] - rows[i][0] for i in range(len(rows) - 1)}
+if len(diffs) != 1 or next(iter(diffs)) <= 0:
+    sys.exit(1)
+if any(v != 0 for _, v in rows):
+    sys.exit(1)
+print("lockstep_trace_ok rows=%d dt_ms=%d" % (len(rows), next(iter(diffs))))
+PY3
+    then
+      lockstep_status=1
+    fi
+  fi
+fi
+
 if (( controller_status != 0 || safety_status != 0 || quality_status != 0 ||
       analysis_status != 0 || ground_truth_status != 0 || dynamics_status != 0 ||
-      completion_status != 0 || manifest_status != 0 )); then
+      completion_status != 0 || phase1_quantitative_status != 0 ||
+      terrain_analysis_status != 0 || manifest_status != 0 ||
+      lockstep_status != 0 )); then
   exit 1
 fi
