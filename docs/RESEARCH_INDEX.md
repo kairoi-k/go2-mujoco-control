@@ -5,6 +5,16 @@ This repository records **model-based Go2 control in MuJoCo**. Isaac Lab velocit
 This index records accepted Phase 1 and general repository claims. It does not
 define the current Phase 2 route; use [`CURRENT.md`](../CURRENT.md).
 
+## Milestone: Phase 1 arbitrary velocity (2026-08-25)
+
+Accepted at exact SHA `6e34f99` (`milestone/phase1-arbitrary-velocity-2026-08-25`).
+Five frozen profiles—steps, acceleration, braking, ramp, and varying
+commands—had three valid runs each: 15/15 passed both the legacy and
+quantitative gates. The varying profile includes 0.6, 1.4, 2.3, and 2.8 m/s.
+See [the quantitative acceptance](validation/PHASE1_QUANTITATIVE_ACCEPTANCE_2026-08-25.md)
+and [the closeout](validation/PHASE1_RUNTIME_VELOCITY_CLOSEOUT_2026-08-25.md).
+This is the pre-Phase 2 dynamic baseline; current Phase 2 status is in
+
 ## Implementation
 
 **Stand-walk-lie sequencing + `--wbc-full` Raibert trot**, 2026-08-18 (`2b82dae`).
