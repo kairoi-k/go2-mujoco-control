@@ -163,15 +163,41 @@ repair that restores Phase 1 without introducing a forbidden terrain route?
   exercised twice in baseline and once in terrain. All three recovered solves
   became equality/inequality feasible; maximum final recorded inequality
   violation was 0.000004820, with recovery corrections of 0.8793 to 2.4255.
-- Decision: retain provisionally and run the complete B0 suite on one new
-  exact clean SHA. This is evidence for the formulation, not yet acceptance.
+- Exact-candidate regression: `8a1924855cc167a6ee971086bc86deaea71b859e`
+  built cleanly and passed CTest 32/32. The steps pair
+  `phase2_b0_development_steps_r0_20260904_212752_{baseline,terrain}` passed
+  with ID-WBC validity 1.0 and no recovery calls. In the next ordered profile,
+  `phase2_b0_development_accel_1_to_3_r0_20260904_213214_{baseline,terrain}`,
+  baseline passed but terrain failed: measured zero-contact fraction was
+  0.2553872306 versus the frozen 0.25 limit, settling time was undefined, and
+  diagnostic torque saturation was 0.0032036859 versus 0.003. ID-WBC validity
+  remained 1.0 and recovery was never used in either member.
+- Decision: retain the numerically isolated recovery, but reject this candidate
+  as B0. Stop the suite before ramp, varying, and fixed-3-m/s. The failure is
+  physical touchdown/tracking sensitivity exposed by the terrain sensor path,
+  not the recovery formulation; diagnose it without changing frozen gates or
+  contact labels.
+
+### F9 — Preregistered diagnosis: commanded versus measured touchdown
+
+- Question: does high-speed physical contact loss come from commanded swing
+  geometry, vertical tracking lag, or contact sensing after the nominal
+  touchdown boundary?
+- Intervention: none. Reconstruct commanded and measured foot position and
+  velocity from the immutable F8 acceleration pair, align them to gait phase,
+  and compare baseline with terrain for every leg around touchdown.
+- Criterion: identify a repeatable, leg/phase-localized discrepancy before any
+  source change. If the evidence is ambiguous, add telemetry only and rerun the
+  acceleration pair. Do not change duty, period, swing timing, contact masks,
+  thresholds, or velocity authority.
+- Interpretation limit: this diagnosis may select the next hypothesis; it
+  cannot establish B0 or authorize a trajectory change.
 
 ## Current choice
 
-Run the complete B0 suite on the exact clean candidate after this record is
-committed. It must preserve steps and acceleration while repeating the brake
-result and passing ramp, varying, and fixed 3 m/s. Stop at the first failure.
-Only a full exact-SHA pass permits the Stage C shadow path and smallest dynamic
-B1 slice to resume.
+Complete F9 from the stopped exact-candidate acceleration evidence. Register
+one coherent repair only after the physical discrepancy is localized, then
+rerun the acceleration pair first. Only a fresh full exact-SHA B0 pass permits
+the Stage C shadow path and smallest dynamic B1 slice to resume.
 
 The raw run-manifest hashes used by this record are frozen in `MANIFEST.json`.
