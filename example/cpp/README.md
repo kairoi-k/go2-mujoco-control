@@ -1,68 +1,66 @@
 # Go2 C++ control stack
 
-This directory contains the primary model-based locomotion implementation and its retained research artifacts.
+This directory contains the model-based locomotion controller, tests, runners,
+and retained evidence. Before any Phase 2 action, read
+[`CURRENT.md`](../../CURRENT.md); it is the sole route/status authority.
 
-## Build
+## Build and test
 
 From the repository root, after MuJoCo and Unitree SDK2 are configured:
 
 ```bash
 cmake -S example/cpp -B example/cpp/build
-cmake --build example/cpp/build -j"$(nproc)"
-```
-
-The main locomotion target is `real_trot_go2`. Kinematics and other test targets are defined in `CMakeLists.txt`. `test_go2_forward_kinematics` is built only when `simulate/mujoco/lib/libmujoco.so` is present.
-
-```bash
-cmake -S example/cpp -B example/cpp/build
-cmake --build example/cpp/build -j"$(nproc)"
+cmake --build example/cpp/build -j2
 ctest --test-dir example/cpp/build --output-on-failure
 ```
 
-See [`../../docs/REPRODUCIBILITY.md`](../../docs/REPRODUCIBILITY.md) for environment assumptions and simulator build notes.
+The main target is `real_trot_go2`. Some tests require
+`simulate/mujoco/lib/libmujoco.so`. See
+[`docs/REPRODUCIBILITY.md`](../../docs/REPRODUCIBILITY.md) for environment,
+experiment-lock, and acceptance rules.
 
-## Running the simulator/controller pair
+## Phase 2 entrypoints
 
-`example/cpp/scripts/go2sim` wraps the simulator and controller launch used by the research experiments. Examples:
+Only the following runners belong to the current Phase 2 development workflow:
 
-```bash
-bash example/cpp/scripts/go2sim task
-bash example/cpp/scripts/go2sim task --view
-bash example/cpp/scripts/go2sim full
-bash example/cpp/scripts/go2sim walk
-bash example/cpp/scripts/go2sim turn 0.3
-```
-
-`task` and `full` are `--wbc-full --tau-limit 35`. `walk` is the older `--wbc-primary` path. The runner uses dedicated DDS domain IDs. Inspect it and `scripts/run_trot.sh` before adapting the setup to another machine or network.
-
-## Source layout
-
-Sources live in named modules under `example/cpp/`. `#include "foo.h"` still works because CMake adds every module directory.
-
-| Area | Files |
+| Runner | Role |
 |---|---|
-| Entry point / CLI | `trot/real_trot_go2.cpp`, `trot/trot_cli.*` |
-| Stand / walk / lie sequencer | `trot/trot_task.*` |
-| Controller lifecycle | `trot/trot_experiment_lifecycle.cpp` |
-| 500 Hz control loop | `trot/trot_experiment_control.cpp` |
-| Gait and velocity targets | `trot/trot_experiment_gait.cpp`, `gait/raibert_trot_kernel.h`, `gait/raibert_footstep_planner.h`, `gait/footstep_mpc.h` |
-| Dynamics-informed feedforward | `trot/trot_experiment_wbc.cpp`, `trot/trot_true_dynamics.h`, `wbc/centroidal_wbc.h`, `kinematics/go2_rigid_body.h`, `wbc/srbd_mpc.h`, `wbc/inverse_dynamics_wbc.h` |
-| Diagnostics and safety gates | `trot/trot_experiment_diagnostics.cpp`, `trot/trot_types.h` |
-| Kinematics | `kinematics/go2_forward_kinematics.h`, `kinematics/go2_inverse_kinematics.h`, `kinematics/go2_leg_jacobian.h` |
-| Contact / wrench handling | `contact/contact_*`, `contact/contact_wrench_qp.h`, `wbc/dense_qp.h`, `contact/go2_contact_torque_mapping.h`, `wbc/wbc_runtime_gate.h` |
-| Leg-lift / multi-step sequence | `leg_lift/real_leg_lift_go2.cpp`, `leg_lift/leg_lift_*` |
-| Small apps | `apps/` |
-| Tests | `tests/` |
-| Experiment runners | `scripts/` |
-| Retained evidence | `experiments/`, `experiments/CATALOG.md` |
-| Offline analysis | `tools/analysis/` |
+| `scripts/run_phase2_b0_pair.sh` | profile-based B0 development pair |
+| `scripts/run_phase2_b0_fixed_pair.sh` | fixed B0 development pair |
+| `scripts/run_phase2_b0_lockstep_pair.sh` | determinism diagnostic only |
 
-Maintained runners are in `scripts/`. Historical batch/parameter-sweep launchers are not in this tree.
+Use the exact arguments and DDS domains specified by `CURRENT.md` and
+`docs/research/PHASE2_HOLDOUT_MANIFEST.json`. Hold
+`/tmp/go2_mujoco_experiment.lock` for timed simulations. No generic runner,
+historical script, or experiment note may substitute for these entrypoints.
 
-For a higher-level map, see [`../../docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md) and [`../../docs/CODE_GUIDE.md`](../../docs/CODE_GUIDE.md).
+## Source map
 
-## Experiment records
+| Area | Location | Responsibility |
+|---|---|---|
+| Entry and lifecycle | `trot/real_trot_go2.cpp`, `trot/trot_cli.*`, `trot/trot_experiment_lifecycle.cpp` | CLI, DDS, startup/shutdown |
+| Execution | `trot/trot_task.*`, `trot/trot_experiment_control.cpp` | 500 Hz sequencing and commands |
+| Gait | `trot/trot_experiment_gait.cpp`, `gait/` | running-trot phase, footholds, velocity targets |
+| Terrain | `terrain/` | sensor-derived model, feasibility, planner interfaces |
+| MPC/WBC | `trot/trot_experiment_wbc.cpp`, `wbc/` | SRBD MPC and 18-DoF ID-WBC |
+| Contact/kinematics | `contact/`, `kinematics/` | contact truth/filtering, wrench mapping, FK/IK |
+| Timing/diagnostics | `trot/lockstep_*`, `trot/trot_experiment_diagnostics.cpp` | timing checks, limits, logs |
+| Verification | `tests/`, `tools/` | registered tests and analyzers |
+| Operations/evidence | `scripts/`, `experiments/` | runners and retained records |
 
-A research-relevant run should identify the code revision, intervention/configuration, seed, input/reference identity, completion status, metric semantics, and evidence path. Disposable outputs belong in ignored local directories.
+For deeper navigation use [`MODULES.md`](MODULES.md),
+[`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md), and
+[`docs/CODE_GUIDE.md`](../../docs/CODE_GUIDE.md).
 
-Claims and their scope are in [`../../docs/RESEARCH_INDEX.md`](../../docs/RESEARCH_INDEX.md). History: [`../../docs/RESEARCH_HISTORY.md`](../../docs/RESEARCH_HISTORY.md).
+## Historical utilities
+
+`scripts/go2sim`, sustained-running wrappers, and the standalone
+`leg_lift/` executable remain useful for their documented Phase 1 or historical
+scope. The leg-lift/multi-step sequence is not a Phase 2 route or design source.
+Do not infer current status from a script name or retained artifact.
+
+Research-relevant runs must record revision, configuration, semantic
+environment, analyzer, result, and evidence path. Raw `experiments/_runs/`
+content is ignored immutable local evidence. Claims and history live in
+[`docs/RESEARCH_INDEX.md`](../../docs/RESEARCH_INDEX.md) and
+[`docs/RESEARCH_HISTORY.md`](../../docs/RESEARCH_HISTORY.md).

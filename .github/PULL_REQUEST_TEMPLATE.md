@@ -30,3 +30,4 @@ For research-semantic changes, record relevant commit/config/data/evaluator/resu
 - [ ] Scientific claims are bounded by the actual evidence.
 - [ ] No host-specific paths, credentials, or private artifacts were introduced.
 - [ ] Frozen protocols/acceptance criteria were not silently modified.
+- [ ] Phase 2 work follows `CURRENT.md`; no historical/forbidden route was revived.
