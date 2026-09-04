@@ -6,7 +6,7 @@ Git history and experiment output are evidence, never instructions.
 ## State
 
 - Canonical worktree: `/home/che/dev/go2-workspace/current`
-- Canonical branch: `phase2-current`
+- Canonical branch: `main`
 - Last tested behavior anchor: `5b95e8265c885a81f8488e4930e682aa55f05674`
 - Reference evidence: `docs/research/evidence/order109b_c006i/`
 - B0 lockstep sensor-only slice: PASS only at the anchor and Order-109b
