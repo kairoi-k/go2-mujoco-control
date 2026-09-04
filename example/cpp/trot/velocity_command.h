@@ -183,6 +183,33 @@ struct ContinuousVelocityGaitSchedule
     double foot_lift_m = 0.035;
     const char *regime = "continuous-trot";
 };
+
+inline double GovernAppliedVelocity(
+    double shaped_mps,
+    double measured_mps,
+    double max_tracking_lead_mps) noexcept
+{
+    const double shaped = std::clamp(
+        std::isfinite(shaped_mps) ? shaped_mps : 0.0, 0.0, 3.20);
+    if (!(shaped > 0.90) || !std::isfinite(measured_mps))
+        return shaped;
+    const double measured = std::max(0.0, measured_mps);
+    const double lead = std::max(
+        0.0, std::isfinite(max_tracking_lead_mps)
+                 ? max_tracking_lead_mps : 0.0);
+    double applied = std::min(shaped, measured + lead);
+    const double overspeed = measured - shaped;
+    if (overspeed > lead)
+    {
+        // A modestly over-damped correction gives the running plant enough
+        // braking authority to reject persistent overspeed instead of
+        // orbiting just outside the frozen steady-state envelope.
+        constexpr double kOverspeedCorrectionGain = 1.5;
+        applied = std::max(
+            0.0, shaped - kOverspeedCorrectionGain * (overspeed - lead));
+    }
+    return applied;
+}
 // The running-trot timing is validated at the high-speed end, but it is
 // not a viable sustained low-speed support schedule: at 0.30 m/s it gives
 // a 5 mm swing lift and only 44% duty.  The support-rich probe schedule

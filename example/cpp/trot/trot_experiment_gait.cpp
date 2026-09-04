@@ -165,33 +165,12 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         task_.task_completion_requested_ = false;
         std::cout << "Runtime velocity profile reached zero; stopping in place\n";
     }
-    double applied_mps = velocity_command_state_.shaped_mps;
-    if (have_filtered_body_velocity_ &&
-        velocity_command_state_.shaped_mps > 0.90)
-    {
-        const double measured_mps = std::max(
-            0.0, params_.direction_sign * latest_filtered_body_velocity_[0]);
-        applied_mps = std::min(
-            velocity_command_state_.shaped_mps,
-            measured_mps +
-                params_.velocity_command_shaper.max_tracking_lead_mps);
-        // If the measured body is already ahead of the shaped command by
-        // more than the allowed lead, lower the applied reference smoothly
-        // so the gait schedule and MPC see a meaningful braking demand.
-        // Merely capping at measured+lead leaves an overspeeding body at the
-        // original command and cannot recover the tracking error.
-        const double overspeed = measured_mps -
-            velocity_command_state_.shaped_mps;
-        if (overspeed >
-            params_.velocity_command_shaper.max_tracking_lead_mps)
-        {
-            applied_mps = std::max(
-                0.0,
-                velocity_command_state_.shaped_mps -
-                    (overspeed -
-                     params_.velocity_command_shaper.max_tracking_lead_mps));
-        }
-    }
+    double applied_mps = go2_trot::GovernAppliedVelocity(
+        velocity_command_state_.shaped_mps,
+        have_filtered_body_velocity_
+            ? params_.direction_sign * latest_filtered_body_velocity_[0]
+            : velocity_command_state_.shaped_mps,
+        params_.velocity_command_shaper.max_tracking_lead_mps);
     const bool runtime_health_governor = params_.wbc_full &&
         !params_.cartesian_world &&
         Full2EnvDouble("TROT_HS_STABILITY_GOV", 0.0) > 0.5;

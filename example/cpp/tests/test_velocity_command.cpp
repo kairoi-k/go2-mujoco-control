@@ -22,6 +22,10 @@ int main()
     assert(std::abs(probe.duty_factor - 0.75) < 1.0e-9);
     assert(std::abs(probe.foot_lift_m - 0.035) < 1.0e-9);
     assert(probe.step_length_m > 0.0);
+    assert(std::abs(go2_trot::GovernAppliedVelocity(3.0, 2.0, 0.20) - 2.20) < 1.0e-9);
+    assert(std::abs(go2_trot::GovernAppliedVelocity(3.0, 3.10, 0.20) - 3.0) < 1.0e-9);
+    assert(std::abs(go2_trot::GovernAppliedVelocity(3.0, 3.50, 0.20) - 2.55) < 1.0e-9);
+    assert(std::abs(go2_trot::GovernAppliedVelocity(0.30, 0.60, 0.20) - 0.30) < 1.0e-9);
     // Without low-speed qualification the schedule keeps the validated
     // high-speed timing even inside the low-speed band.
     const auto unqualified = go2_trot::ScheduleContinuousVelocityGait(0.30, false);
