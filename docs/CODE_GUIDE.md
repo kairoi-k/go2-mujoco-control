@@ -34,7 +34,8 @@ This guide points contributors to the smallest relevant source area for common c
 
 ## Leg-lift controller
 
-The quasi-static action-sequence implementation is split into:
+This standalone historical experiment is not a Phase 2 route or design source.
+Its action-sequence implementation is split into:
 
 - `leg_lift_cli.*` — CLI parsing;
 - `leg_lift_lifecycle.cpp` — setup and lifecycle;

@@ -29,6 +29,13 @@ bool ExpectRetired(const std::initializer_list<const char *> args)
 
 int main()
 {
+    go2_control::GaitPattern pattern{};
+    if (go2_control::ParseGaitPattern("crawl", pattern))
+    {
+        std::cerr << "generic gait parser accepted crawl\n";
+        return 1;
+    }
+
     go2_trot::TrotCliConfig sensor_only;
     std::string error;
     if (!Parse({"real_trot_go2", "lo", "1", "out.csv",

@@ -73,6 +73,18 @@ REQUIRED_FILES = (
     "docs/research/PHASE2_HOLDOUT_MANIFEST.json",
     "example/cpp/experiments/CATALOG.md",
 )
+PHASE2_SOURCE_PREFIXES = (
+    "example/cpp/gait/",
+    "example/cpp/terrain/",
+    "example/cpp/trot/",
+)
+FORBIDDEN_PHASE2_SOURCE_TOKENS = (
+    "GaitExecutionRequest",
+    "GaitPattern::kCrawl",
+    "TerrainCrawl",
+    "stage_c_execution",
+    "terrain_crawl",
+)
 MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 
 
@@ -133,6 +145,12 @@ def main() -> int:
                 for marker in MACHINE_LOCAL_MARKERS:
                     if marker in text:
                         problems.append(f"machine-local absolute path in {rel}: {marker}")
+            if rel.startswith(PHASE2_SOURCE_PREFIXES):
+                for token in FORBIDDEN_PHASE2_SOURCE_TOKENS:
+                    if token in text:
+                        problems.append(
+                            f"retired Phase 2 source token in {rel}: {token}"
+                        )
             # Upstream READMEs are kept verbatim and may reference assets that were not
             # copied into this research fork; validate links only for maintained docs.
             if path.suffix == ".md" and \

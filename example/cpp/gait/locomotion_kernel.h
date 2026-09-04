@@ -4,7 +4,6 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <string>
@@ -22,9 +21,6 @@ enum class GaitPattern
     // high-speed, overlap-support variant; unlike the ordinary trot it does
     // not rely on an exact half-cycle hand-off at the WBC contact boundary.
     kRunningTrot,
-    // Quasi-static rotary crawl. With duty >= 0.75, at least three legs
-    // remain scheduled in stance at every phase.
-    kCrawl,
     kBound,
     kPace,
     kGallop,
@@ -44,8 +40,6 @@ inline const char *GaitPatternName(GaitPattern pattern) noexcept
         return "diagonal-trot";
     case GaitPattern::kRunningTrot:
         return "running-trot";
-    case GaitPattern::kCrawl:
-        return "crawl";
     default:
         return "diagonal-trot";
     }
@@ -66,11 +60,6 @@ inline bool ParseGaitPattern(
     if (value == "running-trot" || value == "running")
     {
         pattern = GaitPattern::kRunningTrot;
-        return true;
-    }
-    if (value == "crawl")
-    {
-        pattern = GaitPattern::kCrawl;
         return true;
     }
     if (value == "bound")
@@ -128,7 +117,6 @@ inline double GaitLegPhase(
     // fore -> left fore.  Leg order is FR, FL, RR, RL, so the rear pair
     // leads the fore pair by half a cycle while each side is staggered.
     static constexpr std::array<double, 4> kGallop = {0.50, 0.62, 0.0, 0.12};
-    static constexpr std::array<double, 4> kCrawl = {0.0, 0.25, 0.50, 0.75};
     if (pattern == GaitPattern::kRunningTrot)
     {
         const double offset = RunningTrotPhaseOffset();
@@ -140,9 +128,7 @@ inline double GaitLegPhase(
             ? kBound
             : (pattern == GaitPattern::kPace
                    ? kPace
-                   : (pattern == GaitPattern::kGallop
-                   ? kGallop
-                   : (pattern == GaitPattern::kCrawl ? kCrawl : kDiagonal)));
+                   : (pattern == GaitPattern::kGallop ? kGallop : kDiagonal));
     return WrapUnitPhase(phase + offsets[leg % offsets.size()]);
 }
 
@@ -169,48 +155,10 @@ struct GaitKernelParams
     GaitPattern pattern = GaitPattern::kDiagonalTrot;
 };
 
-// A complete, immutable timed terrain handoff. The adapter is the only
-// producer; kernels consume this value and never select terrain policy.
-struct GaitExecutionRequest
-{
-    bool valid = false;
-    GaitPattern pattern = GaitPattern::kCrawl;
-    std::uint64_t plan_id = 0;
-    std::uint64_t plan_epoch = 0;
-    std::uint64_t map_epoch = 0;
-    std::uint64_t input_hash = 0;
-    double valid_from_s = 0.0;
-    double valid_until_s = 0.0;
-    double phase_origin_s = 0.0;
-    double phase_origin = 0.0;
-    double period_s = 0.8;
-    double duty_factor = 0.75;
-    double step_length_m = 0.0;
-    double foot_lift_m = 0.05;
-    std::array<double, go2::kLegCount> touchdown_time_s{};
-    std::array<bool, go2::kLegCount> touchdown_time_valid{};
-    std::array<double, go2::kLegCount> liftoff_time_s{};
-    std::array<bool, go2::kLegCount> liftoff_time_valid{};
-    std::array<double, go2::kLegCount> stance_start_time_s{};
-    std::array<double, go2::kLegCount> stance_end_time_s{};
-    std::array<bool, go2::kLegCount> stance_interval_valid{};
-    std::array<go2::Vec3, go2::kLegCount> swing_start{};
-    std::array<go2::Vec3, go2::kLegCount> swing_endpoint{};
-    // Endpoint identity is deliberately separate from coordinates: once a
-    // leg is in flight it must not be replaced by a newer partial snapshot.
-    std::array<std::uint64_t, go2::kLegCount> endpoint_identity{};
-    std::array<bool, go2::kLegCount> endpoint_valid{};
-    std::array<bool, go2::kLegCount> measured_support{};
-    bool fallback = false;
-    std::string fallback_reason;
-};
-
 struct GaitKernelRequest
 {
     double gait_time_s = 0.0;
     std::array<go2::Vec3, go2::kLegCount> neutral_feet{};
-    bool has_execution_request = false;
-    GaitExecutionRequest execution{};
 
     // State inputs reserved for feedback-driven classical kernels.
     // Body-frame velocity: x forward, y left, z up.
@@ -242,13 +190,6 @@ struct GaitKernelResult
     double period_s = 0.0;
     double duty_factor = 0.0;
     double step_length_m = 0.0;
-    bool execution_request_valid = false;
-    std::uint64_t execution_plan_id = 0;
-    std::uint64_t execution_plan_epoch = 0;
-    std::uint64_t execution_map_epoch = 0;
-    std::uint64_t execution_input_hash = 0;
-    bool execution_fallback = false;
-    std::string execution_fallback_reason;
 };
 
 class LocomotionKernel
@@ -338,23 +279,9 @@ public:
             return false;
         }
 
-        const bool timed_execution = request.has_execution_request &&
-            request.execution.valid &&
-            std::isfinite(request.execution.valid_from_s) &&
-            std::isfinite(request.execution.valid_until_s) &&
-            request.gait_time_s >= request.execution.valid_from_s &&
-            request.gait_time_s <= request.execution.valid_until_s &&
-            request.execution.period_s > 0.0 &&
-            request.execution.duty_factor > 0.0 &&
-            request.execution.duty_factor < 1.0;
-        const double effective_gait_time = timed_execution
-            ? std::max(0.0, request.gait_time_s)
-            : std::max(0.0, request.gait_time_s - phase_origin_gait_time_s_);
-        const double cycle_position = timed_execution
-            ? request.execution.phase_origin +
-                (request.gait_time_s - request.execution.phase_origin_s) /
-                    request.execution.period_s
-            : effective_gait_time / params_.period_s;
+        const double effective_gait_time = std::max(
+            0.0, request.gait_time_s - phase_origin_gait_time_s_);
+        const double cycle_position = effective_gait_time / params_.period_s;
         if (!std::isfinite(cycle_position) ||
             cycle_position >
                 static_cast<double>(std::numeric_limits<int>::max()))
@@ -364,14 +291,6 @@ public:
 
         result.phase = WrapUnitPhase(cycle_position);
         result.cycle_index = static_cast<int>(std::floor(cycle_position));
-        result.execution_request_valid = timed_execution;
-        result.execution_plan_id = timed_execution ? request.execution.plan_id : 0;
-        result.execution_plan_epoch = timed_execution ? request.execution.plan_epoch : 0;
-        result.execution_map_epoch = timed_execution ? request.execution.map_epoch : 0;
-        result.execution_input_hash = timed_execution ? request.execution.input_hash : 0;
-        result.execution_fallback = timed_execution && request.execution.fallback;
-        result.execution_fallback_reason = timed_execution
-            ? request.execution.fallback_reason : std::string{};
         result.feet = request.neutral_feet;
         result.touchdown_target_x_m.fill(0.0);
         result.touchdown_target_feet_base = request.neutral_feet;
@@ -398,44 +317,8 @@ public:
 
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
-            const double leg_phase = timed_execution
-                ? GaitLegPhase(leg, result.phase, request.execution.pattern)
-                : GaitLegPhase(leg, result.phase, params_.pattern);
-            if (timed_execution && request.execution.endpoint_valid[leg] &&
-                request.execution.liftoff_time_valid[leg] &&
-                request.execution.touchdown_time_valid[leg])
-            {
-                const double liftoff = request.execution.liftoff_time_s[leg];
-                const double touchdown = request.execution.touchdown_time_s[leg];
-                if (request.gait_time_s >= liftoff &&
-                    request.gait_time_s < touchdown && touchdown > liftoff)
-                {
-                    const double u = std::clamp(
-                        (request.gait_time_s - liftoff) /
-                            (touchdown - liftoff), 0.0, 1.0);
-                    const double smooth = Smoothstep(u);
-                    result.feet[leg].x = request.execution.swing_start[leg].x +
-                        smooth * (request.execution.swing_endpoint[leg].x -
-                                  request.execution.swing_start[leg].x);
-                    result.feet[leg].y = request.execution.swing_start[leg].y +
-                        smooth * (request.execution.swing_endpoint[leg].y -
-                                  request.execution.swing_start[leg].y);
-                    result.feet[leg].z = request.execution.swing_start[leg].z +
-                        smooth * (request.execution.swing_endpoint[leg].z -
-                                  request.execution.swing_start[leg].z) +
-                        request.execution.foot_lift_m * std::sin(kPi * u);
-                    result.touchdown_target_feet_base[leg] =
-                        request.execution.swing_endpoint[leg];
-                    continue;
-                }
-                if (request.gait_time_s >= touchdown)
-                {
-                    result.feet[leg] = request.execution.swing_endpoint[leg];
-                    result.touchdown_target_feet_base[leg] =
-                        request.execution.swing_endpoint[leg];
-                    continue;
-                }
-            }
+            const double leg_phase =
+                GaitLegPhase(leg, result.phase, params_.pattern);
             double x_offset = 0.0;
             double z_offset = 0.0;
             if (leg_phase < stance_duration)

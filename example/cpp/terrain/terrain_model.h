@@ -401,7 +401,7 @@ inline TerrainModelBuildResult BuildTerrainModel(
 // transients (step-up crux) the stale reference masquerades as terrain
 // penetration at the swing anchor.  dz_m = base_z(now) - base_z(snapshot)
 // is subtracted from every finite cell; unknown (NaN) cells are preserved.
-// On flat ground base_z is quasi-static, dz_m ~= 0, behavior unchanged.
+// On flat ground base_z changes slowly, dz_m ~= 0, behavior unchanged.
 inline void RereferenceHeightMapZ(
     unitree_go::msg::dds_::HeightMap_ *message, double dz_m)
 {
