@@ -107,7 +107,7 @@ repair that restores Phase 1 without introducing a forbidden terrain route?
   claim B0 or start B1 actuation. Diagnose the first rejected QP/contact-time
   divergence; do not widen thresholds, raise torque, or rerun blindly.
 
-### F7 — Planned: bounded ADMM recovery
+### F7 — Rejected: bounded ADMM recovery
 
 - Question: are the isolated brake failures caused by the 120-iteration ADMM
   cap rather than by an infeasible torque/contact problem?
@@ -126,12 +126,42 @@ repair that restores Phase 1 without introducing a forbidden terrain route?
   fraction at least 0.80. Stop and reject this fork at the first failure.
 - Interpretation limit: a pass supports bounded numerical recovery only. It
   does not validate B0, B1, contact timing changes, or DDS scheduling.
+- Revision: `faa432c8f4d46f618d28ec61f8a34c89a5141bca`; archive ref
+  `archive/b0-admm-recovery-failure-20260904`; reverted by `c8761bb`.
+- Evidence: `phase2_b0_development_brake_3_to_0_r0_20260904_211440_{baseline,terrain}`.
+- Result: baseline passed with no recovery calls. Terrain fell at about
+  12.67 s; 606 recovery calls occurred, 59 candidates remained invalid,
+  ID-WBC validity was 0.9906896008, and solver-budget validity was 0.8365157014.
+  The first recovery appeared only after the trajectory had developed a new
+  failure cluster; a larger iteration cap was therefore not a sufficient or
+  isolated repair.
+- Decision: reject and revert. Do not spend another fork on iteration count;
+  next isolate why a nominal contact schedule can remain disconnected from
+  measured support and why stale fallback torque crosses contact epochs.
+
+### F8 — Planned: equality-nullspace feasibility recovery
+
+- Question: are isolated transition failures caused by the mixed-scale KKT
+  formulation rather than physical infeasibility?
+- Single intervention: when the ordinary finite candidate violates a hard
+  inequality, solve the identical objective and constraints in the nullspace
+  of the floating-base equality, with inequality-row normalization. This is a
+  different formulation of the same QP; torque cap, gait, contacts, command,
+  thresholds and the ordinary successful path remain unchanged. Record use,
+  correction size, equality residual and final constraint violation.
+- Criterion: deterministic unit cases prove equality preservation and hard
+  feasibility; one exact-SHA brake pair has lifecycle and frozen B0 PASS,
+  ID-WBC validity 1.0, and solver-budget fraction at least 0.80. Stop at the
+  first failure. A pass still requires later full-B0 regression.
+- Interpretation limit: this can establish numerical formulation robustness;
+  it cannot justify stale cross-contact fallback, contact fabrication, B0 or
+  B1 acceptance.
 
 ## Current choice
 
-Continue from `803e7f6` with one solver/contact-timing hypothesis at a time.
-The chosen direction must eliminate the brake failure while preserving the
-exact steps and acceleration behavior. Full exact-SHA B0 must pass before the
-Stage C shadow path and smallest dynamic B1 slice resume.
+Continue from the reverted `803e7f6` source behavior with one contact-timing
+hypothesis at a time. The chosen direction must eliminate the brake failure
+while preserving the exact steps and acceleration behavior. Full exact-SHA B0
+must pass before the Stage C shadow path and smallest dynamic B1 slice resume.
 
 The raw run-manifest hashes used by this record are frozen in `MANIFEST.json`.

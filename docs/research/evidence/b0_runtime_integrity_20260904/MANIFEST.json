@@ -24,12 +24,15 @@
     "phase2_b0_development_accel_1_to_3_r0_20260904_205900_baseline": "df72bc3823e45caba27e04db26c467b81676a40b0330e67432ae9d4ac2d00b47",
     "phase2_b0_development_accel_1_to_3_r0_20260904_205900_terrain": "55426816d414fca3ec049091d85f7eb2f753e104081d3b9efcfb5863121da7b5",
     "phase2_b0_development_brake_3_to_0_r0_20260904_210106_baseline": "ae31a2c2d06a7ad3e1336d4f56b0a6a5808c79023671c3cb29f156a1f463a0de",
-    "phase2_b0_development_brake_3_to_0_r0_20260904_210106_terrain": "3c0fdaa30f572c9a64a3d42c12f1f4b8593dff51e67f71eb4651f54e9e89cf38"
+    "phase2_b0_development_brake_3_to_0_r0_20260904_210106_terrain": "3c0fdaa30f572c9a64a3d42c12f1f4b8593dff51e67f71eb4651f54e9e89cf38",
+    "phase2_b0_development_brake_3_to_0_r0_20260904_211440_baseline": "73e17df51886a0794e232149d2b117c7ab1f637c116b6b2b3e48589a8c922cef",
+    "phase2_b0_development_brake_3_to_0_r0_20260904_211440_terrain": "1124ceb2fabd7603a2fcc3a4d0a1e3502ae2f15554b5d5b9c14f42468ea01e11"
   },
   "archive_refs": {
     "refs/archive/b0-zero-lift-failure-20260904": "2b5648a0721ac0208124df5b525c8cf06ae9529b",
     "refs/archive/b0-tau-limit-failure-20260904": "fe1ef9917db9e9b201b835046eb99e03c9ebff6a",
     "refs/archive/b0-stance-wbc-failure-20260904": "a485010fc77c82c262c215c7863a12e336bbd9c4",
-    "refs/archive/b0-steps-pass-20260904": "9f97f6457ad86481054058476405bd9fa3f4142a"
+    "refs/archive/b0-steps-pass-20260904": "9f97f6457ad86481054058476405bd9fa3f4142a",
+    "refs/archive/b0-admm-recovery-failure-20260904": "faa432c8f4d46f618d28ec61f8a34c89a5141bca"
   }
 }
