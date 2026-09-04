@@ -321,6 +321,11 @@ struct WbcShadowDiagnostics
     bool id_wbc_ok = false;
     double id_eq_residual = 0.0;
     bool id_attempt_qp_converged = false;
+    bool id_attempt_qp_recovery_used = false;
+    int id_attempt_primary_iterations = 0;
+    int id_attempt_recovery_iterations = 0;
+    double id_attempt_recovery_correction_norm = 0.0;
+    double id_attempt_recovery_max_inequality_violation = 0.0;
     bool id_attempt_solution_finite = false;
     double id_attempt_eq_residual = 0.0;
     double id_attempt_max_tau_violation_nm = 0.0;

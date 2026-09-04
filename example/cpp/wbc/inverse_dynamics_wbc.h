@@ -8,6 +8,7 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
 
 #include <Eigen/Dense>
 
@@ -95,6 +96,7 @@ struct IdWbcOutput
     // last accepted command.  This makes a rare invalid tick diagnosable
     // without changing plant authority or relaxing a safety constraint.
     bool qp_converged = false;
+    bool qp_recovery_used = false;
     bool solution_finite = false;
     bool terrain_plan_consumed = false;
     go2_terrain::TerrainPlanIdentity terrain_plan{};
@@ -105,6 +107,10 @@ struct IdWbcOutput
     bool fused_contact_valid = false;
     bool planned_contact_valid = false;
     int iterations = 0;
+    int primary_iterations = 0;
+    int recovery_iterations = 0;
+    double recovery_correction_norm = 0.0;
+    double recovery_max_inequality_violation = 0.0;
     double eq_residual = 0.0;
     double rne_residual = 0.0;
     Eigen::Matrix<double, kGo2Nv, 1> qdd =
@@ -366,8 +372,38 @@ inline bool SolveInverseDynamicsWbc(
     settings.abs_tol = 1e-5;
     settings.rel_tol = 1e-4;
     settings.feasibility_tol = 1e-4;
-    const bool qp_ok =
+    bool qp_ok =
         SolveDenseQpEq(H, g, Aineq, bineq, Aeq, beq, x, iters, settings);
+    output.primary_iterations = iters;
+    const Eigen::VectorXd primary_x = x;
+    const auto torque_violation = [&](const Eigen::VectorXd &candidate) {
+        if (candidate.size() != n || !candidate.allFinite())
+            return std::numeric_limits<double>::infinity();
+        const Eigen::Matrix<double, 12, 1> tau =
+            Mj * candidate.head<nqdd>() + hj - Jj_t * candidate.tail<nf>();
+        return (tau.cwiseAbs().array() - params.tau_limit_nm)
+            .max(0.0).maxCoeff();
+    };
+    if (primary_x.size() == n && primary_x.allFinite() &&
+        torque_violation(primary_x) > 5.0e-2)
+    {
+        DenseQpSettings recovery_settings = settings;
+        recovery_settings.max_iterations = 600;
+        recovery_settings.rho = 10.0;
+        int recovery_iters = 0;
+        output.qp_recovery_used = true;
+        qp_ok = SolveDenseQpEqNullspace(
+            H, g, Aineq, bineq, Aeq, beq, x, recovery_iters,
+            recovery_settings);
+        output.recovery_iterations = recovery_iters;
+        iters += recovery_iters;
+        if (x.size() == n && x.allFinite())
+        {
+            output.recovery_correction_norm = (x - primary_x).norm();
+            output.recovery_max_inequality_violation =
+                (Aineq * x - bineq).cwiseMax(0.0).maxCoeff();
+        }
+    }
     output.qp_converged = qp_ok;
     output.iterations = iters;
     if (x.size() != n || !x.allFinite())

@@ -5,6 +5,7 @@
 
 #include <Eigen/Dense>
 #include <cmath>
+#include <limits>
 
 namespace go2_control
 {
@@ -220,6 +221,116 @@ inline bool SolveDenseQpEq(
     return x.allFinite() &&
            violation.maxCoeff() <= std::max(0.05, settings.feasibility_tol * 50.0) &&
            eq_res <= settings.feasibility_tol * 10.0;
+}
+
+// Solve the same equality-constrained QP after eliminating the equalities.
+// This is a bounded recovery path for a finite KKT/ADMM iterate that remains
+// inequality-infeasible; it is deliberately not the common realtime path.
+// Row normalization changes conditioning only, not the feasible set.
+inline bool SolveDenseQpEqNullspace(
+    const Eigen::MatrixXd &H,
+    const Eigen::VectorXd &g,
+    const Eigen::MatrixXd &Aineq,
+    const Eigen::VectorXd &bineq,
+    const Eigen::MatrixXd &Aeq,
+    const Eigen::VectorXd &beq,
+    Eigen::VectorXd &x,
+    int &iterations,
+    const DenseQpSettings &settings = {})
+{
+    iterations = 0;
+    x.resize(0);
+    const int n = static_cast<int>(H.rows());
+    const int meq = (Aeq.size() == 0) ? 0 : static_cast<int>(Aeq.rows());
+    const int mineq = (Aineq.size() == 0) ? 0 : static_cast<int>(Aineq.rows());
+    if (n <= 0 || H.cols() != n || g.size() != n ||
+        !H.allFinite() || !g.allFinite() ||
+        (meq > 0 && (Aeq.cols() != n || beq.size() != meq ||
+                     !Aeq.allFinite() || !beq.allFinite())) ||
+        (mineq > 0 && (Aineq.cols() != n || bineq.size() != mineq ||
+                       !Aineq.allFinite() || !bineq.allFinite())))
+    {
+        return false;
+    }
+    if (meq == 0)
+        return SolveDenseQp(H, g, Aineq, bineq, x, iterations, settings);
+
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(
+        Aeq, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    if (svd.info() != Eigen::Success)
+        return false;
+    const Eigen::VectorXd singular = svd.singularValues();
+    const double rank_tol = singular.size() > 0
+        ? std::max(Aeq.rows(), Aeq.cols()) *
+              std::numeric_limits<double>::epsilon() * singular[0]
+        : 0.0;
+    int rank = 0;
+    while (rank < singular.size() && singular[rank] > rank_tol)
+        ++rank;
+
+    Eigen::VectorXd x0 = Eigen::VectorXd::Zero(n);
+    if (rank > 0)
+    {
+        const Eigen::VectorXd projected =
+            svd.matrixU().leftCols(rank).transpose() * beq;
+        x0 = svd.matrixV().leftCols(rank) *
+            singular.head(rank).cwiseInverse().asDiagonal() * projected;
+    }
+    if (!x0.allFinite() ||
+        (Aeq * x0 - beq).lpNorm<Eigen::Infinity>() >
+            settings.feasibility_tol * 10.0)
+    {
+        return false;
+    }
+
+    const int nullity = n - rank;
+    if (nullity == 0)
+    {
+        x = x0;
+        if (mineq == 0)
+            return true;
+        return (Aineq * x - bineq).maxCoeff() <=
+               settings.feasibility_tol * 10.0;
+    }
+
+    const Eigen::MatrixXd nullspace = svd.matrixV().rightCols(nullity);
+    Eigen::MatrixXd reduced_h = nullspace.transpose() * H * nullspace;
+    reduced_h.diagonal().array() += 1.0e-10;
+    const Eigen::VectorXd reduced_g =
+        nullspace.transpose() * (H * x0 + g);
+    Eigen::MatrixXd reduced_a = Aineq * nullspace;
+    Eigen::VectorXd reduced_b = bineq - Aineq * x0;
+    for (int row = 0; row < mineq; ++row)
+    {
+        const double scale = reduced_a.row(row).norm();
+        if (scale <= 1.0e-12)
+        {
+            if (reduced_b[row] < -settings.feasibility_tol)
+                return false;
+            continue;
+        }
+        reduced_a.row(row) /= scale;
+        reduced_b[row] /= scale;
+    }
+
+    Eigen::VectorXd reduced_x;
+    if (!SolveDenseQp(
+            reduced_h, reduced_g, reduced_a, reduced_b,
+            reduced_x, iterations, settings) ||
+        reduced_x.size() != nullity || !reduced_x.allFinite())
+    {
+        return false;
+    }
+    x = x0 + nullspace * reduced_x;
+    const double eq_residual =
+        (Aeq * x - beq).lpNorm<Eigen::Infinity>();
+    const double inequality_violation = mineq > 0
+        ? (Aineq * x - bineq).cwiseMax(0.0).maxCoeff()
+        : 0.0;
+    return x.allFinite() &&
+           eq_residual <= settings.feasibility_tol * 10.0 &&
+           inequality_violation <=
+               std::max(0.05, settings.feasibility_tol * 50.0);
 }
 
 }  // namespace go2_control
