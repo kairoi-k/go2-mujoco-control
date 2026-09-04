@@ -378,11 +378,50 @@ introducing a forbidden terrain route?
 - Decision: do not tune gains or gates and do not start B1. Inspect the
   terrain callback/worker scheduling and the shared time-index contract next;
   preserve this run as diagnostic evidence only.
+
+### F14 lockstep diagnostic - 2026-09-05
+
+- Source: clean detached main SHA 8f4a58176abcae6ed94a20f8230e236f2990f18d;
+  fixed 3 m/s sustained pair in the main-baseline temporary worktree.
+- Both members exchanged continuous 2 ms lockstep traces without fail-closed:
+  baseline 28,594 rows and terrain sensor-only 27,869 rows. The standalone
+  sustained-running analyzer returned validation PASS for both.
+- The Phase 2 analyzer top-level acceptance was PASS for this fixed-3-m/s
+  contract, but paired diagnostics remained false: gait duty max difference
+  0.443248827, gait period 0.020000000 s, requested acceleration 9.089620904
+  m/s2, and WBC velocity target 3.000000000 m/s.
+- Decision: treat lockstep as a valid diagnostic of the exchange path, not as
+  full B0 acceptance. The remaining command/trajectory mismatch keeps F14
+  active; no profile promotion or B1 canary is authorized.
+- Full details and raw run paths: F14_LOCKSTEP_20260905.md.
+
+- A follow-up probe moved the lockstep epoch to the first ack before gait.
+  It was rejected: the temporary source consumed repeated snapshots with
+  motion_dt zero, never left stand, and ended by wall-time kill
+  (controller status 137). Keep the start-gait boundary until exact
+  state/ack pairing is redesigned; raw run: f14_early_lockstep_baseline_20260905.
+
+### Exact state/ack guard and canary - 2026-09-05
+
+- Code commit `6cdf2366bb38aab9db29184efc813be71ae3022f` adds an exact
+  state/ack guard: the lockstep writer passes the `WaitForTick` tick into
+  `LowCmdWrite`, which rejects any different `LowState.tick()` and fails the
+  gate closed with `kViolationSnapshotMismatch`.
+- The focused gate test and the full 32-test CTest suite pass.
+- Clean exact-SHA canaries in `/home/che/dev/go2-workspace/tmp/` exchanged
+  2 ms lockstep without fail-closed: baseline 19,200 rows and terrain
+  sensor-only 18,958 rows; both standalone analyzers returned PASS.
+- The fixed-3-m/s paired analyzer still reports false duty, period, requested
+  acceleration, and WBC-target diagnostics. This verifies the guard path only;
+  it is not full B0 acceptance.
+- Decision: keep F14 active and do not start B1 until command/trajectory
+  equivalence and the full exact-SHA B0 suite are resolved.
+
 ## Current choice
 
-Do not execute another parameter probe or B1 canary yet. Complete F14's
-runtime time-index review and focused contract test first; only a fresh full
-exact-SHA B0 pass permits the Stage C shadow path and smallest dynamic B1 slice
-to resume.
+Do not execute another parameter probe or B1 canary yet. The exact state/ack
+guard and focused contract test are green; resolve the remaining paired
+command/trajectory mismatch next, then run a fresh full exact-SHA B0. Only that
+pass permits the Stage C shadow path and smallest dynamic B1 slice to resume.
 
 The raw run-manifest hashes used by this record are frozen in `MANIFEST.json`.

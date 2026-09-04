@@ -14,7 +14,7 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
 - This checkout intentionally follows the active repair branch; `main` remains
   the integration line and must not be inferred from this branch's unaccepted
   code or evidence.
-- Last tested behavior anchor: `5b95e8265c885a81f8488e4930e682aa55f05674`
+- Last tested behavior anchor: `6cdf2366bb38aab9db29184efc813be71ae3022f` (exact lockstep guard canary; not B0 acceptance).
 - Historical reference evidence: `docs/research/evidence/order109b_c006i/`
 - Active decision evidence: `docs/research/evidence/b0_runtime_integrity_20260904/`
 - Historical Phase 1 dynamic velocity acceptance: PASS, 15/15 existing valid
@@ -46,6 +46,12 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   on the cycle-quality guard while the matching no-terrain standalone passed;
   this demonstrates a current-head regression relative to the historical
   passing terrain path; the causal component is not yet identified.
+  A fixed-3-m/s lockstep pair on clean main SHA 8f4a581 completed with 2 ms
+  exchange and no fail-closed; both standalone analyzers passed, but paired
+  command/WBC diagnostics still diverged, so this remains F14 evidence only.
+  Exact guard candidate 6cdf236 also passed clean 20-s baseline and terrain
+  sensor-only lockstep canaries at 2 ms; both standalone analyzers passed, but
+  paired duty/period/acceleration/WBC diagnostics remain false.
   The earlier separate-SHA brake evidence supports the equality-nullspace solver repair
   only; it is not B0 acceptance. Decision evidence:
   `docs/research/evidence/b0_runtime_integrity_20260904/DECISIONS.md`.
