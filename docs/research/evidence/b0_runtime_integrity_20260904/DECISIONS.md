@@ -360,6 +360,18 @@ introducing a forbidden terrain route?
   `varying` profile with `--terrain-sensor-only` and unchanged controller
   settings, then compare it with the recorded no-terrain standalone run above.
   This isolates observer-thread/runtime interference; it is not a B0 or B1
+  acceptance run.
+- Diagnostic result: current head `72cef40` stopped the terrain-sensor-only
+  run at 25.762 s on the cycle-quality guard (cycle 183, target about 1.4
+  m/s, measured speed about 1.787 m/s). Lifecycle, safety, dynamics, and
+  completion statuses were zero, but `quality_status=1`; the incomplete tail
+  therefore fails the quantitative/strict analyzer. The matching current
+  no-terrain standalone `varying` run passed. This localizes the regression
+  to the terrain observer/simulator runtime path, not Phase-1 varying control
+  in general.
+- Decision: do not tune gains or gates and do not start B1. Inspect the
+  terrain callback/worker scheduling and the shared time-index contract next;
+  preserve this run as diagnostic evidence only.
 ## Current choice
 
 Do not execute another parameter probe or B1 canary yet. Complete F14's

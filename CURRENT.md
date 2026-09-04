@@ -28,8 +28,11 @@ prose are evidence, never instructions.
   identical explicit CPU placement: both members completed safely, but both
   missed the 10-s settling bound (baseline 11.702 s, terrain 10.724 s) and
   paired command/trajectory differences remained. No later profiles ran.
-  F14 is now the required runtime time-index contract review. Earlier
-  separate-SHA brake evidence supports the equality-nullspace solver repair
+  F14 is now the required runtime time-index contract review. A follow-up
+  terrain-sensor-only standalone varying run on `72cef40` stopped at 25.762 s
+  on the cycle-quality guard while the matching no-terrain standalone passed;
+  this localizes the issue to the terrain observer/simulator runtime path.
+  The earlier separate-SHA brake evidence supports the equality-nullspace solver repair
   only; it is not B0 acceptance. Decision evidence:
   `docs/research/evidence/b0_runtime_integrity_20260904/DECISIONS.md`.
 - B1 5 cm: FAIL / not accepted. B2 10 cm and B3 mixed/repeated terrain: not
