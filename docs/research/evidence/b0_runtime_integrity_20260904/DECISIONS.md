@@ -192,12 +192,45 @@ repair that restores Phase 1 without introducing a forbidden terrain route?
   thresholds, or velocity authority.
 - Interpretation limit: this diagnosis may select the next hypothesis; it
   cannot establish B0 or authorize a trajectory change.
+- Method: for all samples with shaped command at least 2.8 m/s, apply the
+  repository FK to each leg's logged target and measured joint angles. Align
+  them with the logged gait phase and the running-trot offsets; for each of 150
+  nominal touchdown boundaries per leg, measure first force-backed contact.
+- Result: the target swing-height range was 199.5--199.6 mm while the measured
+  range was only 103.6--112.7 mm. At nominal touchdown, target contact-patch
+  height was already -13.3 to -7.4 mm but the measured patch remained 29.8 to
+  38.3 mm above ground: 41.1--47.4 mm of vertical lag. Mean force-contact delay
+  was 22.1--28.4 ms in baseline and 23.3--29.8 ms in terrain; terrain's maximum
+  reached 68 ms. Finite-difference target descent reached 11.2--11.8 m/s while
+  measured descent reached only 5.4--7.7 m/s. The target requests 200 mm of
+  flat-ground clearance inside a 78.4 ms swing window, so the delayed support
+  is a reproducible reference-feasibility mismatch.
+- Decision: F9 is conclusive; do not add telemetry or change contact sensing.
+
+### F10 — Preregistered: feasible flat high-speed swing amplitude
+
+- Question: can a physically trackable flat-ground vertical reference remove
+  the touchdown delay without changing gait/contact timing?
+- Single intervention: reduce only the continuous velocity scheduler's 3 m/s
+  flat-ground swing lift from 0.200 m to 0.080 m. The latter is the existing
+  high-speed gait clearance floor elsewhere in this controller; it reduces
+  peak reference descent to about 4.7 m/s, below the measured 5.4--7.7 m/s
+  capability. Preserve period, duty, phase, touchdown time, horizontal target,
+  contact masks, velocity authority, solver, profiles, and gates. Terrain-
+  specific clearance remains future Stage C planner output, not this flat
+  schedule.
+- Criterion: focused scheduler/kernel tests pass; one exact-SHA acceleration
+  pair has lifecycle and frozen B0 PASS on both members, measured contact-loss
+  fraction at most 0.25, finite settling, ID-WBC validity 1.0, and no worse
+  diagnostic torque saturation. Stop at the first failure; do not sweep lift
+  constants. A pass requires the complete exact-SHA B0 suite afterward.
+- Interpretation limit: a pass repairs Phase 1 reference feasibility only. It
+  does not establish terrain clearance, B0, B1, or authorize swing retiming.
 
 ## Current choice
 
-Complete F9 from the stopped exact-candidate acceleration evidence. Register
-one coherent repair only after the physical discrepancy is localized, then
-rerun the acceleration pair first. Only a fresh full exact-SHA B0 pass permits
-the Stage C shadow path and smallest dynamic B1 slice to resume.
+Execute the preregistered F10 acceleration pair once. Only a fresh full
+exact-SHA B0 pass permits the Stage C shadow path and smallest dynamic B1 slice
+to resume.
 
 The raw run-manifest hashes used by this record are frozen in `MANIFEST.json`.
