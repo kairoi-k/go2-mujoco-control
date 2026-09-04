@@ -18,7 +18,8 @@ This is the pre-Phase 2 dynamic baseline; current Phase 2 status is in
 
 ## Milestone: Phase 2 terrain-sensor-only varying non-regression (2026-08-28)
 
-Accepted as historical non-regression evidence at exact SHA `70b7740` on
+Accepted as historical non-regression evidence at exact SHA `70b7740`
+(`milestone/phase2-terrain-sensor-varying-2026-08-28`) on
 `phase2-b1-b3`. With `terrain_lidar=true` and `--terrain-sensor-only`, three
 independent varying runs passed both the frozen quantitative and strict gates.
 This is sensor-only terrain observation: it is not terrain actuation, obstacle
