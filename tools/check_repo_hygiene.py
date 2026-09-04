@@ -70,6 +70,7 @@ REQUIRED_FILES = (
     "CURRENT.md",
     "README.md",
     "docs/REPOSITORY_GOVERNANCE.md",
+    "docs/RESEARCH_HISTORY.md",
     "docs/research/PHASE2_ACCEPTANCE.md",
     "docs/research/PHASE2_HOLDOUT_MANIFEST.json",
     "example/cpp/experiments/CATALOG.md",
@@ -82,12 +83,17 @@ REQUIRED_DOC_MARKERS = {
         "B0, B1, B2, and B3 are acceptance milestones",
     ),
     "AGENTS.md": ("CURRENT.md", "Stage C", "TerrainExecutionState"),
-    "README.md": ("CURRENT.md",),
+    "README.md": ("CURRENT.md", "Canonical milestone ledger"),
     "CONTRIBUTING.md": ("CURRENT.md", "AGENTS.md"),
     "docs/README.md": (
         "CURRENT.md",
         "PHASE2_ACCEPTANCE.md",
         "PHASE2_HOLDOUT_MANIFEST.json",
+    ),
+    "docs/RESEARCH_HISTORY.md": (
+        "Canonical milestone ledger",
+        "CURRENT.md",
+        "Non-acceptance register",
     ),
     "docs/ARCHITECTURE.md": (
         "CURRENT.md",
@@ -154,6 +160,25 @@ def check_markdown_links(root: Path, rel: str, text: str, problems: list[str]) -
             problems.append(f"broken local markdown link in {rel}: {raw_target}")
 
 
+def check_milestone_ledger(root: Path, problems: list[str]) -> None:
+    history = root / "docs/RESEARCH_HISTORY.md"
+    if not history.is_file():
+        return
+    text = history.read_text(encoding="utf-8")
+    result = subprocess.run(
+        ["git", "tag", "--list", "milestone/*"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for tag in result.stdout.splitlines():
+        if f"`{tag}`" not in text:
+            problems.append(
+                f"milestone tag missing from docs/RESEARCH_HISTORY.md: {tag}"
+            )
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
     problems: list[str] = []
@@ -171,6 +196,8 @@ def main() -> int:
         for marker in markers:
             if marker not in text:
                 problems.append(f"missing required guidance in {rel}: {marker}")
+
+    check_milestone_ledger(root, problems)
 
     for rel in tracked_files(root):
         path = root / rel

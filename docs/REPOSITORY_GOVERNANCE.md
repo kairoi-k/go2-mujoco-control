@@ -31,6 +31,7 @@ Accepted means the exact current code passed the protocol's unchanged analyzer a
 ## Tags and provenance
 
 Tags are annotated, immutable identity records. Never move or force-update a tag. Tag messages include source branch, exact SHA, status, relevant acceptance or archival document, and an explicit statement that the tag does not upgrade WIP to accepted status. A run record includes Git SHA, branch and dirty state, effective arguments, semantic environment, binary/scene hashes, analyzer identity, statuses, and artifact hashes where available.
+The canonical ledger [`docs/RESEARCH_HISTORY.md`](RESEARCH_HISTORY.md) is the one-to-one index for every accepted result, historical non-regression result, `milestone/*` tag, and retired route. A raw PASS without a ledger row is an indexing defect. Legacy immutable tags are not rewritten; their complete provenance is backfilled in the ledger.
 
 ## Evidence storage
 

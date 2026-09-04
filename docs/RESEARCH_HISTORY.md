@@ -2,6 +2,47 @@
 
 Milestone-level research progress.
 
+
+## Canonical milestone ledger
+
+This is the single chronological ledger for meaningful Go2 research milestones, route decisions, accepted historical results, and explicit non-acceptance. Each row names the exact source identity, the evidence entry, and the boundary of the claim.
+
+`CURRENT.md` is the only authority for the present route, status, and plan. `RESEARCH_INDEX.md` is the compact index of accepted claims. This file is the chronological provenance ledger; it does not replace either authority.
+
+State vocabulary: `accepted` means the named contract passed at the exact source; `historical` means the result is retained but is not the current route; `active` means work is in progress; `not accepted` means evidence or scope is insufficient for a capability claim; `retired` means the route is explicitly closed.
+
+Every accepted result, historical non-regression result, `milestone/*` tag, and retired route has exactly one row in this ledger. A raw PASS with no row is an indexing defect, not a complete milestone.
+
+| Date | Milestone / decision | State | Exact source | Evidence and boundary |
+|---|---|---|---|---|
+| 2026-08-18 | Modular `--wbc-full` stand/walk/lie baseline | historical result | `wbc-full-stable-2026-08-19` -> `2b82daeb50c522a7b0134119b1a87ef60393ba28` | [`RESEARCH_INDEX.md`](RESEARCH_INDEX.md); MuJoCo low-level sequence, not a speed or natural-gait acceptance. |
+| 2026-08-19 to 2026-08-21 | RL and motion-imitation tracks split to companion repositories | historical scope decision | This file, supporting sections 3-4; [`go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl), [`kine2go-research`](https://github.com/kairoi-k/kine2go-research) | Keeps learned velocity and imitation claims outside the C++ Phase 1/2 acceptance line. |
+| 2026-08-20 to 2026-08-21 | Environment adaptation and sensing-priority line | historical decision | `environment-adaptation-baseline-2026-08-20` -> `99d6f5b2771b1729ec53d875e0ddc018741d01a8`; `auto-environment-sensing-priority-final-v2-2026-08-21` -> `2636590e6bd960d0501775719b69f0978b58931b` | Sensing/priority behavior only; not terrain traversal. |
+| 2026-08-21 | 1 m/s `--wbc-full` speed baseline | historical result | `archive/branches/speed/1mps-2026-08-21` -> `d55335bedd95541b0bec3c21add53920586b38ad` | [`SPEED_1MPS_ACCEPTANCE_2026-08-21.md`](SPEED_1MPS_ACCEPTANCE_2026-08-21.md); simulation claim. |
+| 2026-08-21 | 1 m/s natural-trot and low-duty running-trot branches | historical result | `archive/branches/gait/natural-trot-1mps-2026-08-21` -> `d41143faba7e7064a7064adc6470adec9b30a529` | [`NATURAL_GAIT_1MPS_ACCEPTANCE_2026-08-21.md`](NATURAL_GAIT_1MPS_ACCEPTANCE_2026-08-21.md) and [`RUNNING_GAIT_1MPS_ACCEPTANCE_2026-08-21.md`](RUNNING_GAIT_1MPS_ACCEPTANCE_2026-08-21.md); not the current default gait. |
+| 2026-08-22 to 2026-08-24 | Sustained 3 m/s running-trot | accepted historical | `milestone/sustained-running-3mps-2026-08-22` -> `66dc3e810dcf8766e4e2fd838e14fb772805c76d` | [`SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md`](validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md); three exact-head passes, MuJoCo running-trot only. |
+| 2026-08-25 | Phase 1 arbitrary-velocity contract | accepted historical | `milestone/phase1-arbitrary-velocity-2026-08-25` -> `6e34f99f39731982dd1c1646f9d9673ecf50737a` | [`PHASE1_QUANTITATIVE_ACCEPTANCE_2026-08-25.md`](validation/PHASE1_QUANTITATIVE_ACCEPTANCE_2026-08-25.md) and [closeout](validation/PHASE1_RUNTIME_VELOCITY_CLOSEOUT_2026-08-25.md); five profiles x three runs = 15/15. |
+| 2026-08-28 | Phase 2 terrain-sensor-only varying non-regression | accepted historical | `milestone/phase2-terrain-sensor-varying-2026-08-28` -> `70b7740c77dccd9b6610f772100f2df6d4d792e2` on `phase2-b1-b3` | [`evidence/phase2_terrain_sensor_velocity_20260828/SUMMARY.md`](research/evidence/phase2_terrain_sensor_velocity_20260828/SUMMARY.md); three passes with `terrain_lidar=true` and `--terrain-sensor-only`, no terrain actuation, obstacle crossing, or current full-B0 claim. |
+| 2026-09-01 | Order-109b fixed-speed lockstep B0 slice | accepted historical slice | Source `5b95e8265c885a81f8488e4930e682aa55f05674` | [`evidence/order109b_c006i/SUMMARY.md`](research/evidence/order109b_c006i/SUMMARY.md); fixed 3 m/s sensor-only slice, separate from variable-speed and full current B0 acceptance. |
+| 2026-09-04 | Phase 2 clean convergence designated as the canonical integration base | historical base | `archive/branches/phase2-current-pre-main-20260904` -> `c58d1612406d2028a3e9f84c0c7c9bc50a1cc1d3` | Integration/topology decision only; it does not promote any unaccepted terrain capability. |
+| 2026-09-04 to current | B0 runtime-integrity paired investigation (F10-F14) | active; not accepted | `fix/phase2-b0-runtime-integrity`; route authority [`CURRENT.md`](../CURRENT.md) | Current terrain observer diagnostic is incomplete; no B0 or B1 promotion until the frozen analyzer and paired runtime evidence pass. |
+
+## Non-acceptance register
+
+These rows are part of the same ledger. They make failed, superseded, or design-only work discoverable without allowing it to masquerade as a capability milestone.
+
+| Date | Route | State | Exact identity | Boundary / reason |
+|---|---|---|---|---|
+| 2026-08-23 | `TerrainApproachFsm` quasi-static/scripted crawl | retired | `0068b144746d0c6dff484583b8db3158aa59bd7a` | Retired because quasi-static/scripted crawl is outside the current contract; never promote its PASS as locomotion evidence. |
+| 2026-08-26 | Stage-B terrain interfaces (`lidar -> planner -> MPC/WBC`) | not accepted | `archive/branches/research/phase2-stage-b-implementation-20260826` -> `8362346a62d8225afeb4f6012f64b535b6e00894` | Wiring and tests do not establish B0/B1 runtime acceptance. |
+| 2026-08-26 | Deterministic functional/realtime split | not accepted | `archive/branches/research/phase2-determinism-20260826` -> `e155f0f91419ecbbf4e8a6b78b15000beb23512` | Functional bytes matched, but realtime quality failed from early tick divergence; diagnostic tooling only. |
+| 2026-08-27 | B1/B2 5 cm terrain handoff and fixed-time swing work | not accepted | `archive/branches/research/phase2-b1-5cm-20260826` -> `6b28e91894e1db83e5ce7851cf39ca9cfd7e2203` | Upper-surface touchdown and support transfer were not verified; no B1/B2 or B0 recertification. |
+| 2026-08-31 | Early Stage-C estimate/optimization co-planning design | design only | `ee8dba8e98223b4db5fc620775a1cce4a1ef8a91` | A planning direction, not runtime evidence or a replacement acceptance contract. |
+| 2026-09-02 to 2026-09-04 | Bootstrap/misrouted Stage-C branches | archived; not accepted | `f3b6e96654499d80a3dc2b1ba9912d057a2eabac` | Preserved for audit, excluded from the canonical route and capability claims. |
+
+## Supporting narratives
+The sections below preserve detailed context; the ledger above is the canonical index.
+
 ## 1. Low-level control and instrumentation
 
 **Question.** Can the Unitree Go2 simulator/runtime stack support repeatable low-level action experiments with enough instrumentation to distinguish commanded motion from realized motion?

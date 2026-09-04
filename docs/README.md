@@ -34,7 +34,7 @@ this order.
 | Location | Meaning |
 |---|---|
 | [`RESEARCH_INDEX.md`](RESEARCH_INDEX.md) | accepted repository claims and boundaries |
-| [`RESEARCH_HISTORY.md`](RESEARCH_HISTORY.md) | milestone history, including rejected work |
+| [`RESEARCH_HISTORY.md`](RESEARCH_HISTORY.md) | canonical milestone ledger and supporting narratives, including rejected work |
 | [`validation/`](validation/) | accepted Phase 1 protocols and revalidations |
 | [`../example/cpp/experiments/CATALOG.md`](../example/cpp/experiments/CATALOG.md) | retained historical experiment artifacts |
 | [`upstream/`](upstream/) | preserved upstream documentation |
