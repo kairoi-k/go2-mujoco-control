@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "status": "historical_sensor_only_non_regression",
+  "source": {
+    "sha": "70b7740c77dccd9b6610f772100f2df6d4d792e2",
+    "branch": "phase2-b1-b3",
+    "tag": "milestone/phase2-terrain-sensor-varying-2026-08-28"
+  },
+  "contract": "docs/research/PHASE2_ACCEPTANCE.md",
+  "analyzer": "example/cpp/scripts/analyze_phase1_velocity.py",
+  "summary": "docs/research/evidence/phase2_terrain_sensor_velocity_20260828/SUMMARY.md",
+  "runs": {
+    "r1": {
+      "id": "phase2_b0_holdout_varying_r1_20260828_215549",
+      "manifest_sha256": "34d3a13311271236aa9c41acb623ee624b072c8c1cad0f8370f4f7f9a2272091"
+    },
+    "r2": {
+      "id": "phase2_b0_holdout_varying_r2_20260828_215929",
+      "manifest_sha256": "a5d16ae9567192db668c44f9a02f16b3a58228214107afe0013f1762766aa7f7"
+    },
+    "r3": {
+      "id": "phase2_b0_holdout_varying_r3_20260828_220311",
+      "manifest_sha256": "c9aa4a04c48e7d6a8ef8802767411daa6b6539580d33a684618dbd507b4281d2"
+    }
+  },
+  "archive": {
+    "location": "external WSL workspace archive (see SUMMARY.md)",
+    "immutable": true
+  },
+  "boundary": "terrain_lidar=true and --terrain-sensor-only; no terrain actuation, obstacle crossing, or current full-B0 acceptance"
+}

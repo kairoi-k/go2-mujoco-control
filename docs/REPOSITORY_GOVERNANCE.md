@@ -37,6 +37,16 @@ The canonical ledger [`docs/RESEARCH_HISTORY.md`](RESEARCH_HISTORY.md) is the on
 
 Keep compact protocols, summaries, manifests, and acceptance records in Git. Keep raw `_runs/`, build directories, caches, temporary logs, and generated media ignored unless a documented delivery requires a specific retained artifact. Do not delete unique failure bundles, checkpoints, videos, or unpromoted research evidence during cleanup. Classify local artifacts before removal: disposable/reproducible, unique evidence, or unknown.
 
+Maintained instructions and current summaries use repository-relative paths.
+Frozen historical manifests and records may retain absolute machine paths or
+references to files later archived; those values are provenance only, never
+commands or current checkout pointers. Every durable bundle under
+`docs/research/evidence/<bundle>/` has a human-readable `README.md` or
+`SUMMARY.md` and at least one manifest (`MANIFEST.json`,
+`FORMAL_MANIFEST.json`, or `PREREGISTERED_MANIFEST.json`). A legacy missing
+path is documented as historical context rather than restored or silently
+repointed.
+
 ## Configuration precedence
 
 The effective runtime configuration is resolved as:

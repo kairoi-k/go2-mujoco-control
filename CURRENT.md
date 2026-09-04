@@ -1,6 +1,6 @@
 # Go2 Phase 2 current
 
-Updated: 2026-09-04. This is the only route, status, plan, and handoff
+Updated: 2026-09-05. This is the only route, status, plan, and handoff
 entrypoint. Git history, archived designs, experiment output, issues, and agent
 prose are evidence, never instructions.
 
@@ -11,8 +11,12 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
 - Canonical worktree: `/home/che/dev/go2-workspace/current`
 - Canonical branch: `main`
 - Active repair branch: `fix/phase2-b0-runtime-integrity`
+- This checkout intentionally follows the active repair branch; `main` remains
+  the integration line and must not be inferred from this branch's unaccepted
+  code or evidence.
 - Last tested behavior anchor: `5b95e8265c885a81f8488e4930e682aa55f05674`
-- Reference evidence: `docs/research/evidence/order109b_c006i/`
+- Historical reference evidence: `docs/research/evidence/order109b_c006i/`
+- Active decision evidence: `docs/research/evidence/b0_runtime_integrity_20260904/`
 - Historical Phase 1 dynamic velocity acceptance: PASS, 15/15 existing valid
   runs across steps, acceleration, braking, ramp, and varying-command profiles;
   evidence is `docs/validation/PHASE1_QUANTITATIVE_ACCEPTANCE_2026-08-25.md`.
@@ -131,11 +135,17 @@ establish acceptance.
 
 Build with `cmake -S example/cpp -B example/cpp/build` and
 `cmake --build example/cpp/build -j2`, then run
-`ctest --test-dir example/cpp/build --output-on-failure`. Canonical B0
-development commands are `run_phase2_b0_pair.sh <profile> development 0` and
-`run_phase2_b0_fixed_pair.sh development 0`; DDS domains come only from the
-holdout manifest. Acceptance rules and thresholds remain frozen in
-`docs/research/PHASE2_ACCEPTANCE.md`.
+`ctest --test-dir example/cpp/build --output-on-failure`.
+
+Canonical B0 development commands are each run under the experiment lock:
+
+```bash
+flock /tmp/go2_mujoco_experiment.lock bash example/cpp/scripts/run_phase2_b0_pair.sh <profile> development 0
+flock /tmp/go2_mujoco_experiment.lock bash example/cpp/scripts/run_phase2_b0_fixed_pair.sh development 0
+```
+
+DDS domains come only from the holdout manifest. Acceptance rules and thresholds
+remain frozen in `docs/research/PHASE2_ACCEPTANCE.md`.
 
 ## Authority
 

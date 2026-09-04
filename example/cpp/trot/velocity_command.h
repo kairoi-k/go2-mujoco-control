@@ -214,7 +214,8 @@ inline double GovernAppliedVelocity(
 // not a viable sustained low-speed support schedule: at 0.30 m/s it gives
 // a 5 mm swing lift and only 44% duty.  The support-rich probe schedule
 // (0.50 s period, 0.75 duty) is therefore used only for a *sustained*
-// low-speed regime such as a terrain approach.  Keying the schedule to
+// low-speed Phase-1 support regime.  It is not terrain execution policy or
+// per-leg swing retiming.  Keying the schedule to
 // the instantaneous applied speed proved unstable: during an aggressive
 // ramp the tracking-lead cap holds the applied speed low, the schedule
 // then stays in a long-period blend for the whole ramp, and measured

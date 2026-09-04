@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import sys
@@ -46,13 +47,19 @@ TEXT_SUFFIXES = {
     ".yaml",
     ".yml",
 }
-MACHINE_LOCAL_MARKERS = ("/home/che/", "C:\\Users\\", "/tmp/kine2go")
+MACHINE_LOCAL_MARKERS = ("/home/che/", "/mnt/c/", "C:\\Users\\", "/tmp/kine2go")
 SELF_PATH = "tools/check_repo_hygiene.py"
 UPSTREAM_DOC_PREFIX = "docs/upstream/"
 EVIDENCE_PREFIXES = (
     "docs/research/evidence/",
     "docs/validation/",
     "example/cpp/experiments/",
+)
+EVIDENCE_ROOT = Path("docs/research/evidence")
+EVIDENCE_MANIFEST_NAMES = (
+    "MANIFEST.json",
+    "FORMAL_MANIFEST.json",
+    "PREREGISTERED_MANIFEST.json",
 )
 MACHINE_PORTABLE_PREFIXES = (
     ".github/",
@@ -73,6 +80,7 @@ REQUIRED_FILES = (
     "docs/RESEARCH_HISTORY.md",
     "docs/research/PHASE2_ACCEPTANCE.md",
     "docs/research/PHASE2_HOLDOUT_MANIFEST.json",
+    "docs/research/evidence/README.md",
     "example/cpp/experiments/CATALOG.md",
 )
 REQUIRED_DOC_MARKERS = {
@@ -89,6 +97,7 @@ REQUIRED_DOC_MARKERS = {
         "CURRENT.md",
         "PHASE2_ACCEPTANCE.md",
         "PHASE2_HOLDOUT_MANIFEST.json",
+        "research/evidence/README.md",
     ),
     "docs/RESEARCH_HISTORY.md": (
         "Canonical milestone ledger",
@@ -173,10 +182,30 @@ def check_milestone_ledger(root: Path, problems: list[str]) -> None:
         text=True,
     )
     for tag in result.stdout.splitlines():
-        if f"`{tag}`" not in text:
+        occurrences = text.count(f"`{tag}`")
+        if occurrences == 0:
             problems.append(
                 f"milestone tag missing from docs/RESEARCH_HISTORY.md: {tag}"
             )
+        elif occurrences > 1:
+            problems.append(
+                f"milestone tag appears more than once in docs/RESEARCH_HISTORY.md: {tag}"
+            )
+
+
+def check_evidence_bundles(root: Path, problems: list[str]) -> None:
+    evidence_root = root / EVIDENCE_ROOT
+    if not evidence_root.is_dir():
+        problems.append(f"missing evidence root: {EVIDENCE_ROOT.as_posix()}")
+        return
+    for bundle in sorted(evidence_root.iterdir()):
+        if not bundle.is_dir():
+            continue
+        rel = bundle.relative_to(root).as_posix()
+        if not any((bundle / name).is_file() for name in EVIDENCE_MANIFEST_NAMES):
+            problems.append(f"evidence bundle missing manifest: {rel}")
+        if not any((bundle / name).is_file() for name in ("README.md", "SUMMARY.md")):
+            problems.append(f"evidence bundle missing README.md or SUMMARY.md: {rel}")
 
 
 def main() -> int:
@@ -198,11 +227,18 @@ def main() -> int:
                 problems.append(f"missing required guidance in {rel}: {marker}")
 
     check_milestone_ledger(root, problems)
+    check_evidence_bundles(root, problems)
 
     for rel in tracked_files(root):
         path = root / rel
         parts = set(Path(rel).parts)
         name = path.name
+
+        if path.is_file() and path.suffix == ".json":
+            try:
+                json.loads(path.read_text(encoding="utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                problems.append(f"invalid JSON in {rel}: {exc}")
 
         if rel.startswith(FORBIDDEN_TRACKED_PREFIXES):
             problems.append(f"tracked runtime evidence path: {rel}")

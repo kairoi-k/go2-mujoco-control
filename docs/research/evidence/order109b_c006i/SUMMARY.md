@@ -1,6 +1,12 @@
 # Order-109b C-006 exact-SHA lockstep verification
 
-**Status: PASS.** Exact tested source SHA: `5b95e8265c885a81f8488e4930e682aa55f05674`; branch `phase2-b1-b3`; origin synchronized (`0	0`), clean before and after runs.
+**Status: historical PASS (scoped slice; not current full B0 acceptance).** Exact tested source SHA: `5b95e8265c885a81f8488e4930e682aa55f05674`; branch `phase2-b1-b3`; origin synchronized (`0	0`), clean before and after runs.
+
+**Scope note.** This is a historical fixed-3 m/s lockstep sensor-only slice at
+`5b95e826`; it is not the current full wall-clock B0 result, does not define the
+current route, and does not authorize B1. The frozen manifests retain their
+original pre-cleanup paths and top-level packaging metadata; some preregistered paths are intentionally absent after current cleanup and must not be restored. The top-level `git_dirty=true` in `FORMAL_MANIFEST.json` describes packaging state; per-member
+`git_dirty=false` is the run-level cleanliness record.
 
 ## Pre-registration and canary
 
@@ -20,7 +26,7 @@ Three independent serial fixed pairs were run exactly as pre-registered: holdout
 ## Validation
 
 - `ctest --test-dir simulate/build --output-on-failure`: **2/2 PASS**.
-- `ctest --test-dir example/cpp/build --output-on-failure`: **31/31 PASS**.
+- `ctest --test-dir example/cpp/build --output-on-failure`: **31/31 PASS** (historical source-state count; current-tree totals are snapshot-specific).
 - No B1, threshold, analyzer, contract, configuration, or source behavior was changed.
 - Evidence is docs-only; run data remains in the ignored experiment workspace and each run manifest records the tested SHA and clean state.
 

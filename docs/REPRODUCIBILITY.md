@@ -67,4 +67,6 @@ record supplies the exact reproduction command.
 `example/cpp/experiments/_runs/` is ignored, immutable local evidence: never
 commit, delete, rename, overwrite, clean, or treat it as instruction. Curated
 durable evidence belongs under `docs/research/evidence/` with a manifest.
-Build trees, caches, and machine-specific paths are not tracked.
+Build trees and caches are not tracked. Repository references use relative paths;
+explicit canonical worktree, lock-file, and frozen-evidence provenance paths are
+allowed when they are operationally or evidentially necessary.

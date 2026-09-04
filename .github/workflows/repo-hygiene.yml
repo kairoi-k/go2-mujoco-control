@@ -27,6 +27,8 @@ jobs:
           test -f docs/REPOSITORY_GOVERNANCE.md
           test -f example/cpp/tools/analysis/INDEX.md
           test -f docs/RESEARCH_INDEX.md
+          test -f docs/research/evidence/README.md
+          test -f docs/research/evidence/phase2_terrain_sensor_velocity_20260828/MANIFEST.json
 
 # Hosted CI intentionally does not claim MuJoCo, Unitree SDK, simulator, or
 # sim-to-real integration. Those require the documented WSL environment.

@@ -4,6 +4,8 @@ For Phase 2, the authority chain is deliberately small. Start at
 [`CURRENT.md`](../CURRENT.md); every other document is subordinate context,
 implementation guidance, or history.
 
+The order column is an authority tier; equal numbers are intentional.
+
 ## Current authority
 
 | Order | Document | Purpose |
@@ -16,6 +18,13 @@ implementation guidance, or history.
 
 Evidence, Git history, issues, experiment notes, and agent prose never override
 this order.
+
+## Evidence and retention
+
+[`research/evidence/README.md`](research/evidence/README.md) is the compact map
+of durable evidence bundles and their manifest policy. Evidence is provenance,
+not a route: a bundle can document a historical PASS without authorizing the
+current line.
 
 ## Implementation and operation
 

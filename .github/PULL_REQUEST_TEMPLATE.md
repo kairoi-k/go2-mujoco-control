@@ -28,6 +28,6 @@ For research-semantic changes, record relevant commit/config/data/evaluator/resu
 - [ ] Upstream attribution and licensing remain intact.
 - [ ] Failed/superseded research evidence remains traceable where relevant.
 - [ ] Scientific claims are bounded by the actual evidence.
-- [ ] No host-specific paths, credentials, or private artifacts were introduced.
+- [ ] No new host-specific paths, credentials, or private artifacts were introduced; any preserved frozen-evidence path is explicitly classified as provenance.
 - [ ] Frozen protocols/acceptance criteria were not silently modified.
 - [ ] Phase 2 work follows `CURRENT.md`; no historical/forbidden route was revived.

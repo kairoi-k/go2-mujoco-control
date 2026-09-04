@@ -4,6 +4,7 @@
   "date": "2026-09-04",
   "branch": "fix/phase2-b0-runtime-integrity",
   "current_candidate": "f95349cc0928ee4ca62cc71d2f160ab5612803ab",
+  "latest_review_head": "72cef40a188cf1ee5de04220d50865ebf8761825",
   "frozen_acceptance_contract": "docs/research/PHASE2_ACCEPTANCE.md",
   "decision_record": "docs/research/evidence/b0_runtime_integrity_20260904/DECISIONS.md",
   "raw_evidence_root": "example/cpp/experiments/_runs",

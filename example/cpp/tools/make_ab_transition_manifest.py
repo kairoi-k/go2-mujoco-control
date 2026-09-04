@@ -11,6 +11,12 @@ def main() -> int:
     parser.add_argument("--long-manifest", type=Path, required=True)
     parser.add_argument("--representative-manifest", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--video-root",
+        type=Path,
+        default=None,
+        help="optional local root for relative video paths; omit for portable output",
+    )
     args = parser.parse_args()
     long_records = json.loads(args.long_manifest.read_text(encoding="utf-8"))
     representative_records = json.loads(args.representative_manifest.read_text(encoding="utf-8"))
@@ -21,11 +27,14 @@ def main() -> int:
         source = by_index[index]
         source_event = str(source["source_event"])
         target_event = str(source["target_event"])
+        video = source["video"]
+        if args.video_root is not None and not Path(video).is_absolute():
+            video = str(args.video_root / video)
         selected.append({
             "id": f"pair_{index:03d}_{source_event}_to_{target_event}",
             "title": f"AB {index:03d} | {source_event.replace('_', ' ').upper()} -> {target_event.replace('_', ' ').upper()}",
             "subtitle": "scheduled reference handoff | A 4.0 s + B 4.0 s + recovery",
-            "video": f"/mnt/c/Cloud/OneDrive/收件箱/go2_reactive_transition_matrix_long_flat_2026-08-20/{source['video']}",
+            "video": video,
             "run_directory": source["run_directory"],
             "clip_start_s": 3.5,
             "clip_duration_s": float(source["duration_s"]),

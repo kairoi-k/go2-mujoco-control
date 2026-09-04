@@ -88,6 +88,7 @@ the exact entrypoints, manifest, experiment lock, and analyzer specified by
 | Reproduction rules | [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) |
 | Accepted claims | [`docs/RESEARCH_INDEX.md`](docs/RESEARCH_INDEX.md) |
 | Canonical milestone ledger and rejected work | [`docs/RESEARCH_HISTORY.md`](docs/RESEARCH_HISTORY.md) |
+| Durable evidence bundle map | [`docs/research/evidence/README.md`](docs/research/evidence/README.md) |
 | Retained artifacts | [`example/cpp/experiments/CATALOG.md`](example/cpp/experiments/CATALOG.md) |
 | Upstream boundary | [`UPSTREAM_AND_CONTRIBUTIONS.md`](UPSTREAM_AND_CONTRIBUTIONS.md) |
 

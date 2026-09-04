@@ -2,8 +2,8 @@
 
 This repository records **model-based Go2 control in MuJoCo**. Isaac Lab velocity RL and Kine2Go imitation are maintained in separate companion repositories.
 
-This index records accepted Phase 1 and general repository claims. It does not
-define the current Phase 2 route; use [`CURRENT.md`](../CURRENT.md).
+This index records accepted Phase 1 and explicitly scoped historical Phase 2
+claims. It does not define the current Phase 2 route; use [`CURRENT.md`](../CURRENT.md).
 
 ## Milestone: Phase 1 arbitrary velocity (2026-08-25)
 
@@ -25,7 +25,15 @@ independent varying runs passed both the frozen quantitative and strict gates.
 This is sensor-only terrain observation: it is not terrain actuation, obstacle
 crossing, or current full-B0 acceptance. See [the evidence summary](research/evidence/phase2_terrain_sensor_velocity_20260828/SUMMARY.md).
 Later terrain ownership and runtime changes mean this historical passing path
-must not be assumed identical to the current head.
+must not be assumed identical to the current head. Its bundle identity and raw
+manifest hashes are recorded in [the evidence manifest](research/evidence/phase2_terrain_sensor_velocity_20260828/MANIFEST.json).
+
+## Historical lockstep sensor-only slice (2026-09-01)
+
+Order-109b passed a separate fixed-3 m/s lockstep sensor-only slice at exact
+source `5b95e826`. This is a historical timing/equivalence slice, not the
+current full wall-clock B0 result, terrain actuation, or a B1 authorization. See
+[the scoped evidence summary](research/evidence/order109b_c006i/SUMMARY.md).
 
 ## Implementation
 

@@ -10,7 +10,7 @@ experiments, issues, commits, and agent handoffs cannot override it.
 
 - Keep commits small and scoped.
 - Follow the build/test instructions in `example/cpp/README.md` for the C++ control stack.
-- Do not commit machine-specific absolute paths, credentials, raw bulk logs, or generated build products. Never modify or commit ignored `example/cpp/experiments/_runs/` evidence.
+- Do not add host-specific paths to maintained instructions, credentials, raw bulk logs, or generated build products. The canonical WSL worktree and experiment lock may be named when operationally required; frozen evidence may retain provenance paths. Never modify or commit ignored `example/cpp/experiments/_runs/` evidence.
 - Preserve upstream attribution and licensing when modifying inherited simulator/runtime code.
 
 ## Research-semantic changes

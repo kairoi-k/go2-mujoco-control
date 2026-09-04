@@ -2,6 +2,9 @@
 
 Status: historical PASS; not current full B0 acceptance.
 
+Bundle identity is recorded in `MANIFEST.json`. The archive path below is
+historical provenance only; it is not a current checkout or execution path.
+
 Source: exact commit 70b7740c77dccd9b6610f772100f2df6d4d792e2 on branch
 phase2-b1-b3. The commit message is "phase2: retain hold for measured target
 until schedule".
