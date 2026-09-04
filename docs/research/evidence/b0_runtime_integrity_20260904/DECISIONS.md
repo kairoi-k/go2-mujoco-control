@@ -226,10 +226,41 @@ repair that restores Phase 1 without introducing a forbidden terrain route?
   constants. A pass requires the complete exact-SHA B0 suite afterward.
 - Interpretation limit: a pass repairs Phase 1 reference feasibility only. It
   does not establish terrain clearance, B0, B1, or authorize swing retiming.
+- Invalid preliminary attempt: `phase2_b0_development_accel_1_to_3_r0_20260904_214453_{baseline,terrain}`
+  used the old controller binary (`c8c91330...`) after the source commit and
+  logged a 0.1999 m lift. Its result is retained only as a process-error
+  record; it does not test F10.
+- Result on exact clean `68ddc67061bdbd23ee3b154b09658392a9c171f0` after a
+  complete rebuild: both members used the intended 0.080 m lift but failed
+  before the controlled stop. Baseline stopped at 27.94 s and terrain at
+  28.58 s after hard posture safety, with pitch crossing 20 degrees at about
+  25.12 s and 25.76 s respectively. Contact loss before stopping was only
+  0.1231 and 0.1463, but ID-WBC validity fell to 0.9894 and 0.9955; the
+  logged contact pattern showed a swing leg striking early, then loss of the
+  scheduled diagonal. The paired gate therefore failed despite improved
+  contact-loss fraction.
+- Decision: reject F10 and restore the 0.200 m high-speed reference. Amplitude
+  alone trades delayed touchdown for premature swing-foot collision; do not
+  sweep lift constants or alter contact labels.
+
+### F11 — Preregistered: increase swing acceleration authority
+
+- Question: with the collision-avoiding 0.200 m reference restored, is the
+  remaining touchdown lag caused by the 50 m/s2 swing-acceleration clamp?
+- Single intervention: set `FULL2_SWING_ACC=80` for the exact acceleration pair;
+  keep `FULL2_SWING_KP=180`, `FULL2_SWING_KD=16`, all gait geometry/timing,
+  contact logic, torque limits, solver and frozen gates unchanged. This raises
+  only the Cartesian swing request cap and does not retime a swing.
+- Criterion: controller and analyzer both report clean lifecycle; baseline and
+  terrain each meet the frozen Phase 1 quantitative gate, ID-WBC validity is
+  1.0, and terrain contact loss is at most 0.25. Stop at the first failure;
+  no gain/cap sweep. A pass still requires a fresh full exact-SHA B0.
+- Interpretation limit: a pass supports swing tracking authority only; it does
+  not establish B0, obstacle clearance, B1, or Stage C actuation.
 
 ## Current choice
 
-Execute the preregistered F10 acceleration pair once. Only a fresh full
+Execute the preregistered F11 acceleration pair once. Only a fresh full
 exact-SHA B0 pass permits the Stage C shadow path and smallest dynamic B1 slice
 to resume.
 

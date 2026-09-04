@@ -16,12 +16,13 @@ prose are evidence, never instructions.
 - Current-main full B0 reproduction: FAIL; the steps profile exposed runtime
   contact/WBC and zero-command regressions.
 - Active-candidate full B0: FAIL at the ordered acceleration profile on exact
-  clean revision `8a19248`. Its steps pair passed; acceleration baseline passed
-  but terrain failed measured contact-loss and settling gates, with no WBC
-  recovery calls. Ramp, varying, and fixed-3-m/s were not run because the suite
-  stopped at the first information-bearing failure. Earlier separate-SHA
-  brake evidence supports the equality-nullspace solver repair only; it is not
-  B0 acceptance. Decision evidence:
+  clean revision `68ddc67`. Its 80-mm F10 pair stopped on hard posture safety
+  before controlled completion, after the intended binary was rebuilt;
+  therefore no later profiles ran. F10 is rejected and the next preregistered
+  F11 probe restores 200-mm swing lift while testing only a higher Cartesian
+  swing-acceleration cap. Earlier separate-SHA brake evidence supports the
+  equality-nullspace solver repair only; it is not B0 acceptance. Decision
+  evidence:
   `docs/research/evidence/b0_runtime_integrity_20260904/DECISIONS.md`.
 - B1 5 cm: FAIL / not accepted. B2 10 cm and B3 mixed/repeated terrain: not
   started.
