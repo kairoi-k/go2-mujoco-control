@@ -355,6 +355,11 @@ introducing a forbidden terrain route?
 - Decision: preserve all frozen B0 thresholds and profiles; no further
   parameter probe or B1 canary until this contract is evidenced.
 
+
+- Next diagnostic (pre-registered): on the same current head, run one standalone
+  `varying` profile with `--terrain-sensor-only` and unchanged controller
+  settings, then compare it with the recorded no-terrain standalone run above.
+  This isolates observer-thread/runtime interference; it is not a B0 or B1
 ## Current choice
 
 Do not execute another parameter probe or B1 canary yet. Complete F14's
