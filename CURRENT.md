@@ -17,6 +17,8 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
 - Last tested behavior anchor: `6cdf2366bb38aab9db29184efc813be71ae3022f` (exact lockstep guard canary; not B0 acceptance).
 - Historical reference evidence: `docs/research/evidence/order109b_c006i/`
 - Active decision evidence: `docs/research/evidence/b0_runtime_integrity_20260904/`
+- External read-only review packet:
+  `docs/research/evidence/b0_runtime_integrity_20260904/cloud_review/README.md`.
 - Historical Phase 1 dynamic velocity acceptance: PASS, 15/15 existing valid
   runs across steps, acceleration, braking, ramp, and varying-command profiles;
   evidence is `docs/validation/PHASE1_QUANTITATIVE_ACCEPTANCE_2026-08-25.md`.

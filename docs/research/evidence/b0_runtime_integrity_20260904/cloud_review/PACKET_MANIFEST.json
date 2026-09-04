@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "purpose": "read_only_external_review",
+  "repository": "https://github.com/kairoi-k/go2-mujoco-control",
+  "remote_branch": "fix/phase2-b0-runtime-integrity",
+  "source": {
+    "commit": "6cdf2366bb38aab9db29184efc813be71ae3022f",
+    "git_dirty": false,
+    "candidate_note": "Exact state/ack guard canary; not B0 acceptance"
+  },
+  "included_artifacts": [
+    {
+      "path": "f14_guard_exact_baseline_20260905/run_manifest.json",
+      "sha256": "40453623c9c52944eea288af0a8343b075c79e107efb04f2ee3a1a366c562cb0",
+      "role": "exact baseline run provenance"
+    },
+    {
+      "path": "f14_guard_exact_baseline_20260905/lockstep_trace.csv",
+      "sha256": "e3600b6ec582f5b05f4cfa7f7ce6bb535db59274dff7bcceebe0b45659514d26",
+      "role": "exact baseline raw 2 ms lockstep trace"
+    },
+    {
+      "path": "f14_guard_exact_baseline_20260905/controller.log.txt",
+      "sha256": "0355e003cf74ae2231c9a41f8a00607aef6e423193ba84907ff0cac69779d9a8",
+      "role": "exact baseline controller log"
+    },
+    {
+      "path": "f14_guard_exact_baseline_20260905/simulator.log.txt",
+      "sha256": "56ef757dd73bd68857068df66edf5beab3ab7cf68bdabe0f5eb5fe7df35243e6",
+      "role": "exact baseline simulator log"
+    },
+    {
+      "path": "f14_guard_exact_baseline_20260905/sustained_running_analysis.txt",
+      "sha256": "a06d0956df963e4d9abb530e507ff5a2070d7c4f4ec66e5a31cd6ed6f294e63d",
+      "role": "exact baseline standalone analyzer"
+    },
+    {
+      "path": "f14_guard_exact_baseline_20260905/contact_ground_truth_analysis.txt",
+      "sha256": "b3cbc5cd8a7f409081bca1efadd8ea262f78691caf027b5659d7cf7ab5cfc231",
+      "role": "exact baseline contact analysis"
+    },
+    {
+      "path": "f14_guard_exact_baseline_20260905/contact_ground_truth_dynamics_analysis.txt",
+      "sha256": "22684d6cdc0ed8028cf51e3b54c0eeb601359024dcebcb2a793d3a23855478f0",
+      "role": "exact baseline dynamics analysis"
+    },
+    {
+      "path": "f14_guard_exact_terrain_20260905/run_manifest.json",
+      "sha256": "9f10843bcdd0073eabc3b1743a324f7e5a1f53749b1f11e0c343fc219e745a2e",
+      "role": "exact terrain sensor-only run provenance"
+    },
+    {
+      "path": "f14_guard_exact_terrain_20260905/b0_analyzer.json",
+      "sha256": "d51e4c40c36e6fb2c553df01aa03e34efe969efc21f986a8fc1159fe92c4689e",
+      "role": "exact terrain B0 analyzer output; paired diagnostics included"
+    },
+    {
+      "path": "f14_guard_exact_terrain_20260905/lockstep_trace.csv",
+      "sha256": "a3e70ff967a29726504ef2299fd10a33f4fd28701471532b0e54605b43c2437e",
+      "role": "exact terrain raw 2 ms lockstep trace"
+    },
+    {
+      "path": "f14_guard_exact_terrain_20260905/controller.log.txt",
+      "sha256": "47de607789b2a6d2c6a9490dc60e8c574c9e347847775291cc6fec92073bbb94",
+      "role": "exact terrain controller log"
+    },
+    {
+      "path": "f14_guard_exact_terrain_20260905/simulator.log.txt",
+      "sha256": "4fce3feb42be60d49230bdee1f2c5d9df8d658460930d0f9ba985b2b026cbe45",
+      "role": "exact terrain simulator log"
+    },
+    {
+      "path": "f14_guard_exact_terrain_20260905/sustained_running_analysis.txt",
+      "sha256": "206ca9860cd3595a9a45cf9e2339f04288881b10f8156c532f42759eb4c731e4",
+      "role": "exact terrain standalone analyzer"
+    },
+    {
+      "path": "f14_guard_exact_terrain_20260905/contact_ground_truth_analysis.txt",
+      "sha256": "a2f931e5cb984eb6186e95c45afa156d01060895e788220d573282c398d597b9",
+      "role": "exact terrain contact analysis"
+    },
+    {
+      "path": "f14_guard_exact_terrain_20260905/contact_ground_truth_dynamics_analysis.txt",
+      "sha256": "92d579ec1e21e456c062639f896d2bb519d949c7e139f577c49e73daa7737eca",
+      "role": "exact terrain dynamics analysis"
+    }
+  ],
+  "omitted_large_raw": [
+    {
+      "path": "f14_guard_exact_baseline_20260905/data.csv",
+      "sha256": "37283972b37450994ee031b68057eb916600b116c54553dd63d88d77dc265d04",
+      "reason": "approximately 55 MB; retained in local immutable raw archive"
+    },
+    {
+      "path": "f14_guard_exact_baseline_20260905/contact_ground_truth.csv",
+      "sha256": "c341c07093e3b82218665e290d438b885b92dbb5c592bf7e9deed3beaa2f3557",
+      "reason": "approximately 59 MB; retained in local immutable raw archive"
+    },
+    {
+      "path": "f14_guard_exact_terrain_20260905/data.csv",
+      "sha256": "f345cbb3d5b24a05b39c87098b4ba4bd1886f2e54e8cc177d60f369ee2ad0bb3",
+      "reason": "approximately 54 MB; retained in local immutable raw archive"
+    },
+    {
+      "path": "f14_guard_exact_terrain_20260905/contact_ground_truth.csv",
+      "sha256": "9ce499e5f81170c680c704d92e68c613cbbc4919704515357db50e8fddffc38f",
+      "reason": "approximately 58 MB; retained in local immutable raw archive"
+    }
+  ],
+  "interpretation": {
+    "baseline_trace_rows": 19200,
+    "terrain_trace_rows": 18958,
+    "trace_dt_ms": 2,
+    "fail_closed_events": 0,
+    "standalone_validation": "PASS",
+    "paired_diagnostic": "FAIL",
+    "b0_acceptance": "NOT_CLAIMED"
+  }
+}
+

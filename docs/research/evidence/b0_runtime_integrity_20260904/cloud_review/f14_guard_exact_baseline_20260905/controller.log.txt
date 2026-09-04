@@ -1,0 +1,990 @@
+1788554139.864064 [230] real_trot_: selected interface "lo" is not multicast-capable: disabling multicast
+Diagonal trot target
+  DDS domain=230
+  period=0.14 s
+  nominal speed=3.57143 m/s
+  duty=0.44
+  step length=0.5 m
+  direction=1
+  foot lift=0.2 m
+  kp/kd=80/4.5
+  kernel=raibert-trot
+  gait_pattern=running-trot
+  wbc_primary=on
+  wbc_full=on
+  cartesian_world=off
+  auto_environment=off
+  terrain_sensor_only=off
+  reactive_events=off
+  impact_to_emergency_stop_delay=-1 s
+  preview_horizon=4
+  impulse=off
+  event_script=off
+  runtime_velocity_command=off
+  task=trot-only
+  goal=off
+  run_mode=continuous
+Press enter to start
+WBC-FULL: 18-DoF MJCF model loaded
+Locomotion kernel: raibert-trot
+Lockstep ack adapter enabled on rt/lockstep/ack
+Waiting for natural settle...
+Natural LowState settled
+World reference captured: x=-0.0910786 y=5.65579e-06 yaw=-2.66031e-05
+WBC-FULL rigid body mass=15.2064 com_z=0.0822791 bias_z=149.175
+Starting diagonal trot: period=0.14 s, duty=0.44, step=0.5 m, lift=0.2 m
+WBC-FULL preview n=4 x0=-0.015
+Trot cycle 0 health: roll=1.53143 deg, pitch=4.63288 deg, support_drift=13.3219 mm, q_error=0.167146 rad, foot_error=0.0640752 m, tau_est=32.099, tau_motor=RL_calf, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=17, support_contact_fraction=0.792079, touchdown_events=2, touchdown_max_abs_x_error_m=0.0164474, touchdown_max_abs_y_error_m=0.0471795
+HIGH-SPEED-GOV pattern=running-trot cycle=1 v_cmd=0.9 v_meas=0.406296 period=0.2 duty=0.5 step=0.18
+Trot cycle 1 started v_cmd=0.9 v_meas=0.406296 period=0.2 step=0.18 duty=0.5
+STEPK cycle=2 step=0.18
+Trot cycle 1 health: roll=1.25198 deg, pitch=1.84183 deg, support_drift=10.2402 mm, q_error=0.186858 rad, foot_error=0.0376342 m, tau_est=22.0963, tau_motor=FR_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=14, support_contact_fraction=0.8, touchdown_events=4, touchdown_max_abs_x_error_m=0.00741859, touchdown_max_abs_y_error_m=0.0179062
+HIGH-SPEED-GOV pattern=running-trot cycle=2 v_cmd=0.925784 v_meas=0.675784 period=0.198453 duty=0.498066 step=0.184438
+Trot cycle 2 started v_cmd=0.9 v_meas=0.675784 period=0.2 step=0.18 duty=0.5
+STEPK cycle=3 step=0.184438
+Trot cycle 2 health: roll=3.94382 deg, pitch=2.62513 deg, support_drift=15.2487 mm, q_error=0.439193 rad, foot_error=0.0843923 m, tau_est=37.6893, tau_motor=RL_calf, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=27, support_contact_fraction=0.56, touchdown_events=4, touchdown_max_abs_x_error_m=0.0139446, touchdown_max_abs_y_error_m=0.0214763
+HIGH-SPEED-GOV pattern=running-trot cycle=3 v_cmd=0.965784 v_meas=0.816021 period=0.196053 duty=0.495066 step=0.191232
+Trot cycle 3 started v_cmd=0.925784 v_meas=0.816021 period=0.198453 step=0.184438 duty=0.498066
+STEPK cycle=4 step=0.191232
+Trot cycle 3 health: roll=3.93268 deg, pitch=2.37479 deg, support_drift=21.6413 mm, q_error=0.594768 rad, foot_error=0.114489 m, tau_est=40, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=32, support_contact_fraction=0.505051, touchdown_events=4, touchdown_max_abs_x_error_m=0.0302079, touchdown_max_abs_y_error_m=0.0206276
+HIGH-SPEED-GOV pattern=running-trot cycle=4 v_cmd=1.00578 v_meas=0.931919 period=0.193653 duty=0.492066 step=0.197913
+Trot cycle 4 started v_cmd=0.965784 v_meas=0.931919 period=0.196053 step=0.191232 duty=0.495066
+STEPK cycle=5 step=0.197913
+Trot cycle 4 health: roll=3.22423 deg, pitch=1.84853 deg, support_drift=11.9563 mm, q_error=0.560434 rad, foot_error=0.110684 m, tau_est=40, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=28, support_contact_fraction=0.561224, touchdown_events=4, touchdown_max_abs_x_error_m=0.0239768, touchdown_max_abs_y_error_m=0.0209513
+HIGH-SPEED-GOV pattern=running-trot cycle=5 v_cmd=1.04578 v_meas=1.02395 period=0.191253 duty=0.489066 step=0.204481
+Trot cycle 5 started v_cmd=1.00578 v_meas=1.02395 period=0.193653 step=0.197913 duty=0.492066
+STEPK cycle=6 step=0.204481
+Trot cycle 5 health: roll=2.46975 deg, pitch=2.37556 deg, support_drift=11.3323 mm, q_error=0.527079 rad, foot_error=0.105492 m, tau_est=40, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=29, support_contact_fraction=0.556701, touchdown_events=4, touchdown_max_abs_x_error_m=0.0144521, touchdown_max_abs_y_error_m=0.0234551
+HIGH-SPEED-GOV pattern=running-trot cycle=6 v_cmd=1.08578 v_meas=1.08835 period=0.188853 duty=0.486066 step=0.210932
+Trot cycle 6 started v_cmd=1.04578 v_meas=1.08835 period=0.191253 step=0.204481 duty=0.489066
+STEPK cycle=7 step=0.210932
+Trot cycle 6 health: roll=2.41253 deg, pitch=2.82152 deg, support_drift=12.3383 mm, q_error=0.49568 rad, foot_error=0.102197 m, tau_est=40, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.589474, touchdown_events=4, touchdown_max_abs_x_error_m=0.0160627, touchdown_max_abs_y_error_m=0.0167981
+HIGH-SPEED-GOV pattern=running-trot cycle=7 v_cmd=1.12578 v_meas=1.16241 period=0.186453 duty=0.483066 step=0.217264
+Trot cycle 7 started v_cmd=1.08578 v_meas=1.16241 period=0.188853 step=0.210932 duty=0.486066
+STEPK cycle=8 step=0.217264
+Trot cycle 7 health: roll=1.38981 deg, pitch=1.64395 deg, support_drift=7.40045 mm, q_error=0.480473 rad, foot_error=0.0947001 m, tau_est=38.3188, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.705263, touchdown_events=4, touchdown_max_abs_x_error_m=0.0194278, touchdown_max_abs_y_error_m=0.0219768
+HIGH-SPEED-GOV pattern=running-trot cycle=8 v_cmd=1.16578 v_meas=1.15543 period=0.184053 duty=0.480066 step=0.223475
+Trot cycle 8 started v_cmd=1.12578 v_meas=1.15543 period=0.186453 step=0.217264 duty=0.483066
+STEPK cycle=9 step=0.223475
+Trot cycle 8 health: roll=1.31493 deg, pitch=1.41535 deg, support_drift=10.8579 mm, q_error=0.465401 rad, foot_error=0.0923402 m, tau_est=36.9055, tau_motor=RL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=16, support_contact_fraction=0.731183, touchdown_events=4, touchdown_max_abs_x_error_m=0.0183296, touchdown_max_abs_y_error_m=0.0186031
+HIGH-SPEED-GOV pattern=running-trot cycle=9 v_cmd=1.20578 v_meas=1.16458 period=0.181653 duty=0.477066 step=0.229564
+Trot cycle 9 started v_cmd=1.16578 v_meas=1.16458 period=0.184053 step=0.223475 duty=0.480066
+STEPK cycle=10 step=0.229564
+Trot cycle 9 health: roll=1.52375 deg, pitch=1.77838 deg, support_drift=10.8932 mm, q_error=0.456102 rad, foot_error=0.0937544 m, tau_est=36.899, tau_motor=FR_calf, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.619565, touchdown_events=4, touchdown_max_abs_x_error_m=0.0107675, touchdown_max_abs_y_error_m=0.020823
+HIGH-SPEED-GOV pattern=running-trot cycle=10 v_cmd=1.24578 v_meas=1.20374 period=0.179253 duty=0.474066 step=0.235527
+Trot cycle 10 started v_cmd=1.20578 v_meas=1.20374 period=0.181653 step=0.229564 duty=0.477066
+STEPK cycle=11 step=0.235527
+Trot cycle 10 health: roll=1.52724 deg, pitch=2.18607 deg, support_drift=8.61669 mm, q_error=0.419334 rad, foot_error=0.0877725 m, tau_est=37.7715, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.637363, touchdown_events=4, touchdown_max_abs_x_error_m=0.0140911, touchdown_max_abs_y_error_m=0.0165308
+HIGH-SPEED-GOV pattern=running-trot cycle=11 v_cmd=1.28578 v_meas=1.3285 period=0.176853 duty=0.471066 step=0.241362
+Trot cycle 11 started v_cmd=1.24578 v_meas=1.3285 period=0.179253 step=0.235527 duty=0.474066
+STEPK cycle=12 step=0.241362
+Trot cycle 11 health: roll=1.93017 deg, pitch=2.48695 deg, support_drift=11.1121 mm, q_error=0.424728 rad, foot_error=0.0887423 m, tau_est=36.1437, tau_motor=RL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.640449, touchdown_events=4, touchdown_max_abs_x_error_m=0.0135699, touchdown_max_abs_y_error_m=0.0219417
+HIGH-SPEED-GOV pattern=running-trot cycle=12 v_cmd=1.32578 v_meas=1.37876 period=0.174453 duty=0.468066 step=0.247066
+Trot cycle 12 started v_cmd=1.28578 v_meas=1.37876 period=0.176853 step=0.241362 duty=0.471066
+STEPK cycle=13 step=0.247066
+Trot cycle 12 health: roll=2.02384 deg, pitch=1.48403 deg, support_drift=11.4062 mm, q_error=0.406234 rad, foot_error=0.0895985 m, tau_est=35.4738, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=15, support_contact_fraction=0.662921, touchdown_events=4, touchdown_max_abs_x_error_m=0.00533166, touchdown_max_abs_y_error_m=0.0156222
+HIGH-SPEED-GOV pattern=running-trot cycle=13 v_cmd=1.36578 v_meas=1.42958 period=0.172053 duty=0.465066 step=0.252638
+Trot cycle 13 started v_cmd=1.32578 v_meas=1.42958 period=0.174453 step=0.247066 duty=0.468066
+STEPK cycle=14 step=0.252638
+Trot cycle 13 health: roll=1.53363 deg, pitch=1.87753 deg, support_drift=10.6907 mm, q_error=0.383947 rad, foot_error=0.0854136 m, tau_est=35.1122, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.632184, touchdown_events=4, touchdown_max_abs_x_error_m=0.00744448, touchdown_max_abs_y_error_m=0.0159365
+HIGH-SPEED-GOV pattern=running-trot cycle=14 v_cmd=1.40578 v_meas=1.49698 period=0.169653 duty=0.462066 step=0.258075
+Trot cycle 14 started v_cmd=1.36578 v_meas=1.49698 period=0.172053 step=0.252638 duty=0.465066
+STEPK cycle=15 step=0.258075
+Trot cycle 14 health: roll=1.31275 deg, pitch=1.4255 deg, support_drift=10.186 mm, q_error=0.361627 rad, foot_error=0.0817569 m, tau_est=33.7017, tau_motor=FR_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.639535, touchdown_events=4, touchdown_max_abs_x_error_m=0.00952936, touchdown_max_abs_y_error_m=0.0154798
+HIGH-SPEED-GOV pattern=running-trot cycle=15 v_cmd=1.44578 v_meas=1.54485 period=0.167253 duty=0.459066 step=0.263373
+Trot cycle 15 started v_cmd=1.40578 v_meas=1.54485 period=0.169653 step=0.258075 duty=0.462066
+STEPK cycle=16 step=0.263373
+Trot cycle 15 health: roll=1.48309 deg, pitch=1.6294 deg, support_drift=9.54581 mm, q_error=0.347285 rad, foot_error=0.0810973 m, tau_est=33.3059, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.623529, touchdown_events=4, touchdown_max_abs_x_error_m=0.00961656, touchdown_max_abs_y_error_m=0.0132521
+HIGH-SPEED-GOV pattern=running-trot cycle=16 v_cmd=1.48578 v_meas=1.59772 period=0.164853 duty=0.456066 step=0.268531
+Trot cycle 16 started v_cmd=1.44578 v_meas=1.59772 period=0.167253 step=0.263373 duty=0.459066
+STEPK cycle=17 step=0.268531
+Trot cycle 16 health: roll=1.14265 deg, pitch=1.57682 deg, support_drift=8.45546 mm, q_error=0.333339 rad, foot_error=0.0792721 m, tau_est=33.1154, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.595238, touchdown_events=4, touchdown_max_abs_x_error_m=0.00916411, touchdown_max_abs_y_error_m=0.0151547
+HIGH-SPEED-GOV pattern=running-trot cycle=17 v_cmd=1.52578 v_meas=1.64997 period=0.162453 duty=0.453066 step=0.273545
+Trot cycle 17 started v_cmd=1.48578 v_meas=1.64997 period=0.164853 step=0.268531 duty=0.456066
+STEPK cycle=18 step=0.273545
+Trot cycle 17 health: roll=1.26957 deg, pitch=1.37857 deg, support_drift=10.2089 mm, q_error=0.341075 rad, foot_error=0.0810015 m, tau_est=34.288, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.621951, touchdown_events=4, touchdown_max_abs_x_error_m=0.00949721, touchdown_max_abs_y_error_m=0.0150659
+HIGH-SPEED-GOV pattern=running-trot cycle=18 v_cmd=1.56578 v_meas=1.7009 period=0.160053 duty=0.450066 step=0.278413
+Trot cycle 18 started v_cmd=1.52578 v_meas=1.7009 period=0.162453 step=0.273545 duty=0.453066
+STEPK cycle=19 step=0.278413
+Trot cycle 18 health: roll=1.38463 deg, pitch=1.54005 deg, support_drift=11.7592 mm, q_error=0.350526 rad, foot_error=0.0834176 m, tau_est=35.9801, tau_motor=RL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.604938, touchdown_events=4, touchdown_max_abs_x_error_m=0.00878281, touchdown_max_abs_y_error_m=0.0156792
+HIGH-SPEED-GOV pattern=running-trot cycle=19 v_cmd=1.60578 v_meas=1.75555 period=0.157653 duty=0.447066 step=0.283131
+Trot cycle 19 started v_cmd=1.56578 v_meas=1.75555 period=0.160053 step=0.278413 duty=0.450066
+STEPK cycle=20 step=0.283131
+Trot cycle 19 health: roll=1.26603 deg, pitch=1.41349 deg, support_drift=10.0208 mm, q_error=0.356964 rad, foot_error=0.0862167 m, tau_est=37.5191, tau_motor=RL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.5875, touchdown_events=4, touchdown_max_abs_x_error_m=0.00796503, touchdown_max_abs_y_error_m=0.015771
+HIGH-SPEED-GOV pattern=running-trot cycle=20 v_cmd=1.64578 v_meas=1.80722 period=0.155253 duty=0.444066 step=0.287697
+Trot cycle 20 started v_cmd=1.60578 v_meas=1.80722 period=0.157653 step=0.283131 duty=0.447066
+STEPK cycle=21 step=0.287697
+Trot cycle 20 health: roll=1.40671 deg, pitch=1.47872 deg, support_drift=9.58892 mm, q_error=0.368263 rad, foot_error=0.0877447 m, tau_est=39.3187, tau_motor=RL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.582278, touchdown_events=4, touchdown_max_abs_x_error_m=0.0063653, touchdown_max_abs_y_error_m=0.0158364
+HIGH-SPEED-GOV pattern=running-trot cycle=21 v_cmd=1.68578 v_meas=1.86191 period=0.152853 duty=0.441066 step=0.292107
+Trot cycle 21 started v_cmd=1.64578 v_meas=1.86191 period=0.155253 step=0.287697 duty=0.444066
+STEPK cycle=22 step=0.292107
+Trot cycle 21 health: roll=1.25238 deg, pitch=1.4126 deg, support_drift=14.6176 mm, q_error=0.379685 rad, foot_error=0.0904337 m, tau_est=40, tau_motor=RL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.615385, touchdown_events=4, touchdown_max_abs_x_error_m=0.00681253, touchdown_max_abs_y_error_m=0.0146584
+HIGH-SPEED-GOV pattern=running-trot cycle=22 v_cmd=1.72578 v_meas=1.90832 period=0.150453 duty=0.44 step=0.295056
+Trot cycle 22 started v_cmd=1.68578 v_meas=1.90832 period=0.152853 step=0.292107 duty=0.441066
+STEPK cycle=23 step=0.295056
+Trot cycle 22 health: roll=1.12187 deg, pitch=1.66433 deg, support_drift=14.8065 mm, q_error=0.390883 rad, foot_error=0.0909169 m, tau_est=40, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.552632, touchdown_events=4, touchdown_max_abs_x_error_m=0.00489063, touchdown_max_abs_y_error_m=0.0162666
+HIGH-SPEED-GOV pattern=running-trot cycle=23 v_cmd=1.76578 v_meas=1.96486 period=0.148053 duty=0.44 step=0.297079
+Trot cycle 23 started v_cmd=1.72578 v_meas=1.96486 period=0.150453 step=0.295056 duty=0.44
+STEPK cycle=24 step=0.297079
+Trot cycle 23 health: roll=1.07288 deg, pitch=1.41772 deg, support_drift=10.9863 mm, q_error=0.405243 rad, foot_error=0.0950345 m, tau_est=40, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.586667, touchdown_events=4, touchdown_max_abs_x_error_m=0.00544699, touchdown_max_abs_y_error_m=0.0156888
+HIGH-SPEED-GOV pattern=running-trot cycle=24 v_cmd=1.80578 v_meas=2.00767 period=0.145653 duty=0.44 step=0.298884
+Trot cycle 24 started v_cmd=1.76578 v_meas=2.00767 period=0.148053 step=0.297079 duty=0.44
+STEPK cycle=25 step=0.298884
+Trot cycle 24 health: roll=1.27489 deg, pitch=1.70763 deg, support_drift=12.4834 mm, q_error=0.419821 rad, foot_error=0.0970183 m, tau_est=40, tau_motor=FL_thigh, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.581081, touchdown_events=4, touchdown_max_abs_x_error_m=0.00690358, touchdown_max_abs_y_error_m=0.0138962
+HIGH-SPEED-GOV pattern=running-trot cycle=25 v_cmd=1.84578 v_meas=2.0626 period=0.143253 duty=0.44 step=0.30047
+Trot cycle 25 started v_cmd=1.80578 v_meas=2.0626 period=0.145653 step=0.298884 duty=0.44
+STEPK cycle=26 step=0.30047
+Trot cycle 25 health: roll=1.4099 deg, pitch=1.52321 deg, support_drift=14.1176 mm, q_error=0.433396 rad, foot_error=0.0984699 m, tau_est=42.3657, tau_motor=RL_calf, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.534247, touchdown_events=4, touchdown_max_abs_x_error_m=0.00828719, touchdown_max_abs_y_error_m=0.0171682
+HIGH-SPEED-GOV pattern=running-trot cycle=26 v_cmd=1.88578 v_meas=2.11489 period=0.140853 duty=0.44 step=0.301839
+Trot cycle 26 started v_cmd=1.84578 v_meas=2.11489 period=0.143253 step=0.30047 duty=0.44
+STEPK cycle=27 step=0.301839
+Trot cycle 26 health: roll=1.02227 deg, pitch=1.04095 deg, support_drift=18.1778 mm, q_error=0.451193 rad, foot_error=0.103446 m, tau_est=44.0949, tau_motor=FR_calf, tau_over_samples=0, tau_over_max_consecutive=0, min_support_contacts=0, max_low_support_samples=17, support_contact_fraction=0.611111, touchdown_events=4, touchdown_max_abs_x_error_m=0.00816048, touchdown_max_abs_y_error_m=0.0133126
+HIGH-SPEED-GOV pattern=running-trot cycle=27 v_cmd=1.92578 v_meas=2.14821 period=0.14 duty=0.44 step=0.306375
+Trot cycle 27 started v_cmd=1.88578 v_meas=2.14821 period=0.140853 step=0.301839 duty=0.44
+STEPK cycle=28 step=0.306375
+Trot cycle 27 health: roll=1.28361 deg, pitch=1.70418 deg, support_drift=18.6001 mm, q_error=0.455768 rad, foot_error=0.102545 m, tau_est=45.2703, tau_motor=FL_calf, tau_over_samples=1, tau_over_max_consecutive=1, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.557143, touchdown_events=4, touchdown_max_abs_x_error_m=0.00930041, touchdown_max_abs_y_error_m=0.0152469
+HIGH-SPEED-GOV pattern=running-trot cycle=28 v_cmd=1.96578 v_meas=2.20588 period=0.14 duty=0.44 step=0.312738
+Trot cycle 28 started v_cmd=1.92578 v_meas=2.20588 period=0.14 step=0.306375 duty=0.44
+STEPK cycle=29 step=0.312738
+Trot cycle 28 health: roll=0.960327 deg, pitch=1.34046 deg, support_drift=19.7374 mm, q_error=0.474893 rad, foot_error=0.106288 m, tau_est=45.43, tau_motor=FR_calf, tau_over_samples=2, tau_over_max_consecutive=1, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.6, touchdown_events=4, touchdown_max_abs_x_error_m=0.0101151, touchdown_max_abs_y_error_m=0.0160906
+HIGH-SPEED-GOV pattern=running-trot cycle=29 v_cmd=2.00578 v_meas=2.2487 period=0.14 duty=0.44 step=0.319102
+Trot cycle 29 started v_cmd=1.96578 v_meas=2.2487 period=0.14 step=0.312738 duty=0.44
+STEPK cycle=30 step=0.319102
+Trot cycle 29 health: roll=1.06584 deg, pitch=1.53963 deg, support_drift=19.7162 mm, q_error=0.480045 rad, foot_error=0.107368 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=2, tau_over_max_consecutive=1, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.557143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0112722, touchdown_max_abs_y_error_m=0.0154664
+HIGH-SPEED-GOV pattern=running-trot cycle=30 v_cmd=2.04578 v_meas=2.30798 period=0.14 duty=0.44 step=0.325466
+Trot cycle 30 started v_cmd=2.00578 v_meas=2.30798 period=0.14 step=0.319102 duty=0.44
+STEPK cycle=31 step=0.325466
+Trot cycle 30 health: roll=0.948911 deg, pitch=1.16844 deg, support_drift=21.2951 mm, q_error=0.49398 rad, foot_error=0.110855 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=2, tau_over_max_consecutive=1, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.585714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0124106, touchdown_max_abs_y_error_m=0.0160337
+HIGH-SPEED-GOV pattern=running-trot cycle=31 v_cmd=2.08578 v_meas=2.35134 period=0.14 duty=0.44 step=0.331829
+Trot cycle 31 started v_cmd=2.04578 v_meas=2.35134 period=0.14 step=0.325466 duty=0.44
+STEPK cycle=32 step=0.331829
+Trot cycle 31 health: roll=0.965409 deg, pitch=1.46424 deg, support_drift=14.736 mm, q_error=0.50216 rad, foot_error=0.112183 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=2, tau_over_max_consecutive=1, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.557143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0109118, touchdown_max_abs_y_error_m=0.0157766
+HIGH-SPEED-GOV pattern=running-trot cycle=32 v_cmd=2.12578 v_meas=2.40765 period=0.14 duty=0.44 step=0.338193
+Trot cycle 32 started v_cmd=2.08578 v_meas=2.40765 period=0.14 step=0.331829 duty=0.44
+STEPK cycle=33 step=0.338193
+Trot cycle 32 health: roll=1.03791 deg, pitch=1.09614 deg, support_drift=16.7949 mm, q_error=0.51188 rad, foot_error=0.114929 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=2, tau_over_max_consecutive=1, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.571429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0114804, touchdown_max_abs_y_error_m=0.0181445
+HIGH-SPEED-GOV pattern=running-trot cycle=33 v_cmd=2.16578 v_meas=2.45296 period=0.14 duty=0.44 step=0.344557
+Trot cycle 33 started v_cmd=2.12578 v_meas=2.45296 period=0.14 step=0.338193 duty=0.44
+STEPK cycle=34 step=0.344557
+Trot cycle 33 health: roll=0.701883 deg, pitch=1.25591 deg, support_drift=16.1286 mm, q_error=0.527672 rad, foot_error=0.118128 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=2, tau_over_max_consecutive=1, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.571429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0123544, touchdown_max_abs_y_error_m=0.0163717
+HIGH-SPEED-GOV pattern=running-trot cycle=34 v_cmd=2.20578 v_meas=2.50364 period=0.14 duty=0.44 step=0.35092
+Trot cycle 34 started v_cmd=2.16578 v_meas=2.50364 period=0.14 step=0.344557 duty=0.44
+STEPK cycle=35 step=0.35092
+Trot cycle 34 health: roll=0.943491 deg, pitch=1.26155 deg, support_drift=18.2084 mm, q_error=0.531723 rad, foot_error=0.119021 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=2, tau_over_max_consecutive=1, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.557143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0131322, touchdown_max_abs_y_error_m=0.0179335
+HIGH-SPEED-GOV pattern=running-trot cycle=35 v_cmd=2.24578 v_meas=2.55266 period=0.14 duty=0.44 step=0.357284
+Trot cycle 35 started v_cmd=2.20578 v_meas=2.55266 period=0.14 step=0.35092 duty=0.44
+STEPK cycle=36 step=0.357284
+Trot cycle 35 health: roll=0.69446 deg, pitch=1.1029 deg, support_drift=19.4661 mm, q_error=0.543315 rad, foot_error=0.120786 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=3, tau_over_max_consecutive=1, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.571429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0112267, touchdown_max_abs_y_error_m=0.0166847
+HIGH-SPEED-GOV pattern=running-trot cycle=36 v_cmd=2.28578 v_meas=2.59997 period=0.14 duty=0.44 step=0.363647
+Trot cycle 36 started v_cmd=2.24578 v_meas=2.59997 period=0.14 step=0.357284 duty=0.44
+STEPK cycle=37 step=0.363647
+Trot cycle 36 health: roll=1.00436 deg, pitch=1.22169 deg, support_drift=19.8788 mm, q_error=0.551511 rad, foot_error=0.123002 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=2, tau_over_max_consecutive=1, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.542857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0118158, touchdown_max_abs_y_error_m=0.019377
+HIGH-SPEED-GOV pattern=running-trot cycle=37 v_cmd=2.32578 v_meas=2.65209 period=0.14 duty=0.44 step=0.370011
+Trot cycle 37 started v_cmd=2.28578 v_meas=2.65209 period=0.14 step=0.363647 duty=0.44
+STEPK cycle=38 step=0.370011
+Trot cycle 37 health: roll=0.41114 deg, pitch=0.935344 deg, support_drift=20.6932 mm, q_error=0.569999 rad, foot_error=0.125889 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=3, tau_over_max_consecutive=1, min_support_contacts=0, max_low_support_samples=16, support_contact_fraction=0.6, touchdown_events=4, touchdown_max_abs_x_error_m=0.0147216, touchdown_max_abs_y_error_m=0.0124747
+HIGH-SPEED-GOV pattern=running-trot cycle=38 v_cmd=2.36578 v_meas=2.69712 period=0.14 duty=0.44 step=0.376375
+Trot cycle 38 started v_cmd=2.32578 v_meas=2.69712 period=0.14 step=0.370011 duty=0.44
+STEPK cycle=39 step=0.376375
+Trot cycle 38 health: roll=1.4987 deg, pitch=1.4168 deg, support_drift=15.6802 mm, q_error=0.569962 rad, foot_error=0.127293 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=2, tau_over_max_consecutive=1, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.514286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0130138, touchdown_max_abs_y_error_m=0.0204614
+HIGH-SPEED-GOV pattern=running-trot cycle=39 v_cmd=2.40578 v_meas=2.7561 period=0.14 duty=0.44 step=0.382738
+Trot cycle 39 started v_cmd=2.36578 v_meas=2.7561 period=0.14 step=0.376375 duty=0.44
+STEPK cycle=40 step=0.382738
+Trot cycle 39 health: roll=0.569784 deg, pitch=0.560756 deg, support_drift=17.9576 mm, q_error=0.591146 rad, foot_error=0.129222 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=3, tau_over_max_consecutive=1, min_support_contacts=0, max_low_support_samples=17, support_contact_fraction=0.6, touchdown_events=4, touchdown_max_abs_x_error_m=0.0144846, touchdown_max_abs_y_error_m=0.0157914
+HIGH-SPEED-GOV pattern=running-trot cycle=40 v_cmd=2.44578 v_meas=2.77741 period=0.14 duty=0.44 step=0.389102
+Trot cycle 40 started v_cmd=2.40578 v_meas=2.77741 period=0.14 step=0.382738 duty=0.44
+STEPK cycle=41 step=0.389102
+Trot cycle 40 health: roll=1.14962 deg, pitch=1.46458 deg, support_drift=21.9489 mm, q_error=0.59378 rad, foot_error=0.131739 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.514286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0156972, touchdown_max_abs_y_error_m=0.0204045
+HIGH-SPEED-GOV pattern=running-trot cycle=41 v_cmd=2.48578 v_meas=2.83481 period=0.14 duty=0.44 step=0.395466
+Trot cycle 41 started v_cmd=2.44578 v_meas=2.83481 period=0.14 step=0.389102 duty=0.44
+STEPK cycle=42 step=0.395466
+Trot cycle 41 health: roll=0.735455 deg, pitch=0.880034 deg, support_drift=19.1772 mm, q_error=0.600628 rad, foot_error=0.131817 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.542857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0195391, touchdown_max_abs_y_error_m=0.0212763
+HIGH-SPEED-GOV pattern=running-trot cycle=42 v_cmd=2.52578 v_meas=2.88115 period=0.14 duty=0.44 step=0.401829
+Trot cycle 42 started v_cmd=2.48578 v_meas=2.88115 period=0.14 step=0.395466 duty=0.44
+STEPK cycle=43 step=0.401829
+Trot cycle 42 health: roll=1.04449 deg, pitch=1.11614 deg, support_drift=22.8992 mm, q_error=0.601938 rad, foot_error=0.133639 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.528571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0163645, touchdown_max_abs_y_error_m=0.0196002
+HIGH-SPEED-GOV pattern=running-trot cycle=43 v_cmd=2.56578 v_meas=2.93293 period=0.14 duty=0.44 step=0.408193
+Trot cycle 43 started v_cmd=2.52578 v_meas=2.93293 period=0.14 step=0.401829 duty=0.44
+STEPK cycle=44 step=0.408193
+Trot cycle 43 health: roll=0.985962 deg, pitch=1.00504 deg, support_drift=22.3054 mm, q_error=0.627825 rad, foot_error=0.136197 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.542857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0133368, touchdown_max_abs_y_error_m=0.020215
+HIGH-SPEED-GOV pattern=running-trot cycle=44 v_cmd=2.60578 v_meas=2.98468 period=0.14 duty=0.44 step=0.414557
+Trot cycle 44 started v_cmd=2.56578 v_meas=2.98468 period=0.14 step=0.408193 duty=0.44
+STEPK cycle=45 step=0.414557
+Trot cycle 44 health: roll=0.786259 deg, pitch=1.05523 deg, support_drift=20.0323 mm, q_error=0.630788 rad, foot_error=0.139005 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.528571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0121778, touchdown_max_abs_y_error_m=0.0189602
+HIGH-SPEED-GOV pattern=running-trot cycle=45 v_cmd=2.64578 v_meas=3.03581 period=0.14 duty=0.44 step=0.42092
+Trot cycle 45 started v_cmd=2.60578 v_meas=3.03581 period=0.14 step=0.414557 duty=0.44
+STEPK cycle=46 step=0.42092
+Trot cycle 45 health: roll=0.724557 deg, pitch=0.799029 deg, support_drift=15.0697 mm, q_error=0.648884 rad, foot_error=0.140605 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.528571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0131554, touchdown_max_abs_y_error_m=0.0225238
+HIGH-SPEED-GOV pattern=running-trot cycle=46 v_cmd=2.68578 v_meas=3.0724 period=0.14 duty=0.44 step=0.427284
+Trot cycle 46 started v_cmd=2.64578 v_meas=3.0724 period=0.14 step=0.42092 duty=0.44
+STEPK cycle=47 step=0.427284
+Trot cycle 46 health: roll=0.964449 deg, pitch=1.1792 deg, support_drift=17.209 mm, q_error=0.64583 rad, foot_error=0.142449 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.514286, touchdown_events=4, touchdown_max_abs_x_error_m=0.016092, touchdown_max_abs_y_error_m=0.0208277
+HIGH-SPEED-GOV pattern=running-trot cycle=47 v_cmd=2.72578 v_meas=3.13382 period=0.14 duty=0.44 step=0.433647
+Trot cycle 47 started v_cmd=2.68578 v_meas=3.13382 period=0.14 step=0.427284 duty=0.44
+STEPK cycle=48 step=0.433647
+Trot cycle 47 health: roll=1.34906 deg, pitch=1.09873 deg, support_drift=16.738 mm, q_error=0.659906 rad, foot_error=0.143954 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.5, touchdown_events=4, touchdown_max_abs_x_error_m=0.0138479, touchdown_max_abs_y_error_m=0.0237223
+HIGH-SPEED-GOV pattern=running-trot cycle=48 v_cmd=2.76578 v_meas=3.18615 period=0.14 duty=0.44 step=0.440011
+Trot cycle 48 started v_cmd=2.72578 v_meas=3.18615 period=0.14 step=0.433647 duty=0.44
+STEPK cycle=49 step=0.440011
+Trot cycle 48 health: roll=0.324014 deg, pitch=0.831453 deg, support_drift=15.6037 mm, q_error=0.67832 rad, foot_error=0.145534 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.557143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0155039, touchdown_max_abs_y_error_m=0.0180541
+HIGH-SPEED-GOV pattern=running-trot cycle=49 v_cmd=2.80578 v_meas=3.23327 period=0.14 duty=0.44 step=0.446375
+Trot cycle 49 started v_cmd=2.76578 v_meas=3.23327 period=0.14 step=0.440011 duty=0.44
+STEPK cycle=50 step=0.446375
+Trot cycle 49 health: roll=1.65911 deg, pitch=1.34619 deg, support_drift=16.0359 mm, q_error=0.673834 rad, foot_error=0.147142 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0148977, touchdown_max_abs_y_error_m=0.0227448
+HIGH-SPEED-GOV pattern=running-trot cycle=50 v_cmd=2.84578 v_meas=3.29467 period=0.14 duty=0.44 step=0.452738
+Trot cycle 50 started v_cmd=2.80578 v_meas=3.29467 period=0.14 step=0.446375 duty=0.44
+STEPK cycle=51 step=0.452738
+Trot cycle 50 health: roll=0.901283 deg, pitch=1.12166 deg, support_drift=23.212 mm, q_error=0.720439 rad, foot_error=0.154196 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.514286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0190296, touchdown_max_abs_y_error_m=0.0160556
+HIGH-SPEED-GOV pattern=running-trot cycle=51 v_cmd=2.88578 v_meas=3.28724 period=0.14 duty=0.44 step=0.459102
+Trot cycle 51 started v_cmd=2.84578 v_meas=3.28724 period=0.14 step=0.452738 duty=0.44
+STEPK cycle=52 step=0.459102
+Trot cycle 51 health: roll=1.1706 deg, pitch=1.27045 deg, support_drift=17.6232 mm, q_error=0.69599 rad, foot_error=0.150159 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0140095, touchdown_max_abs_y_error_m=0.0236575
+HIGH-SPEED-GOV pattern=running-trot cycle=52 v_cmd=2.92578 v_meas=3.34554 period=0.14 duty=0.44 step=0.465466
+Trot cycle 52 started v_cmd=2.88578 v_meas=3.34554 period=0.14 step=0.459102 duty=0.44
+STEPK cycle=53 step=0.465466
+Trot cycle 52 health: roll=0.880246 deg, pitch=0.850558 deg, support_drift=21.2129 mm, q_error=0.730089 rad, foot_error=0.156176 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0152088, touchdown_max_abs_y_error_m=0.0222966
+HIGH-SPEED-GOV pattern=running-trot cycle=53 v_cmd=2.96578 v_meas=3.38428 period=0.14 duty=0.44 step=0.471829
+Trot cycle 53 started v_cmd=2.92578 v_meas=3.38428 period=0.14 step=0.465466 duty=0.44
+STEPK cycle=54 step=0.471829
+Trot cycle 53 health: roll=1.62489 deg, pitch=1.32717 deg, support_drift=21.6108 mm, q_error=0.723781 rad, foot_error=0.156072 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0107396, touchdown_max_abs_y_error_m=0.0238068
+HIGH-SPEED-GOV pattern=running-trot cycle=54 v_cmd=3 v_meas=3.47049 period=0.14 duty=0.44 step=0.477273
+Trot cycle 54 started v_cmd=2.96578 v_meas=3.47049 period=0.14 step=0.471829 duty=0.44
+STEPK cycle=55 step=0.477273
+Trot cycle 54 health: roll=1.00138 deg, pitch=1.12183 deg, support_drift=28.585 mm, q_error=0.75992 rad, foot_error=0.161836 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.514286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0168124, touchdown_max_abs_y_error_m=0.0194386
+HIGH-SPEED-GOV pattern=running-trot cycle=55 v_cmd=3 v_meas=3.50414 period=0.14 duty=0.44 step=0.477273
+Trot cycle 55 started v_cmd=3 v_meas=3.50414 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=56 step=0.477273
+Trot cycle 55 health: roll=1.03551 deg, pitch=1.42651 deg, support_drift=18.682 mm, q_error=0.750071 rad, foot_error=0.16091 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=9, tau_over_max_consecutive=3, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0105479, touchdown_max_abs_y_error_m=0.0257812
+HIGH-SPEED-GOV pattern=running-trot cycle=56 v_cmd=3 v_meas=3.57721 period=0.14 duty=0.44 step=0.477273
+Trot cycle 56 started v_cmd=3 v_meas=3.57721 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=57 step=0.477273
+Trot cycle 56 health: roll=1.5114 deg, pitch=1.04933 deg, support_drift=29.5609 mm, q_error=0.755271 rad, foot_error=0.164837 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0156906, touchdown_max_abs_y_error_m=0.0258578
+HIGH-SPEED-GOV pattern=running-trot cycle=57 v_cmd=3 v_meas=3.59725 period=0.14 duty=0.44 step=0.477273
+Trot cycle 57 started v_cmd=3 v_meas=3.59725 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=58 step=0.477273
+Trot cycle 57 health: roll=1.54935 deg, pitch=0.938818 deg, support_drift=28.9997 mm, q_error=0.747733 rad, foot_error=0.164094 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0199707, touchdown_max_abs_y_error_m=0.0258556
+HIGH-SPEED-GOV pattern=running-trot cycle=58 v_cmd=3 v_meas=3.61871 period=0.14 duty=0.44 step=0.477273
+Trot cycle 58 started v_cmd=3 v_meas=3.61871 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=59 step=0.477273
+Trot cycle 58 health: roll=1.0591 deg, pitch=1.03811 deg, support_drift=19.3963 mm, q_error=0.72073 rad, foot_error=0.158343 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=26, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0208703, touchdown_max_abs_y_error_m=0.0281694
+HIGH-SPEED-GOV pattern=running-trot cycle=59 v_cmd=3 v_meas=3.63795 period=0.14 duty=0.44 step=0.477273
+Trot cycle 59 started v_cmd=3 v_meas=3.63795 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=60 step=0.477273
+Trot cycle 59 health: roll=0.981434 deg, pitch=0.84688 deg, support_drift=24.9696 mm, q_error=0.723482 rad, foot_error=0.158742 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0127228, touchdown_max_abs_y_error_m=0.0255452
+HIGH-SPEED-GOV pattern=running-trot cycle=60 v_cmd=3 v_meas=3.6349 period=0.14 duty=0.44 step=0.477273
+Trot cycle 60 started v_cmd=3 v_meas=3.6349 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=61 step=0.477273
+Trot cycle 60 health: roll=1.20639 deg, pitch=0.774923 deg, support_drift=23.6217 mm, q_error=0.731331 rad, foot_error=0.159252 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0138587, touchdown_max_abs_y_error_m=0.0263022
+HIGH-SPEED-GOV pattern=running-trot cycle=61 v_cmd=3 v_meas=3.62725 period=0.14 duty=0.44 step=0.477273
+Trot cycle 61 started v_cmd=3 v_meas=3.62725 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=62 step=0.477273
+Trot cycle 61 health: roll=1.52865 deg, pitch=0.846522 deg, support_drift=28.2433 mm, q_error=0.733187 rad, foot_error=0.160865 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0162293, touchdown_max_abs_y_error_m=0.0252082
+HIGH-SPEED-GOV pattern=running-trot cycle=62 v_cmd=3 v_meas=3.61694 period=0.14 duty=0.44 step=0.477273
+Trot cycle 62 started v_cmd=3 v_meas=3.61694 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=63 step=0.477273
+Trot cycle 62 health: roll=1.03559 deg, pitch=0.863888 deg, support_drift=23.5832 mm, q_error=0.729905 rad, foot_error=0.158268 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0145744, touchdown_max_abs_y_error_m=0.0257353
+HIGH-SPEED-GOV pattern=running-trot cycle=63 v_cmd=3 v_meas=3.60946 period=0.14 duty=0.44 step=0.477273
+Trot cycle 63 started v_cmd=3 v_meas=3.60946 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=64 step=0.477273
+Trot cycle 63 health: roll=0.998171 deg, pitch=1.22929 deg, support_drift=25.5434 mm, q_error=0.731907 rad, foot_error=0.15874 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.00858625, touchdown_max_abs_y_error_m=0.0255893
+HIGH-SPEED-GOV pattern=running-trot cycle=64 v_cmd=3 v_meas=3.61921 period=0.14 duty=0.44 step=0.477273
+Trot cycle 64 started v_cmd=3 v_meas=3.61921 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=65 step=0.477273
+Trot cycle 64 health: roll=1.35236 deg, pitch=1.29073 deg, support_drift=27.6692 mm, q_error=0.734929 rad, foot_error=0.161996 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0160626, touchdown_max_abs_y_error_m=0.0262741
+HIGH-SPEED-GOV pattern=running-trot cycle=65 v_cmd=3 v_meas=3.58825 period=0.14 duty=0.44 step=0.477273
+Trot cycle 65 started v_cmd=3 v_meas=3.58825 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=66 step=0.477273
+Trot cycle 65 health: roll=0.798418 deg, pitch=0.798289 deg, support_drift=23.5376 mm, q_error=0.729361 rad, foot_error=0.15916 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.00904098, touchdown_max_abs_y_error_m=0.0238041
+HIGH-SPEED-GOV pattern=running-trot cycle=66 v_cmd=3 v_meas=3.59215 period=0.14 duty=0.44 step=0.477273
+Trot cycle 66 started v_cmd=3 v_meas=3.59215 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=67 step=0.477273
+Trot cycle 66 health: roll=1.55876 deg, pitch=1.30948 deg, support_drift=20.3817 mm, q_error=0.725491 rad, foot_error=0.159687 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.385714, touchdown_events=4, touchdown_max_abs_x_error_m=0.017841, touchdown_max_abs_y_error_m=0.0251779
+HIGH-SPEED-GOV pattern=running-trot cycle=67 v_cmd=3 v_meas=3.61165 period=0.14 duty=0.44 step=0.477273
+Trot cycle 67 started v_cmd=3 v_meas=3.61165 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=68 step=0.477273
+Trot cycle 67 health: roll=1.26499 deg, pitch=1.15067 deg, support_drift=27.3879 mm, q_error=0.742899 rad, foot_error=0.162727 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0111929, touchdown_max_abs_y_error_m=0.0248793
+HIGH-SPEED-GOV pattern=running-trot cycle=68 v_cmd=3 v_meas=3.59919 period=0.14 duty=0.44 step=0.477273
+Trot cycle 68 started v_cmd=3 v_meas=3.59919 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=69 step=0.477273
+Trot cycle 68 health: roll=0.744724 deg, pitch=1.05475 deg, support_drift=23.5445 mm, q_error=0.728127 rad, foot_error=0.160243 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.00569635, touchdown_max_abs_y_error_m=0.0246957
+HIGH-SPEED-GOV pattern=running-trot cycle=69 v_cmd=3 v_meas=3.61573 period=0.14 duty=0.44 step=0.477273
+Trot cycle 69 started v_cmd=3 v_meas=3.61573 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=70 step=0.477273
+Trot cycle 69 health: roll=1.72998 deg, pitch=1.17627 deg, support_drift=26.7406 mm, q_error=0.72957 rad, foot_error=0.160865 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0193523, touchdown_max_abs_y_error_m=0.0265962
+HIGH-SPEED-GOV pattern=running-trot cycle=70 v_cmd=3 v_meas=3.6089 period=0.14 duty=0.44 step=0.477273
+Trot cycle 70 started v_cmd=3 v_meas=3.6089 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=71 step=0.477273
+Trot cycle 70 health: roll=0.609744 deg, pitch=0.912135 deg, support_drift=22.0625 mm, q_error=0.739903 rad, foot_error=0.16153 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.00543173, touchdown_max_abs_y_error_m=0.0216093
+HIGH-SPEED-GOV pattern=running-trot cycle=71 v_cmd=3 v_meas=3.59044 period=0.14 duty=0.44 step=0.477273
+Trot cycle 71 started v_cmd=3 v_meas=3.59044 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=72 step=0.477273
+Trot cycle 71 health: roll=1.93324 deg, pitch=1.39418 deg, support_drift=26.5272 mm, q_error=0.723702 rad, foot_error=0.158575 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=28, support_contact_fraction=0.371429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0199153, touchdown_max_abs_y_error_m=0.025552
+HIGH-SPEED-GOV pattern=running-trot cycle=72 v_cmd=3 v_meas=3.61116 period=0.14 duty=0.44 step=0.477273
+Trot cycle 72 started v_cmd=3 v_meas=3.61116 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=73 step=0.477273
+Trot cycle 72 health: roll=0.910418 deg, pitch=1.51106 deg, support_drift=31.3344 mm, q_error=0.767058 rad, foot_error=0.166451 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0310598, touchdown_max_abs_y_error_m=0.0204701
+HIGH-SPEED-GOV pattern=running-trot cycle=73 v_cmd=3 v_meas=3.5398 period=0.14 duty=0.44 step=0.477273
+Trot cycle 73 started v_cmd=3 v_meas=3.5398 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=74 step=0.477273
+Trot cycle 73 health: roll=2.41271 deg, pitch=1.33051 deg, support_drift=26.1879 mm, q_error=0.729728 rad, foot_error=0.158608 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=29, support_contact_fraction=0.342857, touchdown_events=4, touchdown_max_abs_x_error_m=0.016524, touchdown_max_abs_y_error_m=0.0261145
+HIGH-SPEED-GOV pattern=running-trot cycle=74 v_cmd=3 v_meas=3.5588 period=0.14 duty=0.44 step=0.477273
+Trot cycle 74 started v_cmd=3 v_meas=3.5588 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=75 step=0.477273
+Trot cycle 74 health: roll=1.29082 deg, pitch=1.86762 deg, support_drift=47.0146 mm, q_error=0.790965 rad, foot_error=0.167383 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0417897, touchdown_max_abs_y_error_m=0.0183051
+HIGH-SPEED-GOV pattern=running-trot cycle=75 v_cmd=3 v_meas=3.48211 period=0.14 duty=0.44 step=0.477273
+Trot cycle 75 started v_cmd=3 v_meas=3.48211 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=76 step=0.477273
+Trot cycle 75 health: roll=1.41164 deg, pitch=1.091 deg, support_drift=24.5719 mm, q_error=0.73 rad, foot_error=0.157876 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.385714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0151748, touchdown_max_abs_y_error_m=0.0260473
+HIGH-SPEED-GOV pattern=running-trot cycle=76 v_cmd=3 v_meas=3.52261 period=0.14 duty=0.44 step=0.477273
+Trot cycle 76 started v_cmd=3 v_meas=3.52261 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=77 step=0.477273
+Trot cycle 76 health: roll=1.49987 deg, pitch=1.01771 deg, support_drift=23.2356 mm, q_error=0.76215 rad, foot_error=0.163365 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0138594, touchdown_max_abs_y_error_m=0.0242899
+HIGH-SPEED-GOV pattern=running-trot cycle=77 v_cmd=3 v_meas=3.55064 period=0.14 duty=0.44 step=0.477273
+Trot cycle 77 started v_cmd=3 v_meas=3.55064 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=78 step=0.477273
+Trot cycle 77 health: roll=1.55613 deg, pitch=1.04667 deg, support_drift=17.8527 mm, q_error=0.74605 rad, foot_error=0.16217 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0129832, touchdown_max_abs_y_error_m=0.026977
+HIGH-SPEED-GOV pattern=running-trot cycle=78 v_cmd=3 v_meas=3.60561 period=0.14 duty=0.44 step=0.477273
+Trot cycle 78 started v_cmd=3 v_meas=3.60561 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=79 step=0.477273
+Trot cycle 78 health: roll=1.58899 deg, pitch=0.95355 deg, support_drift=26.8427 mm, q_error=0.730227 rad, foot_error=0.160815 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0251301, touchdown_max_abs_y_error_m=0.0278743
+HIGH-SPEED-GOV pattern=running-trot cycle=79 v_cmd=3 v_meas=3.62852 period=0.14 duty=0.44 step=0.477273
+Trot cycle 79 started v_cmd=3 v_meas=3.62852 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=80 step=0.477273
+Trot cycle 79 health: roll=1.93474 deg, pitch=0.994415 deg, support_drift=29.415 mm, q_error=0.738242 rad, foot_error=0.159043 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0175715, touchdown_max_abs_y_error_m=0.0268608
+HIGH-SPEED-GOV pattern=running-trot cycle=80 v_cmd=3 v_meas=3.62373 period=0.14 duty=0.44 step=0.477273
+Trot cycle 80 started v_cmd=3 v_meas=3.62373 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=81 step=0.477273
+Trot cycle 80 health: roll=1.39665 deg, pitch=0.959222 deg, support_drift=22.1684 mm, q_error=0.745392 rad, foot_error=0.161228 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.00851299, touchdown_max_abs_y_error_m=0.0244249
+HIGH-SPEED-GOV pattern=running-trot cycle=81 v_cmd=3 v_meas=3.61716 period=0.14 duty=0.44 step=0.477273
+Trot cycle 81 started v_cmd=3 v_meas=3.61716 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=82 step=0.477273
+Trot cycle 81 health: roll=1.59463 deg, pitch=1.1725 deg, support_drift=27.1549 mm, q_error=0.733824 rad, foot_error=0.16151 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0202639, touchdown_max_abs_y_error_m=0.0264115
+HIGH-SPEED-GOV pattern=running-trot cycle=82 v_cmd=3 v_meas=3.60727 period=0.14 duty=0.44 step=0.477273
+Trot cycle 82 started v_cmd=3 v_meas=3.60727 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=83 step=0.477273
+Trot cycle 82 health: roll=0.738133 deg, pitch=0.755023 deg, support_drift=23.8796 mm, q_error=0.731256 rad, foot_error=0.159222 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.00882848, touchdown_max_abs_y_error_m=0.0246965
+HIGH-SPEED-GOV pattern=running-trot cycle=83 v_cmd=3 v_meas=3.60437 period=0.14 duty=0.44 step=0.477273
+Trot cycle 83 started v_cmd=3 v_meas=3.60437 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=84 step=0.477273
+Trot cycle 83 health: roll=1.21938 deg, pitch=1.08861 deg, support_drift=19.1469 mm, q_error=0.718456 rad, foot_error=0.157144 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0189317, touchdown_max_abs_y_error_m=0.0270976
+HIGH-SPEED-GOV pattern=running-trot cycle=84 v_cmd=3 v_meas=3.621 period=0.14 duty=0.44 step=0.477273
+Trot cycle 84 started v_cmd=3 v_meas=3.621 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=85 step=0.477273
+Trot cycle 84 health: roll=1.36985 deg, pitch=0.931534 deg, support_drift=19.9489 mm, q_error=0.743124 rad, foot_error=0.161428 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0215137, touchdown_max_abs_y_error_m=0.02418
+HIGH-SPEED-GOV pattern=running-trot cycle=85 v_cmd=3 v_meas=3.61397 period=0.14 duty=0.44 step=0.477273
+Trot cycle 85 started v_cmd=3 v_meas=3.61397 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=86 step=0.477273
+Trot cycle 85 health: roll=2.31006 deg, pitch=1.11117 deg, support_drift=27.3872 mm, q_error=0.72313 rad, foot_error=0.158517 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=27, support_contact_fraction=0.385714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0207565, touchdown_max_abs_y_error_m=0.0224435
+HIGH-SPEED-GOV pattern=running-trot cycle=86 v_cmd=3 v_meas=3.60087 period=0.14 duty=0.44 step=0.477273
+Trot cycle 86 started v_cmd=3 v_meas=3.60087 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=87 step=0.477273
+Trot cycle 86 health: roll=0.783469 deg, pitch=1.16443 deg, support_drift=20.8716 mm, q_error=0.760137 rad, foot_error=0.162647 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0161402, touchdown_max_abs_y_error_m=0.0213214
+HIGH-SPEED-GOV pattern=running-trot cycle=87 v_cmd=3 v_meas=3.58022 period=0.14 duty=0.44 step=0.477273
+Trot cycle 87 started v_cmd=3 v_meas=3.58022 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=88 step=0.477273
+Trot cycle 87 health: roll=1.83441 deg, pitch=1.26858 deg, support_drift=23.8474 mm, q_error=0.725535 rad, foot_error=0.156395 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=31, support_contact_fraction=0.357143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0228092, touchdown_max_abs_y_error_m=0.0237613
+HIGH-SPEED-GOV pattern=running-trot cycle=88 v_cmd=3 v_meas=3.5852 period=0.14 duty=0.44 step=0.477273
+Trot cycle 88 started v_cmd=3 v_meas=3.5852 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=89 step=0.477273
+Trot cycle 88 health: roll=1.47133 deg, pitch=2.26547 deg, support_drift=51.5982 mm, q_error=0.792298 rad, foot_error=0.168922 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0550748, touchdown_max_abs_y_error_m=0.0189484
+HIGH-SPEED-GOV pattern=running-trot cycle=89 v_cmd=3 v_meas=3.51271 period=0.14 duty=0.44 step=0.477273
+Trot cycle 89 started v_cmd=3 v_meas=3.51271 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=90 step=0.477273
+Trot cycle 89 health: roll=1.69557 deg, pitch=1.68053 deg, support_drift=26.1801 mm, q_error=0.739524 rad, foot_error=0.159656 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=29, support_contact_fraction=0.385714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0203006, touchdown_max_abs_y_error_m=0.0245916
+HIGH-SPEED-GOV pattern=running-trot cycle=90 v_cmd=3 v_meas=3.49616 period=0.14 duty=0.44 step=0.477273
+Trot cycle 90 started v_cmd=3 v_meas=3.49616 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=91 step=0.477273
+Trot cycle 90 health: roll=1.1239 deg, pitch=1.22414 deg, support_drift=29.2412 mm, q_error=0.746599 rad, foot_error=0.159237 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=9, tau_over_max_consecutive=3, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0140253, touchdown_max_abs_y_error_m=0.0214601
+HIGH-SPEED-GOV pattern=running-trot cycle=91 v_cmd=3 v_meas=3.51662 period=0.14 duty=0.44 step=0.477273
+Trot cycle 91 started v_cmd=3 v_meas=3.51662 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=92 step=0.477273
+Trot cycle 91 health: roll=2.61536 deg, pitch=1.88294 deg, support_drift=21.4036 mm, q_error=0.747039 rad, foot_error=0.162553 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=26, support_contact_fraction=0.357143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0183109, touchdown_max_abs_y_error_m=0.0265592
+HIGH-SPEED-GOV pattern=running-trot cycle=92 v_cmd=3 v_meas=3.59779 period=0.14 duty=0.44 step=0.477273
+Trot cycle 92 started v_cmd=3 v_meas=3.59779 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=93 step=0.477273
+Trot cycle 92 health: roll=2.4211 deg, pitch=1.92474 deg, support_drift=33.1736 mm, q_error=0.778963 rad, foot_error=0.168472 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0295982, touchdown_max_abs_y_error_m=0.0190255
+HIGH-SPEED-GOV pattern=running-trot cycle=93 v_cmd=3 v_meas=3.53829 period=0.14 duty=0.44 step=0.477273
+Trot cycle 93 started v_cmd=3 v_meas=3.53829 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=94 step=0.477273
+Trot cycle 93 health: roll=1.53318 deg, pitch=1.19215 deg, support_drift=26.8309 mm, q_error=0.73256 rad, foot_error=0.159913 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=9, tau_over_max_consecutive=3, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.371429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0164486, touchdown_max_abs_y_error_m=0.0261396
+HIGH-SPEED-GOV pattern=running-trot cycle=94 v_cmd=3 v_meas=3.57692 period=0.14 duty=0.44 step=0.477273
+Trot cycle 94 started v_cmd=3 v_meas=3.57692 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=95 step=0.477273
+Trot cycle 94 health: roll=1.39814 deg, pitch=1.15603 deg, support_drift=29.1006 mm, q_error=0.734836 rad, foot_error=0.161423 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0183738, touchdown_max_abs_y_error_m=0.026632
+HIGH-SPEED-GOV pattern=running-trot cycle=95 v_cmd=3 v_meas=3.57292 period=0.14 duty=0.44 step=0.477273
+Trot cycle 95 started v_cmd=3 v_meas=3.57292 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=96 step=0.477273
+Trot cycle 95 health: roll=1.94768 deg, pitch=1.08093 deg, support_drift=29.4983 mm, q_error=0.734708 rad, foot_error=0.15985 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0146213, touchdown_max_abs_y_error_m=0.0260975
+HIGH-SPEED-GOV pattern=running-trot cycle=96 v_cmd=3 v_meas=3.60791 period=0.14 duty=0.44 step=0.477273
+Trot cycle 96 started v_cmd=3 v_meas=3.60791 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=97 step=0.477273
+Trot cycle 96 health: roll=1.38336 deg, pitch=1.02849 deg, support_drift=27.2645 mm, q_error=0.748211 rad, foot_error=0.163864 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.00959534, touchdown_max_abs_y_error_m=0.0259608
+HIGH-SPEED-GOV pattern=running-trot cycle=97 v_cmd=3 v_meas=3.60588 period=0.14 duty=0.44 step=0.477273
+Trot cycle 97 started v_cmd=3 v_meas=3.60588 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=98 step=0.477273
+Trot cycle 97 health: roll=0.807228 deg, pitch=0.812299 deg, support_drift=16.0452 mm, q_error=0.734963 rad, foot_error=0.158671 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.00992916, touchdown_max_abs_y_error_m=0.0264868
+HIGH-SPEED-GOV pattern=running-trot cycle=98 v_cmd=3 v_meas=3.61368 period=0.14 duty=0.44 step=0.477273
+Trot cycle 98 started v_cmd=3 v_meas=3.61368 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=99 step=0.477273
+Trot cycle 98 health: roll=1.24374 deg, pitch=1.12722 deg, support_drift=24.5429 mm, q_error=0.726491 rad, foot_error=0.160346 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0154903, touchdown_max_abs_y_error_m=0.0263143
+HIGH-SPEED-GOV pattern=running-trot cycle=99 v_cmd=3 v_meas=3.62969 period=0.14 duty=0.44 step=0.477273
+Trot cycle 99 started v_cmd=3 v_meas=3.62969 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=100 step=0.477273
+Trot cycle 99 health: roll=1.39741 deg, pitch=1.12367 deg, support_drift=28.0593 mm, q_error=0.734353 rad, foot_error=0.161705 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0133419, touchdown_max_abs_y_error_m=0.0260341
+HIGH-SPEED-GOV pattern=running-trot cycle=100 v_cmd=3 v_meas=3.61537 period=0.14 duty=0.44 step=0.477273
+Trot cycle 100 started v_cmd=3 v_meas=3.61537 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=101 step=0.477273
+Trot cycle 100 health: roll=1.20054 deg, pitch=0.785213 deg, support_drift=16.4313 mm, q_error=0.729913 rad, foot_error=0.1602 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.013422, touchdown_max_abs_y_error_m=0.0258591
+HIGH-SPEED-GOV pattern=running-trot cycle=101 v_cmd=3 v_meas=3.61954 period=0.14 duty=0.44 step=0.477273
+Trot cycle 101 started v_cmd=3 v_meas=3.61954 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=102 step=0.477273
+Trot cycle 101 health: roll=0.853598 deg, pitch=0.93911 deg, support_drift=26.2836 mm, q_error=0.726459 rad, foot_error=0.160659 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0136237, touchdown_max_abs_y_error_m=0.0258457
+HIGH-SPEED-GOV pattern=running-trot cycle=102 v_cmd=3 v_meas=3.61642 period=0.14 duty=0.44 step=0.477273
+Trot cycle 102 started v_cmd=3 v_meas=3.61642 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=103 step=0.477273
+Trot cycle 102 health: roll=1.09397 deg, pitch=0.847862 deg, support_drift=20.1633 mm, q_error=0.733623 rad, foot_error=0.160032 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0132832, touchdown_max_abs_y_error_m=0.0251974
+HIGH-SPEED-GOV pattern=running-trot cycle=103 v_cmd=3 v_meas=3.61156 period=0.14 duty=0.44 step=0.477273
+Trot cycle 103 started v_cmd=3 v_meas=3.61156 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=104 step=0.477273
+Trot cycle 103 health: roll=1.74321 deg, pitch=1.21927 deg, support_drift=26.5188 mm, q_error=0.73257 rad, foot_error=0.161872 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0184911, touchdown_max_abs_y_error_m=0.0247245
+HIGH-SPEED-GOV pattern=running-trot cycle=104 v_cmd=3 v_meas=3.62122 period=0.14 duty=0.44 step=0.477273
+Trot cycle 104 started v_cmd=3 v_meas=3.62122 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=105 step=0.477273
+Trot cycle 104 health: roll=1.08058 deg, pitch=1.14587 deg, support_drift=24.7007 mm, q_error=0.74702 rad, foot_error=0.163876 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.00614628, touchdown_max_abs_y_error_m=0.0233573
+HIGH-SPEED-GOV pattern=running-trot cycle=105 v_cmd=3 v_meas=3.59187 period=0.14 duty=0.44 step=0.477273
+Trot cycle 105 started v_cmd=3 v_meas=3.59187 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=106 step=0.477273
+Trot cycle 105 health: roll=0.529118 deg, pitch=0.946366 deg, support_drift=23.1923 mm, q_error=0.717225 rad, foot_error=0.156494 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0129569, touchdown_max_abs_y_error_m=0.026496
+HIGH-SPEED-GOV pattern=running-trot cycle=106 v_cmd=3 v_meas=3.5975 period=0.14 duty=0.44 step=0.477273
+Trot cycle 106 started v_cmd=3 v_meas=3.5975 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=107 step=0.477273
+Trot cycle 106 health: roll=1.33257 deg, pitch=1.21041 deg, support_drift=25.7575 mm, q_error=0.734945 rad, foot_error=0.16005 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.00806678, touchdown_max_abs_y_error_m=0.0245322
+HIGH-SPEED-GOV pattern=running-trot cycle=107 v_cmd=3 v_meas=3.61068 period=0.14 duty=0.44 step=0.477273
+Trot cycle 107 started v_cmd=3 v_meas=3.61068 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=108 step=0.477273
+Trot cycle 107 health: roll=1.85573 deg, pitch=1.24442 deg, support_drift=29.5956 mm, q_error=0.741338 rad, foot_error=0.163181 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0190874, touchdown_max_abs_y_error_m=0.02565
+HIGH-SPEED-GOV pattern=running-trot cycle=108 v_cmd=3 v_meas=3.60255 period=0.14 duty=0.44 step=0.477273
+Trot cycle 108 started v_cmd=3 v_meas=3.60255 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=109 step=0.477273
+Trot cycle 108 health: roll=0.767344 deg, pitch=0.896011 deg, support_drift=22.5515 mm, q_error=0.740671 rad, foot_error=0.159864 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0125945, touchdown_max_abs_y_error_m=0.0235869
+HIGH-SPEED-GOV pattern=running-trot cycle=109 v_cmd=3 v_meas=3.59851 period=0.14 duty=0.44 step=0.477273
+Trot cycle 109 started v_cmd=3 v_meas=3.59851 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=110 step=0.477273
+Trot cycle 109 health: roll=1.14871 deg, pitch=1.32393 deg, support_drift=20.9123 mm, q_error=0.729548 rad, foot_error=0.156909 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.385714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0183374, touchdown_max_abs_y_error_m=0.0256305
+HIGH-SPEED-GOV pattern=running-trot cycle=110 v_cmd=3 v_meas=3.60791 period=0.14 duty=0.44 step=0.477273
+Trot cycle 110 started v_cmd=3 v_meas=3.60791 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=111 step=0.477273
+Trot cycle 110 health: roll=1.63386 deg, pitch=1.12212 deg, support_drift=29.3495 mm, q_error=0.753023 rad, foot_error=0.163532 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0117048, touchdown_max_abs_y_error_m=0.0246089
+HIGH-SPEED-GOV pattern=running-trot cycle=111 v_cmd=3 v_meas=3.59767 period=0.14 duty=0.44 step=0.477273
+Trot cycle 111 started v_cmd=3 v_meas=3.59767 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=112 step=0.477273
+Trot cycle 111 health: roll=1.41576 deg, pitch=1.06604 deg, support_drift=22.2387 mm, q_error=0.739466 rad, foot_error=0.162334 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0175165, touchdown_max_abs_y_error_m=0.0265968
+HIGH-SPEED-GOV pattern=running-trot cycle=112 v_cmd=3 v_meas=3.59912 period=0.14 duty=0.44 step=0.477273
+Trot cycle 112 started v_cmd=3 v_meas=3.59912 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=113 step=0.477273
+Trot cycle 112 health: roll=0.724625 deg, pitch=0.908457 deg, support_drift=23.6522 mm, q_error=0.721295 rad, foot_error=0.158403 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0136108, touchdown_max_abs_y_error_m=0.0270859
+HIGH-SPEED-GOV pattern=running-trot cycle=113 v_cmd=3 v_meas=3.60806 period=0.14 duty=0.44 step=0.477273
+Trot cycle 113 started v_cmd=3 v_meas=3.60806 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=114 step=0.477273
+Trot cycle 113 health: roll=0.660771 deg, pitch=0.944832 deg, support_drift=25.8551 mm, q_error=0.720342 rad, foot_error=0.157106 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0104323, touchdown_max_abs_y_error_m=0.0259868
+HIGH-SPEED-GOV pattern=running-trot cycle=114 v_cmd=3 v_meas=3.61903 period=0.14 duty=0.44 step=0.477273
+Trot cycle 114 started v_cmd=3 v_meas=3.61903 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=115 step=0.477273
+Trot cycle 114 health: roll=2.03989 deg, pitch=1.49049 deg, support_drift=26.6863 mm, q_error=0.728194 rad, foot_error=0.160754 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0115867, touchdown_max_abs_y_error_m=0.0251398
+HIGH-SPEED-GOV pattern=running-trot cycle=115 v_cmd=3 v_meas=3.63601 period=0.14 duty=0.44 step=0.477273
+Trot cycle 115 started v_cmd=3 v_meas=3.63601 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=116 step=0.477273
+Trot cycle 115 health: roll=2.37891 deg, pitch=1.77478 deg, support_drift=32.5458 mm, q_error=0.762551 rad, foot_error=0.16851 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0157933, touchdown_max_abs_y_error_m=0.0259216
+HIGH-SPEED-GOV pattern=running-trot cycle=116 v_cmd=3 v_meas=3.58776 period=0.14 duty=0.44 step=0.477273
+Trot cycle 116 started v_cmd=3 v_meas=3.58776 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=117 step=0.477273
+Trot cycle 116 health: roll=0.798746 deg, pitch=1.01259 deg, support_drift=27.4842 mm, q_error=0.712509 rad, foot_error=0.156122 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0189801, touchdown_max_abs_y_error_m=0.0266922
+HIGH-SPEED-GOV pattern=running-trot cycle=117 v_cmd=3 v_meas=3.60095 period=0.14 duty=0.44 step=0.477273
+Trot cycle 117 started v_cmd=3 v_meas=3.60095 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=118 step=0.477273
+Trot cycle 117 health: roll=0.625934 deg, pitch=1.06264 deg, support_drift=19.8044 mm, q_error=0.722692 rad, foot_error=0.158019 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0101526, touchdown_max_abs_y_error_m=0.0256015
+HIGH-SPEED-GOV pattern=running-trot cycle=118 v_cmd=3 v_meas=3.61814 period=0.14 duty=0.44 step=0.477273
+Trot cycle 118 started v_cmd=3 v_meas=3.61814 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=119 step=0.477273
+Trot cycle 118 health: roll=2.05858 deg, pitch=1.2765 deg, support_drift=24.5852 mm, q_error=0.732865 rad, foot_error=0.161339 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0167276, touchdown_max_abs_y_error_m=0.024381
+HIGH-SPEED-GOV pattern=running-trot cycle=119 v_cmd=3 v_meas=3.62711 period=0.14 duty=0.44 step=0.477273
+Trot cycle 119 started v_cmd=3 v_meas=3.62711 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=120 step=0.477273
+Trot cycle 119 health: roll=1.79105 deg, pitch=1.47856 deg, support_drift=28.2187 mm, q_error=0.763131 rad, foot_error=0.165589 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.00915174, touchdown_max_abs_y_error_m=0.0231161
+HIGH-SPEED-GOV pattern=running-trot cycle=120 v_cmd=3 v_meas=3.58376 period=0.14 duty=0.44 step=0.477273
+Trot cycle 120 started v_cmd=3 v_meas=3.58376 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=121 step=0.477273
+Trot cycle 120 health: roll=0.900054 deg, pitch=0.945398 deg, support_drift=26.4041 mm, q_error=0.717436 rad, foot_error=0.157325 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0170859, touchdown_max_abs_y_error_m=0.0264278
+HIGH-SPEED-GOV pattern=running-trot cycle=121 v_cmd=3 v_meas=3.5984 period=0.14 duty=0.44 step=0.477273
+Trot cycle 121 started v_cmd=3 v_meas=3.5984 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=122 step=0.477273
+Trot cycle 121 health: roll=0.680872 deg, pitch=0.857002 deg, support_drift=21.4865 mm, q_error=0.728594 rad, foot_error=0.159748 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.00521732, touchdown_max_abs_y_error_m=0.0248367
+HIGH-SPEED-GOV pattern=running-trot cycle=122 v_cmd=3 v_meas=3.60116 period=0.14 duty=0.44 step=0.477273
+Trot cycle 122 started v_cmd=3 v_meas=3.60116 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=123 step=0.477273
+Trot cycle 122 health: roll=1.17537 deg, pitch=0.957481 deg, support_drift=23.265 mm, q_error=0.73243 rad, foot_error=0.160588 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0118634, touchdown_max_abs_y_error_m=0.0267057
+HIGH-SPEED-GOV pattern=running-trot cycle=123 v_cmd=3 v_meas=3.61556 period=0.14 duty=0.44 step=0.477273
+Trot cycle 123 started v_cmd=3 v_meas=3.61556 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=124 step=0.477273
+Trot cycle 123 health: roll=0.994243 deg, pitch=0.831579 deg, support_drift=17.5958 mm, q_error=0.735686 rad, foot_error=0.161245 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.00794556, touchdown_max_abs_y_error_m=0.0256953
+HIGH-SPEED-GOV pattern=running-trot cycle=124 v_cmd=3 v_meas=3.60755 period=0.14 duty=0.44 step=0.477273
+Trot cycle 124 started v_cmd=3 v_meas=3.60755 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=125 step=0.477273
+Trot cycle 124 health: roll=1.67355 deg, pitch=1.20201 deg, support_drift=26.4997 mm, q_error=0.726974 rad, foot_error=0.157885 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.385714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0186739, touchdown_max_abs_y_error_m=0.0248798
+HIGH-SPEED-GOV pattern=running-trot cycle=125 v_cmd=3 v_meas=3.61842 period=0.14 duty=0.44 step=0.477273
+Trot cycle 125 started v_cmd=3 v_meas=3.61842 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=126 step=0.477273
+Trot cycle 125 health: roll=1.40061 deg, pitch=1.13771 deg, support_drift=26.4506 mm, q_error=0.740578 rad, foot_error=0.161966 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.00982125, touchdown_max_abs_y_error_m=0.0255094
+HIGH-SPEED-GOV pattern=running-trot cycle=126 v_cmd=3 v_meas=3.60423 period=0.14 duty=0.44 step=0.477273
+Trot cycle 126 started v_cmd=3 v_meas=3.60423 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=127 step=0.477273
+Trot cycle 126 health: roll=0.595737 deg, pitch=0.833358 deg, support_drift=22.5707 mm, q_error=0.730347 rad, foot_error=0.158118 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.00598696, touchdown_max_abs_y_error_m=0.0248003
+HIGH-SPEED-GOV pattern=running-trot cycle=127 v_cmd=3 v_meas=3.61122 period=0.14 duty=0.44 step=0.477273
+Trot cycle 127 started v_cmd=3 v_meas=3.61122 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=128 step=0.477273
+Trot cycle 127 health: roll=1.17697 deg, pitch=1.05491 deg, support_drift=16.5868 mm, q_error=0.728705 rad, foot_error=0.160789 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0124151, touchdown_max_abs_y_error_m=0.0267088
+HIGH-SPEED-GOV pattern=running-trot cycle=128 v_cmd=3 v_meas=3.61685 period=0.14 duty=0.44 step=0.477273
+Trot cycle 128 started v_cmd=3 v_meas=3.61685 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=129 step=0.477273
+Trot cycle 128 health: roll=0.951436 deg, pitch=1.01561 deg, support_drift=20.3555 mm, q_error=0.736123 rad, foot_error=0.16248 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.00935521, touchdown_max_abs_y_error_m=0.0262637
+HIGH-SPEED-GOV pattern=running-trot cycle=129 v_cmd=3 v_meas=3.60385 period=0.14 duty=0.44 step=0.477273
+Trot cycle 129 started v_cmd=3 v_meas=3.60385 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=130 step=0.477273
+Trot cycle 129 health: roll=1.2238 deg, pitch=1.06019 deg, support_drift=19.737 mm, q_error=0.720205 rad, foot_error=0.157771 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0200109, touchdown_max_abs_y_error_m=0.0266106
+HIGH-SPEED-GOV pattern=running-trot cycle=130 v_cmd=3 v_meas=3.61604 period=0.14 duty=0.44 step=0.477273
+Trot cycle 130 started v_cmd=3 v_meas=3.61604 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=131 step=0.477273
+Trot cycle 130 health: roll=0.622189 deg, pitch=0.819678 deg, support_drift=23.3479 mm, q_error=0.734564 rad, foot_error=0.161173 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0078734, touchdown_max_abs_y_error_m=0.0230699
+HIGH-SPEED-GOV pattern=running-trot cycle=131 v_cmd=3 v_meas=3.616 period=0.14 duty=0.44 step=0.477273
+Trot cycle 131 started v_cmd=3 v_meas=3.616 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=132 step=0.477273
+Trot cycle 131 health: roll=1.99251 deg, pitch=1.16448 deg, support_drift=28.0859 mm, q_error=0.72907 rad, foot_error=0.160806 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=27, support_contact_fraction=0.385714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0214156, touchdown_max_abs_y_error_m=0.0241706
+HIGH-SPEED-GOV pattern=running-trot cycle=132 v_cmd=3 v_meas=3.6203 period=0.14 duty=0.44 step=0.477273
+Trot cycle 132 started v_cmd=3 v_meas=3.6203 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=133 step=0.477273
+Trot cycle 132 health: roll=0.96092 deg, pitch=1.35149 deg, support_drift=26.9896 mm, q_error=0.760351 rad, foot_error=0.164455 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0137577, touchdown_max_abs_y_error_m=0.0196708
+HIGH-SPEED-GOV pattern=running-trot cycle=133 v_cmd=3 v_meas=3.56336 period=0.14 duty=0.44 step=0.477273
+Trot cycle 133 started v_cmd=3 v_meas=3.56336 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=134 step=0.477273
+Trot cycle 133 health: roll=0.918203 deg, pitch=1.28087 deg, support_drift=18.1622 mm, q_error=0.720672 rad, foot_error=0.158656 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0106472, touchdown_max_abs_y_error_m=0.0268841
+HIGH-SPEED-GOV pattern=running-trot cycle=134 v_cmd=3 v_meas=3.58001 period=0.14 duty=0.44 step=0.477273
+Trot cycle 134 started v_cmd=3 v_meas=3.58001 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=135 step=0.477273
+Trot cycle 134 health: roll=2.23799 deg, pitch=1.51635 deg, support_drift=30.792 mm, q_error=0.740257 rad, foot_error=0.162243 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=26, support_contact_fraction=0.357143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0195042, touchdown_max_abs_y_error_m=0.0244095
+HIGH-SPEED-GOV pattern=running-trot cycle=135 v_cmd=3 v_meas=3.56693 period=0.14 duty=0.44 step=0.477273
+Trot cycle 135 started v_cmd=3 v_meas=3.56693 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=136 step=0.477273
+Trot cycle 135 health: roll=0.946845 deg, pitch=1.01925 deg, support_drift=26.3679 mm, q_error=0.751189 rad, foot_error=0.161456 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0123167, touchdown_max_abs_y_error_m=0.0225663
+HIGH-SPEED-GOV pattern=running-trot cycle=136 v_cmd=3 v_meas=3.56246 period=0.14 duty=0.44 step=0.477273
+Trot cycle 136 started v_cmd=3 v_meas=3.56246 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=137 step=0.477273
+Trot cycle 136 health: roll=1.39086 deg, pitch=1.24419 deg, support_drift=23.9464 mm, q_error=0.728342 rad, foot_error=0.157676 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.017754, touchdown_max_abs_y_error_m=0.0262452
+HIGH-SPEED-GOV pattern=running-trot cycle=137 v_cmd=3 v_meas=3.60148 period=0.14 duty=0.44 step=0.477273
+Trot cycle 137 started v_cmd=3 v_meas=3.60148 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=138 step=0.477273
+Trot cycle 137 health: roll=0.807564 deg, pitch=1.03856 deg, support_drift=24.2463 mm, q_error=0.755064 rad, foot_error=0.162163 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=18, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0116588, touchdown_max_abs_y_error_m=0.0201672
+HIGH-SPEED-GOV pattern=running-trot cycle=138 v_cmd=3 v_meas=3.58868 period=0.14 duty=0.44 step=0.477273
+Trot cycle 138 started v_cmd=3 v_meas=3.58868 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=139 step=0.477273
+Trot cycle 138 health: roll=1.8056 deg, pitch=1.26496 deg, support_drift=20.1232 mm, q_error=0.72159 rad, foot_error=0.158109 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.371429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0182314, touchdown_max_abs_y_error_m=0.0264335
+HIGH-SPEED-GOV pattern=running-trot cycle=139 v_cmd=3 v_meas=3.61193 period=0.14 duty=0.44 step=0.477273
+Trot cycle 139 started v_cmd=3 v_meas=3.61193 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=140 step=0.477273
+Trot cycle 139 health: roll=1.44653 deg, pitch=1.10303 deg, support_drift=21.3066 mm, q_error=0.741437 rad, foot_error=0.161321 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.013106, touchdown_max_abs_y_error_m=0.026126
+HIGH-SPEED-GOV pattern=running-trot cycle=140 v_cmd=3 v_meas=3.60177 period=0.14 duty=0.44 step=0.477273
+Trot cycle 140 started v_cmd=3 v_meas=3.60177 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=141 step=0.477273
+Trot cycle 140 health: roll=0.805838 deg, pitch=0.695411 deg, support_drift=23.6527 mm, q_error=0.725244 rad, foot_error=0.15829 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.00992079, touchdown_max_abs_y_error_m=0.0268794
+HIGH-SPEED-GOV pattern=running-trot cycle=141 v_cmd=3 v_meas=3.60988 period=0.14 duty=0.44 step=0.477273
+Trot cycle 141 started v_cmd=3 v_meas=3.60988 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=142 step=0.477273
+Trot cycle 141 health: roll=1.01401 deg, pitch=1.16346 deg, support_drift=19.5499 mm, q_error=0.724977 rad, foot_error=0.157277 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0180224, touchdown_max_abs_y_error_m=0.0247192
+HIGH-SPEED-GOV pattern=running-trot cycle=142 v_cmd=3 v_meas=3.61957 period=0.14 duty=0.44 step=0.477273
+Trot cycle 142 started v_cmd=3 v_meas=3.61957 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=143 step=0.477273
+Trot cycle 142 health: roll=2.2303 deg, pitch=1.15414 deg, support_drift=30.1284 mm, q_error=0.731277 rad, foot_error=0.161413 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0171863, touchdown_max_abs_y_error_m=0.0237118
+HIGH-SPEED-GOV pattern=running-trot cycle=143 v_cmd=3 v_meas=3.60697 period=0.14 duty=0.44 step=0.477273
+Trot cycle 143 started v_cmd=3 v_meas=3.60697 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=144 step=0.477273
+Trot cycle 143 health: roll=1.70957 deg, pitch=1.43289 deg, support_drift=27.4023 mm, q_error=0.748421 rad, foot_error=0.163333 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0139267, touchdown_max_abs_y_error_m=0.0263097
+HIGH-SPEED-GOV pattern=running-trot cycle=144 v_cmd=3 v_meas=3.58302 period=0.14 duty=0.44 step=0.477273
+Trot cycle 144 started v_cmd=3 v_meas=3.58302 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=145 step=0.477273
+Trot cycle 144 health: roll=0.584671 deg, pitch=1.08481 deg, support_drift=23.9318 mm, q_error=0.72274 rad, foot_error=0.159392 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0120053, touchdown_max_abs_y_error_m=0.0250192
+HIGH-SPEED-GOV pattern=running-trot cycle=145 v_cmd=3 v_meas=3.60183 period=0.14 duty=0.44 step=0.477273
+Trot cycle 145 started v_cmd=3 v_meas=3.60183 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=146 step=0.477273
+Trot cycle 145 health: roll=2.00136 deg, pitch=1.55162 deg, support_drift=28.4101 mm, q_error=0.73085 rad, foot_error=0.16009 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.371429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0172061, touchdown_max_abs_y_error_m=0.0247485
+HIGH-SPEED-GOV pattern=running-trot cycle=146 v_cmd=3 v_meas=3.61515 period=0.14 duty=0.44 step=0.477273
+Trot cycle 146 started v_cmd=3 v_meas=3.61515 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=147 step=0.477273
+Trot cycle 146 health: roll=1.39485 deg, pitch=1.39884 deg, support_drift=22.5222 mm, q_error=0.756077 rad, foot_error=0.163628 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0109301, touchdown_max_abs_y_error_m=0.0245048
+HIGH-SPEED-GOV pattern=running-trot cycle=147 v_cmd=3 v_meas=3.58031 period=0.14 duty=0.44 step=0.477273
+Trot cycle 147 started v_cmd=3 v_meas=3.58031 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=148 step=0.477273
+Trot cycle 147 health: roll=1.09628 deg, pitch=1.13067 deg, support_drift=26.8408 mm, q_error=0.72121 rad, foot_error=0.157134 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.016616, touchdown_max_abs_y_error_m=0.0263906
+HIGH-SPEED-GOV pattern=running-trot cycle=148 v_cmd=3 v_meas=3.60785 period=0.14 duty=0.44 step=0.477273
+Trot cycle 148 started v_cmd=3 v_meas=3.60785 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=149 step=0.477273
+Trot cycle 148 health: roll=0.646241 deg, pitch=0.838085 deg, support_drift=15.8244 mm, q_error=0.745499 rad, foot_error=0.162105 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.00664891, touchdown_max_abs_y_error_m=0.0215818
+HIGH-SPEED-GOV pattern=running-trot cycle=149 v_cmd=3 v_meas=3.5986 period=0.14 duty=0.44 step=0.477273
+Trot cycle 149 started v_cmd=3 v_meas=3.5986 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=150 step=0.477273
+Trot cycle 149 health: roll=1.98122 deg, pitch=1.24623 deg, support_drift=27.49 mm, q_error=0.730308 rad, foot_error=0.160853 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=26, support_contact_fraction=0.385714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0199102, touchdown_max_abs_y_error_m=0.0251605
+HIGH-SPEED-GOV pattern=running-trot cycle=150 v_cmd=3 v_meas=3.61267 period=0.14 duty=0.44 step=0.477273
+Trot cycle 150 started v_cmd=3 v_meas=3.61267 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=151 step=0.477273
+Trot cycle 150 health: roll=1.10752 deg, pitch=1.28196 deg, support_drift=26.6254 mm, q_error=0.755758 rad, foot_error=0.163263 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.5, touchdown_events=4, touchdown_max_abs_x_error_m=0.0117444, touchdown_max_abs_y_error_m=0.0221255
+HIGH-SPEED-GOV pattern=running-trot cycle=151 v_cmd=3 v_meas=3.57268 period=0.14 duty=0.44 step=0.477273
+Trot cycle 151 started v_cmd=3 v_meas=3.57268 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=152 step=0.477273
+Trot cycle 151 health: roll=0.798958 deg, pitch=1.28734 deg, support_drift=23.3068 mm, q_error=0.711938 rad, foot_error=0.16383 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0189343, touchdown_max_abs_y_error_m=0.0252243
+HIGH-SPEED-GOV pattern=running-trot cycle=152 v_cmd=3 v_meas=3.51597 period=0.14 duty=0.44 step=0.477273
+Trot cycle 152 started v_cmd=3 v_meas=3.51597 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=153 step=0.477273
+Trot cycle 152 health: roll=1.02743 deg, pitch=1.29321 deg, support_drift=23.1682 mm, q_error=0.686889 rad, foot_error=0.165565 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=3, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.019361, touchdown_max_abs_y_error_m=0.0209598
+HIGH-SPEED-GOV pattern=running-trot cycle=153 v_cmd=3 v_meas=3.33874 period=0.14 duty=0.44 step=0.477273
+Trot cycle 153 started v_cmd=3 v_meas=3.33874 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=154 step=0.477273
+Trot cycle 153 health: roll=2.26781 deg, pitch=1.07827 deg, support_drift=16.6007 mm, q_error=0.650006 rad, foot_error=0.147593 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=4, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=26, support_contact_fraction=0.385714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0268687, touchdown_max_abs_y_error_m=0.0215876
+HIGH-SPEED-GOV pattern=running-trot cycle=154 v_cmd=3 v_meas=3.28297 period=0.14 duty=0.44 step=0.477273
+Trot cycle 154 started v_cmd=3 v_meas=3.28297 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=155 step=0.477273
+Trot cycle 154 health: roll=1.68787 deg, pitch=1.37646 deg, support_drift=19.2144 mm, q_error=0.692069 rad, foot_error=0.15593 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=28, support_contact_fraction=0.371429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0242109, touchdown_max_abs_y_error_m=0.0167757
+HIGH-SPEED-GOV pattern=running-trot cycle=155 v_cmd=3 v_meas=3.25277 period=0.14 duty=0.44 step=0.477273
+Trot cycle 155 started v_cmd=3 v_meas=3.25277 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=156 step=0.477273
+Trot cycle 155 health: roll=1.52765 deg, pitch=1.62236 deg, support_drift=20.4538 mm, q_error=0.703685 rad, foot_error=0.15894 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0075229, touchdown_max_abs_y_error_m=0.0204921
+HIGH-SPEED-GOV pattern=running-trot cycle=156 v_cmd=3 v_meas=3.23753 period=0.14 duty=0.44 step=0.477273
+Trot cycle 156 started v_cmd=3 v_meas=3.23753 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=157 step=0.477273
+Trot cycle 156 health: roll=2.61552 deg, pitch=2.12696 deg, support_drift=24.0041 mm, q_error=0.711125 rad, foot_error=0.160567 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.357143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0172032, touchdown_max_abs_y_error_m=0.0248168
+HIGH-SPEED-GOV pattern=running-trot cycle=157 v_cmd=3 v_meas=3.29005 period=0.14 duty=0.44 step=0.477273
+Trot cycle 157 started v_cmd=3 v_meas=3.29005 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=158 step=0.477273
+Trot cycle 157 health: roll=2.87735 deg, pitch=2.36179 deg, support_drift=35.8379 mm, q_error=0.718765 rad, foot_error=0.161306 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=30, support_contact_fraction=0.342857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0376141, touchdown_max_abs_y_error_m=0.0227004
+HIGH-SPEED-GOV pattern=running-trot cycle=158 v_cmd=3 v_meas=3.23153 period=0.14 duty=0.44 step=0.477273
+Trot cycle 158 started v_cmd=3 v_meas=3.23153 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=159 step=0.477273
+Trot cycle 158 health: roll=1.17262 deg, pitch=1.65011 deg, support_drift=15.1146 mm, q_error=0.699283 rad, foot_error=0.157746 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.00861592, touchdown_max_abs_y_error_m=0.0195085
+HIGH-SPEED-GOV pattern=running-trot cycle=159 v_cmd=3 v_meas=3.23548 period=0.14 duty=0.44 step=0.477273
+Trot cycle 159 started v_cmd=3 v_meas=3.23548 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=160 step=0.477273
+Trot cycle 159 health: roll=3.22888 deg, pitch=2.03985 deg, support_drift=22.2818 mm, q_error=0.701747 rad, foot_error=0.15634 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=28, support_contact_fraction=0.328571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0181888, touchdown_max_abs_y_error_m=0.0239982
+HIGH-SPEED-GOV pattern=running-trot cycle=160 v_cmd=3 v_meas=3.30096 period=0.14 duty=0.44 step=0.477273
+Trot cycle 160 started v_cmd=3 v_meas=3.30096 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=161 step=0.477273
+Trot cycle 160 health: roll=2.1728 deg, pitch=2.3098 deg, support_drift=29.9919 mm, q_error=0.727943 rad, foot_error=0.165884 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0266088, touchdown_max_abs_y_error_m=0.019481
+HIGH-SPEED-GOV pattern=running-trot cycle=161 v_cmd=3 v_meas=3.22658 period=0.14 duty=0.44 step=0.477273
+Trot cycle 161 started v_cmd=3 v_meas=3.22658 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=162 step=0.477273
+Trot cycle 161 health: roll=2.05333 deg, pitch=1.98877 deg, support_drift=26.188 mm, q_error=0.708857 rad, foot_error=0.161365 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.357143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0158773, touchdown_max_abs_y_error_m=0.0237525
+HIGH-SPEED-GOV pattern=running-trot cycle=162 v_cmd=3 v_meas=3.26473 period=0.14 duty=0.44 step=0.477273
+Trot cycle 162 started v_cmd=3 v_meas=3.26473 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=163 step=0.477273
+Trot cycle 162 health: roll=3.14168 deg, pitch=2.1932 deg, support_drift=28.9942 mm, q_error=0.711569 rad, foot_error=0.159147 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=31, support_contact_fraction=0.3, touchdown_events=4, touchdown_max_abs_x_error_m=0.0254707, touchdown_max_abs_y_error_m=0.0216913
+HIGH-SPEED-GOV pattern=running-trot cycle=163 v_cmd=3 v_meas=3.22939 period=0.14 duty=0.44 step=0.477273
+Trot cycle 163 started v_cmd=3 v_meas=3.22939 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=164 step=0.477273
+Trot cycle 163 health: roll=2.07929 deg, pitch=2.23975 deg, support_drift=36.9856 mm, q_error=0.738912 rad, foot_error=0.168144 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.045623, touchdown_max_abs_y_error_m=0.0138612
+HIGH-SPEED-GOV pattern=running-trot cycle=164 v_cmd=3 v_meas=3.17109 period=0.14 duty=0.44 step=0.477273
+Trot cycle 164 started v_cmd=3 v_meas=3.17109 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=165 step=0.477273
+Trot cycle 164 health: roll=3.03583 deg, pitch=1.9011 deg, support_drift=21.6305 mm, q_error=0.709697 rad, foot_error=0.15419 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=27, support_contact_fraction=0.328571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0162359, touchdown_max_abs_y_error_m=0.0246442
+HIGH-SPEED-GOV pattern=running-trot cycle=165 v_cmd=3 v_meas=3.25058 period=0.14 duty=0.44 step=0.477273
+Trot cycle 165 started v_cmd=3 v_meas=3.25058 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=166 step=0.477273
+Trot cycle 165 health: roll=2.396 deg, pitch=2.18175 deg, support_drift=32.4111 mm, q_error=0.735037 rad, foot_error=0.163602 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0252425, touchdown_max_abs_y_error_m=0.0207909
+HIGH-SPEED-GOV pattern=running-trot cycle=166 v_cmd=3 v_meas=3.21128 period=0.14 duty=0.44 step=0.477273
+Trot cycle 166 started v_cmd=3 v_meas=3.21128 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=167 step=0.477273
+Trot cycle 166 health: roll=1.49663 deg, pitch=1.59754 deg, support_drift=24.2764 mm, q_error=0.705289 rad, foot_error=0.159706 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0120678, touchdown_max_abs_y_error_m=0.0233855
+HIGH-SPEED-GOV pattern=running-trot cycle=167 v_cmd=3 v_meas=3.26795 period=0.14 duty=0.44 step=0.477273
+Trot cycle 167 started v_cmd=3 v_meas=3.26795 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=168 step=0.477273
+Trot cycle 167 health: roll=2.6124 deg, pitch=1.94242 deg, support_drift=27.7878 mm, q_error=0.697493 rad, foot_error=0.156712 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=32, support_contact_fraction=0.328571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0169993, touchdown_max_abs_y_error_m=0.0186735
+HIGH-SPEED-GOV pattern=running-trot cycle=168 v_cmd=3 v_meas=3.27968 period=0.14 duty=0.44 step=0.477273
+Trot cycle 168 started v_cmd=3 v_meas=3.27968 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=169 step=0.477273
+Trot cycle 168 health: roll=2.16099 deg, pitch=2.40988 deg, support_drift=42.8183 mm, q_error=0.744974 rad, foot_error=0.17044 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=4, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0533127, touchdown_max_abs_y_error_m=0.0153175
+HIGH-SPEED-GOV pattern=running-trot cycle=169 v_cmd=3 v_meas=3.17716 period=0.14 duty=0.44 step=0.477273
+Trot cycle 169 started v_cmd=3 v_meas=3.17716 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=170 step=0.477273
+Trot cycle 169 health: roll=2.26003 deg, pitch=1.37821 deg, support_drift=24.954 mm, q_error=0.715022 rad, foot_error=0.156666 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.357143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0184891, touchdown_max_abs_y_error_m=0.0243127
+HIGH-SPEED-GOV pattern=running-trot cycle=170 v_cmd=3 v_meas=3.22604 period=0.14 duty=0.44 step=0.477273
+Trot cycle 170 started v_cmd=3 v_meas=3.22604 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=171 step=0.477273
+Trot cycle 170 health: roll=1.63861 deg, pitch=1.54475 deg, support_drift=24.8809 mm, q_error=0.705513 rad, foot_error=0.156743 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=27, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0223773, touchdown_max_abs_y_error_m=0.0221756
+HIGH-SPEED-GOV pattern=running-trot cycle=171 v_cmd=3 v_meas=3.23125 period=0.14 duty=0.44 step=0.477273
+Trot cycle 171 started v_cmd=3 v_meas=3.23125 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=172 step=0.477273
+Trot cycle 171 health: roll=1.06201 deg, pitch=1.53778 deg, support_drift=18.9225 mm, q_error=0.712647 rad, foot_error=0.159991 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0140875, touchdown_max_abs_y_error_m=0.0200148
+HIGH-SPEED-GOV pattern=running-trot cycle=172 v_cmd=3 v_meas=3.24521 period=0.14 duty=0.44 step=0.477273
+Trot cycle 172 started v_cmd=3 v_meas=3.24521 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=173 step=0.477273
+Trot cycle 172 health: roll=2.9432 deg, pitch=1.73971 deg, support_drift=27.7477 mm, q_error=0.704661 rad, foot_error=0.156609 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=26, support_contact_fraction=0.342857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0212017, touchdown_max_abs_y_error_m=0.0228676
+HIGH-SPEED-GOV pattern=running-trot cycle=173 v_cmd=3 v_meas=3.29817 period=0.14 duty=0.44 step=0.477273
+Trot cycle 173 started v_cmd=3 v_meas=3.29817 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=174 step=0.477273
+Trot cycle 173 health: roll=1.93187 deg, pitch=1.97097 deg, support_drift=26.169 mm, q_error=0.710066 rad, foot_error=0.161724 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0275572, touchdown_max_abs_y_error_m=0.0225971
+HIGH-SPEED-GOV pattern=running-trot cycle=174 v_cmd=3 v_meas=3.23289 period=0.14 duty=0.44 step=0.477273
+Trot cycle 174 started v_cmd=3 v_meas=3.23289 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=175 step=0.477273
+Trot cycle 174 health: roll=1.49187 deg, pitch=1.58702 deg, support_drift=19.8214 mm, q_error=0.691767 rad, foot_error=0.157229 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0147233, touchdown_max_abs_y_error_m=0.0219117
+HIGH-SPEED-GOV pattern=running-trot cycle=175 v_cmd=3 v_meas=3.27406 period=0.14 duty=0.44 step=0.477273
+Trot cycle 175 started v_cmd=3 v_meas=3.27406 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=176 step=0.477273
+Trot cycle 175 health: roll=3.7948 deg, pitch=2.42833 deg, support_drift=29.5989 mm, q_error=0.700441 rad, foot_error=0.157419 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=35, support_contact_fraction=0.257143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0189897, touchdown_max_abs_y_error_m=0.0178472
+HIGH-SPEED-GOV pattern=running-trot cycle=176 v_cmd=3 v_meas=3.27151 period=0.14 duty=0.44 step=0.477273
+Trot cycle 176 started v_cmd=3 v_meas=3.27151 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=177 step=0.477273
+Trot cycle 176 health: roll=2.45641 deg, pitch=2.85011 deg, support_drift=55.8544 mm, q_error=0.7702 rad, foot_error=0.175326 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0663379, touchdown_max_abs_y_error_m=0.0158003
+HIGH-SPEED-GOV pattern=running-trot cycle=177 v_cmd=3 v_meas=3.13982 period=0.14 duty=0.44 step=0.477273
+Trot cycle 177 started v_cmd=3 v_meas=3.13982 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=178 step=0.477273
+Trot cycle 177 health: roll=2.41439 deg, pitch=1.36671 deg, support_drift=19.0716 mm, q_error=0.704653 rad, foot_error=0.158997 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=30, support_contact_fraction=0.328571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0174678, touchdown_max_abs_y_error_m=0.0237379
+HIGH-SPEED-GOV pattern=running-trot cycle=178 v_cmd=3 v_meas=3.19178 period=0.14 duty=0.44 step=0.477273
+Trot cycle 178 started v_cmd=3 v_meas=3.19178 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=179 step=0.477273
+Trot cycle 178 health: roll=1.08857 deg, pitch=1.36931 deg, support_drift=18.2966 mm, q_error=0.742011 rad, foot_error=0.16558 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.5, touchdown_events=4, touchdown_max_abs_x_error_m=0.00481311, touchdown_max_abs_y_error_m=0.0175634
+HIGH-SPEED-GOV pattern=running-trot cycle=179 v_cmd=3 v_meas=3.19189 period=0.14 duty=0.44 step=0.477273
+Trot cycle 179 started v_cmd=3 v_meas=3.19189 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=180 step=0.477273
+Trot cycle 179 health: roll=2.2523 deg, pitch=2.01759 deg, support_drift=24.7811 mm, q_error=0.736763 rad, foot_error=0.165491 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0106031, touchdown_max_abs_y_error_m=0.0255259
+HIGH-SPEED-GOV pattern=running-trot cycle=180 v_cmd=3 v_meas=3.27162 period=0.14 duty=0.44 step=0.477273
+Trot cycle 180 started v_cmd=3 v_meas=3.27162 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=181 step=0.477273
+Trot cycle 180 health: roll=2.63376 deg, pitch=2.13813 deg, support_drift=38.9416 mm, q_error=0.722028 rad, foot_error=0.161789 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=29, support_contact_fraction=0.314286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0339323, touchdown_max_abs_y_error_m=0.0248199
+HIGH-SPEED-GOV pattern=running-trot cycle=181 v_cmd=3 v_meas=3.23407 period=0.14 duty=0.44 step=0.477273
+Trot cycle 181 started v_cmd=3 v_meas=3.23407 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=182 step=0.477273
+Trot cycle 181 health: roll=1.70615 deg, pitch=1.9983 deg, support_drift=30.7237 mm, q_error=0.717678 rad, foot_error=0.163549 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0333123, touchdown_max_abs_y_error_m=0.0166862
+HIGH-SPEED-GOV pattern=running-trot cycle=182 v_cmd=3 v_meas=3.2069 period=0.14 duty=0.44 step=0.477273
+Trot cycle 182 started v_cmd=3 v_meas=3.2069 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=183 step=0.477273
+Trot cycle 182 health: roll=2.83429 deg, pitch=1.51012 deg, support_drift=18.351 mm, q_error=0.704069 rad, foot_error=0.154797 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=26, support_contact_fraction=0.342857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0180636, touchdown_max_abs_y_error_m=0.0231524
+HIGH-SPEED-GOV pattern=running-trot cycle=183 v_cmd=3 v_meas=3.26869 period=0.14 duty=0.44 step=0.477273
+Trot cycle 183 started v_cmd=3 v_meas=3.26869 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=184 step=0.477273
+Trot cycle 183 health: roll=2.23783 deg, pitch=1.86069 deg, support_drift=21.9713 mm, q_error=0.712959 rad, foot_error=0.160018 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.414286, touchdown_events=4, touchdown_max_abs_x_error_m=0.0213496, touchdown_max_abs_y_error_m=0.0222877
+HIGH-SPEED-GOV pattern=running-trot cycle=184 v_cmd=3 v_meas=3.23798 period=0.14 duty=0.44 step=0.477273
+Trot cycle 184 started v_cmd=3 v_meas=3.23798 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=185 step=0.477273
+Trot cycle 184 health: roll=1.47923 deg, pitch=1.50239 deg, support_drift=18.0872 mm, q_error=0.701872 rad, foot_error=0.160171 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0140871, touchdown_max_abs_y_error_m=0.0229766
+HIGH-SPEED-GOV pattern=running-trot cycle=185 v_cmd=3 v_meas=3.28652 period=0.14 duty=0.44 step=0.477273
+Trot cycle 185 started v_cmd=3 v_meas=3.28652 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=186 step=0.477273
+Trot cycle 185 health: roll=1.72866 deg, pitch=1.63684 deg, support_drift=23.6597 mm, q_error=0.703914 rad, foot_error=0.158094 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=29, support_contact_fraction=0.342857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0229938, touchdown_max_abs_y_error_m=0.02209
+HIGH-SPEED-GOV pattern=running-trot cycle=186 v_cmd=3 v_meas=3.27093 period=0.14 duty=0.44 step=0.477273
+Trot cycle 186 started v_cmd=3 v_meas=3.27093 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=187 step=0.477273
+Trot cycle 186 health: roll=1.45084 deg, pitch=1.61577 deg, support_drift=25.9429 mm, q_error=0.719642 rad, foot_error=0.163579 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0178107, touchdown_max_abs_y_error_m=0.0154876
+HIGH-SPEED-GOV pattern=running-trot cycle=187 v_cmd=3 v_meas=3.22587 period=0.14 duty=0.44 step=0.477273
+Trot cycle 187 started v_cmd=3 v_meas=3.22587 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=188 step=0.477273
+Trot cycle 187 health: roll=2.6447 deg, pitch=2.14418 deg, support_drift=19.9849 mm, q_error=0.703597 rad, foot_error=0.157305 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.342857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0151371, touchdown_max_abs_y_error_m=0.024073
+HIGH-SPEED-GOV pattern=running-trot cycle=188 v_cmd=3 v_meas=3.2857 period=0.14 duty=0.44 step=0.477273
+Trot cycle 188 started v_cmd=3 v_meas=3.2857 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=189 step=0.477273
+Trot cycle 188 health: roll=2.77196 deg, pitch=2.33869 deg, support_drift=41.6304 mm, q_error=0.717967 rad, foot_error=0.161256 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=26, support_contact_fraction=0.371429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0368199, touchdown_max_abs_y_error_m=0.0219243
+HIGH-SPEED-GOV pattern=running-trot cycle=189 v_cmd=3 v_meas=3.2232 period=0.14 duty=0.44 step=0.477273
+Trot cycle 189 started v_cmd=3 v_meas=3.2232 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=190 step=0.477273
+Trot cycle 189 health: roll=0.860968 deg, pitch=1.30636 deg, support_drift=23.7679 mm, q_error=0.69344 rad, foot_error=0.155572 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0132471, touchdown_max_abs_y_error_m=0.0201533
+HIGH-SPEED-GOV pattern=running-trot cycle=190 v_cmd=3 v_meas=3.24898 period=0.14 duty=0.44 step=0.477273
+Trot cycle 190 started v_cmd=3 v_meas=3.24898 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=191 step=0.477273
+Trot cycle 190 health: roll=1.18026 deg, pitch=1.49674 deg, support_drift=15.0013 mm, q_error=0.697122 rad, foot_error=0.156935 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0155643, touchdown_max_abs_y_error_m=0.0226527
+HIGH-SPEED-GOV pattern=running-trot cycle=191 v_cmd=3 v_meas=3.29665 period=0.14 duty=0.44 step=0.477273
+Trot cycle 191 started v_cmd=3 v_meas=3.29665 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=192 step=0.477273
+Trot cycle 191 health: roll=2.16332 deg, pitch=1.49712 deg, support_drift=26.3904 mm, q_error=0.703906 rad, foot_error=0.158559 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=31, support_contact_fraction=0.328571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0213345, touchdown_max_abs_y_error_m=0.0196597
+HIGH-SPEED-GOV pattern=running-trot cycle=192 v_cmd=3 v_meas=3.28879 period=0.14 duty=0.44 step=0.477273
+Trot cycle 192 started v_cmd=3 v_meas=3.28879 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=193 step=0.477273
+Trot cycle 192 health: roll=0.827624 deg, pitch=1.05261 deg, support_drift=20.0886 mm, q_error=0.723156 rad, foot_error=0.16518 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.5, touchdown_events=4, touchdown_max_abs_x_error_m=0.00472425, touchdown_max_abs_y_error_m=0.0154002
+HIGH-SPEED-GOV pattern=running-trot cycle=193 v_cmd=3 v_meas=3.24619 period=0.14 duty=0.44 step=0.477273
+Trot cycle 193 started v_cmd=3 v_meas=3.24619 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=194 step=0.477273
+Trot cycle 193 health: roll=2.08823 deg, pitch=1.81507 deg, support_drift=22.915 mm, q_error=0.685611 rad, foot_error=0.156639 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.371429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0162379, touchdown_max_abs_y_error_m=0.024028
+HIGH-SPEED-GOV pattern=running-trot cycle=194 v_cmd=3 v_meas=3.29863 period=0.14 duty=0.44 step=0.477273
+Trot cycle 194 started v_cmd=3 v_meas=3.29863 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=195 step=0.477273
+Trot cycle 194 health: roll=2.20333 deg, pitch=1.84587 deg, support_drift=32.949 mm, q_error=0.704936 rad, foot_error=0.159399 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=30, support_contact_fraction=0.342857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0255188, touchdown_max_abs_y_error_m=0.0205392
+HIGH-SPEED-GOV pattern=running-trot cycle=195 v_cmd=3 v_meas=3.26381 period=0.14 duty=0.44 step=0.477273
+Trot cycle 195 started v_cmd=3 v_meas=3.26381 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=196 step=0.477273
+Trot cycle 195 health: roll=1.40114 deg, pitch=1.72503 deg, support_drift=20.81 mm, q_error=0.701939 rad, foot_error=0.160273 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0176595, touchdown_max_abs_y_error_m=0.0179838
+HIGH-SPEED-GOV pattern=running-trot cycle=196 v_cmd=3 v_meas=3.23398 period=0.14 duty=0.44 step=0.477273
+Trot cycle 196 started v_cmd=3 v_meas=3.23398 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=197 step=0.477273
+Trot cycle 196 health: roll=3.00264 deg, pitch=2.09093 deg, support_drift=23.6565 mm, q_error=0.697387 rad, foot_error=0.157096 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=26, support_contact_fraction=0.342857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0173195, touchdown_max_abs_y_error_m=0.0236788
+HIGH-SPEED-GOV pattern=running-trot cycle=197 v_cmd=3 v_meas=3.29412 period=0.14 duty=0.44 step=0.477273
+Trot cycle 197 started v_cmd=3 v_meas=3.29412 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=198 step=0.477273
+Trot cycle 197 health: roll=2.731 deg, pitch=2.43102 deg, support_drift=41.3552 mm, q_error=0.716433 rad, foot_error=0.16127 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0361435, touchdown_max_abs_y_error_m=0.0222438
+HIGH-SPEED-GOV pattern=running-trot cycle=198 v_cmd=3 v_meas=3.22244 period=0.14 duty=0.44 step=0.477273
+Trot cycle 198 started v_cmd=3 v_meas=3.22244 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=199 step=0.477273
+Trot cycle 198 health: roll=1.15265 deg, pitch=1.27156 deg, support_drift=23.9954 mm, q_error=0.691672 rad, foot_error=0.156594 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0108854, touchdown_max_abs_y_error_m=0.0219062
+HIGH-SPEED-GOV pattern=running-trot cycle=199 v_cmd=3 v_meas=3.2637 period=0.14 duty=0.44 step=0.477273
+Trot cycle 199 started v_cmd=3 v_meas=3.2637 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=200 step=0.477273
+Trot cycle 199 health: roll=1.91713 deg, pitch=1.81192 deg, support_drift=18.9226 mm, q_error=0.692302 rad, foot_error=0.155357 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=30, support_contact_fraction=0.342857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0183337, touchdown_max_abs_y_error_m=0.0178939
+HIGH-SPEED-GOV pattern=running-trot cycle=200 v_cmd=3 v_meas=3.28923 period=0.14 duty=0.44 step=0.477273
+Trot cycle 200 started v_cmd=3 v_meas=3.28923 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=201 step=0.477273
+Trot cycle 200 health: roll=1.05085 deg, pitch=1.63128 deg, support_drift=22.4477 mm, q_error=0.731859 rad, foot_error=0.166681 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0249924, touchdown_max_abs_y_error_m=0.01536
+HIGH-SPEED-GOV pattern=running-trot cycle=201 v_cmd=3 v_meas=3.23619 period=0.14 duty=0.44 step=0.477273
+Trot cycle 201 started v_cmd=3 v_meas=3.23619 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=202 step=0.477273
+Trot cycle 201 health: roll=1.99208 deg, pitch=1.45712 deg, support_drift=20.9006 mm, q_error=0.691655 rad, foot_error=0.154781 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.371429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0173101, touchdown_max_abs_y_error_m=0.023716
+HIGH-SPEED-GOV pattern=running-trot cycle=202 v_cmd=3 v_meas=3.27779 period=0.14 duty=0.44 step=0.477273
+Trot cycle 202 started v_cmd=3 v_meas=3.27779 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=203 step=0.477273
+Trot cycle 202 health: roll=2.22528 deg, pitch=1.76152 deg, support_drift=27.6874 mm, q_error=0.700285 rad, foot_error=0.157726 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=29, support_contact_fraction=0.371429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0209737, touchdown_max_abs_y_error_m=0.0184185
+HIGH-SPEED-GOV pattern=running-trot cycle=203 v_cmd=3 v_meas=3.26463 period=0.14 duty=0.44 step=0.477273
+Trot cycle 203 started v_cmd=3 v_meas=3.26463 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=204 step=0.477273
+Trot cycle 203 health: roll=1.80235 deg, pitch=1.96938 deg, support_drift=23.0137 mm, q_error=0.725438 rad, foot_error=0.164086 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0240863, touchdown_max_abs_y_error_m=0.0174152
+HIGH-SPEED-GOV pattern=running-trot cycle=204 v_cmd=3 v_meas=3.22334 period=0.14 duty=0.44 step=0.477273
+Trot cycle 204 started v_cmd=3 v_meas=3.22334 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=205 step=0.477273
+Trot cycle 204 health: roll=3.11414 deg, pitch=2.22168 deg, support_drift=24.647 mm, q_error=0.704408 rad, foot_error=0.157377 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=27, support_contact_fraction=0.314286, touchdown_events=4, touchdown_max_abs_x_error_m=0.018451, touchdown_max_abs_y_error_m=0.0248684
+HIGH-SPEED-GOV pattern=running-trot cycle=205 v_cmd=3 v_meas=3.28744 period=0.14 duty=0.44 step=0.477273
+Trot cycle 205 started v_cmd=3 v_meas=3.28744 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=206 step=0.477273
+Trot cycle 205 health: roll=2.60807 deg, pitch=2.52909 deg, support_drift=37.6407 mm, q_error=0.724905 rad, foot_error=0.164296 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=24, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0366641, touchdown_max_abs_y_error_m=0.0220094
+HIGH-SPEED-GOV pattern=running-trot cycle=206 v_cmd=3 v_meas=3.20566 period=0.14 duty=0.44 step=0.477273
+Trot cycle 206 started v_cmd=3 v_meas=3.20566 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=207 step=0.477273
+Trot cycle 206 health: roll=1.71023 deg, pitch=1.85569 deg, support_drift=21.6748 mm, q_error=0.706767 rad, foot_error=0.160415 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.4, touchdown_events=4, touchdown_max_abs_x_error_m=0.0229454, touchdown_max_abs_y_error_m=0.0224451
+HIGH-SPEED-GOV pattern=running-trot cycle=207 v_cmd=3 v_meas=3.26626 period=0.14 duty=0.44 step=0.477273
+Trot cycle 207 started v_cmd=3 v_meas=3.26626 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=208 step=0.477273
+Trot cycle 207 health: roll=1.92534 deg, pitch=1.89201 deg, support_drift=23.1542 mm, q_error=0.707337 rad, foot_error=0.158394 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=31, support_contact_fraction=0.3, touchdown_events=4, touchdown_max_abs_x_error_m=0.0210629, touchdown_max_abs_y_error_m=0.0221716
+HIGH-SPEED-GOV pattern=running-trot cycle=208 v_cmd=3 v_meas=3.25431 period=0.14 duty=0.44 step=0.477273
+Trot cycle 208 started v_cmd=3 v_meas=3.25431 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=209 step=0.477273
+Trot cycle 208 health: roll=1.11581 deg, pitch=1.68823 deg, support_drift=28.5254 mm, q_error=0.717977 rad, foot_error=0.16373 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0243031, touchdown_max_abs_y_error_m=0.0177561
+HIGH-SPEED-GOV pattern=running-trot cycle=209 v_cmd=3 v_meas=3.22645 period=0.14 duty=0.44 step=0.477273
+Trot cycle 209 started v_cmd=3 v_meas=3.22645 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=210 step=0.477273
+Trot cycle 209 health: roll=1.99021 deg, pitch=1.34935 deg, support_drift=21.5437 mm, q_error=0.699375 rad, foot_error=0.15455 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=26, support_contact_fraction=0.371429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0177696, touchdown_max_abs_y_error_m=0.0229629
+HIGH-SPEED-GOV pattern=running-trot cycle=210 v_cmd=3 v_meas=3.27314 period=0.14 duty=0.44 step=0.477273
+Trot cycle 210 started v_cmd=3 v_meas=3.27314 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=211 step=0.477273
+Trot cycle 210 health: roll=1.62808 deg, pitch=1.55365 deg, support_drift=26.5702 mm, q_error=0.712569 rad, foot_error=0.160061 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0174853, touchdown_max_abs_y_error_m=0.0205112
+HIGH-SPEED-GOV pattern=running-trot cycle=211 v_cmd=3 v_meas=3.2575 period=0.14 duty=0.44 step=0.477273
+Trot cycle 211 started v_cmd=3 v_meas=3.2575 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=212 step=0.477273
+Trot cycle 211 health: roll=1.05787 deg, pitch=1.07713 deg, support_drift=24.4998 mm, q_error=0.67974 rad, foot_error=0.154247 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=22, support_contact_fraction=0.442857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0131667, touchdown_max_abs_y_error_m=0.0221793
+HIGH-SPEED-GOV pattern=running-trot cycle=212 v_cmd=3 v_meas=3.29101 period=0.14 duty=0.44 step=0.477273
+Trot cycle 212 started v_cmd=3 v_meas=3.29101 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=213 step=0.477273
+Trot cycle 212 health: roll=0.785077 deg, pitch=0.918975 deg, support_drift=16.9968 mm, q_error=0.688364 rad, foot_error=0.155213 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.428571, touchdown_events=4, touchdown_max_abs_x_error_m=0.0195417, touchdown_max_abs_y_error_m=0.0226921
+HIGH-SPEED-GOV pattern=running-trot cycle=213 v_cmd=3 v_meas=3.30141 period=0.14 duty=0.44 step=0.477273
+Trot cycle 213 started v_cmd=3 v_meas=3.30141 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=214 step=0.477273
+Trot cycle 213 health: roll=0.425111 deg, pitch=0.913384 deg, support_drift=21.1451 mm, q_error=0.681737 rad, foot_error=0.154394 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0155917, touchdown_max_abs_y_error_m=0.0219359
+HIGH-SPEED-GOV pattern=running-trot cycle=214 v_cmd=3 v_meas=3.29526 period=0.14 duty=0.44 step=0.477273
+Trot cycle 214 started v_cmd=3 v_meas=3.29526 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=215 step=0.477273
+Trot cycle 214 health: roll=2.16605 deg, pitch=1.55207 deg, support_drift=22.5838 mm, q_error=0.677397 rad, foot_error=0.155478 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.385714, touchdown_events=4, touchdown_max_abs_x_error_m=0.0155443, touchdown_max_abs_y_error_m=0.0228419
+HIGH-SPEED-GOV pattern=running-trot cycle=215 v_cmd=3 v_meas=3.31131 period=0.14 duty=0.44 step=0.477273
+Trot cycle 215 started v_cmd=3 v_meas=3.31131 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=216 step=0.477273
+Trot cycle 215 health: roll=2.14035 deg, pitch=1.76189 deg, support_drift=28.796 mm, q_error=0.69693 rad, foot_error=0.157798 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=29, support_contact_fraction=0.357143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0236783, touchdown_max_abs_y_error_m=0.0193027
+HIGH-SPEED-GOV pattern=running-trot cycle=216 v_cmd=3 v_meas=3.27054 period=0.14 duty=0.44 step=0.477273
+Trot cycle 216 started v_cmd=3 v_meas=3.27054 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=217 step=0.477273
+Trot cycle 216 health: roll=0.980542 deg, pitch=1.33687 deg, support_drift=15.6663 mm, q_error=0.700122 rad, foot_error=0.159784 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=5, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.00742847, touchdown_max_abs_y_error_m=0.018408
+HIGH-SPEED-GOV pattern=running-trot cycle=217 v_cmd=3 v_meas=3.25332 period=0.14 duty=0.44 step=0.477273
+Trot cycle 217 started v_cmd=3 v_meas=3.25332 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=218 step=0.477273
+Trot cycle 217 health: roll=2.2693 deg, pitch=1.78535 deg, support_drift=24.3961 mm, q_error=0.689928 rad, foot_error=0.156837 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.342857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0192999, touchdown_max_abs_y_error_m=0.024835
+HIGH-SPEED-GOV pattern=running-trot cycle=218 v_cmd=3 v_meas=3.30607 period=0.14 duty=0.44 step=0.477273
+Trot cycle 218 started v_cmd=3 v_meas=3.30607 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=219 step=0.477273
+Trot cycle 218 health: roll=2.30919 deg, pitch=2.0162 deg, support_drift=27.8525 mm, q_error=0.704948 rad, foot_error=0.159648 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=28, support_contact_fraction=0.371429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0256964, touchdown_max_abs_y_error_m=0.0210895
+HIGH-SPEED-GOV pattern=running-trot cycle=219 v_cmd=3 v_meas=3.2523 period=0.14 duty=0.44 step=0.477273
+Trot cycle 219 started v_cmd=3 v_meas=3.2523 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=220 step=0.477273
+Trot cycle 219 health: roll=0.752437 deg, pitch=1.5568 deg, support_drift=20.6372 mm, q_error=0.69349 rad, foot_error=0.157906 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.457143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0114637, touchdown_max_abs_y_error_m=0.0204642
+HIGH-SPEED-GOV pattern=running-trot cycle=220 v_cmd=3 v_meas=3.25839 period=0.14 duty=0.44 step=0.477273
+Trot cycle 220 started v_cmd=3 v_meas=3.25839 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=221 step=0.477273
+Trot cycle 220 health: roll=2.14455 deg, pitch=1.36256 deg, support_drift=23.6717 mm, q_error=0.683962 rad, foot_error=0.152522 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=29, support_contact_fraction=0.342857, touchdown_events=4, touchdown_max_abs_x_error_m=0.0203462, touchdown_max_abs_y_error_m=0.0212611
+HIGH-SPEED-GOV pattern=running-trot cycle=221 v_cmd=3 v_meas=3.29545 period=0.14 duty=0.44 step=0.477273
+Trot cycle 221 started v_cmd=3 v_meas=3.29545 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=222 step=0.477273
+Trot cycle 221 health: roll=0.912872 deg, pitch=1.38698 deg, support_drift=18.1461 mm, q_error=0.724533 rad, foot_error=0.16506 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=7, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.485714, touchdown_events=4, touchdown_max_abs_x_error_m=0.00673674, touchdown_max_abs_y_error_m=0.0179933
+HIGH-SPEED-GOV pattern=running-trot cycle=222 v_cmd=3 v_meas=3.24941 period=0.14 duty=0.44 step=0.477273
+Trot cycle 222 started v_cmd=3 v_meas=3.24941 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=223 step=0.477273
+Trot cycle 222 health: roll=2.24679 deg, pitch=2.02058 deg, support_drift=18.4978 mm, q_error=0.691953 rad, foot_error=0.158619 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=23, support_contact_fraction=0.371429, touchdown_events=4, touchdown_max_abs_x_error_m=0.0178561, touchdown_max_abs_y_error_m=0.0241995
+HIGH-SPEED-GOV pattern=running-trot cycle=223 v_cmd=3 v_meas=3.30364 period=0.14 duty=0.44 step=0.477273
+Trot cycle 223 started v_cmd=3 v_meas=3.30364 period=0.14 step=0.477273 duty=0.44
+Trot external stop requested; returning to stand
+High-speed stop: braking in locomotion plant v0=3 period=0.14 duty=0.44
+STEPK cycle=224 step=0.477273
+Trot cycle 223 health: roll=2.67342 deg, pitch=2.22172 deg, support_drift=35.664 mm, q_error=0.709447 rad, foot_error=0.160175 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=6, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=27, support_contact_fraction=0.357143, touchdown_events=4, touchdown_max_abs_x_error_m=0.0355696, touchdown_max_abs_y_error_m=0.021571
+HIGH-SPEED-GOV pattern=running-trot cycle=224 v_cmd=3 v_meas=3.22095 period=0.14 duty=0.44 step=0.477273
+Trot cycle 224 started v_cmd=3 v_meas=3.22095 period=0.14 step=0.477273 duty=0.44
+STEPK cycle=225 step=0.536461
+Trot cycle 224 health: roll=1.08828 deg, pitch=1.00156 deg, support_drift=17.6532 mm, q_error=0.691283 rad, foot_error=0.155961 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=4, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=20, support_contact_fraction=0.471429, touchdown_events=4, touchdown_max_abs_x_error_m=0.00774841, touchdown_max_abs_y_error_m=0.018305
+HIGH-SPEED-GOV pattern=running-trot cycle=225 v_cmd=3 v_meas=3.20923 period=0.14 duty=0.44 step=0.477273
+Trot cycle 225 started v_cmd=2.97561 v_meas=3.20923 period=0.16 step=0.536461 duty=0.443739
+STEPK cycle=226 step=0.500909
+Trot cycle 225 health: roll=2.89131 deg, pitch=2.29599 deg, support_drift=21.7656 mm, q_error=0.699821 rad, foot_error=0.159735 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=3, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=44, support_contact_fraction=0.225, touchdown_events=3, touchdown_max_abs_x_error_m=0.0138342, touchdown_max_abs_y_error_m=0.0232825
+Trot exploratory continuation: cycle quality rejected 225 (hard limits remain active)
+HIGH-SPEED-GOV pattern=running-trot cycle=226 v_cmd=2.915 v_meas=3.30667 period=0.14 duty=0.44 step=0.463751
+Trot cycle 226 started v_cmd=2.875 v_meas=3.30667 period=0.16 step=0.500909 duty=0.459166
+STEPK cycle=227 step=0.438179
+Trot cycle 226 health: roll=3.19601 deg, pitch=3.50003 deg, support_drift=33.875 mm, q_error=0.810954 rad, foot_error=0.179686 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=4, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=21, support_contact_fraction=0.375, touchdown_events=4, touchdown_max_abs_x_error_m=0.076972, touchdown_max_abs_y_error_m=0.0145501
+Trot exploratory continuation: cycle quality rejected 226 (hard limits remain active)
+HIGH-SPEED-GOV pattern=running-trot cycle=227 v_cmd=2.71931 v_meas=3.01858 period=0.14 duty=0.44 step=0.432618
+Trot cycle 227 started v_cmd=2.67931 v_meas=3.01858 period=0.16 step=0.438179 duty=0.489172
+STEPK cycle=228 step=0.364784
+Trot cycle 227 health: roll=2.26455 deg, pitch=2.43162 deg, support_drift=30.384 mm, q_error=0.727609 rad, foot_error=0.168971 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=4, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=25, support_contact_fraction=0.4875, touchdown_events=4, touchdown_max_abs_x_error_m=0.0277304, touchdown_max_abs_y_error_m=0.0226131
+HIGH-SPEED-GOV pattern=running-trot cycle=228 v_cmd=2.45519 v_meas=2.78202 period=0.14 duty=0.44 step=0.390598
+Trot cycle 228 started v_cmd=2.41519 v_meas=2.78202 period=0.16 step=0.364784 duty=0.529671
+STEPK cycle=229 step=0.290889
+Trot cycle 228 health: roll=1.3963 deg, pitch=1.6321 deg, support_drift=15.4626 mm, q_error=0.699888 rad, foot_error=0.170721 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=4, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=19, support_contact_fraction=0.5625, touchdown_events=4, touchdown_max_abs_x_error_m=0.0234427, touchdown_max_abs_y_error_m=0.0239935
+HIGH-SPEED-GOV pattern=running-trot cycle=229 v_cmd=2.14107 v_meas=2.60357 period=0.14 duty=0.44 step=0.340625
+Trot cycle 229 started v_cmd=2.10107 v_meas=2.60357 period=0.16 step=0.290889 duty=0.577836
+STEPK cycle=230 step=0.22261
+Trot cycle 229 health: roll=1.57081 deg, pitch=0.997642 deg, support_drift=20.3782 mm, q_error=0.754073 rad, foot_error=0.185077 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=4, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=12, support_contact_fraction=0.6875, touchdown_events=4, touchdown_max_abs_x_error_m=0.0376336, touchdown_max_abs_y_error_m=0.0195088
+HIGH-SPEED-GOV pattern=running-trot cycle=230 v_cmd=1.79539 v_meas=2.3044 period=0.146277 duty=0.44 step=0.298436
+Trot cycle 230 started v_cmd=1.75539 v_meas=2.3044 period=0.16 step=0.22261 duty=0.63084
+STEPK cycle=231 step=0.162899
+Trot cycle 230 health: roll=2.13487 deg, pitch=2.11646 deg, support_drift=21.2973 mm, q_error=0.774117 rad, foot_error=0.198812 m, tau_est=45.43, tau_motor=RR_calf, tau_over_samples=4, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=13, support_contact_fraction=0.625, touchdown_events=4, touchdown_max_abs_x_error_m=0.0376407, touchdown_max_abs_y_error_m=0.0225254
+HIGH-SPEED-GOV pattern=running-trot cycle=231 v_cmd=1.43657 v_meas=1.89418 period=0.167806 duty=0.459757 step=0.262166
+Trot cycle 231 started v_cmd=1.39657 v_meas=1.89418 period=0.16 step=0.162899 duty=0.685859
+STEPK cycle=232 step=0.112753
+Trot cycle 231 health: roll=2.39632 deg, pitch=1.95815 deg, support_drift=9.74197 mm, q_error=0.807757 rad, foot_error=0.205665 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=4, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=12, support_contact_fraction=0.6875, touchdown_events=4, touchdown_max_abs_x_error_m=0.0348317, touchdown_max_abs_y_error_m=0.0246924
+Trot exploratory continuation: cycle quality rejected 231 (hard limits remain active)
+HIGH-SPEED-GOV pattern=running-trot cycle=232 v_cmd=1.08306 v_meas=1.41509 period=0.189017 duty=0.486271 step=0.210496
+Trot cycle 232 started v_cmd=1.04306 v_meas=1.41509 period=0.16 step=0.112753 duty=0.740065
+STEPK cycle=233 step=0.0721722
+Trot cycle 232 health: roll=2.51976 deg, pitch=1.46668 deg, support_drift=7.599 mm, q_error=0.866983 rad, foot_error=0.201409 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=6, tau_over_max_consecutive=3, min_support_contacts=0, max_low_support_samples=14, support_contact_fraction=0.725, touchdown_events=4, touchdown_max_abs_x_error_m=0.0208843, touchdown_max_abs_y_error_m=0.0254519
+Trot exploratory continuation: cycle quality rejected 232 (hard limits remain active)
+HIGH-SPEED-GOV pattern=running-trot cycle=233 v_cmd=0.9 v_meas=0.951205 period=0.2 duty=0.5 step=0.18
+Trot cycle 233 started v_cmd=0.713271 v_meas=0.951205 period=0.16 step=0.0721722 duty=0.790632
+STEPK cycle=234 step=0.0407937
+Trot cycle 233 health: roll=1.07577 deg, pitch=1.06336 deg, support_drift=4.16186 mm, q_error=0.932342 rad, foot_error=0.186618 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=4, tau_over_max_consecutive=2, min_support_contacts=0, max_low_support_samples=5, support_contact_fraction=0.875, touchdown_events=4, touchdown_max_abs_x_error_m=0.0102627, touchdown_max_abs_y_error_m=0.0243538
+Trot exploratory continuation: cycle quality rejected 233 (hard limits remain active)
+HIGH-SPEED-GOV pattern=running-trot cycle=234 v_cmd=0.9 v_meas=0.535879 period=0.2 duty=0.5 step=0.18
+Trot cycle 234 started v_cmd=0.425649 v_meas=0.535879 period=0.16 step=0.0407937 duty=0.834734
+STEPK cycle=235 step=0.0182736
+Trot cycle 234 health: roll=0.659995 deg, pitch=0.983849 deg, support_drift=5.89253 mm, q_error=1.02839 rad, foot_error=0.185871 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=9, tau_over_max_consecutive=5, min_support_contacts=1, max_low_support_samples=6, support_contact_fraction=0.925, touchdown_events=4, touchdown_max_abs_x_error_m=0.00531676, touchdown_max_abs_y_error_m=0.0192446
+Trot exploratory continuation: cycle quality rejected 234 (hard limits remain active)
+HIGH-SPEED-GOV pattern=running-trot cycle=235 v_cmd=0.9 v_meas=0.24956 period=0.2 duty=0.5 step=0.18
+Trot cycle 235 started v_cmd=0.198622 v_meas=0.24956 period=0.16 step=0.0182736 duty=0.869545
+STEPK cycle=236 step=0.00453886
+Trot cycle 235 health: roll=0.486746 deg, pitch=0.593456 deg, support_drift=7.25061 mm, q_error=1.0826 rad, foot_error=0.18723 m, tau_est=45.43, tau_motor=FL_calf, tau_over_samples=8, tau_over_max_consecutive=5, min_support_contacts=0, max_low_support_samples=5, support_contact_fraction=0.8875, touchdown_events=4, touchdown_max_abs_x_error_m=0.0127181, touchdown_max_abs_y_error_m=0.0156734
+Trot exploratory continuation: cycle quality rejected 235 (hard limits remain active)
+HIGH-SPEED-GOV pattern=running-trot cycle=236 v_cmd=0.9 v_meas=0.0820763 period=0.2 duty=0.5 step=0.18
+High-speed stop: brake complete; entering WBC four-contact hold
+Trot cycle 236 started v_cmd=0.0506218 v_meas=0.0820763 period=0.16 step=0.00453886 duty=0.892238
+High-speed stop: WBC four-contact hold complete; finished in WBC stance

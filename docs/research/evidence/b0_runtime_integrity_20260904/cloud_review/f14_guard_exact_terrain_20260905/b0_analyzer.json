@@ -1,0 +1,113 @@
+{
+  "acceptance_status": "PASS",
+  "analysis_status": "0",
+  "checks": {
+    "analyzer_hash": true,
+    "contract_hash": true,
+    "finite_map_age": true,
+    "fixed_3mps_analyzer": true,
+    "fixed_analyzer_hash": true,
+    "holdout_manifest_hash": true,
+    "lidar_observation": true,
+    "lidar_provenance": true,
+    "map_telemetry": true,
+    "no_hidden_event": true,
+    "no_plan_consumer": true,
+    "no_plan_publish": true,
+    "no_terrain_actuation": true,
+    "paired_baseline_lifecycle": true,
+    "paired_control_interface": true,
+    "phase1_quantitative": true,
+    "planner_deadline": true,
+    "planner_does_not_safe_stop": true,
+    "planner_updated": true,
+    "retired_route_absent": true,
+    "sensor_only_flag": true,
+    "terrain_cap_not_requested": true,
+    "terrain_enabled": true
+  },
+  "completion_status": "0",
+  "contract": "b0-contract-v1.2",
+  "controller_status": "0",
+  "dynamics_status": "0",
+  "git_head": "6cdf2366bb38aab9db29184efc813be71ae3022f",
+  "legacy_status_pass": true,
+  "paired_baseline_phase1": {},
+  "paired_comparison": {
+    "event_active": {
+      "diagnostic_pass": true,
+      "max_abs_difference": 0.0,
+      "tolerance": 0.5
+    },
+    "event_target_vx_mps": {
+      "diagnostic_pass": true,
+      "max_abs_difference": 0.0,
+      "tolerance": 0.02
+    },
+    "event_type": {
+      "diagnostic_pass": true,
+      "max_abs_difference": 0.0,
+      "tolerance": 0.5
+    },
+    "velocity_command_applied_mps": {
+      "diagnostic_pass": true,
+      "max_abs_difference": 0.0,
+      "tolerance": 0.01
+    },
+    "velocity_command_gait_duty": {
+      "diagnostic_pass": false,
+      "max_abs_difference": 0.33157505699999995,
+      "tolerance": 1e-05
+    },
+    "velocity_command_gait_foot_lift_m": {
+      "diagnostic_pass": true,
+      "max_abs_difference": 0.0,
+      "tolerance": 1e-05
+    },
+    "velocity_command_gait_period_s": {
+      "diagnostic_pass": false,
+      "max_abs_difference": 0.01999999999999999,
+      "tolerance": 1e-05
+    },
+    "velocity_command_gait_step_length_m": {
+      "diagnostic_pass": true,
+      "max_abs_difference": 0.0,
+      "tolerance": 1e-05
+    },
+    "velocity_command_requested_mps": {
+      "diagnostic_pass": true,
+      "max_abs_difference": 0.0,
+      "tolerance": 1e-06
+    },
+    "velocity_command_shaped_mps": {
+      "diagnostic_pass": true,
+      "max_abs_difference": 0.0,
+      "tolerance": 0.01
+    },
+    "wbc_full_requested_acc_x_mps2": {
+      "diagnostic_pass": false,
+      "max_abs_difference": 5.184503362,
+      "tolerance": 0.2
+    },
+    "wbc_full_velocity_target_x_mps": {
+      "diagnostic_pass": false,
+      "max_abs_difference": 2.875004202,
+      "tolerance": 0.02
+    }
+  },
+  "paired_contract": {
+    "same_controller_sha256": true,
+    "same_nonterrain_argv": true,
+    "same_profile_sha256": true,
+    "same_scene_sha256": true,
+    "same_simulator_sha256": true
+  },
+  "phase1_quantitative": {},
+  "quality_status": "0",
+  "run_dir": "example/cpp/experiments/_runs/f14_guard_exact_terrain_20260905",
+  "safety_status": "0",
+  "terrain_map_valid_fraction": 0.9999497310611773,
+  "terrain_planner_deadline_misses": 0.0,
+  "terrain_planner_updates": 611.0,
+  "terrain_rows": 19893
+}
