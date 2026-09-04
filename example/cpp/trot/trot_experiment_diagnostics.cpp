@@ -34,7 +34,8 @@ void TrotExperiment::WriteCsvHeader()
          << ",velocity_command_requested_mps,velocity_command_shaped_mps,velocity_command_applied_mps"
          << ",velocity_command_measured_mps,velocity_command_tracking_error_mps"
          << ",velocity_command_accel_mps2,velocity_command_jerk_mps3"
-         << ",velocity_command_active,velocity_command_gait_period_s"
+         << ",velocity_command_active,velocity_command_stance_hold"
+         << ",velocity_command_gait_period_s"
          << ",velocity_command_gait_duty,velocity_command_gait_step_length_m"
          << ",velocity_command_gait_foot_lift_m,velocity_command_gait_regime"
          << ",environment_map_valid,environment_map_age_s"
@@ -658,6 +659,7 @@ void TrotExperiment::LogSample(
          << "," << velocity_command_state_.accel_mps2
          << "," << velocity_command_state_.jerk_mps3
          << "," << (velocity_command_state_.active ? 1 : 0)
+         << "," << (runtime_velocity_stance_hold_active_ ? 1 : 0)
          << "," << kernel_period_s_
          << "," << kernel_duty_factor_
          << "," << runtime_gait_step_length_m_

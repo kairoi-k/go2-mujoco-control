@@ -45,6 +45,17 @@ int main()
     scheduler.Reset();
     const auto after_reset = scheduler.Step(0.30, 0.002);
     assert(std::abs(after_reset.period_s - 0.14) < 1.0e-9);
+    go2_trot::RuntimeVelocityStanceHoldGate hold_gate;
+    assert(hold_gate.Step(0.0, 0.0, 0.0, true));
+    assert(hold_gate.active());
+    assert(!hold_gate.Step(0.30, 0.10, 0.0, true));
+    assert(!hold_gate.Step(0.0, 0.0, 0.40, true));
+    assert(hold_gate.Step(0.0, 0.0, 0.20, true));
+    // Once acquired, a transient body-speed rebound must not restart gait;
+    // only a new nonzero command releases the stance hold.
+    assert(hold_gate.Step(0.0, 0.0, 0.50, true));
+    hold_gate.Reset();
+    assert(!hold_gate.active());
     go2_trot::VelocityCommandShaper shaper;
     double previous_accel = 0.0;
     double maximum_accel = 0.0;

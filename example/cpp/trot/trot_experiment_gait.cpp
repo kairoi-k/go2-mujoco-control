@@ -137,6 +137,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     {
         velocity_command_shaper_.Reset(0.0);
         velocity_gait_scheduler_.Reset();
+        velocity_stance_hold_gate_.Reset();
         velocity_command_initialized_ = true;
     }
     const double dt = (std::isfinite(last_motion_dt_s_) &&
@@ -200,6 +201,13 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         applied_mps = high_speed_health_cap_mps_;
     }
     velocity_command_state_.applied_mps = applied_mps;
+    runtime_velocity_stance_hold_active_ =
+        velocity_stance_hold_gate_.Step(
+            requested_mps,
+            velocity_command_state_.shaped_mps,
+            have_filtered_body_velocity_
+                ? latest_filtered_body_velocity_[0] : 0.0,
+            have_filtered_body_velocity_);
     const auto schedule = velocity_gait_scheduler_.Step(applied_mps, dt);
     locomotion_kernel_->SetGaitEffectiveSpeedConvention(true);
     locomotion_kernel_->SetGaitSlewLimits(0.060, 0.020, 0.020);
@@ -308,6 +316,9 @@ bool TrotExperiment::BuildGaitTargets(
     // an inconsistent four-contact plant before the body's momentum is gone.
     // Enter stance hold only after the measured-speed/attitude gate below
     // has accepted the brake completion.
+    if (params_.runtime_velocity_command)
+        locomotion_kernel_->SetStanceHold(
+            runtime_velocity_stance_hold_active_, gait_time_s);
     if (high_speed_stop_hold_active_)
         locomotion_kernel_->SetStanceHold(true, gait_time_s);
     if (!locomotion_kernel_->Compute(gait_request, gait_result))

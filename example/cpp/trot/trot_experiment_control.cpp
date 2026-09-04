@@ -741,6 +741,8 @@ bool TrotExperiment::PhaseStartGait(
         return false;
     velocity_command_initialized_ = false;
     velocity_command_state_ = {};
+    velocity_stance_hold_gate_.Reset();
+    runtime_velocity_stance_hold_active_ = false;
     runtime_gait_regime_ = params_.runtime_velocity_command
         ? "continuous-trot"
         : "inactive";
@@ -1174,6 +1176,10 @@ bool TrotExperiment::ComputeWbcPrimaryActive(double &gait_elapsed_s)
     const bool regular_wbc =
         task_.motion_stage_ == 2 && task_.gait_started_ &&
         !task_.stop_requested_ &&
+        // A commanded zero is the existing stand controller's domain. Keep
+        // ID-WBC solving in shadow for the frozen validity gate, but do not
+        // feed its locomotion torques into a phase-frozen neutral stance.
+        !runtime_velocity_stance_hold_active_ &&
         gait_elapsed_s >= (params_.wbc_full ? 0.0 : kWbcPrimaryEnterDelayS);
     const bool wbc_active = regular_wbc || WbcStopHoldActive();
     if (params_.wbc_primary && wbc_active &&

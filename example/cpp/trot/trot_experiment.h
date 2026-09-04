@@ -323,6 +323,7 @@ private:
     go2_control::FirstOrderVelocityFilter velocity_filter_;
     go2_trot::VelocityCommandShaper velocity_command_shaper_;
     go2_trot::ContinuousVelocityGaitScheduler velocity_gait_scheduler_;
+    go2_trot::RuntimeVelocityStanceHoldGate velocity_stance_hold_gate_;
     go2_control::Vector3 latest_world_velocity_{};
     go2_control::Vector3 latest_raw_body_velocity_{};
     go2_control::Vector3 latest_filtered_body_velocity_{};
@@ -387,6 +388,7 @@ private:
     std::size_t step_plan_index_ = 0;
     go2_trot::VelocityCommandState velocity_command_state_{};
     bool velocity_command_initialized_ = false;
+    bool runtime_velocity_stance_hold_active_ = false;
     double runtime_gait_step_length_m_ = 0.0;
     double runtime_gait_foot_lift_m_ = 0.0;
     std::string runtime_gait_regime_ = "inactive";

@@ -145,6 +145,8 @@ void TrotExperiment::UpdateWbcFull(
         wbc_shadow_contact_state_[leg] = next_contact;
         measured_contact[leg] = next_contact;
     }
+    const int measured_contact_count = static_cast<int>(std::count(
+        measured_contact.begin(), measured_contact.end(), true));
     const int high_speed_contact_merge_mode = high_speed_curriculum
         ? std::clamp(static_cast<int>(std::llround(Full2EnvDouble(
               "TROT_HS_HYBRID_CONTACT", 0.0))), 0, 2)
@@ -168,6 +170,9 @@ void TrotExperiment::UpdateWbcFull(
     {
         if (WbcStopHoldActive() || high_speed_stop_support)
             qp_contact.fill(true);
+        else if (runtime_velocity_stance_hold_active_ &&
+                 measured_contact_count >= 3)
+            qp_contact = measured_contact;
         else if (motion_event_response_enabled_ && EmergencyStopHoldReady())
             qp_contact.fill(true);
         else
@@ -371,6 +376,10 @@ void TrotExperiment::UpdateWbcFull(
             if (WbcStopHoldActive() || high_speed_stop_support)
                 for (int k = 0; k < mpc_params.horizon; ++k)
                     mpc_in.contact[k].fill(true);
+            else if (runtime_velocity_stance_hold_active_ &&
+                     measured_contact_count >= 3)
+                for (int k = 0; k < mpc_params.horizon; ++k)
+                    mpc_in.contact[k] = qp_contact;
             else if (motion_event_response_enabled_ && EmergencyStopHoldReady())
                 for (int k = 0; k < mpc_params.horizon; ++k)
                     mpc_in.contact[k].fill(true);

@@ -252,4 +252,39 @@ public:
 private:
     double low_speed_time_s_ = 0.0;
 };
+
+// A zero velocity command is a supported stance, not an in-place stepping
+// gait.  Latch only after the shaped command and measured body motion are
+// both small; leave immediately when a new command arrives.  The caller uses
+// this one state for the gait trajectory and both WBC contact consumers.
+class RuntimeVelocityStanceHoldGate
+{
+public:
+    void Reset() noexcept { active_ = false; }
+
+    bool Step(
+        double requested_mps,
+        double shaped_mps,
+        double measured_mps,
+        bool have_measured_velocity) noexcept
+    {
+        const double requested = std::isfinite(requested_mps)
+            ? std::abs(requested_mps) : 0.0;
+        const double shaped = std::isfinite(shaped_mps)
+            ? std::abs(shaped_mps) : 0.0;
+        const double measured = std::isfinite(measured_mps)
+            ? std::abs(measured_mps) : 0.0;
+        if (requested > 0.05 || shaped > 0.05)
+            active_ = false;
+        else if (requested <= 1.0e-6 && shaped <= 0.02 &&
+                 (!have_measured_velocity || measured <= 0.25))
+            active_ = true;
+        return active_;
+    }
+
+    bool active() const noexcept { return active_; }
+
+private:
+    bool active_ = false;
+};
 }  // namespace go2_trot
