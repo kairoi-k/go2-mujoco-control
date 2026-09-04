@@ -106,6 +106,13 @@ go2_add_ctest(test_velocity_command)
 
 add_executable(test_trot_task tests/test_trot_task.cpp trot/trot_task.cpp)
 
+add_executable(test_lean_route_guard
+    tests/test_lean_route_guard.cpp
+    trot/trot_cli.cpp
+    trot/trot_task.cpp)
+target_link_libraries(test_lean_route_guard unitree_sdk2 Eigen3::Eigen)
+go2_add_ctest(test_lean_route_guard)
+
 add_executable(test_contact_state_filter tests/test_contact_state_filter.cpp)
 add_executable(test_contact_fusion_fault_harness tests/test_contact_fusion_fault_harness.cpp)
 go2_add_ctest(test_contact_fusion_fault_harness)

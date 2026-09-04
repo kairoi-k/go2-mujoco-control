@@ -34,9 +34,7 @@ void PrintTrotCliUsage()
            " [--forever] [--stop-file path]"
            " [--auto-environment]"
            " [--gait-phase-offset fraction]"
-           " [--terrain-sensor-only|--terrain-planner] [--stage-c-execution]"
-           " [--terrain-leg-order lateral|legacy]"
-           " [--terrain-advance-body-before-second]"
+           " [--terrain-sensor-only]"
            " [--impact-to-emergency-stop-delay s]"
            " [--task stand-walk-lie]"
            " [--goal-x m] [--goal-y m] [--goal-tol m]\n";
@@ -119,35 +117,13 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
                 cfg.params.terrain_sensor_only = true;
                 cfg.params.terrain_actuation = false;
             }
-            else if (option == "--stage-c-execution")
-            {
-                cfg.params.stage_c_execution = true;
-                cfg.params.terrain_enabled = true;
-                cfg.params.terrain_sensor_only = false;
-                cfg.params.terrain_actuation = true;
-            }
-            else if (option == "--terrain-planner")
-            {
-                cfg.params.terrain_enabled = true;
-                cfg.params.terrain_sensor_only = false;
-                cfg.params.terrain_actuation = true;
-            }
-            else if (option == "--terrain-leg-order")
-            {
-                const std::string value = require_value("--terrain-leg-order");
-                if (value == "lateral")
-                    cfg.params.terrain_leg_order =
-                        go2_terrain::TerrainCrawlLegOrder::kLateral;
-                else if (value == "legacy")
-                    cfg.params.terrain_leg_order =
-                        go2_terrain::TerrainCrawlLegOrder::kLegacyFrontFirst;
-                else
-                    throw std::invalid_argument(
-                        "unsupported terrain leg order '" + value + "'");
-            }
-            else if (option == "--terrain-advance-body-before-second")
-                cfg.params.terrain_advance_policy =
-                    go2_terrain::TerrainCrawlAdvancePolicy::kBeforeSecondStep;
+            else if (option == "--stage-c-execution" ||
+                     option == "--terrain-planner" ||
+                     option == "--terrain-leg-order" ||
+                     option == "--terrain-advance-body-before-second")
+                throw std::invalid_argument(
+                    "retired terrain actuation option '" + option +
+                    "'; use --terrain-sensor-only and read CURRENT.md");
             else if (option == "--gait-phase-offset")
                 cfg.params.gait_phase_offset =
                     std::stod(require_value("--gait-phase-offset"));
