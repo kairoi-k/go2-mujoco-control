@@ -73,6 +73,34 @@ bool CheckFusionGuard()
         result.reason == std::string("measured-support-restored");
 }
 
+bool CheckRunningTrotMerge()
+{
+    const std::array<bool, go2::kLegCount> flight{};
+    const std::array<bool, go2::kLegCount> diagonal{
+        true, false, false, true};
+    const std::array<bool, go2::kLegCount> other_diagonal{
+        false, true, true, false};
+    const std::array<bool, go2::kLegCount> one_touchdown{
+        true, false, false, false};
+
+    if (go2_control::MergeRunningTrotContact(
+            flight, one_touchdown, 2) != flight)
+        return false;
+    if (go2_control::MergeRunningTrotContact(
+            diagonal, one_touchdown, 2) != diagonal)
+        return false;
+    const std::array<bool, go2::kLegCount> all_contact{
+        true, true, true, true};
+    if (go2_control::MergeRunningTrotContact(
+            diagonal, other_diagonal, 2) != all_contact)
+        return false;
+    if (go2_control::MergeRunningTrotContact(
+            diagonal, one_touchdown, 1) != diagonal)
+        return false;
+    return go2_control::MergeRunningTrotContact(
+               diagonal, other_diagonal, 0) == diagonal;
+}
+
 bool CheckInvalidInput()
 {
     const go2_control::HystereticContactParams params{5.0, 3.0};
@@ -93,7 +121,8 @@ bool CheckInvalidInput()
 
 int main()
 {
-    if (!CheckHysteresisBand() || !CheckFusionGuard() || !CheckInvalidInput())
+    if (!CheckHysteresisBand() || !CheckFusionGuard() ||
+        !CheckRunningTrotMerge() || !CheckInvalidInput())
     {
         std::cerr << "Hysteretic contact filter checks failed" << std::endl;
         return 1;

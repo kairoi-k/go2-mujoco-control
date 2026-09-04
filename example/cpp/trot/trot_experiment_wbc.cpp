@@ -62,50 +62,6 @@ Eigen::Vector3d ClampVec3(const Eigen::Vector3d &v, double lim)
     return out;
 }
 
-// The nominal gait phase is only a prediction.  At sprint cadence a foot can
-// touch down a few milliseconds early/late, so a QP contact set made solely
-// from the phase can ask ID-WBC to support a leg that is in flight, or to swing
-// a leg that is already carrying load.  Keep this opt-in for experiments: use
-// the hysteretic force state when it is trustworthy, but retain scheduled
-// contacts until at least a diagonal pair is available so a noisy force sample
-// cannot make the floating-base problem underconstrained.
-std::array<bool, go2::kLegCount> MergeHighSpeedContact(
-    const std::array<bool, go2::kLegCount> &scheduled,
-    const std::array<bool, go2::kLegCount> &measured,
-    int mode)
-{
-    if (mode <= 0)
-        return scheduled;
-    // Mode 2 is a conservative union: never remove a scheduled stance foot
-    // merely because its force sensor is late, but allow an early measured
-    // touchdown to enter the QP immediately.  This keeps the contact plant
-    // compatible with the planned swing trajectory while absorbing early
-    // touchdown, unlike the old measured-only merge which could replace a
-    // valid diagonal pair with a transient one-leg sample.
-    if (mode >= 2)
-    {
-        std::array<bool, go2::kLegCount> merged = scheduled;
-        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            merged[leg] = merged[leg] || measured[leg];
-        return merged;
-    }
-    std::array<bool, go2::kLegCount> merged = measured;
-    int active = 0;
-    for (bool contact : merged)
-        active += contact ? 1 : 0;
-    if (active < 2)
-    {
-        for (std::size_t leg = 0; leg < go2::kLegCount && active < 2; ++leg)
-        {
-            if (!scheduled[leg] || merged[leg])
-                continue;
-            merged[leg] = true;
-            ++active;
-        }
-    }
-    return merged;
-}
-
 }  // namespace
 
 void TrotExperiment::UpdateWbcFull(
@@ -221,7 +177,7 @@ void TrotExperiment::UpdateWbcFull(
             go2_control::FillTrotContactSchedulePhase(
                 current_phase_, gait_period, gait_duty, 1, 0.0, scheduled,
                 params_.gait_pattern);
-            qp_contact = MergeHighSpeedContact(
+            qp_contact = go2_control::MergeRunningTrotContact(
                 scheduled[0], measured_contact,
                 high_speed_contact_merge_mode);
         }

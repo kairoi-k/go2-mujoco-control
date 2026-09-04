@@ -65,6 +65,43 @@ inline bool UpdateHystereticContactArray(
     return true;
 }
 
+// Combine the gait schedule with force-supported early/late touchdown without
+// turning a transient single measured contact into the WBC support model.
+// Running trot intentionally permits zero-contact flight, but its supported
+// intervals require at least the scheduled diagonal pair.
+inline std::array<bool, go2::kLegCount> MergeRunningTrotContact(
+    const std::array<bool, go2::kLegCount> &scheduled,
+    const std::array<bool, go2::kLegCount> &measured,
+    int mode) noexcept
+{
+    if (mode <= 0)
+        return scheduled;
+
+    std::array<bool, go2::kLegCount> merged = measured;
+    if (mode >= 2)
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            merged[leg] = merged[leg] || scheduled[leg];
+    }
+    else
+    {
+        std::size_t active = static_cast<std::size_t>(std::count(
+            merged.begin(), merged.end(), true));
+        for (std::size_t leg = 0;
+             leg < go2::kLegCount && active < 2; ++leg)
+        {
+            if (!scheduled[leg] || merged[leg])
+                continue;
+            merged[leg] = true;
+            ++active;
+        }
+    }
+
+    const std::size_t active = static_cast<std::size_t>(std::count(
+        merged.begin(), merged.end(), true));
+    return active == 1 ? scheduled : merged;
+}
+
 enum class ContactFusionFallbackStage : int
 {
     kNone = 0,
