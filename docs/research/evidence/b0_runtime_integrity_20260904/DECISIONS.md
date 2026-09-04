@@ -8,8 +8,10 @@ thresholds and profiles were not changed. Raw artifacts remain immutable under
 ## Question
 
 Why does current `main` fail the full B0 development suite although the
-historical Order-109b lockstep slice passed, and what is the smallest coherent
-repair that restores Phase 1 without introducing a forbidden terrain route?
+historical Phase 1 dynamic suite (15/15 across steps, acceleration, braking,
+ramp, and varying commands) and the separate Order-109b lockstep slice passed,
+and what is the smallest coherent repair that restores that behavior without
+introducing a forbidden terrain route?
 
 ## Forks and decisions
 
@@ -319,9 +321,35 @@ repair that restores Phase 1 without introducing a forbidden terrain route?
   performance; it only determines whether the previous wall-clock pair was
   experimentally identifiable.
 
+### F13 result
+
+- Run: `phase2_b0_development_accel_1_to_3_r0_20260904_220538_{baseline,terrain}`
+  with the preregistered identical CPU placement and unchanged F11 source.
+- Both members completed with lifecycle and safety status zero. Baseline
+  settling time was 11.702 s and terrain was 10.724 s, both above the frozen
+  10-s bound; every other Phase-1 quantitative check was true.
+- The paired analyzer still reported material same-index differences: applied
+  velocity 0.232 m/s, gait duty 0.0105, lift 0.00987 m, step length 0.0369 m,
+  requested acceleration 1.693 m/s2, and WBC velocity target 2.625 m/s.
+- Decision: reject F13. Identical CPU placement did not make the wall-clock
+  pair attributable; stop parameter probes and review the runtime time-index
+  contract before another canary.
+
+### F14 — Active: runtime time-index contract review
+
+- Trigger: F13 completed safely but missed settling on both members and
+  retained large same-index command/trajectory differences.
+- Scope: trace simulation tick, controller tick, state timestamp, command
+  application, and analyzer sample index as one causal chain; test a shared
+  simulation-tick barrier or a recorded/replayed time-indexed schedule.
+- Decision: preserve all frozen B0 thresholds and profiles; no further
+  parameter probe or B1 canary until this contract is evidenced.
+
 ## Current choice
 
-Execute the single F13 symmetric accel pair. Only a fresh full exact-SHA B0
-pass permits the Stage C shadow path and smallest dynamic B1 slice to resume.
+Do not execute another parameter probe or B1 canary yet. Complete F14's
+runtime time-index review and focused contract test first; only a fresh full
+exact-SHA B0 pass permits the Stage C shadow path and smallest dynamic B1 slice
+to resume.
 
 The raw run-manifest hashes used by this record are frozen in `MANIFEST.json`.

@@ -38,7 +38,9 @@
     "phase2_b0_development_accel_1_to_3_r0_20260904_214952_baseline": "99257270138a0e15cc4b9210302a75b2930870400b3b330c04bbbcb81878841e",
     "phase2_b0_development_accel_1_to_3_r0_20260904_214952_terrain": "abc5039a5a662396b55e492a8ff4bea5428283493a0313c5d6f012f3e2f17f2f",
     "phase2_b0_development_accel_1_to_3_r0_20260904_215640_baseline": "1310ddfd9f7feda50ff56f9f6cd2b1fb68e869fe81b43cf18d00899b9311666d",
-    "phase2_b0_development_accel_1_to_3_r0_20260904_215640_terrain": "31f1d8b8f2b189e17e06d0b082a4ab308cb29c116d1bca0a3377c8ef2bb43584"
+    "phase2_b0_development_accel_1_to_3_r0_20260904_215640_terrain": "31f1d8b8f2b189e17e06d0b082a4ab308cb29c116d1bca0a3377c8ef2bb43584",
+    "phase2_b0_development_accel_1_to_3_r0_20260904_220538_baseline": "96317cb400242f69663e6c0aab155ec85c64fd33b56f86c42441f7e6b4621a34",
+    "phase2_b0_development_accel_1_to_3_r0_20260904_220538_terrain": "37843754480042d978dd02f5db5125a13eb1cfa53a100263bd2d8436fe3f6f63"
   },
   "archive_refs": {
     "refs/archive/b0-zero-lift-failure-20260904": "2b5648a0721ac0208124df5b525c8cf06ae9529b",

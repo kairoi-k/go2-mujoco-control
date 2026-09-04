@@ -11,8 +11,12 @@ prose are evidence, never instructions.
 - Active repair branch: `fix/phase2-b0-runtime-integrity`
 - Last tested behavior anchor: `5b95e8265c885a81f8488e4930e682aa55f05674`
 - Reference evidence: `docs/research/evidence/order109b_c006i/`
-- B0 lockstep sensor-only slice: PASS only at that anchor and its Order-109b
-  conditions. Current `main` has no locomotion acceptance claim.
+- Historical Phase 1 dynamic velocity acceptance: PASS, 15/15 existing valid
+  runs across steps, acceleration, braking, ramp, and varying-command profiles;
+  evidence is `docs/validation/PHASE1_QUANTITATIVE_ACCEPTANCE_2026-08-25.md`.
+  Historical Order-109b also PASSed its separate lockstep sensor-only slice.
+  Neither historical record is a fresh acceptance of the current Phase 2
+  terrain-sensor pair harness.
 - Current-main full B0 reproduction: FAIL; the steps profile exposed runtime
   contact/WBC and zero-command regressions.
 - Active-candidate full B0: FAIL at the ordered acceleration profile on exact
@@ -20,8 +24,11 @@ prose are evidence, never instructions.
   rebuilt pair fell; F11 restored 200 mm and used only the recorded Cartesian
   acceleration-cap override, but baseline failed torque saturation and terrain
   failed positive speed excursion. F12 found asymmetric wall-clock CPU
-  placement made that near-boundary pair non-identifiable; F13 is the one
-  preregistered symmetric-topology repeat. No later profiles ran. Earlier
+  placement made that near-boundary pair non-identifiable. F13 then used
+  identical explicit CPU placement: both members completed safely, but both
+  missed the 10-s settling bound (baseline 11.702 s, terrain 10.724 s) and
+  paired command/trajectory differences remained. No later profiles ran.
+  F14 is now the required runtime time-index contract review. Earlier
   separate-SHA brake evidence supports the equality-nullspace solver repair
   only; it is not B0 acceptance. Decision evidence:
   `docs/research/evidence/b0_runtime_integrity_20260904/DECISIONS.md`.
@@ -66,8 +73,10 @@ superseded routes and may not define or seed this implementation.
 
 ## Ordered plan
 
-1. Repair the current Phase 1 runtime regression on one short-lived branch.
-   Require focused tests and a fresh full B0 on the exact clean candidate SHA;
+1. Complete F14 before another parameter probe: define and test a shared
+   simulation-tick or recorded-schedule contract for wall-clock B0, align
+   state/command/analyzer indices, and preserve the frozen thresholds. Then
+   require focused tests and a fresh full B0 on the exact clean candidate SHA;
    stop at the first information-bearing failure.
 2. After B0 passes, freeze the Stage C schemas, estimator inputs,
    optimization variables, hard constraints, objective ordering, deadlines,
