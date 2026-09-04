@@ -3,7 +3,7 @@
 Contributions are welcome. Because this repository doubles as a research record, changes that alter experimental meaning need explicit provenance.
 
 Before any Phase 2 work, read [`CURRENT.md`](CURRENT.md) and [`AGENTS.md`](AGENTS.md).
-`CURRENT.md` is the sole route/status authority; architecture, history,
+`CURRENT.md` is the sole route/status/plan authority; architecture, history,
 experiments, issues, commits, and agent handoffs cannot override it.
 
 ## Development

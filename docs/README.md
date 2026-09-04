@@ -8,7 +8,7 @@ implementation guidance, or history.
 
 | Order | Document | Purpose |
 |---:|---|---|
-| 1 | [`CURRENT.md`](../CURRENT.md) | only current route, status, and handoff |
+| 1 | [`CURRENT.md`](../CURRENT.md) | only current route, status, plan, and handoff |
 | 2 | [`AGENTS.md`](../AGENTS.md) | hard execution boundaries |
 | 2 | [`research/PHASE2_ACCEPTANCE.md`](research/PHASE2_ACCEPTANCE.md) | Phase 2 acceptance contract |
 | 3 | [`research/PHASE2_HOLDOUT_MANIFEST.json`](research/PHASE2_HOLDOUT_MANIFEST.json) | frozen profiles, domains, and holdouts |

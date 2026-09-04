@@ -6,7 +6,7 @@ research fork of
 [`unitreerobotics/unitree_mujoco`](https://github.com/unitreerobotics/unitree_mujoco).
 
 **Start current Phase 2 work at [`CURRENT.md`](CURRENT.md).** It is the only
-route, status, and handoff authority; all other notes and artifacts are
+route, status, plan, and handoff authority; all other notes and artifacts are
 subordinate context or history.
 
 ![stand-walk-lie](docs/media/stand_walk_lie_wbcfull.gif)
@@ -83,7 +83,7 @@ the exact entrypoints, manifest, experiment lock, and analyzer specified by
 
 | Need | Start here |
 |---|---|
-| Current route/status/next slice | [`CURRENT.md`](CURRENT.md) |
+| Current route/status/plan/handoff | [`CURRENT.md`](CURRENT.md) |
 | Complete documentation map | [`docs/README.md`](docs/README.md) |
 | Reproduction rules | [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) |
 | Accepted claims | [`docs/RESEARCH_INDEX.md`](docs/RESEARCH_INDEX.md) |

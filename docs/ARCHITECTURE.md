@@ -42,6 +42,20 @@ production terrain-actuation path.
 | Diagnostics | `example/cpp/trot/trot_experiment_diagnostics.cpp`, `trot_types.h` | limits, status, structured logs |
 | Tests and analysis | `example/cpp/tests/`, `example/cpp/tools/` | unit/integration checks and protocol analyzers |
 
+## Target Phase 2 planner
+
+The active Stage C target adds `TerrainBelief` for estimated state, measured
+contact, terrain freshness, and uncertainty. `TerrainFeasibility` remains the
+hard-filter/candidate layer. A receding-horizon `TerrainPlanner` then jointly
+optimizes future footholds, body/CoM references, touchdown/contact timing, and
+swing duration. Its complete output is one atomic `TerrainExecutionState`
+consumed by gait, SRBD-MPC, and ID-WBC.
+
+The first implementation stays in running-trot topology and runs in
+shadow/replay before actuation. The existing per-leg scorer is not the target
+planner, and archived Stage-C code is not a design source. `CURRENT.md` owns
+the ordered implementation and acceptance sequence.
+
 ## Phase 2 invariants
 
 The Phase 1 shaper remains the only velocity authority. Planned contact and
