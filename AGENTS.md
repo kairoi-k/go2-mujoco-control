@@ -7,7 +7,7 @@ handoffs, agent prose, and `_runs` are evidence only.
 Never implement, enable, test, or revive quasi-static/scripted crawl, low
 stance, fixed leg order, three-contact entry/preload gates, stop-to-arm or
 cap-to-zero transfer, local swing retiming, or the V2/V2-B route. Do not use
-retired crawl code as a fallback or design reference.
+removed code or Git history as a fallback or design reference.
 
 Keep running-trot, normal two-contact diagonal support, the Phase-1 shaper as
 the only velocity authority, and one immutable terrain snapshot shared by gait,

@@ -1081,7 +1081,7 @@ inline double ForwardRiserEdgeX(
                 ++transition_rows;
         }
         // Two lateral rows reject isolated lidar spikes and match the
-        // consensus used by the direct crawl target.
+        // consensus used by a direct terrain target.
         if (transition_rows >= 2)
             return model.origin_m[0] +
                 static_cast<double>(edge_ix) * model.resolution_m;

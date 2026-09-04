@@ -29,17 +29,10 @@ case "$scenario" in
   *) echo "unknown scenario: $scenario" >&2; exit 2 ;;
 esac
 
-if [[ "$set_name" == "holdout" ]]; then
-  case "$repeat" in
-    1) terrain_domain=200; baseline_domain=180 ;;
-    2) terrain_domain=201; baseline_domain=181 ;;
-    3) terrain_domain=202; baseline_domain=182 ;;
-    *) echo "holdout repeat must be 1..3" >&2; exit 2 ;;
-  esac
-else
-  terrain_domain=221
-  baseline_domain=220
-fi
+read -r baseline_domain terrain_domain < <(
+  python3 "$cpp_dir/tools/read_phase2_b0_domains.py" \
+    profiles "$set_name" "$repeat"
+)
 
 export TROT_DYNAMICS_TOLERANCE_N="${TROT_DYNAMICS_TOLERANCE_N:-20}"
 export TROT_HS_START_PERIOD="${TROT_HS_START_PERIOD:-0.20}"

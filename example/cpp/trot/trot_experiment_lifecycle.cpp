@@ -199,22 +199,7 @@ bool TrotExperiment::Init()
 
     go2_terrain::TerrainPlannerConfig terrain_config;
     terrain_config.sensor_only = params_.terrain_sensor_only;
-    terrain_config.allow_actuation = params_.terrain_actuation;
-    if (terrain_config.allow_actuation && !terrain_config.sensor_only)
-    {
-        // An actuating terrain plan is an atomic future-contact transaction,
-        // not a one-tick observation.  Keep it valid through the configured
-        // contact horizon so a foothold can be armed in stance and executed
-        // at the next swing without falling back to a late riser handoff.
-        terrain_config.plan_validity_s = 0.50;
-        // Before the first front commit, blended riser cells do not yet carry
-        // a latched transition identity. Use the already-proven straddle
-        // corridor and retain a small geometric margin for that pre-arm knot;
-        // B0 and flat-ground control never construct an actuating planner.
-        terrain_config.max_two_contact_line_error_m =
-            terrain_config.two_contact_straddle_corridor_m;
-        terrain_config.min_support_margin_m = 0.0;
-    }
+    terrain_config.allow_actuation = false;
     terrain_planner_ = go2_terrain::TerrainPlanner(terrain_config);
 
     if (params_.wbc_full)
@@ -306,9 +291,7 @@ bool TrotExperiment::Init()
             1);
         std::cout << "Terrain lidar map: " << GO2_TROT_TOPIC_LIDAR_MAP
                   << " sensor_only="
-                  << (params_.terrain_sensor_only ? "on" : "off")
-                  << " actuation="
-                  << (params_.terrain_actuation ? "on" : "off") << "\n";
+                  << (params_.terrain_sensor_only ? "on" : "off") << "\n";
     }
 
     std::cout << "Waiting for natural settle...\n";

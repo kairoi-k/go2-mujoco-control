@@ -22,7 +22,6 @@
 #include "motion_frame_utils.h"
 #include "preview_footstep_horizon.h"
 #include "srbd_mpc.h"
-#include "terrain_swing_tracking.h"
 
 using namespace unitree::common;
 using namespace unitree::robot;
@@ -114,12 +113,6 @@ void TrotExperiment::UpdateWbcFull(
     const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot)
 {
     wbc_shadow_diagnostics_.enabled = true;
-    wbc_shadow_contact_state_valid_ = false;
-    terrain_stage_servo_acc_x_mps2_ = 0.0;
-    terrain_stage_servo_acc_y_mps2_ = 0.0;
-    terrain_shift_servo_acc_x_mps2_ = 0.0;
-    terrain_shift_servo_acc_y_mps2_ = 0.0;
-    terrain_stage_servo_saturated_ = false;
     if (!rigid_body_ || !rigid_body_->loaded())
         return;
     const double pitch_abs = std::abs(
@@ -174,85 +167,6 @@ void TrotExperiment::UpdateWbcFull(
     {
         return;
     }
-    measured_com_world_ = {dyn.com_world.x(), dyn.com_world.y(), dyn.com_world.z()};
-    have_measured_com_world_ = dyn.com_world.allFinite();
-    // A raised committed foot makes the remaining stance a tilted 3-D
-    // support plane. Cache its deliberate attitude reference before the
-    // hard-limit check on the next control tick; flat ground computes exact
-    // zero angles and therefore retains the existing path. The sequencer is
-    // authoritative here: its active leg is the commit currently being
-    // prepared, while the legacy machine can be one tick behind it.
-    const auto crawl_state = terrain_crawl_state_machine_.state();
-    const auto sequencer_state = terrain_crawl_sequencer_output_.state;
-    const bool full_v2_shift =
-        terrain_crawl_sequencer_output_.state ==
-            go2_terrain::TerrainCrawlSequencerState::kShift &&
-        !terrain_crawl_sequencer_output_.flat_ground_mode &&
-        true;
-    const bool low_stance_active =
-        go2_terrain::TerrainCrawlLowStanceActive(
-            sequencer_state,
-            terrain_crawl_sequencer_output_.control_authority_active,
-            terrain_crawl_sequencer_output_.flat_ground_mode);
-    const bool body_advance_requested =
-        terrain_crawl_sequencer_output_.body_advance_requested ||
-        crawl_state == go2_terrain::TerrainCrawlState::kAdvanceBody ||
-        full_v2_shift;
-    const bool sequencer_crawl_execution =
-        terrain_crawl_sequencer_output_.control_authority_active &&
-        sequencer_state != go2_terrain::TerrainCrawlSequencerState::kAbort &&
-        !body_advance_requested;
-    const bool sequencer_stance_reference =
-        sequencer_crawl_execution &&
-        (sequencer_state ==
-             go2_terrain::TerrainCrawlSequencerState::kShift ||
-         sequencer_state ==
-             go2_terrain::TerrainCrawlSequencerState::kSwing ||
-         sequencer_state ==
-             go2_terrain::TerrainCrawlSequencerState::kCommit);
-    const bool legacy_stance_reference =
-        crawl_state == go2_terrain::TerrainCrawlState::kShiftCom ||
-        crawl_state == go2_terrain::TerrainCrawlState::kCrawlStep;
-    const bool crawl_stance_reference =
-        !terrain_crawl_sequencer_output_.flat_ground_mode &&
-        terrain_crawl_sequencer_output_.control_authority_active &&
-        (sequencer_stance_reference || legacy_stance_reference);
-    if (!crawl_stance_reference)
-    {
-        terrain_stance_reference_valid_ = false;
-        terrain_stance_reference_normal_ = Eigen::Vector3d::UnitZ();
-        terrain_stance_reference_commit_mask_ = 0xff;
-    }
-    else
-    {
-        const auto feet = std::array<go2::Vec3, go2::kLegCount>{
-            go2::Vec3{dyn.foot_pos_world[0].x(), dyn.foot_pos_world[0].y(), dyn.foot_pos_world[0].z()},
-            go2::Vec3{dyn.foot_pos_world[1].x(), dyn.foot_pos_world[1].y(), dyn.foot_pos_world[1].z()},
-            go2::Vec3{dyn.foot_pos_world[2].x(), dyn.foot_pos_world[2].y(), dyn.foot_pos_world[2].z()},
-            go2::Vec3{dyn.foot_pos_world[3].x(), dyn.foot_pos_world[3].y(), dyn.foot_pos_world[3].z()}};
-        std::uint8_t commit_mask = 0;
-        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            if (terrain_crawl_sequencer_output_.committed[leg])
-                commit_mask |= static_cast<std::uint8_t>(1u << leg);
-        // Recompute exactly once at each measured commit. During SWING the
-        // active foot is moving, so refitting the four points every tick
-        // would make the posture target follow the swing leg instead of the
-        // committed mixed support. SHIFT is still four-contact measured data.
-        if (commit_mask != terrain_stance_reference_commit_mask_)
-        {
-            const auto plane = go2_terrain::ComputeTerrainStancePlaneFromFeet(
-                feet, static_cast<double>(state_snapshot.imu_state().rpy()[2]));
-            if (plane.valid)
-            {
-                terrain_stance_reference_valid_ = true;
-                terrain_stance_reference_roll_rad_ = plane.roll_rad;
-                terrain_stance_reference_pitch_rad_ = plane.pitch_rad;
-                terrain_stance_reference_normal_ = Eigen::Vector3d(
-                    plane.normal.x, plane.normal.y, plane.normal.z);
-                terrain_stance_reference_commit_mask_ = commit_mask;
-            }
-        }
-    }
     if (!dynamics_logged_)
     {
         dynamics_logged_ = true;
@@ -261,72 +175,20 @@ void TrotExperiment::UpdateWbcFull(
                   << " bias_z=" << dyn.bias[2] << "\n";
     }
 
-    std::array<double, go2::kLegCount> foot_forces{};
-    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-        foot_forces[leg] = state_snapshot.foot_force()[leg];
     std::array<bool, go2::kLegCount> measured_contact{};
     const go2_control::HystereticContactParams contact_params{
         kShadowContactOnForceN, kShadowContactOffForceN};
-    const bool measured_filter_valid =
-        go2_control::UpdateHystereticContactArray(
-            foot_forces, contact_params, wbc_shadow_contact_state_,
-            measured_contact);
-    if (!measured_filter_valid)
-        measured_contact.fill(false);
-    // Keep an invalid sensor observation distinct from an all-off reading.
-    // The Stage-C guard below will select the documented fallback chain.
-    wbc_shadow_contact_state_valid_ = measured_filter_valid;
-    const double terrain_now_s =
-        static_cast<double>(state_snapshot.tick()) * 1.0e-3;
-    const bool stage_c_window = params_.stage_c_execution &&
-        params_.terrain_actuation && !params_.terrain_sensor_only &&
-        terrain_transfer_window_active_;
-    const auto contact_fusion = terrain_contact_fusion_.Update(
-        measured_contact, measured_filter_valid, stage_c_window);
-    wbc_shadow_diagnostics_.terrain_raw_contact_mask = 0;
-    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-        if (std::isfinite(foot_forces[leg]) &&
-            foot_forces[leg] >= contact_params.engage_force_n)
-            wbc_shadow_diagnostics_.terrain_raw_contact_mask |=
-                1 << static_cast<int>(leg);
-    wbc_shadow_diagnostics_.terrain_fused_contact_mask = 0;
-    wbc_shadow_diagnostics_.terrain_robust_support_mask = 0;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
-        if (contact_fusion.fused_contact[leg])
-            wbc_shadow_diagnostics_.terrain_fused_contact_mask |=
-                1 << static_cast<int>(leg);
-        if (contact_fusion.robust_support[leg])
-            wbc_shadow_diagnostics_.terrain_robust_support_mask |=
-                1 << static_cast<int>(leg);
+        const double force = state_snapshot.foot_force()[leg];
+        bool next_contact = false;
+        if (!go2_control::UpdateHystereticContact(
+                wbc_shadow_contact_state_[leg], force, contact_params,
+                next_contact))
+            return;
+        wbc_shadow_contact_state_[leg] = next_contact;
+        measured_contact[leg] = next_contact;
     }
-    wbc_shadow_diagnostics_.terrain_contact_guard_active =
-        contact_fusion.guard_active;
-    wbc_shadow_diagnostics_.terrain_contact_guard_age_ticks =
-        static_cast<int>(contact_fusion.low_support_age_ticks);
-    wbc_shadow_diagnostics_.terrain_contact_grace_remaining_ticks =
-        static_cast<int>(contact_fusion.grace_remaining_ticks);
-    wbc_shadow_diagnostics_.terrain_contact_fallback_stage =
-        static_cast<int>(contact_fusion.fallback_stage);
-    wbc_shadow_diagnostics_.terrain_contact_fusion_reason =
-        contact_fusion.reason;
-    // Gait and MPC consume the same adopted immutable snapshot. During the
-    // v2 Stage-C window do not reload a newer store value behind gait's back;
-    // an absent/expired adopted plan is a measured-support fallback.
-    const auto terrain_contact_plan =
-        params_.terrain_actuation && !params_.terrain_sensor_only
-            ? (stage_c_window
-                   ? (terrain_plan_execution_adapter_.using_plan() &&
-                      terrain_plan_execution_adapter_.adopted_plan() &&
-                      terrain_plan_execution_adapter_.adopted_plan()->usable_at(
-                          terrain_now_s)
-                          ? terrain_plan_execution_adapter_.adopted_plan()
-                          : nullptr)
-                   : (terrain_execution_plan_ &&
-                              terrain_execution_plan_->usable_at(terrain_now_s)
-                          ? terrain_execution_plan_
-                          : terrain_plan_store_.LoadUsable(terrain_now_s)))
-            : nullptr;
     const int high_speed_contact_merge_mode = high_speed_curriculum
         ? std::clamp(static_cast<int>(std::llround(Full2EnvDouble(
               "TROT_HS_HYBRID_CONTACT", 0.0))), 0, 2)
@@ -335,55 +197,18 @@ void TrotExperiment::UpdateWbcFull(
     // the validated path uses the gait schedule.  Sprint experiments may opt
     // into a measured/scheduled merge to absorb early or late touchdown.
     std::array<bool, go2::kLegCount> qp_contact = measured_contact;
-    std::array<bool, go2::kLegCount> scheduled_contact = measured_contact;
     const double gait_period =
         kernel_period_s_ > 0.05 ? kernel_period_s_ : params_.period_s;
     const double gait_duty =
         kernel_duty_factor_ > 0.05 ? kernel_duty_factor_ : params_.duty_factor;
-    const bool gait_contact_schedule_active =
-        task_.gait_started_ &&
-        (task_.motion_stage_ == 2 || WbcStopHoldActive());
-    if (gait_contact_schedule_active)
-    {
-        std::array<std::array<bool, go2::kLegCount>,
-                   go2_control::kSrbdMaxHorizon> scheduled{};
-        go2_control::FillTrotContactSchedulePhase(
-            current_phase_, gait_period, gait_duty, 1, 0.0, scheduled,
-            runtime_gait_pattern_);
-        scheduled_contact = scheduled[0];
-        if (terrain_contact_plan &&
-            terrain_contact_plan->contact_schedule.valid(
-                terrain_contact_plan->horizon_knots))
-        {
-            std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
-                plan_contact_index{};
-            if (go2_terrain::BuildTerrainPlanHorizonIndices(
-                    *terrain_contact_plan, terrain_now_s,
-                    terrain_planner_.config().knot_dt_s,
-                    terrain_planner_.config().knot_dt_s, 1,
-                    plan_contact_index))
-                scheduled_contact = terrain_contact_plan->contact_schedule
-                    .planned_contact[plan_contact_index[0]];
-        }
-    }
-    // The in-window sequencer is the contact authority. Its schedule is
-    // derived from measured support and an explicit swing event, rather than
-    // from the running trot phase or a planner snapshot.
-    if (terrain_transfer_window_active_ &&
-        terrain_crawl_sequencer_output_.control_authority_active &&
-        !body_advance_requested &&
-        (terrain_crawl_sequencer_output_.measured_contact_count >= 3 ||
-         terrain_crawl_sequencer_output_.flat_ground_mode ||
-         terrain_crawl_sequencer_output_.state ==
-             go2_terrain::TerrainCrawlSequencerState::kStage))
-        scheduled_contact = terrain_crawl_sequencer_output_.contact_schedule;
     // During the brake, keep the scheduled running contacts.  The body is
     // still carrying sprint momentum, so declaring all four feet fixed after
     // an arbitrary 0.40 s creates the same hidden plant switch we are trying
     // to avoid.  The brake-complete gate promotes this to a four-contact WBC
     // hold only once measured speed and attitude are both safe.
     const bool high_speed_stop_support = high_speed_stop_hold_active_;
-    if (gait_contact_schedule_active)
+    if (task_.gait_started_ &&
+        (task_.motion_stage_ == 2 || WbcStopHoldActive()))
     {
         if (WbcStopHoldActive() || high_speed_stop_support)
             qp_contact.fill(true);
@@ -391,430 +216,16 @@ void TrotExperiment::UpdateWbcFull(
             qp_contact.fill(true);
         else
         {
+            std::array<std::array<bool, go2::kLegCount>, go2_control::kSrbdMaxHorizon>
+                scheduled{};
+            go2_control::FillTrotContactSchedulePhase(
+                current_phase_, gait_period, gait_duty, 1, 0.0, scheduled,
+                params_.gait_pattern);
             qp_contact = MergeHighSpeedContact(
-                scheduled_contact, measured_contact,
+                scheduled[0], measured_contact,
                 high_speed_contact_merge_mode);
         }
     }
-
-    // A terrain foothold is not a support contact at the predicted gait
-    // boundary.  Keep the support set that was loaded when the sensor-derived
-    // swing started, then promote a target only after the live force filter
-    // and the live foot pose agree at the immutable endpoint.  This preserves
-    // the planned/measured distinction while allowing the fixed gait cadence
-    // to wait for a real touchdown instead of dropping its old support pair.
-    bool terrain_transfer_has_target = false;
-    bool terrain_transfer_complete = true;
-    if (terrain_surface_transition_active_ &&
-        terrain_transfer_hold_active_)
-    {
-        terrain_transfer_has_target = true;
-        terrain_transfer_complete = false;
-    }
-    const bool terrain_execution_pending = std::any_of(
-        terrain_swing_execution_.begin(), terrain_swing_execution_.end(),
-        [](const TerrainSwingExecution &execution) {
-            return execution.valid && execution.terrain_target_required &&
-                !execution.measured_touchdown;
-        });
-    bool terrain_measured_target_not_scheduled = false;
-    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-    {
-        const auto &execution = terrain_swing_execution_[leg];
-        terrain_measured_target_not_scheduled |=
-            execution.valid && execution.terrain_target_required &&
-            execution.measured_touchdown && !scheduled_contact[leg];
-    }
-    if (!terrain_surface_transition_active_ &&
-        terrain_transfer_hold_active_ &&
-        !terrain_transfer_has_target && !terrain_execution_pending)
-    {
-        if (scheduled_contact == terrain_transfer_hold_contact_ &&
-            !terrain_measured_target_not_scheduled)
-        {
-            terrain_transfer_hold_contact_.fill(false);
-            terrain_transfer_hold_active_ = false;
-        }
-        else
-        {
-            terrain_transfer_has_target = true;
-            terrain_transfer_complete = false;
-        }
-    }
-    const double terrain_touchdown_tolerance_m =
-        go2_terrain::TerrainTouchdownTolerance(
-            terrain_transfer_window_active_,
-            terrain_planner_.config().feasibility.foot_patch_radius_m);
-    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-    {
-        auto &execution = terrain_swing_execution_[leg];
-        if (!execution.valid || !execution.terrain_target_required ||
-            execution.measured_touchdown ||
-            (!execution.in_flight && !execution.endpoint_held))
-            continue;
-        terrain_transfer_has_target = true;
-        const go2::Vec3 actual_world{
-            dyn.foot_pos_world[leg].x(),
-            dyn.foot_pos_world[leg].y(),
-            dyn.foot_pos_world[leg].z()};
-        const bool terrain_leading_edge_reached =
-            go2_terrain::TerrainSwingLeadingEdgeReached(
-                terrain_now_s - execution.trajectory_start_time_s,
-                execution.swing_duration_s,
-                execution.swing_leading_edge_phase_valid,
-                execution.swing_leading_edge_phase);
-        if (measured_contact[leg] && terrain_leading_edge_reached &&
-            go2_terrain::TerrainSwingContactBeforeLeadingEdge(
-                execution.start_world, execution.target_world, actual_world,
-                execution.swing_leading_edge_phase_valid,
-                execution.swing_leading_edge_phase))
-        {
-            // Force at the riser corner is a failed swing, not touchdown.
-            // Drop only this execution so the unchanged transition
-            // requirement is picked up by the next planner snapshot.
-            terrain_transfer_complete = false;
-            ++terrain_target_prepare_rejection_count_;
-            terrain_target_last_prepare_failure_ = 7;
-            terrain_target_last_prepare_failure_by_leg_[leg] = 7;
-            execution = {};
-            continue;
-        }
-        if (!execution.endpoint_held)
-        {
-            terrain_transfer_complete = false;
-            continue;
-        }
-        const Eigen::Vector3d endpoint_error =
-            dyn.foot_pos_world[leg] - Eigen::Vector3d(
-                execution.target_world.x,
-                execution.target_world.y,
-                execution.target_world.z);
-        execution.wbc_endpoint_error_m = endpoint_error.allFinite()
-            ? endpoint_error.norm()
-            : std::numeric_limits<double>::infinity();
-        const bool at_endpoint = endpoint_error.allFinite() &&
-            endpoint_error.norm() <= terrain_touchdown_tolerance_m;
-        execution.wbc_at_endpoint = at_endpoint;
-        execution.wbc_measured_contact = measured_contact[leg];
-        // A support guard owns the transaction until measured support is
-        // restored. Do not promote an early/late endpoint during N..N+25;
-        // the immutable endpoint remains available to the bounded recovery.
-        if (stage_c_window && contact_fusion.guard_active)
-        {
-            terrain_transfer_complete = false;
-            continue;
-        }
-        if (measured_contact[leg] && at_endpoint)
-        {
-            execution.measured_touchdown = true;
-            if (terrain_transfer_window_active_)
-                ++terrain_crawl_step_commit_count_;
-            if (terrain_surface_transition_active_ &&
-                terrain_surface_transition_required_[leg])
-            {
-                terrain_surface_transition_committed_surface_valid_[leg] = true;
-                terrain_surface_transition_committed_surface_world_z_[leg] =
-                    go2::FootSiteToContactPatch(execution.target_world).z;
-                terrain_surface_transition_committed_[leg] = true;
-                if (Full2EnvDouble(
-                        "TROT_TERRAIN_DEBUG_TRANSACTION", 0.0) > 0.5)
-                {
-                    std::cout << "Terrain transaction event=commit"
-                              << " t=" << terrain_now_s
-                              << " leg=" << leg
-                              << " endpoint_error="
-                              << execution.wbc_endpoint_error_m
-                              << " measured_contact=1\n";
-                }
-                terrain_transfer_complete = false;
-            }
-        }
-        else
-            terrain_transfer_complete = false;
-    }
-
-    // Once one front foothold is physically committed, make the still-flat
-    // rear pair explicit pending transition requirements.  Their elevated
-    // targets are intentionally discovered by the next planner snapshot,
-    // after S1 has translated the body into the FK envelope.
-    bool front_transition_committed = false;
-    for (std::size_t leg = 0; leg < 2; ++leg)
-        front_transition_committed = front_transition_committed ||
-            (terrain_surface_transition_active_ &&
-             terrain_surface_transition_committed_[leg]);
-    if (front_transition_committed)
-    {
-        for (std::size_t leg = 2; leg < go2::kLegCount; ++leg)
-        {
-            if (terrain_surface_transition_required_[leg] ||
-                terrain_surface_transition_committed_[leg])
-                continue;
-            // Transition surfaces are contact-patch heights, while the
-            // dynamics foot point is the FK/collision-site center.
-            const double source_world_z = go2::FootSiteToContactPatch(
-                go2::Vec3{0.0, 0.0, dyn.foot_pos_world[leg].z()}).z;
-            if (!std::isfinite(source_world_z) ||
-                terrain_surface_transition_target_world_z_ - source_world_z <=
-                    terrain_surface_transition_deadband_m_)
-                continue;
-            terrain_surface_transition_source_valid_[leg] = true;
-            terrain_surface_transition_source_world_z_[leg] = source_world_z;
-            terrain_surface_transition_required_[leg] = true;
-            terrain_surface_transition_original_required_[leg] = true;
-        }
-    }
-
-    if (!terrain_transfer_has_target)
-    {
-        terrain_transfer_hold_contact_.fill(false);
-        terrain_transfer_hold_active_ = false;
-    }
-    else
-    {
-        if (!terrain_transfer_hold_active_)
-        {
-            terrain_transfer_hold_contact_ = scheduled_contact;
-            int scheduled_support_count = 0;
-            for (bool contact : terrain_transfer_hold_contact_)
-                scheduled_support_count += contact ? 1 : 0;
-            if (scheduled_support_count < 3)
-            {
-                // The retimed planner schedule can expose only a diagonal at
-                // the transfer boundary while the force filter still sees a
-                // third loaded foot. Capture that measured support instead
-                // of allowing the schedule two-contact prediction to
-                // replace the loaded three-contact set.
-                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-                    terrain_transfer_hold_contact_[leg] =
-                        terrain_transfer_hold_contact_[leg] ||
-                        measured_contact[leg];
-                scheduled_support_count = 0;
-                for (bool contact : terrain_transfer_hold_contact_)
-                    scheduled_support_count += contact ? 1 : 0;
-            }
-            if (scheduled_support_count < 2)
-            {
-                terrain_transfer_hold_contact_ = qp_contact;
-                scheduled_support_count = 0;
-                for (bool contact : terrain_transfer_hold_contact_)
-                    scheduled_support_count += contact ? 1 : 0;
-            }
-            terrain_transfer_hold_active_ = scheduled_support_count >= 2;
-        }
-        else
-        {
-            // Keep the captured set monotonic until the transfer ends;
-            // add newly scheduled/measured stance feet so a target swing
-            // cannot reduce physical support below three contacts.
-            terrain_transfer_hold_contact_ =
-                go2_terrain::TerrainTransferHoldSupport(
-                    terrain_transfer_hold_contact_, scheduled_contact,
-                    measured_contact, true);
-        }
-        if (terrain_transfer_hold_active_ && !terrain_transfer_complete &&
-            !body_advance_requested)
-        {
-            // Keep the support captured at the first target boundary;
-            // only a confirmed target may be removed from that support
-            // set while its terrain swing is in flight. This keeps a
-            // later target from replacing the transaction's support pair.
-            qp_contact = terrain_transfer_hold_contact_;
-            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            {
-                const auto &execution = terrain_swing_execution_[leg];
-                const bool active_target = execution.valid &&
-                    execution.terrain_target_required &&
-                    !execution.measured_touchdown &&
-                    (execution.in_flight || execution.endpoint_held);
-                const bool keep_transfer_support =
-                    go2_terrain::TerrainTransferSupportMustBeKept(
-                        terrain_surface_transition_required_,
-                        terrain_surface_transition_committed_,
-                        terrain_surface_transition_cancelled_,
-                        execution.endpoint_held,
-                        execution.in_flight);
-                if (active_target && !keep_transfer_support)
-                    qp_contact[leg] = false;
-                if (execution.measured_touchdown)
-                    qp_contact[leg] = true;
-        }
-        }
-        else if (terrain_transfer_complete)
-        {
-            // The measured target is now a real support contact. Promote the
-            // same retimed plan set on this tick instead of spending one
-            // cycle on the stale transfer-hold mask.
-            qp_contact = scheduled_contact;
-            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            {
-                if (terrain_swing_execution_[leg].measured_touchdown)
-                    qp_contact[leg] = true;
-            }
-            terrain_transfer_hold_contact_.fill(false);
-            terrain_transfer_hold_active_ = false;
-        }
-    }
-
-    // Apply the crawl state contact policy after transfer bookkeeping. In
-    // particular, SHIFT_COM has no swing transaction yet, so nesting this
-    // override under terrain_transfer_has_target lets the trot schedule
-    // (often a two-foot diagonal) unload the standing robot.
-    if (terrain_crawl_sequencer_output_.control_authority_active)
-    {
-        (void)go2_terrain::TerrainCrawlWbcContactOverride(
-            terrain_crawl_state_machine_.state(),
-            terrain_crawl_state_machine_.ActiveLeg(), qp_contact,
-            body_advance_requested);
-        if (terrain_crawl_sequencer_output_.control_authority_active &&
-            !body_advance_requested &&
-            (terrain_crawl_sequencer_output_.measured_contact_count >= 3 ||
-             terrain_crawl_sequencer_output_.flat_ground_mode ||
-             terrain_crawl_sequencer_output_.state ==
-                 go2_terrain::TerrainCrawlSequencerState::kStage))
-            qp_contact = terrain_crawl_sequencer_output_.contact_schedule;
-        // The sequencer publishes a landing-support schedule in COMMIT, but
-        // the active foot is not support until the measured endpoint/contact
-        // witness advances the state. Preserve the swing task for this hold.
-        bool active_leg_touchdown_witness = false;
-        const std::size_t active_leg =
-            terrain_crawl_sequencer_output_.active_leg;
-        if (terrain_crawl_sequencer_output_.state ==
-                go2_terrain::TerrainCrawlSequencerState::kCommit &&
-            active_leg < go2::kLegCount &&
-            terrain_crawl_sequencer_output_.target_valid)
-        {
-            const Eigen::Vector3d endpoint_error =
-                dyn.foot_pos_world[active_leg] - Eigen::Vector3d(
-                    terrain_crawl_sequencer_output_.target_world.x,
-                    terrain_crawl_sequencer_output_.target_world.y,
-                    terrain_crawl_sequencer_output_.target_world.z);
-            active_leg_touchdown_witness = measured_contact[active_leg] &&
-                endpoint_error.allFinite() &&
-                endpoint_error.norm() <= terrain_touchdown_tolerance_m;
-        }
-        (void)go2_terrain::TerrainCrawlSequencerWbcContactOverride(
-            terrain_crawl_sequencer_output_.state, active_leg,
-            active_leg_touchdown_witness, qp_contact);
-    }
-
-    bool terrain_surface_transition_complete =
-        terrain_surface_transition_active_;
-    if (terrain_surface_transition_active_)
-    {
-        int required_mask = 0;
-        int original_required_mask = 0;
-        int committed_mask = 0;
-        int cancelled_mask = 0;
-        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-        {
-            if (terrain_surface_transition_required_[leg])
-                required_mask |= 1 << static_cast<int>(leg);
-            if (terrain_surface_transition_original_required_[leg])
-                original_required_mask |= 1 << static_cast<int>(leg);
-            if (terrain_surface_transition_cancelled_[leg])
-                cancelled_mask |= 1 << static_cast<int>(leg);
-            if (terrain_surface_transition_committed_[leg])
-            {
-                committed_mask |= 1 << static_cast<int>(leg);
-                if (measured_contact[leg])
-                    qp_contact[leg] = true;
-            }
-        }
-        // Cancellation is a terminal failed leg, not completion. The
-        // original requirement remains in the mask so telemetry cannot
-        // rewrite a partial plan as a successful transfer.
-        terrain_surface_transition_complete =
-            go2_terrain::TerrainTransitionComplete(
-                terrain_surface_transition_required_,
-                terrain_surface_transition_committed_,
-                terrain_surface_transition_cancelled_);
-        if (Full2EnvDouble(
-                "TROT_TERRAIN_DEBUG_TRANSACTION", 0.0) > 0.5)
-        {
-            static int last_required_mask = -1;
-            static int last_committed_mask = -1;
-            static double last_report_s = -1.0e9;
-            if (terrain_surface_transition_complete ||
-                required_mask != last_required_mask ||
-                committed_mask != last_committed_mask ||
-                terrain_now_s - last_report_s >= 0.25)
-            {
-                std::cout << "Terrain transaction event="
-                          << (terrain_surface_transition_complete
-                              ? "complete" : "wait")
-                          << " t=" << terrain_now_s
-                          << " required=" << required_mask
-                          << " original_required=" << original_required_mask
-                          << " cancelled=" << cancelled_mask
-                          << " committed=" << committed_mask
-                          << " active=1";
-                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-                {
-                    const auto &execution = terrain_swing_execution_[leg];
-                    std::cout << " leg" << leg << "_exec="
-                              << (execution.valid ? 1 : 0)
-                              << ":" << (execution.endpoint_held ? 1 : 0)
-                              << ":" << (execution.measured_touchdown ? 1 : 0)
-                              << "_at_endpoint="
-                              << (execution.wbc_at_endpoint ? 1 : 0)
-                              << "_contact="
-                              << (execution.wbc_measured_contact ? 1 : 0)
-                              << "_error=" << execution.wbc_endpoint_error_m;
-                }
-                std::cout << "\n";
-            }
-            last_required_mask = required_mask;
-            last_committed_mask = committed_mask;
-            last_report_s = terrain_now_s;
-        }
-        if (terrain_surface_transition_complete)
-        {
-            terrain_surface_transition_last_required_mask_ = required_mask;
-            terrain_surface_transition_last_committed_mask_ = committed_mask;
-            ++terrain_surface_transition_completions_;
-            const bool release_transfer_hold =
-                go2_terrain::TerrainTransferHoldReleaseReady(
-                    terrain_surface_transition_required_,
-                    terrain_surface_transition_committed_,
-                    terrain_surface_transition_cancelled_);
-            // Transaction completion is not yet the end of the V2 window:
-            // keep crawl authority for the declared 0.45 s stable crossing
-            // passage before restoring the Phase 1 profile.
-            terrain_transfer_window_active_ = true;
-            terrain_transfer_window_release_s_ = terrain_now_s + 0.45;
-            terrain_surface_transition_active_ = false;
-            terrain_surface_transition_required_.fill(false);
-            // Keep measured commits latched for the remainder of the v2
-            // transfer window. The gait sequencer may enter bounded recovery
-            // between this transaction and the next leg.
-            terrain_surface_transition_source_valid_.fill(false);
-            // The endpoint and live-contact gates above are the release
-            // condition. Do not leave the captured support pinned after the
-            // complete upper-surface set has committed; the next rear
-            // diagonal must be schedulable while normal collapse protection
-            // remains active during an incomplete transfer.
-            if (release_transfer_hold)
-            {
-                terrain_transfer_hold_contact_.fill(false);
-                terrain_transfer_hold_active_ = false;
-            }
-        }
-    }
-
-    // Planned contact remains prediction-only. During the Stage-C guard the
-    // actual WBC mask is measured/fused contact (plus the bounded robust
-    // support grace), never the planner schedule or a kinematic prediction.
-    if (stage_c_window)
-        qp_contact = contact_fusion.fused_contact;
-
-    const auto contact_mask_for = [](
-        const std::array<bool, go2::kLegCount> &contact) {
-        int mask = 0;
-        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            if (contact[leg])
-                mask |= 1 << static_cast<int>(leg);
-        return mask;
-    };
     int contact_mask = 0;
     int active = 0;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -827,10 +238,6 @@ void TrotExperiment::UpdateWbcFull(
     }
     wbc_shadow_diagnostics_.active_contacts = active;
     wbc_shadow_diagnostics_.contact_mask = contact_mask;
-    wbc_shadow_diagnostics_.measured_contact_mask =
-        contact_mask_for(measured_contact);
-    wbc_shadow_diagnostics_.scheduled_contact_mask =
-        contact_mask_for(scheduled_contact);
 
     go2_control::SrbdMpcParams mpc_params;
     mpc_params.horizon = 8;
@@ -854,23 +261,6 @@ void TrotExperiment::UpdateWbcFull(
     {
         mpc_params.w_vel_xy = 80.0;
         mpc_params.w_pos_xy = 20.0;
-    }
-    if (terrain_crawl_sequencer_output_.control_authority_active &&
-        terrain_crawl_state_machine_.state() ==
-            go2_terrain::TerrainCrawlState::kShiftCom)
-    {
-        // Load the measured three-leg geometry promptly. This is the same
-        // horizontal MPC body-position task with a window-scoped reference
-        // weight, not an additional balance controller.
-        mpc_params.w_pos_xy = 300.0;
-        mpc_params.w_vel_xy = 20.0;
-    }
-    if (low_stance_active)
-    {
-        mpc_params.w_pos_xy =
-            go2_terrain::TerrainCrawlStateMachine::kLowStanceComPositionWeight;
-        mpc_params.w_vel_xy =
-            go2_terrain::TerrainCrawlStateMachine::kLowStanceComVelocityWeight;
     }
     if (high_speed_curriculum)
     {
@@ -902,70 +292,9 @@ void TrotExperiment::UpdateWbcFull(
     // cycle can be shorter than that 50 ms hold, so reuse of the old SRBD
     // force plan becomes a visible phase lag.  Refresh at 100 Hz for the
     // high-speed plant while keeping the established rates elsewhere.
-    const auto terrain_plan = terrain_contact_plan;
-    const bool terrain_crawl_shift =
-        terrain_crawl_sequencer_output_.control_authority_active &&
-        terrain_crawl_state_machine_.state() ==
-            go2_terrain::TerrainCrawlState::kShiftCom;
-    const bool terrain_crawl_stance =
-        sequencer_crawl_execution ||
-        (terrain_crawl_sequencer_output_.control_authority_active &&
-         !body_advance_requested &&
-         (terrain_crawl_shift ||
-          terrain_crawl_state_machine_.state() ==
-              go2_terrain::TerrainCrawlState::kCrawlStep ||
-          terrain_crawl_state_machine_.state() ==
-              go2_terrain::TerrainCrawlState::kAdvanceBody));
-    // The normal 100 ms refresh leaves SHIFT_COM applying the pre-handoff
-    // forward-acceleration solution for most of its 0.40 s ramp. Refresh the
-    // existing MPC more often only while shifting, so the stance WBC receives
-    // the current COM reference before the measured support can unload.
-    const int mpc_period_ticks = (terrain_crawl_stance ||
-                                  sequencer_crawl_execution)
-        ? go2_terrain::TerrainCrawlStateMachine::kComShiftMpcPeriodTicks
-        : (high_speed_curriculum
-               ? 5
-               : (params_.cartesian_world ? 10 : 25));
-    std::array<std::size_t, go2_terrain::kTerrainPlanMaxKnots>
-        terrain_plan_knot{};
-    bool terrain_plan_contact_coherent = true;
-    const bool terrain_plan_active =
-        terrain_plan && task_.gait_started_ && task_.motion_stage_ == 2;
-    if (terrain_plan_active)
-    {
-        terrain_plan_contact_coherent =
-            terrain_plan->valid() &&
-            (!stage_c_window ||
-             !terrain_plan->v3_c_shadow) &&
-            (!stage_c_window ||
-             (terrain_plan->has_stage_c_timing &&
-              terrain_plan->contact_timing.provenance ==
-                  go2_terrain::TerrainTimingProvenance::kStageCPlanner)) &&
-            terrain_plan->contact_schedule.valid(
-                terrain_plan->horizon_knots) &&
-            go2_terrain::BuildTerrainPlanHorizonIndices(
-                *terrain_plan, terrain_now_s,
-                terrain_planner_.config().knot_dt_s,
-                mpc_params.dt_s,
-                static_cast<std::size_t>(mpc_params.horizon),
-                terrain_plan_knot);
-        if (!terrain_plan_contact_coherent)
-            ++terrain_plan_contact_rejections_;
-    }
-    // Sequencer whole-horizon overrides are disabled only for a coherent,
-    // adopted Stage-C snapshot; invalid/expired input remains safe fallback.
-    const bool stage_c_mpc_consumption =
-        stage_c_window && terrain_plan && terrain_plan_contact_coherent;
-    wbc_shadow_diagnostics_.terrain_plan_id =
-        terrain_plan_active ? terrain_plan->plan_id : 0;
-    wbc_shadow_diagnostics_.terrain_contact_coherent =
-        terrain_plan_active && terrain_plan_contact_coherent;
-    wbc_shadow_diagnostics_.terrain_planned_contact_mask =
-        terrain_plan_active && terrain_plan_contact_coherent
-            ? contact_mask_for(
-                  terrain_plan->contact_schedule.planned_contact[
-                      terrain_plan_knot[0]])
-            : 0;
+    const int mpc_period_ticks = high_speed_curriculum
+        ? 5
+        : (params_.cartesian_world ? 10 : 25);
     const bool run_mpc =
         (wbc_full_ticks_ % mpc_period_ticks) == 0 || !last_srbd_.ok;
     if (run_mpc)
@@ -987,19 +316,13 @@ void TrotExperiment::UpdateWbcFull(
         mpc_in.reference[0] = 0.0;
         mpc_in.reference[1] = 0.0;
         mpc_in.reference[4] = 0.0;
-        if (terrain_stance_reference_valid_)
-        {
-            mpc_in.reference[0] = terrain_stance_reference_roll_rad_;
-            mpc_in.reference[1] = terrain_stance_reference_pitch_rad_;
-        }
-        const double base_height_ref = low_stance_active
-            ? go2_terrain::TerrainCrawlStateMachine::kLowStanceBodyHeightM
-            : ((high_speed_curriculum &&
-                Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0) > 0.0)
-                   ? std::clamp(
-                         Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0),
-                         0.32, 0.48)
-                   : kWbcPrimaryBaseHeightM);
+        const double base_height_ref =
+            (high_speed_curriculum &&
+             Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0) > 0.0)
+                ? std::clamp(
+                      Full2EnvDouble("TROT_HS_BASE_HEIGHT", -1.0),
+                      0.32, 0.48)
+                : kWbcPrimaryBaseHeightM;
         mpc_in.reference[5] = base_height_ref;
         mpc_in.reference[6] = 0.0;
         mpc_in.reference[7] = 0.0;
@@ -1013,12 +336,8 @@ void TrotExperiment::UpdateWbcFull(
                 ? (std::isfinite(kernel_nominal_velocity_x_mps_) &&
                            std::abs(kernel_nominal_velocity_x_mps_) > 1.0e-6
                        ? kernel_nominal_velocity_x_mps_
-                       : (params_.runtime_velocity_command
-                              ? params_.direction_sign *
-                                    velocity_command_state_.applied_mps
-                              : params_.direction_sign *
-                                    params_.step_length_m /
-                                    params_.period_s))
+                       : params_.direction_sign * params_.step_length_m /
+                             params_.period_s)
                 : 0.0;
         const double yaw =
             static_cast<double>(state_snapshot.imu_state().rpy()[2]);
@@ -1087,80 +406,6 @@ void TrotExperiment::UpdateWbcFull(
             }
         }
         mpc_in.reference[11] = 0.0;
-        if (terrain_crawl_sequencer_output_.control_authority_active &&
-            (terrain_crawl_sequencer_output_.com_reference_valid ||
-             terrain_crawl_state_machine_.com_target_valid()))
-        {
-            // Once SWING owns the explicit topology, keep the COM target that
-            // completed the measured legacy shift. Replacing it every tick
-            // with the freshly recomputed support-triangle centroid moves the
-            // target when the lifted terrain foot is far ahead; the terrain
-            // run then brakes/reverses the body during the swing. Flat mode
-            // deliberately retains its sequencer reference because it has no
-            // legacy terrain COM target.
-            const bool terrain_swing_hold =
-                !terrain_crawl_sequencer_output_.flat_ground_mode &&
-                (terrain_crawl_state_machine_.state() ==
-                     go2_terrain::TerrainCrawlState::kShiftCom ||
-                 terrain_crawl_state_machine_.state() ==
-                     go2_terrain::TerrainCrawlState::kCrawlStep) &&
-                terrain_crawl_state_machine_.com_target_valid();
-            // Full v2 can remain in legacy STAGE while the event sequencer
-            // owns SHIFT. Servo the sequencer measured support-triangle
-            // incenter in that boundary instead of waiting for legacy
-            // SHIFT_COM to catch up.
-            const bool terrain_v2_shift_hold = full_v2_shift &&
-                terrain_crawl_sequencer_output_.state ==
-                    go2_terrain::TerrainCrawlSequencerState::kShift &&
-                terrain_crawl_sequencer_output_.com_reference_valid;
-            const bool terrain_stage_hold =
-                terrain_crawl_state_machine_.state() ==
-                    go2_terrain::TerrainCrawlState::kStage &&
-                terrain_crawl_state_machine_.stage_com_target_valid();
-            const auto target = terrain_v2_shift_hold
-                ? terrain_crawl_sequencer_output_.com_reference_world
-                : (terrain_swing_hold || terrain_stage_hold
-                    ? terrain_crawl_state_machine_.com_target_world()
-                    : (terrain_crawl_sequencer_output_.com_reference_valid
-                        ? terrain_crawl_sequencer_output_.com_reference_world
-                        : terrain_crawl_state_machine_.com_target_world()));
-            if (std::isfinite(target.x) && std::isfinite(target.y))
-            {
-                // SHIFT_COM and the swing hold are a reference change to the
-                // existing MPC/WBC body task, not a second balance controller.
-                const bool body_advance =
-                    body_advance_requested;
-                mpc_in.reference[4] = target.y;
-                if (body_advance)
-                {
-                    // The measured reachability gate owns a bounded forward
-                    // creep. Do not leave MPC SHIFT position/zero-velocity
-                    // hold as a competing backward authority while the
-                    // four-foot plant advances to the endpoint envelope.
-                    const double advance_v = params_.direction_sign *
-                        go2_terrain::TerrainCrawlStateMachine::
-                            kCreepSpeedMps;
-                    mpc_in.reference[3] = dyn.com_world.x() + advance_v *
-                        mpc_params.dt_s * 0.5 * mpc_params.horizon;
-                    mpc_in.reference[9] = advance_v;
-                    mpc_in.reference[10] = 0.0;
-                }
-                else
-                {
-                    mpc_in.reference[3] = target.x;
-                    if (terrain_crawl_state_machine_.state() ==
-                            go2_terrain::TerrainCrawlState::kShiftCom ||
-                        terrain_crawl_state_machine_.state() ==
-                            go2_terrain::TerrainCrawlState::kCrawlStep)
-                    {
-                        // Hold the body while it loads the triangle; the stance
-                        // feet remain the existing WBC support task.
-                        mpc_in.reference[9] = 0.0;
-                        mpc_in.reference[10] = 0.0;
-                    }
-                }
-            }
-        }
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             mpc_in.foot_from_com_world[leg] =
                 dyn.foot_pos_world[leg] - dyn.com_world;
@@ -1178,10 +423,8 @@ void TrotExperiment::UpdateWbcFull(
                 go2_control::FillTrotContactSchedulePhase(
                     current_phase_, gait_period, gait_duty,
                     mpc_params.horizon, mpc_params.dt_s, mpc_in.contact,
-                    runtime_gait_pattern_);
-                if ((high_speed_contact_merge_mode > 0 ||
-                     terrain_transfer_hold_active_ ||
-                     terrain_surface_transition_active_) &&
+                    params_.gait_pattern);
+                if (high_speed_contact_merge_mode > 0 &&
                     mpc_params.horizon > 0)
                     mpc_in.contact[0] = qp_contact;
             }
@@ -1192,341 +435,9 @@ void TrotExperiment::UpdateWbcFull(
                 mpc_in.contact[k] = qp_contact;
         }
 
-        if (terrain_plan && terrain_plan_contact_coherent &&
-            task_.gait_started_ &&
-            task_.motion_stage_ == 2 && !WbcStopHoldActive() &&
-            (!terrain_crawl_sequencer_output_.control_authority_active ||
-             stage_c_mpc_consumption))
-        {
-            // The accepted planner snapshot is the sole source for future
-            // terrain contacts.  A partial snapshot is rejected rather than
-            // mixed with the legacy current-foot anchor.
-            const auto fallback_mpc_contact = mpc_in.contact;
-            bool complete_foot_horizon = true;
-            std::array<bool, go2::kLegCount> active_transfer_target{};
-            std::array<bool, go2::kLegCount> effective_transfer_hold{};
-            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            {
-                const auto &execution = terrain_swing_execution_[leg];
-                active_transfer_target[leg] = execution.valid &&
-                    execution.terrain_target_required &&
-                    !execution.measured_touchdown &&
-                    (execution.in_flight || execution.endpoint_held);
-                effective_transfer_hold[leg] =
-                    terrain_surface_transition_active_ &&
-                    terrain_surface_transition_committed_[leg] &&
-                    measured_contact[leg];
-                if (terrain_transfer_hold_active_ &&
-                    terrain_transfer_has_target &&
-                    !terrain_transfer_complete)
-                    effective_transfer_hold[leg] =
-                        effective_transfer_hold[leg] ||
-                        terrain_transfer_hold_contact_[leg];
-            }
-            for (int k = 0; k < mpc_params.horizon; ++k)
-            {
-                const std::size_t plan_knot =
-                    terrain_plan_knot[static_cast<std::size_t>(k)];
-                mpc_in.contact[k] = terrain_plan->contact_schedule.planned_contact[
-                    plan_knot];
-                if (stage_c_window && contact_fusion.guard_active && k == 0)
-                    mpc_in.contact[k] = qp_contact;
-                if (terrain_surface_transition_active_ ||
-                    (terrain_transfer_hold_active_ &&
-                     terrain_transfer_has_target &&
-                     !terrain_transfer_complete))
-                {
-                    // The nominal plan is a prediction.  While a terrain
-                    // target is still seeking measured touchdown, keep the
-                    // loaded support anchors in the preview and do not let
-                    // the nominal contact boundary inject unsupported force
-                    // into the current transfer.  Once measured touchdown
-                    // is promoted, the atomic plan regains ownership of the
-                    // future knots.
-                    mpc_in.contact[k] =
-                        go2_terrain::TerrainTransferPreviewContact(
-                            mpc_in.contact[k],
-                            effective_transfer_hold,
-                            active_transfer_target);
-                }
-                if ((!stage_c_mpc_consumption && terrain_crawl_shift) ||
-                    (k == 0 && (terrain_transfer_hold_active_ ||
-                                terrain_surface_transition_active_)))
-                    mpc_in.contact[k] = qp_contact;
-                mpc_in.reference_horizon[static_cast<std::size_t>(k)] =
-                    mpc_in.reference;
-                const auto &body = terrain_plan->body_reference[
-                    plan_knot];
-                if (body.valid)
-                {
-                    // The adopted body knot is part of the same atomic
-                    // timing/foothold snapshot. Copy every SRBD state field;
-                    // no legacy scalar reference may replace it selectively.
-                    auto &body_reference =
-                        mpc_in.reference_horizon[static_cast<std::size_t>(k)];
-                    body_reference[0] = body.roll_rad;
-                    body_reference[1] = body.pitch_rad;
-                    body_reference[2] = body.yaw_rad;
-                    body_reference[3] = body.position.x;
-                    body_reference[4] = body.position.y;
-                    body_reference[5] = body.position.z;
-                    body_reference[8] = body.yaw_rate_radps;
-                    body_reference[9] = body.linear_velocity.x;
-                    body_reference[10] = body.linear_velocity.y;
-                    body_reference[11] = body.linear_velocity.z;
-                }
-                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-                {
-                    const auto &foot = terrain_plan->predicted_foothold[
-                        plan_knot][leg];
-                    if (mpc_in.contact[k][leg])
-                    {
-                        const auto &execution =
-                            terrain_swing_execution_[leg];
-                        if (effective_transfer_hold[leg])
-                        {
-                            // A held support foot may already be past its
-                            // nominal schedule boundary.  Its live
-                            // kinematic anchor is the only valid lever arm
-                            // until the new measured contact is promoted.
-                            mpc_in.foot_from_com_world_horizon[
-                                static_cast<std::size_t>(k)][leg] =
-                                dyn.foot_pos_world[leg] - dyn.com_world;
-                            mpc_in.foot_valid[
-                                static_cast<std::size_t>(k)][leg] = true;
-                            continue;
-                        }
-                        if (k == 0 && execution.valid &&
-                            execution.measured_touchdown &&
-                            std::isfinite(execution.target_world.x) &&
-                            std::isfinite(execution.target_world.y) &&
-                            std::isfinite(execution.target_world.z))
-                        {
-                            mpc_in.foot_from_com_world_horizon[
-                                static_cast<std::size_t>(k)][leg] =
-                                Eigen::Vector3d(
-                                    execution.target_world.x -
-                                        dyn.com_world.x(),
-                                    execution.target_world.y -
-                                        dyn.com_world.y(),
-                                    execution.target_world.z -
-                                        dyn.com_world.z());
-                            mpc_in.foot_valid[
-                                static_cast<std::size_t>(k)][leg] = true;
-                            continue;
-                        }
-                        if (k == 0 && effective_transfer_hold[leg])
-                        {
-                            mpc_in.foot_from_com_world_horizon[
-                                static_cast<std::size_t>(k)][leg] =
-                                dyn.foot_pos_world[leg] - dyn.com_world;
-                            mpc_in.foot_valid[
-                                static_cast<std::size_t>(k)][leg] = true;
-                            continue;
-                        }
-                        if (!foot.valid)
-                        {
-                            // A live contact promoted during the current
-                            // transfer can be ahead of the planner knot.
-                            // Keep its measured anchor at knot zero; future
-                            // knots must still come from the atomic plan.
-                            if (k == 0 && qp_contact[leg])
-                            {
-                                mpc_in.foot_from_com_world_horizon[
-                                    static_cast<std::size_t>(k)][leg] =
-                                    dyn.foot_pos_world[leg] - dyn.com_world;
-                                mpc_in.foot_valid[
-                                    static_cast<std::size_t>(k)][leg] = true;
-                                continue;
-                            }
-                            complete_foot_horizon = false;
-                            continue;
-                        }
-                        mpc_in.foot_from_com_world_horizon[
-                            static_cast<std::size_t>(k)][leg] =
-                            Eigen::Vector3d(
-                                foot.position_world.x - dyn.com_world.x(),
-                                foot.position_world.y - dyn.com_world.y(),
-                                foot.position_world.z - dyn.com_world.z());
-                        mpc_in.foot_valid[static_cast<std::size_t>(k)][leg] =
-                            true;
-                    }
-                }
-            }
-            if (complete_foot_horizon)
-            {
-                mpc_in.has_time_indexed_footholds = true;
-                mpc_in.has_time_indexed_reference = true;
-                mpc_in.plan_id = terrain_plan->plan_id;
-                mpc_in.plan_epoch = terrain_plan->plan_epoch;
-                mpc_in.terrain_input_hash = terrain_plan->input_hash;
-                mpc_in.has_terrain_plan = true;
-                mpc_in.terrain_plan = terrain_plan->identity;
-                mpc_in.measured_contact = measured_contact;
-                mpc_in.measured_contact_valid = true;
-                ++terrain_mpc_plan_consumed_count_;
-            }
-            else
-                mpc_in.contact = fallback_mpc_contact;
-        }
-        // Keep the MPC force solution on the same explicit support topology
-        // as the event sequencer, including its lifted leg. Once the explicit
-        // window owns the event, the terrain planner and
-        // legacy trot horizon must not reintroduce future contact switches.
-        // Keep the same measured topology for the whole MPC preview; flat
-        // isolation already used this rule, and terrain now follows it too.
-        if (sequencer_crawl_execution && !stage_c_mpc_consumption)
-        {
-            for (int k = 0; k < mpc_params.horizon; ++k)
-                mpc_in.contact[k] =
-                    terrain_crawl_sequencer_output_.contact_schedule;
-        }
-        // The safe handoff is a static four-foot plant. Do not let an old
-        // planner horizon or a transient force-filter bit reintroduce a
-        // diagonal contact set while STAGE is holding measured feet.
-        const bool sequencer_staging =
-            terrain_crawl_sequencer_output_.control_authority_active &&
-            terrain_crawl_sequencer_output_.state ==
-                go2_terrain::TerrainCrawlSequencerState::kStage;
-        if (sequencer_staging && !stage_c_mpc_consumption)
-        {
-            for (int k = 0; k < mpc_params.horizon; ++k)
-                mpc_in.contact[k].fill(true);
-            mpc_in.has_time_indexed_footholds = false;
-            mpc_in.has_time_indexed_reference = false;
-            mpc_in.has_terrain_plan = false;
-        }
-        wbc_shadow_diagnostics_.mpc_update_count =
-            ++terrain_mpc_update_count_;
-        wbc_shadow_diagnostics_.mpc_contact_mask_k0 =
-            mpc_params.horizon > 0 ? contact_mask_for(mpc_in.contact[0]) : 0;
-        wbc_shadow_diagnostics_.mpc_min_contact_count =
-            static_cast<int>(go2::kLegCount);
-        for (int k = 0; k < mpc_params.horizon; ++k)
-        {
-            const int count = static_cast<int>(std::count(
-                mpc_in.contact[k].begin(), mpc_in.contact[k].end(), true));
-            wbc_shadow_diagnostics_.mpc_min_contact_count = std::min(
-                wbc_shadow_diagnostics_.mpc_min_contact_count, count);
-        }
-        const auto &first_reference = mpc_in.has_time_indexed_reference
-            ? mpc_in.reference_horizon[0] : mpc_in.reference;
-        const auto &last_reference = mpc_in.has_time_indexed_reference
-            ? mpc_in.reference_horizon[
-                  static_cast<std::size_t>(mpc_params.horizon - 1)]
-            : mpc_in.reference;
-        wbc_shadow_diagnostics_.mpc_reference_x_first_m = first_reference[3];
-        wbc_shadow_diagnostics_.mpc_reference_x_last_m = last_reference[3];
-        wbc_shadow_diagnostics_.mpc_reference_vx_first_mps =
-            first_reference[9];
-        wbc_shadow_diagnostics_.mpc_reference_vx_last_mps = last_reference[9];
         go2_control::SrbdMpcOutput mpc_out;
-        const auto mpc_started_at = std::chrono::steady_clock::now();
-        const bool mpc_solved =
-            go2_control::SolveSrbdMpc(mpc_params, mpc_in, mpc_out) &&
-            mpc_out.ok;
-        const double mpc_elapsed_us = static_cast<double>(
-            std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(
-                std::chrono::steady_clock::now() - mpc_started_at).count());
-        if (mpc_solved)
+        if (go2_control::SolveSrbdMpc(mpc_params, mpc_in, mpc_out) && mpc_out.ok)
             last_srbd_ = mpc_out;
-        // Opt-in, machine-readable C-004 witness. This is diagnostics only:
-        // it observes the already constructed SRBD input and never changes
-        // solve behavior or safety policy.
-        if (stage_c_window && Full2EnvDouble(
-                "TROT_TERRAIN_C004_DIAGNOSTICS", 0.0) > 0.5)
-        {
-            const auto adopted = terrain_plan_execution_adapter_.adopted_plan();
-            std::ostringstream witness;
-            witness << std::setprecision(17)
-                    << "C004_SRBD_WITNESS {\"now_s\":"
-                    << terrain_now_s << ",\"status\":"
-                    << (mpc_solved ? "true" : "false")
-                    << ",\"latency_us\":" << mpc_elapsed_us
-                    << ",\"deadline_us\":5000"
-                    << ",\"deadline_miss\":"
-                    << (mpc_elapsed_us > 5000.0 ? "true" : "false")
-                    << ",\"consumed\":"
-                    << (mpc_solved && mpc_out.terrain_plan_consumed
-                            ? "true" : "false")
-                    << ",\"mpc_plan_id\":" << mpc_in.plan_id
-                    << ",\"mpc_plan_epoch\":" << mpc_in.plan_epoch
-                    << ",\"mpc_map_epoch\":"
-                    << (mpc_in.has_terrain_plan
-                            ? mpc_in.terrain_plan.map_epoch : 0)
-                    << ",\"mpc_input_hash\":"
-                    << mpc_in.terrain_input_hash
-                    << ",\"gait_plan_id\":"
-                    << (adopted ? adopted->plan_id : 0)
-                    << ",\"gait_map_epoch\":"
-                    << (adopted ? adopted->map_epoch : 0)
-                    << ",\"gait_input_hash\":"
-                    << (adopted ? adopted->input_hash : 0)
-                    << ",\"measured_mask\":"
-                    << contact_mask_for(measured_contact)
-                    << ",\"reject_reason\":\""
-                    << terrain_plan_execution_adapter_.last_rejection_reason()
-                    << "\",\"fallback_reason\":\""
-                    << terrain_plan_execution_adapter_.last_fallback_reason()
-                    << "\",\"contact_masks\":[";
-            for (int k = 0; k < mpc_params.horizon; ++k)
-            {
-                if (k != 0)
-                    witness << ",";
-                witness << contact_mask_for(mpc_in.contact[k]);
-            }
-            witness << "],\"lever_arms\":[";
-            for (int k = 0; k < mpc_params.horizon; ++k)
-            {
-                if (k != 0)
-                    witness << ",";
-                witness << "[";
-                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-                {
-                    if (leg != 0)
-                        witness << ",";
-                    if (mpc_in.contact[k][leg])
-                    {
-                        const auto &r = go2_control::SrbdFootAt(
-                            mpc_in, k, leg);
-                        witness << "[" << r.x() << "," << r.y() << ","
-                                << r.z() << "]";
-                    }
-                    else
-                        witness << "null";
-                }
-                witness << "]";
-            }
-            witness << "],\"body_reference\":[";
-            for (int k = 0; k < mpc_params.horizon; ++k)
-            {
-                if (k != 0)
-                    witness << ",";
-                const auto &body_ref = mpc_in.reference_horizon[
-                    static_cast<std::size_t>(k)];
-                witness << "[";
-                for (int i = 0; i < go2_control::kSrbdStateSize; ++i)
-                {
-                    if (i != 0)
-                        witness << ",";
-                    witness << body_ref[i];
-                }
-                witness << "]";
-            }
-            witness << "]}\n";
-            std::cout << witness.str() << std::flush;
-        }
-    }
-    if (terrain_mpc_update_count_ == 0)
-    {
-        // Before the first SRBD solve the logged reference would read as
-        // zeros while the applied command is already moving.  The first
-        // solve's reference vx is the shaper-applied command, so report
-        // that value instead of a misleading zero window.
-        const double applied_vx_mps = params_.direction_sign *
-            velocity_command_state_.applied_mps;
-        wbc_shadow_diagnostics_.mpc_reference_vx_first_mps = applied_vx_mps;
-        wbc_shadow_diagnostics_.mpc_reference_vx_last_mps = applied_vx_mps;
     }
     ++wbc_full_ticks_;
     wbc_shadow_diagnostics_.srbd_ok = last_srbd_.ok;
@@ -1534,37 +445,6 @@ void TrotExperiment::UpdateWbcFull(
     go2_control::IdWbcInput wbc_in;
     wbc_in.dynamics = dyn;
     wbc_in.contact = qp_contact;
-    if (terrain_stance_reference_valid_ && !terrain_plan_active &&
-        !terrain_crawl_sequencer_output_.flat_ground_mode)
-    {
-        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-        {
-            if (qp_contact[leg])
-            {
-                wbc_in.contact_normal[leg] = terrain_stance_reference_normal_;
-                wbc_in.contact_normal_valid[leg] = true;
-            }
-        }
-    }
-    if (terrain_plan_active && terrain_plan_contact_coherent &&
-        !terrain_crawl_sequencer_output_.control_authority_active)
-    {
-        wbc_in.has_terrain_plan = true;
-        wbc_in.terrain_plan.plan_id = terrain_plan->plan_id;
-        wbc_in.terrain_plan.plan_epoch = terrain_plan->plan_epoch;
-        wbc_in.terrain_plan.map_epoch = terrain_plan->map_epoch;
-        wbc_in.terrain_plan.generated_at_s = terrain_plan->generated_at_s;
-        wbc_in.terrain_plan.valid_until_s = terrain_plan->valid_until_s;
-        wbc_in.measured_contact = measured_contact;
-        wbc_in.measured_contact_valid = measured_filter_valid;
-        wbc_in.fused_contact = qp_contact;
-        wbc_in.fused_contact_valid = stage_c_window;
-        wbc_in.planned_contact =
-            terrain_plan->contact_schedule.planned_contact[
-                terrain_plan_knot[0]];
-        wbc_in.planned_contact_valid =
-            terrain_plan->contact_schedule.planned_valid;
-    }
     if (last_srbd_.ok)
     {
         wbc_in.desired_linear_acc_world = last_srbd_.first_linear_acc;
@@ -1661,115 +541,6 @@ void TrotExperiment::UpdateWbcFull(
             wbc_shadow_diagnostics_.full_velocity_target_x_mps = target_vx;
             wbc_in.desired_linear_acc_world.x() = speed_acc;
         }
-        // The terrain approach arrives with residual braking velocity. Keep
-        // that history from becoming a backward impulse at the explicit
-        // shift/swing handoff; flat debug mode intentionally keeps its
-        // established dynamics unchanged.
-        const bool sequencer_swing_hold =
-            terrain_crawl_sequencer_output_.control_authority_active &&
-            !terrain_crawl_sequencer_output_.flat_ground_mode &&
-            (terrain_crawl_sequencer_output_.state ==
-                 go2_terrain::TerrainCrawlSequencerState::kSwing ||
-             terrain_crawl_sequencer_output_.state ==
-                 go2_terrain::TerrainCrawlSequencerState::kCommit);
-        const bool terrain_v2_shift_hold = full_v2_shift &&
-            terrain_crawl_sequencer_output_.state ==
-                go2_terrain::TerrainCrawlSequencerState::kShift &&
-            terrain_crawl_sequencer_output_.com_reference_valid;
-        if (terrain_crawl_sequencer_output_.control_authority_active &&
-            !terrain_crawl_sequencer_output_.flat_ground_mode &&
-            (terrain_crawl_state_machine_.state() ==
-                 go2_terrain::TerrainCrawlState::kShiftCom ||
-             terrain_crawl_state_machine_.state() ==
-                 go2_terrain::TerrainCrawlState::kCrawlStep ||
-             terrain_crawl_state_machine_.state() ==
-                 go2_terrain::TerrainCrawlState::kStage ||
-             sequencer_swing_hold))
-        {
-            const bool measured_shift =
-                terrain_crawl_state_machine_.state() ==
-                    go2_terrain::TerrainCrawlState::kShiftCom &&
-                terrain_crawl_state_machine_.com_target_valid();
-            const bool measured_v2_shift = terrain_v2_shift_hold;
-            const bool measured_stage =
-                terrain_crawl_state_machine_.state() ==
-                    go2_terrain::TerrainCrawlState::kStage &&
-                terrain_crawl_state_machine_.stage_com_target_valid();
-            const bool measured_swing_hold =
-                sequencer_swing_hold &&
-                terrain_crawl_state_machine_.com_target_valid();
-            if (measured_shift || measured_v2_shift || measured_stage ||
-                measured_swing_hold)
-            {
-                // The old SHIFT override was velocity-only, so a settled
-                // body received zero COM acceleration even with a target
-                // outside the measured support triangle. Keep the bounded
-                // world-frame position servo through SWING: the swing-leg
-                // wrench otherwise drives the front stance COM across its
-                // support edge before the measured touchdown witness.
-                const auto com_target =
-                    terrain_crawl_state_machine_.com_target_world();
-                constexpr double kComPositionGain = 20.0;
-                constexpr double kComVelocityGain = 10.0;
-                const double raw_acc_x = kComPositionGain *
-                        (com_target.x - dyn.com_world.x()) -
-                    kComVelocityGain * linear_vel_world.x();
-                const double raw_acc_y = kComPositionGain *
-                        (com_target.y - dyn.com_world.y()) -
-                    kComVelocityGain * linear_vel_world.y();
-                terrain_stage_servo_acc_x_mps2_ = measured_stage ? raw_acc_x : 0.0;
-                terrain_stage_servo_acc_y_mps2_ = measured_stage ? raw_acc_y : 0.0;
-                terrain_shift_servo_acc_x_mps2_ =
-                    (measured_shift || measured_v2_shift || measured_swing_hold)
-                        ? raw_acc_x : 0.0;
-                terrain_shift_servo_acc_y_mps2_ =
-                    (measured_shift || measured_v2_shift || measured_swing_hold)
-                        ? raw_acc_y : 0.0;
-                terrain_stage_servo_saturated_ =
-                    (measured_stage || measured_shift || measured_v2_shift ||
-                     measured_swing_hold) &&
-                    (std::abs(raw_acc_x) > 4.0 || std::abs(raw_acc_y) > 4.0);
-                if (measured_shift && body_advance_requested)
-                {
-                    // SHIFT_COM balance otherwise replaces the velocity
-                    // command with a zero-velocity COM hold. Give ID-WBC an
-                    // explicit v2 creep acceleration so advance becomes a
-                    // physical base motion.
-                    const double advance_v = params_.direction_sign *
-                        go2_terrain::TerrainCrawlStateMachine::
-                            kCreepSpeedMps;
-                    const double advance_acc = Clamp(
-                        4.0 * (advance_v - linear_vel_world.x()), -1.5, 1.5);
-                    terrain_shift_servo_acc_x_mps2_ = advance_acc;
-                    wbc_in.desired_linear_acc_world.x() = advance_acc;
-                }
-                else
-                    wbc_in.desired_linear_acc_world.x() = Clamp(
-                        raw_acc_x, -4.0, 4.0);
-                wbc_in.desired_linear_acc_world.y() = Clamp(
-                    raw_acc_y, -4.0, 4.0);
-            }
-            else
-            {
-                wbc_in.desired_linear_acc_world.x() = Clamp(
-                    -5.0 * linear_vel_world.x(), -1.5, 1.5);
-                wbc_in.desired_linear_acc_world.y() = Clamp(
-                    -5.0 * linear_vel_world.y(), -1.5, 1.5);
-            }
-        }
-        if (body_advance_requested)
-        {
-            // The legacy SHIFT_COM COM target can be unavailable for one
-            // asynchronous tick even though the sequencer has raised the
-            // v2 reachability request. Keep the request authoritative for
-            // the longitudinal ID-WBC task across that handoff boundary.
-            const double advance_v = params_.direction_sign *
-                go2_terrain::TerrainCrawlStateMachine::kCreepSpeedMps;
-            const double advance_acc = Clamp(
-                4.0 * (advance_v - linear_vel_world.x()), -1.5, 1.5);
-            terrain_shift_servo_acc_x_mps2_ = advance_acc;
-            wbc_in.desired_linear_acc_world.x() = advance_acc;
-        }
         const bool stop_balance =
             EmergencyStopHoldReady() ||
             WbcStopHoldActive() ||
@@ -1859,32 +630,26 @@ void TrotExperiment::UpdateWbcFull(
                 ax_lim = 0.0;
             const double ax_body =
                 pitch_fade * Clamp(ax_gain * v_err, -ax_lim, ax_lim);
-            if (!body_advance_requested)
-                wbc_in.desired_linear_acc_world.x() += ax_body * std::cos(yaw);
+            wbc_in.desired_linear_acc_world.x() += ax_body * std::cos(yaw);
             wbc_in.desired_linear_acc_world.y() += ax_body * std::sin(yaw);
             const double roll =
                 static_cast<double>(state_snapshot.imu_state().rpy()[0]);
             const double gyro_x =
                 static_cast<double>(
                     state_snapshot.imu_state().gyroscope()[0]);
-            const double roll_reference = terrain_stance_reference_valid_
-                ? terrain_stance_reference_roll_rad_ : 0.0;
-            const double pitch_reference = terrain_stance_reference_valid_
-                ? terrain_stance_reference_pitch_rad_ : 0.0;
             double roll_kp = params_.cartesian_world ? 40.0 : 20.0;
             const double roll_ov = Full2EnvDouble("FULL2_ROLL", -1.0);
             if (roll_ov > 0.0)
                 roll_kp = roll_ov;
             wbc_in.desired_angular_acc_body.x() +=
-                -roll_kp * (roll - roll_reference) -
+                -roll_kp * roll -
                 (params_.cartesian_world ? 5.0 : 2.5) * gyro_x;
             double pitch_kp = 12.0;
             const double pitch_ov = Full2EnvDouble("FULL2_PITCH", -1.0);
             if (pitch_ov > 0.0)
                 pitch_kp = pitch_ov;
             wbc_in.desired_angular_acc_body.y() +=
-                -pitch_kp * (pitch - pitch_reference) - 1.5 * gyro_y -
-                0.25 * ax_body;
+                -pitch_kp * pitch - 1.5 * gyro_y - 0.25 * ax_body;
             if (params_.cartesian_world)
             {
                 const double yaw_err = WrapAngle(
@@ -1994,21 +759,12 @@ void TrotExperiment::UpdateWbcFull(
                     cartesian_state_.target_world_vel[leg].z);
             }
             const Eigen::Vector3d p = dyn.foot_pos_world[leg];
-            const auto terrain_swing_tracking =
-                go2_terrain::TerrainSwingTrackingForTransfer(
-                    terrain_crawl_sequencer_output_.control_authority_active);
-            const double swing_kp = Full2EnvDouble(
-                "FULL2_SWING_KP", terrain_swing_tracking.position_gain);
-            const double swing_kd = Full2EnvDouble(
-                "FULL2_SWING_KD", terrain_swing_tracking.velocity_gain);
-            const double swing_acc_lim = Full2EnvDouble(
-                "FULL2_SWING_ACC", terrain_swing_tracking.acceleration_limit);
+            const double swing_kp = Full2EnvDouble("FULL2_SWING_KP", 180.0);
+            const double swing_kd = Full2EnvDouble("FULL2_SWING_KD", 16.0);
+            const double swing_acc_lim = Full2EnvDouble("FULL2_SWING_ACC", 50.0);
             wbc_in.swing_acc_world[leg] = ClampVec3(
                 swing_kp * (p_des - p) + swing_kd * (v_des - v),
                 swing_acc_lim);
-            for (int axis = 0; axis < 3; ++axis)
-                wbc_shadow_diagnostics_.id_wbc_swing_acc_world_mps2[leg][axis] =
-                    wbc_in.swing_acc_world[leg][axis];
         }
     }
 
@@ -2017,12 +773,8 @@ void TrotExperiment::UpdateWbcFull(
     const int n_contact =
         (qp_contact[0] ? 1 : 0) + (qp_contact[1] ? 1 : 0) +
         (qp_contact[2] ? 1 : 0) + (qp_contact[3] ? 1 : 0);
-    const bool full_v2_terrain_stance = params_.terrain_actuation && !terrain_staged_target_valid_;
-    id_params.w_stance_no_slip = terrain_crawl_stance
-        ? (full_v2_terrain_stance
-               ? go2_terrain::TerrainCrawlStateMachine::kV2FullShiftStanceNoSlipWeight
-               : go2_terrain::TerrainCrawlStateMachine::kShiftStanceNoSlipWeight)
-        : (params_.cartesian_world ? (50.0 + 90.0 * cart_lock) : 8.0);
+    id_params.w_stance_no_slip =
+        params_.cartesian_world ? (50.0 + 90.0 * cart_lock) : 8.0;
     const double w_no_slip_x_ov = Full2EnvDouble("FULL2_WX_X", -1.0);
     if (w_no_slip_x_ov >= 0.0)
         id_params.w_stance_no_slip_x = w_no_slip_x_ov;
@@ -2033,46 +785,13 @@ void TrotExperiment::UpdateWbcFull(
     const double w_lin_x_ov = Full2EnvDouble("FULL2_W_LIN_X", -1.0);
     if (w_lin_x_ov >= 0.0)
         id_params.w_base_lin_x = w_lin_x_ov;
-    // A committed raised FL changes the support plane before the second
-    // SHIFT. Give that sequencer-owned stance orientation enough authority
-    // to arrest the measured roll excursion; keep the first FL transfer at
-    // the established weight and leave flat WBC weights unchanged.
-    const bool terrain_fl_committed =
-        terrain_crawl_sequencer_output_.control_authority_active &&
-        terrain_crawl_sequencer_output_.committed[
-            static_cast<std::size_t>(go2::Leg::FL)];
-    id_params.w_base_ang = terrain_fl_committed
-        ? 240.0
-        : (terrain_crawl_stance
-               ? 80.0
-               : (params_.cartesian_world ? (80.0 + 30.0 * cart_lock) : 40.0));
+    id_params.w_base_ang = params_.cartesian_world
+        ? (80.0 + 30.0 * cart_lock)
+        : 40.0;
     const double w_ang_ov = Full2EnvDouble("FULL2_W_ANG", -1.0);
     if (w_ang_ov > 0.0)
         id_params.w_base_ang = w_ang_ov;
-    // With one front support already raised, the second front swing is a
-    // mixed-height three-foot problem. Keep the stance force handoff and
-    // plane reference authoritative; a full-strength swing acceleration task
-    // otherwise spends the available torque on the lifted-leg wrench and
-    // unloads the raised front support. This branch is terrain-only and does
-    // not alter the validated flat WBC task.
-    const bool terrain_raised_support =
-        terrain_stance_reference_valid_ && have_last_id_wbc_ &&
-        terrain_crawl_sequencer_output_.control_authority_active &&
-        terrain_crawl_sequencer_output_.state ==
-            go2_terrain::TerrainCrawlSequencerState::kSwing &&
-        terrain_crawl_sequencer_output_.active_leg < go2::kLegCount;
-    id_params.w_swing = terrain_raised_support
-        ? 35.0
-        : (params_.cartesian_world ? 80.0 : 80.0);
-    if (terrain_raised_support)
-    {
-        // The raised-support handoff is the mixed-height failure boundary:
-        // retaining only the 30 N feasibility floor lets the QP choose a
-        // mathematically valid but physically unloadable stance corner.
-        id_params.w_stance_no_slip = 180.0;
-        id_params.min_normal_n = std::max(id_params.min_normal_n, 45.0);
-        id_params.hard_stance_no_slip = true;
-    }
+    id_params.w_swing = params_.cartesian_world ? 80.0 : 80.0;
     const double w_sw_ov = Full2EnvDouble("FULL2_W_SWING", -1.0);
     if (w_sw_ov > 0.0)
         id_params.w_swing = w_sw_ov;
@@ -2083,38 +802,10 @@ void TrotExperiment::UpdateWbcFull(
         "TROT_HS_FORCE_TRACK", 0.0);
     if (high_speed_curriculum && force_track_ov > 0.0)
         id_params.w_force_track = std::clamp(force_track_ov, 0.0, 1.0);
-    // A terrain transfer hold is a physical-support request, not merely a
-    // contact-mask request. SHIFT_COM is also a four-foot stance before a
-    // foothold transaction exists, so apply the same scoped floor there.
-    if ((terrain_transfer_hold_active_ && !terrain_transfer_complete) ||
-        terrain_crawl_stance || sequencer_crawl_execution)
-    {
-        // The raised transfer swing has an asymmetric 3-foot support
-        // triangle; keep its rear support from unloading below the measured
-        // contact gate. Flat isolation retains the established 20 N floor.
-        id_params.min_normal_n =
-            terrain_crawl_sequencer_output_.flat_ground_mode ? 20.0 : 30.0;
-    }
     id_params.tau_limit_nm = 35.0;
     const double tau_ov = Full2EnvDouble("FULL2_TAU", -1.0);
     if (tau_ov > 0.0)
         id_params.tau_limit_nm = tau_ov;
-    const bool terrain_force_handoff_window =
-        !terrain_crawl_sequencer_output_.flat_ground_mode &&
-        terrain_crawl_sequencer_output_.control_authority_active &&
-        (terrain_crawl_sequencer_output_.state ==
-             go2_terrain::TerrainCrawlSequencerState::kShift ||
-         terrain_crawl_sequencer_output_.state ==
-             go2_terrain::TerrainCrawlSequencerState::kSwing) &&
-        terrain_crawl_sequencer_output_.active_leg < go2::kLegCount &&
-        have_last_id_wbc_;
-    const bool terrain_swing_force_handoff =
-        terrain_force_handoff_window &&
-        terrain_crawl_sequencer_output_.state ==
-            go2_terrain::TerrainCrawlSequencerState::kSwing;
-    if (!terrain_force_handoff_window)
-        terrain_force_handoff_reference_valid_ = false;
-
     if (params_.cartesian_world)
     {
         // Original cartesian-world: soft no-slip only. Hard equality
@@ -2127,50 +818,6 @@ void TrotExperiment::UpdateWbcFull(
         {
             wbc_in.have_force_ref = true;
             wbc_in.force_ref = last_srbd_.first_force;
-        }
-    }
-    if (terrain_force_handoff_window)
-    {
-        const std::size_t swing_leg =
-            terrain_crawl_sequencer_output_.active_leg;
-        // Refresh during SHIFT, then hold the final three-stance projection
-        // across the contact-mask switch into SWING.
-        if (terrain_crawl_sequencer_output_.state ==
-                go2_terrain::TerrainCrawlSequencerState::kShift ||
-            !terrain_force_handoff_reference_valid_ ||
-            terrain_force_handoff_swing_leg_ != swing_leg)
-        {
-            std::array<double, go2::kLegCount> preload_n{};
-            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-                preload_n[leg] = last_id_wbc_.force[
-                    3 * static_cast<int>(leg) + 2];
-            terrain_force_handoff_reference_ =
-                go2_terrain::TerrainStanceForceHandoffReference(
-                    preload_n, swing_leg);
-            terrain_force_handoff_swing_leg_ = swing_leg;
-            terrain_force_handoff_reference_valid_ = true;
-        }
-        if (terrain_swing_force_handoff)
-        {
-            wbc_in.have_force_ref = true;
-            wbc_in.force_ref.setZero();
-            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            {
-                wbc_in.force_ref[3 * static_cast<int>(leg) + 2] =
-                    terrain_force_handoff_reference_[leg];
-                if (leg != swing_leg)
-                    id_params.min_normal_n_by_leg[leg] =
-                        0.80 * terrain_force_handoff_reference_[leg];
-            }
-            // The preload reference is stronger than the tiny regularizer
-            // but scoped to terrain SWING. The 30 N floor remains a
-            // feasibility floor rather than a competing target.
-            // A mixed-height support can have several feasible force
-            // distributions. Prefer the captured three-foot preload strongly
-            // enough to prevent the QP from jumping to a torque-saturating
-            // solution when the swinging foot passes its apex.
-            id_params.w_force_track = terrain_stance_reference_valid_
-                ? 0.50 : 0.10;
         }
     }
     bool solved =
@@ -2195,81 +842,6 @@ void TrotExperiment::UpdateWbcFull(
     else
     {
         return;
-    }
-
-    // Opt-in machine-readable C-005 witness. Contact masks are emitted in
-    // separate filtered/planned/fused fields so a prediction cannot be
-    // mistaken for a measured safety witness.
-    if (stage_c_window && Full2EnvDouble(
-            "TROT_TERRAIN_C005_DIAGNOSTICS", 0.0) > 0.5)
-    {
-        const auto adopted = terrain_plan_execution_adapter_.adopted_plan();
-        const auto mask = [](const std::array<bool, go2::kLegCount> &contacts) {
-            int value = 0;
-            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-                if (contacts[leg]) value |= 1 << static_cast<int>(leg);
-            return value;
-        };
-        std::ostringstream witness;
-        witness << std::setprecision(17)
-                << "C005_CONTACT_FUSION {\"now_s\":" << terrain_now_s
-                << ",\"raw_force_finite\":"
-                << (measured_filter_valid ? "true" : "false")
-                << ",\"filtered_mask\":" << mask(measured_contact)
-                << ",\"planned_mask\":"
-                << wbc_shadow_diagnostics_.terrain_planned_contact_mask
-                << ",\"fused_mask\":"
-                << wbc_shadow_diagnostics_.terrain_fused_contact_mask
-                << ",\"robust_support_mask\":"
-                << wbc_shadow_diagnostics_.terrain_robust_support_mask
-                << ",\"measured_count\":"
-                << contact_fusion.measured_count
-                << ",\"guard\":"
-                << (contact_fusion.guard_active ? "true" : "false")
-                << ",\"age_ticks\":"
-                << contact_fusion.low_support_age_ticks
-                << ",\"grace_remaining_ticks\":"
-                << contact_fusion.grace_remaining_ticks
-                << ",\"fallback_stage\":"
-                << static_cast<int>(contact_fusion.fallback_stage)
-                << ",\"reason\":\"" << contact_fusion.reason
-                << "\",\"plan_id\":" << (adopted ? adopted->plan_id : 0)
-                << ",\"plan_epoch\":" << (adopted ? adopted->plan_epoch : 0)
-                << ",\"map_epoch\":" << (adopted ? adopted->map_epoch : 0)
-                << ",\"input_hash\":" << (adopted ? adopted->input_hash : 0)
-                << ",\"srbd_ok\":" << (last_srbd_.ok ? "true" : "false")
-                << ",\"id_wbc_ok\":" << (solved ? "true" : "false")
-                << ",\"id_eq_residual\":" << wbc_out.eq_residual
-                << ",\"id_rne_residual\":" << wbc_out.rne_residual
-                << ",\"max_tau_violation_nm\":"
-                << wbc_out.max_tau_violation_nm
-                << ",\"per_leg\":[";
-        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-        {
-            if (leg != 0) witness << ",";
-            const auto &foot = dyn.foot_pos_world[leg];
-            const bool fk_valid = foot.allFinite();
-            witness << "{\"raw\":"
-                    << ((std::isfinite(foot_forces[leg]) &&
-                         foot_forces[leg] >= contact_params.engage_force_n)
-                            ? "true" : "false")
-                    << ",\"filtered\":"
-                    << (measured_contact[leg] ? "true" : "false")
-                    << ",\"planned\":"
-                    << ((wbc_shadow_diagnostics_.terrain_planned_contact_mask &
-                         (1 << static_cast<int>(leg))) ? "true" : "false")
-                    << ",\"fused\":"
-                    << (contact_fusion.fused_contact[leg] ? "true" : "false")
-                    << ",\"measured_fk_valid\":"
-                    << (fk_valid ? "true" : "false")
-                    << ",\"measured_fk_source\":\"state_q+base_pose_fk\""
-                    << ",\"measured_fk\":["
-                    << (fk_valid ? foot.x() : 0.0) << ","
-                    << (fk_valid ? foot.y() : 0.0) << ","
-                    << (fk_valid ? foot.z() : 0.0) << "]}";
-        }
-        witness << "]}\n";
-        std::cout << witness.str() << std::flush;
     }
 
     // Sprint-only pitch moment trim.  The ID-WBC task can lose the small
@@ -2472,80 +1044,12 @@ void TrotExperiment::UpdateWbcFull(
             const int joint_row = dof - 6;
             wbc_shadow_candidate_torques_[leg][j] =
                 (joint_row >= 0 && joint_row < 12) ? wbc_out.tau[joint_row] : 0.0;
-            wbc_shadow_diagnostics_.id_wbc_tau_nm[3 * leg + j] =
-                wbc_shadow_candidate_torques_[leg][j];
         }
-        wbc_shadow_diagnostics_.id_wbc_normal_force_n[leg] = f.z();
-        wbc_shadow_diagnostics_.terrain_telemetry_commanded_normal_force_n[leg] = f.z();
-        wbc_shadow_diagnostics_.terrain_telemetry_wbc_saturated[leg] =
-            qp_contact[leg] && (wbc_out.friction_ratio[leg] >= 0.98 ||
-                                 f.z() >= id_params.max_normal_n - 1.0e-6);
         if (qp_contact[leg])
             min_fz = std::min(min_fz, f.z());
     }
     wbc_shadow_diagnostics_.min_contact_normal_force_n =
         std::isfinite(min_fz) ? min_fz : 0.0;
-    wbc_shadow_diagnostics_.id_wbc_w_base_angular = id_params.w_base_ang;
-    wbc_shadow_diagnostics_.id_wbc_w_stance_no_slip =
-        id_params.w_stance_no_slip;
-    wbc_shadow_diagnostics_.id_wbc_w_swing = id_params.w_swing;
-    wbc_shadow_diagnostics_.id_wbc_w_force_track =
-        id_params.w_force_track;
-    wbc_shadow_diagnostics_.id_wbc_w_posture = id_params.w_posture;
-    wbc_shadow_diagnostics_.id_wbc_qp_cost =
-        wbc_out.cost_terms.base_linear + wbc_out.cost_terms.base_angular +
-        wbc_out.cost_terms.stance_no_slip + wbc_out.cost_terms.swing +
-        wbc_out.cost_terms.force_regularization +
-        wbc_out.cost_terms.force_tracking + wbc_out.cost_terms.posture +
-        wbc_out.cost_terms.torque;
-    const Eigen::Vector3d diagnostic_normal =
-        terrain_stance_reference_valid_
-            ? terrain_stance_reference_normal_ : Eigen::Vector3d::UnitZ();
-    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-    {
-        const Eigen::Vector3d f =
-            wbc_out.force.segment<3>(3 * static_cast<int>(leg));
-        for (int axis = 0; axis < 3; ++axis)
-        {
-            wbc_shadow_diagnostics_.id_wbc_force_world_n[leg][axis] = f[axis];
-            wbc_shadow_diagnostics_.id_wbc_contact_normal[leg][axis] =
-                diagnostic_normal[axis];
-        }
-        wbc_shadow_diagnostics_.id_wbc_friction_ratio[leg] =
-            wbc_out.friction_ratio[leg];
-        wbc_shadow_diagnostics_.id_wbc_friction_active[leg] =
-            qp_contact[leg] && wbc_out.friction_ratio[leg] >= 0.98;
-    }
-
-    // This channel is deliberately opt-in: it records the physical force
-    // sensor alongside the final ID-WBC force and objective decomposition,
-    // but does not alter control or the normal CSV contract when disabled.
-    const bool hold_force_telemetry =
-        Full2EnvDouble("TROT_TERRAIN_DEBUG_FORCE", 0.0) > 0.5 &&
-        (terrain_transfer_hold_active_ || terrain_surface_transition_active_);
-    wbc_shadow_diagnostics_.terrain_hold_force_telemetry = hold_force_telemetry;
-    if (hold_force_telemetry)
-    {
-        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            wbc_shadow_diagnostics_.terrain_hold_wbc_normal_force_n[leg] =
-                wbc_out.force[3 * static_cast<int>(leg) + 2];
-        wbc_shadow_diagnostics_.terrain_hold_cost_base_linear =
-            wbc_out.cost_terms.base_linear;
-        wbc_shadow_diagnostics_.terrain_hold_cost_base_angular =
-            wbc_out.cost_terms.base_angular;
-        wbc_shadow_diagnostics_.terrain_hold_cost_stance_no_slip =
-            wbc_out.cost_terms.stance_no_slip;
-        wbc_shadow_diagnostics_.terrain_hold_cost_swing =
-            wbc_out.cost_terms.swing;
-        wbc_shadow_diagnostics_.terrain_hold_cost_force_regularization =
-            wbc_out.cost_terms.force_regularization;
-        wbc_shadow_diagnostics_.terrain_hold_cost_force_tracking =
-            wbc_out.cost_terms.force_tracking;
-        wbc_shadow_diagnostics_.terrain_hold_cost_posture =
-            wbc_out.cost_terms.posture;
-        wbc_shadow_diagnostics_.terrain_hold_cost_torque =
-            wbc_out.cost_terms.torque;
-    }
 }
 
 // --- TrotExperiment::UpdateWbcShadow ---
@@ -2555,14 +1059,7 @@ void TrotExperiment::UpdateWbcShadow(
     const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
     bool have_high_state)
 {
-    const bool low_stance_active =
-        go2_terrain::TerrainCrawlLowStanceActive(
-            terrain_crawl_sequencer_output_.state,
-            terrain_crawl_sequencer_output_.control_authority_active,
-            terrain_crawl_sequencer_output_.flat_ground_mode);
-
     wbc_shadow_diagnostics_ = WbcShadowDiagnostics{};
-    wbc_shadow_contact_state_valid_ = false;
     const bool high_speed_curriculum =
         Full2EnvDouble("TROT_HS_DISABLE", 0.0) <= 0.5 &&
         (params_.gait_pattern != go2_control::GaitPattern::kDiagonalTrot ||
@@ -2612,7 +1109,6 @@ void TrotExperiment::UpdateWbcShadow(
     int contact_mask = 0;
     const go2_control::HystereticContactParams shadow_contact_params{
         kShadowContactOnForceN, kShadowContactOffForceN};
-    std::array<double, go2::kLegCount> foot_forces{};
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         const int motor = static_cast<int>(3 * leg);
@@ -2626,23 +1122,20 @@ void TrotExperiment::UpdateWbcShadow(
                 joint_angles[leg][0],
                 joint_angles[leg][1],
                 joint_angles[leg][2]);
-        foot_forces[leg] =
+        const double foot_force =
             static_cast<double>(state_snapshot.foot_force()[leg]);
-    }
-    std::array<bool, go2::kLegCount> measured_contact{};
-    const bool measured_filter_valid =
-        go2_control::UpdateHystereticContactArray(
-            foot_forces, shadow_contact_params, wbc_shadow_contact_state_,
-            measured_contact);
-    if (!measured_filter_valid)
-    {
-        finish_shadow_timing();
-        return;
-    }
-    wbc_shadow_contact_state_valid_ = true;
-    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-    {
-        request.wrench.contact[leg] = measured_contact[leg];
+        bool next_contact = false;
+        if (!go2_control::UpdateHystereticContact(
+                wbc_shadow_contact_state_[leg],
+                foot_force,
+                shadow_contact_params,
+                next_contact))
+        {
+            finish_shadow_timing();
+            return;
+        }
+        wbc_shadow_contact_state_[leg] = next_contact;
+        request.wrench.contact[leg] = wbc_shadow_contact_state_[leg];
         if (request.wrench.contact[leg])
         {
             ++active_contacts;
@@ -2722,10 +1215,8 @@ void TrotExperiment::UpdateWbcShadow(
         // 基座高度 PD(目标 0.42 m)
         const WorldPose pose =
             ComputeWorldPose(state_snapshot, high_state_snapshot);
-        const double height_target_m = low_stance_active
-            ? go2_terrain::TerrainCrawlStateMachine::kLowStanceBodyHeightM
-            : kWbcPrimaryBaseHeightM;
-        const double height_error_m = height_target_m - pose.base.z;
+        const double height_error_m =
+            kWbcPrimaryBaseHeightM - pose.base.z;
         const double base_vel_z_mps =
             static_cast<double>(high_state_snapshot.velocity()[2]);
         // [wrench-fix] z 目标 = 纯重力基底(支撑归一化)。
@@ -2744,14 +1235,9 @@ void TrotExperiment::UpdateWbcShadow(
         }
         else
         {
-            const double height_kp = low_stance_active
-                ? go2_terrain::TerrainCrawlStateMachine::kLowStanceHeightKp
-                : kWbcPrimaryHeightKp;
-            const double height_kd = low_stance_active
-                ? go2_terrain::TerrainCrawlStateMachine::kLowStanceHeightKd
-                : kWbcPrimaryHeightKd;
-            desired_force[2] += height_kp * height_error_m -
-                height_kd * base_vel_z_mps;
+            desired_force[2] +=
+                kWbcPrimaryHeightKp * height_error_m -
+                kWbcPrimaryHeightKd * base_vel_z_mps;
         }
         // 姿态 PD + 角速度阻尼(imu rpy 与 gyro)
         const double roll_rad =
@@ -3001,21 +1487,6 @@ void TrotExperiment::UpdateWbcShadow(
             wrench_solution.max_radial_friction_ratio;
         wbc_shadow_diagnostics_.min_contact_normal_force_n =
             wrench_solution.min_contact_normal_force;
-    }
-
-    // Retain the allocator output for the opt-in terrain force witness.
-    // This is observation only and is not fed back into control.
-    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-    {
-        const go2::Vec3 &f = contact_forces[leg];
-        const double normal = f.z;
-        const double radial = std::hypot(f.x, f.y);
-        wbc_shadow_diagnostics_.terrain_telemetry_commanded_normal_force_n[leg] =
-            normal;
-        wbc_shadow_diagnostics_.terrain_telemetry_wbc_saturated[leg] =
-            request.wrench.contact[leg] &&
-            (normal >= kShadowWbcMaxNormalForce - 1.0e-6 ||
-             (normal > 1.0e-9 && radial / (kShadowWbcFrictionCoefficient * normal) >= 0.98));
     }
 
     go2_control::ContactTorqueMapRequest torque_request;

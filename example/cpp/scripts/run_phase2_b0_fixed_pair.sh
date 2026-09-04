@@ -9,17 +9,10 @@ repo_dir="$(cd "$cpp_dir/../.." && pwd)"
 set_name="${1:-development}"
 repeat="${2:-0}"
 
-if [[ "$set_name" == "holdout" ]]; then
-  case "$repeat" in
-    1) terrain_domain=203; baseline_domain=183 ;;
-    2) terrain_domain=204; baseline_domain=184 ;;
-    3) terrain_domain=205; baseline_domain=185 ;;
-    *) echo "holdout repeat must be 1..3" >&2; exit 2 ;;
-  esac
-else
-  terrain_domain=223
-  baseline_domain=222
-fi
+read -r baseline_domain terrain_domain < <(
+  python3 "$cpp_dir/tools/read_phase2_b0_domains.py" \
+    fixed_3mps "$set_name" "$repeat"
+)
 
 export SUSTAINED_SPRINT_DURATION_S="${SUSTAINED_SPRINT_DURATION_S:-40}"
 export SUSTAINED_SPRINT_WALL_TIMEOUT_S="${SUSTAINED_SPRINT_WALL_TIMEOUT_S:-75}"

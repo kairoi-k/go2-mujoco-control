@@ -38,7 +38,7 @@ struct TerrainPlanIdentity
     }
 };
 
-// Bounds are an input-only description of a future Stage-C timing window.
+// Bounds are an input-only description of a future execution timing window.
 // They are intentionally inert until a later order enables the timing path.
 struct TerrainTimingBounds
 {
@@ -194,7 +194,7 @@ inline bool StretchTerrainFrontStanceSchedule(
         if (k == rear_event)
         {
             const int source = std::max(0, k - 1);
-            // A crawl advance can exceed one consumer horizon. Keep the
+            // A terrain transition can exceed one consumer horizon. Keep the
             // current horizon on the captured stance; the next snapshot
             // repeats this bounded operation until the fixed deadline enters
             // view, without publishing a partially shifted contact row.

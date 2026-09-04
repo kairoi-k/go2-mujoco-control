@@ -29,10 +29,10 @@ must not introduce a crawl sequence, fixed leg order, local retiming, a
 three-contact entry gate, a stop-to-arm transition, or a second velocity
 authority.
 
-Terrain actuation and the old crawl debug harnesses are compile-time disabled.
-Only `--terrain-sensor-only` is currently usable. Existing crawl-named internals
-are retired compatibility ballast, not a design source; remove them only as the
-new owner replaces their remaining data dependencies.
+There is no production terrain-actuation path. The crawl/three-contact source
+chain has been physically removed, and its public flags fail closed. Only
+`--terrain-sensor-only` is currently usable. A future execution path starts
+from the clean planner interface; it may not copy code from Git history.
 
 ## Work and acceptance
 
@@ -46,6 +46,13 @@ profile result never establish acceptance.
 A B1 development PASS still requires a fresh full B0 and the frozen B1 holdout
 on the exact candidate SHA. Do not change a frozen threshold or holdout member
 after observing its result.
+
+Build with `cmake -S example/cpp -B example/cpp/build` and
+`cmake --build example/cpp/build -j2`, then run `ctest --test-dir
+example/cpp/build --output-on-failure`. The canonical B0 development commands
+are `run_phase2_b0_pair.sh <profile> development 0` and
+`run_phase2_b0_fixed_pair.sh development 0`; DDS domains come only from the
+holdout manifest.
 
 ## Authority
 

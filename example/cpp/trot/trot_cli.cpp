@@ -353,12 +353,6 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
         return false;
     }
 
-    if (cfg.params.terrain_actuation && !cfg.params.runtime_velocity_command)
-    {
-        if (error_out)
-            *error_out = "terrain planner actuation requires the Phase 1 runtime v_cmd API";
-        return false;
-    }
     if (!std::isfinite(cfg.params.gait_phase_offset) ||
         cfg.params.gait_phase_offset < 0.0 ||
         cfg.params.gait_phase_offset >= 1.0)
@@ -366,13 +360,6 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
         if (error_out) *error_out = "gait phase offset must be in [0,1)";
         return false;
     }
-    if (cfg.params.terrain_sensor_only && cfg.params.terrain_actuation)
-    {
-        if (error_out)
-            *error_out = "terrain sensor-only and terrain actuation are mutually exclusive";
-        return false;
-    }
-
     if (!cfg.params.event_script_path.empty() &&
         !go2_control::LoadMotionEventScript(
             cfg.params.event_script_path, cfg.params.event_schedule,
@@ -488,10 +475,6 @@ void PrintTrotCliSummary(const TrotCliConfig &cfg)
               << "  auto_environment=" << (params.auto_environment ? "on" : "off") << "\n"
               << "  terrain_sensor_only="
               << (params.terrain_sensor_only ? "on" : "off") << "\n"
-              << "  terrain_actuation="
-              << (params.terrain_actuation ? "on" : "off") << "\n"
-              << "  stage_c_execution="
-              << (params.stage_c_execution ? "on" : "off") << "\n"
               << "  reactive_events="
               << ((params.reactive_events || params.auto_environment || !params.event_schedule.empty()) ? "on" : "off") << "\n"
               << "  impact_to_emergency_stop_delay="

@@ -268,11 +268,6 @@ def main():
     if not evaluation_rows:
         raise SystemExit("no continuous-trot evaluation rows")
     scenario = args.profile.stem.removeprefix("phase1_velocity_")
-    phase2_profile_scenarios = {
-        "phase2_b1_velocity_0p3": "steps",
-        "phase2_b2_velocity_0p15": "steps",
-    }
-    scenario = phase2_profile_scenarios.get(scenario, scenario)
     profile = read_profile(args.profile)
     active_start = value(evaluation_rows[0], "cmd_time_s")
     profile_error = max(abs(value(row, "velocity_command_requested_mps") - profile_sample(profile, value(row, "cmd_time_s") - active_start)) for row in evaluation_rows)

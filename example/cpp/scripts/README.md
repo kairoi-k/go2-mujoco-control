@@ -1,5 +1,10 @@
 # 控制脚本
 
+Phase 2 的路线、状态和规范只看仓库根目录 `CURRENT.md`。当前验收入口只有
+`run_phase2_b0_pair.sh`、`run_phase2_b0_fixed_pair.sh` 和确定性诊断用的
+`run_phase2_b0_lockstep_pair.sh`；domain 只从
+`docs/research/PHASE2_HOLDOUT_MANIFEST.json` 读取。
+
 ## Script lifecycle categories
 
 | Category | Scripts | Policy |
@@ -9,7 +14,8 @@
 | Experiment helpers | `run_leg_lift_repeats.sh`, `run_leg_sequence.sh`, `run_periodic_leg_lift.sh`, `run_single_step.sh`, `run_two_step.sh`, `run_weight_shift_scan.sh`, `record_sustained_sprint.sh` | Maintained helpers; each new experiment must record its exact configuration and evidence class. |
 | Historical compatibility / capture helpers | `record_periodic_leg_lift.sh`, `record_reactive_acceptance.sh` | Retained for provenance or capture workflows; do not treat them as canonical acceptance entrypoints without a current protocol record. |
 
-Do not mass-move or rename legacy scripts in a governance PR. New maintained wrappers must document their owner, effective arguments, semantic environment, output directory, and analyzer.
+其余脚本不能改变 Phase 2 路线或验收结论。新 wrapper 必须记录有效参数、
+语义环境、输出目录和 analyzer。
 
 ## 维护入口
 
@@ -35,7 +41,8 @@ bash example/cpp/scripts/go2sim walk
 bash example/cpp/scripts/go2sim fast --view
 ```
 
-实验输出：名称 `go2_*` → `experiments/`；其它临时输出 → `experiments/_runs/`。DDS domain 使用 203–207。
+实验输出：名称 `go2_*` → `experiments/`；其它临时输出 →
+`experiments/_runs/`。Phase 2 DDS domain 由冻结 manifest 分配。
 
 历史批量扫参和机器专属启动器不在 git。
 

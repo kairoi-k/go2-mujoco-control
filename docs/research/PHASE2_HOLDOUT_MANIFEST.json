@@ -1,13 +1,14 @@
 {
-  "status": "frozen; terrain actuation remains disabled until a candidate passes fresh B0",
+  "status": "frozen B0 domains and future B1 holdout inputs; CURRENT.md owns current status",
   "b0": {
+    "status": "admission gate; current HEAD not yet run",
     "contract": "b0-contract-v1.2",
-    "source_base": "71d0e9ba7ca1097e840fe878aa30207f6f63600d",
-    "acceptance_epoch": "b0-v1.2-epoch-22",
-    "implementation_head": "2fefd71ce59e54fbd4a2a3fd0cf9a34a1d9c7ca9",
-    "supersedes_epoch_evidence": "epoch-21 formal holdout did not pass: preserve its evidence and do not mix it into a later verdict",
     "terrain_mode": "sensor_only",
     "scene": "unitree_robots/go2/scene_leg_lift_demo.xml",
+    "development_domains": {
+      "profiles": {"terrain_domain": 221, "baseline_domain": 220},
+      "fixed_3mps": {"terrain_domain": 223, "baseline_domain": 222}
+    },
     "profiles": [
       "steps",
       "accel_1_to_3",
@@ -28,11 +29,10 @@
     "anti_memorization_status": "B0 flat regression has no obstacle; pose, phase, and seed perturbations are deferred to B1-B3 holdout"
   },
   "b1": {
+    "status": "future acceptance gate only; no current execution implementation or authority",
     "contract": "b1-contract-v1.0",
-    "source_base": "71d0e9ba7ca1097e840fe878aa30207f6f63600d",
     "prerequisite": "fresh full b0-contract-v1.2 PASS on the exact B1 candidate SHA",
-    "implementation_head": "TO_BE_FROZEN_BEFORE_FIRST_TUNING_RUN",
-    "terrain_mode": "planner_actuation",
+    "terrain_mode": "future_dynamic_execution",
     "controller_inputs": "state_estimation_plus_lidar_terrain_model_only",
     "profile": "example/cpp/configs/phase1_velocity_steps.csv",
     "development": [

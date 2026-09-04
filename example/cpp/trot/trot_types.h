@@ -185,11 +185,6 @@ struct TrotParams
     bool auto_environment = false;
     bool terrain_enabled = false;
     bool terrain_sensor_only = false;
-    // The retired terrain actuation route is deliberately not configurable.
-    // Instance-style reads remain source-compatible while evaluating to
-    // compile-time false in every production and test build.
-    static constexpr bool terrain_actuation = false;
-    static constexpr bool stage_c_execution = false;
     bool runtime_velocity_command = false;
     double gait_phase_offset = 0.0;
     std::string velocity_command_script_path;
@@ -293,7 +288,7 @@ struct WbcShadowDiagnostics
     double task_residual_norm = 0.0;
     double max_radial_friction_ratio = 0.0;
     double min_contact_normal_force_n = 0.0;
-    // Final ID-WBC normal-force allocation, retained per leg so crawl
+    // Final ID-WBC normal-force allocation, retained per leg so terrain
     // telemetry can distinguish a declared swing from a stance leg that the
     // optimizer has effectively unloaded.
     std::array<double, go2::kLegCount> id_wbc_normal_force_n{};

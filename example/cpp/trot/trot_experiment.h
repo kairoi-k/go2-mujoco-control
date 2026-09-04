@@ -6,7 +6,6 @@
 #include <chrono>
 #include <cstddef>
 #include <condition_variable>
-#include <deque>
 #include <fstream>
 #include <limits>
 #include <memory>
@@ -25,7 +24,6 @@
 #include <unitree/robot/channel/channel_subscriber.hpp>
 
 #include "go2_contact_torque_mapping.h"
-#include "contact_state_filter.h"
 #include "lockstep_motion_clock.h"
 #include "lockstep_writer_gate.h"
 #include "locomotion_kernel.h"
@@ -38,10 +36,7 @@
 #include "cartesian_world_trot.h"
 #include "terrain_model.h"
 #include "terrain_motion_plan.h"
-#include "terrain_crawl_state_machine.h"
-#include "terrain_crawl_sequencer.h"
 #include "terrain_planner.h"
-#include "terrain_plan_execution_adapter.h"
 
 using unitree::robot::ChannelPublisherPtr;
 using unitree::robot::ChannelSubscriberPtr;
@@ -90,7 +85,6 @@ public:
           velocity_filter_({params_.velocity_filter_cutoff_hz}),
           velocity_command_shaper_(params_.velocity_command_shaper)
     {
-        runtime_gait_pattern_ = params_.gait_pattern;
         task_.Configure(task_mode, goal);
         motion_event_response_enabled_ =
             params_.reactive_events || params_.auto_environment ||
@@ -263,31 +257,8 @@ private:
         double commanded_vx_mps = 0.0;
         std::array<double, go2_trot::kMotorCount> joint_positions{};
         std::array<go2::Vec3, go2::kLegCount> nominal_feet_base{};
-        std::array<go2::Vec3, go2::kLegCount>
-            nominal_touchdown_feet_base{};
         std::array<bool, go2::kLegCount> measured_contact{};
-        std::array<bool, go2::kLegCount> measured_support_contact{};
-        bool measured_feet_valid = false;
-        std::array<go2::Vec3, go2::kLegCount> measured_feet_world{};
-        bool measured_com_valid = false;
-        go2::Vec3 measured_com_world{};
-        bool terrain_measured_support_window_active = false;
-        bool terrain_transfer_window_active = false;
-        std::size_t terrain_support_excluded_leg = go2::kLegCount;
-        bool terrain_transfer_hold_active = false;
-        std::array<bool, go2::kLegCount>
-            terrain_transfer_hold_contact{};
-        bool terrain_surface_transition_active = false;
-        std::array<bool, go2::kLegCount>
-            terrain_surface_transition_required{};
-        std::array<bool, go2::kLegCount>
-            terrain_surface_transition_committed{};
-        std::array<bool, go2::kLegCount>
-            terrain_surface_transition_source_valid{};
-        std::array<double, go2::kLegCount>
-            terrain_surface_transition_source_world_z{};
         bool have_commanded_body_feet = false;
-        bool have_nominal_touchdown_feet = false;
         bool measured_valid = false;
     };
 
@@ -368,12 +339,6 @@ private:
     bool have_commanded_body_feet_velocity_ = false;
     std::array<go2::Vec3, go2::kLegCount> commanded_world_feet_{};
     bool have_commanded_world_feet_ = false;
-    std::array<go2::Vec3, go2::kLegCount> terrain_command_velocity_world_{};
-    // Per-leg FK history used to report measured touchdown velocity without
-    // conflating it with the support-foot speed witness.
-    std::array<go2::Vec3, go2::kLegCount> previous_terrain_foot_world_{};
-    std::array<bool, go2::kLegCount> previous_terrain_foot_valid_{};
-    double previous_terrain_foot_time_s_ = 0.0;
     std::array<go2::Vec3, go2::kLegCount> previous_support_foot_world_{};
     std::array<bool, go2::kLegCount> previous_support_foot_valid_{};
     go2_control::CartesianWorldState cartesian_state_{};
@@ -404,9 +369,6 @@ private:
     int active_cycle_index_ = -1;
     int completed_cycles_ = 0;
     std::array<bool, go2::kLegCount> wbc_shadow_contact_state_{};
-    go2::Vec3 measured_com_world_{};
-    bool have_measured_com_world_ = false;
-    bool wbc_shadow_contact_state_valid_ = false;
     std::array<double, go2::kLegCount> wbc_stance_blend_{};
     go2_trot::WbcShadowDiagnostics wbc_shadow_diagnostics_{};
     go2_control::JointTorques wbc_shadow_candidate_torques_{};
@@ -414,9 +376,6 @@ private:
     go2_control::SrbdMpcOutput last_srbd_{};
     go2_control::IdWbcOutput last_id_wbc_{};
     bool have_last_id_wbc_ = false;
-    std::array<double, go2::kLegCount> terrain_force_handoff_reference_{};
-    std::size_t terrain_force_handoff_swing_leg_ = go2::kLegCount;
-    bool terrain_force_handoff_reference_valid_ = false;
     int wbc_full_ticks_ = 0;
     bool dynamics_logged_ = false;
     double current_phase_ = 0.0;
@@ -470,9 +429,6 @@ private:
     double cycle_vx_sum_ = 0.0;
     int cycle_vx_count_ = 0;
     std::array<double, go2::kLegCount> kernel_touchdown_target_x_m_{};
-    std::array<go2::Vec3, go2::kLegCount>
-        kernel_touchdown_target_feet_base_{};
-    bool have_kernel_touchdown_target_feet_ = false;
     int preview_n_steps_ = 0;
     double preview_touchdown_x_m_ = 0.0;
     double preview_terminal_velocity_x_mps_ = 0.0;
@@ -506,175 +462,7 @@ private:
     bool have_environment_heightmap_ = false;
     bool have_lidar_heightmap_ = false;
 
-    // (state_stamp_s, base_position_world.z) history used to re-reference
-    // the base-relative lidar heightmap from its snapshot-time base height
-    // to the planner snapshot's base height.  Control-thread only.
-    std::deque<std::pair<double, double>> base_height_history_;
-
     go2_terrain::TerrainPlanner terrain_planner_{};
-    go2_terrain::TerrainPlanStore terrain_plan_store_{};
-    go2_terrain::TerrainPlanExecutionAdapter terrain_plan_execution_adapter_{};
-    // Stage-C contact truth is filtered once, then fused only with bounded
-    // last robust support. Planned masks never enter this safety state.
-    go2_control::MeasuredContactFusion terrain_contact_fusion_{};
-    // A committed terrain foothold is a trajectory transaction.  It is
-    // prepared from the measured stance anchor, executed through the actual
-    // gait swing boundary, and held at its endpoint after that boundary.
-    // endpoint_held is only a kinematic lifecycle state; measured contact
-    // remains owned by the fused contact path.
-    struct TerrainSwingExecution
-    {
-        bool valid = false;
-        bool in_flight = false;
-        bool endpoint_held = false;
-        std::uint64_t plan_id = 0;
-        std::uint64_t map_epoch = 0;
-        go2::Vec3 start_world{};
-        go2::Vec3 target_world{};
-        double swing_start_time_s = 0.0;
-        double nominal_touchdown_time_s = 0.0;
-        double touchdown_time_s = 0.0;
-        double trajectory_start_time_s = 0.0;
-        double swing_duration_s = 0.0;
-        double terrain_swing_duration_s = 0.0;
-        // Lower bound checked by the planner for the retimed path.  Keep it
-        // visible at the execution rebase instead of replacing it with the
-        // stale nominal gait interval.
-        double planned_swing_duration_s = 0.0;
-        double swing_lift_m = 0.0;
-        double swing_peak_phase = 0.5;
-        double swing_leading_edge_phase = 0.5;
-        bool swing_leading_edge_phase_valid = false;
-        bool time_rebased_at_handoff = false;
-        bool terrain_height_change = false;
-        // The endpoint is not a support anchor until the live contact filter
-        // confirms force while the measured foot is actually at this target.
-        bool measured_touchdown = false;
-        double wbc_endpoint_error_m =
-            std::numeric_limits<double>::infinity();
-        bool wbc_at_endpoint = false;
-        bool wbc_measured_contact = false;
-        // A foothold may remain on the currently loaded terrain surface after
-        // the body has not yet risen with it. Keep that sensor-derived
-        // reference active even when the target is not a new height step.
-        bool terrain_target_required = false;
-    };
-    std::array<TerrainSwingExecution, go2::kLegCount>
-        terrain_swing_execution_{};
-    std::array<TerrainSwingExecution, go2::kLegCount>
-        terrain_swing_pending_{};
-    // During a terrain transfer the currently loaded support set is held
-    // until the planned endpoint is confirmed by measured contact.  This set
-    // is captured from the live gait schedule at transaction start; it is not
-    // a prescribed leg order or a scene-specific transfer script.
-    std::array<bool, go2::kLegCount> terrain_transfer_hold_contact_{};
-    bool terrain_transfer_hold_active_ = false;
-    // Absolute end of the one-shot S1 body-advance window. The planner
-    // replays this fixed deadline on each snapshot instead of extending the
-    // rear event indefinitely as the asynchronous plan refreshes.
-    double terrain_body_advance_until_s_ =
-        -std::numeric_limits<double>::infinity();
-    bool terrain_body_advance_phase_ = false;
-    // A surface transition spans every foot whose observed support surface
-    // differs from the first measured terrain endpoint.  Completed endpoints
-    // remain sensor-confirmed anchors while the nominal diagonal partner is
-    // allowed to consume the next planner snapshot.  This is an order-free
-    // transaction assembled from live surfaces, not a prescribed leg script.
-    bool terrain_surface_transition_active_ = false;
-    // V2 transfer window remains latched through the post-crossing stable
-    // passage. It is separate from the per-leg transaction latch so the
-    // crawl/velocity authority cannot return while the body is clearing.
-    bool terrain_transfer_window_active_ = false;
-    // Flat crawl is a one-cycle isolation harness. Retire it after the first
-    // complete four-leg CLEAR so normal controlled shutdown can finish
-    // instead of re-arming an unbounded synthetic crawl.
-    bool flat_crawl_harness_retired_ = false;
-    double terrain_transfer_window_release_s_ =
-        -std::numeric_limits<double>::infinity();
-    // Explicit v2 crawl sequencing. This object is only advanced while the
-    // sensor-derived transfer window is active; the Phase 1 path never reads
-    // it and therefore remains bit-identical outside the window.
-    go2_terrain::TerrainCrawlStateMachine terrain_crawl_state_machine_{};
-    // The event-driven owner supplies live-map targets and explicit contact
-    // topology inside the v2 window; the legacy machine remains diagnostics
-    // compatible for the out-of-window path.
-    go2_terrain::TerrainCrawlSequencer terrain_crawl_sequencer_{};
-    go2_terrain::TerrainCrawlSequencerOutput terrain_crawl_sequencer_output_{};
-    int terrain_crawl_min_contact_count_ = go2::kLegCount;
-    std::uint64_t terrain_crawl_step_commit_count_ = 0;
-    // Cached for the hard-limit check, which runs before the WBC update in
-    // the control tick. It is valid only for the active crawl stance window.
-    bool terrain_stance_reference_valid_ = false;
-    double terrain_stance_reference_roll_rad_ = 0.0;
-    double terrain_stance_reference_pitch_rad_ = 0.0;
-    Eigen::Vector3d terrain_stance_reference_normal_ = Eigen::Vector3d::UnitZ();
-    // Commit mask that produced the cached measured support-plane reference.
-    std::uint8_t terrain_stance_reference_commit_mask_ = 0xff;
-    // The transfer window decelerates while retaining the configured trot;
-    // this target is deliberately window-local and reset at each handoff.
-    bool terrain_deceleration_active_ = false;
-    double terrain_deceleration_target_mps_ = 0.30;
-    // V2-A starts at map arming, before crawl authority is seized. The
-    // profile is consumed only by the in-window trot command path.
-    bool terrain_approach_braking_active_ = false;
-    double terrain_approach_staging_error_m_ =
-        std::numeric_limits<double>::quiet_NaN();
-    double terrain_approach_speed_cap_mps_ = 0.0;
-    // Last measured canonical staging error; consumed by the next command
-    // shaping tick so STAGE stops at the edge-relative body target.
-    double terrain_staging_error_m_ =
-        std::numeric_limits<double>::quiet_NaN();
-    // Signed only for the terrain STAGE basin probe; the Phase 1 velocity
-    // shaper remains non-negative and bit-identical outside this window.
-    double terrain_stage_direction_ = 1.0;
-    double terrain_stage_servo_acc_x_mps2_ = 0.0;
-    double terrain_stage_servo_acc_y_mps2_ = 0.0;
-    double terrain_shift_servo_acc_x_mps2_ = 0.0;
-    double terrain_shift_servo_acc_y_mps2_ = 0.0;
-    bool terrain_stage_servo_saturated_ = false;
-    // Staged debug handoff keeps the first measured foothold target stable
-    // across planner expiry and the sequencer/state-machine tick boundary.
-    bool terrain_staged_target_valid_ = false;
-    go2::Vec3 terrain_staged_target_world_{};
-    // STAGE may reposition one already-loaded support foot away from a
-    // measured riser lip before SHIFT. Completion requires that leg's
-    // measured contact to remain present; the other three stay anchored.
-    std::size_t terrain_stage_reposition_leg_ = go2::kLegCount;
-    go2::Vec3 terrain_stage_reposition_target_world_{};
-    std::array<bool, go2::kLegCount> terrain_stage_repositioned_{};
-    bool terrain_stage_reposition_scan_complete_ = false;
-    go2_control::GaitPattern runtime_gait_pattern_ =
-        go2_control::GaitPattern::kDiagonalTrot;
-    double terrain_surface_transition_target_world_z_ = 0.0;
-    double terrain_surface_transition_deadband_m_ = 0.0;
-    std::array<bool, go2::kLegCount>
-        terrain_surface_transition_required_{};
-    // The original plan requirement remains visible after a failed handoff.
-    std::array<bool, go2::kLegCount>
-        terrain_surface_transition_original_required_{};
-    std::array<bool, go2::kLegCount>
-        terrain_surface_transition_cancelled_{};
-    std::array<bool, go2::kLegCount>
-        terrain_surface_transition_committed_{};
-    std::array<bool, go2::kLegCount>
-        terrain_surface_transition_source_valid_{};
-    std::array<double, go2::kLegCount>
-        terrain_surface_transition_source_world_z_{};
-    // A confirmed surface persists beyond one transaction. This prevents a
-    // delayed planner snapshot from reopening the same height transition
-    // before the live contact/support state has caught up.
-    std::array<bool, go2::kLegCount>
-        terrain_surface_transition_committed_surface_valid_{};
-    std::array<double, go2::kLegCount>
-        terrain_surface_transition_committed_surface_world_z_{};
-    std::uint64_t terrain_surface_transition_completions_ = 0;
-    int terrain_surface_transition_last_required_mask_ = 0;
-    int terrain_surface_transition_last_committed_mask_ = 0;
-    // One accepted immutable snapshot is shared by gait, SRBD-MPC and WBC
-    // for the duration of an in-flight terrain swing.  Planner refreshes may
-    // replace the latest store value, but must not retarget that swing.
-    std::shared_ptr<const go2_terrain::TerrainMotionPlan>
-        terrain_execution_plan_;
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model_;
     std::atomic<std::uint64_t> terrain_map_epoch_{0};
     std::atomic<std::uint64_t> terrain_plan_epoch_{0};
@@ -684,17 +472,6 @@ private:
     double terrain_last_solver_us_ = 0.0;
     double terrain_last_plan_status_ = 0.0;
     double terrain_last_failure_ = 0.0;
-    std::string terrain_dominant_foothold_reject_reason_ = "none";
-    int terrain_failed_leg_ = -1;
-    std::string terrain_failed_leg_reject_reason_ = "none";
-    std::array<std::size_t, go2::kLegCount> terrain_candidate_counts_{};
-    std::array<std::size_t, go2::kLegCount>
-        terrain_swing_candidate_counts_{};
-    std::array<bool, go2::kLegCount> terrain_candidate_required_{};
-    std::array<int, go2::kLegCount> terrain_touchdown_knots_{};
-    int terrain_support_failure_knot_ = -1;
-    int terrain_support_failure_contact_mask_ = 0;
-    double terrain_support_failure_margin_m_ = 0.0;
     double terrain_min_edge_margin_m_ = 0.0;
     double terrain_min_uncertainty_edge_margin_m_ = 0.0;
     double terrain_min_slope_rad_ = 0.0;
@@ -710,45 +487,6 @@ private:
     std::uint64_t terrain_planner_rejections_ = 0;
     std::uint64_t terrain_planner_deadline_misses_ = 0;
     bool terrain_latest_plan_valid_ = false;
-    std::atomic<bool> terrain_safe_stop_requested_{false};
-    std::atomic<double> terrain_velocity_cap_mps_{
-        std::numeric_limits<double>::infinity()};
-    std::uint64_t terrain_plan_published_count_ = 0;
-    std::uint64_t terrain_plan_consumed_count_ = 0;
-    std::uint64_t terrain_gait_target_override_count_ = 0;
-    std::uint64_t terrain_mpc_plan_consumed_count_ = 0;
-    std::uint64_t terrain_mpc_update_count_ = 0;
-    std::uint64_t terrain_execution_adopted_plan_id_ = 0;
-    std::uint64_t terrain_execution_rejected_plan_id_ = 0;
-    std::string terrain_execution_fallback_reason_;
-    std::string terrain_execution_source_ = "none";
-    std::uint64_t terrain_execution_source_shadow_hash_ = 0;
-    std::uint64_t terrain_execution_adapter_updates_ = 0;
-    std::uint64_t terrain_execution_adapter_adoptions_ = 0;
-    std::uint64_t terrain_execution_adapter_rejections_ = 0;
-    std::uint64_t terrain_execution_request_plan_id_ = 0;
-    std::uint64_t terrain_execution_request_input_hash_ = 0;
-    bool terrain_execution_adapter_using_plan_ = false;
-    std::string terrain_execution_boundary_reason_ = "inactive";
-    std::array<std::uint64_t, go2::kLegCount>
-        terrain_execution_request_endpoint_identity_{};
-    std::array<bool, go2::kLegCount> terrain_execution_request_in_flight_{};
-    std::array<double, go2::kLegCount>
-        terrain_execution_touchdown_error_s_{};
-    std::array<double, go2::kLegCount> terrain_execution_liftoff_error_s_{};
-    std::array<bool, go2::kLegCount> terrain_execution_previous_measured_{};
-    bool terrain_execution_previous_measured_valid_ = false;
-
-    std::atomic<std::uint64_t> terrain_plan_contact_rejections_{0};
-    std::uint64_t terrain_target_prepare_attempt_count_ = 0;
-    std::uint64_t terrain_target_prepared_count_ = 0;
-    std::uint64_t terrain_target_prepare_rejection_count_ = 0;
-    // 0=none, 1=invalid plan fields, 2=no measured start anchor,
-    // 3=insufficient atomic swing window, 4=no terrain height transition,
-    // 5=endpoint IK invalid, 6=swing-boundary rebase infeasible.
-    int terrain_target_last_prepare_failure_ = 0;
-    std::array<int, go2::kLegCount>
-        terrain_target_last_prepare_failure_by_leg_{};
 
     std::mutex terrain_diagnostics_mutex_;
     std::mutex terrain_control_mutex_;
