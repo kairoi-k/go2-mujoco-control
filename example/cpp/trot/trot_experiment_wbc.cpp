@@ -992,6 +992,12 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_diagnostics_.id_eq_residual = wbc_out.eq_residual;
     wbc_shadow_diagnostics_.id_attempt_qp_converged =
         wbc_attempt.qp_converged;
+    wbc_shadow_diagnostics_.id_attempt_qp_recovery_used =
+        wbc_attempt.qp_recovery_used;
+    wbc_shadow_diagnostics_.id_attempt_primary_iterations =
+        wbc_attempt.primary_iterations;
+    wbc_shadow_diagnostics_.id_attempt_recovery_iterations =
+        wbc_attempt.recovery_iterations;
     wbc_shadow_diagnostics_.id_attempt_solution_finite =
         wbc_attempt.solution_finite;
     wbc_shadow_diagnostics_.id_attempt_eq_residual =

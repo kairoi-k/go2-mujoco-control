@@ -46,6 +46,11 @@ int main()
     bool passed = go2_control::SolveInverseDynamicsWbc({}, input, out);
     passed &= Check(out.ok, "stand ID-WBC failed");
     passed &= Check(out.qp_converged, "stand ID-WBC QP did not converge");
+    passed &= Check(!out.qp_recovery_used,
+                    "nominal stand unexpectedly used QP recovery");
+    passed &= Check(out.primary_iterations == out.iterations &&
+                        out.recovery_iterations == 0,
+                    "nominal QP iteration accounting");
     passed &= Check(out.solution_finite, "stand ID-WBC solution is not finite");
     passed &= Check(out.eq_residual < 1.0e-3, "floating-base residual");
     passed &= Check(out.rne_residual < 1.0e-3, "RNEA residual");

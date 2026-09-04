@@ -8,6 +8,7 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
 
 #include <Eigen/Dense>
 
@@ -95,6 +96,7 @@ struct IdWbcOutput
     // last accepted command.  This makes a rare invalid tick diagnosable
     // without changing plant authority or relaxing a safety constraint.
     bool qp_converged = false;
+    bool qp_recovery_used = false;
     bool solution_finite = false;
     bool terrain_plan_consumed = false;
     go2_terrain::TerrainPlanIdentity terrain_plan{};
@@ -105,6 +107,8 @@ struct IdWbcOutput
     bool fused_contact_valid = false;
     bool planned_contact_valid = false;
     int iterations = 0;
+    int primary_iterations = 0;
+    int recovery_iterations = 0;
     double eq_residual = 0.0;
     double rne_residual = 0.0;
     Eigen::Matrix<double, kGo2Nv, 1> qdd =
@@ -366,8 +370,35 @@ inline bool SolveInverseDynamicsWbc(
     settings.abs_tol = 1e-5;
     settings.rel_tol = 1e-4;
     settings.feasibility_tol = 1e-4;
-    const bool qp_ok =
+    bool qp_ok =
         SolveDenseQpEq(H, g, Aineq, bineq, Aeq, beq, x, iters, settings);
+    output.primary_iterations = iters;
+
+    // The regular 120-iteration solve is intentionally the common path. At a
+    // contact transition, however, ADMM can return an equality-accurate finite
+    // iterate whose torque inequality is still outside the hard acceptance
+    // tolerance. Retry only that rejected numerical case with a bounded larger
+    // budget; do not change the task, constraints, contact mask or torque cap.
+    const auto candidate_tau_violation = [&]() {
+        if (x.size() != n || !x.allFinite())
+            return std::numeric_limits<double>::infinity();
+        const Eigen::Matrix<double, 12, 1> candidate_tau =
+            Mj * x.head<nqdd>() + hj - Jj_t * x.tail<nf>();
+        return (candidate_tau.cwiseAbs().array() - params.tau_limit_nm)
+            .max(0.0).maxCoeff();
+    };
+    if (candidate_tau_violation() > 5.0e-2 && x.size() == n && x.allFinite())
+    {
+        DenseQpSettings recovery_settings = settings;
+        recovery_settings.max_iterations = 480;
+        int recovery_iters = 0;
+        output.qp_recovery_used = true;
+        qp_ok = SolveDenseQpEq(
+            H, g, Aineq, bineq, Aeq, beq, x, recovery_iters,
+            recovery_settings);
+        output.recovery_iterations = recovery_iters;
+        iters += recovery_iters;
+    }
     output.qp_converged = qp_ok;
     output.iterations = iters;
     if (x.size() != n || !x.allFinite())
