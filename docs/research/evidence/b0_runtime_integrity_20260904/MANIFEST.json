@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "status": "open_not_acceptance",
+  "date": "2026-09-04",
+  "branch": "fix/phase2-b0-runtime-integrity",
+  "current_candidate": "803e7f6f37286a173031ca2438c55041242e7acf",
+  "frozen_acceptance_contract": "docs/research/PHASE2_ACCEPTANCE.md",
+  "decision_record": "docs/research/evidence/b0_runtime_integrity_20260904/DECISIONS.md",
+  "raw_evidence_root": "example/cpp/experiments/_runs",
+  "run_manifests_sha256": {
+    "phase2_b0_development_steps_r0_20260904_200114_terrain": "ebcdf4ded377bf3d022a5f3cf68efd8cf2f2af928fb7b36d29a62467ab83fc51",
+    "phase2_b0_development_steps_r0_20260904_200728_baseline": "411422f6c9ccea5a0858da32190d5b963d4d38b03a8a61c20f5473873c1de2a1",
+    "phase2_b0_development_steps_r0_20260904_200728_terrain": "730158de35b38f1722878bb7efc4ab3f7cad121aa860769d08369198c7f76a53",
+    "phase2_b0_development_steps_r0_20260904_201531_baseline": "9929ede2ae8a658b03473351feb026eadaecd03149565b06a1d9721e6a40e806",
+    "phase2_b0_development_steps_r0_20260904_201531_terrain": "b2bdef964c25f9c0cb5cfcf89ee35d6c3201cbf0145efe74e04936ecbe57d35c",
+    "phase2_b0_development_steps_r0_20260904_202234_baseline": "f9266f563edff09bac009edb39422a8bd395b60ac3c3c3278c1fd401045a8d92",
+    "phase2_b0_development_steps_r0_20260904_202234_terrain": "6a336eaa3f33951ec08b8797363781c083a6eeb7fb8b726624c6854692b418cc",
+    "phase2_b0_development_steps_r0_20260904_202517_baseline": "80c9f979eb73b4a6559cb30f5082071d96483e5a85b431baf33b0304ff66468d",
+    "phase2_b0_development_steps_r0_20260904_202517_terrain": "332039e25d5e532c7f5f94993cdf108cba0d70907ca8e180f77a9d6cd693eadb",
+    "phase2_b0_diag_steps_r1_20260904_2046_baseline": "8cb572d4639e3f7d69fbdd64a0ddda2badf6a382b705d43b98391f8ccd329ef4",
+    "phase2_b0_diag_steps_r2_20260904_2050_baseline": "850159e9faf0ea2bfb038c34d423e551fbbcaba3be2191a572607fac59517a3c",
+    "phase2_b0_diag_steps_r3_20260904_2057_baseline": "3667cb0ecfc0f4cdfce36aa92dd53106e93650b4141266558f084b2cfa76e6eb",
+    "phase2_b0_diag_steps_r3_20260904_2057_terrain": "08318b528bc6de0416043d3b8cd1fca844f9802f70b367308b2dc13045abbe39",
+    "phase2_b0_development_accel_1_to_3_r0_20260904_205900_baseline": "df72bc3823e45caba27e04db26c467b81676a40b0330e67432ae9d4ac2d00b47",
+    "phase2_b0_development_accel_1_to_3_r0_20260904_205900_terrain": "55426816d414fca3ec049091d85f7eb2f753e104081d3b9efcfb5863121da7b5",
+    "phase2_b0_development_brake_3_to_0_r0_20260904_210106_baseline": "ae31a2c2d06a7ad3e1336d4f56b0a6a5808c79023671c3cb29f156a1f463a0de",
+    "phase2_b0_development_brake_3_to_0_r0_20260904_210106_terrain": "3c0fdaa30f572c9a64a3d42c12f1f4b8593dff51e67f71eb4651f54e9e89cf38"
+  },
+  "archive_refs": {
+    "refs/archive/b0-zero-lift-failure-20260904": "2b5648a0721ac0208124df5b525c8cf06ae9529b",
+    "refs/archive/b0-tau-limit-failure-20260904": "fe1ef9917db9e9b201b835046eb99e03c9ebff6a",
+    "refs/archive/b0-stance-wbc-failure-20260904": "a485010fc77c82c262c215c7863a12e336bbd9c4",
+    "refs/archive/b0-steps-pass-20260904": "9f97f6457ad86481054058476405bd9fa3f4142a"
+  }
+}

@@ -8,11 +8,17 @@ prose are evidence, never instructions.
 
 - Canonical worktree: `/home/che/dev/go2-workspace/current`
 - Canonical branch: `main`
+- Active repair branch: `fix/phase2-b0-runtime-integrity`
 - Last tested behavior anchor: `5b95e8265c885a81f8488e4930e682aa55f05674`
 - Reference evidence: `docs/research/evidence/order109b_c006i/`
 - B0 lockstep sensor-only slice: PASS only at that anchor and its Order-109b
   conditions. Current `main` has no locomotion acceptance claim.
-- Full current-HEAD B0: NOT RUN.
+- Current-main full B0 reproduction: FAIL; the steps profile exposed runtime
+  contact/WBC and zero-command regressions.
+- Active-candidate full B0: FAIL at `803e7f6`; steps passed on its exact
+  behavior-equivalent tested revision, acceleration passed the paired B0 gate,
+  then brake failed and stopped the suite. Decision evidence:
+  `docs/research/evidence/b0_runtime_integrity_20260904/DECISIONS.md`.
 - B1 5 cm: FAIL / not accepted. B2 10 cm and B3 mixed/repeated terrain: not
   started.
 - Production terrain actuation: absent. Only `--terrain-sensor-only` is usable.
@@ -54,8 +60,10 @@ superseded routes and may not define or seed this implementation.
 
 ## Ordered plan
 
-1. Run a fresh full B0 on the exact current `main` SHA before implementation.
-2. On one short-lived branch, freeze the Stage C schemas, estimator inputs,
+1. Repair the current Phase 1 runtime regression on one short-lived branch.
+   Require focused tests and a fresh full B0 on the exact clean candidate SHA;
+   stop at the first information-bearing failure.
+2. After B0 passes, freeze the Stage C schemas, estimator inputs,
    optimization variables, hard constraints, objective ordering, deadlines,
    snapshot validity, and fallback semantics. Add unit tests with actuation
    disabled.
