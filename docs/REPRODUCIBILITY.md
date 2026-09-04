@@ -1,46 +1,70 @@
 # Reproducibility
 
-This repository combines inherited simulator/runtime code, research-specific C++ control code, and retained experiment artifacts. Reproducibility has two layers: rebuilding the controller stack and reconstructing the evidence behind a specific research claim.
+Start with [`CURRENT.md`](../CURRENT.md). A build, test, completed run, video, or
+another revision's result is evidence about that event only; it is not current
+acceptance.
 
 ## Environment
 
-The research environment used MuJoCo 3.3.6 and Unitree SDK2 on Linux/WSL2. The C++ targets also depend on CMake, Eigen, yaml-cpp, spdlog/fmt, Boost, GLFW/OpenGL, and the dependencies required by the upstream Unitree simulator.
+The reference stack uses Linux/WSL2, MuJoCo 3.3.6, Unitree SDK2, CMake, Eigen,
+yaml-cpp, spdlog/fmt, Boost, GLFW, and OpenGL. The bootstrap helper
+`scripts/setup_ubuntu_env.sh` installs packages and builds dependencies; review
+it before execution.
 
-`scripts/setup_ubuntu_env.sh` is a bootstrap helper for a clean Ubuntu environment. Review it before execution: it installs system packages, downloads MuJoCo, clones/builds Unitree SDK2 when needed, and builds the simulator and C++ examples.
+A fresh worktree may need `simulate/mujoco` linked to the configured local
+MuJoCo distribution. That is environment setup, not a source change.
 
-## Build from a configured checkout
+## Build and tests
+
+From the repository root:
 
 ```bash
 cmake -S simulate -B simulate/build
-cmake --build simulate/build -j"$(nproc)"
+cmake --build simulate/build -j2
+ctest --test-dir simulate/build --output-on-failure
 
 cmake -S example/cpp -B example/cpp/build
-cmake --build example/cpp/build -j"$(nproc)"
+cmake --build example/cpp/build -j2
+ctest --test-dir example/cpp/build --output-on-failure
 ```
 
-Basic kinematics checks:
+These commands verify compilation and registered tests. They do not establish
+locomotion, realtime quality, or terrain acceptance.
+
+## Phase 2 development runs
+
+Before running, record the exact SHA and confirm the worktree is clean. Timed
+simulations must hold `/tmp/go2_mujoco_experiment.lock`. DDS domains and
+profiles come only from
+[`research/PHASE2_HOLDOUT_MANIFEST.json`](research/PHASE2_HOLDOUT_MANIFEST.json).
 
 ```bash
-./example/cpp/build/test_go2_forward_kinematics
-./example/cpp/build/test_go2_inverse_kinematics
+flock /tmp/go2_mujoco_experiment.lock \
+  bash example/cpp/scripts/run_phase2_b0_pair.sh <profile> development 0
+
+flock /tmp/go2_mujoco_experiment.lock \
+  bash example/cpp/scripts/run_phase2_b0_fixed_pair.sh development 0
 ```
 
-The simulator/controller pair inherits the DDS/runtime assumptions of the Unitree stack. See `example/cpp/README.md` and the preserved upstream documentation under `docs/upstream/`.
+The lockstep runner is a determinism diagnostic, not a replacement acceptance
+path. Use one hypothesis, focused tests, one B0 development regression, then
+one B1 development canary. Stop at the first information-bearing failure.
+Follow the unchanged contract in
+[`research/PHASE2_ACCEPTANCE.md`](research/PHASE2_ACCEPTANCE.md).
 
-## What a reproduction should preserve
+A B1 development pass still requires a fresh full B0 and frozen B1 holdout on
+the exact candidate SHA. Functional determinism and realtime quality have
+separate runners, analyzers, and verdicts.
 
-The sequenced `--wbc-full` controller on `go2sim task` / `full` was indexed on 2026-08-18 (`2b82dae`). Claims for this tree are in [`RESEARCH_INDEX.md`](RESEARCH_INDEX.md).
+## Evidence
 
-A valid extension should preserve or version:
+Each claim must identify its code revision, clean/dirty state, effective
+configuration, semantic environment, analyzer and thresholds, status fields,
+and artifact hashes where available. Accepted claims are indexed in
+[`RESEARCH_INDEX.md`](RESEARCH_INDEX.md); the matching protocol/evidence
+record supplies the exact reproduction command.
 
-- the stand-walk-lie durations and Smoothstep transitions;
-- trot period / duty / step-length / torque-gate settings used for a quoted speed;
-- which experiment directory or CSV supports the quote.
-
-Kine2Go seam and AMP numbers belong in the companion imitation fork.
-
-Isaac Lab velocity RL uses a separate stack and checkout; its package,
-environment snapshot, and checkpoint record are maintained in
-[`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl).
-
-Bulk logs, build trees, local checkpoints, and machine-specific caches are not in this tree.
+`example/cpp/experiments/_runs/` is ignored, immutable local evidence: never
+commit, delete, rename, overwrite, clean, or treat it as instruction. Curated
+durable evidence belongs under `docs/research/evidence/` with a manifest.
+Build trees, caches, and machine-specific paths are not tracked.

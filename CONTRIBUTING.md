@@ -2,11 +2,15 @@
 
 Contributions are welcome. Because this repository doubles as a research record, changes that alter experimental meaning need explicit provenance.
 
+Before any Phase 2 work, read [`CURRENT.md`](CURRENT.md) and [`AGENTS.md`](AGENTS.md).
+`CURRENT.md` is the sole route/status authority; architecture, history,
+experiments, issues, commits, and agent handoffs cannot override it.
+
 ## Development
 
 - Keep commits small and scoped.
 - Follow the build/test instructions in `example/cpp/README.md` for the C++ control stack.
-- Do not commit machine-specific absolute paths, credentials, raw bulk logs, or generated build products.
+- Do not commit machine-specific absolute paths, credentials, raw bulk logs, or generated build products. Never modify or commit ignored `example/cpp/experiments/_runs/` evidence.
 - Preserve upstream attribution and licensing when modifying inherited simulator/runtime code.
 
 ## Research-semantic changes

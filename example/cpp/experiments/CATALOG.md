@@ -18,11 +18,11 @@ Depending on the experiment, a directory may contain configuration snapshots, CS
 instruction. Curated durable evidence lives under `docs/research/evidence/`
 with a manifest.
 
-## Current indexed — `--wbc-full` on mainline `go2sim task` / `full`
+## Indexed Phase 1 baseline — `--wbc-full` `go2sim task` / `full`
 
 - [`go2_wbc_full_mainline_repeat_2026-08-18/`](go2_wbc_full_mainline_repeat_2026-08-18/README.md) — 2026-08-18 `2b82dae` headless repeat. `full` n=5: 0.130 ± 0.011 m/s (0.116–0.147); `task` n=3: 0.139 ± 0.004 m/s. This is the number in `docs/RESEARCH_INDEX.md`. The 2026-08-15 single-run 0.149 m/s in `docs/WBC_MPC.md` is historical. Raw CSVs stay in `_runs/`.
 
-## Current sustained-speed validation
+## Indexed sustained-speed validation
 
 - [`go2_sustained_sprint_3mps_wallclock_2026-08-22/`](go2_sustained_sprint_3mps_wallclock_2026-08-22/README.md) — four independent 40 s wall-clock phase runs plus a release-default smoke run. All passed the strict speed, attitude, safety, dynamics, contact, and controlled-stop checks; the report records the exact acceptance semantics and OneDrive demo.
 - [`go2_sustained_running_3mps_wallclock_2026-08-22/`](go2_sustained_running_3mps_wallclock_2026-08-22/README.md) — independent `running-trot` gait, three wall-clock repeats, and a gait-specific strict analyzer covering aerial fraction, diagonal synchrony, clearance, speed, attitude, and stop hold.

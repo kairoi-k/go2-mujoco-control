@@ -1,23 +1,43 @@
 # Documentation
 
-For current Phase 2 work, start at [`CURRENT.md`](../CURRENT.md); it is the
-only route and status authority. This page indexes general architecture and
-older accepted Phase 1 evidence only.
+For Phase 2, the authority chain is deliberately small. Start at
+[`CURRENT.md`](../CURRENT.md); every other document is subordinate context,
+implementation guidance, or history.
+
+## Current authority
+
+| Order | Document | Purpose |
+|---:|---|---|
+| 1 | [`CURRENT.md`](../CURRENT.md) | only current route, status, and handoff |
+| 2 | [`AGENTS.md`](../AGENTS.md) | hard execution boundaries |
+| 2 | [`research/PHASE2_ACCEPTANCE.md`](research/PHASE2_ACCEPTANCE.md) | Phase 2 acceptance contract |
+| 3 | [`research/PHASE2_HOLDOUT_MANIFEST.json`](research/PHASE2_HOLDOUT_MANIFEST.json) | frozen profiles, domains, and holdouts |
+| 4 | [`research/evidence/`](research/evidence/), [`../example/cpp/tools/`](../example/cpp/tools/) | curated raw evidence and protocol analyzers |
+
+Evidence, Git history, issues, experiment notes, and agent prose never override
+this order.
+
+## Implementation and operation
 
 | Document | Purpose |
 |---|---|
-| [`CURRENT.md`](../CURRENT.md) | current Phase 2 route, status, and authority |
-| [`RESEARCH_INDEX.md`](RESEARCH_INDEX.md) | claims, evidence, and claim boundary |
-| [`RESEARCH_HISTORY.md`](RESEARCH_HISTORY.md) | milestone history |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | simulator/controller runtime and control architecture |
-| [`CODE_GUIDE.md`](CODE_GUIDE.md) | source-level navigation for contributors |
-| [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md) | environment, build, smoke checks, and evidence-reproduction rules |
-| [`WBC_MPC.md`](WBC_MPC.md) | 18-DoF ID-WBC + SRBD MPC (`--wbc-full`) |
-| [`SPEED_1MPS_ACCEPTANCE_2026-08-21.md`](SPEED_1MPS_ACCEPTANCE_2026-08-21.md) | Branch-scoped 1 m/s acceptance protocol and evidence |
-| [`NATURAL_GAIT_1MPS_ACCEPTANCE_2026-08-21.md`](NATURAL_GAIT_1MPS_ACCEPTANCE_2026-08-21.md) | 1 m/s natural-trot profile, metrics, and repeatability evidence |
-| [`RUNNING_GAIT_1MPS_ACCEPTANCE_2026-08-21.md`](RUNNING_GAIT_1MPS_ACCEPTANCE_2026-08-21.md) | 1 m/s low-duty running-trot profile, stop handoff, and repeatability evidence |
-| [`TROT_STRAIGHT_RUNNING_RELEASE_2026-08-21.md`](TROT_STRAIGHT_RUNNING_RELEASE_2026-08-21.md) | 当前直线稳定基线、高速跑态发布配置、验收口径与失败边界 |
-| [`SUSTAINED_RUNNING_3MPS_ACCEPTANCE_2026-08-22.md`](SUSTAINED_RUNNING_3MPS_ACCEPTANCE_2026-08-22.md) | branch-scoped 3 m/s running-trot profile, gait-specific acceptance, and three-repeat evidence |
-| [`upstream/`](upstream/) | preserved upstream Unitree MuJoCo README files |
-| [TROT_RELEASE_METRICS_2026-08-21.txt](TROT_RELEASE_METRICS_2026-08-21.txt) | 发布重复实验的简表、边界探针和视频文件名 |
-| [TROT_RELEASE_DELIVERY_README_2026-08-21.txt](TROT_RELEASE_DELIVERY_README_2026-08-21.txt) | OneDrive 最小交付包说明 |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | simulator/controller data flow and module boundaries |
+| [`CODE_GUIDE.md`](CODE_GUIDE.md) | smallest source entrypoint for a change |
+| [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md) | build, test, experiment lock, and evidence rules |
+| [`WBC_MPC.md`](WBC_MPC.md) | Phase 1 ID-WBC and SRBD-MPC implementation |
+| [`../example/cpp/README.md`](../example/cpp/README.md) | C++ build and runtime entrypoints |
+| [`../example/cpp/scripts/README.md`](../example/cpp/scripts/README.md) | runner lifecycle and Phase 2-safe entrypoints |
+| [`../example/cpp/tools/analysis/INDEX.md`](../example/cpp/tools/analysis/INDEX.md) | analyzer lifecycle and scope |
+
+## Claims and history
+
+| Location | Meaning |
+|---|---|
+| [`RESEARCH_INDEX.md`](RESEARCH_INDEX.md) | accepted repository claims and boundaries |
+| [`RESEARCH_HISTORY.md`](RESEARCH_HISTORY.md) | milestone history, including rejected work |
+| [`validation/`](validation/) | accepted Phase 1 protocols and revalidations |
+| [`../example/cpp/experiments/CATALOG.md`](../example/cpp/experiments/CATALOG.md) | retained historical experiment artifacts |
+| [`upstream/`](upstream/) | preserved upstream documentation |
+
+Dated protocol/delivery files in `docs/` are historical Phase 1 records unless
+`CURRENT.md` explicitly adopts them. They cannot define Phase 2 work.

@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-09-04
+
+- `main` is the only active integrated line, and `CURRENT.md` is the sole Phase
+  2 route, status, and handoff entrypoint. Superseded remote branches are
+  preserved only by explicit `archive/branches/*` tags.
+- The quasi-static crawl, fixed-leg-order, stop-to-arm, and three-contact-entry
+  terrain actuation chain was removed. Its former public flags fail closed;
+  only sensor-only terrain observation remains usable.
+- Raw `example/cpp/experiments/_runs/` data is ignored, immutable local
+  evidence and can never enter Git. Durable evidence belongs under
+  `docs/research/evidence/` with a manifest.
+- The unrelated `v0.1.0` Isaac Lab release/tag was removed from this model-control
+  repository. Its canonical package remains in `kairoi-k/go2-isaaclab-rl`.
+- Documentation was consolidated around one authority chain and historical
+  leg-lift/multi-step assets were explicitly removed from Phase 2 guidance.
+
 ## 2026-08-19
 
 - `go2sim task` / `full` on main are `--wbc-full --tau-limit 35` (`2b82dae`). Indexed cruise is the 2026-08-18 repeat: `full` n=5 **0.130 ± 0.011 m/s**, `task` n=3 **0.139 ± 0.004 m/s**. Record: `example/cpp/experiments/go2_wbc_full_mainline_repeat_2026-08-18`.
@@ -22,8 +38,10 @@
 ## 2026-08-14
 
 - README clip for stand-walk-lie.
-- Isaac Lab velocity-RL snapshot and `model_54950` were published; that track
-  is now maintained in [`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl).
+- The Isaac Lab velocity-RL snapshot and `model_54950` were part of the former
+  combined-repository history. Their canonical package and release are now in
+  [`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi-k/go2-isaaclab-rl),
+  not this repository.
 
 ## 2026-08-13
 

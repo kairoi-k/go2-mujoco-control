@@ -74,6 +74,35 @@ REQUIRED_FILES = (
     "docs/research/PHASE2_HOLDOUT_MANIFEST.json",
     "example/cpp/experiments/CATALOG.md",
 )
+REQUIRED_DOC_MARKERS = {
+    "README.md": ("CURRENT.md",),
+    "CONTRIBUTING.md": ("CURRENT.md", "AGENTS.md"),
+    "docs/README.md": (
+        "CURRENT.md",
+        "PHASE2_ACCEPTANCE.md",
+        "PHASE2_HOLDOUT_MANIFEST.json",
+    ),
+    "docs/ARCHITECTURE.md": ("CURRENT.md", "not a Phase 2 route"),
+    "docs/REPRODUCIBILITY.md": (
+        "CURRENT.md",
+        "/tmp/go2_mujoco_experiment.lock",
+        "PHASE2_HOLDOUT_MANIFEST.json",
+    ),
+    "docs/CODE_GUIDE.md": ("CURRENT.md", "PHASE2_ACCEPTANCE.md"),
+    "example/cpp/README.md": ("CURRENT.md", "run_phase2_b0_pair.sh"),
+    "example/cpp/MODULES.md": ("CURRENT.md", "not be used as a Phase 2"),
+    "example/cpp/configs/README.md": ("CURRENT.md", "not Phase 2 profiles"),
+    "example/cpp/scripts/README.md": (
+        "CURRENT.md",
+        "run_phase2_b0_pair.sh",
+        "run_phase2_b0_fixed_pair.sh",
+    ),
+    "example/cpp/tools/analysis/INDEX.md": (
+        "CURRENT.md",
+        "analyze_phase2_b0.py",
+        "analyze_phase2_terrain.py",
+    ),
+}
 PHASE2_SOURCE_PREFIXES = (
     "example/cpp/gait/",
     "example/cpp/terrain/",
@@ -120,6 +149,16 @@ def main() -> int:
     for rel in REQUIRED_FILES:
         if not (root / rel).is_file():
             problems.append(f"missing required file: {rel}")
+
+    for rel, markers in REQUIRED_DOC_MARKERS.items():
+        path = root / rel
+        if not path.is_file():
+            problems.append(f"missing navigation document: {rel}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for marker in markers:
+            if marker not in text:
+                problems.append(f"missing required guidance in {rel}: {marker}")
 
     for rel in tracked_files(root):
         path = root / rel
