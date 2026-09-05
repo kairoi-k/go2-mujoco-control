@@ -102,6 +102,40 @@ enough to assign the cause; a second repeat is required.
 Raw directories are the five `phase2_b0_lidar_matrix_20260905_r1_*` entries
 under `example/cpp/experiments/_runs/`.
 
+## Replication and worker-order probe
+
+The second lidar matrix used source SHA
+`aa508cf0e28debf882ef32f7a88f90c057f21b85`, the same 12 s diagnostic harness,
+and domains 215--219. Domain 219 failed before bridge startup because
+CycloneDDS could not allocate a participant index; a domain-220 retry failed
+with the same message. Both failed run directories and simulator logs are
+preserved. A domain-190 retry completed.
+
+| mode | raw run | first consumed tick |
+|---|---|---:|
+| baseline | `phase2_b0_lidar_matrix_20260905_r2_baseline` | 2212 |
+| terrain + none | `phase2_b0_lidar_matrix_20260905_r2_none` | 1754 |
+| terrain + park | `phase2_b0_lidar_matrix_20260905_r2_park` | 1762 |
+| terrain + snapshot | `phase2_b0_lidar_matrix_20260905_r2_snapshot` | 1814 |
+| terrain + full | `phase2_b0_lidar_matrix_20260905_r2_full_retry2` | 1794 |
+
+Unlike the first repeat, all four terrain modes were about 0.40--0.46 s
+earlier than baseline. Within terrain, adding a parked, snapshot, or full
+simulator lidar path did not create a comparable extra shift. This replicates
+the common terrain-on boundary more strongly than a lidar-specific boundary,
+while still leaving short-run wall-clock startup nondeterminism visible.
+
+The next probe used source SHA
+`c161868e10efdc73aaec0805f85f36ef6d0b62a0` and set the diagnostic-only
+`TROT_TERRAIN_WORKER_AFTER_WRITER=1`, with lidar mode `none` and otherwise
+identical arguments. Baseline
+`phase2_b0_worker_order_20260905_after_baseline` consumed tick 1800;
+terrain-on `phase2_b0_worker_order_20260905_after_none` consumed tick 1794.
+Both retained `quality_status=1` from the short harness, but the 6-tick
+difference is materially smaller than the 458-tick default-order pair. The
+probe reorders only thread startup; the production default remains unchanged
+until a longer regression validates it.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
