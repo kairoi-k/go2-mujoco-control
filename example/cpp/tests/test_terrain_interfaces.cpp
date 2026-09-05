@@ -95,6 +95,25 @@ int main()
                "low swing was accepted"))
         return 1;
 
+    auto anchor_occluded_map = map;
+    anchor_occluded_map.data()[8 * anchor_occluded_map.width() + 13] =
+        std::numeric_limits<float>::quiet_NaN();
+    const auto anchor_occluded_built = go2_terrain::BuildTerrainModel(
+        &anchor_occluded_map, 10.04, 4, go2_terrain::TerrainSource::kLidar);
+    const auto anchor_supported = go2_terrain::EvaluateFoothold(
+        anchor_occluded_built.model, go2::Leg::FR, 0.28, -0.10,
+        feasibility, &swing_start, 0.03, nullptr, true);
+    const auto anchor_unverified = go2_terrain::EvaluateFoothold(
+        anchor_occluded_built.model, go2::Leg::FR, 0.28, -0.10,
+        feasibility, &swing_start, 0.03, nullptr, false);
+    if (!Check(anchor_supported.hard_feasible,
+               "measured support anchor did not bridge local lidar occlusion") ||
+        !Check(!anchor_unverified.hard_feasible &&
+                   anchor_unverified.reject_reason ==
+                       go2_terrain::FootholdRejectReason::kUnknown,
+               "unverified lidar occlusion was not fail-closed"))
+        return 1;
+
     go2_terrain::TerrainPlannerInput input;
     input.terrain = &built.model;
     input.state_stamp_s = 10.04;

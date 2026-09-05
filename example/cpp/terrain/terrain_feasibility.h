@@ -308,7 +308,8 @@ inline bool CheckSwingClearance(
     double *required_lift_m = nullptr,
     double *required_peak_phase = nullptr,
     double *leading_edge_phase = nullptr,
-    bool *leading_edge_phase_valid = nullptr)
+    bool *leading_edge_phase_valid = nullptr,
+    bool measured_support_anchor = false)
 {
     minimum_clearance_m = std::numeric_limits<double>::infinity();
     if (failure_reason != nullptr)
@@ -349,6 +350,23 @@ inline bool CheckSwingClearance(
             if (!model.SamplePatch(x, y, sweep_radius_m, patch) ||
                 !patch.valid || patch.HasUnknownInside())
             {
+                // The first samples of a swing still overlap the measured
+                // support footprint.  A force-backed anchor is an explicit
+                // observation of that footprint, even when the lidar ray is
+                // occluded by the robot and leaves its map cell unknown.
+                // Permit only this local handoff neighborhood; unknown cells
+                // farther along the swept path remain fail-closed.
+                const double anchor_handoff_radius =
+                    sweep_radius_m + 0.5 * model.resolution_m;
+                if (measured_support_anchor &&
+                    std::hypot(x - start.x, y - start.y) <=
+                        anchor_handoff_radius)
+                {
+                    terrain_height[static_cast<std::size_t>(i)] =
+                        std::isfinite(patch.max_height_m)
+                            ? patch.max_height_m : terrain_height[0];
+                    continue;
+                }
                 if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
                 {
                     static int debug_unknown_path_prints = 0;
@@ -862,7 +880,8 @@ inline FootholdCandidate EvaluateFoothold(
     const TerrainFeasibilityConfig &config,
     const go2::Vec3 *swing_start = nullptr,
     double swing_clearance_m = std::numeric_limits<double>::infinity(),
-    const go2::Vec3 *future_base_displacement_base = nullptr)
+    const go2::Vec3 *future_base_displacement_base = nullptr,
+    bool measured_support_anchor = false)
 {
     FootholdCandidate candidate;
     candidate.leg = leg;
@@ -978,7 +997,8 @@ inline FootholdCandidate EvaluateFoothold(
                 &swing_reject_reason, leg, &candidate.swing_lift_m,
                 &candidate.swing_peak_phase,
                 &candidate.swing_leading_edge_phase,
-                &candidate.swing_leading_edge_phase_valid))
+                &candidate.swing_leading_edge_phase_valid,
+                measured_support_anchor))
         {
             candidate.reject_reason = swing_reject_reason;
             return candidate;

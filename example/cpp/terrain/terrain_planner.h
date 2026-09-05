@@ -271,7 +271,8 @@ public:
                     *input.terrain, static_cast<go2::Leg>(leg),
                     region.center.x, region.center.y, config_.feasibility,
                     &input.current_feet_base[leg],
-                    config_.swing_clearance_m);
+                    config_.swing_clearance_m, nullptr,
+                    input.contact_schedule.measured_contact[leg]);
                 if (!candidate.hard_feasible)
                     continue;
                 candidate.region_id = region.region_id;
