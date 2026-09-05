@@ -226,6 +226,20 @@ torque saturation, solver, and ID-WBC checks passed. The B0 analyzer
 structurally failed as expected because lidar observation and map telemetry
 were absent (map-valid fraction `0.0`), despite 735 planner updates and zero
 deadline misses. This is diagnostic evidence only, but it shows that removing
+the simulator lidar thread does not by itself produce a B0 candidate.
+
+The same-profile production-default pair then set
+`TROT_SIM_LIDAR_MODE=park`: the simulator created the lidar thread, pinned
+it, and parked it before any snapshot, raycast, or publish. Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_accel_1_to_3_r0_20260905_193412_{baseline,terrain}`.
+The baseline Phase-1 analysis passed. The terrain diagnostic failed contact
+loss `0.2504374781`, steady-state max error `0.430223719` versus frozen
+`0.40`, and torque saturation `0.0034229058`; settling and the remaining
+checks passed. The parked thread emitted zero lidar telemetry rows, so the B0
+analyzer failed the expected lidar/map structural checks. Compared with
+`none`, this is a thread-creation-only diagnostic and remains consistent
+with startup/runtime interference, but one pair is not enough to quantify
+stability.
 
 ## Recovery record
 
