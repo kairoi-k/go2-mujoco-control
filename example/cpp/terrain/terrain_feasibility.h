@@ -357,7 +357,7 @@ inline bool CheckSwingClearance(
                 // Permit only this local handoff neighborhood; unknown cells
                 // farther along the swept path remain fail-closed.
                 const double anchor_handoff_radius =
-                    sweep_radius_m + 0.5 * model.resolution_m;
+                    sweep_radius_m + model.resolution_m;
                 if (measured_support_anchor &&
                     std::hypot(x - start.x, y - start.y) <=
                         anchor_handoff_radius)
@@ -671,7 +671,7 @@ inline bool CheckSwingClearance(
                 !foot_patch.valid || foot_patch.HasUnknownInside())
             {
                 const double anchor_handoff_radius =
-                    sweep_radius_m + 0.5 * model.resolution_m;
+                    sweep_radius_m + model.resolution_m;
                 if (measured_support_anchor &&
                     std::hypot(foot.x - start.x, foot.y - start.y) <=
                         anchor_handoff_radius)
@@ -746,7 +746,7 @@ inline bool CheckSwingClearance(
                     !shin_patch.valid || shin_patch.HasUnknownInside())
                 {
                     const double anchor_handoff_radius =
-                        sweep_radius_m + 0.5 * model.resolution_m;
+                        sweep_radius_m + model.resolution_m;
                     if (measured_support_anchor &&
                         std::hypot(shin.x - start.x, shin.y - start.y) <=
                             anchor_handoff_radius &&
