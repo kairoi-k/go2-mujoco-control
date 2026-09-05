@@ -996,12 +996,12 @@ private:
     static constexpr float kLidarWorldOriginX = -2.0f;
     static constexpr float kLidarWorldOriginY = -2.0f;
     static constexpr uint32_t kLidarWindowWidth = 32;
-    static constexpr uint32_t kLidarWindowHeight = 10;
+    static constexpr uint32_t kLidarWindowHeight = 12;
     static constexpr std::size_t kLidarWindowCellCount =
         static_cast<std::size_t>(kLidarWindowWidth) * kLidarWindowHeight;
     static constexpr float kLidarWindowResolution = 0.05f;
     static constexpr float kLidarWindowOriginX = -0.45f;
-    static constexpr float kLidarWindowOriginY = -0.225f;
+    static constexpr float kLidarWindowOriginY = -0.275f;
     static constexpr double kLidarMemoryS = 1.5;
     static constexpr double kLidarPublishPeriodS = 0.050;
     static constexpr std::size_t kLidarWorldCellCount =
