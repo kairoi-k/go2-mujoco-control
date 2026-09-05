@@ -144,7 +144,7 @@ void TrotExperiment::PublishTerrainControlSnapshot(
     }
 
     std::array<go2::Vec3, go2::kLegCount> actual_world_feet{};
-    if (have_high_state)
+    if (params_.terrain_actuation && have_high_state)
     {
         const WorldPose pose =
             ComputeWorldPose(state_snapshot, high_state_snapshot);
@@ -166,7 +166,8 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         {
             measured_support_anchor_valid_[leg] = false;
         }
-        else if (!measured_support_anchor_valid_[leg] && have_high_state)
+        else if (!measured_support_anchor_valid_[leg] &&
+                 params_.terrain_actuation && have_high_state)
         {
             measured_support_anchor_world_feet_[leg] =
                 actual_world_feet[leg];
