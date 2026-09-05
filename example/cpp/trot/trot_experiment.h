@@ -468,6 +468,8 @@ private:
     double attitude_feedback_y_m_ = 0.0;
     std::array<go2::Vec3, go2::kLegCount> support_anchor_world_feet_{};
     std::array<bool, go2::kLegCount> support_anchor_valid_{};
+    std::array<go2::Vec3, go2::kLegCount> measured_support_anchor_world_feet_{};
+    std::array<bool, go2::kLegCount> measured_support_anchor_valid_{};
     std::array<double, go2::kLegCount> support_anchor_start_time_s_{};
 
     go2_trot::CycleDiagnostics cycle_diagnostics_{};

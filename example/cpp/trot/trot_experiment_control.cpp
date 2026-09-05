@@ -143,6 +143,13 @@ void TrotExperiment::PublishTerrainControlSnapshot(
             high_state_snapshot.position()[2]};
     }
 
+    std::array<go2::Vec3, go2::kLegCount> actual_world_feet{};
+    if (have_high_state)
+    {
+        const WorldPose pose =
+            ComputeWorldPose(state_snapshot, high_state_snapshot);
+        actual_world_feet = ComputeWorldFeet(state_snapshot, pose);
+    }
     for (std::size_t i = 0; i < kMotorCount; ++i)
         snapshot.joint_positions[i] = state_snapshot.motor_state()[i].q();
     snapshot.have_commanded_body_feet = have_commanded_body_feet_;
@@ -150,11 +157,26 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         snapshot.nominal_feet_base = commanded_body_feet_;
     snapshot.touchdown_target_feet_base = kernel_touchdown_target_feet_base_;
     snapshot.touchdown_target_feet_valid = have_kernel_touchdown_target_feet_;
-    snapshot.measured_support_anchor_world = support_anchor_world_feet_;
-    snapshot.measured_support_anchor_valid = support_anchor_valid_;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-        snapshot.measured_contact[leg] =
+    {
+        const bool measured_contact =
             state_snapshot.foot_force()[leg] >= kContactForceThreshold;
+        snapshot.measured_contact[leg] = measured_contact;
+        if (!measured_contact)
+        {
+            measured_support_anchor_valid_[leg] = false;
+        }
+        else if (!measured_support_anchor_valid_[leg] && have_high_state)
+        {
+            measured_support_anchor_world_feet_[leg] =
+                actual_world_feet[leg];
+            measured_support_anchor_valid_[leg] = true;
+        }
+    }
+    snapshot.measured_support_anchor_world =
+        measured_support_anchor_world_feet_;
+    snapshot.measured_support_anchor_valid =
+        measured_support_anchor_valid_;
     snapshot.measured_valid = true;
 
     {
