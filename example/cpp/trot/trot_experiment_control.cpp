@@ -1085,8 +1085,12 @@ bool TrotExperiment::SnapshotState(
                 telemetry_lowstate_consumed_tick_delta_ = delta;
                 telemetry_lowstate_consumed_new_tick_ = delta != 0;
                 telemetry_lowstate_consumed_repeated_ = delta == 0;
+                const std::uint32_t expected_tick_delta = std::max<
+                    std::uint32_t>(1u, static_cast<std::uint32_t>(
+                        std::llround(dt_ * 1000.0)));
                 telemetry_lowstate_consumed_jumped_ =
-                    delta > 1 && delta < 0x80000000u;
+                    delta > expected_tick_delta &&
+                    delta < 0x80000000u;
                 telemetry_lowstate_consumed_reordered_ =
                     delta >= 0x80000000u;
             }

@@ -341,6 +341,10 @@ private:
             return;
         }
         auto next = std::chrono::steady_clock::now();
+        const char *lidar_noop_env =
+            std::getenv("TROT_SIM_LIDAR_NOOP");
+        const bool lidar_noop =
+            lidar_noop_env != nullptr && lidar_noop_env[0] == '1';
         while (!terrain_lidar_stop_.load())
         {
             const auto lock_wait_start = std::chrono::steady_clock::now();
@@ -365,7 +369,7 @@ private:
             const auto lidar_operation_start = std::chrono::steady_clock::now();
             double publish_s = -1.0;
             bool published = false;
-            if (sim_time >= 0.0)
+            if (sim_time >= 0.0 && !lidar_noop)
             {
                 mj_fwdPosition(sensor_model, sensor_data);
                 published = PublishLidarHeightMap(
@@ -374,7 +378,7 @@ private:
             const double lidar_operation_s = std::chrono::duration<double>(
                 std::chrono::steady_clock::now() - lidar_operation_start).count();
             LogRuntimeTelemetry(
-                "lidar", sim_time,
+                lidar_noop ? "lidar_noop" : "lidar", sim_time,
                 sim_time >= 0.0
                     ? static_cast<std::uint64_t>(std::llround(sim_time * 1000.0))
                     : 0,
