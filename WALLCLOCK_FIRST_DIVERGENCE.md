@@ -197,6 +197,21 @@ zero deadline misses. The pair therefore shows a boundary-sensitive but
 reproducible pass/fail variation at the frozen metric, not a stable blocker;
 the failed `190808` pair remains the negative evidence.
 
+The next canonical production-default `accel_1_to_3` pair used source SHA
+`4145ce9915971e3d2d86b2cbe3794d5922694ac9`, the same development domains,
+serial lock, DDS base-8000 preload, and no diagnostic environment overrides.
+Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_accel_1_to_3_r0_20260905_191913_{baseline,terrain}`.
+The baseline Phase-1 analysis passed. The terrain member and frozen B0
+analyzer failed only the terrain Phase-1 quantitative gate: contact loss
+`0.2556372181`, steady-state max error `0.474359578` versus frozen `0.40`,
+settling was not reached, and torque saturation was `0.0038382696`.
+All runtime/contract checks still passed, including map-valid fraction
+`0.9999586794`, 731 planner updates, zero planner deadline misses, no plan
+publish/consume, and no terrain actuation. This is a production-default
+negative result after the worker-order fix; the prior diagnostic-env
+acceleration PASS is therefore not sufficient to close B0.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
