@@ -4,7 +4,7 @@ Updated: 2026-09-05
 
 ## Verdict
 
-The production wall-clock path has a reproducible runtime interference when
+Before the minimum fix, the production wall-clock path had reproducible runtime interference when
 the terrain-sensor-only path is enabled. The first observed difference is the
 LowState snapshot consumed by the controller's first logged `LowCmdWrite`:
 the terrain run starts from a different `state_tick`, before any terrain plan
@@ -15,11 +15,15 @@ The lidar raycast and HeightMap publish are not the necessary first cause.
 With the terrain path enabled and `TROT_SIM_LIDAR_NOOP=1`, the lidar thread
 still exists and takes the simulator lock, but performs no raycast and
 publishes zero maps; the first consumed tick still differs from baseline.
-The remaining exact boundary is the terrain-enabled DDS/controller worker and
+The pre-fix remaining exact boundary was the terrain-enabled DDS/controller worker and
 simulator lidar-thread/lock scheduling around startup and latest-state
 consumption. The evidence does not isolate those two scheduler sources from
 each other; confidence is high for runtime interference and medium for the
 exact subcomponent.
+
+The minimum fix removes only the default terrain-worker CPU pin. The fresh
+full frozen B0 result below shows that the terrain observer can complete with
+all required telemetry and no terrain actuation.
 
 ## Contract
 
@@ -69,10 +73,10 @@ above.
 - `example/cpp/experiments/_runs/phase2_b0_wallclock_runtime_20260905_r2_terrain_noop/data.csv`
 - `example/cpp/experiments/_runs/phase2_b0_wallclock_runtime_20260905_r2_terrain_noop/wallclock_runtime_telemetry.csv`
 
-No gait/WBC/planner/B0 threshold or parameter tuning was performed, and no
-production behavior change was made. The next architectural fix should make
-the wall-clock state/command handoff time-indexed or otherwise record/replay
-the exact state schedule; this report does not claim B0 acceptance.
+The pre-fix diagnostics above used no gait/WBC/planner/B0 threshold or
+parameter tuning; they do not claim B0 acceptance. The minimum production
+fix and fresh frozen-B0 result are recorded below, with the frozen contract
+and analyzer semantics unchanged.
 
 ## Lidar runtime isolation matrix
 
@@ -392,6 +396,31 @@ Both members passed Phase-1 and the frozen terrain B0 analyzer returned
 `0.9999770389`, 1,271 planner updates, and zero planner deadline misses.
 All five development profile pairs are now terrain B0 PASS under the minimum
 affinity fix. The separate fixed 3-m/s pair remains required for full B0.
+
+## Final frozen B0 result
+
+The minimum production change is commit
+`e457bd2b661d01c8c033271f31b9252854781b9c`: the runner no longer assigns a
+default CPU to the terrain worker, while an explicit
+`TROT_CPU_AFFINITY_TERRAIN` override remains supported. Later commits listed
+below are report-only and do not change code, configuration, thresholds, or
+analyzer semantics.
+
+| profile | terrain raw directory | manifest `git_head` | B0 result |
+|---|---|---|---|
+| steps | `phase2_b0_development_steps_r0_20260905_202314_terrain` | `edb53dbd00186077a97072697eb70ff3d5bce154` | PASS |
+| accel_1_to_3 | `phase2_b0_development_accel_1_to_3_r0_20260905_202814_terrain` | `03975a67ceb36b7b86406320a921df8490665f84` | PASS |
+| brake_3_to_0 | `phase2_b0_development_brake_3_to_0_r0_20260905_203133_terrain` | `67248e477044115e30e3a91cf5692efac95d1899` | PASS |
+| ramp | `phase2_b0_development_ramp_r0_20260905_203400_terrain` | `de63a0ea2aea3d9b0295a7748366fd0c9ce51491` | PASS |
+| varying | `phase2_b0_development_varying_r0_20260905_203707_terrain` | `802916637f69ba522289396de106712426688b99` | PASS |
+| fixed 3 m/s | `phase2_b0_development_fixed_3mps_r0_20260905_204136_terrain` | `e3677391f9aa2deffb54baee04c6c1c43a2f6a46` | PASS |
+
+All five terrain profile members passed their frozen Phase-1 analyses and
+their B0 analyzers returned `acceptance_status=PASS`; the fixed pair also
+returned `acceptance_status=PASS` with fixed-analyzer validation PASS. The
+manifests record clean source and the frozen `b0-contract-v1.2` checks. This
+completes the full frozen B0 development campaign; it is not a B1 holdout
+claim.
 
 ## Recovery record
 
