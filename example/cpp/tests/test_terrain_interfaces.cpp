@@ -205,7 +205,7 @@ int main()
                "planned and measured contact state was not preserved"))
         return 1;
     if (!Check(go2_terrain::TerrainPlanCurrentKnot(*loaded, 1.039) == 1 &&
-                   go2_terrain::TerrainPlanCurrentKnot(*loaded, 1.200) == 0,
+                   go2_terrain::TerrainPlanCurrentKnot(*loaded, 1.009) == 0,
                "terrain plan did not map wall-clock time to its knot"))
         return 1;
 
