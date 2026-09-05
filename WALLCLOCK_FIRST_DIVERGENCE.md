@@ -255,6 +255,20 @@ failed settling and torque saturation, so this pair is not a clean acceptance
 run; it does not show snapshot/lock alone as a sufficient terrain failure
 cause.
 
+An independent production-default full-lidar repeat used source SHA
+`2d3189b8016308b991af238c6d216061dc36c81e` with the same canonical
+`accel_1_to_3` pair, lock, domains, and preload. Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_accel_1_to_3_r0_20260905_194248_{baseline,terrain}`.
+The baseline Phase-1 analysis passed. The terrain member and frozen B0
+analyzer failed only Phase-1 `settling` (`11.191999240 s` versus frozen
+`10 s`) and `torque_saturation` (`0.0034938814`); contact loss,
+steady-state error, solver, ID-WBC, and all other quantitative checks passed.
+The analyzer's only false B0 check was `phase1_quantitative`; map-valid
+fraction was `0.9999586794`, with 785 planner updates, zero deadline
+misses, 935 lidar rows, and no plan publish/consume or terrain actuation.
+Together with the earlier full failure, this makes the normal path a repeated
+negative at the frozen Phase-1 boundary, not a deterministic crash.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
