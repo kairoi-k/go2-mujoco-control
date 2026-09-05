@@ -268,6 +268,8 @@ private:
         double commanded_vx_mps = 0.0;
         std::array<double, go2_trot::kMotorCount> joint_positions{};
         std::array<go2::Vec3, go2::kLegCount> nominal_feet_base{};
+        std::array<go2::Vec3, go2::kLegCount> touchdown_target_feet_base{};
+        bool touchdown_target_feet_valid = false;
         std::array<bool, go2::kLegCount> measured_contact{};
         bool have_commanded_body_feet = false;
         bool measured_valid = false;
@@ -439,6 +441,9 @@ private:
     double cartesian_duty_ = 0.75;
     double cartesian_stance_s_ = 0.45;
     double cartesian_step_m_ = 0.091;
+    std::array<go2::Vec3, go2::kLegCount>
+        kernel_touchdown_target_feet_base_{};
+    bool have_kernel_touchdown_target_feet_ = false;
     double cycle_vx_sum_ = 0.0;
     int cycle_vx_count_ = 0;
     std::array<double, go2::kLegCount> kernel_touchdown_target_x_m_{};
@@ -472,6 +477,9 @@ private:
     unitree_go::msg::dds_::HeightMap_ lidar_heightmap_{};
     bool have_low_state_ = false;
     bool have_high_state_ = false;
+    go2_terrain::TerrainPlanStore terrain_plan_store_{};
+    std::shared_ptr<const go2_terrain::TerrainMotionPlan>
+        terrain_tick_plan_;
     bool have_environment_heightmap_ = false;
     bool have_lidar_heightmap_ = false;
 
@@ -490,6 +498,22 @@ private:
     double terrain_min_slope_rad_ = 0.0;
     double terrain_max_roughness_m_ = 0.0;
     double terrain_min_reachability_margin_m_ = 0.0;
+    std::uint64_t terrain_plan_published_count_ = 0;
+    std::uint64_t terrain_plan_consumed_count_ = 0;
+    std::uint64_t terrain_gait_target_override_count_ = 0;
+    std::uint64_t terrain_mpc_update_count_ = 0;
+    std::uint64_t terrain_mpc_plan_consumed_count_ = 0;
+    std::uint64_t terrain_target_prepare_attempts_ = 0;
+    std::uint64_t terrain_target_prepared_ = 0;
+    std::uint64_t terrain_target_prepare_rejections_ = 0;
+    std::uint64_t terrain_surface_transition_completions_ = 0;
+    int terrain_surface_transition_required_mask_ = 0;
+    int terrain_surface_transition_committed_mask_ = 0;
+    int terrain_surface_transition_last_required_mask_ = 0;
+    int terrain_surface_transition_last_committed_mask_ = 0;
+    std::array<std::size_t, go2::kLegCount> terrain_candidate_counts_{};
+    std::array<std::size_t, go2::kLegCount> terrain_swing_candidate_counts_{};
+    std::array<int, go2::kLegCount> terrain_touchdown_knots_{};
     double terrain_min_swing_clearance_m_ = 0.0;
     double terrain_min_support_margin_m_ = 0.0;
     double terrain_min_uncertainty_support_margin_m_ = 0.0;
@@ -500,6 +524,22 @@ private:
     std::uint64_t terrain_planner_rejections_ = 0;
     std::uint64_t terrain_planner_deadline_misses_ = 0;
     bool terrain_latest_plan_valid_ = false;
+
+    std::array<go2::Vec3, go2::kLegCount>
+        terrain_execution_target_world_{};
+    std::array<double, go2::kLegCount> terrain_execution_target_lift_{};
+    std::array<double, go2::kLegCount>
+        terrain_execution_swing_start_phase_{};
+    std::array<std::uint64_t, go2::kLegCount>
+        terrain_execution_target_plan_id_{};
+    std::array<bool, go2::kLegCount>
+        terrain_execution_target_valid_{};
+    std::array<bool, go2::kLegCount>
+        terrain_execution_in_flight_{};
+    std::array<bool, go2::kLegCount>
+        terrain_execution_measured_touchdown_{};
+    std::array<bool, go2::kLegCount>
+        terrain_execution_completion_recorded_{};
 
     // Read-only wall-clock provenance for the exact state snapshot consumed
     // by each LowCmdWrite.  These fields are diagnostic only; they never

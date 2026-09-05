@@ -200,6 +200,23 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_diagnostics_.active_contacts = active;
     wbc_shadow_diagnostics_.contact_mask = contact_mask;
 
+    const double terrain_now_s =
+        static_cast<double>(state_snapshot.tick()) * 1.0e-3;
+    const std::shared_ptr<const go2_terrain::TerrainMotionPlan> terrain_plan =
+        params_.terrain_actuation && terrain_tick_plan_ &&
+                terrain_tick_plan_->usable_at(terrain_now_s)
+            ? terrain_tick_plan_ : nullptr;
+    const bool terrain_plan_active = terrain_plan != nullptr;
+    if (terrain_plan_active)
+    {
+        wbc_shadow_diagnostics_.terrain_plan_id = terrain_plan->plan_id;
+        wbc_shadow_diagnostics_.terrain_planned_contact_mask = 0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            if (terrain_plan->contact_schedule.planned_contact[0][leg])
+                wbc_shadow_diagnostics_.terrain_planned_contact_mask |=
+                    1 << static_cast<int>(leg);
+    }
+
     go2_control::SrbdMpcParams mpc_params;
     mpc_params.horizon = 8;
     mpc_params.dt_s = std::clamp(gait_period / 8.0, 0.020, 0.05);
@@ -400,9 +417,83 @@ void TrotExperiment::UpdateWbcFull(
                 mpc_in.contact[k] = qp_contact;
         }
 
+        if (terrain_plan_active)
+        {
+            mpc_in.contact[0] = qp_contact;
+            mpc_in.plan_id = terrain_plan->plan_id;
+            mpc_in.plan_epoch = terrain_plan->plan_epoch;
+            mpc_in.has_terrain_plan = true;
+            mpc_in.terrain_plan.plan_id = terrain_plan->plan_id;
+            mpc_in.terrain_plan.plan_epoch = terrain_plan->plan_epoch;
+            mpc_in.terrain_plan.map_epoch = terrain_plan->map_epoch;
+            mpc_in.terrain_plan.generated_at_s = terrain_plan->generated_at_s;
+            mpc_in.terrain_plan.valid_until_s = terrain_plan->valid_until_s;
+            mpc_in.measured_contact = measured_contact;
+            mpc_in.measured_contact_valid = true;
+            mpc_in.has_time_indexed_footholds = true;
+            for (int k = 0; k < mpc_params.horizon; ++k)
+            {
+                for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                {
+                    if (!mpc_in.contact[k][leg])
+                        continue;
+                    go2::Vec3 foot_world{
+                        dyn.foot_pos_world[leg].x(),
+                        dyn.foot_pos_world[leg].y(),
+                        dyn.foot_pos_world[leg].z()};
+                    if (k < static_cast<int>(terrain_plan->horizon_knots) &&
+                        terrain_plan->contact_schedule.planned_contact[
+                            static_cast<std::size_t>(k)][leg] &&
+                        terrain_plan->predicted_foothold[
+                            static_cast<std::size_t>(k)][leg].valid)
+                    {
+                        foot_world = go2::ContactPatchToFootSite(
+                            terrain_plan->predicted_foothold[
+                                static_cast<std::size_t>(k)][leg].position_world);
+                    }
+                    mpc_in.foot_from_com_world_horizon[
+                        static_cast<std::size_t>(k)][leg] = Eigen::Vector3d(
+                            foot_world.x - dyn.com_world.x(),
+                            foot_world.y - dyn.com_world.y(),
+                            foot_world.z - dyn.com_world.z());
+                    mpc_in.foot_valid[static_cast<std::size_t>(k)][leg] = true;
+                }
+            }
+        }
+
         go2_control::SrbdMpcOutput mpc_out;
         if (go2_control::SolveSrbdMpc(mpc_params, mpc_in, mpc_out) && mpc_out.ok)
+        {
             last_srbd_ = mpc_out;
+            if (terrain_plan_active)
+            {
+                ++terrain_mpc_update_count_;
+                if (mpc_out.terrain_plan_consumed)
+                    ++terrain_mpc_plan_consumed_count_;
+                wbc_shadow_diagnostics_.mpc_update_count =
+                    terrain_mpc_update_count_;
+                wbc_shadow_diagnostics_.mpc_contact_mask_k0 = contact_mask;
+                wbc_shadow_diagnostics_.mpc_reference_x_first_m =
+                    mpc_in.reference[3];
+                wbc_shadow_diagnostics_.mpc_reference_x_last_m =
+                    mpc_in.reference[3];
+                wbc_shadow_diagnostics_.mpc_reference_vx_first_mps =
+                    mpc_in.reference[9];
+                wbc_shadow_diagnostics_.mpc_reference_vx_last_mps =
+                    mpc_in.reference[9];
+                wbc_shadow_diagnostics_.mpc_min_contact_count =
+                    static_cast<int>(go2::kLegCount);
+                for (int k = 0; k < mpc_params.horizon; ++k)
+                {
+                    int count = 0;
+                    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                        count += mpc_in.contact[static_cast<std::size_t>(k)][leg]
+                            ? 1 : 0;
+                    wbc_shadow_diagnostics_.mpc_min_contact_count = std::min(
+                        wbc_shadow_diagnostics_.mpc_min_contact_count, count);
+                }
+            }
+        }
     }
     ++wbc_full_ticks_;
     wbc_shadow_diagnostics_.srbd_ok = last_srbd_.ok;
@@ -410,6 +501,39 @@ void TrotExperiment::UpdateWbcFull(
     go2_control::IdWbcInput wbc_in;
     wbc_in.dynamics = dyn;
     wbc_in.contact = qp_contact;
+    if (terrain_plan_active)
+    {
+        wbc_in.has_terrain_plan = true;
+        wbc_in.terrain_plan.plan_id = terrain_plan->plan_id;
+        wbc_in.terrain_plan.plan_epoch = terrain_plan->plan_epoch;
+        wbc_in.terrain_plan.map_epoch = terrain_plan->map_epoch;
+        wbc_in.terrain_plan.generated_at_s = terrain_plan->generated_at_s;
+        wbc_in.terrain_plan.valid_until_s = terrain_plan->valid_until_s;
+        wbc_in.measured_contact = measured_contact;
+        wbc_in.measured_contact_valid = true;
+        wbc_in.fused_contact = qp_contact;
+        wbc_in.fused_contact_valid = true;
+        wbc_in.planned_contact =
+            terrain_plan->contact_schedule.planned_contact[0];
+        wbc_in.planned_contact_valid = true;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (terrain_execution_target_valid_[leg] &&
+                terrain_execution_in_flight_[leg])
+                continue;
+            if (terrain_plan->contact_schedule.planned_contact[0][leg])
+            {
+                const auto &foot = terrain_plan->predicted_foothold[0][leg];
+                if (foot.valid)
+                {
+                    wbc_in.contact_normal[leg] = Eigen::Vector3d(
+                        foot.surface_normal[0], foot.surface_normal[1],
+                        foot.surface_normal[2]);
+                    wbc_in.contact_normal_valid[leg] = true;
+                }
+            }
+        }
+    }
     if (last_srbd_.ok)
     {
         wbc_in.desired_linear_acc_world = last_srbd_.first_linear_acc;
@@ -976,6 +1100,42 @@ void TrotExperiment::UpdateWbcFull(
     }
 
     wbc_shadow_diagnostics_.solver_ok = true;
+    if (terrain_plan_active)
+    {
+        wbc_shadow_diagnostics_.measured_contact_mask = 0;
+        wbc_shadow_diagnostics_.scheduled_contact_mask = contact_mask;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (measured_contact[leg])
+                wbc_shadow_diagnostics_.measured_contact_mask |=
+                    1 << static_cast<int>(leg);
+        }
+        wbc_shadow_diagnostics_.terrain_planned_contact_mask = 0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            if (wbc_in.planned_contact[leg])
+                wbc_shadow_diagnostics_.terrain_planned_contact_mask |=
+                    1 << static_cast<int>(leg);
+        wbc_shadow_diagnostics_.mpc_update_count = terrain_mpc_update_count_;
+        wbc_shadow_diagnostics_.mpc_contact_mask_k0 = contact_mask;
+        wbc_shadow_diagnostics_.mpc_min_contact_count = go2::kLegCount;
+        const int terrain_horizon = std::min(
+            go2_control::kSrbdMaxHorizon,
+            static_cast<int>(terrain_plan->horizon_knots));
+        for (int k = 0; k < terrain_horizon; ++k)
+        {
+            int count = 0;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                count += terrain_plan->contact_schedule.planned_contact[
+                    static_cast<std::size_t>(k)][leg] ? 1 : 0;
+            wbc_shadow_diagnostics_.mpc_min_contact_count = std::min(
+                wbc_shadow_diagnostics_.mpc_min_contact_count, count);
+        }
+        wbc_shadow_diagnostics_.terrain_contact_coherent = solved &&
+            wbc_out.terrain_plan_consumed &&
+            wbc_out.terrain_plan.plan_id == terrain_plan->plan_id &&
+            last_srbd_.terrain_plan_consumed &&
+            last_srbd_.terrain_plan.plan_id == terrain_plan->plan_id;
+    }
     wbc_shadow_diagnostics_.full_requested_acc_x_mps2 =
         wbc_in.desired_linear_acc_world.x();
     wbc_shadow_diagnostics_.full_id_qdd_x_mps2 = wbc_out.qdd[0];

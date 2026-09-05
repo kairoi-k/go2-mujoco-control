@@ -48,6 +48,20 @@ int main()
         return 1;
     }
 
+    go2_trot::TrotCliConfig terrain_b1;
+    if (!Parse({"real_trot_go2", "lo", "1", "out.csv",
+                "--terrain-b1-execution", "--wbc-full",
+                "--gait-pattern", "running-trot"},
+               &terrain_b1, &error) ||
+        !terrain_b1.params.terrain_enabled ||
+        terrain_b1.params.terrain_sensor_only ||
+        !terrain_b1.params.terrain_actuation)
+    {
+        std::cerr << "B1 terrain route must select actuation: " << error
+                  << "\n";
+        return 1;
+    }
+
     if (!ExpectRetired({"real_trot_go2", "lo", "1", "out.csv",
                         "--stage-c-execution"}) ||
         !ExpectRetired({"real_trot_go2", "lo", "1", "out.csv",

@@ -55,6 +55,26 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_min_slope_rad,terrain_max_roughness_m,terrain_min_reachability_margin_m,terrain_min_swing_clearance_m"
          << ",terrain_min_support_margin_m,terrain_min_uncertainty_support_margin_m"
          << ",terrain_plan_contact_rejections"
+         << ",terrain_support_failure_knot,terrain_support_failure_contact_mask,terrain_support_failure_margin_m"
+         << ",terrain_execution_plan_id,terrain_execution_map_epoch,terrain_execution_plan_usable"
+         << ",terrain_execution_planned_contact_mask,terrain_transfer_hold_active"
+         << ",terrain_surface_transition_active,terrain_surface_transition_required_mask"
+         << ",terrain_surface_transition_committed_mask,terrain_surface_transition_completions"
+         << ",terrain_surface_transition_last_required_mask,terrain_surface_transition_last_committed_mask"
+         << ",terrain_target_prepare_attempts,terrain_target_prepared,terrain_target_prepare_rejections"
+         << ",wbc_measured_contact_mask,wbc_scheduled_contact_mask,wbc_terrain_planned_contact_mask"
+         << ",wbc_mpc_update_count,wbc_mpc_contact_mask_k0,wbc_mpc_min_contact_count"
+         << ",wbc_mpc_reference_x_first_m,wbc_mpc_reference_x_last_m"
+         << ",wbc_mpc_reference_vx_first_mps,wbc_mpc_reference_vx_last_mps"
+         << ",wbc_terrain_contact_coherent,wbc_terrain_plan_id"
+         << ",terrain_FR_candidate_count,terrain_FR_swing_candidate_count,terrain_FR_candidate_required,terrain_FR_touchdown_knot"
+         << ",terrain_FL_candidate_count,terrain_FL_swing_candidate_count,terrain_FL_candidate_required,terrain_FL_touchdown_knot"
+         << ",terrain_RR_candidate_count,terrain_RR_swing_candidate_count,terrain_RR_candidate_required,terrain_RR_touchdown_knot"
+         << ",terrain_RL_candidate_count,terrain_RL_swing_candidate_count,terrain_RL_candidate_required,terrain_RL_touchdown_knot"
+         << ",terrain_exec_FR_valid,terrain_exec_FR_in_flight,terrain_exec_FR_measured_touchdown,terrain_exec_FR_wbc_endpoint_error_m,terrain_exec_FR_wbc_at_endpoint,terrain_exec_FR_wbc_measured_contact,terrain_exec_FR_target_required,terrain_exec_FR_target_world_x_m,terrain_exec_FR_target_world_y_m,terrain_exec_FR_target_world_z_m,terrain_exec_FR_foot_world_x_m,terrain_exec_FR_foot_world_y_m,terrain_exec_FR_foot_world_z_m"
+         << ",terrain_exec_FL_valid,terrain_exec_FL_in_flight,terrain_exec_FL_measured_touchdown,terrain_exec_FL_wbc_endpoint_error_m,terrain_exec_FL_wbc_at_endpoint,terrain_exec_FL_wbc_measured_contact,terrain_exec_FL_target_required,terrain_exec_FL_target_world_x_m,terrain_exec_FL_target_world_y_m,terrain_exec_FL_target_world_z_m,terrain_exec_FL_foot_world_x_m,terrain_exec_FL_foot_world_y_m,terrain_exec_FL_foot_world_z_m"
+         << ",terrain_exec_RR_valid,terrain_exec_RR_in_flight,terrain_exec_RR_measured_touchdown,terrain_exec_RR_wbc_endpoint_error_m,terrain_exec_RR_wbc_at_endpoint,terrain_exec_RR_wbc_measured_contact,terrain_exec_RR_target_required,terrain_exec_RR_target_world_x_m,terrain_exec_RR_target_world_y_m,terrain_exec_RR_target_world_z_m,terrain_exec_RR_foot_world_x_m,terrain_exec_RR_foot_world_y_m,terrain_exec_RR_foot_world_z_m"
+         << ",terrain_exec_RL_valid,terrain_exec_RL_in_flight,terrain_exec_RL_measured_touchdown,terrain_exec_RL_wbc_endpoint_error_m,terrain_exec_RL_wbc_at_endpoint,terrain_exec_RL_wbc_measured_contact,terrain_exec_RL_target_required,terrain_exec_RL_target_world_x_m,terrain_exec_RL_target_world_y_m,terrain_exec_RL_target_world_z_m,terrain_exec_RL_foot_world_x_m,terrain_exec_RL_foot_world_y_m,terrain_exec_RL_foot_world_z_m"
          << ",support_foot_kinematics_valid,support_foot_count,support_foot_speed_mps"
          << ",support_low_friction_evidence"
          << ",low_friction_accumulation"
@@ -566,7 +586,7 @@ void TrotExperiment::LogSample(
     const bool have_body_velocity = have_filtered_body_velocity_;
     const double state_tick_s =
         have_state ? static_cast<double>(state_snapshot.tick()) * 0.001 : 0.0;
-    const WorldPose pose = have_world_reference_ && have_high_state
+    const WorldPose pose = have_high_state
         ? ComputeWorldPose(state_snapshot, high_state_snapshot)
         : WorldPose{};
     std::array<double, 3> imu_acceleration{};
@@ -613,6 +633,16 @@ void TrotExperiment::LogSample(
     double terrain_min_uncertainty_support_margin_m = 0.0;
     std::uint64_t terrain_committed_touchdowns = 0;
     std::uint64_t terrain_plan_contact_rejections = 0;
+    std::uint64_t terrain_plan_consumed = 0;
+    std::uint64_t terrain_gait_target_overrides = 0;
+    std::uint64_t terrain_mpc_plan_consumed = 0;
+    int terrain_execution_plan_id = 0;
+    int terrain_execution_map_epoch = 0;
+    bool terrain_execution_plan_usable = false;
+    int terrain_execution_planned_contact_mask = 0;
+    std::array<go2::Vec3, go2::kLegCount> execution_world_feet{};
+    if (have_high_state)
+        execution_world_feet = ComputeWorldFeet(state_snapshot, pose);
 
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model;
     double terrain_last_map_age_s = std::numeric_limits<double>::infinity();
@@ -651,6 +681,21 @@ void TrotExperiment::LogSample(
         terrain_planner_rejections = terrain_planner_rejections_;
         terrain_planner_deadline_misses = terrain_planner_deadline_misses_;
         terrain_latest_plan_valid = terrain_latest_plan_valid_;
+        terrain_plan_published = terrain_plan_published_count_;
+        terrain_plan_consumed = terrain_plan_consumed_count_;
+        terrain_gait_target_overrides = terrain_gait_target_override_count_;
+        terrain_mpc_plan_consumed = terrain_mpc_plan_consumed_count_;
+    }
+    if (params_.terrain_actuation && terrain_tick_plan_)
+    {
+        terrain_execution_plan_id = static_cast<int>(terrain_tick_plan_->plan_id);
+        terrain_execution_map_epoch = static_cast<int>(terrain_tick_plan_->map_epoch);
+        terrain_execution_plan_usable = terrain_tick_plan_->usable_at(state_tick_s);
+        if (terrain_execution_plan_usable)
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                if (terrain_tick_plan_->contact_schedule.planned_contact[0][leg])
+                    terrain_execution_planned_contact_mask |=
+                        1 << static_cast<int>(leg);
     }
     constexpr bool terrain_safe_stop_requested = false;
     const double terrain_velocity_cap_mps =
@@ -711,7 +756,7 @@ void TrotExperiment::LogSample(
          << "," << latest_motion_sensor_.obstacle_right_height_m
          << "," << (params_.terrain_enabled ? 1 : 0)
          << "," << (params_.terrain_sensor_only ? 1 : 0)
-         << "," << 0
+         << "," << (params_.terrain_actuation ? 1 : 0)
          << "," << ((terrain_model && terrain_model->valid()) ? 1 : 0)
          << "," << (terrain_model
                            ? go2_terrain::TerrainSourceName(
@@ -732,9 +777,9 @@ void TrotExperiment::LogSample(
          << "," << (terrain_safe_stop_requested ? 1 : 0)
          << "," << terrain_velocity_cap_mps
          << "," << terrain_plan_published
-         << "," << 0
-         << "," << 0
-         << "," << 0
+         << "," << terrain_plan_consumed
+         << "," << terrain_gait_target_overrides
+         << "," << terrain_mpc_plan_consumed
          << "," << terrain_last_failure
          << "," << terrain_committed_touchdowns
          << "," << terrain_min_edge_margin_m
@@ -746,6 +791,64 @@ void TrotExperiment::LogSample(
          << "," << terrain_min_support_margin_m
          << "," << terrain_min_uncertainty_support_margin_m
          << "," << terrain_plan_contact_rejections
+         << "," << -1
+         << "," << 0
+         << "," << 0.0
+         << "," << terrain_execution_plan_id
+         << "," << terrain_execution_map_epoch
+         << "," << (terrain_execution_plan_usable ? 1 : 0)
+         << "," << terrain_execution_planned_contact_mask
+         << "," << 0
+         << "," << (terrain_surface_transition_required_mask_ != 0 ? 1 : 0)
+         << "," << terrain_surface_transition_required_mask_
+         << "," << terrain_surface_transition_committed_mask_
+         << "," << terrain_surface_transition_completions_
+         << "," << terrain_surface_transition_last_required_mask_
+         << "," << terrain_surface_transition_last_committed_mask_
+         << "," << terrain_target_prepare_attempts_
+         << "," << terrain_target_prepared_
+         << "," << terrain_target_prepare_rejections_
+         << "," << wbc_shadow_diagnostics_.measured_contact_mask
+         << "," << wbc_shadow_diagnostics_.scheduled_contact_mask
+         << "," << wbc_shadow_diagnostics_.terrain_planned_contact_mask
+         << "," << wbc_shadow_diagnostics_.mpc_update_count
+         << "," << wbc_shadow_diagnostics_.mpc_contact_mask_k0
+         << "," << wbc_shadow_diagnostics_.mpc_min_contact_count
+         << "," << wbc_shadow_diagnostics_.mpc_reference_x_first_m
+         << "," << wbc_shadow_diagnostics_.mpc_reference_x_last_m
+         << "," << wbc_shadow_diagnostics_.mpc_reference_vx_first_mps
+         << "," << wbc_shadow_diagnostics_.mpc_reference_vx_last_mps
+         << "," << (wbc_shadow_diagnostics_.terrain_contact_coherent ? 1 : 0)
+         << "," << wbc_shadow_diagnostics_.terrain_plan_id;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        csv_ << "," << terrain_candidate_counts_[leg]
+             << "," << terrain_swing_candidate_counts_[leg]
+             << "," << (terrain_touchdown_knots_[leg] >= 0 ? 1 : 0)
+             << "," << terrain_touchdown_knots_[leg];
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const bool execution_valid = terrain_execution_target_valid_[leg];
+        const go2::Vec3 &target = terrain_execution_target_world_[leg];
+        const go2::Vec3 &foot = execution_world_feet[leg];
+        const double endpoint_error = execution_valid && have_high_state
+            ? std::hypot(std::hypot(foot.x - target.x, foot.y - target.y),
+                         foot.z - target.z)
+            : 0.0;
+        csv_ << "," << (execution_valid ? 1 : 0)
+             << "," << (terrain_execution_in_flight_[leg] ? 1 : 0)
+             << "," << (terrain_execution_measured_touchdown_[leg] ? 1 : 0)
+             << "," << endpoint_error
+             << "," << (execution_valid && endpoint_error <= 0.020 ? 1 : 0)
+             << "," << contact_flags[leg]
+             << "," << (execution_valid ? 1 : 0)
+             << "," << (execution_valid ? target.x : 0.0)
+             << "," << (execution_valid ? target.y : 0.0)
+             << "," << (execution_valid ? target.z : 0.0)
+             << "," << (execution_valid ? foot.x : 0.0)
+             << "," << (execution_valid ? foot.y : 0.0)
+             << "," << (execution_valid ? foot.z : 0.0);
+    }
+    csv_
          << "," << (latest_motion_sensor_.have_support_foot_kinematics ? 1 : 0)
          << "," << latest_motion_sensor_.support_foot_count
          << "," << latest_motion_sensor_.support_foot_speed_mps

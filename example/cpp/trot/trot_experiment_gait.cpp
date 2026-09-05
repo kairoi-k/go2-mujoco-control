@@ -307,6 +307,8 @@ bool TrotExperiment::BuildGaitTargets(
         return false;
     }
     kernel_footstep_plan_valid_ = gait_result.footstep_plan_valid;
+    kernel_touchdown_target_feet_base_ = gait_result.touchdown_target_feet_base;
+    have_kernel_touchdown_target_feet_ = gait_result.touchdown_target_feet_valid;
     kernel_velocity_error_x_mps_ = gait_result.velocity_error_x_mps;
     kernel_nominal_velocity_x_mps_ = gait_result.nominal_velocity_x_mps;
     kernel_touchdown_target_x_m_ = gait_result.touchdown_target_x_m;
@@ -1473,6 +1475,117 @@ bool TrotExperiment::BuildGaitTargets(
         // still enforces contact dynamics and torque limits.
         for (auto &foot : feet)
             foot.z -= sprint_foot_slope * foot.x;
+    }
+
+    // Terrain execution is a bounded endpoint transaction on top of the
+    // running-trot phase.  The kernel remains the sole timing/topology source;
+    // the planner-selected world foothold is only latched during the existing
+    // swing and is blended to its endpoint before touchdown.
+    if (params_.terrain_actuation && terrain_tick_plan_ && have_high_state)
+    {
+        int required_mask = 0;
+        int committed_mask = 0;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            const double leg_phase = go2_control::GaitLegPhase(
+                leg, phase, params_.gait_pattern);
+            const bool in_swing = leg_phase >= stance_duration;
+            if (terrain_execution_target_valid_[leg])
+                required_mask |= 1 << static_cast<int>(leg);
+            if (!in_swing)
+            {
+                terrain_execution_in_flight_[leg] = false;
+                if (terrain_execution_target_valid_[leg])
+                {
+                    const bool measured = state_snapshot.foot_force()[leg] >=
+                        kContactForceThreshold;
+                    if (measured)
+                    {
+                        terrain_execution_measured_touchdown_[leg] = true;
+                        committed_mask |= 1 << static_cast<int>(leg);
+                        if (!terrain_execution_completion_recorded_[leg])
+                        {
+                            terrain_execution_completion_recorded_[leg] = true;
+                            ++terrain_surface_transition_completions_;
+                        }
+                    }
+                }
+                continue;
+            }
+
+            if (!terrain_execution_in_flight_[leg])
+            {
+                terrain_execution_target_valid_[leg] = false;
+                terrain_execution_measured_touchdown_[leg] = false;
+                terrain_execution_completion_recorded_[leg] = false;
+                bool has_planner_touchdown = false;
+                for (std::size_t k = 0; k < terrain_tick_plan_->horizon_knots; ++k)
+                {
+                    const auto &foot = terrain_tick_plan_->predicted_foothold[k][leg];
+                    has_planner_touchdown = has_planner_touchdown || foot.touchdown;
+                    if (!foot.valid || !foot.touchdown)
+                        continue;
+                    terrain_execution_target_world_[leg] =
+                        go2::ContactPatchToFootSite(foot.position_world);
+                    terrain_execution_target_lift_[leg] = foot.swing_lift_m;
+                    terrain_execution_swing_start_phase_[leg] = leg_phase;
+                    terrain_execution_target_plan_id_[leg] =
+                        terrain_tick_plan_->plan_id;
+                    terrain_execution_target_valid_[leg] = true;
+                    terrain_execution_in_flight_[leg] = true;
+                    {
+                        std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
+                        ++terrain_target_prepare_attempts_;
+                        ++terrain_target_prepared_;
+                    }
+                    break;
+                }
+                if (!terrain_execution_target_valid_[leg] && has_planner_touchdown)
+                {
+                    std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
+                    ++terrain_target_prepare_attempts_;
+                    ++terrain_target_prepare_rejections_;
+                }
+            }
+
+            if (!terrain_execution_target_valid_[leg])
+                continue;
+            required_mask |= 1 << static_cast<int>(leg);
+            const go2::Vec3 target_body = go2_control::WorldToBody(
+                pose.base, pose.quaternion,
+                terrain_execution_target_world_[leg]);
+            const double swing_u = std::clamp(
+                (leg_phase - stance_duration) /
+                    std::max(1.0e-6, 1.0 - stance_duration),
+                0.0, 1.0);
+            const double start_u = std::clamp(
+                (terrain_execution_swing_start_phase_[leg] - stance_duration) /
+                    std::max(1.0e-6, 1.0 - stance_duration),
+                0.0, 0.95);
+            const double handoff_u = Smoothstep(
+                (swing_u - start_u) / std::max(1.0e-3, 1.0 - start_u));
+            feet[leg].x += (target_body.x - feet[leg].x) * handoff_u;
+            feet[leg].y += (target_body.y - feet[leg].y) * handoff_u;
+            feet[leg].z += (target_body.z - feet[leg].z) * handoff_u;
+            const double nominal_lift = std::max(
+                params_.foot_lift_m, runtime_gait_foot_lift_m_);
+            const double extra_lift = std::max(
+                0.0, terrain_execution_target_lift_[leg] - nominal_lift);
+            feet[leg].z += extra_lift * go2_terrain::TerrainSwingProfile(
+                swing_u, 0.5);
+            if (handoff_u > 1.0e-6 || extra_lift > 1.0e-6)
+            {
+                std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
+                ++terrain_gait_target_override_count_;
+            }
+        }
+        if (required_mask != 0)
+        {
+            terrain_surface_transition_required_mask_ = required_mask;
+            terrain_surface_transition_committed_mask_ = committed_mask;
+            terrain_surface_transition_last_required_mask_ = required_mask;
+            terrain_surface_transition_last_committed_mask_ = committed_mask;
+        }
     }
     if (have_commanded_body_feet_ && last_motion_dt_s_ > 1.0e-5)
     {

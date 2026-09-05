@@ -34,6 +34,7 @@ void PrintTrotCliUsage()
            " [--forever] [--stop-file path]"
            " [--auto-environment]"
            " [--gait-phase-offset fraction]"
+           " [--terrain-b1-execution]"
            " [--terrain-sensor-only]"
            " [--impact-to-emergency-stop-delay s]"
            " [--task stand-walk-lie]"
@@ -119,6 +120,12 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
             {
                 cfg.params.terrain_enabled = true;
                 cfg.params.terrain_sensor_only = true;
+            }
+            else if (option == "--terrain-b1-execution")
+            {
+                cfg.params.terrain_enabled = true;
+                cfg.params.terrain_sensor_only = false;
+                cfg.params.terrain_actuation = true;
             }
             else if (option == "--stage-c-execution" ||
                      option == "--terrain-planner" ||
@@ -333,6 +340,18 @@ bool ParseTrotCli(int argc, const char **argv, TrotCliConfig *out, std::string *
             if (error_out) *error_out = error.what();
             return false;
         }
+    }
+    if (cfg.params.terrain_actuation &&
+        (cfg.params.terrain_sensor_only ||
+         !cfg.params.wbc_full ||
+         cfg.params.cartesian_world ||
+         cfg.params.gait_pattern != go2_control::GaitPattern::kRunningTrot))
+    {
+        if (error_out)
+            *error_out =
+                "terrain B1 execution requires running-trot + wbc-full "
+                "and cannot use cartesian-world or sensor-only mode";
+        return false;
     }
     if (cfg.params.runtime_velocity_command &&
         (cfg.params.cartesian_world || !cfg.params.wbc_full ||

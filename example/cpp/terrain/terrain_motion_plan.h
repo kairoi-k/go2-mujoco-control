@@ -82,6 +82,10 @@ struct TerrainFootholdPrediction
     double support_margin_m = 0.0;
     double collision_margin_m = 0.0;
     double uncertainty_m = 0.0;
+    // Terrain-derived vertical swing profile. This is a trajectory input,
+    // not a timing or topology change; the running-trot phase remains the
+    // sole swing clock.
+    double swing_lift_m = 0.0;
 };
 
 struct TerrainVelocityRequest
@@ -168,7 +172,9 @@ struct TerrainMotionPlan
                 if (!foot.valid || !std::isfinite(foot.touchdown_time_s) ||
                     !std::isfinite(foot.position_world.x) ||
                     !std::isfinite(foot.position_world.y) ||
-                    !std::isfinite(foot.position_world.z))
+                    !std::isfinite(foot.position_world.z) ||
+                    !std::isfinite(foot.swing_lift_m) ||
+                    foot.swing_lift_m < 0.0)
                     return false;
             }
         }

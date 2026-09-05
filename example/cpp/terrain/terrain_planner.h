@@ -53,6 +53,8 @@ struct TerrainPlannerInput
     double commanded_vx_mps = 0.0;
     std::array<go2::Vec3, go2::kLegCount> current_feet_base{};
     std::array<go2::Vec3, go2::kLegCount> nominal_feet_base{};
+    std::array<go2::Vec3, go2::kLegCount> touchdown_target_feet_base{};
+    bool touchdown_target_feet_valid = false;
     TerrainContactSchedule contact_schedule{};
 };
 
@@ -273,11 +275,15 @@ public:
                 if (!candidate.hard_feasible)
                     continue;
                 candidate.region_id = region.region_id;
+                const auto &phase1_target =
+                    input.touchdown_target_feet_valid
+                        ? input.touchdown_target_feet_base[leg]
+                        : input.nominal_feet_base[leg];
                 const double displacement = std::hypot(
                     candidate.foot_position.x -
-                        input.nominal_feet_base[leg].x,
+                        phase1_target.x,
                     candidate.foot_position.y -
-                        input.nominal_feet_base[leg].y);
+                        phase1_target.y);
                 const double score = displacement +
                     0.5 * candidate.uncertainty_m -
                     0.1 * candidate.edge_margin_m;
@@ -419,6 +425,7 @@ private:
                     foot.support_margin_m = candidate.support_margin_m;
                     foot.collision_margin_m = candidate.collision_margin_m;
                     foot.uncertainty_m = candidate.uncertainty_m;
+                    foot.swing_lift_m = candidate.swing_lift_m;
                     result.plan.uncertainty_m = std::max(
                         result.plan.uncertainty_m, candidate.uncertainty_m);
                     if (static_cast<int>(k) == touchdown)

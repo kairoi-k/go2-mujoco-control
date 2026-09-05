@@ -61,7 +61,8 @@ filtered_controller_args=()
 profile_path="${GO2_PROFILE_PATH:-}"
 for ((i = 0; i < ${#controller_args[@]}; ++i)); do
   arg="${controller_args[$i]}"
-  if [[ "$arg" == "--terrain-sensor-only" ]]; then
+  if [[ "$arg" == "--terrain-sensor-only" ||
+        "$arg" == "--terrain-b1-execution" ]]; then
     sim_terrain_lidar=true
   fi
   if [[ "$arg" == "--stage-c-execution" ||

@@ -233,7 +233,7 @@ bool TrotExperiment::Init()
 
     go2_terrain::TerrainPlannerConfig terrain_config;
     terrain_config.sensor_only = params_.terrain_sensor_only;
-    terrain_config.allow_actuation = false;
+    terrain_config.allow_actuation = params_.terrain_actuation;
     terrain_planner_ = go2_terrain::TerrainPlanner(terrain_config);
 
     if (params_.wbc_full)

@@ -148,6 +148,8 @@ void TrotExperiment::PublishTerrainControlSnapshot(
     snapshot.have_commanded_body_feet = have_commanded_body_feet_;
     if (snapshot.have_commanded_body_feet)
         snapshot.nominal_feet_base = commanded_body_feet_;
+    snapshot.touchdown_target_feet_base = kernel_touchdown_target_feet_base_;
+    snapshot.touchdown_target_feet_valid = have_kernel_touchdown_target_feet_;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         snapshot.measured_contact[leg] =
             state_snapshot.foot_force()[leg] >= kContactForceThreshold;
@@ -203,6 +205,8 @@ void TrotExperiment::UpdateTerrainRuntime()
     input.nominal_feet_base = control.have_commanded_body_feet
         ? control.nominal_feet_base
         : go2::AllFootPositions(task_.stand_up_joint_pos_);
+    input.touchdown_target_feet_base = control.touchdown_target_feet_base;
+    input.touchdown_target_feet_valid = control.touchdown_target_feet_valid;
     input.contact_schedule.measured_contact = control.measured_contact;
     input.contact_schedule.measured_valid = control.measured_valid;
     go2_control::FillTrotContactSchedulePhase(
@@ -292,6 +296,8 @@ void TrotExperiment::TerrainPlannerWorker()
         }
         work.input.terrain = model.get();
         const auto result = terrain_planner_.Build(work.input, work.plan_id);
+        if (result.publishable)
+            terrain_plan_store_.Publish(result.plan);
 
         std::size_t known_cells = 0;
         std::size_t feasible_regions = 0;
@@ -328,6 +334,26 @@ void TrotExperiment::TerrainPlannerWorker()
             terrain_min_support_margin_m_ = result.plan.min_support_margin_m;
             terrain_min_uncertainty_support_margin_m_ =
                 result.plan.min_uncertainty_inflated_support_margin_m;
+            terrain_plan_published_count_ += result.publishable ? 1 : 0;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                terrain_candidate_counts_[leg] = result.candidate_counts[leg];
+                terrain_swing_candidate_counts_[leg] = 0;
+                terrain_touchdown_knots_[leg] = -1;
+                bool previous = work.input.contact_schedule.measured_contact[leg];
+                for (std::size_t k = 0; k < terrain_planner_.config().horizon_knots; ++k)
+                {
+                    const bool planned =
+                        work.input.contact_schedule.planned_contact[k][leg];
+                    if (planned && !previous && terrain_touchdown_knots_[leg] < 0)
+                        terrain_touchdown_knots_[leg] = static_cast<int>(k);
+                    previous = planned;
+                }
+                for (const auto &region : result.regions[leg])
+                    if (region.valid && region.swing_clearance_m >=
+                        terrain_planner_.config().feasibility.min_swing_clearance_m)
+                        ++terrain_swing_candidate_counts_[leg];
+            }
             terrain_committed_touchdowns_ = result.plan.committed_touchdowns;
             ++terrain_planner_updates_;
             if (result.plan.solver.deadline_miss)
@@ -385,6 +411,19 @@ bool TrotExperiment::LowCmdWrite(
 
     bool motion_clock_paused = false;
     const double motion_dt = MotionClockStep(state_snapshot, motion_clock_paused);
+
+    terrain_tick_plan_.reset();
+    if (params_.terrain_actuation && params_.terrain_enabled)
+    {
+        const double terrain_now_s =
+            static_cast<double>(state_snapshot.tick()) * 1.0e-3;
+        terrain_tick_plan_ = terrain_plan_store_.LoadUsable(terrain_now_s);
+        if (terrain_tick_plan_)
+        {
+            std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
+            ++terrain_plan_consumed_count_;
+        }
+    }
 
     std::array<double, kMotorCount> joint_targets = task_.stand_up_joint_pos_;
     UpdateVelocityEstimate(state_snapshot, high_state_snapshot, have_high_state, motion_dt);
