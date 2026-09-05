@@ -332,6 +332,14 @@ acceptance pair. It is nevertheless the first B0 PASS with the real terrain
 worker present after removing only its CPU pin, making auto affinity placement
 the leading minimum production-change candidate.
 
+The post-fix no-terrain Phase-1 regression used source SHA
+`e457bd2b661d01c8c033271f31b9252854781b9c` and raw directory
+`example/cpp/experiments/_runs/phase1_runtime_integrity_e457bd2/varying_20260905_202052`.
+It passed strict and quantitative analysis: 43,552 rows, `id_wbc_ok_fraction=1.0`,
+solver and SRBD checks passed, torque saturation was `0.0010785432`, and all
+lifecycle, safety, quality, and analysis statuses were zero. This confirms the
+runner affinity change did not break the accepted no-terrain Phase-1 path.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
