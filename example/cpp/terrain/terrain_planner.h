@@ -52,6 +52,8 @@ struct TerrainPlannerInput
     double duty_factor = 0.58;
     double commanded_vx_mps = 0.0;
     std::array<go2::Vec3, go2::kLegCount> current_feet_base{};
+    std::array<go2::Vec3, go2::kLegCount> measured_support_anchor_world{};
+    std::array<bool, go2::kLegCount> measured_support_anchor_valid{};
     std::array<go2::Vec3, go2::kLegCount> nominal_feet_base{};
     std::array<go2::Vec3, go2::kLegCount> touchdown_target_feet_base{};
     bool touchdown_target_feet_valid = false;
@@ -518,9 +520,15 @@ private:
                 else if (input.contact_schedule.planned_contact[k][leg])
                 {
                     foot.valid = true;
-                    foot.position_world = RotateBaseToWorld(
-                        input.base_position_world, input.base_yaw_rad,
-                        input.current_feet_base[leg]);
+                    const bool use_measured_support_anchor =
+                        input.contact_schedule.measured_valid &&
+                        input.contact_schedule.measured_contact[leg] &&
+                        input.measured_support_anchor_valid[leg];
+                    foot.position_world = use_measured_support_anchor
+                        ? input.measured_support_anchor_world[leg]
+                        : RotateBaseToWorld(input.base_position_world,
+                                            input.base_yaw_rad,
+                                            input.current_feet_base[leg]);
                     foot.touchdown_time_s = input.state_stamp_s;
                     foot.surface_normal = {0.0, 0.0, 1.0};
                     if (!result.plan.current_support_anchor[leg].valid)

@@ -150,6 +150,8 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         snapshot.nominal_feet_base = commanded_body_feet_;
     snapshot.touchdown_target_feet_base = kernel_touchdown_target_feet_base_;
     snapshot.touchdown_target_feet_valid = have_kernel_touchdown_target_feet_;
+    snapshot.measured_support_anchor_world = support_anchor_world_feet_;
+    snapshot.measured_support_anchor_valid = support_anchor_valid_;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         snapshot.measured_contact[leg] =
             state_snapshot.foot_force()[leg] >= kContactForceThreshold;
@@ -200,6 +202,8 @@ void TrotExperiment::UpdateTerrainRuntime()
     input.gait_phase = control.gait_phase;
     input.gait_period_s = control.gait_period_s;
     input.duty_factor = control.duty_factor;
+    input.measured_support_anchor_world = control.measured_support_anchor_world;
+    input.measured_support_anchor_valid = control.measured_support_anchor_valid;
     input.commanded_vx_mps = control.commanded_vx_mps;
     input.current_feet_base = go2::AllFootPositions(control.joint_positions);
     input.nominal_feet_base = control.have_commanded_body_feet

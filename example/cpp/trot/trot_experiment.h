@@ -262,6 +262,8 @@ private:
         go2::Vec3 imu_position_world{};
         go2::Vec3 base_velocity_world{};
         bool have_base_position_world = false;
+        std::array<go2::Vec3, go2::kLegCount> measured_support_anchor_world{};
+        std::array<bool, go2::kLegCount> measured_support_anchor_valid{};
         double gait_phase = 0.0;
         double gait_period_s = 0.0;
         double duty_factor = 0.0;

@@ -172,6 +172,46 @@ int main()
                "actuation planner did not consume a safe region"))
         return 1;
 
+    auto support_anchor_input = input;
+    support_anchor_input.contact_schedule.measured_contact =
+        {true, false, true, false};
+    support_anchor_input.current_feet_base = {
+        go2::Vec3{0.0, 0.0, -0.25},
+        go2::Vec3{0.0, 0.0, -0.25},
+        go2::Vec3{0.0, 0.0, -0.25},
+        go2::Vec3{0.0, 0.0, -0.25}};
+    for (std::size_t k = 0; k < 8; ++k)
+        support_anchor_input.contact_schedule.planned_contact[k] =
+            {true, false, true, false};
+    support_anchor_input.measured_support_anchor_valid.fill(false);
+    const auto no_anchor_plan =
+        actuation_planner.Build(support_anchor_input, 9);
+    if (!Check(!no_anchor_plan.publishable &&
+                   no_anchor_plan.plan.failure ==
+                       go2_terrain::TerrainPlanFailure::kSupportInfeasible,
+               "planner accepted unstable FK support without anchor"))
+        return 1;
+    support_anchor_input.measured_support_anchor_world = {
+        go2::Vec3{0.20, -0.10, -0.25},
+        go2::Vec3{},
+        go2::Vec3{-0.20, 0.10, -0.25},
+        go2::Vec3{}};
+    support_anchor_input.measured_support_anchor_valid[0] = true;
+    support_anchor_input.measured_support_anchor_valid[2] = true;
+    const auto anchored_plan =
+        actuation_planner.Build(support_anchor_input, 10);
+    if (!Check(anchored_plan.publishable && anchored_plan.plan.valid(),
+               "measured support anchor did not clear support validation") ||
+        !Check(anchored_plan.plan.current_support_count == 2,
+               "planner did not retain both measured support anchors") ||
+        !Check(std::abs(
+                    anchored_plan.plan.current_support_anchor[0]
+                        .position_world.x - 0.20) < 1.0e-9 &&
+                   std::abs(
+                       anchored_plan.plan.current_support_anchor[2]
+                           .position_world.x + 0.20) < 1.0e-9,
+               "planner did not use measured support anchor positions"))
+        return 1;
     go2_terrain::TerrainMotionPlan atomic_plan;
     atomic_plan.plan_id = 1;
     atomic_plan.plan_epoch = 1;
