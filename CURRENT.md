@@ -79,6 +79,13 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   dominated by masks 9/6 with margin down to -0.10501 m. Evidence is
   `example/cpp/experiments/_runs/phase2_b1_development_canary_h4_support_anchor_20260906_020000`;
   this hypothesis is retired; B1 remains unaccepted.
+- H5's force-backed measured-contact anchor path is not yet eligible for B1:
+  the clean exact SHA `5bc8c73cb4cc96370de0e2bfc34535785e59870b` failed the
+  representative B0 varying regression. Terrain analyzer strict PASS became
+  false with `id_wbc_ok_fraction=0.99980678`; the retained run otherwise
+  passed the main quantitative checks. Evidence is
+  `example/cpp/experiments/_runs/phase2_b0_development_varying_r0_20260906_020741_terrain`;
+  this is a Phase-1/B0 protection failure, so no H5 B1 canary was run.
 - B1 5 cm is the active next milestone and remains not accepted. Production
   terrain actuation is still absent until the Stage C shadow gates pass; B2 10
   cm and B3 mixed/repeated terrain remain not started.

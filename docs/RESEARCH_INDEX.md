@@ -98,6 +98,14 @@ down to -0.10501 m. Evidence:
 [`phase2_b1_development_canary_h4_support_anchor_20260906_020000`](../example/cpp/experiments/_runs/phase2_b1_development_canary_h4_support_anchor_20260906_020000).
 This schedule-based anchor hypothesis is retired and does not establish B1
 acceptance.
+## H5 force-backed support-anchor B0 regression (2026-09-06)
+
+Not accepted at clean SHA
+`5bc8c73cb4cc96370de0e2bfc34535785e59870b`. The representative B0 varying
+terrain member failed strict quantitative acceptance with
+`id_wbc_ok_fraction=0.99980678`; the retained evidence is
+[`phase2_b0_development_varying_r0_20260906_020741_terrain`](../example/cpp/experiments/_runs/phase2_b0_development_varying_r0_20260906_020741_terrain).
+No B1 canary was run because the B0/Phase-1 boundary must be restored first.
 
 **Stand-walk-lie sequencing + `--wbc-full` Raibert trot**, 2026-08-18 (`2b82dae`).
 
