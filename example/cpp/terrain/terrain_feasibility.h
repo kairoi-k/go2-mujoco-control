@@ -665,9 +665,29 @@ inline bool CheckSwingClearance(
                 continue;
 
             TerrainPatch foot_patch;
+            bool anchor_handoff_patch = false;
             if (!model.SamplePatch(
                     foot.x, foot.y, sweep_radius_m, foot_patch) ||
                 !foot_patch.valid || foot_patch.HasUnknownInside())
+            {
+                const double anchor_handoff_radius =
+                    sweep_radius_m + 0.5 * model.resolution_m;
+                if (measured_support_anchor &&
+                    std::hypot(foot.x - start.x, foot.y - start.y) <=
+                        anchor_handoff_radius)
+                {
+                    // The same force-backed anchor exception used for the
+                    // path sample applies to the foot patch while the foot
+                    // is still leaving that support cell.
+                    foot_patch.max_height_m = terrain_height[
+                        static_cast<std::size_t>(i)];
+                    foot_patch.valid = std::isfinite(
+                        foot_patch.max_height_m);
+                    anchor_handoff_patch = foot_patch.valid;
+                }
+            }
+            if (!foot_patch.valid ||
+                (foot_patch.HasUnknownInside() && !anchor_handoff_patch))
             {
                 if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
                 {
