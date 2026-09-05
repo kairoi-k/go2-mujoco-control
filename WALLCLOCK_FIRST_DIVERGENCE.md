@@ -395,7 +395,7 @@ Both members passed Phase-1 and the frozen terrain B0 analyzer returned
 `acceptance_status=PASS`; terrain evidence was 43,552 rows, map-valid fraction
 `0.9999770389`, 1,271 planner updates, and zero planner deadline misses.
 All five development profile pairs are now terrain B0 PASS under the minimum
-affinity fix. The separate fixed 3-m/s pair remains required for full B0.
+affinity fix. The separate fixed 3-m/s pair result is recorded in the final section below.
 
 ## Final frozen B0 result
 
