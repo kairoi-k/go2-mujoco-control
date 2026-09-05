@@ -383,6 +383,16 @@ analysis statuses were zero. Terrain evidence was 31,553 rows, map-valid
 fraction `0.9999683073`, 1,011 planner updates, and zero deadline misses.
 Four of five development profiles now have terrain B0 PASS under the fix.
 
+The post-fix canonical `varying` pair used source SHA
+`802916637f69ba522289396de106712426688b99` with full lidar and the default
+unpinned terrain worker. Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_varying_r0_20260905_203707_{baseline,terrain}`.
+Both members passed Phase-1 and the frozen terrain B0 analyzer returned
+`acceptance_status=PASS`; terrain evidence was 43,552 rows, map-valid fraction
+`0.9999770389`, 1,271 planner updates, and zero planner deadline misses.
+All five development profile pairs are now terrain B0 PASS under the minimum
+affinity fix. The separate fixed 3-m/s pair remains required for full B0.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
