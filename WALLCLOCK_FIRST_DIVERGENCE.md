@@ -373,6 +373,16 @@ fraction `0.9999556580`, 730 planner updates, zero deadline misses, and
 while every terrain B0 contract check passed. Three of five development
 profiles now have terrain B0 PASS under the minimum fix.
 
+The post-fix canonical `ramp` pair used source SHA
+`de63a0ea2aea3d9b0295a7748366fd0c9ce51491` with full lidar and the default
+unpinned terrain worker. Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_ramp_r0_20260905_203400_{baseline,terrain}`.
+Both members passed Phase-1 and the frozen terrain B0 analyzer returned
+`acceptance_status=PASS`; all lifecycle, safety, quality, dynamics, and
+analysis statuses were zero. Terrain evidence was 31,553 rows, map-valid
+fraction `0.9999683073`, 1,011 planner updates, and zero deadline misses.
+Four of five development profiles now have terrain B0 PASS under the fix.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
