@@ -273,8 +273,12 @@ void TrotExperiment::UpdateWbcFull(
     const int mpc_period_ticks = high_speed_curriculum
         ? 5
         : (params_.cartesian_world ? 10 : 25);
+    const bool terrain_plan_refresh = terrain_plan_active &&
+        (!last_srbd_.terrain_plan_consumed ||
+         last_srbd_.terrain_plan.plan_id != terrain_plan->plan_id);
     const bool run_mpc =
-        (wbc_full_ticks_ % mpc_period_ticks) == 0 || !last_srbd_.ok;
+        (wbc_full_ticks_ % mpc_period_ticks) == 0 || !last_srbd_.ok ||
+        terrain_plan_refresh;
     if (run_mpc)
     {
         go2_control::SrbdMpcInput mpc_in;
