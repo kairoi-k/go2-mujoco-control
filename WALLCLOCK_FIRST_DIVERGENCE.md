@@ -362,6 +362,17 @@ fraction `0.9999586811`, 744 planner updates, zero deadline misses, and
 This is the second terrain B0 PASS under the default no-pin fix, while the
 baseline caveat remains preserved rather than hidden.
 
+The post-fix canonical `brake_3_to_0` pair used source SHA
+`67248e477044115e30e3a91cf5692efac95d1899` and the default unpinned terrain
+worker. Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_brake_3_to_0_r0_20260905_203133_{baseline,terrain}`.
+The terrain member passed Phase-1 and the frozen B0 analyzer: map-valid
+fraction `0.9999556580`, 730 planner updates, zero deadline misses, and
+22,552 rows. The paired baseline Phase-1 had one non-converged ID-WBC row
+(`id_wbc_ok_fraction=0.9996078816`); this diagnostic failure is retained,
+while every terrain B0 contract check passed. Three of five development
+profiles now have terrain B0 PASS under the minimum fix.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
