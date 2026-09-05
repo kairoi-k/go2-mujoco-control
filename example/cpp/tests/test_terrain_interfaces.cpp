@@ -183,12 +183,15 @@ int main()
     for (std::size_t k = 0; k < atomic_plan.horizon_knots; ++k)
         atomic_plan.body_reference[k].valid = true;
     atomic_plan.contact_schedule = input.contact_schedule;
-    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    for (std::size_t k = 0; k < atomic_plan.horizon_knots; ++k)
     {
-        atomic_plan.contact_schedule.planned_contact[0][leg] = true;
-        atomic_plan.predicted_foothold[0][leg].valid = true;
-        atomic_plan.predicted_foothold[0][leg].position_world =
-            input.current_feet_base[leg];
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            atomic_plan.predicted_foothold[k][leg].valid =
+                atomic_plan.contact_schedule.planned_contact[k][leg];
+            atomic_plan.predicted_foothold[k][leg].position_world =
+                input.current_feet_base[leg];
+        }
     }
     go2_terrain::TerrainPlanStore store;
     store.Publish(atomic_plan);
