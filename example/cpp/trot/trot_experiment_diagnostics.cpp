@@ -641,7 +641,7 @@ void TrotExperiment::LogSample(
     bool terrain_execution_plan_usable = false;
     int terrain_execution_planned_contact_mask = 0;
     std::array<go2::Vec3, go2::kLegCount> execution_world_feet{};
-    if (have_high_state)
+    if (params_.terrain_actuation && have_high_state)
         execution_world_feet = ComputeWorldFeet(state_snapshot, pose);
 
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model;
