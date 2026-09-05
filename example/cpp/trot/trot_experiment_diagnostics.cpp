@@ -107,8 +107,20 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_full_id_attempt_max_abs_tau_nm"
          << ",wbc_full_velocity_target_x_mps,wbc_full_requested_acc_x_mps2"
          << ",wbc_full_srbd_acc_x_mps2,wbc_full_id_qdd_x_mps2"
-         << ",wbc_full_id_contact_force_x_n"
-         << ",telemetry_controller_wall_time_s"
+         << ",wbc_full_id_contact_force_x_n";
+    for (int i = 0; i < kMotorCount; ++i)
+    {
+        csv_ << "," << kMotorNames[i] << "_q_target"
+             << "," << kMotorNames[i] << "_dq_target"
+             << "," << kMotorNames[i] << "_kp"
+             << "," << kMotorNames[i] << "_kd"
+             << "," << kMotorNames[i] << "_tau_ff"
+             << "," << kMotorNames[i] << "_q_state"
+             << "," << kMotorNames[i] << "_dq_state"
+             << "," << kMotorNames[i] << "_tau_est"
+             << "," << kMotorNames[i] << "_q_error";
+    }
+    csv_ << ",telemetry_controller_wall_time_s"
          << ",telemetry_lowstate_arrival_wall_time_s"
          << ",telemetry_lowstate_consumed_wall_time_s"
          << ",telemetry_lowstate_arrival_tick"
@@ -135,18 +147,6 @@ void TrotExperiment::WriteCsvHeader()
          << ",telemetry_lidar_stamp_s"
          << ",telemetry_lidar_age_wall_s"
          << ",telemetry_lidar_arrival_count";
-    for (int i = 0; i < kMotorCount; ++i)
-    {
-        csv_ << "," << kMotorNames[i] << "_q_target"
-             << "," << kMotorNames[i] << "_dq_target"
-             << "," << kMotorNames[i] << "_kp"
-             << "," << kMotorNames[i] << "_kd"
-             << "," << kMotorNames[i] << "_tau_ff"
-             << "," << kMotorNames[i] << "_q_state"
-             << "," << kMotorNames[i] << "_dq_state"
-             << "," << kMotorNames[i] << "_tau_est"
-             << "," << kMotorNames[i] << "_q_error";
-    }
     csv_ << "\n";
 }
 

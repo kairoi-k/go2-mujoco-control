@@ -706,6 +706,7 @@ public:
                            << ",lidar_operation_s,lidar_publish_s"
                            << ",lidar_published\n";
         runtime_telemetry_ << std::fixed << std::setprecision(9);
+        runtime_telemetry_.flush();
     }
 
     void LogRuntimeTelemetry(
