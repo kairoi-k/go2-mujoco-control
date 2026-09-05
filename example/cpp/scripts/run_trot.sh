@@ -156,12 +156,11 @@ if [[ "$sim_terrain_lidar" == true && "$sim_affinity_auto" == true ]]; then
     # outer auto-pin guard; this path owns the terrain default.
     ctrl_affinity=4
     writer_affinity="${writer_affinity:-3}"
-    terrain_affinity="${terrain_affinity:-4}"
-    if [[ -z "${TROT_CPU_AFFINITY_TERRAIN:-}" ]] &&
-       [[ "$cpu_count" =~ ^[0-9]+$ ]] && (( cpu_count >= 7 )); then
-      # Keep the planner worker off CPU4, which carries controller-side DDS
-      # callbacks. The accepted writer remains isolated on CPU3.
-      terrain_affinity=6
+    if [[ -z "${TROT_CPU_AFFINITY_TERRAIN:-}" ]]; then
+      # The terrain worker is deliberately unpinned by default. Its prior
+      # automatic CPU6 placement changed wall-clock runtime behavior despite
+      # SCHED_IDLE; retain the explicit environment override for experiments.
+      terrain_affinity=""
     fi
     sim_affinity=2,5
     sim_lidar_affinity="${sim_lidar_affinity:-5}"
