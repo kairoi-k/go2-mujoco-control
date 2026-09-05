@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cmath>
@@ -137,6 +138,9 @@ struct TerrainMotionPlan
     double min_swing_clearance_m = 0.0;
     double min_support_margin_m = 0.0;
     double min_uncertainty_inflated_support_margin_m = 0.0;
+    // Absolute-time consumers use this to advance from state_stamp_s to the
+    // knot that is current when the plan is consumed.
+    double knot_dt_s = 0.020;
     std::size_t committed_touchdowns = 0;
     std::array<TerrainBodyReference, kTerrainPlanMaxKnots> body_reference{};
     TerrainContactSchedule contact_schedule{};
@@ -158,6 +162,7 @@ struct TerrainMotionPlan
             !contact_schedule.valid(horizon_knots) || frame_id.empty() ||
             !std::isfinite(state_stamp_s) || !std::isfinite(generated_at_s) ||
             !std::isfinite(valid_until_s) || valid_until_s < generated_at_s ||
+            !std::isfinite(knot_dt_s) || knot_dt_s <= 0.0 ||
             horizon_knots == 0 || horizon_knots > kTerrainPlanMaxKnots)
             return false;
         for (std::size_t k = 0; k < horizon_knots; ++k)
@@ -186,6 +191,26 @@ struct TerrainMotionPlan
         return valid() && std::isfinite(now_s) && now_s <= valid_until_s;
     }
 };
+
+// Return the plan knot whose absolute-time interval contains now_s.  A plan
+// is an immutable snapshot, so consumers must not reinterpret knot zero as
+// the current state after planner latency has elapsed.
+inline std::size_t TerrainPlanCurrentKnot(
+    const TerrainMotionPlan &plan, double now_s)
+{
+    if (plan.horizon_knots == 0 ||
+        plan.horizon_knots > kTerrainPlanMaxKnots ||
+        !std::isfinite(plan.state_stamp_s) ||
+        !std::isfinite(plan.knot_dt_s) || plan.knot_dt_s <= 0.0 ||
+        !std::isfinite(now_s) || now_s <= plan.state_stamp_s)
+        return 0;
+    const double elapsed_knots = std::floor(
+        (now_s - plan.state_stamp_s) / plan.knot_dt_s);
+    if (!std::isfinite(elapsed_knots) || elapsed_knots <= 0.0)
+        return 0;
+    const double last_knot = static_cast<double>(plan.horizon_knots - 1);
+    return static_cast<std::size_t>(std::min(elapsed_knots, last_knot));
+}
 
 class TerrainPlanStore
 {

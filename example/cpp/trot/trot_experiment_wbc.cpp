@@ -207,12 +207,15 @@ void TrotExperiment::UpdateWbcFull(
                 terrain_tick_plan_->usable_at(terrain_now_s)
             ? terrain_tick_plan_ : nullptr;
     const bool terrain_plan_active = terrain_plan != nullptr;
+    const std::size_t terrain_k0 = terrain_plan_active
+        ? go2_terrain::TerrainPlanCurrentKnot(*terrain_plan, terrain_now_s)
+        : 0;
     if (terrain_plan_active)
     {
         wbc_shadow_diagnostics_.terrain_plan_id = terrain_plan->plan_id;
         wbc_shadow_diagnostics_.terrain_planned_contact_mask = 0;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            if (terrain_plan->contact_schedule.planned_contact[0][leg])
+            if (terrain_plan->contact_schedule.planned_contact[terrain_k0][leg])
                 wbc_shadow_diagnostics_.terrain_planned_contact_mask |=
                     1 << static_cast<int>(leg);
     }
@@ -433,6 +436,9 @@ void TrotExperiment::UpdateWbcFull(
             mpc_in.has_time_indexed_footholds = true;
             for (int k = 0; k < mpc_params.horizon; ++k)
             {
+                const std::size_t plan_k = std::min(
+                    terrain_k0 + static_cast<std::size_t>(k),
+                    terrain_plan->horizon_knots - 1);
                 for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
                 {
                     if (!mpc_in.contact[k][leg])
@@ -441,15 +447,13 @@ void TrotExperiment::UpdateWbcFull(
                         dyn.foot_pos_world[leg].x(),
                         dyn.foot_pos_world[leg].y(),
                         dyn.foot_pos_world[leg].z()};
-                    if (k < static_cast<int>(terrain_plan->horizon_knots) &&
-                        terrain_plan->contact_schedule.planned_contact[
-                            static_cast<std::size_t>(k)][leg] &&
-                        terrain_plan->predicted_foothold[
-                            static_cast<std::size_t>(k)][leg].valid)
+                    if (terrain_plan->contact_schedule.planned_contact[
+                            plan_k][leg] &&
+                        terrain_plan->predicted_foothold[plan_k][leg].valid)
                     {
                         foot_world = go2::ContactPatchToFootSite(
-                            terrain_plan->predicted_foothold[
-                                static_cast<std::size_t>(k)][leg].position_world);
+                            terrain_plan->predicted_foothold[plan_k][leg]
+                                .position_world);
                     }
                     mpc_in.foot_from_com_world_horizon[
                         static_cast<std::size_t>(k)][leg] = Eigen::Vector3d(
@@ -514,16 +518,16 @@ void TrotExperiment::UpdateWbcFull(
         wbc_in.fused_contact = qp_contact;
         wbc_in.fused_contact_valid = true;
         wbc_in.planned_contact =
-            terrain_plan->contact_schedule.planned_contact[0];
+            terrain_plan->contact_schedule.planned_contact[terrain_k0];
         wbc_in.planned_contact_valid = true;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             if (terrain_execution_target_valid_[leg] &&
                 terrain_execution_in_flight_[leg])
                 continue;
-            if (terrain_plan->contact_schedule.planned_contact[0][leg])
+            if (terrain_plan->contact_schedule.planned_contact[terrain_k0][leg])
             {
-                const auto &foot = terrain_plan->predicted_foothold[0][leg];
+                const auto &foot = terrain_plan->predicted_foothold[terrain_k0][leg];
                 if (foot.valid)
                 {
                     wbc_in.contact_normal[leg] = Eigen::Vector3d(
@@ -1123,10 +1127,13 @@ void TrotExperiment::UpdateWbcFull(
             static_cast<int>(terrain_plan->horizon_knots));
         for (int k = 0; k < terrain_horizon; ++k)
         {
+            const std::size_t plan_k = std::min(
+                terrain_k0 + static_cast<std::size_t>(k),
+                terrain_plan->horizon_knots - 1);
             int count = 0;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-                count += terrain_plan->contact_schedule.planned_contact[
-                    static_cast<std::size_t>(k)][leg] ? 1 : 0;
+                count += terrain_plan->contact_schedule.planned_contact[plan_k][leg]
+                    ? 1 : 0;
             wbc_shadow_diagnostics_.mpc_min_contact_count = std::min(
                 wbc_shadow_diagnostics_.mpc_min_contact_count, count);
         }

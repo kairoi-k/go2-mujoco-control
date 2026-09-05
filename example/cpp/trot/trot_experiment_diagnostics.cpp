@@ -691,12 +691,14 @@ void TrotExperiment::LogSample(
     }
     if (params_.terrain_actuation && terrain_tick_plan_)
     {
+        const std::size_t terrain_k0 = go2_terrain::TerrainPlanCurrentKnot(
+            *terrain_tick_plan_, state_tick_s);
         terrain_execution_plan_id = static_cast<int>(terrain_tick_plan_->plan_id);
         terrain_execution_map_epoch = static_cast<int>(terrain_tick_plan_->map_epoch);
         terrain_execution_plan_usable = terrain_tick_plan_->usable_at(state_tick_s);
         if (terrain_execution_plan_usable)
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-                if (terrain_tick_plan_->contact_schedule.planned_contact[0][leg])
+                if (terrain_tick_plan_->contact_schedule.planned_contact[terrain_k0][leg])
                     terrain_execution_planned_contact_mask |=
                         1 << static_cast<int>(leg);
     }

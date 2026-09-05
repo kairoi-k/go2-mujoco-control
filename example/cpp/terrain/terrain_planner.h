@@ -205,6 +205,7 @@ public:
         result.plan.frame_id = input.terrain != nullptr
             ? input.terrain->frame_id : "";
         result.plan.horizon_knots = config_.horizon_knots;
+        result.plan.knot_dt_s = config_.knot_dt_s;
         result.plan.solver.attempted = true;
         result.plan.solver.deadline_us = config_.deadline_us;
         const auto start = std::chrono::steady_clock::now();

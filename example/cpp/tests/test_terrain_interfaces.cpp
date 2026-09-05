@@ -176,6 +176,7 @@ int main()
     atomic_plan.state_stamp_s = 1.0;
     atomic_plan.generated_at_s = 1.0;
     atomic_plan.valid_until_s = 2.0;
+    atomic_plan.knot_dt_s = 0.02;
     atomic_plan.frame_id = "base_link";
     atomic_plan.status = go2_terrain::TerrainPlanStatus::kValid;
     atomic_plan.horizon_knots = 1;
@@ -198,6 +199,10 @@ int main()
                    loaded->contact_schedule.measured_contact[0] &&
                    !loaded->contact_schedule.measured_contact[1],
                "planned and measured contact state was not preserved"))
+        return 1;
+    if (!Check(go2_terrain::TerrainPlanCurrentKnot(*loaded, 1.039) == 1 &&
+                   go2_terrain::TerrainPlanCurrentKnot(*loaded, 1.200) == 0,
+               "terrain plan did not map wall-clock time to its knot"))
         return 1;
 
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";

@@ -1483,6 +1483,10 @@ bool TrotExperiment::BuildGaitTargets(
     // swing and is blended to its endpoint before touchdown.
     if (params_.terrain_actuation && terrain_tick_plan_ && have_high_state)
     {
+        const double terrain_now_s =
+            static_cast<double>(state_snapshot.tick()) * 1.0e-3;
+        const std::size_t terrain_k0 = go2_terrain::TerrainPlanCurrentKnot(
+            *terrain_tick_plan_, terrain_now_s);
         int required_mask = 0;
         int committed_mask = 0;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -1519,7 +1523,8 @@ bool TrotExperiment::BuildGaitTargets(
                 terrain_execution_measured_touchdown_[leg] = false;
                 terrain_execution_completion_recorded_[leg] = false;
                 bool has_planner_touchdown = false;
-                for (std::size_t k = 0; k < terrain_tick_plan_->horizon_knots; ++k)
+                for (std::size_t k = terrain_k0;
+                     k < terrain_tick_plan_->horizon_knots; ++k)
                 {
                     const auto &foot = terrain_tick_plan_->predicted_foothold[k][leg];
                     has_planner_touchdown = has_planner_touchdown || foot.touchdown;
