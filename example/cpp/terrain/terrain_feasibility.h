@@ -740,9 +740,31 @@ inline bool CheckSwingClearance(
                     knee.y + alpha * (foot.y - knee.y),
                     knee.z + alpha * (foot.z - knee.z)};
                 TerrainPatch shin_patch;
+                bool anchor_handoff_shin = false;
                 if (!model.SamplePatch(
                         shin.x, shin.y, sweep_radius_m, shin_patch) ||
                     !shin_patch.valid || shin_patch.HasUnknownInside())
+                {
+                    const double anchor_handoff_radius =
+                        sweep_radius_m + 0.5 * model.resolution_m;
+                    if (measured_support_anchor &&
+                        std::hypot(shin.x - start.x, shin.y - start.y) <=
+                            anchor_handoff_radius &&
+                        std::isfinite(terrain_height[
+                            static_cast<std::size_t>(i)]))
+                    {
+                        // The lower-leg sweep still overlaps the measured
+                        // support anchor during the first handoff samples.
+                        // Use the observed path height for that local patch;
+                        // unknown terrain beyond it remains fail-closed.
+                        shin_patch.max_height_m = terrain_height[
+                            static_cast<std::size_t>(i)];
+                        shin_patch.valid = true;
+                        anchor_handoff_shin = true;
+                    }
+                }
+                if (!shin_patch.valid ||
+                    (shin_patch.HasUnknownInside() && !anchor_handoff_shin))
                 {
                     // The local map window never observes its own lateral
                     // fringe (y beyond +/-0.225 m), and a rear leg's
