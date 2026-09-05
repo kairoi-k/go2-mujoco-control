@@ -43,8 +43,29 @@ void TrotExperiment::LowStateMessageHandler(const void *message)
 {
     const unitree_go::msg::dds_::LowState_ *msg =
         static_cast<const unitree_go::msg::dds_::LowState_ *>(message);
+    const double arrival_wall_time_s = WallClockTelemetryTimeS();
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
+        const std::uint32_t tick = msg->tick();
+        lowstate_arrival_tick_delta_ = 0;
+        lowstate_arrival_repeated_ = false;
+        lowstate_arrival_jumped_ = false;
+        lowstate_arrival_reordered_ = false;
+        if (have_lowstate_arrival_tick_)
+        {
+            const std::uint32_t delta =
+                tick - previous_lowstate_arrival_tick_;
+            lowstate_arrival_tick_delta_ = delta;
+            lowstate_arrival_repeated_ = delta == 0;
+            lowstate_arrival_jumped_ =
+                delta > 1 && delta < 0x80000000u;
+            lowstate_arrival_reordered_ = delta >= 0x80000000u;
+        }
+        previous_lowstate_arrival_tick_ = tick;
+        have_lowstate_arrival_tick_ = true;
+        lowstate_arrival_tick_ = tick;
+        ++lowstate_arrival_count_;
+        lowstate_arrival_wall_time_s_ = arrival_wall_time_s;
         low_state_ = *msg;
         have_low_state_ = true;
     }
@@ -58,9 +79,17 @@ void TrotExperiment::LowStateMessageHandler(const void *message)
 // --- TrotExperiment::HighStateMessageHandler ---
 void TrotExperiment::HighStateMessageHandler(const void *message)
 {
+    const auto *msg =
+        static_cast<const unitree_go::msg::dds_::SportModeState_ *>(message);
+    const double arrival_wall_time_s = WallClockTelemetryTimeS();
     std::lock_guard<std::mutex> lock(state_mutex_);
-    high_state_ = *(unitree_go::msg::dds_::SportModeState_ *)message;
+    high_state_ = *msg;
     have_high_state_ = true;
+    ++highstate_arrival_count_;
+    highstate_arrival_wall_time_s_ = arrival_wall_time_s;
+    highstate_stamp_s_ =
+        static_cast<double>(msg->stamp().sec()) +
+        static_cast<double>(msg->stamp().nanosec()) * 1.0e-9;
 }
 
 void TrotExperiment::EnvironmentHeightMapMessageHandler(const void *message)
@@ -85,11 +114,15 @@ void TrotExperiment::LidarHeightMapMessageHandler(const void *message)
 {
     if (message == nullptr)
         return;
+    const double arrival_wall_time_s = WallClockTelemetryTimeS();
     std::lock_guard<std::mutex> lock(terrain_map_mutex_);
     const bool first_message = !have_lidar_heightmap_;
     lidar_heightmap_ =
         *static_cast<const unitree_go::msg::dds_::HeightMap_ *>(message);
     have_lidar_heightmap_ = true;
+    ++lidar_arrival_count_;
+    lidar_arrival_wall_time_s_ = arrival_wall_time_s;
+    lidar_stamp_s_ = lidar_heightmap_.stamp();
     if (first_message)
     {
         std::cerr << "Lidar map received: stamp="
@@ -187,6 +220,7 @@ bool TrotExperiment::CaptureWorldReference()
 // --- TrotExperiment::Init ---
 bool TrotExperiment::Init()
 {
+    telemetry_start_time_ = std::chrono::steady_clock::now();
     csv_.open(csv_path_);
     if (!csv_)
     {

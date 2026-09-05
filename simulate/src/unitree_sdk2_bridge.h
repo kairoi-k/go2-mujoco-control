@@ -16,6 +16,9 @@
 #include <array>
 #include <cmath>
 #include <chrono>
+#include <cstdint>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <cstdlib>
 #if defined(__linux__)
@@ -296,6 +299,7 @@ public:
         lidar_world_z_.assign(kLidarWorldCellCount,
                               std::numeric_limits<double>::quiet_NaN());
         lidar_world_t_.assign(kLidarWorldCellCount, -1.0e9);
+        InitRuntimeTelemetry();
         wireless_controller = std::make_unique<WirelessController_t>();
         wireless_controller->joystick = joystick;
     }
@@ -339,17 +343,43 @@ private:
         auto next = std::chrono::steady_clock::now();
         while (!terrain_lidar_stop_.load())
         {
+            const auto lock_wait_start = std::chrono::steady_clock::now();
+            double lock_wait_s = 0.0;
+            double lock_hold_s = 0.0;
+            double sim_time = -1.0;
             {
                 auto sim_lock = LockSimulation();
+                const auto lock_acquired = std::chrono::steady_clock::now();
+                lock_wait_s = std::chrono::duration<double>(
+                    lock_acquired - lock_wait_start).count();
                 if (mj_data_ != nullptr)
                 {
                     mju_copy(sensor_data->qpos, mj_data_->qpos, sensor_model->nq);
                     mju_copy(sensor_data->qvel, mj_data_->qvel, sensor_model->nv);
                     sensor_data->time = mj_data_->time;
+                    sim_time = sensor_data->time;
                 }
+                lock_hold_s = std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - lock_acquired).count();
             }
-            mj_fwdPosition(sensor_model, sensor_data);
-            PublishLidarHeightMap(sensor_model, sensor_data);
+            const auto lidar_operation_start = std::chrono::steady_clock::now();
+            double publish_s = -1.0;
+            bool published = false;
+            if (sim_time >= 0.0)
+            {
+                mj_fwdPosition(sensor_model, sensor_data);
+                published = PublishLidarHeightMap(
+                    sensor_model, sensor_data, &publish_s);
+            }
+            const double lidar_operation_s = std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - lidar_operation_start).count();
+            LogRuntimeTelemetry(
+                "lidar", sim_time,
+                sim_time >= 0.0
+                    ? static_cast<std::uint64_t>(std::llround(sim_time * 1000.0))
+                    : 0,
+                lock_wait_s, lock_hold_s, lidar_operation_s, publish_s,
+                published);
             next += std::chrono::milliseconds(50);
             std::this_thread::sleep_until(next);
             if (std::chrono::steady_clock::now() > next +
@@ -463,22 +493,23 @@ public:
     // scene so occlusion is real, but the controller receives only this
     // lidar-derived observation.  Heights are expressed relative to
     // base_link; unknown cells remain NaN and are never filled by the oracle.
-    void PublishLidarHeightMap(
+    bool PublishLidarHeightMap(
         const mjModel *sensor_model,
-        mjData *sensor_data)
+        mjData *sensor_data,
+        double *publish_duration_s)
     {
         if (!param::config.terrain_lidar || !lidar_heightmap ||
             sensor_model == nullptr)
-            return;
+            return false;
         if (sensor_data == nullptr)
-            return;
+            return false;
         const double sim_time = sensor_data->time;
         if (sim_time - last_lidar_map_publish_s_ < kLidarPublishPeriodS)
-            return;
+            return false;
         const int base_body_id = mj_name2id(
             sensor_model, mjOBJ_BODY, "base_link");
         if (base_body_id < 0)
-            return;
+            return false;
         last_lidar_map_publish_s_ = sim_time;
         const mjtNum *base_pos = sensor_data->xpos + 3 * base_body_id;
         const mjtNum *base_mat = sensor_data->xmat + 9 * base_body_id;
@@ -648,7 +679,62 @@ public:
                                    world_z - base_pos[2]);
             }
         }
+        const auto publish_start = std::chrono::steady_clock::now();
         (void)lidar_heightmap->Write(map, 0);
+        if (publish_duration_s != nullptr)
+        {
+            *publish_duration_s = std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - publish_start).count();
+        }
+        return true;
+    }
+
+    void InitRuntimeTelemetry()
+    {
+        const char *path = std::getenv("TROT_WALLCLOCK_TELEMETRY_PATH");
+        if (path == nullptr || path[0] == 0)
+            return;
+        runtime_telemetry_.open(path);
+        if (!runtime_telemetry_)
+        {
+            std::cerr << "Failed to open wall-clock telemetry: " << path
+                      << "\n";
+            return;
+        }
+        runtime_telemetry_ << "event,wall_time_s,sim_time_s,state_tick"
+                           << ",lidar_lock_wait_s,lidar_lock_hold_s"
+                           << ",lidar_operation_s,lidar_publish_s"
+                           << ",lidar_published\n";
+        runtime_telemetry_ << std::fixed << std::setprecision(9);
+    }
+
+    void LogRuntimeTelemetry(
+        const char *event,
+        double sim_time_s,
+        std::uint64_t state_tick,
+        double lock_wait_s,
+        double lock_hold_s,
+        double operation_s,
+        double publish_s,
+        bool published)
+    {
+        if (!runtime_telemetry_)
+            return;
+        std::lock_guard<std::mutex> lock(runtime_telemetry_mutex_);
+        runtime_telemetry_
+            << event << ","
+            << std::chrono::duration<double>(
+                   std::chrono::steady_clock::now() -
+                   runtime_telemetry_start_)
+                   .count()
+            << "," << sim_time_s
+            << "," << state_tick
+            << "," << lock_wait_s
+            << "," << lock_hold_s
+            << "," << operation_s
+            << "," << publish_s
+            << "," << (published ? 1 : 0)
+            << "\n";
     }
 
     virtual void run()
@@ -874,6 +960,10 @@ private:
     std::vector<double> lidar_world_t_;
     double last_lidar_map_publish_s_ = -1.0e9;
     double last_environment_map_publish_s_ = -1.0e9;
+    std::ofstream runtime_telemetry_;
+    std::mutex runtime_telemetry_mutex_;
+    std::chrono::steady_clock::time_point runtime_telemetry_start_ =
+        std::chrono::steady_clock::now();
     unitree::common::RecurrentThreadPtr thread_;
     std::atomic<bool> terrain_lidar_stop_{false};
     std::thread terrain_lidar_thread_;

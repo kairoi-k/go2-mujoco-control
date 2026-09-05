@@ -107,7 +107,34 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_full_id_attempt_max_abs_tau_nm"
          << ",wbc_full_velocity_target_x_mps,wbc_full_requested_acc_x_mps2"
          << ",wbc_full_srbd_acc_x_mps2,wbc_full_id_qdd_x_mps2"
-         << ",wbc_full_id_contact_force_x_n";
+         << ",wbc_full_id_contact_force_x_n"
+         << ",telemetry_controller_wall_time_s"
+         << ",telemetry_lowstate_arrival_wall_time_s"
+         << ",telemetry_lowstate_consumed_wall_time_s"
+         << ",telemetry_lowstate_arrival_tick"
+         << ",telemetry_lowstate_consumed_tick"
+         << ",telemetry_lowstate_arrival_count"
+         << ",telemetry_lowstate_consumed_count"
+         << ",telemetry_lowstate_arrival_tick_delta"
+         << ",telemetry_lowstate_consumed_tick_delta"
+         << ",telemetry_lowstate_arrival_repeated"
+         << ",telemetry_lowstate_arrival_jumped"
+         << ",telemetry_lowstate_arrival_reordered"
+         << ",telemetry_lowstate_consumed_new_tick"
+         << ",telemetry_lowstate_consumed_repeated"
+         << ",telemetry_lowstate_consumed_jumped"
+         << ",telemetry_lowstate_consumed_reordered"
+         << ",telemetry_motion_dt_s"
+         << ",telemetry_running_time_s"
+         << ",telemetry_gait_time_s"
+         << ",telemetry_highstate_arrival_wall_time_s"
+         << ",telemetry_highstate_stamp_s"
+         << ",telemetry_highstate_age_wall_s"
+         << ",telemetry_highstate_arrival_count"
+         << ",telemetry_lidar_arrival_wall_time_s"
+         << ",telemetry_lidar_stamp_s"
+         << ",telemetry_lidar_age_wall_s"
+         << ",telemetry_lidar_arrival_count";
     for (int i = 0; i < kMotorCount; ++i)
     {
         csv_ << "," << kMotorNames[i] << "_q_target"
@@ -837,5 +864,44 @@ void TrotExperiment::LogSample(
              << "," << tau_state
              << "," << (motor_cmd.q() - q_state);
     }
+    const double gait_time_s = task_.gait_started_
+        ? running_time_ - task_.gait_start_time_s_ : 0.0;
+    const double highstate_age_wall_s =
+        telemetry_highstate_arrival_wall_time_s_ >= 0.0
+            ? telemetry_controller_wall_time_s_ -
+                  telemetry_highstate_arrival_wall_time_s_
+            : -1.0;
+    const double lidar_age_wall_s =
+        telemetry_lidar_arrival_wall_time_s_ >= 0.0
+            ? telemetry_controller_wall_time_s_ -
+                  telemetry_lidar_arrival_wall_time_s_
+            : -1.0;
+    csv_ << "," << telemetry_controller_wall_time_s_
+         << "," << telemetry_lowstate_arrival_wall_time_s_
+         << "," << telemetry_lowstate_consumed_wall_time_s_
+         << "," << telemetry_lowstate_arrival_tick_
+         << "," << telemetry_lowstate_consumed_tick_
+         << "," << telemetry_lowstate_arrival_count_
+         << "," << telemetry_lowstate_consumed_count_
+         << "," << telemetry_lowstate_arrival_tick_delta_
+         << "," << telemetry_lowstate_consumed_tick_delta_
+         << "," << (telemetry_lowstate_arrival_repeated_ ? 1 : 0)
+         << "," << (telemetry_lowstate_arrival_jumped_ ? 1 : 0)
+         << "," << (telemetry_lowstate_arrival_reordered_ ? 1 : 0)
+         << "," << (telemetry_lowstate_consumed_new_tick_ ? 1 : 0)
+         << "," << (telemetry_lowstate_consumed_repeated_ ? 1 : 0)
+         << "," << (telemetry_lowstate_consumed_jumped_ ? 1 : 0)
+         << "," << (telemetry_lowstate_consumed_reordered_ ? 1 : 0)
+         << "," << last_motion_dt_s_
+         << "," << running_time_
+         << "," << gait_time_s
+         << "," << telemetry_highstate_arrival_wall_time_s_
+         << "," << telemetry_highstate_stamp_s_
+         << "," << highstate_age_wall_s
+         << "," << telemetry_highstate_arrival_count_
+         << "," << telemetry_lidar_arrival_wall_time_s_
+         << "," << telemetry_lidar_stamp_s_
+         << "," << lidar_age_wall_s
+         << "," << telemetry_lidar_arrival_count_;
     csv_ << "\n";
 }

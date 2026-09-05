@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <condition_variable>
 #include <fstream>
 #include <limits>
@@ -231,6 +232,14 @@ private:
         bool have_state,
         bool primary_active) const;
     void ResetCycleDiagnostics();
+
+    double WallClockTelemetryTimeS() const
+    {
+        return std::chrono::duration<double>(
+                   std::chrono::steady_clock::now() -
+                   telemetry_start_time_)
+            .count();
+    }
 
 private:
     struct TerrainPlannerWork
@@ -491,6 +500,52 @@ private:
     std::uint64_t terrain_planner_rejections_ = 0;
     std::uint64_t terrain_planner_deadline_misses_ = 0;
     bool terrain_latest_plan_valid_ = false;
+
+    // Read-only wall-clock provenance for the exact state snapshot consumed
+    // by each LowCmdWrite.  These fields are diagnostic only; they never
+    // gate or alter controller decisions.
+    std::chrono::steady_clock::time_point telemetry_start_time_ =
+        std::chrono::steady_clock::now();
+    std::uint64_t lowstate_arrival_count_ = 0;
+    std::uint32_t lowstate_arrival_tick_ = 0;
+    std::uint32_t lowstate_arrival_tick_delta_ = 0;
+    bool lowstate_arrival_repeated_ = false;
+    bool lowstate_arrival_jumped_ = false;
+    bool lowstate_arrival_reordered_ = false;
+    bool have_lowstate_arrival_tick_ = false;
+    std::uint32_t previous_lowstate_arrival_tick_ = 0;
+    double lowstate_arrival_wall_time_s_ = -1.0;
+    std::uint64_t highstate_arrival_count_ = 0;
+    double highstate_arrival_wall_time_s_ = -1.0;
+    double highstate_stamp_s_ = -1.0;
+    std::uint64_t lidar_arrival_count_ = 0;
+    double lidar_arrival_wall_time_s_ = -1.0;
+    double lidar_stamp_s_ = -1.0;
+
+    double telemetry_controller_wall_time_s_ = -1.0;
+    double telemetry_lowstate_consumed_wall_time_s_ = -1.0;
+    std::uint64_t telemetry_lowstate_consumed_count_ = 0;
+    std::uint32_t telemetry_lowstate_consumed_tick_ = 0;
+    std::uint32_t telemetry_lowstate_consumed_tick_delta_ = 0;
+    bool telemetry_lowstate_consumed_new_tick_ = false;
+    bool telemetry_lowstate_consumed_repeated_ = false;
+    bool telemetry_lowstate_consumed_jumped_ = false;
+    bool telemetry_lowstate_consumed_reordered_ = false;
+    bool have_lowstate_consumed_tick_ = false;
+    std::uint32_t previous_lowstate_consumed_tick_ = 0;
+    double telemetry_lowstate_arrival_wall_time_s_ = -1.0;
+    std::uint32_t telemetry_lowstate_arrival_tick_ = 0;
+    std::uint32_t telemetry_lowstate_arrival_tick_delta_ = 0;
+    bool telemetry_lowstate_arrival_repeated_ = false;
+    bool telemetry_lowstate_arrival_jumped_ = false;
+    bool telemetry_lowstate_arrival_reordered_ = false;
+    std::uint64_t telemetry_lowstate_arrival_count_ = 0;
+    double telemetry_highstate_arrival_wall_time_s_ = -1.0;
+    double telemetry_highstate_stamp_s_ = -1.0;
+    std::uint64_t telemetry_highstate_arrival_count_ = 0;
+    double telemetry_lidar_arrival_wall_time_s_ = -1.0;
+    double telemetry_lidar_stamp_s_ = -1.0;
+    std::uint64_t telemetry_lidar_arrival_count_ = 0;
 
     std::mutex terrain_diagnostics_mutex_;
     std::mutex terrain_control_mutex_;

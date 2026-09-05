@@ -1048,14 +1048,67 @@ bool TrotExperiment::SnapshotState(
 {
     have_state = false;
     have_high_state = false;
+    const double consumed_wall_time_s = WallClockTelemetryTimeS();
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
         have_state = have_low_state_;
         have_high_state = have_high_state_;
         if (have_state)
+        {
             state_snapshot = low_state_;
+            telemetry_controller_wall_time_s_ = consumed_wall_time_s;
+            telemetry_lowstate_consumed_wall_time_s_ = consumed_wall_time_s;
+            telemetry_lowstate_consumed_tick_ = state_snapshot.tick();
+            telemetry_lowstate_arrival_wall_time_s_ =
+                lowstate_arrival_wall_time_s_;
+            telemetry_lowstate_arrival_tick_ = lowstate_arrival_tick_;
+            telemetry_lowstate_arrival_tick_delta_ =
+                lowstate_arrival_tick_delta_;
+            telemetry_lowstate_arrival_repeated_ =
+                lowstate_arrival_repeated_;
+            telemetry_lowstate_arrival_jumped_ =
+                lowstate_arrival_jumped_;
+            telemetry_lowstate_arrival_reordered_ =
+                lowstate_arrival_reordered_;
+            telemetry_lowstate_arrival_count_ = lowstate_arrival_count_;
+
+            telemetry_lowstate_consumed_tick_delta_ = 0;
+            telemetry_lowstate_consumed_new_tick_ = true;
+            telemetry_lowstate_consumed_repeated_ = false;
+            telemetry_lowstate_consumed_jumped_ = false;
+            telemetry_lowstate_consumed_reordered_ = false;
+            if (have_lowstate_consumed_tick_)
+            {
+                const std::uint32_t delta =
+                    telemetry_lowstate_consumed_tick_ -
+                    previous_lowstate_consumed_tick_;
+                telemetry_lowstate_consumed_tick_delta_ = delta;
+                telemetry_lowstate_consumed_new_tick_ = delta != 0;
+                telemetry_lowstate_consumed_repeated_ = delta == 0;
+                telemetry_lowstate_consumed_jumped_ =
+                    delta > 1 && delta < 0x80000000u;
+                telemetry_lowstate_consumed_reordered_ =
+                    delta >= 0x80000000u;
+            }
+            previous_lowstate_consumed_tick_ =
+                telemetry_lowstate_consumed_tick_;
+            have_lowstate_consumed_tick_ = true;
+            ++telemetry_lowstate_consumed_count_;
+        }
         if (have_high_state)
+        {
             high_state_snapshot = high_state_;
+            telemetry_highstate_arrival_wall_time_s_ =
+                highstate_arrival_wall_time_s_;
+            telemetry_highstate_stamp_s_ = highstate_stamp_s_;
+            telemetry_highstate_arrival_count_ = highstate_arrival_count_;
+        }
+    }
+    {
+        std::lock_guard<std::mutex> lock(terrain_map_mutex_);
+        telemetry_lidar_arrival_wall_time_s_ = lidar_arrival_wall_time_s_;
+        telemetry_lidar_stamp_s_ = lidar_stamp_s_;
+        telemetry_lidar_arrival_count_ = lidar_arrival_count_;
     }
     return have_state;
 }

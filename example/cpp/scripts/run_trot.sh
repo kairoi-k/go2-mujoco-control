@@ -272,6 +272,9 @@ fi
 
 metadata_file="$experiment_dir/run_metadata.txt"
 environment_file="$experiment_dir/environment.txt"
+wallclock_telemetry_file="$experiment_dir/wallclock_runtime_telemetry.csv"
+rm -f "$wallclock_telemetry_file"
+export TROT_WALLCLOCK_TELEMETRY_PATH="$wallclock_telemetry_file"
 
 # Order-103/105 verification-only lockstep: env-opt-in, default OFF. The
 # frozen interval discipline and the causal ack handshake are enforced
@@ -329,6 +332,7 @@ env | LC_ALL=C sort | grep -E "^(TROT_|FULL2_|SUSTAINED_SPRINT_|SIM_LOCKSTEP)" >
   printf "contact_ground_truth_file=%s\n" "$ground_truth_file"
   printf "contact_ground_truth_dynamics_analysis_file=%s\n" "$ground_truth_dynamics_analysis_file"
   printf "environment_file=%s\n" "$environment_file"
+  printf "wallclock_telemetry_file=%s\n" "$wallclock_telemetry_file"
 } >"$metadata_file"
 
 sim_pid=""
