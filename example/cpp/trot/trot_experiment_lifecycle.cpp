@@ -341,6 +341,10 @@ bool TrotExperiment::Init()
         terrain_planner_thread_ = std::thread(
             &TrotExperiment::TerrainPlannerWorker, this);
     };
+    // Diagnostic-only: keep the terrain subscription/lidar path but omit the
+    // asynchronous planner worker. The production default remains enabled.
+    const bool terrain_worker_disabled =
+        Full2EnvDouble("TROT_TERRAIN_WORKER_DISABLE", 0.0) > 0.5;
     writer_stop_.store(false);
     low_cmd_write_thread_ = std::thread([this]() {
         PinCurrentThreadToEnv("TROT_WRITER_CPU");
@@ -395,7 +399,7 @@ bool TrotExperiment::Init()
     // Let the first wall-clock writer handoff establish itself before the
     // observer worker starts scheduling. The worker remains read-only in
     // sensor-only mode and is still started immediately after the writer.
-    if (params_.terrain_enabled)
+    if (params_.terrain_enabled && !terrain_worker_disabled)
         start_terrain_worker();
     return true;
 }
