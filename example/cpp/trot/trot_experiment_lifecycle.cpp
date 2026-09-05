@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -336,11 +337,19 @@ bool TrotExperiment::Init()
     }
     CaptureWorldReference();
 
-    if (params_.terrain_enabled)
-    {
+    const char *terrain_start_after_writer_env =
+        std::getenv("TROT_TERRAIN_WORKER_AFTER_WRITER");
+    const bool terrain_start_after_writer =
+        terrain_start_after_writer_env != nullptr &&
+        terrain_start_after_writer_env[0] == '1';
+    auto start_terrain_worker = [this]() {
         terrain_worker_stop_.store(false);
         terrain_planner_thread_ = std::thread(
             &TrotExperiment::TerrainPlannerWorker, this);
+    };
+    if (params_.terrain_enabled && !terrain_start_after_writer)
+    {
+        start_terrain_worker();
     }
     writer_stop_.store(false);
     low_cmd_write_thread_ = std::thread([this]() {
@@ -393,6 +402,8 @@ bool TrotExperiment::Init()
             }
         }
     });
+    if (params_.terrain_enabled && terrain_start_after_writer)
+        start_terrain_worker();
     return true;
 }
 
