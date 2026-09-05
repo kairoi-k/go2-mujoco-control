@@ -87,6 +87,18 @@ down to -0.06246 m. The debug canary retained 1,577 required rejection rows,
 [`phase2_b1_debug_h3_support_20260906_013500`](../example/cpp/experiments/_runs/example/cpp/experiments/_runs/phase2_b1_debug_h3_support_20260906_013500).
 Because debug timing is perturbed, this is attribution-only and does not
 establish B1 acceptance.
+## B1 H4 schedule-anchor planner probe (2026-09-06)
+
+Not accepted at clean SHA
+`ae1f4730aaaddbaf00adc27e1dc29f7e41533a0f`. The correct-scene no-debug
+canary retained 10,468 required-plan rejection rows, 4,956 execution rows
+without a WBC plan, 22 ground-truth collision rows, and stopped after 33.1 s
+on cycle-quality rejection. Support witness masks 9/6 dominated, with margin
+down to -0.10501 m. Evidence:
+[`phase2_b1_development_canary_h4_support_anchor_20260906_020000`](../example/cpp/experiments/_runs/phase2_b1_development_canary_h4_support_anchor_20260906_020000).
+This schedule-based anchor hypothesis is retired and does not establish B1
+acceptance.
+
 **Stand-walk-lie sequencing + `--wbc-full` Raibert trot**, 2026-08-18 (`2b82dae`).
 
 | Item | Record |

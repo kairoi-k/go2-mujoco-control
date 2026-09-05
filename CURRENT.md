@@ -70,6 +70,15 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   rows. Its nested-path evidence is
   `example/cpp/experiments/_runs/example/cpp/experiments/_runs/phase2_b1_debug_h3_support_20260906_013500`;
   debug timing makes it attribution-only, not B1 evidence.
+- H4 measured-support-anchor development result is not accepted. Clean SHA
+  `ae1f4730aaaddbaf00adc27e1dc29f7e41533a0f` connected the gait's
+  schedule-based support anchor directly to planner support validation, but
+  the correct-scene no-debug canary retained 10,468 required-plan rejection
+  rows, 4,956 execution rows without a WBC plan, 22 collision rows, and
+  stopped after 33.1 s on cycle-quality rejection. Its support witness was
+  dominated by masks 9/6 with margin down to -0.10501 m. Evidence is
+  `example/cpp/experiments/_runs/phase2_b1_development_canary_h4_support_anchor_20260906_020000`;
+  this hypothesis is retired; B1 remains unaccepted.
 - B1 5 cm is the active next milestone and remains not accepted. Production
   terrain actuation is still absent until the Stage C shadow gates pass; B2 10
   cm and B3 mixed/repeated terrain remain not started.
