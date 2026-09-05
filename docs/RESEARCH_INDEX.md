@@ -106,6 +106,16 @@ terrain member failed strict quantitative acceptance with
 `id_wbc_ok_fraction=0.99980678`; the retained evidence is
 [`phase2_b0_development_varying_r0_20260906_020741_terrain`](../example/cpp/experiments/_runs/phase2_b0_development_varying_r0_20260906_020741_terrain).
 No B1 canary was run because the B0/Phase-1 boundary must be restored first.
+## B1 H5 force-backed support-anchor canary (2026-09-06)
+
+Not accepted at clean SHA
+`324bd5d6f36d856f4bd5f9f75390855fb9abb251`. Planner replacement was proven
+(`target_prepared=54`, 198 execution plan IDs, `b3_plan_replacement=true`);
+the correct-scene no-debug canary retained 541 required-plan rejection rows,
+220 execution rows without WBC plan, zero collisions, and stopped at 18.83 s
+on cycle-quality rejection. First support witness was knot 0 mask 9 at
+0.014376 m, below the frozen 0.015 m. Evidence:
+[`phase2_b1_development_canary_h5_force_anchor_20260906_023000`](../example/cpp/experiments/_runs/phase2_b1_development_canary_h5_force_anchor_20260906_023000).
 
 **Stand-walk-lie sequencing + `--wbc-full` Raibert trot**, 2026-08-18 (`2b82dae`).
 

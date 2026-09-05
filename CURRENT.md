@@ -85,7 +85,16 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   false with `id_wbc_ok_fraction=0.99980678`; the retained run otherwise
   passed the main quantitative checks. Evidence is
   `example/cpp/experiments/_runs/phase2_b0_development_varying_r0_20260906_020741_terrain`;
-  this is a Phase-1/B0 protection failure, so no H5 B1 canary was run.
+  this is a Phase-1/B0 protection failure; boundary fix
+  `324bd5d6f36d856f4bd5f9f75390855fb9abb251` restored B0 varying PASS.
+- H5 force-backed B1 canary is not accepted at clean SHA
+  `324bd5d6f36d856f4bd5f9f75390855fb9abb251`. Planner replacement was
+  proven (`clean_source=true`, `target_prepared=54`, 198 execution plan
+  IDs, `b3_plan_replacement=true`), but the canary retained 541
+  required-plan rejection rows and 220 execution rows without WBC plan;
+  it stopped at 18.83 s on cycle-quality rejection. The first support
+  witness was knot 0 mask 9 at margin 0.014376 m, below the frozen 0.015 m.
+  Evidence is `example/cpp/experiments/_runs/phase2_b1_development_canary_h5_force_anchor_20260906_023000`; B1 remains unaccepted.
 - B1 5 cm is the active next milestone and remains not accepted. Production
   terrain actuation is still absent until the Stage C shadow gates pass; B2 10
   cm and B3 mixed/repeated terrain remain not started.
