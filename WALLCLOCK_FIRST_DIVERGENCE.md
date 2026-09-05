@@ -74,6 +74,34 @@ production behavior change was made. The next architectural fix should make
 the wall-clock state/command handoff time-indexed or otherwise record/replay
 the exact state schedule; this report does not claim B0 acceptance.
 
+## Lidar runtime isolation matrix
+
+The first isolation matrix was run serially under `flock /tmp/go2_mujoco_experiment.lock`
+from source SHA `2843d60c9345a36de799d3e6cffe5ce4b1fba704`, with identical
+running-trot arguments, auto-pinning, `lockstep=false`, and a 12 s controller
+duration. Domain 240 was rejected before launch; valid runs used 210--214.
+The short harness is diagnostic only: its existing cycle-quality guard ended
+each run with `quality_status=1`.
+
+| mode | raw run | first consumed tick | last state tick | telemetry | key p95 |
+|---|---|---:|---:|---:|---|
+| baseline | `phase2_b0_lidar_matrix_20260905_r1_baseline` | 2208 | 14692 | 0 | — |
+| terrain + none | `phase2_b0_lidar_matrix_20260905_r1_none` | 2202 | 14272 | 0 | — |
+| terrain + park | `phase2_b0_lidar_matrix_20260905_r1_park` | 1752 | 11002 | 0 rows | — |
+| terrain + snapshot | `phase2_b0_lidar_matrix_20260905_r1_snapshot` | 2202 | 14686 | 257 | wait 0.0789 ms; op 0.000030 ms |
+| terrain + full | `phase2_b0_lidar_matrix_20260905_r1_full` | 1788 | 13976 | 192 | wait 0.0952 ms; op 9.282 ms; publish 0.1008 ms |
+
+`none` created no simulator lidar thread. `park` created the thread but its
+SCHED_IDLE worker did not reach telemetry before shutdown, so its telemetry
+is header-only and is not treated as proof of scheduling behavior. `snapshot`
+performed the model-state copy and simulator lock without raycast/publish;
+`full` retained both. In this single repeat park/full had an earlier first
+tick while none/snapshot matched baseline, but startup ordering is not stable
+enough to assign the cause; a second repeat is required.
+
+Raw directories are the five `phase2_b0_lidar_matrix_20260905_r1_*` entries
+under `example/cpp/experiments/_runs/`.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
