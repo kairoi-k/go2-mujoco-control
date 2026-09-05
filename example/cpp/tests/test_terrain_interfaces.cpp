@@ -179,8 +179,9 @@ int main()
     atomic_plan.knot_dt_s = 0.02;
     atomic_plan.frame_id = "base_link";
     atomic_plan.status = go2_terrain::TerrainPlanStatus::kValid;
-    atomic_plan.horizon_knots = 1;
-    atomic_plan.body_reference[0].valid = true;
+    atomic_plan.horizon_knots = 8;
+    for (std::size_t k = 0; k < atomic_plan.horizon_knots; ++k)
+        atomic_plan.body_reference[k].valid = true;
     atomic_plan.contact_schedule = input.contact_schedule;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
