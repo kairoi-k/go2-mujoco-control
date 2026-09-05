@@ -95,3 +95,29 @@ gait start 位于 control_index=2151。在 handoff 后按各 run 的起始 tick 
 
 本次未提交功能性修复；最终源码已恢复干净，仓库只保留本报告。
 
+
+## Lockstep handoff 收尾（2026-09-05）
+
+加入 opt-in debug-only handoff：baseline 在 tick=4000 ms 记录 MuJoCo state，terrain 回放该 state；两侧 controller 都记录了 LOCKSTEP_HANDOFF_CONTROLLER_READY tick_ms=4000，terrain simulator 记录了 LOCKSTEP_HANDOFF_READY mode=replay tick_ms=4000。有效 F14 证据目录：
+
+- example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260905_084957_baseline
+- example/cpp/experiments/_runs/phase2_b0_lockstep_development_fixed_3mps_r0_20260905_084957_terrain
+- example/cpp/experiments/_runs/f14_shared_handoff_20260905_valid.bin
+
+第一次启动因共享路径未传入而在 bridge ready 前退出，没有纳入比较；随后只完成这一组有效 paired F14，没有继续重跑 lockstep。
+
+有效 F14 的首个控制快照 nominal state_tick 都是 4.000 s，但它们不是同一份字节级 LowState：raw body velocity x 为 0.000022385 / 0.000022404 m/s，z 为 -0.000042902 / -0.000042922 m/s。按 control row 对齐，row=1 同为 tick=4000 ms 时 motion_dt 为 0.002072320 / 0.002016233 s；row=4 的 state_tick 已为 baseline=4004 ms、terrain=4002 ms。由此新的第一可观测分叉仍是 handoff 后的 state snapshot/clock scheduling，而不是 planner。
+
+| 指标 | 结果 |
+|---|---|
+| scheduler requested/shaped/applied/accel/jerk | 仍相同；paired max diff=0 |
+| gait period/duty | 仍分叉；首个 aligned row=2451，period=0.198180907 / 0.199536597，duty=0.497726134 / 0.499420746 |
+| WBC velocity target | 仍分叉；首个非零 target aligned row=3119，1.210318214 / 0.000000000 m/s；paired max diff=3.0 m/s |
+| lockstep trace | baseline 28144 rows、terrain 26957 rows，均 dt=2 ms、0 violation |
+
+因果判断：原始 barrier 前的绝对 tick 偏移已被 debug handoff 隐去，但旧 divergence 不能据此宣布“完全属于 handoff artifact”。当前 debug 实现记录/回放的是 MuJoCo state，再由各 bridge 重建 LowState；它没有跨进程持久化并回放同一份 DDS LowState message。同时 controller 的 wall_clock_motion 仍在 gait_started 前覆盖 motion_dt，lockstep writer gate 只在之后 Engage。因此当前最小证据指向“state snapshot + controller/bridge scheduling”，planner side effect 仍被排除。置信度：对直接分叉高，对 sub-tick 数值差异的精确线程归因中。
+
+按用户边界，本次到此停止 lockstep 修改和实验；下一步切回正常 wall-clock B0，单独调查 terrain lidar/DDS/thread scheduling 对 state snapshot 与启动时钟的影响。本次没有执行 wall-clock B0。
+
+本次未提交功能性修复；debug-only handoff 源码改动保留在工作树供后续评审，报告本补充单独提交。
+
