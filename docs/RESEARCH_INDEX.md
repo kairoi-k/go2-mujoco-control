@@ -64,6 +64,18 @@ and never cleared the 5 cm step. The retained debug run identified
 `unknown[path]` candidate rejection. This evidence proves planner targets
 entered the execution chain; it does not establish B1 acceptance.
 
+## B1 H2 aerial-knot running-trot development probe (2026-09-06)
+
+Not accepted at clean SHA
+`ff48dac98928ef5488a5c2bde3f8bc4b7c588ca1`. The planner now permits the
+legitimate zero-contact aerial knots present in the frozen running-trot
+schedule, while retaining the frozen support margin for every nonzero-contact
+knot. The correct-scene no-debug canary retained 2,462 required-plan rejection
+rows, all `support_infeasible=5`, 140 execution rows without a WBC plan, zero
+collision rows, and stopped on IK before clearing the 5 cm step. Evidence:
+[`phase2_b1_development_canary_h2_aerial_20260906_060000`](../example/cpp/experiments/_runs/phase2_b1_development_canary_h2_aerial_20260906_060000).
+This does not establish B1 acceptance.
+
 **Stand-walk-lie sequencing + `--wbc-full` Raibert trot**, 2026-08-18 (`2b82dae`).
 
 | Item | Record |

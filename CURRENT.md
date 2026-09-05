@@ -52,6 +52,15 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   `example/cpp/experiments/_runs/phase2_b1_development_canary_h1_timealigned_20260906_033000`;
   debug attribution is retained at
   `example/cpp/experiments/_runs/phase2_b1_debug_h1_timealigned_reject_20260906_040000`.
+- H2 running-trot aerial-knot development result is not accepted. Clean SHA
+  `ff48dac98928ef5488a5c2bde3f8bc4b7c588ca1` allows a legitimate zero-contact
+  running-trot knot without changing the frozen contract or gait topology. The
+  correct-scene no-debug canary retained 2,462 required-plan rejection rows,
+  all `support_infeasible=5`, 140 execution rows without a WBC plan, zero
+  collision rows, and stopped at an IK failure before clearing the step. The
+  evidence is
+  `example/cpp/experiments/_runs/phase2_b1_development_canary_h2_aerial_20260906_060000`;
+  this is a development result only and B1 remains unaccepted.
 - B1 5 cm is the active next milestone and remains not accepted. Production
   terrain actuation is still absent until the Stage C shadow gates pass; B2 10
   cm and B3 mixed/repeated terrain remain not started.
