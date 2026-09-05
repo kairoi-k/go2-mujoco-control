@@ -350,6 +350,18 @@ Both members passed Phase-1; the frozen terrain B0 analyzer also returned
 This is one clean profile after the minimum runner fix; the remaining four
 development profiles and fixed 3-m/s pair are still required for full B0.
 
+A second post-fix canonical `accel_1_to_3` pair used source SHA
+`03975a67ceb36b7b86406320a921df8490665f84` with the default unpinned terrain
+worker and full lidar. Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_accel_1_to_3_r0_20260905_202814_{baseline,terrain}`.
+The terrain member passed Phase-1 and the frozen B0 analyzer: map-valid
+fraction `0.9999586811`, 744 planner updates, zero deadline misses, and
+24,202 rows. Its paired baseline Phase-1 was a separate stochastic negative
+(contact loss `0.2567243276`, settling `13.797994541 s`, torque saturation
+`0.0035265704`); the analyzer still reports the terrain B0 contract PASS.
+This is the second terrain B0 PASS under the default no-pin fix, while the
+baseline caveat remains preserved rather than hidden.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
