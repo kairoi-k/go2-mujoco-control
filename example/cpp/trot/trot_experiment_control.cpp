@@ -243,6 +243,14 @@ void TrotExperiment::TerrainPlannerWorker()
     }
 #endif
     PinCurrentThreadToEnv("TROT_TERRAIN_CPU");
+    // Diagnostic-only: exercise worker creation, scheduling setup, and
+    // shutdown without consuming terrain work. Production never parks it.
+    if (Full2EnvDouble("TROT_TERRAIN_WORKER_PARK", 0.0) > 0.5)
+    {
+        std::unique_lock<std::mutex> lock(terrain_work_mutex_);
+        terrain_work_cv_.wait(lock, [this]() {
+            return terrain_worker_stop_.load();
+        });
     std::uint64_t consumed_generation = 0;
     for (;;)
     {
