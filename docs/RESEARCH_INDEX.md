@@ -2,8 +2,8 @@
 
 This repository records **model-based Go2 control in MuJoCo**. Isaac Lab velocity RL and Kine2Go imitation are maintained in separate companion repositories.
 
-This index records accepted Phase 1 and explicitly scoped historical Phase 2
-claims. It does not define the current Phase 2 route; use [`CURRENT.md`](../CURRENT.md).
+This index records accepted Phase 1 and explicitly scoped Phase 2 claims. It
+does not define the current Phase 2 route; use [`CURRENT.md`](../CURRENT.md).
 
 ## Milestone: Phase 1 arbitrary velocity (2026-08-25)
 
@@ -40,7 +40,18 @@ source `5b95e826`. This is a historical timing/equivalence slice, not the
 current full wall-clock B0 result, terrain actuation, or a B1 authorization. See
 [the scoped evidence summary](research/evidence/order109b_c006i/SUMMARY.md).
 
-## Implementation
+## Milestone: Frozen B0 wall-clock closeout (2026-09-05)
+
+Accepted at exact final evidence SHA
+`a5e8a77e3200e8c246ef25b31abfb1cd0f6e73fd`. The complete frozen B0
+development campaign passed steps, acceleration, braking, ramp, varying, and
+fixed-3-m/s terrain/baseline gates with terrain actuation disabled. The retained
+wall-clock causal investigation identified the terrain worker's default CPU pin
+as the first cause; the minimum production fix is exact SHA
+`e457bd2b661d01c8c033271f31b9252854781b9c`. See
+[`WALLCLOCK_FIRST_DIVERGENCE.md`](../WALLCLOCK_FIRST_DIVERGENCE.md) for raw run
+directories, manifests, analyzers, and the non-B1 boundary. B1 5 cm remains
+unaccepted.
 
 **Stand-walk-lie sequencing + `--wbc-full` Raibert trot**, 2026-08-18 (`2b82dae`).
 

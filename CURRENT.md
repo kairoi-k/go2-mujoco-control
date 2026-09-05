@@ -14,7 +14,9 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
 - This checkout intentionally follows the active repair branch; `main` remains
   the integration line and must not be inferred from this branch's unaccepted
   code or evidence.
-- Last tested behavior anchor: `6cdf2366bb38aab9db29184efc813be71ae3022f` (exact lockstep guard canary; not B0 acceptance).
+- Frozen B0 is complete and accepted at exact final evidence head
+  `a5e8a77e3200e8c246ef25b31abfb1cd0f6e73fd`; the closeout report is
+  `WALLCLOCK_FIRST_DIVERGENCE.md`.
 - Historical reference evidence: `docs/research/evidence/order109b_c006i/`
 - Active decision evidence: `docs/research/evidence/b0_runtime_integrity_20260904/`
 - External read-only review packet:
@@ -32,34 +34,17 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   Historical Order-109b also PASSed its separate lockstep sensor-only slice.
   None of these historical records is a fresh acceptance of the current Phase 2
   terrain-sensor pair harness.
-- Current-main full B0 reproduction: FAIL; the steps profile exposed runtime
-  contact/WBC and zero-command regressions.
-- Active-candidate full B0: FAIL at the ordered acceleration profile on exact
-  clean revision `f95349c`. F10's 80-mm amplitude repair was rejected after a
-  rebuilt pair fell; F11 restored 200 mm and used only the recorded Cartesian
-  acceleration-cap override, but baseline failed torque saturation and terrain
-  failed positive speed excursion. F12 found asymmetric wall-clock CPU
-  placement made that near-boundary pair non-identifiable. F13 then used
-  identical explicit CPU placement: both members completed safely, but both
-  missed the 10-s settling bound (baseline 11.702 s, terrain 10.724 s) and
-  paired command/trajectory differences remained. No later full B0 profiles ran.
-  F14 is now the required runtime time-index contract review. A follow-up
-  terrain-sensor-only standalone varying run on `72cef40` stopped at 25.762 s
-  on the cycle-quality guard while the matching no-terrain standalone passed;
-  this demonstrates a current-head regression relative to the historical
-  passing terrain path; the causal component is not yet identified.
-  A fixed-3-m/s lockstep pair on clean main SHA 8f4a581 completed with 2 ms
-  exchange and no fail-closed; both standalone analyzers passed, but paired
-  command/WBC diagnostics still diverged, so this remains F14 evidence only.
-  Exact guard candidate 6cdf236 also passed clean 20-s baseline and terrain
-  sensor-only lockstep canaries at 2 ms; both standalone analyzers passed, but
-  paired duty/period/acceleration/WBC diagnostics remain false.
-  The earlier separate-SHA brake evidence supports the equality-nullspace solver repair
-  only; it is not B0 acceptance. Decision evidence:
-  `docs/research/evidence/b0_runtime_integrity_20260904/DECISIONS.md`.
-- B1 5 cm: FAIL / not accepted. B2 10 cm and B3 mixed/repeated terrain: not
-  started.
-- Production terrain actuation: absent. Only `--terrain-sensor-only` is usable.
+- The first cause was terrain-worker default CPU pinning, not raycast or publish;
+  the minimum production fix is `e457bd2b661d01c8c033271f31b9252854781b9c`.
+  It removes only the default terrain-worker pin and preserves the explicit
+  `TROT_CPU_AFFINITY_TERRAIN` override. The report records the no-lidar,
+  parked, snapshot/lock, and full-path diagnostics plus the post-fix B0 suite.
+- B0 closeout evidence covers steps, acceleration, braking, ramp, varying, and
+  fixed-3-m/s under the frozen analyzer; all required terrain and baseline
+  gates passed with terrain actuation disabled. This is B0 only, not B1.
+- B1 5 cm is the active next milestone and remains not accepted. Production
+  terrain actuation is still absent until the Stage C shadow gates pass; B2 10
+  cm and B3 mixed/repeated terrain remain not started.
 
 ## Goal
 
@@ -98,12 +83,9 @@ superseded routes and may not define or seed this implementation.
 
 ## Ordered plan
 
-1. Complete F14 before another parameter probe: define and test a shared
-   simulation-tick or recorded-schedule contract for wall-clock B0, align
-   state/command/analyzer indices, and preserve the frozen thresholds. Then
-   require focused tests and a fresh full B0 on the exact clean candidate SHA;
-   stop at the first information-bearing failure.
-2. After B0 passes, freeze the Stage C schemas, estimator inputs,
+1. B0 closeout is complete at `a5e8a77`; preserve its frozen contract and
+   evidence while beginning B1.
+2. Freeze the Stage C schemas, estimator inputs,
    optimization variables, hard constraints, objective ordering, deadlines,
    snapshot validity, and fallback semantics. Add unit tests with actuation
    disabled.
@@ -114,9 +96,10 @@ superseded routes and may not define or seed this implementation.
    ID-WBC as shadow consumers. Prove that no mixed plan/body/contact/timing
    versions occur and that command/torque output remains identical to Phase 1.
 5. After shadow gates pass, enable only the smallest B1 dynamic execution
-   slice. Run focused tests, one B0 development regression, then one B1
-   development canary. A development pass requires a fresh full B0 and frozen
-   B1 holdout on the exact candidate SHA.
+   slice. Each development loop is one hypothesis, one clean commit, focused
+   tests, one representative B0 development regression, and one B1 canary.
+   Formal completion requires a fresh full frozen B0 followed by the frozen B1
+   holdout on the exact clean candidate SHA.
 6. Advance without scene-specific changes or widened gates: B2 10 cm, then B3
    mixed/repeated terrain with multiple map/plan epochs and fault injection.
 7. Only after B3, extend the same architecture to realistic continuous stair
