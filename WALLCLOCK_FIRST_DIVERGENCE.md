@@ -153,6 +153,26 @@ this is retained as diagnostic context and was not hidden by the B0 analyzer.
 This is one development profile under a diagnostic env, not full B0 and not
 the final production-fix acceptance.
 
+## Production fix and Phase-1 regression
+
+Commit `34d4a626a21dda10e5aa5263761eb93a2daf7594` makes the worker-order
+probe unconditional: the terrain observer is still created and updated, but
+only after the wall-clock writer thread has been created. No gait, WBC,
+planner math, threshold, analyzer, or contract file changed. The simulator
+lidar default remains full. After the fix, both build trees were rebuilt and
+focused CTest passed `32/32` plus `2/2`.
+
+The first post-fix no-terrain Phase-1 varying regression is preserved at
+`example/cpp/experiments/_runs/phase1_runtime_integrity_20260905/varying_20260905_190232`.
+It completed with lifecycle/safety/quality status zero, but the analyzer
+failed only `id_wbc_ok`: one row at state tick 64686 had a non-converged ID-WBC
+QP and non-finite solution. Since terrain is disabled in this run, the changed
+branch is unreachable. An independent identical retry at
+`example/cpp/experiments/_runs/phase1_runtime_integrity_20260905_retry/varying_20260905_190453`
+passed every strict and quantitative check with `id_wbc_ok_fraction=1.0`.
+The failure is therefore retained as stochastic baseline evidence, not
+attributed to the worker-order fix.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
