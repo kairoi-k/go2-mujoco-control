@@ -61,6 +61,15 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   evidence is
   `example/cpp/experiments/_runs/phase2_b1_development_canary_h2_aerial_20260906_060000`;
   this is a development result only and B1 remains unaccepted.
+- H3 support-rejection witness diagnostics are retained at clean SHA
+  `c251f00a3b35e39eabac838e09783cfc9cddf8ce`. The passive planner witness
+  shows the dominant rejection at knot 0 with measured support mask 9
+  (FR+RL, 2,673 rows) and support margin down to -0.06246 m; mask 6
+  (FL+RR) accounts for 644 rows. The debug canary retained 1,577 required
+  rejection rows, 748 execution rows without WBC plan, and 169 collision
+  rows. Its nested-path evidence is
+  `example/cpp/experiments/_runs/example/cpp/experiments/_runs/phase2_b1_debug_h3_support_20260906_013500`;
+  debug timing makes it attribution-only, not B1 evidence.
 - B1 5 cm is the active next milestone and remains not accepted. Production
   terrain actuation is still absent until the Stage C shadow gates pass; B2 10
   cm and B3 mixed/repeated terrain remain not started.

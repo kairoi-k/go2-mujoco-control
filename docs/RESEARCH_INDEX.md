@@ -76,6 +76,17 @@ collision rows, and stopped on IK before clearing the 5 cm step. Evidence:
 [`phase2_b1_development_canary_h2_aerial_20260906_060000`](../example/cpp/experiments/_runs/phase2_b1_development_canary_h2_aerial_20260906_060000).
 This does not establish B1 acceptance.
 
+## B1 H3 support-rejection witness diagnostic (2026-09-06)
+
+Not accepted at clean SHA
+`c251f00a3b35e39eabac838e09783cfc9cddf8ce`. Passive planner witness fields
+showed the dominant required-plan rejection at knot 0 with measured support mask
+9 (FR+RL, 2,673 rows), with mask 6 (FL+RR) in 644 rows and support margin
+down to -0.06246 m. The debug canary retained 1,577 required rejection rows,
+748 execution rows without WBC plan, and 169 collisions. Evidence:
+[`phase2_b1_debug_h3_support_20260906_013500`](../example/cpp/experiments/_runs/example/cpp/experiments/_runs/phase2_b1_debug_h3_support_20260906_013500).
+Because debug timing is perturbed, this is attribution-only and does not
+establish B1 acceptance.
 **Stand-walk-lie sequencing + `--wbc-full` Raibert trot**, 2026-08-18 (`2b82dae`).
 
 | Item | Record |
