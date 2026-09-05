@@ -241,6 +241,20 @@ analyzer failed the expected lidar/map structural checks. Compared with
 with startup/runtime interference, but one pair is not enough to quantify
 stability.
 
+The next same-profile pair set `TROT_SIM_LIDAR_MODE=snapshot`: the simulator
+created the thread, copied MuJoCo state under the simulation lock, and emitted
+telemetry, but did no raycast or publish. Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_accel_1_to_3_r0_20260905_193918_{baseline,terrain}`.
+The terrain Phase-1 diagnostic passed every frozen check, with steady-state
+max error `0.354981927`, settling `2.884051031 s`, contact loss
+`0.2398260174`, and torque saturation `0.0025747425`; its B0 analyzer
+failed only the expected lidar-observation/map-telemetry structural checks
+(map-valid fraction `0.0`). It emitted 926 snapshot rows with approximately
+`20 us` operation time and no publish. The paired baseline independently
+failed settling and torque saturation, so this pair is not a clean acceptance
+run; it does not show snapshot/lock alone as a sufficient terrain failure
+cause.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
