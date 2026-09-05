@@ -318,6 +318,20 @@ no-map/no-planner structural checks plus Phase-1 (`terrain_map_valid_fraction=0`
 the pin/CPU placement path as a stronger contributor than worker creation alone,
 but it is one diagnostic pair and not yet a production fix or B0 acceptance.
 
+The active-worker no-pin diagnostic used source SHA
+`81559bcef07ad8d05def1a636c6b2484f40077d9`, the canonical acceleration pair,
+full simulator lidar, and no park override; only `TROT_CPU_AFFINITY_TERRAIN=-1`
+was added. Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_accel_1_to_3_r0_20260905_201313_{baseline,terrain}`.
+The terrain member completed 40 s and passed both frozen Phase-1 quantitative
+analysis and the B0 analyzer: map-valid fraction `0.9999586811`, 792 planner
+updates, zero deadline misses, and 24,202 rows. Full lidar emitted 935
+telemetry rows including the header. The paired baseline diagnostic failed
+only torque saturation (`0.0032921431`), so this is not yet a clean full-B0
+acceptance pair. It is nevertheless the first B0 PASS with the real terrain
+worker present after removing only its CPU pin, making auto affinity placement
+the leading minimum production-change candidate.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
