@@ -261,12 +261,19 @@ public:
             const bool has_touchdown = FirstTouchdownKnot(input, leg) >= 0;
             if (!has_touchdown)
                 continue;
+            const bool debug_rejects =
+                std::getenv("TROT_TERRAIN_DEBUG_PLANNER") != nullptr;
+            std::array<std::size_t, kFootholdRejectReasonCount>
+                reject_counts{};
+            std::size_t valid_regions = 0;
+            std::size_t hard_feasible = 0;
             FootholdCandidate best;
             double best_score = std::numeric_limits<double>::infinity();
             for (const auto &region : result.regions[leg])
             {
                 if (!region.valid)
                     continue;
+                ++valid_regions;
                 FootholdCandidate candidate = EvaluateFoothold(
                     *input.terrain, static_cast<go2::Leg>(leg),
                     region.center.x, region.center.y, config_.feasibility,
@@ -274,7 +281,14 @@ public:
                     config_.swing_clearance_m, nullptr,
                     input.contact_schedule.measured_contact[leg]);
                 if (!candidate.hard_feasible)
+                {
+                    const auto reason = static_cast<std::size_t>(
+                        candidate.reject_reason);
+                    if (reason < reject_counts.size())
+                        ++reject_counts[reason];
                     continue;
+                }
+                ++hard_feasible;
                 candidate.region_id = region.region_id;
                 const auto &phase1_target =
                     input.touchdown_target_feet_valid
@@ -292,6 +306,37 @@ public:
                 {
                     best = candidate;
                     best_score = score;
+                }
+            }
+            if (debug_rejects)
+            {
+                std::fprintf(
+                    stderr,
+                    "Terrain planner leg=%zu regions=%zu valid=%zu evaluated=%zu feasible=%zu",
+                    leg, result.regions[leg].size(), valid_regions,
+                    valid_regions, hard_feasible);
+                for (std::size_t reason = 1; reason < reject_counts.size();
+                     ++reason)
+                {
+                    if (reject_counts[reason] == 0)
+                        continue;
+                    std::fprintf(
+                        stderr, " %s=%zu",
+                        FootholdRejectReasonName(
+                            static_cast<FootholdRejectReason>(reason)),
+                        reject_counts[reason]);
+                }
+                if (best.hard_feasible)
+                {
+                    std::fprintf(
+                        stderr,
+                        " selected=(%.6f,%.6f,%.6f) score=%.6f\n",
+                        best.foot_position.x, best.foot_position.y,
+                        best.foot_position.z, best_score);
+                }
+                else
+                {
+                    std::fprintf(stderr, " selected=none\n");
                 }
             }
             if (!best.hard_feasible)
