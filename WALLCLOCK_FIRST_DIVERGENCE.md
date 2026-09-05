@@ -283,6 +283,25 @@ arrivals, but the B0 analyzer failed only the expected
 `lidar_observation`, `map_telemetry`, and `planner_updated` checks because
 the disabled worker produced no map/planner diagnostics. This is diagnostic
 only: it implicates the worker's runtime presence/work as a contributor, not
+its planner mathematics, and is not a B0 acceptance result.
+
+The controller worker-park diagnostic used source SHA
+`a276319865357d8a3020d6d79c89016ba943cda0`; focused CTest was again 34/34
+PASS. It retained full simulator lidar and created/pinned the controller
+terrain worker, but set `TROT_TERRAIN_WORKER_PARK=1`, so the worker consumed
+no terrain work. Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_accel_1_to_3_r0_20260905_195849_{baseline,terrain}`.
+The baseline Phase-1 analysis passed. The terrain run became unsafe at
+28.915796836 s: controller/safety status `0/1`, only 16,613 rows, minimum
+base height `0.057560766 m`, and roll p95 `178.9433966 deg`; the controller
+log repeated the hard-posture rejection at roll about `178.5 deg`. Phase-1
+false checks were `base_height`, `id_wbc_ok`, `roll_p95`, `settling`,
+`shaped_to_measured_p95`, `touchdown_x`, and `tracking_p95`. The B0
+analyzer failed the expected no-map/no-planner structural checks plus Phase-1;
+planner updates and map-valid fraction were zero, while full simulator lidar
+still emitted 656 telemetry rows. This single pair shows worker creation/park
+can be materially destabilizing, but is not yet a deterministic root-cause
+proof.
 
 ## Recovery record
 
