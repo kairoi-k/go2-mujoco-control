@@ -517,6 +517,9 @@ private:
     double terrain_min_swing_clearance_m_ = 0.0;
     double terrain_min_support_margin_m_ = 0.0;
     double terrain_min_uncertainty_support_margin_m_ = 0.0;
+    int terrain_support_failure_knot_ = -1;
+    int terrain_support_failure_contact_mask_ = 0;
+    double terrain_support_failure_margin_m_ = 0.0;
     std::uint64_t terrain_committed_touchdowns_ = 0;
     std::size_t terrain_known_cells_ = 0;
     std::size_t terrain_feasible_regions_ = 0;

@@ -334,6 +334,11 @@ void TrotExperiment::TerrainPlannerWorker()
             terrain_min_support_margin_m_ = result.plan.min_support_margin_m;
             terrain_min_uncertainty_support_margin_m_ =
                 result.plan.min_uncertainty_inflated_support_margin_m;
+            terrain_support_failure_knot_ = result.plan.support_failure_knot;
+            terrain_support_failure_contact_mask_ =
+                result.plan.support_failure_contact_mask;
+            terrain_support_failure_margin_m_ =
+                result.plan.support_failure_margin_m;
             terrain_plan_published_count_ += result.publishable ? 1 : 0;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {

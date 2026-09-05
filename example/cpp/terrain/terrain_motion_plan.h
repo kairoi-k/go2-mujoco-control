@@ -138,6 +138,9 @@ struct TerrainMotionPlan
     double min_swing_clearance_m = 0.0;
     double min_support_margin_m = 0.0;
     double min_uncertainty_inflated_support_margin_m = 0.0;
+    int support_failure_knot = -1;
+    int support_failure_contact_mask = 0;
+    double support_failure_margin_m = 0.0;
     // Absolute-time consumers use this to advance from state_stamp_s to the
     // knot that is current when the plan is consumed.
     double knot_dt_s = 0.020;

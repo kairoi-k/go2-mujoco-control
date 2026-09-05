@@ -634,6 +634,9 @@ void TrotExperiment::LogSample(
     double terrain_min_swing_clearance_m = 0.0;
     double terrain_min_support_margin_m = 0.0;
     double terrain_min_uncertainty_support_margin_m = 0.0;
+    int terrain_support_failure_knot = -1;
+    int terrain_support_failure_contact_mask = 0;
+    double terrain_support_failure_margin_m = 0.0;
     std::uint64_t terrain_committed_touchdowns = 0;
     std::uint64_t terrain_plan_contact_rejections = 0;
     std::uint64_t terrain_plan_consumed = 0;
@@ -676,6 +679,10 @@ void TrotExperiment::LogSample(
         terrain_min_support_margin_m = terrain_min_support_margin_m_;
         terrain_min_uncertainty_support_margin_m =
             terrain_min_uncertainty_support_margin_m_;
+        terrain_support_failure_knot = terrain_support_failure_knot_;
+        terrain_support_failure_contact_mask =
+            terrain_support_failure_contact_mask_;
+        terrain_support_failure_margin_m = terrain_support_failure_margin_m_;
         terrain_last_plan_status = terrain_last_plan_status_;
         terrain_committed_touchdowns = terrain_committed_touchdowns_;
         terrain_known_cells = terrain_known_cells_;
@@ -798,9 +805,9 @@ void TrotExperiment::LogSample(
          << "," << terrain_plan_contact_rejections;
     if (params_.terrain_actuation)
     {
-        csv_ << "," << -1
-         << "," << 0
-         << "," << 0.0
+        csv_ << "," << terrain_support_failure_knot
+         << "," << terrain_support_failure_contact_mask
+         << "," << terrain_support_failure_margin_m
          << "," << terrain_execution_plan_id
          << "," << terrain_execution_map_epoch
          << "," << (terrain_execution_plan_usable ? 1 : 0)

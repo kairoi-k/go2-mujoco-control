@@ -372,6 +372,9 @@ private:
             std::numeric_limits<double>::infinity();
         result.plan.min_uncertainty_inflated_support_margin_m =
             std::numeric_limits<double>::infinity();
+        result.plan.support_failure_knot = -1;
+        result.plan.support_failure_contact_mask = 0;
+        result.plan.support_failure_margin_m = 0.0;
         for (std::size_t k = 0; k < result.plan.horizon_knots; ++k)
         {
             std::array<go2::Vec3, go2::kLegCount> feet{};
@@ -387,6 +390,10 @@ private:
                 result.plan.contact_schedule.planned_contact[k];
             const std::size_t contact_count = std::count(
                 contacts.begin(), contacts.end(), true);
+            int contact_mask = 0;
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                if (contacts[leg])
+                    contact_mask |= 1 << static_cast<int>(leg);
             // Running-trot legitimately contains an aerial knot at low duty.
             // It has no support polygon to evaluate; single-contact knots
             // remain infeasible and are still rejected below.
@@ -401,7 +408,12 @@ private:
                 result.plan.min_uncertainty_inflated_support_margin_m,
                 margin - result.plan.uncertainty_m);
             if (!std::isfinite(margin) || margin < config_.min_support_margin_m)
+            {
+                result.plan.support_failure_knot = static_cast<int>(k);
+                result.plan.support_failure_contact_mask = contact_mask;
+                result.plan.support_failure_margin_m = margin;
                 return false;
+            }
         }
         return true;
     }
