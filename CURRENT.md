@@ -42,6 +42,16 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
 - B0 closeout evidence covers steps, acceleration, braking, ramp, varying, and
   fixed-3-m/s under the frozen analyzer; all required terrain and baseline
   gates passed with terrain actuation disabled. This is B0 only, not B1.
+- H1 time-indexed plan-consumer development result is not accepted. Clean SHA
+  `91656557596d2e01950db17354bfeae38d079e3c` aligned gait, MPC, WBC, and
+  diagnostics to the immutable plan's absolute-time knot while preserving
+  planner-only terrain touchdown execution. The correct-scene no-debug canary
+  prepared 70 planner targets and ran to 98.09 s, but retained 28,126 required
+  plan-rejection rows, 38,431 execution rows without a WBC plan, 33 collision
+  rows, and never cleared the step. Evidence is
+  `example/cpp/experiments/_runs/phase2_b1_development_canary_h1_timealigned_20260906_033000`;
+  debug attribution is retained at
+  `example/cpp/experiments/_runs/phase2_b1_debug_h1_timealigned_reject_20260906_040000`.
 - B1 5 cm is the active next milestone and remains not accepted. Production
   terrain actuation is still absent until the Stage C shadow gates pass; B2 10
   cm and B3 mixed/repeated terrain remain not started.
@@ -99,7 +109,9 @@ superseded routes and may not define or seed this implementation.
    slice. Each development loop is one hypothesis, one clean commit, focused
    tests, one representative B0 development regression, and one B1 canary.
    Formal completion requires a fresh full frozen B0 followed by the frozen B1
-   holdout on the exact clean candidate SHA.
+   holdout on the exact clean candidate SHA. H1 is the first time-alignment
+   probe; its failure evidence remains retained and does not authorize the
+   formal sequence.
 6. Advance without scene-specific changes or widened gates: B2 10 cm, then B3
    mixed/repeated terrain with multiple map/plan epochs and fault injection.
 7. Only after B3, extend the same architecture to realistic continuous stair

@@ -53,6 +53,17 @@ as the first cause; the minimum production fix is exact SHA
 directories, manifests, analyzers, and the non-B1 boundary. B1 5 cm remains
 unaccepted.
 
+## Milestone: B1 H1 absolute-time plan-consumer development probe (2026-09-06)
+
+Not accepted at clean SHA
+`91656557596d2e01950db17354bfeae38d079e3c` (implementation
+`1e42d4c`). The correct-scene no-debug running-trot canary prepared 70
+planner-selected targets and ran to 98.09 s, but retained 28,126 required-plan
+rejection rows, 38,431 execution rows without a WBC plan, 33 collision rows,
+and never cleared the 5 cm step. The retained debug run identified
+`unknown[path]` candidate rejection. This evidence proves planner targets
+entered the execution chain; it does not establish B1 acceptance.
+
 **Stand-walk-lie sequencing + `--wbc-full` Raibert trot**, 2026-08-18 (`2b82dae`).
 
 | Item | Record |
