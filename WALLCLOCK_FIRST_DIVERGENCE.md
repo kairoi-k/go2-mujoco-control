@@ -187,6 +187,16 @@ zero planner deadline misses all passed. This is the first full-B0
 information-bearing failure after the production fix; no threshold or
 semantic change is inferred.
 
+An independent rerun of the same frozen `steps` pair completed at
+`example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260905_191350_{baseline,terrain}`
+with source SHA `dee85333004d4f7b4fe9d05b9385127ad7d4239b`, the same preload,
+domains, and production default. Both Phase-1 analyses and the frozen B0
+analyzer returned PASS. The terrain member had steady-state max error
+`0.29567809`, map-valid fraction `0.9999798192`, 1,462 planner updates, and
+zero deadline misses. The pair therefore shows a boundary-sensitive but
+reproducible pass/fail variation at the frozen metric, not a stable blocker;
+the failed `190808` pair remains the negative evidence.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
