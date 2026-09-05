@@ -340,6 +340,16 @@ solver and SRBD checks passed, torque saturation was `0.0010785432`, and all
 lifecycle, safety, quality, and analysis statuses were zero. This confirms the
 runner affinity change did not break the accepted no-terrain Phase-1 path.
 
+The first clean post-fix frozen B0 `steps` pair used exact source SHA
+`edb53dbd00186077a97072697eb70ff3d5bce154`, the canonical development
+domains, full lidar, and the new default affinity behavior. Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260905_202314_{baseline,terrain}`.
+Both members passed Phase-1; the frozen terrain B0 analyzer also returned
+`acceptance_status=PASS`. Terrain evidence was 49,552 rows, map-valid fraction
+`0.9999596384`, 1,496 planner updates, and zero planner deadline misses.
+This is one clean profile after the minimum runner fix; the remaining four
+development profiles and fixed 3-m/s pair are still required for full B0.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
