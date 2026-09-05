@@ -269,6 +269,21 @@ misses, 935 lidar rows, and no plan publish/consume or terrain actuation.
 Together with the earlier full failure, this makes the normal path a repeated
 negative at the frozen Phase-1 boundary, not a deterministic crash.
 
+The controller-side worker isolation pair used source SHA
+`34d55567640f2066b18976d7a034ddc4ce2f70bd`, after focused CTest had again
+passed 34/34. It kept full simulator lidar and the terrain subscriber, but
+set `TROT_TERRAIN_WORKER_DISABLE=1`, so no asynchronous planner worker ran.
+Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_accel_1_to_3_r0_20260905_195311_{baseline,terrain}`.
+Both Phase-1 analyses passed every frozen quantitative check. The terrain
+member had steady-state max error `0.130636073`, settling `3.007992284 s`,
+contact loss `0.2418256774`, torque saturation `0.0028727896`, and 24,202
+rows. Full lidar emitted 936 simulator telemetry rows and 751 controller
+arrivals, but the B0 analyzer failed only the expected
+`lidar_observation`, `map_telemetry`, and `planner_updated` checks because
+the disabled worker produced no map/planner diagnostics. This is diagnostic
+only: it implicates the worker's runtime presence/work as a contributor, not
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
