@@ -28,6 +28,8 @@
 #include <vector>
 #include <limits>
 #include <mutex>
+#include <condition_variable>
+#include <string>
 #include <type_traits>
 
 #include "param.h"
@@ -308,7 +310,9 @@ public:
     {
         thread_ = std::make_shared<unitree::common::RecurrentThread>(
             "unitree_bridge", UT_CPU_ID_NONE, 1000, [this]() { this->run(); });
-        if (param::config.terrain_lidar)
+        terrain_lidar_mode_ = ParseTerrainLidarRuntimeMode();
+        if (param::config.terrain_lidar &&
+            terrain_lidar_mode_ != TerrainLidarRuntimeMode::kNone)
         {
             terrain_lidar_stop_.store(false);
             terrain_lidar_thread_ = std::thread(
@@ -319,11 +323,44 @@ public:
     ~RobotBridge() override
     {
         terrain_lidar_stop_.store(true);
+        terrain_lidar_park_cv_.notify_all();
         if (terrain_lidar_thread_.joinable())
             terrain_lidar_thread_.join();
     }
 
 private:
+    enum class TerrainLidarRuntimeMode
+    {
+        kFull,
+        kSnapshot,
+        kPark,
+        kNone,
+    };
+
+    static TerrainLidarRuntimeMode ParseTerrainLidarRuntimeMode()
+    {
+        const char *mode_env = std::getenv("TROT_SIM_LIDAR_MODE");
+        if (mode_env != nullptr && mode_env[0] != 0)
+        {
+            const std::string mode(mode_env);
+            if (mode == "none")
+                return TerrainLidarRuntimeMode::kNone;
+            if (mode == "park")
+                return TerrainLidarRuntimeMode::kPark;
+            if (mode == "snapshot" || mode == "noop")
+                return TerrainLidarRuntimeMode::kSnapshot;
+            if (mode == "full")
+                return TerrainLidarRuntimeMode::kFull;
+            std::cerr << "Unknown TROT_SIM_LIDAR_MODE='" << mode
+                      << "'; using full\n";
+            return TerrainLidarRuntimeMode::kFull;
+        }
+        const char *lidar_noop_env = std::getenv("TROT_SIM_LIDAR_NOOP");
+        if (lidar_noop_env != nullptr && lidar_noop_env[0] == '1')
+            return TerrainLidarRuntimeMode::kSnapshot;
+        return TerrainLidarRuntimeMode::kFull;
+    }
+
     void TerrainLidarLoop()
     {
 #if defined(__linux__)
@@ -331,6 +368,16 @@ private:
         (void)sched_setscheduler(0, SCHED_IDLE, &scheduler_params);
 #endif
         PinCurrentThreadToEnv("TROT_SIM_LIDAR_CPU");
+        if (terrain_lidar_mode_ == TerrainLidarRuntimeMode::kPark)
+        {
+            LogRuntimeTelemetry(
+                "lidar_park", -1.0, 0, 0.0, 0.0, 0.0, -1.0, false);
+            std::unique_lock<std::mutex> lock(terrain_lidar_park_mutex_);
+            terrain_lidar_park_cv_.wait(lock, [this]() {
+                return terrain_lidar_stop_.load();
+            });
+            return;
+        }
         mjModel *sensor_model = mj_copyModel(nullptr, mj_model_);
         if (sensor_model == nullptr)
             return;
@@ -341,10 +388,8 @@ private:
             return;
         }
         auto next = std::chrono::steady_clock::now();
-        const char *lidar_noop_env =
-            std::getenv("TROT_SIM_LIDAR_NOOP");
-        const bool lidar_noop =
-            lidar_noop_env != nullptr && lidar_noop_env[0] == '1';
+        const bool lidar_snapshot =
+            terrain_lidar_mode_ == TerrainLidarRuntimeMode::kSnapshot;
         while (!terrain_lidar_stop_.load())
         {
             const auto lock_wait_start = std::chrono::steady_clock::now();
@@ -369,7 +414,7 @@ private:
             const auto lidar_operation_start = std::chrono::steady_clock::now();
             double publish_s = -1.0;
             bool published = false;
-            if (sim_time >= 0.0 && !lidar_noop)
+            if (sim_time >= 0.0 && !lidar_snapshot)
             {
                 mj_fwdPosition(sensor_model, sensor_data);
                 published = PublishLidarHeightMap(
@@ -378,7 +423,7 @@ private:
             const double lidar_operation_s = std::chrono::duration<double>(
                 std::chrono::steady_clock::now() - lidar_operation_start).count();
             LogRuntimeTelemetry(
-                lidar_noop ? "lidar_noop" : "lidar", sim_time,
+                lidar_snapshot ? "lidar_snapshot" : "lidar", sim_time,
                 sim_time >= 0.0
                     ? static_cast<std::uint64_t>(std::llround(sim_time * 1000.0))
                     : 0,
@@ -972,6 +1017,10 @@ private:
     unitree::common::RecurrentThreadPtr thread_;
     std::atomic<bool> terrain_lidar_stop_{false};
     std::thread terrain_lidar_thread_;
+    TerrainLidarRuntimeMode terrain_lidar_mode_ =
+        TerrainLidarRuntimeMode::kFull;
+    std::mutex terrain_lidar_park_mutex_;
+    std::condition_variable terrain_lidar_park_cv_;
 };
 
 using Go2Bridge = RobotBridge<unitree::robot::go2::subscription::LowCmd, unitree::robot::go2::publisher::LowState>;
