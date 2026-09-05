@@ -385,6 +385,13 @@ private:
             const auto &body = result.plan.body_reference[k];
             std::array<bool, go2::kLegCount> contacts =
                 result.plan.contact_schedule.planned_contact[k];
+            const std::size_t contact_count = std::count(
+                contacts.begin(), contacts.end(), true);
+            // Running-trot legitimately contains an aerial knot at low duty.
+            // It has no support polygon to evaluate; single-contact knots
+            // remain infeasible and are still rejected below.
+            if (contact_count == 0)
+                continue;
             const double margin = SupportMargin2D(
                 feet, contacts, body.position, config_.min_support_margin_m,
                 config_.max_two_contact_line_error_m);

@@ -133,6 +133,9 @@ int main()
         if (k >= 2)
             input.contact_schedule.planned_contact[k] = {true, true, true, true};
     }
+    // The frozen running-trot duty permits an aerial knot; it is not a
+    // support failure, while a one-contact knot remains invalid.
+    input.contact_schedule.planned_contact[1].fill(false);
     input.contact_schedule.planned_valid = true;
     go2_terrain::TerrainPlannerConfig planner_config;
     planner_config.sensor_only = true;
