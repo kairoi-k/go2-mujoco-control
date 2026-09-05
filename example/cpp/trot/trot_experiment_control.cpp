@@ -251,6 +251,8 @@ void TrotExperiment::TerrainPlannerWorker()
         terrain_work_cv_.wait(lock, [this]() {
             return terrain_worker_stop_.load();
         });
+        return;
+    }
     std::uint64_t consumed_generation = 0;
     for (;;)
     {
