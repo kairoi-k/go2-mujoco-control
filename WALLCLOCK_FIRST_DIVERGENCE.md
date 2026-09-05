@@ -173,6 +173,20 @@ passed every strict and quantitative check with `id_wbc_ok_fraction=1.0`.
 The failure is therefore retained as stochastic baseline evidence, not
 attributed to the worker-order fix.
 
+The first post-fix frozen B0 profile was `steps`, source SHA
+`a6230b821056787267748e2fc530522e9d15fbd9`, run with the exact development
+domains, serial lock, default full lidar, and the existing DDS preload. Raw
+directories are
+`example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260905_190808_{baseline,terrain}`.
+Both members completed with lifecycle, controller, quality, safety, dynamics,
+and analysis statuses zero. The baseline Phase-1 analysis passed. The terrain
+member and frozen B0 analyzer failed only the terrain Phase-1
+`steady_state_error` check: max error `0.43060309` versus frozen `0.40`.
+ID-WBC, solver, map-valid fraction `0.9999798188`, 1,543 planner updates, and
+zero planner deadline misses all passed. This is the first full-B0
+information-bearing failure after the production fix; no threshold or
+semantic change is inferred.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
