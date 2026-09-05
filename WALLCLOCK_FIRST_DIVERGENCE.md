@@ -212,6 +212,21 @@ publish/consume, and no terrain actuation. This is a production-default
 negative result after the worker-order fix; the prior diagnostic-env
 acceleration PASS is therefore not sufficient to close B0.
 
+## Production-default lidar-mode diagnostic
+
+The next same-profile pair used source SHA
+`fc93eb5433837ea7b67fc0b2b0185025342c9c6f`, the same lock, domains, and
+preload, but set `TROT_SIM_LIDAR_MODE=none`, so the simulator did not create
+a lidar thread. Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_accel_1_to_3_r0_20260905_193028_{baseline,terrain}`.
+Both members completed with lifecycle, controller, quality, safety, dynamics,
+and analysis statuses zero. The terrain Phase-1 diagnostic failed only the
+frozen settling gate at `10.049994995 s`; contact loss, steady-state error,
+torque saturation, solver, and ID-WBC checks passed. The B0 analyzer
+structurally failed as expected because lidar observation and map telemetry
+were absent (map-valid fraction `0.0`), despite 735 planner updates and zero
+deadline misses. This is diagnostic evidence only, but it shows that removing
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
