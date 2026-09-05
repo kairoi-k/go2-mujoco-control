@@ -303,6 +303,21 @@ still emitted 656 telemetry rows. This single pair shows worker creation/park
 can be materially destabilizing, but is not yet a deterministic root-cause
 proof.
 
+The controller worker-park/no-pin diagnostic used source SHA
+`8ba18f5fe0e4cf8051d3700d0260588b54616d55`; it set
+`TROT_TERRAIN_WORKER_PARK=1` and `TROT_CPU_AFFINITY_TERRAIN=-1`, so the
+worker was created and placed in SCHED_IDLE but did not consume terrain work
+or receive a worker CPU pin. Raw directories are
+`example/cpp/experiments/_runs/phase2_b0_development_accel_1_to_3_r0_20260905_200926_{baseline,terrain}`.
+The baseline Phase-1 analysis passed. The terrain run completed all 40 s
+without a safety rejection and failed Phase-1 only on torque saturation
+(`0.0030152339`); its other frozen quantitative checks passed, with 24,201
+rows and 934 full-lidar telemetry events. The B0 analyzer failed the expected
+no-map/no-planner structural checks plus Phase-1 (`terrain_map_valid_fraction=0`,
+`terrain_planner_updates=0`). Compared with the pinned park run, this isolates
+the pin/CPU placement path as a stronger contributor than worker creation alone,
+but it is one diagnostic pair and not yet a production fix or B0 acceptance.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
