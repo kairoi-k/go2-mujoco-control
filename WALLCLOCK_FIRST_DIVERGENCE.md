@@ -136,6 +136,23 @@ difference is materially smaller than the 458-tick default-order pair. The
 probe reorders only thread startup; the production default remains unchanged
 until a longer regression validates it.
 
+## Candidate B0 acceleration probe
+
+With source SHA `698284553f48ffe876683da51759eba15c8425ef`, the canonical
+`accel_1_to_3` development pair was run under the required experiment lock
+and `LD_PRELOAD=/home/che/dds_base8000_preload.so`, with
+`TROT_TERRAIN_WORKER_AFTER_WRITER=1`. Raw directories are
+`phase2_b0_development_accel_1_to_3_r0_20260905_185710_{baseline,terrain}`.
+Both lifecycle, controller, quality, safety, dynamics, and analysis statuses
+were zero. The terrain member passed Phase-1 quantitative/strict analysis;
+the frozen `b0_analyzer.json` returned `acceptance_status=PASS`, with 24,201
+terrain rows, map-valid fraction 1.0, 786 planner updates, and zero deadline
+misses. The paired baseline Phase-1 diagnostic had torque saturation fraction
+0.00320368597 and returned FAIL, while the terrain member was 0.00289586426;
+this is retained as diagnostic context and was not hidden by the B0 analyzer.
+This is one development profile under a diagnostic env, not full B0 and not
+the final production-fix acceptance.
+
 ## Recovery record
 
 The initial audit was performed in `/home/che/dev/go2-workspace/current` without
