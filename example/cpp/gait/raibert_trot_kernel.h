@@ -272,6 +272,7 @@ public:
         result.period_s = params_.gait.period_s;
         result.duty_factor = params_.gait.duty_factor;
         result.step_length_m = params_.gait.step_length_m;
+        result.effective_foot_lift_m = params_.gait.foot_lift_m;
 
         const RaibertFootstepPlannerParams planner_params{
             params_.gait.period_s,

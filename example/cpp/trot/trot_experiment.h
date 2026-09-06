@@ -410,6 +410,7 @@ private:
     bool runtime_velocity_stance_hold_active_ = false;
     double runtime_gait_step_length_m_ = 0.0;
     double runtime_gait_foot_lift_m_ = 0.0;
+    double kernel_effective_foot_lift_m_ = std::numeric_limits<double>::quiet_NaN();
     std::string runtime_gait_regime_ = "inactive";
     std::size_t period_plan_index_ = 0;
     double wbc_speed_cmd_mps_ = -1.0;

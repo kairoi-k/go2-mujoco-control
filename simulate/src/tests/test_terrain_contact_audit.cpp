@@ -35,6 +35,13 @@ int main() {
     if (a.top != b.top || std::abs(a.top_force_world_z-b.top_force_world_z)>1e-9 ||
         std::abs(a.nontop_force_norm-b.nontop_force_norm)>1e-9) return 5;
     ++checks;
+    const int saved_type = m->geom_type[terrain];
+    m->geom_type[terrain] = mjGEOM_MESH;
+    auto unknown = AuditTerrainContact(m, d, c, side, force);
+    if (unknown.top || unknown.top_force_world_z != 0.0 ||
+        unknown.nontop_force_norm <= 1) return 6;
+    m->geom_type[terrain] = saved_type;
+    ++checks;
     mj_deleteData(d); mj_deleteModel(m);
   }
   std::cout << checks << " real-contact and geom-order checks PASS\n";

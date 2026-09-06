@@ -37,7 +37,7 @@ void TrotExperiment::WriteCsvHeader()
          << ",velocity_command_active,velocity_command_stance_hold"
          << ",velocity_command_gait_period_s"
          << ",velocity_command_gait_duty,velocity_command_gait_step_length_m"
-         << ",velocity_command_gait_foot_lift_m,velocity_command_gait_regime"
+         << ",velocity_command_gait_foot_lift_m,kernel_effective_foot_lift_m,velocity_command_gait_regime"
          << ",environment_map_valid,environment_map_age_s"
          << ",obstacle_center_distance_m,obstacle_left_distance_m,obstacle_right_distance_m"
          << ",obstacle_center_height_m,obstacle_left_height_m,obstacle_right_height_m"
@@ -783,6 +783,7 @@ void TrotExperiment::LogSample(
          << "," << kernel_duty_factor_
          << "," << runtime_gait_step_length_m_
          << "," << runtime_gait_foot_lift_m_
+         << "," << kernel_effective_foot_lift_m_
          << "," << runtime_gait_regime_
          << "," << (latest_motion_sensor_.have_obstacle_scan ? 1 : 0)
          << "," << (std::isfinite(latest_motion_sensor_.obstacle_scan_age_s)

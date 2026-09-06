@@ -190,6 +190,8 @@ struct GaitKernelResult
     double period_s = 0.0;
     double duty_factor = 0.0;
     double step_length_m = 0.0;
+    // Effective lift after kernel-side slew/adaptation for this Compute tick.
+    double effective_foot_lift_m = std::numeric_limits<double>::quiet_NaN();
 };
 
 class LocomotionKernel
@@ -300,6 +302,7 @@ public:
         result.period_s = params_.period_s;
         result.duty_factor = params_.duty_factor;
         result.step_length_m = params_.step_length_m;
+        result.effective_foot_lift_m = params_.foot_lift_m;
 
         const double blend =
             Smoothstep(effective_gait_time / params_.blend_duration_s);

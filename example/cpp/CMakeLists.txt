@@ -71,6 +71,12 @@ if(EXISTS "${_go2_mujoco_lib}")
 endif()
 
 function(go2_add_ctest name)
+    # A Release test must execute assertions, including calls inside assert().
+    if(MSVC)
+        target_compile_options(${name} PRIVATE /UNDEBUG)
+    else()
+        target_compile_options(${name} PRIVATE -UNDEBUG)
+    endif()
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
@@ -103,6 +109,9 @@ add_executable(test_motion_frame_utils tests/test_motion_frame_utils.cpp)
 add_executable(test_velocity_filter tests/test_velocity_filter.cpp)
 add_executable(test_velocity_command tests/test_velocity_command.cpp)
 go2_add_ctest(test_velocity_command)
+
+add_executable(test_terrain_swing_lift tests/test_terrain_swing_lift.cpp)
+target_link_libraries(test_terrain_swing_lift Eigen3::Eigen)
 
 add_executable(test_trot_task tests/test_trot_task.cpp trot/trot_task.cpp)
 
@@ -243,6 +252,7 @@ go2_add_ctest(test_raibert_trot_kernel)
 go2_add_ctest(test_motion_frame_utils)
 go2_add_ctest(test_trot_task)
 go2_add_ctest(test_velocity_filter)
+go2_add_ctest(test_terrain_swing_lift)
 go2_add_ctest(test_contact_state_filter)
 go2_add_ctest(test_contact_wrench_allocator)
 go2_add_ctest(test_go2_leg_jacobian)

@@ -30,5 +30,25 @@ Existing aggregate foot forces and nonfoot-collision fields remain unchanged.
 
 The native simulator test creates real penetrating sphere/box contacts on top
 and at the riser, checks independent generalized constraint vertical force and
-reversed contact-order algebra. Four checks pass. Full integration CSV alignment
+reversed contact-order algebra plus unsupported geometry rejection. Six checks pass. Full integration CSV alignment
 and candidate judgments remain to be checked on new real runs.
+
+## Lift correction validation
+
+The kernel result carries the current tick's effective lift after slew and
+adaptation; the runtime terrain supplement uses this value. Non-runtime modes
+retain their prior convention. Missing/nonfinite lift stops command generation.
+The CSV independently records requested and effective lift. This repairs scalar
+accounting only, not the complete checked/executed swing-path mismatch.
+
+Full native build and 36/36 CTest pass. Release test targets now retain asserts.
+Two historical tests depended on assertions previously disabled by NDEBUG:
+`test_velocity_command` and `test_wbc_runtime_gate`. An independent assertion-
+enabled replay passed the WBC gate test and exposed a velocity test fixture
+that expected a one-second qualification after only 0.502 s. The fixture now
+checks 499 prequalification ticks (0.998 s), then the qualified boundary and
+continuation. Production scheduler behavior is unchanged. Original failure
+and source hashes remain under `_runs/b1_assert_audit_20260907_0001/`.
+The first formal build also caught a missing Eigen dependency in the new test
+target; corrected before the successful full build. Worker standalone syntax
+and test results were not treated as final build acceptance.

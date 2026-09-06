@@ -17,6 +17,7 @@
 #include "motion_frame_utils.h"
 #include "cartesian_world_trot.h"
 #include "full2_campaign_env.h"
+#include "terrain_swing_lift.h"
 
 using namespace unitree::common;
 using namespace unitree::robot;
@@ -307,6 +308,7 @@ bool TrotExperiment::BuildGaitTargets(
         return false;
     }
     kernel_footstep_plan_valid_ = gait_result.footstep_plan_valid;
+    kernel_effective_foot_lift_m_ = gait_result.effective_foot_lift_m;
     kernel_touchdown_target_feet_base_ = gait_result.touchdown_target_feet_base;
     have_kernel_touchdown_target_feet_ = gait_result.touchdown_target_feet_valid;
     kernel_velocity_error_x_mps_ = gait_result.velocity_error_x_mps;
@@ -1583,10 +1585,22 @@ bool TrotExperiment::BuildGaitTargets(
             feet[leg].x += (target_body.x - feet[leg].x) * handoff_u;
             feet[leg].y += (target_body.y - feet[leg].y) * handoff_u;
             feet[leg].z += (target_body.z - feet[leg].z) * handoff_u;
-            const double nominal_lift = std::max(
-                params_.foot_lift_m, runtime_gait_foot_lift_m_);
-            const double extra_lift = std::max(
-                0.0, terrain_execution_target_lift_[leg] - nominal_lift);
+            const double nominal_lift = TerrainKernelNominalLift(
+                params_.runtime_velocity_command,
+                params_.foot_lift_m, runtime_gait_foot_lift_m_,
+                gait_result.effective_foot_lift_m);
+            const double target_lift =
+                terrain_execution_target_lift_[leg];
+            if (!std::isfinite(nominal_lift) || nominal_lift < 0.0 ||
+                !std::isfinite(target_lift) || target_lift < 0.0)
+            {
+                std::cerr << "Terrain gait lift unavailable at leg=" << leg
+                          << " target=" << target_lift
+                          << " kernel=" << nominal_lift << "\n";
+                return false;
+            }
+            const double extra_lift = TerrainExtraLift(
+                target_lift, nominal_lift);
             feet[leg].z += extra_lift * go2_terrain::TerrainSwingProfile(
                 swing_u, 0.5);
             if (handoff_u > 1.0e-6 || extra_lift > 1.0e-6)

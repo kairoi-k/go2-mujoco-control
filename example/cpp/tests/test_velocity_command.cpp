@@ -35,7 +35,8 @@ int main()
     // Qualification is time-based: ramping through the low band never
     // engages the support-rich schedule, sustaining it for one second does.
     go2_trot::ContinuousVelocityGaitScheduler scheduler;
-    for (int i = 0; i < 250; ++i)
+    // 499 ticks = 0.998 s: still below the one-second qualification.
+    for (int i = 0; i < 499; ++i)
     {
         const auto schedule = scheduler.Step(0.30, 0.002);
         assert(std::abs(schedule.period_s - 0.14) < 1.0e-9);
