@@ -208,6 +208,23 @@ line-distance and endpoint components. Focused CTest is 4/4 PASS, but B1
 remains unaccepted and no threshold or acceptance semantic change is
 authorized.
 
+## H8 offline replay and Atlas shadow validation (2026-09-06)
+
+Diagnostic complete at clean SHA d550fb36aaee877b31f451c72fe6beec3d8b5fd2;
+B1 remains unaccepted. The offline replay checker explicitly rejects legacy
+H5/H6 CSVs missing same-tick model-COM and shadow provenance. Final flat
+terrain-sensor-only shadow evidence is
+[phase2_h8_final_flat_shadow_on_d550fb3](../example/cpp/experiments/_runs/phase2_h8_final_flat_shadow_on_d550fb3):
+6,653 rows, 2,103 checked, 1,820 complete snapshots, 283 explicit rejects,
+and zero same-tick COM mismatches. The safe 5 cm approach fragment is
+[phase2_h8_final_step5cm_shadow_on_d550fb3](../example/cpp/experiments/_runs/phase2_h8_final_step5cm_shadow_on_d550fb3):
+4,443 rows, 2,296 checked, 1,890 complete snapshots, 406 explicit rejects,
+and zero COM timestamp mismatches. Shadow plans use diagnostic-only extra
+absolute-time coverage; terrain actuation stayed off. Off/on command
+invariance was not proven because repeated lockstep runs had different first
+ticks and baseline output variation. The exact-SHA fixed-3-m/s B0 pair passed;
+no B1 holdout or acceptance-semantic change was made.
+
 ## Evidence policy
 
 Keep artifacts needed to understand the controller. Bulk logs and generated

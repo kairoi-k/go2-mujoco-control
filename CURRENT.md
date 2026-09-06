@@ -117,7 +117,8 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   338fe1ceee0c7b5c094c79081fe9493334db56dc; the old-version witness at
   ff937daf1bd768225066406940a6c46cec30a256 failed because legacy horizon
   overrun fabricated a valid current foot. Contract tests at
-  They also cover absolute-time horizon bounds, delayed consumption, 20/30 ms
+  8c02c2a708218af56261da65986df905e7f8d9fa cover absolute-time horizon
+  bounds, delayed consumption, 20/30 ms
   mismatch, touchdown commitment lifetime, model-COM provenance, and separate
   measured, planned, and applied contacts. Focused CTest is 5/5 PASS and
   real_trot_go2 builds. The new path is env-gated by
@@ -129,13 +130,39 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   and 12,803/18,615 model-COM rows passed. The exact four-contact subset passed
   3,072/3,072 for both. Two-contact rows are dynamic diagnostics, not proof of
   stable-state safety; H5 selected foothold coordinates remain missing.
-- Remaining gaps are the fully populated worker model-COM snapshot, complete
-  Stage-C joint planning of body/CoM/contact promises, and shadow validation in
-  Atlas. B1 remains unaccepted; B0 evidence and all prior failure directories
-  are retained, with no threshold, contract, or acceptance-semantic change.
-- B1 5 cm is the active next milestone and remains not accepted. Production
-  terrain actuation is still absent until the Stage C shadow gates pass; B2 10
-  cm and B3 mixed/repeated terrain remain not started.
+- H8 offline replay plus Atlas shadow validation is complete at clean source
+  d550fb36aaee877b31f451c72fe6beec3d8b5fd2. The replay checker is
+  example/cpp/tools/analysis/replay_terrain_execution_consistency.py; old H5
+  CSVs are explicitly rejected for missing model-COM/shadow provenance.
+  Focused consistency CTest is PASS and real_trot_go2 builds. The shadow path
+  is independent of terrain_actuation, defaults off, and records same-tick
+  model COM, absolute horizon coverage, per-leg touchdown events, source
+  plan/epoch, target time/xyz, and commitment inheritance. Shadow-only plans
+  use 16 knots/0.30 s to cover observed consumption delay; no terminal-knot
+  copy or expired-plan extension is allowed. Verification requires: shadow-off
+  is unchecked (never pass); shadow-on normal rows have a real plan, same-tick
+  model COM, full absolute MPC coverage, event/target-consistent commitments,
+  and a valid snapshot; missing plan, COM, coverage, expiry, or target mismatch
+  is rejected.
+- Final Atlas flat shadow-on evidence is
+  example/cpp/experiments/_runs/phase2_h8_final_flat_shadow_on_d550fb3:
+  6,653 rows, 2,103 checked, 1,820 complete snapshots, 283 explicit rejects,
+  6,653/6,653 same-tick COM rows. The safe 5 cm approach evidence is
+  example/cpp/experiments/_runs/phase2_h8_final_step5cm_shadow_on_d550fb3:
+  4,443 rows, 2,296 checked, 1,890 complete snapshots, 406 explicit rejects,
+  4,443/4,443 same-tick COM rows. Both are diagnostic only; terrain actuation
+  stayed off and neither is B1 acceptance.
+- The lockstep off/on command comparison is not counted as invariant proof:
+  repeated off runs already showed large wall-clock/start-state variation, and
+  the paired runs began at different first state ticks. This is a remaining
+  provenance limitation, not evidence that shadow outputs were consumed.
+  The representative fixed-3-m/s B0 pair at the same exact source passed B0
+  acceptance at
+  example/cpp/experiments/_runs/phase2_b0_development_fixed_3mps_r1_20260906_153740_baseline
+  and
+  example/cpp/experiments/_runs/phase2_b0_development_fixed_3mps_r1_20260906_153740_terrain.
+  B1 remains unaccepted; no threshold, contract, or acceptance-semantic change
+  was made.
 
 - The B1 planner-execution consistency audit is diagnostic and blocked, not
   an acceptance attempt. No new Atlas run was created. At the first retained
