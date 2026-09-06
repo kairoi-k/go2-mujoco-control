@@ -473,3 +473,8 @@ remain frozen in `docs/research/PHASE2_ACCEPTANCE.md`.
 4. Raw evidence and target-specific analyzers.
 
 Anything else is implementation or history and cannot change this plan.
+
+The c7f20b2 hold correction removed initial false swing applications, but its flat
+probe still failed IK at gait_time 9.39195. The next isolated ablation removes
+direct world-Z stance anchoring while retaining committed swing lifecycle.
+Implicit body-height feedback versus stale map frames remains under investigation.

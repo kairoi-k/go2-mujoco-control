@@ -1538,14 +1538,9 @@ bool TrotExperiment::BuildGaitTargets(
                         ++terrain_surface_transition_completions_;
                     }
                 }
-                // Hold world height while retaining the current world X/Y
-                // trajectory. Copying only target_body.z is wrong under tilt.
-                go2::Vec3 stance_foot{};
-                if (!HoldTerrainWorldHeight(pose.base, pose.quaternion,
-                        feet[leg], terrain_execution_target_world_[leg].z,
-                        stance_foot)) return false;
-                feet[leg] = stance_foot;
-                terrain_execution_applied_mask_ |= 1 << static_cast<int>(leg);
+                // Retain the Phase-1 body-relative stance target. Direct
+                // world-Z anchoring removes its implicit body-height feedback;
+                // terrain offsets need a jointly consistent body reference.
                 required_mask |= 1 << static_cast<int>(leg);
                 continue;
             }

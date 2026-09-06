@@ -101,3 +101,12 @@ otherwise usable cyclic plan cannot prepare fictitious swing targets. It does
 not add a local contact authority or alter the Phase-1 velocity command. The
 three relevant native tests pass. Failure logs now also include commanded foot
 positions, phase, duty, hold state and applied mask for the first IK failure.
+
+## Stance-height ablation
+
+Clean c7f20b2775ff19459871628106b3c45bd38aa3dc fixes initial canonical hold
+(applied mask zero), but flat still fails IK at gait_time 9.39195. See
+`hold_flat_failure.json`. Remove only active direct world-Z stance application
+next; retain committed swing expiry semantics and coordinate utility tests.
+The suspected loss of body-height feedback remains a hypothesis. Focused
+velocity-command, commitment-lifecycle and WBC gate tests pass 3/3.
