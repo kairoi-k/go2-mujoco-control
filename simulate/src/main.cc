@@ -14,6 +14,7 @@
 
 // !!! hack code: make glfw_adapter.window_ public
 #define private public
+#include "terrain_contact_audit.h"
 #include "glfw_adapter.h"
 #undef private
 
@@ -306,7 +307,9 @@ namespace
                   << "," << leg << "_pos_world_x_m"
                   << "," << leg << "_pos_world_y_m"
                   << "," << leg << "_pos_world_z_m"
-                  << "," << leg << "_touch_N";
+                  << "," << leg << "_touch_N"
+                  << "," << leg << "_terrain_top_grf_world_z_N"
+                  << "," << leg << "_terrain_nontop_contact_force_N";
         }
         for (int row = 0; row < 6; ++row)
           for (int col = 0; col < 6; ++col)
@@ -480,11 +483,15 @@ namespace
 
     void ComputePhase2TerrainContact(
         const mjModel *model, const mjData *data, int *foot_contact_mask,
-        int *nonfoot_contact_count, double *nonfoot_contact_force_N) const
+        int *nonfoot_contact_count, double *nonfoot_contact_force_N,
+        std::array<double, 4> *top_grf_z,
+        std::array<double, 4> *nontop_force) const
     {
       *foot_contact_mask = 0;
       *nonfoot_contact_count = 0;
       *nonfoot_contact_force_N = 0.0;
+      top_grf_z->fill(0.0);
+      nontop_force->fill(0.0);
       mjtNum contact_force[6];
       for (int contact_id = 0; contact_id < data->ncon; ++contact_id)
       {
@@ -506,6 +513,13 @@ namespace
           {
             *foot_contact_mask |= 1 << static_cast<int>(leg);
             foot_contact = true;
+            // Audit-only ground truth: resolve each terrain/foot contact,
+            // never infer top support from the aggregate foot force.
+            mj_contactForce(model, data, contact_id, contact_force);
+            const auto audit = AuditTerrainContact(
+                model, data, contact, terrain_side, contact_force);
+            (*top_grf_z)[leg] += audit.top_force_world_z;
+            (*nontop_force)[leg] += audit.nontop_force_norm;
             break;
           }
         }
@@ -590,9 +604,11 @@ namespace
       int terrain_foot_contact_mask = 0;
       int terrain_nonfoot_contact_count = 0;
       double terrain_nonfoot_contact_force_N = 0.0;
+      std::array<double, 4> terrain_top_grf_z{}, terrain_nontop_force{};
       ComputePhase2TerrainContact(
           model, data, &terrain_foot_contact_mask,
-          &terrain_nonfoot_contact_count, &terrain_nonfoot_contact_force_N);
+          &terrain_nonfoot_contact_count, &terrain_nonfoot_contact_force_N,
+          &terrain_top_grf_z, &terrain_nontop_force);
       stream_ << std::setprecision(12) << data->time
               << "," << step_index_
               << "," << total_mass_kg_
@@ -676,7 +692,9 @@ namespace
                 << "," << site_pos[0]
                 << "," << site_pos[1]
                 << "," << site_pos[2]
-                << "," << touch;
+                << "," << touch
+                << "," << terrain_top_grf_z[i]
+                << "," << terrain_nontop_force[i];
       }
       for (int row = 0; row < 6; ++row)
         for (int col = 0; col < 6; ++col)

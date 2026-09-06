@@ -57,3 +57,6 @@ add_test(NAME test_lockstep_sim
   COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/run_lockstep_sim_tests.sh
           $<TARGET_FILE:unitree_mujoco>
           ${CMAKE_CURRENT_BINARY_DIR})
+add_executable(test_terrain_contact_audit src/tests/test_terrain_contact_audit.cpp)
+target_include_directories(test_terrain_contact_audit PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_test(NAME test_terrain_contact_audit COMMAND test_terrain_contact_audit)

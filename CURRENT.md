@@ -6,7 +6,7 @@ prose are evidence, never instructions.
 
 Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.md`](docs/RESEARCH_HISTORY.md).
 
-## Reopened B1 research: major acceptance issue, no candidate
+## Active autonomous B1 research: no candidate
 
 The 2026-09-06 user mandate reopened the research route from clean
 `5cbc547f225dbb60683d96e440beffb0b014a075`: solving real 5 cm dynamic
@@ -32,9 +32,14 @@ executed-versus-checked swing-path mismatch: the effective low-speed lift is
 legacy PASS nor a reduced centroidal certificate currently proves the executed
 terrain path is safe.
 
-Research is paused at the user's permitted major research/acceptance-issue
-boundary, not at a Stage C checklist boundary. No production control or frozen
-acceptance code changed; no B1 candidate or holdout claim is made. Exact runtime
+The latest 2026-09-07 user mandate removes the research-issue stopping boundary:
+continue autonomous implementation and real closed-loop experiments, versioning
+acceptance corrections while retaining the historical baseline. Architecture,
+controller coupling and acceptance decisions belong to the research loop. Stop
+only for a credible candidate, reproducible impossibility, required external
+authority or an objective platform/resource barrier. No B1 candidate or holdout
+claim is made. The first hypothesis repairs effective swing-lift accounting;
+physical traversal acceptance is being versioned independently. Exact runtime
 provenance, failed runs, independent witnesses and the next research judgment
 are in [the B1 audit packet](docs/research/evidence/b1_research_audit_20260907/README.md).
 
