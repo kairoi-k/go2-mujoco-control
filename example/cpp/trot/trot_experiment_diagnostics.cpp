@@ -55,6 +55,8 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_min_slope_rad,terrain_max_roughness_m,terrain_min_reachability_margin_m,terrain_min_swing_clearance_m"
          << ",terrain_min_support_margin_m,terrain_min_uncertainty_support_margin_m"
          << ",terrain_plan_contact_rejections"
+         << ",terrain_model_com_valid,terrain_model_com_state_stamp_s"
+         << ",terrain_model_com_x_m,terrain_model_com_y_m,terrain_model_com_z_m"
          << ",wbc_terrain_execution_shadow_enabled"
          << ",wbc_terrain_execution_shadow_checked"
          << ",wbc_terrain_execution_snapshot_valid"
@@ -810,6 +812,11 @@ void TrotExperiment::LogSample(
          << "," << terrain_min_support_margin_m
          << "," << terrain_min_uncertainty_support_margin_m
          << "," << terrain_plan_contact_rejections
+         << "," << (terrain_model_com_valid_ ? 1 : 0)
+         << "," << terrain_model_com_state_stamp_s_
+         << "," << (terrain_model_com_valid_ ? terrain_model_com_world_.x : 0.0)
+         << "," << (terrain_model_com_valid_ ? terrain_model_com_world_.y : 0.0)
+         << "," << (terrain_model_com_valid_ ? terrain_model_com_world_.z : 0.0)
          << "," << (wbc_shadow_diagnostics_.terrain_execution_shadow_enabled ? 1 : 0)
          << "," << (wbc_shadow_diagnostics_.terrain_execution_shadow_checked ? 1 : 0)
          << "," << (wbc_shadow_diagnostics_.terrain_execution_snapshot_valid ? 1 : 0)
