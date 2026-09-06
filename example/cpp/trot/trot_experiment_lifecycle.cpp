@@ -232,8 +232,15 @@ bool TrotExperiment::Init()
     InitLowCmd();
 
     go2_terrain::TerrainPlannerConfig terrain_config;
-    terrain_config.sensor_only = params_.terrain_sensor_only;
-    terrain_config.allow_actuation = params_.terrain_actuation;
+    const bool terrain_consistency_shadow = Full2EnvDouble(
+        "TROT_TERRAIN_EXECUTION_CONSISTENCY_SHADOW", 0.0) > 0.5;
+    // Shadow is an opt-in diagnostic planner. It may publish an immutable
+    // plan for validation, while terrain_actuation remains the sole switch
+    // that permits gait/MPC/WBC consumers to use it.
+    terrain_config.sensor_only =
+        params_.terrain_sensor_only && !terrain_consistency_shadow;
+    terrain_config.allow_actuation =
+        params_.terrain_actuation || terrain_consistency_shadow;
     terrain_planner_ = go2_terrain::TerrainPlanner(terrain_config);
 
     if (params_.wbc_full)
