@@ -43,6 +43,7 @@ Every accepted result, historical non-regression result, `milestone/*` tag, and 
 
 ## Non-acceptance register
 
+| 2026-09-06 | B1 planner-execution consistency audit | diagnostic; blocked | Clean source a0cba291e0334f986b4a7512c26e8591377e13d0 | No new Atlas run. The retained H5 first rejection at 2.122 s is plan 8 rejected (knot 0, planned mask 9, margin 0.014376197 m) while usable execution plan 7 remains active; at 2.170 s execution becomes empty. The same row has WBC measured mask 15 versus planned mask 6, and the paired contact record has four nonzero foot forces. Source review confirms base-origin versus dyn-COM, planned-versus-measured contact, independent candidate selection, 20/30 ms horizon indexing, and unverified per-leg execution-plan promises. Focused CTest is 4/4 PASS; B1 remains unaccepted and requires architecture-level consistency repair. |
 
 These rows are part of the same ledger. They make failed, superseded, or design-only work discoverable without allowing it to masquerade as a capability milestone.
 

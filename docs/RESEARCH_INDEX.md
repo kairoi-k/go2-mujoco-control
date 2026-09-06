@@ -156,6 +156,24 @@ checkpoint record live in [`kairoi-k/go2-isaaclab-rl`](https://github.com/kairoi
 Motion imitation, AMP, and seam JSON live in
 [`kairoi-k/kine2go-research`](https://github.com/kairoi-k/kine2go-research).
 
+## B1 planner-execution consistency audit (2026-09-06)
+
+Diagnostic and blocked at clean source a0cba291e0334f986b4a7512c26e8591377e13d0;
+no new Atlas run was created. The retained H5 first rejection at
+state_tick_s=2.122 rejected planner plan 8 at knot 0 with planned contact
+mask 9 and margin 0.014376197 m, while usable execution plan 7 remained
+active. At 2.170 s the execution plan became empty. The same row reports WBC
+measured mask 15 versus planned mask 6; the paired contact record reports
+nonzero force on all four feet. Source review independently confirms
+base-origin versus dynamic-COM, planned-versus-measured contact, per-leg
+candidate selection followed by one support check, 20 ms planner versus
+30 ms MPC horizon indexing at a 0.24 s gait period, and a latched per-leg
+target plan id not cross-checked by MPC. The H5 CSV does not contain the
+selected foothold coordinates needed to split the support margin into
+line-distance and endpoint components. Focused CTest is 4/4 PASS, but B1
+remains unaccepted and no threshold or acceptance semantic change is
+authorized.
+
 ## Evidence policy
 
 Keep artifacts needed to understand the controller. Bulk logs and generated

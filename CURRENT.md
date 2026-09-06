@@ -99,6 +99,25 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   terrain actuation is still absent until the Stage C shadow gates pass; B2 10
   cm and B3 mixed/repeated terrain remain not started.
 
+- The B1 planner-execution consistency audit is diagnostic and blocked, not
+  an acceptance attempt. No new Atlas run was created. At the first retained
+  H5 support rejection (state_tick_s=2.122), planner plan 8 was rejected
+  with failure 5, knot 0, planned mask 9, and margin 0.014376197 m, while
+  execution still consumed usable plan 7. The same row reports WBC measured
+  mask 15 versus terrain planned mask 6; the paired contact record at 2.122 s
+  has nonzero force on all four feet. Plan 7 becomes execution id 0 at
+  2.170 s, confirming the rejection-to-expiry chain. The source audit also
+  confirms that support validation uses base_position_world while MPC uses
+  dyn.com_world; planned contact drives the polygon mask while measured
+  contact only seeds touchdown detection; candidate legs are selected
+  independently with one final support check; planner knots are 20 ms while
+  MPC uses 30 ms at a 0.24 s gait period but indexes terrain_k0+k; and
+  gait latches a per-leg target plan id that MPC does not cross-check against
+  its latest plan. The H5 CSV lacks the selected foothold coordinates needed
+  to decompose 0.014376197 m into line-distance versus endpoint margin, so it
+  is not a dynamic-stability measurement. Focused CTest remained 4/4 PASS;
+  B1 stays unaccepted pending architecture-level consistency repair.
+
 ## Goal
 
 Build sensor-derived dynamic locomotion that can grow into continuous,
