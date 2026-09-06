@@ -245,10 +245,10 @@ bool TrotExperiment::Init()
     {
         // The shadow consumer validates an 8-knot MPC horizon after the
         // observed planner-consumption delay (up to about 300 ms). Generate
-        // real knots through that delay plus the MPC horizon, but expire the
-        // plan before its remaining coverage is shorter than that horizon.
+        // real knots through that delay plus the MPC horizon. The shadow
+        // consumer separately requires complete coverage before checking.
         terrain_config.horizon_knots = 24;
-        terrain_config.plan_validity_s = 0.32;
+        terrain_config.plan_validity_s = 0.46;
     }
     terrain_planner_ = go2_terrain::TerrainPlanner(terrain_config);
 
