@@ -140,9 +140,21 @@ void TrotExperiment::PublishTerrainControlSnapshot(
     snapshot.base_roll_rad = state_snapshot.imu_state().rpy()[0];
     snapshot.base_pitch_rad = state_snapshot.imu_state().rpy()[1];
     snapshot.base_yaw_rad = state_snapshot.imu_state().rpy()[2];
+    double quaternion_norm_squared = 0.0;
+    bool quaternion_finite = true;
     for (std::size_t axis = 0; axis < snapshot.base_quaternion.size(); ++axis)
+    {
         snapshot.base_quaternion[axis] =
             state_snapshot.imu_state().quaternion()[axis];
+        quaternion_finite = quaternion_finite &&
+            std::isfinite(snapshot.base_quaternion[axis]);
+        if (std::isfinite(snapshot.base_quaternion[axis]))
+            quaternion_norm_squared += snapshot.base_quaternion[axis] *
+                snapshot.base_quaternion[axis];
+    }
+    snapshot.base_quaternion_valid = quaternion_finite &&
+        std::isfinite(quaternion_norm_squared) &&
+        quaternion_norm_squared > 1.0e-12;
     snapshot.have_base_position_world = have_high_state;
     if (have_high_state)
     {
@@ -240,6 +252,8 @@ void TrotExperiment::UpdateTerrainRuntime()
     input.base_roll_rad = control.base_roll_rad;
     input.base_pitch_rad = control.base_pitch_rad;
     input.base_height_m = input.base_position_world.z;
+    input.base_quaternion = control.base_quaternion;
+    input.base_quaternion_valid = control.base_quaternion_valid;
     input.gait_phase = control.gait_phase;
     input.gait_period_s = control.gait_period_s;
     input.duty_factor = control.duty_factor;
@@ -359,7 +373,8 @@ void TrotExperiment::TerrainPlannerWorker()
                       << " state=" << work.input.state_stamp_s
                       << " capture=" << work.map_envelope.map_stamp_s << "\n";
         work.input.terrain = model.get();
-        const auto result = terrain_planner_.Build(work.input, work.plan_id);
+        auto result = terrain_planner_.Build(work.input, work.plan_id);
+        result.plan.terrain_snapshot = model;
         if (result.publishable)
             terrain_plan_store_.Publish(result.plan);
 

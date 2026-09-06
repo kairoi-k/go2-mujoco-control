@@ -51,6 +51,8 @@ struct TerrainPlannerInput
     double base_roll_rad = 0.0;
     double base_pitch_rad = 0.0;
     double base_height_m = 0.0;
+    std::array<double, 4> base_quaternion{};
+    bool base_quaternion_valid = false;
     double gait_phase = 0.0;
     double gait_period_s = 0.8;
     double duty_factor = 0.58;
@@ -244,15 +246,33 @@ public:
             return Finish(input, std::move(result), start);
         }
 
+        // Actuation consumers require the full body attitude.  Sensor-only
+        // remains on the legacy diagnostic path below.
+        TerrainSwingFrameAdapter planner_frame;
+        const bool actuation_path =
+            !config_.sensor_only && config_.allow_actuation;
+        if (actuation_path &&
+            (!input.base_quaternion_valid || !planner_frame.Bind(
+                input.base_position_world, input.base_quaternion,
+                input.base_yaw_rad, input.terrain->epoch,
+                input.state_stamp_s)))
+        {
+            result.plan.failure = TerrainPlanFailure::kInvalidInput;
+            result.plan.status = TerrainPlanStatus::kRejected;
+            result.plan.solver.failure = TerrainPlanFailure::kInvalidInput;
+            return Finish(input, std::move(result), start);
+        }
+        const TerrainSwingFrameAdapter *region_frame =
+            actuation_path ? &planner_frame : nullptr;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             result.regions[leg] = BuildSafeFootholdRegions(
                 *input.terrain, static_cast<go2::Leg>(leg),
-                config_.feasibility);
+                config_.feasibility, nullptr, region_frame, plan_id);
             result.candidate_counts[leg] = result.regions[leg].size();
         }
 
-        if (config_.sensor_only || !config_.allow_actuation)
+        if (!actuation_path)
         {
             result.plan.status = TerrainPlanStatus::kDegraded;
             result.plan.fallback_to_phase1 = true;
@@ -286,7 +306,8 @@ public:
                     region.center.x, region.center.y, config_.feasibility,
                     &input.current_feet_base[leg],
                     config_.swing_clearance_m, nullptr,
-                    input.contact_schedule.measured_contact[leg]);
+                    input.contact_schedule.measured_contact[leg],
+                    &planner_frame, plan_id);
                 if (!candidate.hard_feasible)
                 {
                     const auto reason = static_cast<std::size_t>(
@@ -297,15 +318,19 @@ public:
                 }
                 ++hard_feasible;
                 candidate.region_id = region.region_id;
-                const auto &phase1_target =
+                const auto &phase1_target_body =
                     input.touchdown_target_feet_valid
                         ? input.touchdown_target_feet_base[leg]
                         : input.nominal_feet_base[leg];
+                go2::Vec3 phase1_target_heading{};
+                if (!planner_frame.BodyToHeading(
+                        phase1_target_body, phase1_target_heading))
+                    continue;
                 const double displacement = std::hypot(
                     candidate.foot_position.x -
-                        phase1_target.x,
+                        phase1_target_heading.x,
                     candidate.foot_position.y -
-                        phase1_target.y);
+                        phase1_target_heading.y);
                 const double score = displacement +
                     0.5 * candidate.uncertainty_m -
                     0.1 * candidate.edge_margin_m;
@@ -442,6 +467,12 @@ private:
     void PopulatePlan(const TerrainPlannerInput &input,
                       TerrainPlannerResult &result) const
     {
+        TerrainSwingFrameAdapter planner_frame;
+        const bool planner_frame_valid = input.base_quaternion_valid &&
+            planner_frame.Bind(
+                input.base_position_world, input.base_quaternion,
+                input.base_yaw_rad, input.terrain != nullptr
+                    ? input.terrain->epoch : 0, input.state_stamp_s);
         result.plan.min_edge_margin_m =
             std::numeric_limits<double>::infinity();
         result.plan.min_uncertainty_inflated_edge_margin_m =
@@ -475,6 +506,10 @@ private:
             result.plan.body_reference[k].pitch_rad = input.base_pitch_rad;
             result.plan.body_reference[k].yaw_rad = input.base_yaw_rad;
             result.plan.body_reference[k].yaw_rate_radps = 0.0;
+            result.plan.body_reference[k].q_world_from_body =
+                input.base_quaternion;
+            result.plan.body_reference[k].quaternion_valid =
+                input.base_quaternion_valid;
             result.plan.body_reference[k].height_m = input.base_height_m;
             result.plan.body_reference[k].valid = true;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -489,9 +524,19 @@ private:
                     foot.touchdown_time_s = input.state_stamp_s +
                         touchdown * config_.knot_dt_s;
                     foot.touchdown_phase = input.gait_phase;
-                    foot.position_world = RotateBaseToWorld(
-                        input.base_position_world, input.base_yaw_rad,
-                        candidate.foot_position);
+                    if (planner_frame_valid)
+                    {
+                        if (!planner_frame.HeadingToWorld(
+                                candidate.foot_position,
+                                foot.position_world))
+                            foot.valid = false;
+                    }
+                    else
+                    {
+                        foot.position_world = RotateBaseToWorld(
+                            input.base_position_world, input.base_yaw_rad,
+                            candidate.foot_position);
+                    }
                     foot.surface_normal = candidate.surface_normal;
                     foot.region_id = candidate.region_id;
                     foot.edge_margin_m = candidate.edge_margin_m;
@@ -532,11 +577,24 @@ private:
                         input.contact_schedule.measured_valid &&
                         input.contact_schedule.measured_contact[leg] &&
                         input.measured_support_anchor_valid[leg];
-                    foot.position_world = use_measured_support_anchor
-                        ? input.measured_support_anchor_world[leg]
-                        : RotateBaseToWorld(input.base_position_world,
-                                            input.base_yaw_rad,
-                                            input.current_feet_base[leg]);
+                    if (use_measured_support_anchor)
+                    {
+                        foot.position_world =
+                            input.measured_support_anchor_world[leg];
+                    }
+                    else if (planner_frame_valid)
+                    {
+                        if (!planner_frame.BodyToWorld(
+                                input.current_feet_base[leg],
+                                foot.position_world))
+                            foot.valid = false;
+                    }
+                    else
+                    {
+                        foot.position_world = RotateBaseToWorld(
+                            input.base_position_world, input.base_yaw_rad,
+                            input.current_feet_base[leg]);
+                    }
                     foot.touchdown_time_s = input.state_stamp_s;
                     foot.surface_normal = {0.0, 0.0, 1.0};
                     if (!result.plan.current_support_anchor[leg].valid)

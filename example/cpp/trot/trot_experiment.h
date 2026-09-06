@@ -265,6 +265,7 @@ private:
         double base_roll_rad = 0.0;
         double base_pitch_rad = 0.0;
         std::array<double, 4> base_quaternion{};
+        bool base_quaternion_valid = false;
         go2::Vec3 imu_position_world{};
         go2::Vec3 base_velocity_world{};
         go2::Vec3 model_com_world{};
@@ -548,6 +549,16 @@ private:
     std::uint64_t terrain_planner_deadline_misses_ = 0;
     bool terrain_latest_plan_valid_ = false;
 
+    std::array<go2_terrain::TerrainSwingContract, go2::kLegCount>
+        terrain_execution_contract_{};
+    std::array<std::shared_ptr<const go2_terrain::TerrainModel>,
+               go2::kLegCount>
+        terrain_execution_model_{};
+    std::array<go2::Vec3, go2::kLegCount>
+        previous_commanded_world_feet_{};
+    std::array<double, go2::kLegCount> previous_commanded_time_s_{};
+    std::array<bool, go2::kLegCount>
+        previous_commanded_world_feet_valid_{};
     std::array<go2::Vec3, go2::kLegCount>
         terrain_execution_target_world_{};
     std::array<double, go2::kLegCount>

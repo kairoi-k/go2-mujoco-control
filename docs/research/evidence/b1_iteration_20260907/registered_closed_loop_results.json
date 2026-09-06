@@ -1,0 +1,341 @@
+{
+  "active_phase_definition": "velocity_command_active > 0.5 and velocity_command_gait_regime == continuous-trot",
+  "candidate": false,
+  "claim_boundary": "Closed-loop map registration and execution telemetry are recorded. These runs do not establish B0 or B1 acceptance; the step run is a failed V3 candidate probe.",
+  "recorded_at": "2026-09-07",
+  "runs": {
+    "b1_chunk_registered_flat_20260907_0001": {
+      "active_phase": {
+        "cmd_time_span_s": [
+          4.300086272,
+          29.300293245
+        ],
+        "definition": "velocity_command_active > 0.5 and velocity_command_gait_regime == continuous-trot",
+        "execution_applied_mask": {
+          "nonzero_fraction": 0.2364043506078055,
+          "planned_value_counts": {
+            "0": 8565,
+            "15": 193,
+            "6": 1855,
+            "9": 1891
+          },
+          "value_counts": {
+            "0": 9548,
+            "1": 64,
+            "11": 4,
+            "13": 2,
+            "14": 14,
+            "15": 146,
+            "2": 51,
+            "4": 76,
+            "6": 1333,
+            "7": 14,
+            "8": 46,
+            "9": 1206
+          }
+        },
+        "execution_quality": {
+          "terrain_exec_measured_touchdown_fraction_by_leg": {
+            "FL": 0.1346769033909149,
+            "FR": 0.13603646833013436,
+            "RL": 0.1357965451055662,
+            "RR": 0.1432341650671785
+          },
+          "terrain_exec_valid_fraction_by_leg": {
+            "FL": 0.2715930902111324,
+            "FR": 0.2607965451055662,
+            "RL": 0.25687779910428665,
+            "RR": 0.27839091490722967
+          },
+          "terrain_execution_plan_usable_fraction": 0.34916826615483043,
+          "terrain_mpc_plan_consumed_fraction": 0.08397312859884837,
+          "terrain_plan_failure_zero_fraction": 0.19113883557261677
+        },
+        "posture_deg_imu": {
+          "pitch_abs_max": 4.623501033274504,
+          "pitch_abs_p95": 2.9180285577523493,
+          "roll_abs_max": 8.424304115225915,
+          "roll_abs_p95": 3.2767162605366
+        },
+        "registered_map": {
+          "legacy_environment_map_valid_fraction": 0.0,
+          "registration_stamp_age_p95_s": 0.0860000000000003,
+          "terrain_map_registered_fraction": 1.0,
+          "terrain_map_sequence_max": 395.0,
+          "terrain_map_sequence_min": 66.0,
+          "terrain_map_source_values": [
+            "lidar"
+          ],
+          "terrain_map_valid_fraction": 1.0
+        },
+        "rows": 12504,
+        "telemetry_gait_time_span_s": [
+          0.0,
+          25.000206973
+        ],
+        "wbc": {
+          "wbc_full_eq_residual_p95": 1.0995849999999794e-05,
+          "wbc_full_id_attempt_qp_converged_fraction": 0.9460172744721689,
+          "wbc_full_id_attempt_solution_finite_fraction": 1.0,
+          "wbc_full_id_max_abs_tau_max": 27.350417842,
+          "wbc_full_id_max_abs_tau_p95": 17.2747161623,
+          "wbc_full_id_ok_fraction": 1.0,
+          "wbc_full_srbd_ok_fraction": 1.0
+        }
+      },
+      "controller_log": {
+        "first_ik_or_safety_line": null,
+        "hard_posture_lines": 0,
+        "hard_safety_lines": 0,
+        "ik_failed_lines": 0
+      },
+      "data_cmd_time_span_s": [
+        0.0,
+        33.302302056
+      ],
+      "git_commit": "f6708ece1afe0c7826621a83e0e10a0f235928a6",
+      "interpretation": {
+        "classification": "flat_development_only_not_B0",
+        "legacy_phase1": {
+          "acceptance_status": "FAIL",
+          "quantitative_pass": false,
+          "requested_profile_reproduction_check": true,
+          "stop_tail_check": false,
+          "strict_pass": true
+        },
+        "reason": "phase2_flat scene and Phase1 steps profile; no B0 suite/holdout acceptance is represented"
+      },
+      "profile": {
+        "path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/configs/phase1_velocity_steps.csv",
+        "sha256": "4c61c597990b806b1d85dbb9e7f9ce9745f825ca91915bec18aee87923b9a0ab"
+      },
+      "raw_sha256": {
+        "contact_ground_truth.csv": "9afb3a789da0563275aadf3a89c54d395d5ecb6e67ab6010963dc8fedabdeeb0",
+        "contact_ground_truth_analysis.txt": "e440f3d433bd1e4fde1cf97fea097dd4260757b954255a6daf846f24eee62ef5",
+        "contact_ground_truth_dynamics_analysis.txt": "e9c184ed380dc3778610af5f703cf904efc2a733fae0459888b91c1325d795f2",
+        "controller.log": "bbb783a1c8f16ea7f6e12434ebb8ff5d21d292c47f05a61bad08b62f09ed5911",
+        "data.csv": "cdeb69e6d22204089cec48b924bbafdf066de1262f0656ba8ba871aa38a67a81",
+        "environment.txt": "2c761a1186ed2aa3f7ba6903666a55a3d10592c657a6f5c9edcd666a013ea998",
+        "phase1_quantitative.json": "c55d6bb9e3d29e3a0de416b6923b96314b3ca2b951967d9e87dfd9ecc6beba05",
+        "phase1_quantitative.log": "c55d6bb9e3d29e3a0de416b6923b96314b3ca2b951967d9e87dfd9ecc6beba05",
+        "phase2_terrain_analysis.log": "e745dcf19b59eec459e6c65300508b024c7c4396a765161d70d7438a3b14dd80",
+        "run_manifest.json": "8403b2f44f669617e03250fcdd4699181428592627290a8afd1a08d0dbb9fc28",
+        "run_metadata.txt": "d17aa8faf82535be9d0aeda5b7de3293fd806a4737f6dce05b13f0aa7ae691de",
+        "simulator.log": "af09272cc25a008d88cc33c36f5548cb5d787aad972b933aea14a64b77fe8aa6",
+        "wallclock_runtime_telemetry.csv": "eecb5f2d75ad7c1ed07933bba4b5944509b3f947a09785826a2081be214739e4"
+      },
+      "rows": 16655,
+      "run": "b1_chunk_registered_flat_20260907_0001",
+      "scene": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/phase2_flat.xml",
+      "stage_counts": {
+        "0": 1500,
+        "1": 650,
+        "2": 13503,
+        "3": 1002
+      },
+      "statuses": {
+        "analysis_status": "0",
+        "completion_status": "0",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "ground_truth_status": "0",
+        "phase1_quantitative_status": "1",
+        "quality_status": "0",
+        "safety_status": "0",
+        "terrain_analysis_status": "1"
+      }
+    },
+    "b1_v3_registered_step_f6708ec_20260907_0001": {
+      "active_phase": {
+        "cmd_time_span_s": [
+          4.30006934,
+          24.476078913
+        ],
+        "definition": "velocity_command_active > 0.5 and velocity_command_gait_regime == continuous-trot",
+        "execution_applied_mask": {
+          "nonzero_fraction": 0.13252056695410844,
+          "planned_value_counts": {
+            "0": 7958,
+            "15": 290,
+            "6": 922,
+            "9": 919
+          },
+          "value_counts": {
+            "0": 8752,
+            "11": 2,
+            "15": 24,
+            "2": 76,
+            "6": 690,
+            "9": 545
+          }
+        },
+        "execution_quality": {
+          "terrain_exec_measured_touchdown_fraction_by_leg": {
+            "FL": 0.09227871939736347,
+            "FR": 0.09545049063336307,
+            "RL": 0.09812667261373774,
+            "RR": 0.09247695509961344
+          },
+          "terrain_exec_valid_fraction_by_leg": {
+            "FL": 0.17801566062047774,
+            "FR": 0.15730002973535534,
+            "RL": 0.15730002973535534,
+            "RR": 0.1641391614629795
+          },
+          "terrain_execution_plan_usable_fraction": 0.21726632966597284,
+          "terrain_mpc_plan_consumed_fraction": 0.0,
+          "terrain_plan_failure_zero_fraction": 0.1270690851422341
+        },
+        "posture_deg_imu": {
+          "pitch_abs_max": 89.37715753159611,
+          "pitch_abs_p95": 8.466078410773125,
+          "roll_abs_max": 179.99967716178557,
+          "roll_abs_p95": 178.46597186409386
+        },
+        "registered_map": {
+          "legacy_environment_map_valid_fraction": 0.0,
+          "registration_stamp_age_p95_s": 0.08799999999999919,
+          "terrain_map_registered_fraction": 1.0,
+          "terrain_map_sequence_max": 320.0,
+          "terrain_map_sequence_min": 68.0,
+          "terrain_map_source_values": [
+            "lidar"
+          ],
+          "terrain_map_valid_fraction": 1.0
+        },
+        "rows": 10089,
+        "telemetry_gait_time_span_s": [
+          0.0,
+          20.176009573
+        ],
+        "wbc": {
+          "wbc_full_eq_residual_p95": 8.374200000000043e-06,
+          "wbc_full_id_attempt_qp_converged_fraction": 0.9703637625136287,
+          "wbc_full_id_attempt_solution_finite_fraction": 0.9971255823173754,
+          "wbc_full_id_max_abs_tau_max": 35.105806649,
+          "wbc_full_id_max_abs_tau_p95": 34.738227617599996,
+          "wbc_full_id_ok_fraction": 0.9968282287640003,
+          "wbc_full_srbd_ok_fraction": 1.0
+        }
+      },
+      "controller_log": {
+        "first_ik_or_safety_line": "Trot hard posture limit: roll=-3.5668 deg, pitch=22.4846 deg",
+        "hard_posture_lines": 1401,
+        "hard_safety_lines": 1401,
+        "ik_failed_lines": 0
+      },
+      "data_cmd_time_span_s": [
+        0.0,
+        24.476078913
+      ],
+      "git_commit": "f6708ece1afe0c7826621a83e0e10a0f235928a6",
+      "interpretation": {
+        "approach_recomputed_from_GT": {
+          "duty": [
+            0.44,
+            0.44
+          ],
+          "gt_rows": 400,
+          "historical_state_tick_dedup_fraction": 0.8571428571428571,
+          "historical_state_tick_dedup_rows": 336,
+          "interval_s": [
+            22.63,
+            23.43
+          ],
+          "note": "The 0.85714 value is a discarded state-tick dedup diagnostic; it is not the GT speed-fraction result.",
+          "period_s": [
+            0.14,
+            0.14
+          ],
+          "requested_speed_mps": [
+            1.0,
+            1.0
+          ],
+          "speed_in_band_fraction": 0.8475,
+          "speed_median_mps": 0.951334860808,
+          "speed_p05_mps": 0.7119023460047,
+          "window_semantics": "start <= GT time_s < first_contact_s"
+        },
+        "classification": "V3_step_failed_not_candidate",
+        "existing_dynamic_v3_output": {
+          "note": "Existing output predates the GT-time speed-fraction correction; its old 0.85714 approach detail is superseded by the recomputation above.",
+          "path": "dynamic_v3_0001.json",
+          "sha256": "6fdaa2e1bff8237fc5454ffe561ae6c7a5d21e3e77d5548d7792dee5911ca70c",
+          "status": "NOT_CERTIFIED"
+        },
+        "first_step_contact_s": 23.43,
+        "step_failure_evidence": {
+          "completion_status": "1",
+          "controller_status": "0",
+          "first_hard_posture_log": "Trot hard posture limit: roll=-3.5668 deg, pitch=22.4846 deg",
+          "first_nonfoot_contact_s": 23.472,
+          "gt_time_span_s": [
+            0.002,
+            26.456
+          ],
+          "max_base_x_m": 5.71089587092,
+          "max_foot_riser_force_N": {
+            "FL": 158.205887188,
+            "FR": 375.17787248,
+            "RL": 0.0,
+            "RR": 0.0
+          },
+          "max_nonfoot_force_N": 1027.79493906,
+          "max_terrain_top_force_N": {
+            "FL": 0.0,
+            "FR": 0.0,
+            "RL": 0.0,
+            "RR": 0.0
+          },
+          "no_complete_exit": true,
+          "nonfoot_contact_rows": 1390,
+          "safety_status": "1",
+          "whole_trace_min_base_z_m": 0.07959815886,
+          "height_scope": "whole GT trace including initial crouch; not active-phase collapse evidence"
+        },
+        "v3_gate_conclusion": "NOT_CERTIFIED; corrected approach fraction fails the predeclared 0.95 gate, and safety/riser/nonfoot/posture/profile/exit evidence also fails"
+      },
+      "profile": {
+        "path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/configs/b1_v3_running_1mps.csv",
+        "sha256": "62f2ff9701b2f2d6189cad97877d7891177a32b17ded255677434eb1d8f41ac6"
+      },
+      "raw_sha256": {
+        "contact_ground_truth.csv": "61bd935f0fbaf002fb447f8b23d3f1f2c1a554e11dd0778a0901b288cc79f45d",
+        "contact_ground_truth_analysis.txt": "011951c28820f7fbbc5f04fbcc6bdcfe00165d8646ad90c15d7b2e7e4b8a6967",
+        "contact_ground_truth_dynamics_analysis.txt": "b9cdd8a1810d000163a1f38edfa1db24ef00ead0c98a31f35d7e130ee2a5c910",
+        "controller.log": "a32ce6d62f37640a08ecb7ff7cc3ad3ab0433245350719a63bd6736d0ba419ac",
+        "data.csv": "b117d282c110ca774be3a33226096dae5fd99e383ca09312238c90a89489d86b",
+        "dynamic_v3_0001.json": "6fdaa2e1bff8237fc5454ffe561ae6c7a5d21e3e77d5548d7792dee5911ca70c",
+        "environment.txt": "96bb381a2d6c3754347f3afd0aadcf07afce96e4da7ccb24ed1236387c7c5249",
+        "first_contact_v1.json": "9d8b340ec291d8aded00d680ac13b01271528f8f9fcd4a81162a243e2d2f68e2",
+        "phase1_quantitative.log": "62d6cd0dfe26f3c81e35b550b3180d622cf9d08ba945b56c5286b498ef32165a",
+        "phase2_terrain_analysis.log": "3ea9d8a4a6cf8a34d113fdce2565d4e4283d8635f0c4afafd788f21c1afc16d8",
+        "run_manifest.json": "de010ad9ed9f84ce1d2907807a6b9057dcd678beabceea8598a6b8d368941241",
+        "run_metadata.txt": "55f74eb82bf45f50d76335ae821f5bd872148c9f16d8caf5d99de044a4942cda",
+        "simulator.log": "fd83a068a7c693ff6207143886aa5c5560618cf4886900a2f965e004fe469164",
+        "wallclock_runtime_telemetry.csv": "8f663a260029fed03845ca203d1fa362a8d9e627ee2cf51a229d931da14c8b9e"
+      },
+      "rows": 12239,
+      "run": "b1_v3_registered_step_f6708ec_20260907_0001",
+      "scene": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/b1_v3_running_step_5cm.xml",
+      "stage_counts": {
+        "0": 1500,
+        "1": 650,
+        "2": 8688,
+        "3": 1401
+      },
+      "statuses": {
+        "analysis_status": "0",
+        "completion_status": "1",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "ground_truth_status": "0",
+        "phase1_quantitative_status": "1",
+        "quality_status": "0",
+        "safety_status": "1",
+        "terrain_analysis_status": "1"
+      }
+    }
+  },
+  "schema": "b1-registered-closed-loop-results-v1"
+}

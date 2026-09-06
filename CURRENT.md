@@ -8,14 +8,18 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
 
 ## Active autonomous B1 research: no candidate
 
-Latest checkpoint: stable-running V3 sensor-only baseline `bc35352` hit the
-5 cm riser and overturned; paired flat completed and independently showed
-49/49 steady cycles with both diagonals and total-force aerial intervals.
-The capture-envelope DDS route has delivered zero registered maps: native
-String repro receives 1300 bytes but drops 1400+ despite successful Write.
-Application-level bounded transport is being implemented; map actuation has
-not been validated. The V3 empirical analyzer now has 30 focused tests and
-independent raw-cycle agreement. No candidate, no holdout use.
+Latest checkpoint: bounded capture-map transport is working. Clean `f6708ec`
+flat execution received and registered maps and applied terrain targets;
+the paired V3 5 cm execution probe still hit the riser and overturned.
+The previous sensor-only flat independently showed 49/49 steady cycles with
+both diagonals and total-force aerial intervals. No B1 candidate or holdout use.
+Current work binds one world swing curve to its actual next Phase-1 touchdown
+and the plan-owned immutable map. Heading height is local to the registered
+base origin along world Z; it is not an absolute world height or a pitched
+body coordinate. Unknown coverage and initial penetration must fail closed.
+Candidate geometry screening remains distinct from absolute-time execution
+validation and from dynamics. Future body motion and MPC prefix coupling remain
+unresolved. After focused validation, run a clean flat regression and V3 canary.
 
 The 2026-09-06 user mandate reopened the research route from clean
 `5cbc547f225dbb60683d96e440beffb0b014a075`: solving real 5 cm dynamic

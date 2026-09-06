@@ -68,6 +68,8 @@ struct TerrainBodyReference
     double pitch_rad = 0.0;
     double yaw_rad = 0.0;
     double yaw_rate_radps = 0.0;
+    std::array<double, 4> q_world_from_body{};
+    bool quaternion_valid = false;
     double height_m = 0.0;
     bool valid = false;
 };
@@ -119,8 +121,12 @@ struct TerrainSolverDiagnostics
     TerrainPlanFailure failure = TerrainPlanFailure::kNone;
 };
 
+struct TerrainModel;
+
 struct TerrainMotionPlan
 {
+    // Exact immutable observation owned by this published plan.
+    std::shared_ptr<const TerrainModel> terrain_snapshot;
     std::uint64_t plan_id = 0;
     std::uint64_t plan_epoch = 0;
     std::uint64_t map_epoch = 0;

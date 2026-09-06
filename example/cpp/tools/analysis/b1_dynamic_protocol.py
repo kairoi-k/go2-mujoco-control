@@ -76,6 +76,15 @@ def _unique_state_rows(rows):
             by_tick[tick] = row
     return [by_tick[tick] for tick in sorted(by_tick)]
 
+def _unique_truth_rows(rows):
+    """Deduplicate exact GT timestamps while retaining every distinct sample."""
+    by_time = {}
+    for row in rows:
+        time_s = _f(row, "time_s")
+        if math.isfinite(time_s):
+            by_time[time_s] = row
+    return [by_time[time_s] for time_s in sorted(by_time)]
+
 
 def _sequence_issues(rows, key, max_gap_s=None):
     values = [_f(row, key) for row in rows]
@@ -95,24 +104,31 @@ def _sequence_issues(rows, key, max_gap_s=None):
 
 def stable_approach(rows, first_step_contact_s):
     """Evaluate only the pre-contact 0.8 s stable-running approach.
-
     ``rows`` must already be joined on state_tick_s/time_s and contain the
-    controller plus GT fields used below. The return object is evidence, not a
-    verdict for the physical analyzer.
+    controller plus GT fields used below.  Speed and coverage are measured on
+    GT ``time_s`` samples; controller tick reuse must not discard them.  The
+    return object is evidence, not a verdict for the physical analyzer.
     """
     if first_step_contact_s is None or not math.isfinite(first_step_contact_s):
         return {"status": "NOT_CERTIFIED", "reasons": ["first_step_contact_missing"]}
     start = first_step_contact_s - APPROACH_S
-    sequence_issues = _sequence_issues(rows, "state_tick_s", CONTROLLER_GAP_S)
-    selected = [row for row in _unique_state_rows(rows) if start <= _f(row, "state_tick_s") <= first_step_contact_s]
-    reasons = list(sequence_issues)
-    ticks = [_f(row, "state_tick_s") for row in selected]
-    if not ticks or ticks[0] > start + CONTROLLER_GAP_S or any(
-        b - a > CONTROLLER_GAP_S + 1e-9 for a, b in zip(ticks, ticks[1:])
-    ):
-        reasons.append("approach_controller_coverage")
-    if not ticks or ticks[-1] < first_step_contact_s - CONTROLLER_GAP_S - 1e-9:
-        reasons.append("approach_first_contact_tail_coverage")
+    # The wrapper owns controller-to-GT age/join coverage.  Keep the helper's
+    # independent ordering check, but do not turn state tick reuse into a
+    # controller sampling gate here.
+    reasons = _sequence_issues(rows, "state_tick_s")
+    reasons += _sequence_issues(rows, "time_s", TRUTH_GAP_S)
+    truth_rows = _unique_truth_rows(rows)
+    # Contact belongs to the interaction boundary, so the approach is a
+    # half-open interval and never counts the first-contact GT row.
+    selected = [
+        row for row in truth_rows
+        if start <= _f(row, "time_s") < first_step_contact_s
+    ]
+    truth_times = [_f(row, "time_s") for row in selected]
+    if not truth_times or truth_times[0] > start + TRUTH_GAP_S + 1e-9:
+        reasons.append("approach_truth_coverage")
+    if not truth_times or truth_times[-1] < first_step_contact_s - TRUTH_GAP_S - 1e-9:
+        reasons.append("approach_first_contact_truth_tail_coverage")
     period_bad = sum(not math.isfinite(_f(row, "velocity_command_gait_period_s")) or abs(_f(row, "velocity_command_gait_period_s") - PERIOD_S) > PERIOD_TOL_S for row in selected)
     duty_bad = sum(not math.isfinite(_f(row, "velocity_command_gait_duty")) or abs(_f(row, "velocity_command_gait_duty") - DUTY) > DUTY_TOL for row in selected)
     request_bad = sum(not math.isfinite(_f(row, "velocity_command_requested_mps")) or abs(_f(row, "velocity_command_requested_mps") - REQUESTED_SPEED_MPS) > REQUESTED_SPEED_TOL_MPS for row in selected)

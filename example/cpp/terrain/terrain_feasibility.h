@@ -13,6 +13,7 @@
 
 #include "go2_inverse_kinematics.h"
 #include "terrain_model.h"
+#include "terrain_swing_contract.h"
 
 namespace go2_terrain
 {
@@ -325,9 +326,18 @@ inline bool CheckSwingClearance(
     double *required_peak_phase = nullptr,
     double *leading_edge_phase = nullptr,
     bool *leading_edge_phase_valid = nullptr,
-    bool measured_support_anchor = false)
+    bool measured_support_anchor = false,
+    TerrainSwingContract *swing_contract = nullptr,
+    const TerrainSwingFrameAdapter *frame_adapter = nullptr)
 {
     minimum_clearance_m = std::numeric_limits<double>::infinity();
+    if (swing_contract != nullptr)
+    {
+        swing_contract->resolved_lift_m =
+            std::numeric_limits<double>::quiet_NaN();
+        swing_contract->peak_phase =
+            std::numeric_limits<double>::quiet_NaN();
+    }
     if (failure_reason != nullptr)
         *failure_reason = FootholdRejectReason::kNone;
     if (required_lift_m != nullptr)
@@ -346,6 +356,45 @@ inline bool CheckSwingClearance(
     if (!model.valid() || !std::isfinite(clearance_m) || clearance_m < 0.0)
         return reject(FootholdRejectReason::kInvalidModel);
 
+    TerrainSwingContract sweep;
+    if (swing_contract != nullptr)
+    {
+        if (frame_adapter == nullptr || !frame_adapter->valid ||
+            !TerrainSwingScheduleValid(*swing_contract))
+            return reject(FootholdRejectReason::kFrameMismatch);
+        sweep = *swing_contract;
+    }
+    else
+    {
+        if (frame_adapter != nullptr)
+            return reject(FootholdRejectReason::kFrameMismatch);
+        sweep.start_world = start;
+        sweep.target_world = end;
+        sweep.start_time_s = 0.0;
+        sweep.touchdown_time_s = 1.0;
+    }
+    sweep.resolved_lift_m = 0.0;
+    sweep.peak_phase = 0.5;
+    const auto evaluate_sample = [&](double test_lift, double phase,
+                                     go2::Vec3 &terrain_point,
+                                     go2::Vec3 &body_point) {
+        sweep.resolved_lift_m = test_lift;
+        go2::Vec3 world_point{};
+        if (!EvaluateTerrainSwingAtTime(
+                sweep, sweep.start_time_s + phase *
+                    (sweep.touchdown_time_s - sweep.start_time_s),
+                world_point, TerrainSwingEase, TerrainSwingProfile))
+            return false;
+        if (frame_adapter != nullptr)
+        {
+            return frame_adapter->WorldToHeading(world_point, terrain_point) &&
+                frame_adapter->WorldToBody(world_point, body_point);
+        }
+        terrain_point = world_point;
+        body_point = world_point;
+        return TerrainSwingFiniteVec3(terrain_point) &&
+            TerrainSwingFiniteVec3(body_point);
+    };
     const double distance = std::hypot(end.x - start.x, end.y - start.y);
     const int samples = std::max(2, static_cast<int>(std::ceil(distance /
         std::max(model.resolution_m * 0.25, 0.005))));
@@ -354,17 +403,26 @@ inline bool CheckSwingClearance(
     double excess_weight = 0.0;
     double first_rise_phase = -1.0;
     std::vector<double> terrain_height(static_cast<std::size_t>(samples + 1));
+    go2::Vec3 start_terrain{};
     for (int i = 0; i <= samples; ++i)
     {
         const double u = static_cast<double>(i) / samples;
-        const double path_progress = TerrainSwingEase(u);
-        const double x = start.x + path_progress * (end.x - start.x);
-        const double y = start.y + path_progress * (end.y - start.y);
+        go2::Vec3 terrain_sample{};
+        go2::Vec3 body_sample{};
+        if (!evaluate_sample(0.0, u, terrain_sample, body_sample))
+            return reject(FootholdRejectReason::kSwingClearance);
+        if (i == 0)
+        {
+            start_terrain = terrain_sample;
+        }
+        const double x = terrain_sample.x;
+        const double y = terrain_sample.y;
         if (i > 0)
         {
             TerrainPatch patch;
             if (!model.SamplePatch(x, y, sweep_radius_m, patch) ||
-                !patch.valid || patch.HasUnknownInside())
+                !patch.valid || patch.HasUnknownInside() ||
+                (frame_adapter != nullptr && !patch.all_known))
             {
                 // The first samples of a swing still overlap the measured
                 // support footprint.  A force-backed anchor is an explicit
@@ -374,8 +432,8 @@ inline bool CheckSwingClearance(
                 // farther along the swept path remain fail-closed.
                 const double anchor_handoff_radius =
                     sweep_radius_m + model.resolution_m;
-                if (measured_support_anchor &&
-                    std::hypot(x - start.x, y - start.y) <=
+                if (frame_adapter == nullptr && measured_support_anchor &&
+                    std::hypot(x - start_terrain.x, y - start_terrain.y) <=
                         anchor_handoff_radius)
                 {
                     terrain_height[static_cast<std::size_t>(i)] =
@@ -410,7 +468,7 @@ inline bool CheckSwingClearance(
         {
             std::size_t start_ix = 0;
             std::size_t start_iy = 0;
-            if (!model.CellIndex(start.x, start.y, start_ix, start_iy))
+            if (!model.CellIndex(start_terrain.x, start_terrain.y, start_ix, start_iy))
             {
                 if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
                 {
@@ -476,6 +534,17 @@ inline bool CheckSwingClearance(
                 }
                 return reject(FootholdRejectReason::kUnknown);
             }
+            if (frame_adapter != nullptr)
+            {
+                TerrainPatch anchor_patch;
+                if (!model.SamplePatch(start_terrain.x, start_terrain.y,
+                                       sweep_radius_m, anchor_patch) ||
+                    !anchor_patch.valid || !anchor_patch.all_known)
+                    return reject(FootholdRejectReason::kUnknown);
+                // A contact observation cannot certify neighboring cells or
+                // erase initial geometry penetration by choosing their minimum.
+                anchor_min_m = anchor_patch.max_height_m;
+            }
             terrain_height[0] = anchor_min_m;
         }
         if (i > 0 && first_rise_phase < 0.0 &&
@@ -486,14 +555,18 @@ inline bool CheckSwingClearance(
         {
             const double required =
                 terrain_height[static_cast<std::size_t>(i)] + clearance_m -
-                (start.z + path_progress * (end.z - start.z));
+                terrain_sample.z;
             const double excess = std::max(0.0, required - clearance_m);
             weighted_phase += u * excess;
             excess_weight += excess;
         }
         // A measured support anchor may be above the terrain, but it must
         // not already be penetrating even the lowest nearby ground.
-        if (i == 0 && start.z < terrain_height[0] - clearance_m)
+        if (frame_adapter != nullptr && (i == 0 || i == samples) &&
+            terrain_sample.z - go2::kFootSiteToContactPatchOffsetM <
+                terrain_height[static_cast<std::size_t>(i)] - 1.0e-6)
+            return reject(FootholdRejectReason::kSwingClearance);
+        if (i == 0 && start_terrain.z < terrain_height[0] - clearance_m)
         {
             if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
             {
@@ -542,6 +615,9 @@ inline bool CheckSwingClearance(
               best_peak_phase,
               std::clamp(first_rise_phase, 0.10, 0.75))
         : best_peak_phase;
+    if (!TerrainSwingPeakValid(execution_peak_phase))
+        return reject(FootholdRejectReason::kSwingClearance);
+    sweep.peak_phase = execution_peak_phase;
     double lift = std::max(clearance_m, 0.050);
     double lift_phase = 0.0;
     double lift_terrain_height = 0.0;
@@ -551,13 +627,14 @@ inline bool CheckSwingClearance(
     for (int i = 1; i < samples; ++i)
     {
         const double u = static_cast<double>(i) / samples;
-        const double path_progress = TerrainSwingPathProgress(
-            u, observed_leading_edge, first_rise_phase);
+        go2::Vec3 linear_terrain{};
+        go2::Vec3 linear_body{};
+        if (!evaluate_sample(0.0, u, linear_terrain, linear_body))
+            return reject(FootholdRejectReason::kSwingClearance);
         const double clearance_requirement =
             TerrainSwingClearanceRequirement(
                 u, clearance_m, execution_peak_phase);
-        const double linear_height =
-            start.z + path_progress * (end.z - start.z);
+        const double linear_height = linear_terrain.z;
         const double target_height = terrain_height[
             static_cast<std::size_t>(i)] + clearance_requirement;
         const double required = target_height - linear_height;
@@ -604,8 +681,7 @@ inline bool CheckSwingClearance(
             lift_phase = u;
             lift_terrain_height = terrain_height[
                 static_cast<std::size_t>(i)];
-            lift_linear_height =
-                start.z + path_progress * (end.z - start.z);
+            lift_linear_height = linear_height;
             lift_clearance_requirement = clearance_requirement;
             lift_shape = shape;
         }
@@ -664,18 +740,12 @@ inline bool CheckSwingClearance(
             const double clearance_threshold = std::nextafter(
                 clearance_requirement,
                 -std::numeric_limits<double>::infinity());
-            const double path_progress = TerrainSwingPathProgress(
-                u, observed_leading_edge, first_rise_phase);
-            const double linear_height =
-                start.z + path_progress * (end.z - start.z);
-            const double foot_height = std::fma(
-                TerrainSwingProfile(u, execution_peak_phase), test_lift,
-                linear_height);
-            const go2::Vec3 foot{
-                start.x + path_progress * (end.x - start.x),
-                start.y + path_progress * (end.y - start.y), foot_height};
+            go2::Vec3 foot{};
+            go2::Vec3 foot_body{};
+            if (!evaluate_sample(test_lift, u, foot, foot_body))
+                return FootholdRejectReason::kSwingClearance;
             go2::LegJointPositions joints;
-            if (!go2::LegInverseKinematics(leg, foot, joints))
+            if (!go2::LegInverseKinematics(leg, foot_body, joints))
                 return FootholdRejectReason::kReachability;
             if (i == 0 || i == samples)
                 continue;
@@ -684,12 +754,13 @@ inline bool CheckSwingClearance(
             bool anchor_handoff_patch = false;
             if (!model.SamplePatch(
                     foot.x, foot.y, sweep_radius_m, foot_patch) ||
-                !foot_patch.valid || foot_patch.HasUnknownInside())
+                !foot_patch.valid || foot_patch.HasUnknownInside() ||
+                (frame_adapter != nullptr && !foot_patch.all_known))
             {
                 const double anchor_handoff_radius =
                     sweep_radius_m + model.resolution_m;
-                if (measured_support_anchor &&
-                    std::hypot(foot.x - start.x, foot.y - start.y) <=
+                if (frame_adapter == nullptr && measured_support_anchor &&
+                    std::hypot(foot.x - start_terrain.x, foot.y - start_terrain.y) <=
                         anchor_handoff_radius)
                 {
                     // The same force-backed anchor exception used for the
@@ -703,7 +774,8 @@ inline bool CheckSwingClearance(
                 }
             }
             if (!foot_patch.valid ||
-                (foot_patch.HasUnknownInside() && !anchor_handoff_patch))
+                (foot_patch.HasUnknownInside() && !anchor_handoff_patch) ||
+                (frame_adapter != nullptr && !foot_patch.all_known))
             {
                 if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
                 {
@@ -751,20 +823,31 @@ inline bool CheckSwingClearance(
             for (int segment = 1; segment < 3; ++segment)
             {
                 const double alpha = 0.3333333333333333 * segment;
-                const go2::Vec3 shin{
-                    knee.x + alpha * (foot.x - knee.x),
-                    knee.y + alpha * (foot.y - knee.y),
-                    knee.z + alpha * (foot.z - knee.z)};
+                const go2::Vec3 shin_body{
+                    knee.x + alpha * (foot_body.x - knee.x),
+                    knee.y + alpha * (foot_body.y - knee.y),
+                    knee.z + alpha * (foot_body.z - knee.z)};
+                go2::Vec3 shin{};
+                if (frame_adapter != nullptr)
+                {
+                    if (!frame_adapter->BodyToHeading(shin_body, shin))
+                        return FootholdRejectReason::kFrameMismatch;
+                }
+                else
+                {
+                    shin = shin_body;
+                }
                 TerrainPatch shin_patch;
                 bool anchor_handoff_shin = false;
                 if (!model.SamplePatch(
                         shin.x, shin.y, sweep_radius_m, shin_patch) ||
-                    !shin_patch.valid || shin_patch.HasUnknownInside())
+                    !shin_patch.valid || shin_patch.HasUnknownInside() ||
+                    (frame_adapter != nullptr && !shin_patch.all_known))
                 {
                     const double anchor_handoff_radius =
                         sweep_radius_m + model.resolution_m;
-                    if (measured_support_anchor &&
-                        std::hypot(shin.x - start.x, shin.y - start.y) <=
+                    if (frame_adapter == nullptr && measured_support_anchor &&
+                        std::hypot(shin.x - start_terrain.x, shin.y - start_terrain.y) <=
                             anchor_handoff_radius &&
                         std::isfinite(terrain_height[
                             static_cast<std::size_t>(i)]))
@@ -780,7 +863,8 @@ inline bool CheckSwingClearance(
                     }
                 }
                 if (!shin_patch.valid ||
-                    (shin_patch.HasUnknownInside() && !anchor_handoff_shin))
+                    (shin_patch.HasUnknownInside() && !anchor_handoff_shin) ||
+                    (frame_adapter != nullptr && !shin_patch.all_known))
                 {
                     // The local map window never observes its own lateral
                     // fringe (y beyond +/-0.225 m), and a rear leg's
@@ -789,7 +873,8 @@ inline bool CheckSwingClearance(
                     // in epoch17 while the window was fully known.  An
                     // unobserved fringe carries no terrain constraint, so
                     // skip it; holes INSIDE the swept window still reject.
-                    if (model.CoversPatch(shin.x, shin.y, sweep_radius_m))
+                    if (frame_adapter != nullptr ||
+                        model.CoversPatch(shin.x, shin.y, sweep_radius_m))
                     {
                         if (std::getenv("TROT_TERRAIN_DEBUG_SWING") != nullptr)
                         {
@@ -902,6 +987,12 @@ inline bool CheckSwingClearance(
         return reject(FootholdRejectReason::kSwingClearance);
     if (!std::isfinite(lift))
         return reject(FootholdRejectReason::kSwingClearance);
+    if (swing_contract != nullptr)
+    {
+        sweep.resolved_lift_m = lift;
+        sweep.peak_phase = execution_peak_phase;
+        *swing_contract = sweep;
+    }
     if (required_lift_m != nullptr)
         *required_lift_m = lift;
     if (required_peak_phase != nullptr)
@@ -933,13 +1024,112 @@ inline bool CheckSwingClearance(
     return true;
 }
 
+inline bool CheckSwingClearanceWorld(
+    const TerrainModel &model, const TerrainSwingFrameAdapter &frame,
+    TerrainSwingContract &contract, double clearance_m,
+    double &minimum_clearance_m,
+    FootholdRejectReason *failure_reason = nullptr,
+    go2::Leg leg = go2::Leg::FR,
+    double *required_lift_m = nullptr,
+    double *required_peak_phase = nullptr,
+    double *leading_edge_phase = nullptr,
+    bool *leading_edge_phase_valid = nullptr,
+    bool measured_support_anchor = false,
+    bool validate_absolute_horizon = true)
+{
+    // Clear any prior result before validating the replacement model.
+    contract.resolved_lift_m =
+        std::numeric_limits<double>::quiet_NaN();
+    contract.peak_phase = std::numeric_limits<double>::quiet_NaN();
+    // World execution binds the registered heading frame, not just an epoch.
+    const bool registration_matches = !model.registered ||
+        (std::isfinite(model.registration_yaw_rad) &&
+         std::abs(std::remainder(frame.yaw_rad - model.registration_yaw_rad,
+                                6.28318530717958647692)) <= 1.0e-9 &&
+         std::isfinite(model.registration_position_world[0]) &&
+         std::isfinite(model.registration_position_world[1]) &&
+         std::isfinite(model.registration_position_world[2]) &&
+         std::abs(frame.base_world.x - model.registration_position_world[0]) <= 1.0e-9 &&
+         std::abs(frame.base_world.y - model.registration_position_world[1]) <= 1.0e-9 &&
+         std::abs(frame.base_world.z - model.registration_position_world[2]) <= 1.0e-9);
+    const bool horizon_observed = std::isfinite(contract.touchdown_time_s) &&
+        contract.start_time_s >= model.map_stamp_s - kTerrainMapTimeToleranceS &&
+        contract.touchdown_time_s - model.map_stamp_s <=
+            kTerrainMapMaxAgeS + kTerrainMapTimeToleranceS;
+    const bool model_invalid = !model.valid() ||
+        (validate_absolute_horizon && !horizon_observed);
+    const bool frame_invalid = !registration_matches || !frame.valid || contract.map_epoch == 0 ||
+        contract.map_epoch != model.epoch || contract.plan_epoch == 0 ||
+        !std::isfinite(contract.model_state_stamp_s) ||
+        contract.model_state_stamp_s != model.state_stamp_s ||
+        frame.map_epoch != contract.map_epoch ||
+        frame.model_state_stamp_s != contract.model_state_stamp_s;
+    const bool schedule_invalid = !TerrainSwingScheduleValid(contract);
+    if (model_invalid || frame_invalid || schedule_invalid)
+    {
+        minimum_clearance_m = std::numeric_limits<double>::infinity();
+        if (failure_reason != nullptr)
+            *failure_reason = model_invalid
+                ? FootholdRejectReason::kInvalidModel
+                : (schedule_invalid
+                    ? FootholdRejectReason::kSwingClearance
+                    : FootholdRejectReason::kFrameMismatch);
+        if (required_lift_m != nullptr)
+            *required_lift_m = std::numeric_limits<double>::quiet_NaN();
+        if (required_peak_phase != nullptr)
+            *required_peak_phase = std::numeric_limits<double>::quiet_NaN();
+        if (leading_edge_phase != nullptr)
+            *leading_edge_phase = std::numeric_limits<double>::quiet_NaN();
+        if (leading_edge_phase_valid != nullptr)
+            *leading_edge_phase_valid = false;
+        return false;
+    }
+    // A fresh envelope does not refresh older individual observations.
+    // Mask cells not observed through the entire committed interval; the
+    // same unknown-coverage checks then apply to foot and shin samples.
+    TerrainModel horizon_model;
+    const TerrainModel *checked_model = &model;
+    if (validate_absolute_horizon)
+    {
+        horizon_model = model;
+        const double remaining = contract.touchdown_time_s - model.state_stamp_s;
+        for (auto &cell : horizon_model.cells)
+            if (cell.known && (!std::isfinite(cell.age_s) || cell.age_s < 0.0 ||
+                cell.age_s + remaining >
+                    kTerrainMapMaxAgeS + kTerrainMapTimeToleranceS))
+                cell.known = false;
+        checked_model = &horizon_model;
+    }
+    const bool result = CheckSwingClearance(
+        *checked_model, contract.start_world, contract.target_world, clearance_m,
+        minimum_clearance_m, failure_reason, leg, required_lift_m,
+        required_peak_phase, leading_edge_phase, leading_edge_phase_valid,
+        measured_support_anchor, &contract, &frame);
+    if (!result)
+    {
+        contract.resolved_lift_m =
+            std::numeric_limits<double>::quiet_NaN();
+        contract.peak_phase = std::numeric_limits<double>::quiet_NaN();
+        if (required_lift_m != nullptr)
+            *required_lift_m = std::numeric_limits<double>::quiet_NaN();
+        if (required_peak_phase != nullptr)
+            *required_peak_phase = std::numeric_limits<double>::quiet_NaN();
+        if (leading_edge_phase != nullptr)
+            *leading_edge_phase = std::numeric_limits<double>::quiet_NaN();
+        if (leading_edge_phase_valid != nullptr)
+            *leading_edge_phase_valid = false;
+    }
+    return result;
+}
 inline FootholdCandidate EvaluateFoothold(
     const TerrainModel &model, go2::Leg leg, double x_m, double y_m,
     const TerrainFeasibilityConfig &config,
     const go2::Vec3 *swing_start = nullptr,
     double swing_clearance_m = std::numeric_limits<double>::infinity(),
     const go2::Vec3 *future_base_displacement_base = nullptr,
-    bool measured_support_anchor = false)
+    bool measured_support_anchor = false,
+    const TerrainSwingFrameAdapter *frame_adapter = nullptr,
+    std::uint64_t plan_epoch = 0)
 {
     FootholdCandidate candidate;
     candidate.leg = leg;
@@ -947,6 +1137,11 @@ inline FootholdCandidate EvaluateFoothold(
     if (!model.valid())
     {
         candidate.reject_reason = FootholdRejectReason::kInvalidModel;
+        return candidate;
+    }
+    if (frame_adapter != nullptr && !frame_adapter->valid)
+    {
+        candidate.reject_reason = FootholdRejectReason::kFrameMismatch;
         return candidate;
     }
     if (model.frame_id != config.required_frame)
@@ -999,17 +1194,38 @@ inline FootholdCandidate EvaluateFoothold(
     // Map elevations describe the contact patch. Analytical FK and the
     // MuJoCo foot point describe the collision-sphere site, so reachability
     // must evaluate the calibrated site target rather than the patch plane.
-    const go2::Vec3 reachability_position =
-        future_base_displacement_base != nullptr
-            ? go2::Vec3{
-                  candidate.foot_position.x -
-                      future_base_displacement_base->x,
-                  candidate.foot_position.y -
-                      future_base_displacement_base->y,
-                  candidate.foot_position.z -
-                      future_base_displacement_base->z +
-                      go2::kFootSiteToContactPatchOffsetM}
-            : go2::ContactPatchToFootSite(candidate.foot_position);
+    go2::Vec3 reachability_position{};
+    if (future_base_displacement_base != nullptr)
+    {
+        if (frame_adapter != nullptr)
+        {
+            candidate.reject_reason = FootholdRejectReason::kFrameMismatch;
+            return candidate;
+        }
+        reachability_position = {
+            candidate.foot_position.x - future_base_displacement_base->x,
+            candidate.foot_position.y - future_base_displacement_base->y,
+            candidate.foot_position.z - future_base_displacement_base->z +
+                go2::kFootSiteToContactPatchOffsetM};
+    }
+    else
+    {
+        const go2::Vec3 contact_site_h =
+            go2::ContactPatchToFootSite(candidate.foot_position);
+        if (frame_adapter != nullptr)
+        {
+            if (!frame_adapter->HeadingToBody(
+                    contact_site_h, reachability_position))
+            {
+                candidate.reject_reason = FootholdRejectReason::kFrameMismatch;
+                return candidate;
+            }
+        }
+        else
+        {
+            reachability_position = contact_site_h;
+        }
+    }
     candidate.reachability_margin_m = LegReachabilityMargin(
         leg, reachability_position);
     if (candidate.edge_margin_m < config.min_edge_margin_m)
@@ -1048,7 +1264,47 @@ inline FootholdCandidate EvaluateFoothold(
     {
         FootholdRejectReason swing_reject_reason =
             FootholdRejectReason::kSwingClearance;
-        if (!CheckSwingClearance(
+        bool swing_ok = false;
+        if (frame_adapter != nullptr)
+        {
+            go2::Vec3 start_world{};
+            go2::Vec3 target_world{};
+            const go2::Vec3 target_site_h =
+                go2::ContactPatchToFootSite(candidate.foot_position);
+            TerrainSwingContract contract;
+            contract.map_epoch = model.epoch;
+            contract.plan_epoch = plan_epoch;
+            contract.model_state_stamp_s = model.state_stamp_s;
+            contract.start_source = TerrainSwingStartSource::kMeasured;
+            const bool frame_points = frame_adapter->BodyToWorld(
+                    *swing_start, start_world) &&
+                frame_adapter->HeadingToWorld(target_site_h, target_world);
+            contract.start_world = start_world;
+            contract.target_world = target_world;
+            // Candidate generation screens geometry on a normalized curve.
+            // Only runtime latch supplies and certifies the actual interval.
+            contract.start_time_s = model.state_stamp_s;
+            contract.touchdown_time_s = model.state_stamp_s + 1.0;
+            double lift = std::numeric_limits<double>::quiet_NaN();
+            double peak = std::numeric_limits<double>::quiet_NaN();
+            double minimum_clearance =
+                std::numeric_limits<double>::infinity();
+            swing_ok = frame_points && CheckSwingClearanceWorld(
+                model, *frame_adapter, contract, swing_clearance_m,
+                minimum_clearance, &swing_reject_reason, leg, &lift, &peak,
+                &candidate.swing_leading_edge_phase,
+                &candidate.swing_leading_edge_phase_valid,
+                measured_support_anchor, false);
+            if (swing_ok)
+            {
+                candidate.swing_clearance_m = minimum_clearance;
+                candidate.swing_lift_m = lift;
+                candidate.swing_peak_phase = peak;
+            }
+        }
+        else
+        {
+            swing_ok = CheckSwingClearance(
                 model, *swing_start,
                 go2::ContactPatchToFootSite(candidate.foot_position),
                 swing_clearance_m, candidate.swing_clearance_m,
@@ -1056,7 +1312,9 @@ inline FootholdCandidate EvaluateFoothold(
                 &candidate.swing_peak_phase,
                 &candidate.swing_leading_edge_phase,
                 &candidate.swing_leading_edge_phase_valid,
-                measured_support_anchor))
+                measured_support_anchor);
+        }
+        if (!swing_ok)
         {
             candidate.reject_reason = swing_reject_reason;
             return candidate;
@@ -1196,7 +1454,9 @@ inline bool HasForwardElevatedSurfaceStandoff(
 inline std::vector<SafeFootholdRegion> BuildSafeFootholdRegions(
     const TerrainModel &model, go2::Leg leg,
     const TerrainFeasibilityConfig &config,
-    const go2::Vec3 *future_base_displacement_base = nullptr)
+    const go2::Vec3 *future_base_displacement_base = nullptr,
+    const TerrainSwingFrameAdapter *frame_adapter = nullptr,
+    std::uint64_t plan_epoch = 0)
 {
     std::vector<SafeFootholdRegion> regions;
     if (!model.valid() || model.frame_id != config.required_frame)
@@ -1215,7 +1475,8 @@ inline std::vector<SafeFootholdRegion> BuildSafeFootholdRegions(
             const FootholdCandidate candidate = EvaluateFoothold(
                 model, leg, x, y, config, nullptr,
                 std::numeric_limits<double>::infinity(),
-                future_base_displacement_base);
+                future_base_displacement_base, false, frame_adapter,
+                plan_epoch);
             if (!candidate.hard_feasible)
                 continue;
             const double half = SafeFootholdRegionHalfExtent(

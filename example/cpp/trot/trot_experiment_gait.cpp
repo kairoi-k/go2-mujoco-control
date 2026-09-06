@@ -1495,6 +1495,7 @@ bool TrotExperiment::BuildGaitTargets(
         terrain_now_lookup.valid;
     const std::size_t terrain_k0 = terrain_plan_usable
         ? terrain_now_lookup.knot : 0;
+    terrain_execution_applied_mask_ = 0;
     if (params_.terrain_actuation && have_high_state)
     {
         int required_mask = 0;
@@ -1518,6 +1519,9 @@ bool TrotExperiment::BuildGaitTargets(
             if (commitment.clear_latched_target)
             {
                 terrain_execution_target_valid_[leg] = false;
+                terrain_execution_in_flight_[leg] = false;
+                terrain_execution_contract_[leg] = {};
+                terrain_execution_model_[leg].reset();
                 terrain_execution_measured_touchdown_[leg] = false;
                 terrain_execution_completion_recorded_[leg] = false;
             }
@@ -1558,76 +1562,158 @@ bool TrotExperiment::BuildGaitTargets(
                     touchdown.knot >= terrain_k0;
                 if (has_planner_touchdown)
                 {
+                    {
+                        std::lock_guard<std::mutex> lock(
+                            terrain_diagnostics_mutex_);
+                        ++terrain_target_prepare_attempts_;
+                    }
+                    // A new swing owns a fresh contract.  Do this before any
+                    // validation so a failed prepare cannot revive an older
+                    // target when the plan later becomes usable again.
+                    terrain_execution_target_valid_[leg] = false;
+                    terrain_execution_in_flight_[leg] = false;
+                    terrain_execution_contract_[leg] = {};
+                    terrain_execution_model_[leg].reset();
                     const auto &foot = terrain_tick_plan_->predicted_foothold[
                         touchdown.knot][leg];
-                    terrain_execution_target_world_[leg] =
+                    go2_terrain::TerrainSwingContract contract;
+                    contract.start_world =
+                        previous_commanded_world_feet_[leg];
+                    contract.target_world =
                         go2::ContactPatchToFootSite(foot.position_world);
-                    terrain_execution_target_lift_[leg] = foot.swing_lift_m;
-                    terrain_execution_target_time_s_[leg] =
-                        foot.touchdown_time_s;
-                    terrain_execution_swing_start_phase_[leg] = leg_phase;
-                    terrain_execution_target_plan_id_[leg] =
-                        terrain_tick_plan_->plan_id;
-                    terrain_execution_target_valid_[leg] = true;
-                    terrain_execution_in_flight_[leg] = true;
-                    terrain_execution_target_plan_epoch_[leg] =
-                        terrain_tick_plan_->plan_epoch;
+                    contract.start_time_s =
+                        previous_commanded_time_s_[leg];
+                    double resolved_touchdown_time_s =
+                        std::numeric_limits<double>::quiet_NaN();
+                    const bool coarse_touchdown_matches =
+                        go2_terrain::ResolveTerrainSwingTouchdownTime(
+                            terrain_now_s, leg_phase, gait_result.period_s,
+                            foot.touchdown_time_s,
+                            resolved_touchdown_time_s);
+                    contract.touchdown_time_s = resolved_touchdown_time_s;
+                    contract.map_epoch = terrain_tick_plan_->map_epoch;
+                    contract.plan_epoch = terrain_tick_plan_->plan_epoch;
+                    contract.model_state_stamp_s =
+                        terrain_tick_plan_->state_stamp_s;
+                    contract.start_source =
+                        go2_terrain::TerrainSwingStartSource::kCommanded;
+                    const bool remaining_interval =
+                        std::isfinite(previous_commanded_time_s_[leg]) &&
+                        previous_commanded_time_s_[leg] <= terrain_now_s +
+                            1.0e-6 &&
+                        terrain_now_s < contract.touchdown_time_s;
+                    bool prepared =
+                        previous_commanded_world_feet_valid_[leg] &&
+                        remaining_interval && coarse_touchdown_matches &&
+                        foot.valid &&
+                        go2_terrain::TerrainSwingScheduleValid(contract) &&
+                        std::isfinite(foot.swing_clearance_m) &&
+                        foot.swing_clearance_m >= 0.0;
+                    std::shared_ptr<const go2_terrain::TerrainModel> model;
+                    go2_terrain::TerrainSwingFrameAdapter frame;
+                    if (prepared)
                     {
-                        std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
-                        ++terrain_target_prepare_attempts_;
-                        ++terrain_target_prepared_;
+                        model = terrain_tick_plan_->terrain_snapshot;
+                        const auto &body =
+                            terrain_tick_plan_->body_reference[0];
+                        prepared = model != nullptr && body.valid &&
+                            body.quaternion_valid && model->valid() &&
+                            model->epoch == contract.map_epoch &&
+                            model->frame_id == terrain_tick_plan_->frame_id &&
+                            model->state_stamp_s ==
+                                contract.model_state_stamp_s &&
+                            frame.Bind(body.position, body.q_world_from_body,
+                                       body.yaw_rad, contract.map_epoch,
+                                       contract.model_state_stamp_s);
                     }
-                }
-                if (!terrain_execution_target_valid_[leg] &&
-                    has_planner_touchdown)
-                {
-                    std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
-                    ++terrain_target_prepare_attempts_;
-                    ++terrain_target_prepare_rejections_;
+                    if (prepared)
+                    {
+                        // A late latch starts at the last commanded world foot
+                        // and rechecks the remaining absolute interval against
+                        // this exact plan/model epoch and pose binding.
+                        go2_terrain::FootholdRejectReason reason =
+                            go2_terrain::FootholdRejectReason::kSwingClearance;
+                        double minimum_clearance =
+                            std::numeric_limits<double>::infinity();
+                        double lift =
+                            std::numeric_limits<double>::quiet_NaN();
+                        double peak =
+                            std::numeric_limits<double>::quiet_NaN();
+                        prepared = go2_terrain::CheckSwingClearanceWorld(
+                            *model, frame, contract, foot.swing_clearance_m,
+                            minimum_clearance, &reason,
+                            static_cast<go2::Leg>(leg), &lift, &peak,
+                            nullptr, nullptr,
+                            terrain_tick_plan_->contact_schedule
+                                .measured_contact[leg]);
+                        prepared = prepared && std::isfinite(lift) &&
+                            lift >= 0.0 && go2_terrain::TerrainSwingPeakValid(peak);
+                    }
+                    if (prepared)
+                    {
+                        terrain_execution_contract_[leg] = contract;
+                        terrain_execution_model_[leg] = std::move(model);
+                        terrain_execution_target_world_[leg] =
+                            contract.target_world;
+                        terrain_execution_target_lift_[leg] =
+                            contract.resolved_lift_m;
+                        terrain_execution_target_time_s_[leg] =
+                            contract.touchdown_time_s;
+                        terrain_execution_swing_start_phase_[leg] = leg_phase;
+                        terrain_execution_target_plan_id_[leg] =
+                            terrain_tick_plan_->plan_id;
+                        terrain_execution_target_plan_epoch_[leg] =
+                            contract.plan_epoch;
+                        terrain_execution_target_valid_[leg] = true;
+                        terrain_execution_in_flight_[leg] = true;
+                        {
+                            std::lock_guard<std::mutex> lock(
+                                terrain_diagnostics_mutex_);
+                            ++terrain_target_prepared_;
+                        }
+                    }
+                    else
+                    {
+                        std::lock_guard<std::mutex> lock(
+                            terrain_diagnostics_mutex_);
+                        ++terrain_target_prepare_rejections_;
+                    }
                 }
             }
 
             if (!terrain_execution_target_valid_[leg])
                 continue;
             required_mask |= 1 << static_cast<int>(leg);
-            const go2::Vec3 target_body = go2_control::WorldToBody(
-                pose.base, pose.quaternion,
-                terrain_execution_target_world_[leg]);
-            const double swing_u = std::clamp(
-                (leg_phase - stance_duration) /
-                    std::max(1.0e-6, 1.0 - stance_duration),
-                0.0, 1.0);
-            const double start_u = std::clamp(
-                (terrain_execution_swing_start_phase_[leg] - stance_duration) /
-                    std::max(1.0e-6, 1.0 - stance_duration),
-                0.0, 0.95);
-            const double handoff_u = Smoothstep(
-                (swing_u - start_u) / std::max(1.0e-3, 1.0 - start_u));
-            feet[leg].x += (target_body.x - feet[leg].x) * handoff_u;
-            feet[leg].y += (target_body.y - feet[leg].y) * handoff_u;
-            feet[leg].z += (target_body.z - feet[leg].z) * handoff_u;
-            const double nominal_lift = TerrainKernelNominalLift(
-                params_.runtime_velocity_command,
-                params_.foot_lift_m, runtime_gait_foot_lift_m_,
-                gait_result.effective_foot_lift_m);
-            const double target_lift =
-                terrain_execution_target_lift_[leg];
-            if (!std::isfinite(nominal_lift) || nominal_lift < 0.0 ||
-                !std::isfinite(target_lift) || target_lift < 0.0)
+            go2::Vec3 terrain_world_sample{};
+            if (!go2_terrain::EvaluateTerrainSwingAtTime(
+                    terrain_execution_contract_[leg], terrain_now_s,
+                    terrain_world_sample, go2_terrain::TerrainSwingEase,
+                    go2_terrain::TerrainSwingProfile))
             {
-                std::cerr << "Terrain gait lift unavailable at leg=" << leg
-                          << " target=" << target_lift
-                          << " kernel=" << nominal_lift << "\n";
-                return false;
+                // The evaluator owns the absolute time domain.  A stale
+                // contract is dropped instead of being clamped to touchdown
+                // or allowing a later plan to revive it.
+                terrain_execution_target_valid_[leg] = false;
+                terrain_execution_in_flight_[leg] = false;
+                terrain_execution_contract_[leg] = {};
+                terrain_execution_model_[leg].reset();
+                continue;
             }
-            const double extra_lift = TerrainExtraLift(
-                target_lift, nominal_lift);
-            feet[leg].z += extra_lift * go2_terrain::TerrainSwingProfile(
-                swing_u, 0.5);
-            terrain_execution_applied_mask_ |= 1 << static_cast<int>(leg);
-            if (handoff_u > 1.0e-6 || extra_lift > 1.0e-6)
+            const go2::Vec3 target_body = go2_control::WorldToBody(
+                pose.base, pose.quaternion, terrain_world_sample);
+            if (!go2_terrain::TerrainSwingFiniteVec3(target_body))
             {
-                std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
+                terrain_execution_target_valid_[leg] = false;
+                terrain_execution_in_flight_[leg] = false;
+                terrain_execution_contract_[leg] = {};
+                terrain_execution_model_[leg].reset();
+                continue;
+            }
+            feet[leg] = target_body;
+            terrain_execution_applied_mask_ |= 1 << static_cast<int>(leg);
+            {
+                std::lock_guard<std::mutex> lock(
+                    terrain_diagnostics_mutex_);
                 ++terrain_gait_target_override_count_;
             }
         }
@@ -1683,6 +1769,30 @@ bool TrotExperiment::BuildGaitTargets(
     {
         std::cerr << "Trot IK failed at gait_time=" << gait_time_s << "\n";
         return false;
+    }
+    if (have_high_state)
+    {
+        go2_terrain::TerrainSwingFrameAdapter frame;
+        if (frame.Bind(pose.base, pose.quaternion, pose.yaw_rad))
+        {
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                go2::Vec3 world_foot{};
+                previous_commanded_world_feet_valid_[leg] =
+                    frame.BodyToWorld(feet[leg], world_foot);
+                if (previous_commanded_world_feet_valid_[leg])
+                    previous_commanded_world_feet_[leg] = world_foot;
+                previous_commanded_time_s_[leg] = terrain_now_s;
+            }
+        }
+        else
+        {
+            previous_commanded_world_feet_valid_.fill(false);
+        }
+    }
+    else
+    {
+        previous_commanded_world_feet_valid_.fill(false);
     }
     return true;
 }

@@ -113,6 +113,9 @@ go2_add_ctest(test_velocity_command)
 add_executable(test_terrain_swing_lift tests/test_terrain_swing_lift.cpp)
 target_link_libraries(test_terrain_swing_lift Eigen3::Eigen)
 
+add_executable(test_terrain_swing_contract tests/test_terrain_swing_contract.cpp)
+target_link_libraries(test_terrain_swing_contract unitree_sdk2)
+
 add_executable(test_terrain_commitment_lifecycle
     tests/test_terrain_commitment_lifecycle.cpp)
 
@@ -256,6 +259,10 @@ go2_add_ctest(test_motion_frame_utils)
 go2_add_ctest(test_trot_task)
 go2_add_ctest(test_velocity_filter)
 go2_add_ctest(test_terrain_swing_lift)
+go2_add_ctest(test_terrain_swing_contract)
+add_executable(test_terrain_swing_world_audit tests/test_terrain_swing_world_audit.cpp)
+target_link_libraries(test_terrain_swing_world_audit unitree_sdk2)
+go2_add_ctest(test_terrain_swing_world_audit)
 go2_add_ctest(test_terrain_commitment_lifecycle)
 go2_add_ctest(test_contact_state_filter)
 go2_add_ctest(test_contact_wrench_allocator)

@@ -1,0 +1,45 @@
+{
+  "schema": "b1-swing-validation-v1",
+  "candidate": false,
+  "claim": "sampled fixed-body geometry and execution parameter consistency only",
+  "controller_ctest": [
+    42,
+    42
+  ],
+  "simulator_ctest": [
+    3,
+    3
+  ],
+  "python_focused": [
+    48,
+    48
+  ],
+  "geometry_latency_us": {
+    "p50": 3.006,
+    "p95": 3.055,
+    "max": 46.328,
+    "iterations": 1000
+  },
+  "dense_flat_floor_samples": 1001,
+  "minimum_foot_bottom_world_z_m": 0.0,
+  "endpoint_error_m": 0.0,
+  "parameterization_error_m": 1.11022302463e-16,
+  "raw_directory": "example/cpp/experiments/_runs/b1_swing_validation_20260907_0001",
+  "raw_sha256": {
+    "physical_tests.log": "006b3fd519b87c6fd111cd3c52333306bf6c6fe5c61f61d59748271f56dfd69f",
+    "benchmark": "be1dceb72eb21ddcb2e7d244badccb33d271c5916e29200c28c35bb9fe585378",
+    "ctest_0001.log": "616f0c3317754c447082a6c6b02d56e1bdec92d7d06ecec6a69d00b9486c8b8e",
+    "sim_ctest.log": "f5878e7623ada35bcbb8d48bebe80de21d83fea0d82d20326f193995ef8c67e7",
+    "full_build.log": "692d9d2c729fa2b7619d2ed562b776af2c2eddd345df26a361f5bacb19ee197d",
+    "benchmark_final": "25fcdb1f4036b084e2a470e6ee35bb42a04c5f9f890a59f5c655a589798ac30a",
+    "protocol_tests.log": "51e0afdaa1c0cacbe3c4a33aeaa333561d8cead537dc9b565c9010aff3eac5f0",
+    "source_binding.json": "d68cee64ec7be6de972460dc533fd784cf8dbc4538a7213dabd0a939a4cb8fb9",
+    "benchmark_0001.log": "b6d16a19a4863efb8634fbbd36974078181dd57efa24de611c668d9344a3cb55",
+    "benchmark_final.log": "834e6c450931a4c7a94bb9dd4594d8ae55fab074a59fb1bf35111303b67e5d07",
+    "benchmark.cpp": "de05fff448491681f64dd027a7a13fa113b1b3d0b00d9baf21f58bea7354dd62",
+    "ctest_final.log": "24c16bfc80e471904464c1098f3aa0af64b71a2bf483a6aa2f7ead2e8d441511",
+    "impulse_tests.log": "d094b1bd2c8318c96097f80c50da282add5b2972970a77046de8db6c8935f6ca",
+    "v3_tests.log": "723fce7d3c223116afcd949724300ea77927077bac7e8a02fadcd1ab31eba951",
+    "full_build_final.log": "345876d718ee54ce4a24bb5cd983ce5fcb17d533861c64d86ff5134d120875ac"
+  }
+}

@@ -71,18 +71,41 @@ class V3PureProtocolTests(unittest.TestCase):
         self.assertEqual(result["status"], "NOT_CERTIFIED")
         self.assertIn("approach_period_out_of_band", result["reasons"])
 
-    def test_stable_approach_deduplicates_state_tick_reuse(self):
+    def test_stable_approach_uses_each_gt_sample_with_reused_state_tick(self):
         rows = [merged(f"{i * 0.002:.3f}") for i in range(401)]
-        rows.append(dict(rows[-1]))
+        for i, row in enumerate(rows):
+            row["state_tick_s"] = f"{(i // 2) * 0.004:.3f}"
+        # The first-contact row is outside the half-open approach window.
+        rows[-1]["base_qvel_world_x_mps"] = "0.0"
+        # Exact duplicate GT timestamps are tolerated by the pure helper;
+        # the full wrapper rejects them in its strict global GT gate.
+        rows.insert(101, dict(rows[100]))
         result = V3.stable_approach(rows, 0.80)
         self.assertEqual(result["status"], "PASS")
-        self.assertEqual(result["evidence"]["rows"], 401)
+        self.assertEqual(result["evidence"]["rows"], 400)
+        self.assertEqual(result["evidence"]["speed_in_band_fraction"], 1.0)
+    def test_stable_approach_counts_bad_gt_speed_sharing_a_state_tick(self):
+        rows = [merged(f"{i * 0.002:.3f}") for i in range(401)]
+        for i, row in enumerate(rows):
+            row["state_tick_s"] = f"{(i // 2) * 0.004:.3f}"
+            if i < 42 and i % 2 == 0:
+                row["base_qvel_world_x_mps"] = "0.0"
+        result = V3.stable_approach(rows, 0.80)
+        self.assertEqual(result["status"], "NOT_CERTIFIED")
+        self.assertIn("approach_measured_speed_fraction", result["reasons"])
+        self.assertAlmostEqual(result["evidence"]["speed_in_band_fraction"], 379 / 400)
 
     def test_stable_approach_requires_first_contact_tail(self):
         rows = [merged(f"{i * 0.002:.3f}") for i in range(371)]  # ends at 0.740 s
         result = V3.stable_approach(rows, 0.80)
         self.assertEqual(result["status"], "NOT_CERTIFIED")
-        self.assertIn("approach_first_contact_tail_coverage", result["reasons"])
+        self.assertIn("approach_first_contact_truth_tail_coverage", result["reasons"])
+    def test_stable_approach_requires_gt_gap_coverage(self):
+        rows = [merged(f"{i * 0.002:.3f}") for i in range(401)]
+        rows = [row for row in rows if not 0.400 <= float(row["time_s"]) < 0.414]
+        result = V3.stable_approach(rows, 0.80)
+        self.assertEqual(result["status"], "NOT_CERTIFIED")
+        self.assertIn("time_s_gap_gt_10ms", result["reasons"])
 
     def test_stable_approach_rejects_nonfinite_and_descending_ticks(self):
         nonfinite = [merged(f"{i * 0.002:.3f}") for i in range(401)]

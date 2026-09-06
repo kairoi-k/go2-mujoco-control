@@ -119,13 +119,16 @@ int main()
     input.state_stamp_s = 10.04;
     input.base_position_world = {0.0, 0.0, 0.0};
     input.base_height_m = 0.42;
+    input.base_quaternion = {1.0, 0.0, 0.0, 0.0};
+    input.base_quaternion_valid = true;
+    // Inputs are foot sites, 22 mm above the observed contact patch.
     input.contact_schedule.measured_contact = {true, false, false, true};
     input.contact_schedule.measured_valid = true;
     input.current_feet_base = {
-        go2::Vec3{0.20, -0.10, -0.25},
-        go2::Vec3{0.20, 0.10, -0.25},
-        go2::Vec3{-0.20, -0.10, -0.25},
-        go2::Vec3{-0.20, 0.10, -0.25}};
+        go2::Vec3{0.20, -0.10, -0.228},
+        go2::Vec3{0.20, 0.10, -0.228},
+        go2::Vec3{-0.20, -0.10, -0.228},
+        go2::Vec3{-0.20, 0.10, -0.228}};
     input.nominal_feet_base = input.current_feet_base;
     for (std::size_t k = 0; k < 8; ++k)
     {
@@ -157,6 +160,13 @@ int main()
     planner_config.sensor_only = false;
     planner_config.allow_actuation = true;
     go2_terrain::TerrainPlanner actuation_planner(planner_config);
+    auto missing_pose_input = input;
+    missing_pose_input.base_quaternion_valid = false;
+    const auto missing_pose = actuation_planner.Build(missing_pose_input, 8);
+    if (!Check(!missing_pose.publishable && missing_pose.plan.failure ==
+                   go2_terrain::TerrainPlanFailure::kInvalidInput,
+               "actuation accepted an unknown full body attitude"))
+        return 1;
     const auto actuation_plan = actuation_planner.Build(input, 8);
     if (!Check(actuation_plan.publishable && actuation_plan.plan.valid(),
                "actuation planner did not publish a valid plan") ||
@@ -176,10 +186,10 @@ int main()
     support_anchor_input.contact_schedule.measured_contact =
         {true, false, true, false};
     support_anchor_input.current_feet_base = {
-        go2::Vec3{0.0, 0.0, -0.25},
-        go2::Vec3{0.0, 0.0, -0.25},
-        go2::Vec3{0.0, 0.0, -0.25},
-        go2::Vec3{0.0, 0.0, -0.25}};
+        go2::Vec3{0.0, 0.0, -0.228},
+        go2::Vec3{0.0, 0.0, -0.228},
+        go2::Vec3{0.0, 0.0, -0.228},
+        go2::Vec3{0.0, 0.0, -0.228}};
     for (std::size_t k = 0; k < 8; ++k)
         support_anchor_input.contact_schedule.planned_contact[k] =
             {true, false, true, false};
@@ -192,9 +202,9 @@ int main()
                "planner accepted unstable FK support without anchor"))
         return 1;
     support_anchor_input.measured_support_anchor_world = {
-        go2::Vec3{0.20, -0.10, -0.25},
+        go2::Vec3{0.20, -0.10, -0.228},
         go2::Vec3{},
-        go2::Vec3{-0.20, 0.10, -0.25},
+        go2::Vec3{-0.20, 0.10, -0.228},
         go2::Vec3{}};
     support_anchor_input.measured_support_anchor_valid[0] = true;
     support_anchor_input.measured_support_anchor_valid[2] = true;
