@@ -31,12 +31,13 @@
     "example/cpp/trot/trot_experiment_lifecycle.cpp": "ef8316521cffabdf9f561b3890fc550b393937a9078246954cf18a3d75594500",
     "example/cpp/trot/trot_experiment_diagnostics.cpp": "fcb5aa740234f6f2c7b22005dec451c6151def0899e337dda3f9f4352fb1491e",
     "simulate/src/unitree_sdk2_bridge.h": "40ba73e53f04f827e26def5272df921c0b6ca0b76a866abd4aa24ec2fed0129b",
-    "example/cpp/scripts/run_trot.sh": "a12767230af26b80a9e29a8d7ffe7fd1189455bfa9576467e1eb966befc4c93b"
+    "example/cpp/scripts/run_trot.sh": "a12767230af26b80a9e29a8d7ffe7fd1189455bfa9576467e1eb966befc4c93b",
+    "example/cpp/tools/analysis/audit_b1_approach_contact.py": "9c6945467d1216deb766c2ff81e6bb32c4b025a437e719f3c46fc144f2faaccf"
   },
   "curated_sha256": {
     "hold_flat_failure.json": "a595844f460ab60a22c3b11b0091c22c290b62c66f13d76f516070a5357c46c4",
     "commitment_audit.md": "c75d2eaef3ac6efff446770a10f7dc0d639a8b69c371903bc6d2ddbc27ea2b47",
-    "README.md": "fb49a78430efbbbce5c2f99fac0cb82c37fb4c901d5956a3b36c8276e0ac4178",
+    "README.md": "f95341442f3a4e0a32799e2e2347e2234c680e96a93cac62f3e40ba914ecb3a0",
     "commitment_flat_failure.json": "8c33d7f78888852396c764e5339a33f231de5cef9e1ee2171b8245c57e2aea86",
     "rejected_acceptance_draft.json": "eab97370b50da670d61a580b3231a98bc7dd4881e09d101067419907794a9619",
     "audit_stance_ablation_dynamic.py": "eef36f710efe3a4b658895a94dcb2d7360fce9ed286247097d4e1bb3893ffd34",
@@ -46,7 +47,8 @@
     "schema_audit.md": "cf20ad5677c55c1a9d61f8ab5ec9f8d8a9509c938587366fa9916c29afd58dc3",
     "dynamic_transition_audit.md": "d08a774565ea1c8537cee266a1ad42ebadee7f5d7928bba14140861499d3176d",
     "lift_results.json": "f3a7d1d8fb1e77792843fc4da2282a81d6f86b45e833e01d35aebdd01387c12b",
-    "registration_transport_diagnostics.json": "e1e452045aa40fa3f79e41ba59def50403a9ba414daf671b8a2ebd4bc4d3a622"
+    "registration_transport_diagnostics.json": "e1e452045aa40fa3f79e41ba59def50403a9ba414daf671b8a2ebd4bc4d3a622",
+    "v3_sensor_baseline.json": "9a29c630ea9b36ae51157c30cd54df50a07373f6872cf380a8b54a630976aeff"
   },
   "previous_implementation_sha": "764a21c61127e01831f5bb47601158b696e7a211",
   "implementation_tests": "39/39 controller, 3/3 simulator, map codec/registration/model benchmark p50/p95/max 106.25/129.945/245.883 us",

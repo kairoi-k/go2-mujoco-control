@@ -1,0 +1,156 @@
+{
+  "schema": "b1-v3-development-baseline-v1",
+  "candidate": false,
+  "runtime_ref": "bc35352",
+  "step_run": "b1_v3_sensor_baseline_bc35352_20260907_0001",
+  "flat_run": "b1_v3_sensor_flat_bc35352_20260907_0001",
+  "physical_v2_diagnostic": {
+    "schema": "b1-physical-evidence-v2",
+    "status": "NOT_CERTIFIED",
+    "claim": "empirical physical traversal only; not planner feasibility or campaign acceptance",
+    "policy": {
+      "force_witness_N": 10.0,
+      "top_witness_s": 0.02,
+      "stable_exit_s": 0.45,
+      "rear_clearance_m": 0.02,
+      "truth_gap_s": 0.01,
+      "controller_gap_s": 0.02,
+      "posture_max_deg": 15.0,
+      "minimum_base_height_m": 0.28,
+      "aerial_witness_s": 0.004,
+      "diagonal_witness_s": 0.004
+    },
+    "gates": {
+      "truth_time_coverage": true,
+      "complete_body_and_feet_exit": false,
+      "started_before_step": true,
+      "finite_physical_window": true,
+      "each_leg_force_supported_on_top": false,
+      "no_nonfoot_step_collision": false,
+      "posture_and_height": false,
+      "dynamic_contact_witness": false,
+      "controller_window_coverage": false,
+      "estimated_state_and_lidar": false,
+      "continuous_active_execution": false
+    },
+    "issues": [],
+    "metrics": {
+      "window_end_source": "trace_end",
+      "approach_time_s": 23.268,
+      "exit_end_time_s": null,
+      "max_base_x_m": 5.66373895852,
+      "base_proxy_rear_crossed": false,
+      "top_support": {
+        "FR": {
+          "longest_support_s": 0.045999999999999375,
+          "max_top_force_N": 45.8317097748
+        },
+        "FL": {
+          "longest_support_s": 0.0,
+          "max_top_force_N": 0.0
+        },
+        "RR": {
+          "longest_support_s": 0.0519999999999996,
+          "max_top_force_N": 134.23089556
+        },
+        "RL": {
+          "longest_support_s": 0.0,
+          "max_top_force_N": 0.0
+        }
+      },
+      "nonfoot_collision_rows": 1374,
+      "first_nonfoot_collision_time_s": 23.696,
+      "max_nontop_foot_force_N": {
+        "FR": 398.46452698,
+        "FL": 337.21803897,
+        "RR": 0.0,
+        "RL": 0.0
+      },
+      "foot_riser_contact_free": false,
+      "roll_abs_max_deg": 179.86485348096926,
+      "pitch_abs_max_deg": 85.26231662605966,
+      "obstacle_interaction_time_s": [
+        23.53,
+        26.854
+      ],
+      "diagonal_witness_s": {
+        "9": 0.0,
+        "6": 0.0
+      },
+      "aerial_witness_s": 0.03399999999999892,
+      "forward_speed_p05_mps": -0.09581322505635,
+      "forward_speed_p50_mps": 0.268006485712,
+      "uncovered_truth_rows": 46,
+      "effective_duty_range": [
+        0.44,
+        0.44
+      ],
+      "id_wbc_ok_fraction": 0.954233409610984
+    },
+    "input_sha256": {
+      "example/cpp/experiments/_runs/b1_v3_sensor_baseline_bc35352_20260907_0001/contact_ground_truth.csv": "099b533012c8c08959a6a3f52c8b9274e6c2a0bea409e29a1953103f26e6b674",
+      "example/cpp/experiments/_runs/b1_v3_sensor_baseline_bc35352_20260907_0001/data.csv": "2404c9c135dfea610be2a19d7c2301c44f54acf0e72fce447485eaa15148efb0",
+      "unitree_robots/go2/b1_v3_running_step_5cm.xml": "46f6118585b9d151229e6e0edda6993c39f9f3159eda353102dc579aaaac24a0"
+    },
+    "analyzer_sha256": "d836f95e515979a6f95695dbbd896237fdc404317fb2bfd4e1a8a9b6369a3d29"
+  },
+  "first_contact_diagnostic": {
+    "schema": "b1-approach-contact-diagnostic-v1",
+    "acceptance_claim": false,
+    "first_step_contact_s": 23.53,
+    "pre_contact_0_8s": {
+      "controller_rows": 399,
+      "truth_rows": 400,
+      "speed_range_fraction": 1.0,
+      "speed_p05": 1.053557717932,
+      "speed_median": 1.10223522629,
+      "velocity_command_gait_period_s": [
+        0.14,
+        0.14
+      ],
+      "velocity_command_gait_duty": [
+        0.44,
+        0.44
+      ],
+      "velocity_command_requested_mps": [
+        1.0,
+        1.0
+      ],
+      "kernel_effective_foot_lift_m": [
+        0.051851852,
+        0.051851852
+      ]
+    },
+    "first_riser_contact": {
+      "FR": {
+        "time_s": 23.53,
+        "base_pos_world_x_m": 4.7922026771,
+        "base_pos_world_z_m": 0.364801802358,
+        "FR_pos_world_x_m": 4.98058846955,
+        "FR_pos_world_z_m": 0.0607625109965,
+        "FR_terrain_nontop_contact_force_N": 262.074714848
+      },
+      "FL": {
+        "time_s": 23.534,
+        "base_pos_world_x_m": 4.79645580632,
+        "base_pos_world_z_m": 0.365143820408,
+        "FL_pos_world_x_m": 4.97867369426,
+        "FL_pos_world_z_m": 0.0191233871352,
+        "FL_terrain_nontop_contact_force_N": 49.5758761606
+      },
+      "RR": null,
+      "RL": null
+    },
+    "input_sha256": {
+      "example/cpp/experiments/_runs/b1_v3_sensor_baseline_bc35352_20260907_0001/contact_ground_truth.csv": "099b533012c8c08959a6a3f52c8b9274e6c2a0bea409e29a1953103f26e6b674",
+      "example/cpp/experiments/_runs/b1_v3_sensor_baseline_bc35352_20260907_0001/data.csv": "2404c9c135dfea610be2a19d7c2301c44f54acf0e72fce447485eaa15148efb0"
+    },
+    "script_sha256": "9c6945467d1216deb766c2ff81e6bb32c4b025a437e719f3c46fc144f2faaccf"
+  },
+  "flat_observation": "completed gait time 32.801995168 s; WBC ID fraction 1.0; no safety stop; not a full B0 or V3 acceptance claim",
+  "legacy_analysis": "phase1 quantitative analyzer raises KeyError for new profile name b1_v3_running_1mps; recorded unsupported, not a numeric gait failure",
+  "run_manifest_sha256": {
+    "b1_v3_sensor_baseline_bc35352_20260907_0001": "8795fb88738c0d9da44c690e9f973bb2e4a00217a81e12ba0fde78f298c88e30",
+    "b1_v3_sensor_flat_bc35352_20260907_0001": "96a7e910b03c35a2cfb3375dd055eaaf808aa9b42b4d9a270407a51291b563a0"
+  }
+}
