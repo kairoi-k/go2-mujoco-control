@@ -1,0 +1,76 @@
+{
+  "schema": "b1-registration-transport-diagnostic-v1",
+  "candidate": false,
+  "runs": [
+    {
+      "run": "b1_registered_flat_3aff628_20260907_0001",
+      "source_ref": "3aff628493e4c6343196f9fbcbb29c3c88cc59b7",
+      "status": "completed_without_registered_map",
+      "controller_rows": 16731,
+      "registered_rows": 0,
+      "candidate": false,
+      "raw_sha256": {
+        "data.csv": "1baee91ea6e0ff2260577b581aa744b4d10e1ed2828ab0cfcb5257417fa3e653",
+        "wallclock_runtime_telemetry.csv": "7b64c0de73f09a83bb33f41899de25b022a7e42b620ace2d03920a8039777d88",
+        "contact_ground_truth_analysis.txt": "997aaa24babe20a8a105178558f59d1a7ef7af25fde8fad28182e748b578b21b",
+        "run_metadata.txt": "696e54ba21fd4a8bab116edbc85617c407ffb9be448a4ac71fe429aafc8880db",
+        "contact_ground_truth_dynamics_analysis.txt": "ca4f03a0ebea7d4f00a8d9f6c158bdb5f2e00555b9b0b698646b75df2a6cbc0c",
+        "phase1_quantitative.json": "38313e74b78c4cfdd0cd81487f2b1cef3c6dd1b6e4defa48ade8c571889233c7",
+        "run_manifest.json": "a43dcb94cb802139ff88fd2c6aaa58e9368d468fc27de6d23049777f80526718",
+        "environment.txt": "950bc1991f0ca7796aca10ad73cca9d97397cc6cf598ac9a9a7111df8ccb2112",
+        "controller.log": "550720c7e9b5fce848c4b64398a8fc68a3719f2b0f573fd02518020fd094b48f",
+        "simulator.log": "0dfd4c000e8340f8c7a83be0fb72188ddb427bac87cfaef67593a2d59494c653",
+        "contact_ground_truth.csv": "57c2bd28bd6329332fb373a76eb3ff34cca4081ba1ac1cc097a202427aaf5d40",
+        "phase1_quantitative.log": "38313e74b78c4cfdd0cd81487f2b1cef3c6dd1b6e4defa48ade8c571889233c7",
+        "phase2_terrain_analysis.log": "e745dcf19b59eec459e6c65300508b024c7c4396a765161d70d7438a3b14dd80"
+      }
+    },
+    {
+      "run": "b1_registration_diagnostic_20260907_0001",
+      "source_ref": "ac8c441",
+      "status": "natural_settle_stuck_operator_terminated",
+      "controller_rows": 65352,
+      "registered_rows": 0,
+      "candidate": false,
+      "raw_sha256": {
+        "research_stop_reason.txt": "57abe167be7487fa42338f4fa4e5644362cf37131cefd4325425250d29d24c90",
+        "data.csv": "28f62b44c0966542b076cf198a106719d9785eaebe869e20e10469a5b0bd3074",
+        "wallclock_runtime_telemetry.csv": "a376d5d7bf963b4c440e657a31bcfbc1113969669ad669adab7cc06abd2f6a23",
+        "contact_ground_truth_analysis.txt": "7d57b3ef3f1a69b8c44e23cc66ab009ccacdb4293b69b13e0b053d2313ba4576",
+        "run_metadata.txt": "76a8bad20a274cffe652d34dec27c66704006e78c85d309b744f0c51dc7350ba",
+        "contact_ground_truth_dynamics_analysis.txt": "2439468cfb8f3754a86836e4d6a9c0943689942972f772524db7d240c1e4ea16",
+        "phase1_quantitative.json": "34c314c9aee249107ade576fa28eb3953cf1660c759100ddf5f3fa5b5a3a86ff",
+        "run_manifest.json": "a184dbba085a5866aa6ec7094e495ca59498ed54dbc6ac0e62e4d9fce610ecef",
+        "environment.txt": "82a6850a3951297b5670cdda58c4a797d1f8700aba9b78a4714a640f29566ab0",
+        "controller.log": "ca4d583ef621958160deeeae6160162e4f9a6c9f0124969ddc17dd8e88c1d1a6",
+        "simulator.log": "3c9dff0656a4101497afc42947ce1cc9981a2043666cc74076660bdfa3cf42f0",
+        "contact_ground_truth.csv": "ad536d5dc399720b408111e628bffd9715edd026db228f429d33b34315e25b44",
+        "phase1_quantitative.log": "34c314c9aee249107ade576fa28eb3953cf1660c759100ddf5f3fa5b5a3a86ff",
+        "phase2_terrain_analysis.log": "e745dcf19b59eec459e6c65300508b024c7c4396a765161d70d7438a3b14dd80"
+      }
+    },
+    {
+      "run": "b1_registration_diagnostic_20260907_0002",
+      "source_ref": "fe1620f",
+      "status": "completed_without_received_envelope",
+      "controller_rows": 16653,
+      "registered_rows": 0,
+      "candidate": false,
+      "raw_sha256": {
+        "data.csv": "64a7cbe28ce373826537a6f7800dc14394ebd5062fee17ec7d141c940009af33",
+        "wallclock_runtime_telemetry.csv": "ef97ddd2c14afaea04d04db15b48c2ef59b71821bb60e0699590766f6cae99e5",
+        "contact_ground_truth_analysis.txt": "caacbaf48a5567b13833dc5c63a97cfdcd1ed0bf581b45ce7367b2e972a4019e",
+        "run_metadata.txt": "49c89892379145a6088cd3f6003139aacdcb75ad609d410a26d3d6a5c0d03421",
+        "contact_ground_truth_dynamics_analysis.txt": "5b4ec2d240a2b90e1350637b7e2a70728c7485dbb79e21157c62c7ea21954d67",
+        "phase1_quantitative.json": "aacdae442666174a15657dde54bc6b6f5c35750d5568a99a3674633103ce79eb",
+        "run_manifest.json": "9678863a2949bf25eb4d1d27df758c3a9f0819e30c0a3af94aee7b138bf70ea6",
+        "environment.txt": "c6910baf09c5580c1407e450b0dc4c1354fbe7c5058877a199d8aceda0a6dcdd",
+        "controller.log": "bc5be28658823583e53cb635366f70154f82f8f90045839999c8a7a728b4e114",
+        "simulator.log": "b378b421a4e1bb4a9d6ab1e30711f13549e0de0f0def1449960f84d46140847a",
+        "contact_ground_truth.csv": "068922fbb29a2900580a00780abfb91baab581894070a6001c487ea248a8d38f",
+        "phase1_quantitative.log": "aacdae442666174a15657dde54bc6b6f5c35750d5568a99a3674633103ce79eb",
+        "phase2_terrain_analysis.log": "e745dcf19b59eec459e6c65300508b024c7c4396a765161d70d7438a3b14dd80"
+      }
+    }
+  ]
+}

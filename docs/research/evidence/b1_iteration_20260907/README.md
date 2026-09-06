@@ -156,3 +156,7 @@ clean runtime commit must have matching source hashes before use.
 Next: same clean code, COM-height flag OFF, flat then original step probe.
 Only then enable the separate COM-height ablation and enter the pre-registered
 stable-approach V3 protocol. No runtime success is attributed to this change yet.
+
+## Registration transport diagnostics (2026-09-07)
+
+The clean 3aff628 flat run and fe1620f diagnostic repeat completed with zero registered-map rows. These are unactuated fallback observations, not evidence that registration improved control. The fe1620f simulator successfully converted, serialized (13472 bytes), and submitted the first three capture envelopes; controller worker records through plan 500 show have_map=0 and have_pose=1 without decode rejection. Transport delivery remains unresolved. ac8c441 short probe never left natural settle and was explicitly terminated after over 90 s; the bounded harness previously lacked its advertised wall timeout and ignored TERM during this wait. Raw data and exact manifests/hashes are retained in registration_transport_diagnostics.json. The harness now bounds initialization as well as motion, escalates after five seconds, and preserves failure status for normal evidence collection. Shell syntax and a TERM-ignoring child timeout witness (exit 137) passed. No V3 traversal has been attempted and no B1 candidate exists.

@@ -450,7 +450,10 @@ if [[ "$continuous_mode" == true ]]; then
   kill "$wall_timer_pid" 2>/dev/null || true
   wait "$wall_timer_pid" 2>/dev/null || true
 else
-  printf '\n' | ${ctrl_affinity:+taskset -c "$ctrl_affinity"} "$controller" \
+  # Bound initialization/settling as well as motion; preserve timeout status
+  # and still collect the manifest through the normal post-run path.
+  printf '\n' | timeout --signal=TERM --kill-after=5s "${timeout_s}s" \
+    ${ctrl_affinity:+taskset -c "$ctrl_affinity"} "$controller" \
     lo "$controller_duration_s" "$experiment_dir/data.csv" \
     "${controller_args[@]}" \
     >"$experiment_dir/controller.log" 2>&1 || controller_status=$?

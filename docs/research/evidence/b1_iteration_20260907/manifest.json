@@ -2,7 +2,7 @@
   "schema": "b1-iteration-evidence-v1",
   "candidate": false,
   "runtime_sha": "8bd8eb2b55b40579871f1472fe686b7ca6d49010",
-  "next_hypothesis": "registered current-ray observations; then nominal COM height and stable-approach V3",
+  "next_hypothesis": "resolve atomic envelope DDS delivery before interpreting registered-map or COM-height actuation",
   "source_sha256": {
     "example/cpp/tools/analysis/analyze_b1_physical.py": "d836f95e515979a6f95695dbbd896237fdc404317fb2bfd4e1a8a9b6369a3d29",
     "example/cpp/tools/analysis/test_analyze_b1_physical.py": "94ea9cec463c2dc9e885a5ac5e50e574e7eab8f97bcfadf92f55458887020173",
@@ -27,15 +27,16 @@
     "example/cpp/terrain/terrain_model.h": "54afb12b2fa75b13f29a322032bbb660f3dcbe99e2e1cddde2ea119985fc4522",
     "example/cpp/tests/test_terrain_map_envelope.cpp": "939ccb40b48516d29bae0a0e78bf9bf0a0e56a0bd82941a0f8cc464e3a61b7d9",
     "example/cpp/trot/trot_experiment.h": "ab518d4fbc652f001283874a03c4beb39cf2d1cb4278ae70fd9260f90bd3812e",
-    "example/cpp/trot/trot_experiment_control.cpp": "0e44153118fa17a519abc8525216eb62c08afcae76b89cc555d19c5b0d9b32fa",
+    "example/cpp/trot/trot_experiment_control.cpp": "b203ae31dd5a019d1e5820fc59e4f5a955fa6441f579b20323bdce1c045863f6",
     "example/cpp/trot/trot_experiment_lifecycle.cpp": "ef8316521cffabdf9f561b3890fc550b393937a9078246954cf18a3d75594500",
     "example/cpp/trot/trot_experiment_diagnostics.cpp": "fcb5aa740234f6f2c7b22005dec451c6151def0899e337dda3f9f4352fb1491e",
-    "simulate/src/unitree_sdk2_bridge.h": "d132d1d3d74a5932bb2e684399f84bb915c967298131de1c1c89fd5db53acc4b"
+    "simulate/src/unitree_sdk2_bridge.h": "40ba73e53f04f827e26def5272df921c0b6ca0b76a866abd4aa24ec2fed0129b",
+    "example/cpp/scripts/run_trot.sh": "a12767230af26b80a9e29a8d7ffe7fd1189455bfa9576467e1eb966befc4c93b"
   },
   "curated_sha256": {
     "hold_flat_failure.json": "a595844f460ab60a22c3b11b0091c22c290b62c66f13d76f516070a5357c46c4",
     "commitment_audit.md": "c75d2eaef3ac6efff446770a10f7dc0d639a8b69c371903bc6d2ddbc27ea2b47",
-    "README.md": "895f8d24e6005d4b7ac6196ca9cca122241f7b302e2904f40cf67b349ab385a7",
+    "README.md": "fb49a78430efbbbce5c2f99fac0cb82c37fb4c901d5956a3b36c8276e0ac4178",
     "commitment_flat_failure.json": "8c33d7f78888852396c764e5339a33f231de5cef9e1ee2171b8245c57e2aea86",
     "rejected_acceptance_draft.json": "eab97370b50da670d61a580b3231a98bc7dd4881e09d101067419907794a9619",
     "audit_stance_ablation_dynamic.py": "eef36f710efe3a4b658895a94dcb2d7360fce9ed286247097d4e1bb3893ffd34",
@@ -44,7 +45,8 @@
     "stance_ablation_results.json": "26e5123a69eda5c0fba9ea9e1b6e1f7583b00c508bce49125678d582e63f5f9c",
     "schema_audit.md": "cf20ad5677c55c1a9d61f8ab5ec9f8d8a9509c938587366fa9916c29afd58dc3",
     "dynamic_transition_audit.md": "d08a774565ea1c8537cee266a1ad42ebadee7f5d7928bba14140861499d3176d",
-    "lift_results.json": "f3a7d1d8fb1e77792843fc4da2282a81d6f86b45e833e01d35aebdd01387c12b"
+    "lift_results.json": "f3a7d1d8fb1e77792843fc4da2282a81d6f86b45e833e01d35aebdd01387c12b",
+    "registration_transport_diagnostics.json": "e1e452045aa40fa3f79e41ba59def50403a9ba414daf671b8a2ebd4bc4d3a622"
   },
   "previous_implementation_sha": "764a21c61127e01831f5bb47601158b696e7a211",
   "implementation_tests": "39/39 controller, 3/3 simulator, map codec/registration/model benchmark p50/p95/max 106.25/129.945/245.883 us",
