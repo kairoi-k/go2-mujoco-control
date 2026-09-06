@@ -262,6 +262,9 @@ private:
         std::array<double, 4> base_quaternion{};
         go2::Vec3 imu_position_world{};
         go2::Vec3 base_velocity_world{};
+        go2::Vec3 model_com_world{};
+        double model_com_state_stamp_s = 0.0;
+        bool model_com_valid = false;
         bool have_base_position_world = false;
         std::array<go2::Vec3, go2::kLegCount> measured_support_anchor_world{};
         std::array<bool, go2::kLegCount> measured_support_anchor_valid{};
@@ -490,6 +493,9 @@ private:
 
     go2_terrain::TerrainPlanner terrain_planner_{};
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model_;
+    go2::Vec3 terrain_model_com_world_{};
+    double terrain_model_com_state_stamp_s_ = 0.0;
+    bool terrain_model_com_valid_ = false;
     std::atomic<std::uint64_t> terrain_map_epoch_{0};
     std::atomic<std::uint64_t> terrain_plan_epoch_{0};
     std::atomic<std::uint64_t> terrain_plan_id_{0};
@@ -554,6 +560,8 @@ private:
         terrain_execution_measured_touchdown_{};
     std::array<bool, go2::kLegCount>
         terrain_execution_completion_recorded_{};
+    std::array<go2_terrain::TerrainExecutionCommitment, go2::kLegCount>
+        terrain_shadow_commitments_{};
 
     // Read-only wall-clock provenance for the exact state snapshot consumed
     // by each LowCmdWrite.  These fields are diagnostic only; they never

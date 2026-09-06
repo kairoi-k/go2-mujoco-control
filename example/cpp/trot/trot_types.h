@@ -279,8 +279,16 @@ struct WbcShadowDiagnostics
     double mpc_reference_vx_first_mps = 0.0;
     double mpc_reference_vx_last_mps = 0.0;
     bool terrain_contact_coherent = false;
+    // Shadow-consumer status is explicit: disabled, unchecked/no-plan, and
+    // validated are distinct; unchecked is never a pass.
+    bool terrain_execution_shadow_enabled = false;
+    bool terrain_execution_shadow_checked = false;
     bool terrain_execution_snapshot_valid = false;
     bool terrain_mpc_horizon_in_range = true;
+    int terrain_execution_shadow_rejection_code = 0;
+    std::uint32_t terrain_execution_shadow_commitment_inherited_mask = 0;
+    std::uint64_t terrain_execution_shadow_plan_id = 0;
+    std::uint64_t terrain_execution_shadow_plan_epoch = 0;
     std::uint64_t terrain_plan_id = 0;
     int iterations = 0;
     double residual_norm = 0.0;

@@ -54,7 +54,14 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_min_edge_margin_m,terrain_min_uncertainty_edge_margin_m"
          << ",terrain_min_slope_rad,terrain_max_roughness_m,terrain_min_reachability_margin_m,terrain_min_swing_clearance_m"
          << ",terrain_min_support_margin_m,terrain_min_uncertainty_support_margin_m"
-         << ",terrain_plan_contact_rejections";
+         << ",terrain_plan_contact_rejections"
+         << ",wbc_terrain_execution_shadow_enabled"
+         << ",wbc_terrain_execution_shadow_checked"
+         << ",wbc_terrain_execution_snapshot_valid"
+         << ",wbc_terrain_execution_shadow_rejection_code"
+         << ",wbc_terrain_execution_shadow_commitment_inherited_mask"
+         << ",wbc_terrain_execution_shadow_plan_id"
+         << ",wbc_terrain_execution_shadow_plan_epoch";
     if (params_.terrain_actuation)
     {
         csv_ << ",terrain_support_failure_knot,terrain_support_failure_contact_mask,terrain_support_failure_margin_m"
@@ -68,7 +75,7 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_mpc_update_count,wbc_mpc_contact_mask_k0,wbc_mpc_min_contact_count"
          << ",wbc_mpc_reference_x_first_m,wbc_mpc_reference_x_last_m"
          << ",wbc_mpc_reference_vx_first_mps,wbc_mpc_reference_vx_last_mps"
-         << ",wbc_terrain_contact_coherent,wbc_terrain_mpc_horizon_in_range,wbc_terrain_execution_snapshot_valid,wbc_terrain_plan_id"
+         << ",wbc_terrain_contact_coherent,wbc_terrain_mpc_horizon_in_range,wbc_terrain_plan_id"
          << ",terrain_FR_candidate_count,terrain_FR_swing_candidate_count,terrain_FR_candidate_required,terrain_FR_touchdown_knot"
          << ",terrain_FL_candidate_count,terrain_FL_swing_candidate_count,terrain_FL_candidate_required,terrain_FL_touchdown_knot"
          << ",terrain_RR_candidate_count,terrain_RR_swing_candidate_count,terrain_RR_candidate_required,terrain_RR_touchdown_knot"
@@ -802,7 +809,14 @@ void TrotExperiment::LogSample(
          << "," << terrain_min_swing_clearance_m
          << "," << terrain_min_support_margin_m
          << "," << terrain_min_uncertainty_support_margin_m
-         << "," << terrain_plan_contact_rejections;
+         << "," << terrain_plan_contact_rejections
+         << "," << (wbc_shadow_diagnostics_.terrain_execution_shadow_enabled ? 1 : 0)
+         << "," << (wbc_shadow_diagnostics_.terrain_execution_shadow_checked ? 1 : 0)
+         << "," << (wbc_shadow_diagnostics_.terrain_execution_snapshot_valid ? 1 : 0)
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_commitment_inherited_mask
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_plan_id
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_plan_epoch;
     if (params_.terrain_actuation)
     {
         csv_ << "," << terrain_support_failure_knot
@@ -834,7 +848,6 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.mpc_reference_vx_last_mps
          << "," << (wbc_shadow_diagnostics_.terrain_contact_coherent ? 1 : 0)
          << "," << (wbc_shadow_diagnostics_.terrain_mpc_horizon_in_range ? 1 : 0)
-         << "," << (wbc_shadow_diagnostics_.terrain_execution_snapshot_valid ? 1 : 0)
          << "," << wbc_shadow_diagnostics_.terrain_plan_id;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             csv_ << "," << terrain_candidate_counts_[leg]

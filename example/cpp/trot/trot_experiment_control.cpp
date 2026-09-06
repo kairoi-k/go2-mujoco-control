@@ -120,6 +120,15 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         static_cast<double>(state_snapshot.tick()) * 1.0e-3;
     if (!std::isfinite(snapshot.state_stamp_s))
         return;
+    if (terrain_model_com_valid_ &&
+        go2_terrain::TerrainTimeClose(
+            terrain_model_com_state_stamp_s_, snapshot.state_stamp_s) &&
+        go2_terrain::FiniteTerrainVec3(terrain_model_com_world_))
+    {
+        snapshot.model_com_world = terrain_model_com_world_;
+        snapshot.model_com_state_stamp_s = terrain_model_com_state_stamp_s_;
+        snapshot.model_com_valid = true;
+    }
     snapshot.gait_phase = current_phase_;
     snapshot.gait_period_s = gait_period_s;
     snapshot.duty_factor = duty_factor;
@@ -219,6 +228,10 @@ void TrotExperiment::UpdateTerrainRuntime()
             control.imu_position_world.z - imu_offset_world.z};
     }
     input.base_velocity_world = control.base_velocity_world;
+    input.model_com_world = control.model_com_world;
+    input.model_com_valid = control.model_com_valid &&
+        go2_terrain::TerrainTimeClose(
+            control.model_com_state_stamp_s, control.state_stamp_s);
     input.base_roll_rad = control.base_roll_rad;
     input.base_pitch_rad = control.base_pitch_rad;
     input.base_height_m = input.base_position_world.z;
@@ -445,7 +458,10 @@ bool TrotExperiment::LowCmdWrite(
     const double motion_dt = MotionClockStep(state_snapshot, motion_clock_paused);
 
     terrain_tick_plan_.reset();
-    if (params_.terrain_actuation && params_.terrain_enabled)
+    const bool terrain_consistency_shadow = Full2EnvDouble(
+        "TROT_TERRAIN_EXECUTION_CONSISTENCY_SHADOW", 0.0) > 0.5;
+    if (params_.terrain_enabled &&
+        (params_.terrain_actuation || terrain_consistency_shadow))
     {
         const double terrain_now_s =
             static_cast<double>(state_snapshot.tick()) * 1.0e-3;

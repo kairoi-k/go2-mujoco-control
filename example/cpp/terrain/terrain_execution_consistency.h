@@ -16,6 +16,8 @@ struct TerrainTouchdownEvent
     bool valid = false;
     std::size_t knot = 0;
     std::uint64_t plan_id = 0;
+    std::uint64_t plan_epoch = 0;
+    std::size_t leg = 0;
     double event_time_s = 0.0;
     go2::Vec3 target_world{};
 };
@@ -25,8 +27,10 @@ struct TerrainExecutionCommitment
     bool valid = false;
     bool in_flight = false;
     bool measured_touchdown = false;
-    std::uint64_t plan_id = 0;
-    std::uint64_t plan_epoch = 0;
+    // Source identity is provenance only. A replan may inherit this
+    // commitment when its touchdown event has the same leg, time and target.
+    std::uint64_t source_plan_id = 0;
+    std::uint64_t source_plan_epoch = 0;
     double target_time_s = 0.0;
     go2::Vec3 target_world{};
 };
@@ -51,11 +55,13 @@ struct TerrainExecutionSnapshot
     bool applied_contact_valid = false;
     std::array<std::array<bool, go2::kLegCount>, kTerrainContactMaxKnots>
         planned_contact{};
-    std::array<std::array<bool, go2::kLegCount>, kTerrainContactMaxKnots>
+    std::array<std::array<TerrainTouchdownEvent, go2::kLegCount>,
+               kTerrainContactMaxKnots>
         touchdown_events{};
     std::array<double, kTerrainContactMaxKnots> sample_time_s{};
     std::array<TerrainExecutionCommitment, go2::kLegCount>
         committed_targets{};
+    std::array<bool, go2::kLegCount> commitment_inherited{};
 };
 
 struct TerrainPlanHorizonCoverage
@@ -73,6 +79,43 @@ inline bool FiniteTerrainVec3(const go2::Vec3 &value)
         std::isfinite(value.z);
 }
 
+constexpr double kTerrainExecutionTimeToleranceS = 1.0e-6;
+constexpr double kTerrainExecutionTargetToleranceM = 1.0e-5;
+
+inline bool TerrainTimeClose(double lhs, double rhs)
+{
+    return std::isfinite(lhs) && std::isfinite(rhs) &&
+        std::abs(lhs - rhs) <= kTerrainExecutionTimeToleranceS;
+}
+
+inline bool TerrainTargetClose(
+    const go2::Vec3 &lhs, const go2::Vec3 &rhs)
+{
+    return FiniteTerrainVec3(lhs) && FiniteTerrainVec3(rhs) &&
+        std::hypot(std::hypot(lhs.x - rhs.x, lhs.y - rhs.y),
+                   lhs.z - rhs.z) <= kTerrainExecutionTargetToleranceM;
+}
+
+inline bool TerrainPlanHasTouchdownEvent(
+    const TerrainMotionPlan &plan, std::size_t leg, double event_time_s,
+    const go2::Vec3 &target_world)
+{
+    if (leg >= go2::kLegCount || !std::isfinite(event_time_s))
+        return false;
+    for (std::size_t k = 0; k < plan.horizon_knots; ++k)
+    {
+        const auto &foot = plan.predicted_foothold[k][leg];
+        if (!foot.valid || !foot.touchdown ||
+            !TerrainTimeClose(foot.touchdown_time_s, event_time_s) ||
+            !TerrainTargetClose(foot.position_world, target_world))
+            continue;
+        const auto lookup = TerrainPlanKnotAtTime(plan, event_time_s);
+        if (lookup.valid && lookup.knot == k)
+            return true;
+    }
+    return false;
+}
+
 inline bool TerrainPlanCoversMpcHorizon(
     const TerrainMotionPlan &plan, double state_time_s, double mpc_dt_s,
     std::size_t mpc_horizon, TerrainPlanHorizonCoverage *coverage = nullptr)
@@ -82,9 +125,10 @@ inline bool TerrainPlanCoversMpcHorizon(
     local.last_sample_time_s = state_time_s +
         (mpc_horizon == 0 ? 0.0 : mpc_dt_s *
             static_cast<double>(mpc_horizon - 1));
-    if (mpc_horizon == 0 || mpc_horizon > kTerrainContactMaxKnots ||
+    if (!plan.valid() || mpc_horizon == 0 ||
+        mpc_horizon > kTerrainContactMaxKnots ||
         !std::isfinite(state_time_s) || !std::isfinite(mpc_dt_s) ||
-        mpc_dt_s <= 0.0)
+        mpc_dt_s <= 0.0 || !plan.usable_at(state_time_s))
     {
         if (coverage != nullptr)
             *coverage = local;
@@ -92,8 +136,16 @@ inline bool TerrainPlanCoversMpcHorizon(
     }
     for (std::size_t k = 0; k < mpc_horizon; ++k)
     {
-        const auto lookup = TerrainPlanKnotAtTime(
-            plan, state_time_s + static_cast<double>(k) * mpc_dt_s);
+        const double sample_time_s = state_time_s +
+            static_cast<double>(k) * mpc_dt_s;
+        if (sample_time_s > plan.valid_until_s +
+                kTerrainExecutionTimeToleranceS)
+        {
+            if (coverage != nullptr)
+                *coverage = local;
+            return false;
+        }
+        const auto lookup = TerrainPlanKnotAtTime(plan, sample_time_s);
         if (!lookup.valid)
         {
             if (coverage != nullptr)
@@ -121,7 +173,8 @@ inline TerrainTouchdownEvent TerrainPlanNextTouchdown(
         const auto &foot = plan.predicted_foothold[k][leg];
         if (!foot.valid || !foot.touchdown ||
             !std::isfinite(foot.touchdown_time_s) ||
-            foot.touchdown_time_s + 1.0e-9 < minimum_time_s ||
+            foot.touchdown_time_s + kTerrainExecutionTimeToleranceS <
+                minimum_time_s ||
             !FiniteTerrainVec3(foot.position_world))
             continue;
         const auto lookup = TerrainPlanKnotAtTime(
@@ -131,6 +184,8 @@ inline TerrainTouchdownEvent TerrainPlanNextTouchdown(
         event.valid = true;
         event.knot = k;
         event.plan_id = plan.plan_id;
+        event.plan_epoch = plan.plan_epoch;
+        event.leg = leg;
         event.event_time_s = foot.touchdown_time_s;
         event.target_world = foot.position_world;
         return event;
@@ -139,27 +194,127 @@ inline TerrainTouchdownEvent TerrainPlanNextTouchdown(
 }
 
 inline bool TerrainExecutionCommitmentsCoherent(
-    const TerrainMotionPlan &plan,
+    const TerrainMotionPlan &plan, double state_time_s,
     const std::array<TerrainExecutionCommitment, go2::kLegCount>
-        &commitments)
+        &commitments,
+    std::array<bool, go2::kLegCount> *inherited = nullptr)
 {
+    if (inherited != nullptr)
+        inherited->fill(false);
+    if (!plan.valid() || !plan.usable_at(state_time_s))
+        return false;
     const double last_covered_time_s = plan.state_stamp_s +
         plan.knot_dt_s * static_cast<double>(plan.horizon_knots - 1);
     if (!std::isfinite(last_covered_time_s))
         return false;
-    for (const auto &commitment : commitments)
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
+        const auto &commitment = commitments[leg];
         if (!commitment.valid)
             continue;
-        if (commitment.plan_id != plan.plan_id ||
-            commitment.plan_epoch != plan.plan_epoch ||
-            !std::isfinite(commitment.target_time_s) ||
-            commitment.target_time_s < plan.state_stamp_s - 1.0e-9 ||
-            commitment.target_time_s > last_covered_time_s + 1.0e-9 ||
+        if (!std::isfinite(commitment.target_time_s) ||
+            commitment.target_time_s > last_covered_time_s +
+                kTerrainExecutionTimeToleranceS ||
+            commitment.target_time_s > plan.valid_until_s +
+                kTerrainExecutionTimeToleranceS ||
             !FiniteTerrainVec3(commitment.target_world))
             return false;
+        if (!commitment.in_flight && commitment.measured_touchdown)
+        {
+            if (commitment.target_time_s > state_time_s +
+                    kTerrainExecutionTimeToleranceS)
+                return false;
+            continue;
+        }
+        if (commitment.target_time_s < state_time_s -
+                kTerrainExecutionTimeToleranceS)
+            return false;
+        if (!TerrainPlanHasTouchdownEvent(
+                plan, leg, commitment.target_time_s,
+                commitment.target_world))
+            return false;
+        if (inherited != nullptr &&
+            (commitment.source_plan_id != plan.plan_id ||
+             commitment.source_plan_epoch != plan.plan_epoch))
+            (*inherited)[leg] = true;
     }
     return true;
+}
+
+struct TerrainExecutionCommitmentUpdate
+{
+    bool checked = false;
+    bool valid = false;
+    std::uint32_t inherited_mask = 0;
+    std::uint32_t prepared_mask = 0;
+    std::uint32_t rejected_mask = 0;
+    std::array<TerrainExecutionCommitment, go2::kLegCount>
+        commitments{};
+};
+
+inline TerrainExecutionCommitmentUpdate AdvanceTerrainExecutionCommitments(
+    const TerrainMotionPlan &plan, double state_time_s,
+    const std::array<bool, go2::kLegCount> &measured_contact,
+    bool measured_contact_valid,
+    const std::array<TerrainExecutionCommitment, go2::kLegCount>
+        &previous)
+{
+    TerrainExecutionCommitmentUpdate result;
+    result.checked = true;
+    result.commitments = previous;
+    if (!measured_contact_valid || !plan.valid() ||
+        !plan.usable_at(state_time_s))
+        return result;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const auto &old = previous[leg];
+        bool retained = false;
+        if (old.valid && old.in_flight)
+        {
+            const bool reached = measured_contact[leg] &&
+                old.target_time_s <= state_time_s +
+                    kTerrainExecutionTimeToleranceS;
+            if (!reached)
+            {
+                if (old.target_time_s < state_time_s -
+                        kTerrainExecutionTimeToleranceS ||
+                    !TerrainPlanHasTouchdownEvent(
+                        plan, leg, old.target_time_s, old.target_world))
+                {
+                    result.rejected_mask |= 1u << leg;
+                    result.commitments[leg] = {};
+                    continue;
+                }
+                retained = true;
+                result.commitments[leg] = old;
+                if (old.source_plan_id != plan.plan_id ||
+                    old.source_plan_epoch != plan.plan_epoch)
+                    result.inherited_mask |= 1u << leg;
+            }
+        }
+        if (retained)
+            continue;
+        double minimum_time_s = state_time_s;
+        if (old.valid && std::isfinite(old.target_time_s))
+            minimum_time_s = std::max(
+                minimum_time_s,
+                old.target_time_s + kTerrainExecutionTimeToleranceS);
+        const auto next = TerrainPlanNextTouchdown(
+            plan, leg, minimum_time_s);
+        result.commitments[leg] = {};
+        if (!next.valid)
+            continue;
+        auto &current = result.commitments[leg];
+        current.valid = true;
+        current.in_flight = true;
+        current.source_plan_id = next.plan_id;
+        current.source_plan_epoch = next.plan_epoch;
+        current.target_time_s = next.event_time_s;
+        current.target_world = next.target_world;
+        result.prepared_mask |= 1u << leg;
+    }
+    result.valid = result.rejected_mask == 0;
+    return result;
 }
 
 inline bool BuildTerrainExecutionSnapshot(
@@ -187,7 +342,8 @@ inline bool BuildTerrainExecutionSnapshot(
     snapshot.committed_targets = commitments;
     if (!plan.valid() || !FiniteTerrainVec3(model_com_world) ||
         !measured_contact_valid || !applied_contact_valid ||
-        !TerrainExecutionCommitmentsCoherent(plan, commitments))
+        !TerrainExecutionCommitmentsCoherent(
+            plan, state_time_s, commitments, &snapshot.commitment_inherited))
         return false;
     TerrainPlanHorizonCoverage coverage;
     if (!TerrainPlanCoversMpcHorizon(
@@ -204,8 +360,23 @@ inline bool BuildTerrainExecutionSnapshot(
         snapshot.planned_contact[k] =
             plan.contact_schedule.planned_contact[lookup.knot];
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-            snapshot.touchdown_events[k][leg] =
-                plan.predicted_foothold[lookup.knot][leg].touchdown;
+        {
+            const auto &foot =
+                plan.predicted_foothold[lookup.knot][leg];
+            auto &event = snapshot.touchdown_events[k][leg];
+            if (foot.valid && foot.touchdown &&
+                std::isfinite(foot.touchdown_time_s) &&
+                FiniteTerrainVec3(foot.position_world))
+            {
+                event.valid = true;
+                event.knot = lookup.knot;
+                event.plan_id = plan.plan_id;
+                event.plan_epoch = plan.plan_epoch;
+                event.leg = leg;
+                event.event_time_s = foot.touchdown_time_s;
+                event.target_world = foot.position_world;
+            }
+        }
     }
     snapshot.horizon_covered = coverage.valid;
     snapshot.valid = true;

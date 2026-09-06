@@ -73,8 +73,8 @@ int main()
     go2_terrain::TerrainExecutionCommitment commitment;
     commitment.valid = true;
     commitment.in_flight = true;
-    commitment.plan_id = plan.plan_id;
-    commitment.plan_epoch = plan.plan_epoch;
+    commitment.source_plan_id = plan.plan_id;
+    commitment.source_plan_epoch = plan.plan_epoch;
     commitment.target_time_s = next_cycle.event_time_s;
     commitment.target_world = next_cycle.target_world;
     std::array<go2_terrain::TerrainExecutionCommitment, go2::kLegCount>
@@ -94,8 +94,9 @@ int main()
                    snapshot.planned_contact[0][2] &&
                    snapshot.measured_contact[2] &&
                    !snapshot.applied_contact[2] &&
-                   snapshot.touchdown_events[1][0] &&
-                   snapshot.touchdown_events[5][0],
+                   snapshot.touchdown_events[1][0].valid &&
+                   snapshot.touchdown_events[5][0].valid &&
+                   snapshot.touchdown_events[1][0].event_time_s == 1.02,
                "snapshot mixed time, COM, or contact provenance"))
         return 1;
 
@@ -109,12 +110,50 @@ int main()
                "overrun fabricated a current foot and marked it valid"))
         return 1;
 
-    auto mismatched = commitments;
-    mismatched[0].plan_id = plan.plan_id + 1;
+    auto inherited = commitments;
+    inherited[0].source_plan_id = plan.plan_id + 1;
+    inherited[0].source_plan_epoch = plan.plan_epoch + 1;
+    if (!Check(go2_terrain::BuildTerrainExecutionSnapshot(
+                   plan, 1.0, 0.02, 6, {0.05, 0.01, 0.33}, measured, true,
+                   applied, true, inherited, snapshot) &&
+                   snapshot.commitment_inherited[0],
+               "matching touchdown was rejected solely because plan ID changed"))
+        return 1;
+
+    auto wrong_target = inherited;
+    wrong_target[0].target_world.x += 0.02;
     if (!Check(!go2_terrain::BuildTerrainExecutionSnapshot(
                    plan, 1.0, 0.02, 6, {0.05, 0.01, 0.33}, measured, true,
-                   applied, true, mismatched, snapshot),
-               "gait commitment was accepted against a different MPC plan"))
+                   applied, true, wrong_target, snapshot),
+               "commitment target mismatch was not rejected"))
+        return 1;
+
+    auto previous = commitments;
+    const auto inherited_update =
+        go2_terrain::AdvanceTerrainExecutionCommitments(
+            plan, 1.0, measured, true, previous);
+    if (!Check(inherited_update.valid &&
+                   inherited_update.commitments[0].target_time_s == 1.10,
+               "initial touchdown commitment was not prepared"))
+        return 1;
+    auto replanned = plan;
+    replanned.plan_id = 8;
+    replanned.plan_epoch = 8;
+    const auto replan_update =
+        go2_terrain::AdvanceTerrainExecutionCommitments(
+            replanned, 1.04, measured, true,
+            inherited_update.commitments);
+    if (!Check(replan_update.valid &&
+                   (replan_update.inherited_mask & 1u) != 0,
+               "cross-replan touchdown commitment was not inherited"))
+        return 1;
+
+    auto expired = plan;
+    expired.valid_until_s = 1.05;
+    if (!Check(!go2_terrain::BuildTerrainExecutionSnapshot(
+                   expired, 1.0, 0.02, 6, {0.05, 0.01, 0.33}, measured, true,
+                   applied, true, commitments, snapshot),
+               "expired plan was marked as a complete snapshot"))
         return 1;
 
     std::cout << "terrain execution consistency checks passed.\n";

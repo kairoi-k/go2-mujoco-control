@@ -69,6 +69,7 @@ void TrotExperiment::UpdateWbcFull(
     const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot)
 {
     wbc_shadow_diagnostics_.enabled = true;
+    terrain_model_com_valid_ = false;
     if (!rigid_body_ || !rigid_body_->loaded())
         return;
     const double pitch_abs = std::abs(
@@ -123,6 +124,14 @@ void TrotExperiment::UpdateWbcFull(
     {
         return;
     }
+    terrain_model_com_world_ = {
+        dyn.com_world.x(), dyn.com_world.y(), dyn.com_world.z()};
+    terrain_model_com_state_stamp_s_ =
+        static_cast<double>(state_snapshot.tick()) * 1.0e-3;
+    terrain_model_com_valid_ =
+        std::isfinite(terrain_model_com_state_stamp_s_) &&
+        go2_terrain::FiniteTerrainVec3(terrain_model_com_world_);
+
     if (!dynamics_logged_)
     {
         dynamics_logged_ = true;
@@ -268,38 +277,71 @@ void TrotExperiment::UpdateWbcFull(
         if (hs_mpc_w_ori > 0.0)
             mpc_params.w_ori = hs_mpc_w_ori;
     }
-    // Explicit opt-in shadow path: one immutable snapshot binds absolute time,
-    // model COM, separate contact sources, and gait commitments.  It never
-    // changes the command path while the environment flag is absent.
+    // Explicit opt-in shadow path. It consumes the independently loaded
+    // terrain plan and its own event-based commitments, but it never feeds
+    // gait, MPC, WBC, or torque outputs.
     const bool terrain_consistency_shadow = Full2EnvDouble(
         "TROT_TERRAIN_EXECUTION_CONSISTENCY_SHADOW", 0.0) > 0.5;
-    wbc_shadow_diagnostics_.terrain_execution_snapshot_valid =
-        !terrain_consistency_shadow || !terrain_plan_active;
-    if (terrain_consistency_shadow && terrain_plan_active)
+    wbc_shadow_diagnostics_.terrain_execution_shadow_enabled =
+        terrain_consistency_shadow;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_checked = false;
+    wbc_shadow_diagnostics_.terrain_execution_snapshot_valid = false;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code = 0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_commitment_inherited_mask = 0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_plan_id = 0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_plan_epoch = 0;
+    if (!terrain_consistency_shadow)
     {
-        std::array<go2_terrain::TerrainExecutionCommitment, go2::kLegCount>
-            commitments{};
-        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        terrain_shadow_commitments_.fill({});
+    }
+    else if (!terrain_tick_plan_ ||
+             !terrain_tick_plan_->usable_at(terrain_now_s))
+    {
+        // No plan is explicitly unchecked, never a successful shadow sample.
+        wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code = 2;
+        wbc_shadow_diagnostics_.terrain_mpc_horizon_in_range = false;
+    }
+    else
+    {
+        const auto &shadow_plan = *terrain_tick_plan_;
+        wbc_shadow_diagnostics_.terrain_execution_shadow_plan_id =
+            shadow_plan.plan_id;
+        wbc_shadow_diagnostics_.terrain_execution_shadow_plan_epoch =
+            shadow_plan.plan_epoch;
+        const auto commitment_update =
+            go2_terrain::AdvanceTerrainExecutionCommitments(
+                shadow_plan, terrain_now_s, measured_contact, true,
+                terrain_shadow_commitments_);
+        terrain_shadow_commitments_ = commitment_update.commitments;
+        wbc_shadow_diagnostics_.terrain_execution_shadow_commitment_inherited_mask =
+            commitment_update.inherited_mask;
+        if (!commitment_update.valid)
         {
-            auto &commitment = commitments[leg];
-            commitment.valid = terrain_execution_target_valid_[leg];
-            commitment.in_flight = terrain_execution_in_flight_[leg];
-            commitment.measured_touchdown =
-                terrain_execution_measured_touchdown_[leg];
-            commitment.plan_id = terrain_execution_target_plan_id_[leg];
-            commitment.plan_epoch = terrain_execution_target_plan_epoch_[leg];
-            commitment.target_time_s = terrain_execution_target_time_s_[leg];
-            commitment.target_world = terrain_execution_target_world_[leg];
+            wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code = 3;
+            wbc_shadow_diagnostics_.terrain_mpc_horizon_in_range = false;
         }
-        const go2::Vec3 model_com_world{
-            dyn.com_world.x(), dyn.com_world.y(), dyn.com_world.z()};
-        go2_terrain::TerrainExecutionSnapshot execution_snapshot;
-        wbc_shadow_diagnostics_.terrain_execution_snapshot_valid =
-            go2_terrain::BuildTerrainExecutionSnapshot(
-                *terrain_plan, terrain_now_s, mpc_params.dt_s,
-                static_cast<std::size_t>(mpc_params.horizon),
-                model_com_world, measured_contact, true, qp_contact, true,
-                commitments, execution_snapshot);
+        else
+        {
+            go2_terrain::TerrainExecutionSnapshot execution_snapshot;
+            const go2::Vec3 model_com_world{
+                dyn.com_world.x(), dyn.com_world.y(), dyn.com_world.z()};
+            wbc_shadow_diagnostics_.terrain_execution_shadow_checked = true;
+            wbc_shadow_diagnostics_.terrain_execution_snapshot_valid =
+                go2_terrain::BuildTerrainExecutionSnapshot(
+                    shadow_plan, terrain_now_s, mpc_params.dt_s,
+                    static_cast<std::size_t>(mpc_params.horizon),
+                    model_com_world, measured_contact, true, qp_contact, true,
+                    terrain_shadow_commitments_, execution_snapshot);
+            if (!wbc_shadow_diagnostics_.terrain_execution_snapshot_valid)
+            {
+                wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code = 4;
+                wbc_shadow_diagnostics_.terrain_mpc_horizon_in_range = false;
+            }
+            else
+            {
+                wbc_shadow_diagnostics_.terrain_mpc_horizon_in_range = true;
+            }
+        }
     }
     const bool straight_line_reference =
         params_.world_feedback && have_world_reference_ &&
