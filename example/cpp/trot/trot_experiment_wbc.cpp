@@ -206,10 +206,15 @@ void TrotExperiment::UpdateWbcFull(
         params_.terrain_actuation && terrain_tick_plan_ &&
                 terrain_tick_plan_->usable_at(terrain_now_s)
             ? terrain_tick_plan_ : nullptr;
-    const bool terrain_plan_active = terrain_plan != nullptr;
-    const std::size_t terrain_k0 = terrain_plan_active
-        ? go2_terrain::TerrainPlanCurrentKnot(*terrain_plan, terrain_now_s)
-        : 0;
+    const auto terrain_k0_lookup = terrain_plan
+        ? go2_terrain::TerrainPlanKnotAtTime(*terrain_plan, terrain_now_s)
+        : go2_terrain::TerrainPlanTimeLookup{};
+    const bool terrain_plan_active = terrain_plan != nullptr &&
+        terrain_k0_lookup.valid;
+    const std::size_t terrain_k0 = terrain_k0_lookup.valid
+        ? terrain_k0_lookup.knot : 0;
+    if (terrain_plan != nullptr && !terrain_k0_lookup.valid)
+        wbc_shadow_diagnostics_.terrain_mpc_horizon_in_range = false;
     if (terrain_plan_active)
     {
         wbc_shadow_diagnostics_.terrain_plan_id = terrain_plan->plan_id;
@@ -436,9 +441,12 @@ void TrotExperiment::UpdateWbcFull(
             mpc_in.has_time_indexed_footholds = true;
             for (int k = 0; k < mpc_params.horizon; ++k)
             {
-                const std::size_t plan_k = std::min(
-                    terrain_k0 + static_cast<std::size_t>(k),
-                    terrain_plan->horizon_knots - 1);
+                const double sample_time_s = terrain_now_s +
+                    static_cast<double>(k) * mpc_params.dt_s;
+                const auto plan_lookup = go2_terrain::TerrainPlanKnotAtTime(
+                    *terrain_plan, sample_time_s);
+                if (!plan_lookup.valid)
+                    wbc_shadow_diagnostics_.terrain_mpc_horizon_in_range = false;
                 for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
                 {
                     if (!mpc_in.contact[k][leg])
@@ -447,12 +455,13 @@ void TrotExperiment::UpdateWbcFull(
                         dyn.foot_pos_world[leg].x(),
                         dyn.foot_pos_world[leg].y(),
                         dyn.foot_pos_world[leg].z()};
-                    if (terrain_plan->contact_schedule.planned_contact[
-                            plan_k][leg] &&
-                        terrain_plan->predicted_foothold[plan_k][leg].valid)
+                    if (plan_lookup.valid &&
+                        terrain_plan->contact_schedule.planned_contact[
+                            plan_lookup.knot][leg] &&
+                        terrain_plan->predicted_foothold[plan_lookup.knot][leg].valid)
                     {
                         foot_world = go2::ContactPatchToFootSite(
-                            terrain_plan->predicted_foothold[plan_k][leg]
+                            terrain_plan->predicted_foothold[plan_lookup.knot][leg]
                                 .position_world);
                     }
                     mpc_in.foot_from_com_world_horizon[
@@ -1122,18 +1131,21 @@ void TrotExperiment::UpdateWbcFull(
         wbc_shadow_diagnostics_.mpc_update_count = terrain_mpc_update_count_;
         wbc_shadow_diagnostics_.mpc_contact_mask_k0 = contact_mask;
         wbc_shadow_diagnostics_.mpc_min_contact_count = go2::kLegCount;
-        const int terrain_horizon = std::min(
-            go2_control::kSrbdMaxHorizon,
-            static_cast<int>(terrain_plan->horizon_knots));
-        for (int k = 0; k < terrain_horizon; ++k)
+        for (int k = 0; k < mpc_params.horizon; ++k)
         {
-            const std::size_t plan_k = std::min(
-                terrain_k0 + static_cast<std::size_t>(k),
-                terrain_plan->horizon_knots - 1);
+            const double sample_time_s = terrain_now_s +
+                static_cast<double>(k) * mpc_params.dt_s;
+            const auto plan_lookup = go2_terrain::TerrainPlanKnotAtTime(
+                *terrain_plan, sample_time_s);
+            if (!plan_lookup.valid)
+            {
+                wbc_shadow_diagnostics_.terrain_mpc_horizon_in_range = false;
+                continue;
+            }
             int count = 0;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-                count += terrain_plan->contact_schedule.planned_contact[plan_k][leg]
-                    ? 1 : 0;
+                count += terrain_plan->contact_schedule.planned_contact[
+                    plan_lookup.knot][leg] ? 1 : 0;
             wbc_shadow_diagnostics_.mpc_min_contact_count = std::min(
                 wbc_shadow_diagnostics_.mpc_min_contact_count, count);
         }

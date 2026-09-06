@@ -251,6 +251,31 @@ int main()
                    go2_terrain::TerrainPlanCurrentKnot(*loaded, 1.009) == 0,
                "terrain plan did not map wall-clock time to its knot"))
         return 1;
+    const auto at_stamp = go2_terrain::TerrainPlanKnotAtTime(*loaded, 1.0);
+    const auto at_boundary = go2_terrain::TerrainPlanKnotAtTime(*loaded, 1.02);
+    const auto delayed = go2_terrain::TerrainPlanKnotAtTime(*loaded, 1.04);
+    const auto at_last = go2_terrain::TerrainPlanKnotAtTime(*loaded, 1.14);
+    if (!Check(at_stamp.valid && at_stamp.knot == 0 &&
+                   at_boundary.valid && at_boundary.knot == 1 &&
+                   delayed.valid && delayed.knot == 2 &&
+                   at_last.valid && at_last.knot == 7,
+               "absolute-time terrain knot boundaries were mapped incorrectly"))
+        return 1;
+    const std::array<std::size_t, 4> expected_unsynchronized_knots{2, 3, 5, 6};
+    for (std::size_t k = 0; k < expected_unsynchronized_knots.size(); ++k)
+    {
+        const auto lookup = go2_terrain::TerrainPlanKnotAtTime(
+            *loaded, 1.04 + static_cast<double>(k) * 0.03);
+        if (!Check(lookup.valid && lookup.knot == expected_unsynchronized_knots[k],
+                   "planner/MPC absolute-time mapping ignored the MPC step"))
+            return 1;
+    }
+    const auto beyond_horizon = go2_terrain::TerrainPlanKnotAtTime(*loaded, 1.16);
+    if (!Check(!beyond_horizon.valid && beyond_horizon.knot == 0 &&
+                   std::abs(beyond_horizon.last_covered_time_s - 1.14) < 1.0e-12 &&
+                   go2_terrain::TerrainPlanCurrentKnot(*loaded, 1.16) == 7,
+               "terrain horizon overrun was silently clamped instead of reported"))
+        return 1;
 
     std::cout << "Terrain model, feasibility, planner, and atomic plan checks passed.\n";
     return 0;

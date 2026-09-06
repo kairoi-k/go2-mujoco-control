@@ -279,6 +279,7 @@ struct WbcShadowDiagnostics
     double mpc_reference_vx_first_mps = 0.0;
     double mpc_reference_vx_last_mps = 0.0;
     bool terrain_contact_coherent = false;
+    bool terrain_mpc_horizon_in_range = true;
     std::uint64_t terrain_plan_id = 0;
     int iterations = 0;
     double residual_norm = 0.0;

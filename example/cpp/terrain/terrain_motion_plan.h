@@ -195,9 +195,45 @@ struct TerrainMotionPlan
     }
 };
 
-// Return the plan knot whose absolute-time interval contains now_s.  A plan
-// is an immutable snapshot, so consumers must not reinterpret knot zero as
-// the current state after planner latency has elapsed.
+// Resolve a terrain plan knot from an absolute time.
+struct TerrainPlanTimeLookup
+{
+    bool valid = false;
+    std::size_t knot = 0;
+    double requested_time_s = 0.0;
+    double first_covered_time_s = 0.0;
+    double last_covered_time_s = 0.0;
+};
+inline TerrainPlanTimeLookup TerrainPlanKnotAtTime(
+    const TerrainMotionPlan &plan, double requested_time_s)
+{
+    TerrainPlanTimeLookup lookup;
+    lookup.requested_time_s = requested_time_s;
+    if (plan.horizon_knots == 0 ||
+        plan.horizon_knots > kTerrainPlanMaxKnots ||
+        !std::isfinite(plan.state_stamp_s) ||
+        !std::isfinite(plan.knot_dt_s) || plan.knot_dt_s <= 0.0 ||
+        !std::isfinite(requested_time_s))
+        return lookup;
+    lookup.first_covered_time_s = plan.state_stamp_s;
+    lookup.last_covered_time_s = plan.state_stamp_s +
+        plan.knot_dt_s * static_cast<double>(plan.horizon_knots - 1);
+    constexpr double kTimeEpsilonS = 1.0e-9;
+    if (requested_time_s < lookup.first_covered_time_s - kTimeEpsilonS ||
+        requested_time_s > lookup.last_covered_time_s + kTimeEpsilonS)
+        return lookup;
+    const double elapsed_knots = std::floor(
+        (requested_time_s - plan.state_stamp_s) / plan.knot_dt_s + 1.0e-9);
+    if (!std::isfinite(elapsed_knots) || elapsed_knots < 0.0 ||
+        elapsed_knots >= static_cast<double>(plan.horizon_knots))
+        return lookup;
+    lookup.knot = static_cast<std::size_t>(elapsed_knots);
+    lookup.valid = true;
+    return lookup;
+}
+// Return the plan knot whose absolute-time interval contains now_s.  This
+// legacy convenience remains clamped for current-state consumers; horizon
+// consumers must use TerrainPlanKnotAtTime instead.
 inline std::size_t TerrainPlanCurrentKnot(
     const TerrainMotionPlan &plan, double now_s)
 {
