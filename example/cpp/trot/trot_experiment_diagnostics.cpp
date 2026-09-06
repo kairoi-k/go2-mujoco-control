@@ -62,8 +62,19 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_terrain_execution_snapshot_valid"
          << ",wbc_terrain_execution_shadow_rejection_code"
          << ",wbc_terrain_execution_shadow_commitment_inherited_mask"
+         << ",wbc_terrain_execution_shadow_event_count"
          << ",wbc_terrain_execution_shadow_plan_id"
          << ",wbc_terrain_execution_shadow_plan_epoch";
+    for (const char *leg_name : go2_trot::kLegNames)
+        csv_ << ",terrain_shadow_" << leg_name
+             << "_commitment_valid,terrain_shadow_" << leg_name
+             << "_commitment_in_flight,terrain_shadow_" << leg_name
+             << "_source_plan_id,terrain_shadow_" << leg_name
+             << "_source_plan_epoch,terrain_shadow_" << leg_name
+             << "_target_time_s,terrain_shadow_" << leg_name
+             << "_target_x_m,terrain_shadow_" << leg_name
+             << "_target_y_m,terrain_shadow_" << leg_name
+             << "_target_z_m";
     if (params_.terrain_actuation)
     {
         csv_ << ",terrain_support_failure_knot,terrain_support_failure_contact_mask,terrain_support_failure_margin_m"
@@ -822,8 +833,18 @@ void TrotExperiment::LogSample(
          << "," << (wbc_shadow_diagnostics_.terrain_execution_snapshot_valid ? 1 : 0)
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_commitment_inherited_mask
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_event_count
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_plan_id
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_plan_epoch;
+    for (const auto &commitment : terrain_shadow_commitments_)
+        csv_ << "," << (commitment.valid ? 1 : 0)
+             << "," << (commitment.in_flight ? 1 : 0)
+             << "," << commitment.source_plan_id
+             << "," << commitment.source_plan_epoch
+             << "," << commitment.target_time_s
+             << "," << commitment.target_world.x
+             << "," << commitment.target_world.y
+             << "," << commitment.target_world.z;
     if (params_.terrain_actuation)
     {
         csv_ << "," << terrain_support_failure_knot

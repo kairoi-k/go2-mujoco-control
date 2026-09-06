@@ -18,6 +18,12 @@ REQUIRED = (
     "wbc_terrain_execution_shadow_plan_id",
     "wbc_terrain_execution_shadow_plan_epoch",
 )
+LEGS = ("FR", "FL", "RR", "RL")
+COMMITMENT_SUFFIXES = (
+    "_commitment_valid", "_commitment_in_flight", "_source_plan_id",
+    "_source_plan_epoch", "_target_time_s", "_target_x_m",
+    "_target_y_m", "_target_z_m",
+)
 
 
 def number(row, name):
@@ -32,6 +38,11 @@ def inspect_csv(path):
         reader = csv.DictReader(stream)
         fields = set(reader.fieldnames or ())
         missing = [name for name in REQUIRED if name not in fields]
+        for leg in LEGS:
+            missing.extend(
+                "terrain_shadow_" + leg + suffix
+                for suffix in COMMITMENT_SUFFIXES
+                if "terrain_shadow_" + leg + suffix not in fields)
         if missing:
             return {"status": "missing_fields", "path": str(path),
                     "missing": missing}
@@ -71,6 +82,15 @@ def inspect_csv(path):
                     errors.append("valid sample has no plan id")
                 if number(row, "wbc_terrain_execution_shadow_plan_epoch") <= 0:
                     errors.append("valid sample has no plan epoch")
+                for leg in LEGS:
+                    prefix = "terrain_shadow_" + leg
+                    if not int(number(row, prefix + "_commitment_valid")):
+                        continue
+                    if number(row, prefix + "_source_plan_id") <= 0 or                             number(row, prefix + "_source_plan_epoch") <= 0:
+                        errors.append("valid commitment has no source plan")
+                    for suffix in ("_target_time_s", "_target_x_m",
+                                   "_target_y_m", "_target_z_m"):
+                        number(row, prefix + suffix)
             elif checked:
                 shadow_rejected += 1
                 if rejection == 0:

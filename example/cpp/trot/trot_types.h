@@ -287,6 +287,7 @@ struct WbcShadowDiagnostics
     bool terrain_mpc_horizon_in_range = true;
     int terrain_execution_shadow_rejection_code = 0;
     std::uint32_t terrain_execution_shadow_commitment_inherited_mask = 0;
+    std::uint32_t terrain_execution_shadow_event_count = 0;
     std::uint64_t terrain_execution_shadow_plan_id = 0;
     std::uint64_t terrain_execution_shadow_plan_epoch = 0;
     std::uint64_t terrain_plan_id = 0;

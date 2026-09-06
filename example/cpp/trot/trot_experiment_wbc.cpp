@@ -288,6 +288,7 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_diagnostics_.terrain_execution_snapshot_valid = false;
     wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code = 0;
     wbc_shadow_diagnostics_.terrain_execution_shadow_commitment_inherited_mask = 0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_event_count = 0;
     wbc_shadow_diagnostics_.terrain_execution_shadow_plan_id = 0;
     wbc_shadow_diagnostics_.terrain_execution_shadow_plan_epoch = 0;
     if (!terrain_consistency_shadow)
@@ -340,6 +341,10 @@ void TrotExperiment::UpdateWbcFull(
             else
             {
                 wbc_shadow_diagnostics_.terrain_mpc_horizon_in_range = true;
+                for (std::size_t k = 0; k < execution_snapshot.mpc_horizon; ++k)
+                    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                        if (execution_snapshot.touchdown_events[k][leg].valid)
+                            ++wbc_shadow_diagnostics_.terrain_execution_shadow_event_count;
             }
         }
     }
