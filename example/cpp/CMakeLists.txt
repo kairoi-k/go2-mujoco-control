@@ -223,6 +223,10 @@ add_executable(test_terrain_interfaces tests/test_terrain_interfaces.cpp)
 target_link_libraries(test_terrain_interfaces unitree_sdk2)
 go2_add_ctest(test_terrain_interfaces)
 
+add_executable(test_terrain_execution_consistency
+    tests/test_terrain_execution_consistency.cpp)
+go2_add_ctest(test_terrain_execution_consistency)
+
 add_executable(analyze_contact_torque_replay tools/analysis/analyze_contact_torque_replay.cpp)
 target_include_directories(analyze_contact_torque_replay PRIVATE ${GO2_CPP_INCLUDE_DIRS})
 target_link_libraries(analyze_contact_torque_replay Eigen3::Eigen)
