@@ -241,6 +241,21 @@ decomposition by time, phase, plan/epoch, leg, and commitment state is in
 LowState/HighState command-invariance replay infrastructure is not present.
 No terrain actuation or B1 canary/holdout was run.
 
+## Stage-C C0-01/C0-02 foundation preparation (2026-09-06)
+
+Diagnostic/unit evidence only at clean source
+`0e09535c43d4fd26be3de387f02752a43115fa0f` on
+`feat/stage-c-joint-planner`; B0/B1 remain unaccepted. The real repository
+fixture `test_stage_c_foundations` passes 1/1 and covers the requested T01-T07
+and T13-T15 counterexamples. The new default-off Stage C headers define typed
+input, separate contact provenance, explicit touchdown events and candidates,
+failure taxonomy, rollout/bundle interfaces, a common comparison seam, and a
+deterministic exhaustive discrete planner plus small-fixture oracle. The old
+planner was not optimized, no continuous COM/body/force solver or terrain
+actuation was added, and frozen thresholds/analyzer semantics were unchanged.
+Available CTest is 30/30 PASS; the full build/integration test is blocked by
+the absent MuJoCo checkout dependency. See [`C0 foundation evidence`](research/evidence/stage_c_c0_foundations/README.md).
+
 ## H9 H8 stable no-plan lifecycle attribution (2026-09-06)
 
 Diagnostic attribution is complete at analysis head

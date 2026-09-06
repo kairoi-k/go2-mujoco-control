@@ -270,6 +270,27 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   support/COM/contact semantic, analyzer, terrain actuation, or B1
   canary/holdout change was made.
 
+- Stage-C C0-01/C0-02 preparation is implemented on
+  `feat/stage-c-joint-planner` at clean source
+  `0e09535c43d4fd26be3de387f02752a43115fa0f`. The real repository fixture
+  `test_stage_c_foundations` covers T01-T07 and T13-T15: capture-mode/anchor
+  equality, 5 cm region degeneration, map-coverage causes, full-frame
+  transform, multi-touchdown identity, interval-end coverage, fixed initial
+  support conflict, transfer/aerial contract conflict, reference-span
+  semantics, and committed-prefix preservation. Focused CTest is 1/1 PASS.
+  No H8/H9 raw CSV was available in the inspected worktrees, so no missing
+  foothold coordinates were inferred. The legacy snapshot producer still
+  gates force-backed anchor initialization on terrain actuation; the new typed
+  adapter is a default-off preparation seam and is not claimed as an
+  integration repair. C0-02 currently stops at deterministic discrete joint
+  search/oracle, typed event/candidate/failure/rollout/bundle interfaces, and
+  test framework; no continuous COM/body/contact-force solver, terrain
+  actuation, B1, or threshold/analyzer change was made. Evidence is
+  `docs/research/evidence/stage_c_c0_foundations/README.md`. The full build
+  is blocked by the absent `simulate/mujoco/include/mujoco/mujoco.h`; all 30
+  available registered CTest targets pass, while the MuJoCo-dependent
+  integration target is not counted.
+
 ## Goal
 
 Build sensor-derived dynamic locomotion that can grow into continuous,
