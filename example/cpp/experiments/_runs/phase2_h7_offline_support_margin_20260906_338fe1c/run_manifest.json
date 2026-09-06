@@ -10,4 +10,5 @@
   "evidence_files": [
     "old_defect_witness.txt",
     "focused_regression.txt"
+  ]
 }
