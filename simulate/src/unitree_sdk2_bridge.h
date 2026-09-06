@@ -761,12 +761,21 @@ public:
             go2_terrain::TerrainMapEnvelope envelope;
             const std::array<double, 3> capture_position{
                 base_pos[0], base_pos[1], base_pos[2]};
-            if (go2_terrain::TerrainMapEnvelopeFromHeightMap(
+            const bool converted = go2_terrain::TerrainMapEnvelopeFromHeightMap(
                     snapshot_map, ++lidar_map_sequence_, capture_position, yaw,
-                    direct_observation_stamps, envelope))
+                    direct_observation_stamps, envelope);
+            if (lidar_map_sequence_ <= 3)
+                std::cerr << "Terrain envelope convert seq=" << lidar_map_sequence_
+                          << " ok=" << converted << " stamp=" << sim_time
+                          << " cells=" << snapshot_map.data().size() << "\n";
+            if (converted)
             {
                 std::string wire;
-                if (go2_terrain::SerializeTerrainMapEnvelope(envelope, wire))
+                const bool serialized = go2_terrain::SerializeTerrainMapEnvelope(envelope, wire);
+                if (lidar_map_sequence_ <= 3)
+                    std::cerr << "Terrain envelope serialize ok=" << serialized
+                              << " bytes=" << wire.size() << "\n";
+                if (serialized)
                 {
                     std_msgs::msg::dds_::String_ message;
                     message.data(wire);
