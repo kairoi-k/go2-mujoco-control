@@ -22,6 +22,8 @@ to an artifact and summarized back on the Issue. Successful Issues are labeled
 atlas-complete and closed; failures are labeled atlas-failed and remain open.
 
 The runner is installed outside the checkout at
-/home/che/actions-runner, registered as atlas, and managed by its systemd
-service. Windows starts the WSL instance with the Codex Atlas WSL runner
-keepalive scheduled task so the service can reconnect after reboot.
+/home/che/actions-runner, registered as atlas, and managed by its user-level
+systemd service. A hidden Windows Startup script launches the WSL keepalive
+helper at user logon so the service can reconnect after reboot. Creating an
+ONSTART SYSTEM task requires administrator permission and is not part of this
+user-level setup.
