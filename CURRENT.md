@@ -138,8 +138,7 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   is independent of terrain_actuation, defaults off, and records same-tick
   model COM, absolute horizon coverage, per-leg touchdown events, source
   plan/epoch, target time/xyz, and commitment inheritance. Shadow-only plans
-  use 16 knots/0.30 s to cover observed consumption delay; no terminal-knot
-  copy or expired-plan extension is allowed. Verification requires: shadow-off
+  historical d550 evidence used 16 knots/0.30 s; e6253fd uses 24 real knots/0.46 s to cover observed delay; no terminal-knot copy or expired-plan extension is allowed. Verification requires: shadow-off
   is unchecked (never pass); shadow-on normal rows have a real plan, same-tick
   model COM, full absolute MPC coverage, event/target-consistent commitments,
   and a valid snapshot; missing plan, COM, coverage, expiry, or target mismatch
@@ -163,6 +162,46 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   example/cpp/experiments/_runs/phase2_b0_development_fixed_3mps_r1_20260906_153740_terrain.
   B1 remains unaccepted; no threshold, contract, or acceptance-semantic change
   was made.
+
+- H8 rejection decomposition and classification follow-up is at clean source
+  e6253fd0940724042d682fccc35b7cbaf1d89774. The new readiness classifier
+  separates invalid plan, expired plan, and horizon coverage; focused
+  consistency CTest and full 33/33 CTest pass, and real_trot_go2 builds.
+  Fresh terrain-sensor-only shadow runs are
+  [flat](example/cpp/experiments/_runs/phase2_h8_shadow_fixed_e6253fd_flat_lockstep)
+  (9,323 rows, 967 checked/valid, code4=0) and
+  [5 cm](example/cpp/experiments/_runs/phase2_h8_shadow_fixed_e6253fd_step5cm_lockstep)
+  (9,418 rows, 990 checked/valid, code4=0); same-tick model-COM mismatches
+  are zero. The non-lockstep startup attempt `phase2_h8_shadow_fixed_e6253fd_flat` has
+  completion_status=1 and is retained but excluded from metrics. In the stable
+  locomotion interval, flat is 6,171 rows with
+  441/441 checked valid, 0 checked invalid, and 5,730 unchecked; 5 cm is
+  6,266 with 389/389, 0, and 5,877. Remaining stable fail-closed reasons
+  are plan-invalid/no-plan 5,629/5,776, horizon 86/87, and target/event
+  mismatch 15/14. The mismatch leg masks are distributed rather than one
+  fixed leg (flat 15:6, 6:3, 7/9/14/1:2 each; 5 cm 15:4, 6/9:3/3,
+  14/2/13/4/8/1:1/1/1/1/2/1). The historical d550 code4 rows were
+  flat 283 (stage0=118, stage2=165) and 5 cm 406 (stage0=124, stage2=282);
+  inherited-mask was zero in all, with commitment-valid/in-flight leg
+  counts. Legacy code4 time bins (0.5 s) were flat 2.0/2.5/4.5/5.0 =
+  113/5/16/149 and 5 cm 2.0/2.5/4.5/5.0/5.5 = 119/5/70/111/101.
+  Phase-decile counts were flat 126/24/26/23/18/23/12/12/0/13/6 and
+  5 cm 139/15/19/30/49/37/34/11/24/30/18; plan=epoch sets were flat
+  6:118,48:16,51:39,55:110 and 5 cm 6:124,48:42,51:15,53:13,55:111,66:101.
+  counts flat FR/FL/RR/RL=38/55/55/38 and 5 cm=27/114/114/27. This removes
+  the checked-snapshot rejection, but the stable shadow gate remains
+  incomplete because real plans are absent or horizon-uncovered for most
+  rows; it is not an acceptance PASS.
+- The e6253fd fixed-3-m/s B0 pair passed with exact clean manifests at
+  [baseline](example/cpp/experiments/_runs/phase2_b0_development_fixed_3mps_r2_20260906_171729_baseline)
+  and
+  [terrain](example/cpp/experiments/_runs/phase2_b0_development_fixed_3mps_r2_20260906_171729_terrain).
+  Shadow-off/on command invariance remains unproven: no same-input
+  LowState/HighState deterministic replay currently exists. Minimum
+  infrastructure is a recorder/replayer feeding identical state ticks into
+  command generation and capturing per-tick LowCmd, torque, and joint
+  targets; no control mathematics was changed for this proof. No terrain
+  actuation or B1 canary/holdout was run.
 
 - The B1 planner-execution consistency audit is diagnostic and blocked, not
   an acceptance attempt. No new Atlas run was created. At the first retained

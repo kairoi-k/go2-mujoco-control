@@ -225,6 +225,22 @@ invariance was not proven because repeated lockstep runs had different first
 ticks and baseline output variation. The exact-SHA fixed-3-m/s B0 pair passed;
 no B1 holdout or acceptance-semantic change was made.
 
+
+## H8 shadow rejection decomposition follow-up (2026-09-06)
+
+At clean source `e6253fd0940724042d682fccc35b7cbaf1d89774`, readiness
+classification separates invalid plan, expiry, and horizon coverage; focused
+and full 33/33 CTest plus `real_trot_go2` passed. Fresh terrain-sensor-only
+shadow runs [flat](../example/cpp/experiments/_runs/phase2_h8_shadow_fixed_e6253fd_flat_lockstep)
+and [5 cm](../example/cpp/experiments/_runs/phase2_h8_shadow_fixed_e6253fd_step5cm_lockstep)
+have code4=0 and zero same-tick COM mismatches. Stable intervals still have
+unchecked 5,730/5,877 rows and target/event mismatches 15/14, so the shadow
+gate is incomplete, not accepted. The historical d550 code4=283/406
+decomposition by time, phase, plan/epoch, leg, and commitment state is in
+`CURRENT.md`. The exact-source fixed-3-m/s B0 pair passed; same-input
+LowState/HighState command-invariance replay infrastructure is not present.
+No terrain actuation or B1 canary/holdout was run.
+
 ## Evidence policy
 
 Keep artifacts needed to understand the controller. Bulk logs and generated
