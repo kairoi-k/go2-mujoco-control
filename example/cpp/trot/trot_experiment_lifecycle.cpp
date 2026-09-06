@@ -132,6 +132,35 @@ void TrotExperiment::LidarHeightMapMessageHandler(const void *message)
     }
 }
 
+void TrotExperiment::LidarTerrainEnvelopeMessageHandler(const void *message)
+{
+    if (message == nullptr)
+        return;
+    const auto *msg =
+        static_cast<const std_msgs::msg::dds_::String_ *>(message);
+    const auto decoded = go2_terrain::DeserializeTerrainMapEnvelope(
+        msg->data());
+    std::lock_guard<std::mutex> lock(terrain_map_mutex_);
+    if (!decoded.ok())
+    {
+        // Keep the legacy HeightMap for diagnostics, but make the
+        // actuation envelope unavailable after any malformed packet.
+        have_lidar_map_envelope_ = false;
+        lidar_map_envelope_ = {};
+        std::cerr << "Rejected terrain capture envelope error="
+                  << static_cast<int>(decoded.error) << "\n";
+        return;
+    }
+    lidar_map_envelope_ = decoded.envelope;
+    have_lidar_map_envelope_ = true;
+    if (lidar_map_envelope_.frame_id != "base_link")
+    {
+        have_lidar_map_envelope_ = false;
+        lidar_map_envelope_ = {};
+        std::cerr << "Rejected terrain capture envelope frame" << "\n";
+    }
+}
+
 // --- TrotExperiment::WaitForNaturalSettle ---
 bool TrotExperiment::WaitForNaturalSettle(double timeout_s)
 {
@@ -342,6 +371,18 @@ bool TrotExperiment::Init()
         std::cout << "Terrain lidar map: " << GO2_TROT_TOPIC_LIDAR_MAP
                   << " sensor_only="
                   << (params_.terrain_sensor_only ? "on" : "off") << "\n";
+
+        lidar_map_envelope_subscriber_.reset(
+            new ChannelSubscriber<std_msgs::msg::dds_::String_>(
+                GO2_TROT_TOPIC_LIDAR_MAP_ENVELOPE));
+        lidar_map_envelope_subscriber_->InitChannel(
+            std::bind(
+                &TrotExperiment::LidarTerrainEnvelopeMessageHandler,
+                this,
+                std::placeholders::_1),
+            1);
+        std::cout << "Terrain capture envelope: "
+                  << GO2_TROT_TOPIC_LIDAR_MAP_ENVELOPE << "\n";
     }
 
     std::cout << "Waiting for natural settle...\n";

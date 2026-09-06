@@ -18,6 +18,7 @@
 #include <unitree/common/thread/thread.hpp>
 #include <unitree/idl/go2/Error_.hpp>
 #include <unitree/idl/go2/HeightMap_.hpp>
+#include <unitree/idl/ros2/String_.hpp>
 #include <unitree/idl/go2/LowCmd_.hpp>
 #include <unitree/idl/go2/LowState_.hpp>
 #include <unitree/idl/go2/SportModeState_.hpp>
@@ -62,6 +63,7 @@ using unitree::robot::ChannelSubscriberPtr;
 #endif
 #ifndef GO2_TROT_TOPIC_LIDAR_MAP
 #define GO2_TROT_TOPIC_LIDAR_MAP "rt/go2/lidar_heightmap"
+#define GO2_TROT_TOPIC_LIDAR_MAP_ENVELOPE "rt/go2/lidar_heightmap_capture_v1"
 #endif
 
 class TrotExperiment
@@ -120,6 +122,7 @@ public:
 private:
     void EnvironmentHeightMapMessageHandler(const void *message);
     void LidarHeightMapMessageHandler(const void *message);
+    void LidarTerrainEnvelopeMessageHandler(const void *message);
     void InitLowCmd();
     void WriteCsvHeader();
     bool WaitForNaturalSettle(double timeout_s);
@@ -246,7 +249,8 @@ private:
     struct TerrainPlannerWork
     {
         bool have_map = false;
-        unitree_go::msg::dds_::HeightMap_ map{};
+        bool have_base_pose = false;
+        go2_terrain::TerrainMapEnvelope map_envelope{};
         std::uint64_t map_epoch = 0;
         std::uint64_t plan_id = 0;
         go2_terrain::TerrainPlannerInput input{};
@@ -484,6 +488,8 @@ private:
     unitree_go::msg::dds_::SportModeState_ high_state_{};
     unitree_go::msg::dds_::HeightMap_ environment_heightmap_{};
     unitree_go::msg::dds_::HeightMap_ lidar_heightmap_{};
+    go2_terrain::TerrainMapEnvelope lidar_map_envelope_{};
+    bool have_lidar_map_envelope_ = false;
     bool have_low_state_ = false;
     bool have_high_state_ = false;
     go2_terrain::TerrainPlanStore terrain_plan_store_{};
@@ -631,6 +637,8 @@ private:
         environment_heightmap_subscriber_;
     ChannelSubscriberPtr<unitree_go::msg::dds_::HeightMap_>
         lidar_heightmap_subscriber_;
+    ChannelSubscriberPtr<std_msgs::msg::dds_::String_>
+        lidar_map_envelope_subscriber_;
     std::atomic<bool> external_stop_requested_{false};
 
     ChannelPublisherPtr<unitree_go::msg::dds_::LowCmd_> lowcmd_publisher_;

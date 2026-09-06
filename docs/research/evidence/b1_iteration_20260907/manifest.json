@@ -2,7 +2,7 @@
   "schema": "b1-iteration-evidence-v1",
   "candidate": false,
   "runtime_sha": "8bd8eb2b55b40579871f1472fe686b7ca6d49010",
-  "next_hypothesis": "capture-pose registration, then isolated nominal COM-height reference",
+  "next_hypothesis": "registered current-ray observations; then nominal COM height and stable-approach V3",
   "source_sha256": {
     "example/cpp/tools/analysis/analyze_b1_physical.py": "d836f95e515979a6f95695dbbd896237fdc404317fb2bfd4e1a8a9b6369a3d29",
     "example/cpp/tools/analysis/test_analyze_b1_physical.py": "94ea9cec463c2dc9e885a5ac5e50e574e7eab8f97bcfadf92f55458887020173",
@@ -22,20 +22,44 @@
     "docs/research/B1_DYNAMIC_TRAVERSAL_V3.md": "bda49291851aa0161b35858ce664f67d8b6149ea6c0db767b8e573fe012fd0ce",
     "unitree_robots/go2/b1_v3_running_step_5cm.xml": "46f6118585b9d151229e6e0edda6993c39f9f3159eda353102dc579aaaac24a0",
     "example/cpp/configs/b1_v3_running_1mps.csv": "62f2ff9701b2f2d6189cad97877d7891177a32b17ded255677434eb1d8f41ac6",
-    "example/cpp/scripts/run_b1_research_probe.sh": "7b4195f446fc01106a25aafbbd3acd4d008df3241a18eb3f04f18ee659824cfe"
+    "example/cpp/scripts/run_b1_research_probe.sh": "7b4195f446fc01106a25aafbbd3acd4d008df3241a18eb3f04f18ee659824cfe",
+    "example/cpp/terrain/terrain_map_envelope.h": "5a135b2e09b7f5bfa3e1862f050319c737ff06e3149910b5d87ae0f9817b09b0",
+    "example/cpp/terrain/terrain_model.h": "54afb12b2fa75b13f29a322032bbb660f3dcbe99e2e1cddde2ea119985fc4522",
+    "example/cpp/tests/test_terrain_map_envelope.cpp": "939ccb40b48516d29bae0a0e78bf9bf0a0e56a0bd82941a0f8cc464e3a61b7d9",
+    "example/cpp/trot/trot_experiment.h": "ab518d4fbc652f001283874a03c4beb39cf2d1cb4278ae70fd9260f90bd3812e",
+    "example/cpp/trot/trot_experiment_control.cpp": "0e44153118fa17a519abc8525216eb62c08afcae76b89cc555d19c5b0d9b32fa",
+    "example/cpp/trot/trot_experiment_lifecycle.cpp": "ef8316521cffabdf9f561b3890fc550b393937a9078246954cf18a3d75594500",
+    "example/cpp/trot/trot_experiment_diagnostics.cpp": "fcb5aa740234f6f2c7b22005dec451c6151def0899e337dda3f9f4352fb1491e",
+    "simulate/src/unitree_sdk2_bridge.h": "d132d1d3d74a5932bb2e684399f84bb915c967298131de1c1c89fd5db53acc4b"
   },
   "curated_sha256": {
     "hold_flat_failure.json": "a595844f460ab60a22c3b11b0091c22c290b62c66f13d76f516070a5357c46c4",
     "commitment_audit.md": "c75d2eaef3ac6efff446770a10f7dc0d639a8b69c371903bc6d2ddbc27ea2b47",
-    "README.md": "267844d4d117952dd7a1db79611bf94f4468563e7975908a4f23e6e68ff13362",
+    "README.md": "895f8d24e6005d4b7ac6196ca9cca122241f7b302e2904f40cf67b349ab385a7",
     "commitment_flat_failure.json": "8c33d7f78888852396c764e5339a33f231de5cef9e1ee2171b8245c57e2aea86",
     "rejected_acceptance_draft.json": "eab97370b50da670d61a580b3231a98bc7dd4881e09d101067419907794a9619",
+    "audit_stance_ablation_dynamic.py": "eef36f710efe3a4b658895a94dcb2d7360fce9ed286247097d4e1bb3893ffd34",
     "terrain_frame_audit.md": "53a52726ea46bdc6754b577093ed9538c5b6ee20279cd82be231da2c1f50834d",
+    "map_registration_v1.md": "e0aaa9029940196e527b44f4bdae3da31f554083cb4637eeb96eec8f8a228965",
     "stance_ablation_results.json": "26e5123a69eda5c0fba9ea9e1b6e1f7583b00c508bce49125678d582e63f5f9c",
     "schema_audit.md": "cf20ad5677c55c1a9d61f8ab5ec9f8d8a9509c938587366fa9916c29afd58dc3",
-    "dynamic_transition_audit.md": "a5a6d0d338ad3dbc705b4ede1d04653df79821dea3926f3adf9aa18c8b645553",
+    "dynamic_transition_audit.md": "d08a774565ea1c8537cee266a1ad42ebadee7f5d7928bba14140861499d3176d",
     "lift_results.json": "f3a7d1d8fb1e77792843fc4da2282a81d6f86b45e833e01d35aebdd01387c12b"
   },
   "previous_implementation_sha": "764a21c61127e01831f5bb47601158b696e7a211",
-  "implementation_tests": "37/37 at fa84f51, then focused 3/3 for hold correction"
+  "implementation_tests": "39/39 controller, 3/3 simulator, map codec/registration/model benchmark p50/p95/max 106.25/129.945/245.883 us",
+  "build_raw_sha256": {
+    "controller_portable_index_build.log": "964d19f7c121b479e206eb6e84aef4991b9f6e746a90dce48fe676cabb0c6294",
+    "sim_ctest_final.log": "e7187774c973ba73163cdcef825114f0c9b274e9e9338735745d9ecb94253ab3",
+    "sim_ctest.log": "33a93fca6c194381466cb552a146de328e9d1e09778f3b95075732ff1df58f2e",
+    "configure.log": "a7a01f7fd8a3e89e326b8f3a2fadd3832302a4720e81cd242ea901c7b2da6d54",
+    "sim_portable_index_build.log": "0675de27245368f0aa642a696c3bb15eebaa1810060638de772db4fb97999c4f",
+    "controller_build.log": "84f15e7744be9cc26bb42354df66a6bf52533e863ba15dffc238598436f37bab",
+    "map_benchmark_final.log": "e344d8a369af188db3b46c6bcee13d3e5cdae360fe92945bbacdf44201656bb9",
+    "build_source_binding.json": "cad36cd524aece24919d20a7ed289df0941f2835b59443661079be633a21e7a7",
+    "map_benchmark.log": "1adf964cb1a2fabdb218d17c367594b5b8749961679c954e6eff1b93bacf2ed0",
+    "ctest.log": "3c085d8c9dffb7d46397d16518e34fa642b49a2564244adf50939fd1d7ca384b",
+    "sim_build.log": "3c7ca63218b0c5b45dd8952b568a2a4fc8c12578f778aa4d83ec9e3fe2467125",
+    "ctest_final.log": "0a8960810a41a89e731fa95a98dfba2d972c6c18cca783a61119dffff660b1a4"
+  }
 }

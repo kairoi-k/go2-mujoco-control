@@ -141,3 +141,18 @@ intervals with no eligible support use current COM reference, explicitly
 uncertified. Ten independent geometry/input fixtures pass. This is to be
 compared after capture-pose map registration, which is being implemented
 separately. No runtime result is attributed to either pending change yet.
+
+## Registered snapshot observation implementation
+
+The map-envelope implementation is complete; see `map_registration_v1.md` for
+scope and remaining frame issues. Final native validation: 39/39 controller
+CTest and 3/3 simulator CTest. A 320-cell/7941-byte decode-registration-model
+benchmark gives p50/p95/max 106.250/129.945/245.883 microseconds (200 repetitions,
+with warmup, real output sink). The raw build-source binding hashes all relevant
+source/model files and both final binaries; it truthfully records the dirty
+pre-commit build parent rather than inventing a clean build SHA. The following
+clean runtime commit must have matching source hashes before use.
+
+Next: same clean code, COM-height flag OFF, flat then original step probe.
+Only then enable the separate COM-height ablation and enter the pre-registered
+stable-approach V3 protocol. No runtime success is attributed to this change yet.

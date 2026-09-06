@@ -483,3 +483,9 @@ Clean 764a21c stance ablation restores a complete flat run and one physical
 5 cm traversal subclaim, but an identical-SHA repeat fails IK. No candidate.
 Map capture-pose registration and a default-OFF COM/base-height consistency
 ablation are next; full facts/raw hashes are in `stance_ablation_results.json`.
+
+Capture-pose snapshot observation is implemented and passes 39/39 controller
+plus 3/3 simulator CTest. It preserves the old HeightMap topic, uses current-ray
+envelopes for planning, and conservatively rejects unregistered/unknown cells.
+Body/heading roll-pitch, swing-curve and future-prefix issues remain. Next run
+keeps nominal-COM ablation OFF to isolate this observation change.

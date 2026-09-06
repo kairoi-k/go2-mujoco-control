@@ -227,6 +227,11 @@ void TrotExperiment::UpdateTerrainRuntime()
             control.imu_position_world.y - imu_offset_world.y,
             control.imu_position_world.z - imu_offset_world.z};
     }
+    work.have_base_pose = control.have_base_position_world &&
+        std::isfinite(input.base_position_world.x) &&
+        std::isfinite(input.base_position_world.y) &&
+        std::isfinite(input.base_position_world.z) &&
+        std::isfinite(input.base_yaw_rad);
     input.base_velocity_world = control.base_velocity_world;
     input.model_com_world = control.model_com_world;
     input.model_com_valid = control.model_com_valid &&
@@ -261,9 +266,9 @@ void TrotExperiment::UpdateTerrainRuntime()
 
     {
         std::lock_guard<std::mutex> lock(terrain_map_mutex_);
-        work.have_map = have_lidar_heightmap_;
+        work.have_map = have_lidar_map_envelope_;
         if (work.have_map)
-            work.map = lidar_heightmap_;
+            work.map_envelope = lidar_map_envelope_;
     }
     terrain_last_update_s_ = control.state_stamp_s;
 
@@ -325,14 +330,23 @@ void TrotExperiment::TerrainPlannerWorker()
         }
 
         std::shared_ptr<const go2_terrain::TerrainModel> model;
-        if (work.have_map)
+        if (work.have_map && work.have_base_pose)
         {
-            const auto built = go2_terrain::BuildTerrainModel(
-                &work.map, work.input.state_stamp_s, work.map_epoch,
-                go2_terrain::TerrainSource::kLidar);
-            if (built.ok())
-                model = std::make_shared<const go2_terrain::TerrainModel>(
-                    built.model);
+            const auto registered = go2_terrain::RegisterTerrainMap(
+                work.map_envelope, work.input.state_stamp_s,
+                {work.input.base_position_world.x,
+                 work.input.base_position_world.y,
+                 work.input.base_position_world.z},
+                work.input.base_yaw_rad);
+            if (registered.ok())
+            {
+                const auto built = go2_terrain::BuildRegisteredTerrainModel(
+                    &registered.map, work.input.state_stamp_s, work.map_epoch,
+                    go2_terrain::TerrainSource::kLidar);
+                if (built.ok())
+                    model = std::make_shared<const go2_terrain::TerrainModel>(
+                        built.model);
+            }
         }
         work.input.terrain = model.get();
         const auto result = terrain_planner_.Build(work.input, work.plan_id);

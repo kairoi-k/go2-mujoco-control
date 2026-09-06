@@ -44,6 +44,9 @@ void TrotExperiment::WriteCsvHeader()
          << ",terrain_enabled,terrain_sensor_only,terrain_actuation"
          << ",terrain_map_valid,terrain_map_source,terrain_map_epoch"
          << ",terrain_map_age_s,terrain_known_cells,terrain_feasible_regions"
+         << ",terrain_map_registered,terrain_map_sequence,terrain_capture_stamp_s,terrain_registration_stamp_s"
+         << ",terrain_capture_x_m,terrain_capture_y_m,terrain_capture_z_m,terrain_capture_yaw_rad"
+         << ",terrain_registration_x_m,terrain_registration_y_m,terrain_registration_z_m,terrain_registration_yaw_rad"
          << ",terrain_plan_status,terrain_plan_id,terrain_plan_epoch,terrain_plan_valid"
          << ",terrain_planner_updates,terrain_planner_rejections"
          << ",terrain_planner_deadline_misses,terrain_solver_elapsed_us"
@@ -809,6 +812,18 @@ void TrotExperiment::LogSample(
          << "," << terrain_last_map_age_s
          << "," << terrain_known_cells
          << "," << terrain_feasible_regions
+         << "," << ((terrain_model && terrain_model->registered) ? 1 : 0)
+         << "," << (terrain_model ? terrain_model->map_sequence : 0)
+         << "," << (terrain_model ? terrain_model->map_stamp_s : NAN)
+         << "," << (terrain_model ? terrain_model->state_stamp_s : NAN)
+         << "," << (terrain_model ? terrain_model->capture_position_world[0] : NAN)
+         << "," << (terrain_model ? terrain_model->capture_position_world[1] : NAN)
+         << "," << (terrain_model ? terrain_model->capture_position_world[2] : NAN)
+         << "," << (terrain_model ? terrain_model->capture_yaw_rad : NAN)
+         << "," << (terrain_model ? terrain_model->registration_position_world[0] : NAN)
+         << "," << (terrain_model ? terrain_model->registration_position_world[1] : NAN)
+         << "," << (terrain_model ? terrain_model->registration_position_world[2] : NAN)
+         << "," << (terrain_model ? terrain_model->registration_yaw_rad : NAN)
          << "," << static_cast<int>(terrain_last_plan_status)
          << "," << terrain_plan_id_.load()
          << "," << terrain_plan_epoch_.load()

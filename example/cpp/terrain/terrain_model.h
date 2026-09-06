@@ -15,6 +15,8 @@
 
 #include <unitree/idl/go2/HeightMap_.hpp>
 
+#include "terrain_map_envelope.h"
+
 namespace go2_terrain
 {
 
@@ -52,6 +54,10 @@ enum class TerrainModelError : std::uint8_t
     kInvalidDimensions,
     kInvalidDataSize,
     kOracleSource,
+    kFutureStamp,
+    kInvalidCellAge,
+    kUnregisteredMap,
+    kStateStampMismatch,
 };
 
 struct TerrainCell
@@ -107,6 +113,14 @@ struct TerrainModel
     std::size_t height = 0;
     TerrainSource source = TerrainSource::kNone;
     std::vector<TerrainCell> cells;
+    bool registered = false;
+    std::uint64_t map_sequence = 0;
+    std::array<double, 3> capture_position_world{
+        kTerrainNaN, kTerrainNaN, kTerrainNaN};
+    double capture_yaw_rad = kTerrainNaN;
+    std::array<double, 3> registration_position_world{
+        kTerrainNaN, kTerrainNaN, kTerrainNaN};
+    double registration_yaw_rad = kTerrainNaN;
 
     bool valid() const
     {
@@ -415,4 +429,74 @@ inline void RereferenceHeightMapZ(
     }
 }
 
+inline TerrainModelBuildResult BuildRegisteredTerrainModel(
+    const RegisteredTerrainMap *registered_map, double state_stamp_s,
+    std::uint64_t epoch, TerrainSource source)
+{
+    TerrainModelBuildResult result;
+    if (registered_map == nullptr || !registered_map->registered)
+    {
+        result.error = TerrainModelError::kUnregisteredMap;
+        return result;
+    }
+    if (!std::isfinite(registered_map->registration_state_stamp_s) ||
+        std::abs(registered_map->registration_state_stamp_s -
+                 state_stamp_s) > kTerrainMapTimeToleranceS)
+    {
+        result.error = TerrainModelError::kStateStampMismatch;
+        return result;
+    }
+    if (!std::isfinite(state_stamp_s) ||
+        !std::isfinite(registered_map->map_stamp_s) ||
+        state_stamp_s - registered_map->map_stamp_s <
+            -kTerrainMapTimeToleranceS)
+    {
+        result.error = TerrainModelError::kFutureStamp;
+        return result;
+    }
+    if (registered_map->cell_age_s.size() !=
+        registered_map->map.data().size())
+    {
+        result.error = TerrainModelError::kInvalidCellAge;
+        return result;
+    }
+    for (const double age : registered_map->cell_age_s)
+    {
+        if (std::isfinite(age) &&
+            (age < -kTerrainMapTimeToleranceS ||
+             age > kTerrainMapMaxAgeS + kTerrainMapTimeToleranceS))
+        {
+            result.error = TerrainModelError::kInvalidCellAge;
+            return result;
+        }
+    }
+    result = BuildTerrainModel(
+        &registered_map->map, state_stamp_s, epoch, source);
+    if (!result.ok())
+        return result;
+    result.model.registered = true;
+    result.model.map_sequence = registered_map->sequence;
+    result.model.capture_position_world =
+        registered_map->capture_position_world;
+    result.model.capture_yaw_rad = registered_map->capture_yaw_rad;
+    result.model.registration_position_world =
+        registered_map->current_position_world;
+    result.model.registration_yaw_rad =
+        registered_map->current_yaw_rad;
+    for (std::size_t i = 0; i < result.model.cells.size(); ++i)
+    {
+        if (result.model.cells[i].known)
+        {
+            const double age = registered_map->cell_age_s[i];
+            if (!std::isfinite(age))
+            {
+                result.error = TerrainModelError::kInvalidCellAge;
+                result.model = {};
+                return result;
+            }
+            result.model.cells[i].age_s = age;
+        }
+    }
+    return result;
+}
 } // namespace go2_terrain

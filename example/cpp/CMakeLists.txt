@@ -281,3 +281,7 @@ go2_add_ctest(test_stage_c_centroidal)
 
 add_executable(test_terrain_nominal_com_height tests/test_terrain_nominal_com_height.cpp)
 go2_add_ctest(test_terrain_nominal_com_height)
+
+add_executable(test_terrain_map_envelope tests/test_terrain_map_envelope.cpp)
+target_link_libraries(test_terrain_map_envelope unitree_sdk2)
+go2_add_ctest(test_terrain_map_envelope)

@@ -11,9 +11,9 @@ The companion script is `audit_stance_ablation_dynamic.py`. Run it from the
 Linux checkout with:
 
 ```sh
-python3 /tmp/acceptance_v2/audit_stance_ablation_dynamic.py \
+python3 docs/research/evidence/b1_iteration_20260907/audit_stance_ablation_dynamic.py \
   example/cpp/experiments/_runs/b1_stance_ablation_step_764a21c_20260907_0001 \
-  --json-out /tmp/acceptance_v2/stance.json
+  --json-out /tmp/b1_stance_dynamic_new_output.json
 ```
 
 The script reads only `data.csv` and `contact_ground_truth.csv`. It associates
@@ -170,6 +170,12 @@ limits from this run.
 
 - Raw run: `example/cpp/experiments/_runs/b1_stance_ablation_step_764a21c_20260907_0001`
 - Reproducible script: `acceptance_v2_draft_0001/audit_stance_ablation_dynamic.py`
-- Machine-readable output used for this report: `/tmp/acceptance_v2/stance.json`
+- Machine-readable output used for this report: `/tmp/b1_stance_dynamic_new_output.json`
 - Source semantics: `simulate/src/main.cc:274-312,367-443,484-533,536-545,612-614,714`; `simulate/src/terrain_contact_audit.h:11-24`; `example/cpp/trot/trot_experiment_diagnostics.cpp:729-740,875-891`; `example/cpp/trot/trot_experiment_wbc.cpp:179-212`; `example/cpp/trot/trot_experiment_gait.cpp:116-202`; `example/cpp/trot/velocity_command.h:178-185`; `example/cpp/gait/locomotion_kernel.h:29-62`.
 
+
+Root review: exact timestamp matching does not remove the logger's one-step
+derived-kinematics offset after mj_step. This is a descriptive historical-run
+audit with the original box bounds, not a general V3 analyzer. Root packaged
+script writes strict JSON (nonfinite diagnostics become null) and refuses to
+overwrite an output.

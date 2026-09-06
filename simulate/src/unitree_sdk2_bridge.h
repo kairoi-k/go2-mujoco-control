@@ -8,6 +8,8 @@
 #include <unitree/dds_wrapper/robots/g1/g1.h>
 #include <unitree/idl/go2/Error_.hpp>
 #include <unitree/idl/go2/HeightMap_.hpp>
+#include <unitree/idl/ros2/String_.hpp>
+#include "../../example/cpp/terrain/terrain_map_envelope.h"
 #include <unitree/idl/hg/BmsState_.hpp>
 #include <unitree/idl/hg/IMUState_.hpp>
 
@@ -298,6 +300,9 @@ public:
         lidar_heightmap = unitree::robot::ChannelFactory::Instance()
             ->CreateSendChannel<unitree_go::msg::dds_::HeightMap_>(
                 "rt/go2/lidar_heightmap");
+        lidar_heightmap_envelope = unitree::robot::ChannelFactory::Instance()
+            ->CreateSendChannel<std_msgs::msg::dds_::String_>(
+                "rt/go2/lidar_heightmap_capture_v1");
         lidar_world_z_.assign(kLidarWorldCellCount,
                               std::numeric_limits<double>::quiet_NaN());
         lidar_world_t_.assign(kLidarWorldCellCount, -1.0e9);
@@ -645,6 +650,12 @@ public:
         map.origin() = {kLidarWindowOriginX, kLidarWindowOriginY};
         map.data().assign(kLidarWindowCellCount,
                           std::numeric_limits<float>::quiet_NaN());
+        std::vector<double> direct_world_z(
+            kLidarWindowCellCount,
+            std::numeric_limits<double>::quiet_NaN());
+        std::vector<double> direct_observation_stamps(
+            kLidarWindowCellCount,
+            std::numeric_limits<double>::quiet_NaN());
         const double yaw = std::atan2(base_mat[3], base_mat[0]);
         const double c = std::cos(yaw), s = std::sin(yaw);
         // Dense downward elevation sweep over the published local window.
@@ -685,6 +696,10 @@ public:
                 if (!accepted)
                     continue;
                 const double hit_z = ray_origin[2] - distance;
+                const std::size_t direct_index =
+                    static_cast<std::size_t>(iy) * kLidarWindowWidth + ix;
+                direct_world_z[direct_index] = hit_z;
+                direct_observation_stamps[direct_index] = sim_time;
                 const int gx = static_cast<int>(std::floor(
                     (world_x - kLidarWorldOriginX) / kLidarWorldResolution));
                 const int gy = static_cast<int>(std::floor(
@@ -723,12 +738,42 @@ public:
                     continue;
                 const double world_z = lidar_world_z_[index];
                 if (std::isfinite(world_z))
+                {
                     map.data()[static_cast<std::size_t>(iy) *
                                kLidarWindowWidth + ix] = static_cast<float>(
                                    world_z - base_pos[2]);
+                }
             }
         }
         const auto publish_start = std::chrono::steady_clock::now();
+        if (lidar_heightmap_envelope)
+        {
+            unitree_go::msg::dds_::HeightMap_ snapshot_map = map;
+            for (std::size_t i = 0; i < kLidarWindowCellCount; ++i)
+            {
+                if (std::isfinite(direct_world_z[i]))
+                    snapshot_map.data()[i] = static_cast<float>(
+                        direct_world_z[i] - base_pos[2]);
+                else
+                    snapshot_map.data()[i] =
+                        std::numeric_limits<float>::quiet_NaN();
+            }
+            go2_terrain::TerrainMapEnvelope envelope;
+            const std::array<double, 3> capture_position{
+                base_pos[0], base_pos[1], base_pos[2]};
+            if (go2_terrain::TerrainMapEnvelopeFromHeightMap(
+                    snapshot_map, ++lidar_map_sequence_, capture_position, yaw,
+                    direct_observation_stamps, envelope))
+            {
+                std::string wire;
+                if (go2_terrain::SerializeTerrainMapEnvelope(envelope, wire))
+                {
+                    std_msgs::msg::dds_::String_ message;
+                    message.data(wire);
+                    (void)lidar_heightmap_envelope->Write(message, 0);
+                }
+            }
+        }
         (void)lidar_heightmap->Write(map, 0);
         if (publish_duration_s != nullptr)
         {
@@ -984,6 +1029,8 @@ public:
     std::unique_ptr<HighState_t> highstate;
     unitree::robot::ChannelPtr<unitree_go::msg::dds_::HeightMap_> environment_heightmap;
     unitree::robot::ChannelPtr<unitree_go::msg::dds_::HeightMap_> lidar_heightmap;
+    unitree::robot::ChannelPtr<std_msgs::msg::dds_::String_>
+        lidar_heightmap_envelope;
     std::unique_ptr<WirelessController_t> wireless_controller;
     std::shared_ptr<unitree::robot::SubscriptionBase<typename LowCmd_t::MsgType>> lowcmd;
     std::shared_ptr<LockstepAckSubscriber> lockstep_ack_subscriber_;
@@ -1009,6 +1056,7 @@ private:
     std::vector<double> lidar_world_z_;
     std::vector<double> lidar_world_t_;
     double last_lidar_map_publish_s_ = -1.0e9;
+    std::uint64_t lidar_map_sequence_ = 0;
     double last_environment_map_publish_s_ = -1.0e9;
     std::ofstream runtime_telemetry_;
     std::mutex runtime_telemetry_mutex_;
