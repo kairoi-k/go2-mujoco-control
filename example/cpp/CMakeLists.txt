@@ -278,3 +278,6 @@ target_link_libraries(stage_c_centroidal PUBLIC Eigen3::Eigen unitree_sdk2)
 add_executable(test_stage_c_centroidal tests/test_stage_c_centroidal.cpp)
 target_link_libraries(test_stage_c_centroidal stage_c_centroidal unitree_sdk2)
 go2_add_ctest(test_stage_c_centroidal)
+
+add_executable(test_terrain_nominal_com_height tests/test_terrain_nominal_com_height.cpp)
+go2_add_ctest(test_terrain_nominal_com_height)

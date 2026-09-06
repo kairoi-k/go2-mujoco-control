@@ -1,6 +1,7 @@
 #include "trot_experiment.h"
 #include "trot_true_dynamics.h"
 #include "full2_campaign_env.h"
+#include "terrain_nominal_com_height.h"
 
 #include <algorithm>
 #include <chrono>
@@ -8,6 +9,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <thread>
 
@@ -438,6 +440,44 @@ void TrotExperiment::UpdateWbcFull(
                       0.32, 0.48)
                 : kWbcPrimaryBaseHeightM;
         mpc_in.reference[5] = base_height_ref;
+        // Explicit research ablation: use foot-site geometry and the actual
+        // COM/base offset, rather than treating the legacy base-height
+        // constant as a COM height. Default remains the historical path.
+        if (params_.terrain_actuation && Full2EnvDouble(
+                "TROT_RESEARCH_NOMINAL_COM_HEIGHT", 0.0) > 0.5)
+        {
+            const auto neutral = go2::AllFootPositions(task_.stand_up_joint_pos_);
+            std::array<double, 4> sites{}, neutral_z{};
+            std::array<bool, 4> eligible{};
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                neutral_z[leg] = neutral[leg].z;
+                sites[leg] = std::numeric_limits<double>::infinity();
+                if (measured_contact[leg])
+                {
+                    sites[leg] = dyn.foot_pos_world[leg].z();
+                    eligible[leg] = true;
+                }
+                if (terrain_execution_target_valid_[leg])
+                {
+                    const double target_z = terrain_execution_target_world_[leg].z;
+                    sites[leg] = std::isfinite(target_z)
+                        ? std::min(sites[leg], target_z) : target_z;
+                    eligible[leg] = true;
+                }
+            }
+            const auto pose = ComputeWorldPose(state_snapshot, high_state_snapshot);
+            const auto ref = go2_trot::MakeNominalComHeight(
+                sites, neutral_z, eligible, dyn.com_world.z() - pose.base.z);
+            // During uncovered aerial intervals no height target can produce
+            // support force. Hold current COM reference without inventing a
+            // support plane; this is explicitly not a certified plan.
+            mpc_in.reference[5] = ref.valid ? ref.com_world_z : dyn.com_world.z();
+            if (wbc_full_ticks_ % 500 == 0)
+                std::cout << "Terrain nominal COM reference valid=" << ref.valid
+                          << " com_z=" << mpc_in.reference[5]
+                          << " base_z=" << ref.base_world_z << "\n";
+        }
         mpc_in.reference[6] = 0.0;
         mpc_in.reference[7] = 0.0;
         mpc_in.reference[8] = motion_event_response_enabled_

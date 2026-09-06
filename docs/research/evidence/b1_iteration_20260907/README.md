@@ -110,3 +110,34 @@ Clean c7f20b2775ff19459871628106b3c45bd38aa3dc fixes initial canonical hold
 next; retain committed swing expiry semantics and coordinate utility tests.
 The suspected loss of body-height feedback remains a hypothesis. Focused
 velocity-command, commitment-lifecycle and WBC gate tests pass 3/3.
+
+## Clean 764a21c ablation results and next isolation
+
+Flat completes 25 s with ID-WBC fraction 1.0, no IK failure, but legacy posture
+P95 gates still fail. First 5 cm step probe passes the empirical physical
+subclaim: full collision geometry exits, four sustained top-support witnesses,
+no nonfoot collisions, max pitch 10.636 deg, ID-WBC 1.0. Foot-riser contact
+remains (rear-right max 315.788 N), and longest aerial witness is only 8 ms.
+The identical-SHA repeat fails IK at gait_time 13.504 (FL commanded body Z
+-0.437541 m). This is NOT a reproducible candidate. Raw failed run is preserved.
+See `stance_ablation_results.json` for exact manifests, raw hashes and results.
+
+Independent left-end force integration versus measured subtree momentum gives
+100 ms impulse residual norm p50/p95/max 0.00654/0.02443/0.04881 N s during the
+successful interaction. This is a consistency diagnostic, not a new tuned gate.
+The tool has analytic constant/variable-force/aerial, injected-impulse and
+coverage rejection tests. MuJoCo derived kinematic quantities after mj_step
+retain pre-integration kinematics; allow the documented one-physics-step
+alignment offset rather than claiming exact controller/GT pose synchronization.
+
+Code inspection also finds that UpdateWbcFull puts the legacy 0.42 m BASE
+height constant directly in COM reference[5]. Observed COM is about 27 mm below
+base; neutral foot-site Z is about -0.35 m. A new default-OFF research ablation
+`TROT_RESEARCH_NOMINAL_COM_HEIGHT=1` derives level-body base/COM height from the
+lowest eligible measured/committed foot site, neutral geometry and measured
+COM/base offset. It anticipates a lower committed foothold; it is not an IK or
+trajectory certificate and does not change the historical default. Aerial
+intervals with no eligible support use current COM reference, explicitly
+uncertified. Ten independent geometry/input fixtures pass. This is to be
+compared after capture-pose map registration, which is being implemented
+separately. No runtime result is attributed to either pending change yet.

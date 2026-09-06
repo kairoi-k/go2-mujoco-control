@@ -2,7 +2,7 @@
   "schema": "b1-iteration-evidence-v1",
   "candidate": false,
   "runtime_sha": "8bd8eb2b55b40579871f1472fe686b7ca6d49010",
-  "next_hypothesis": "direct world-Z stance ablation",
+  "next_hypothesis": "capture-pose registration, then isolated nominal COM-height reference",
   "source_sha256": {
     "example/cpp/tools/analysis/analyze_b1_physical.py": "d836f95e515979a6f95695dbbd896237fdc404317fb2bfd4e1a8a9b6369a3d29",
     "example/cpp/tools/analysis/test_analyze_b1_physical.py": "94ea9cec463c2dc9e885a5ac5e50e574e7eab8f97bcfadf92f55458887020173",
@@ -13,17 +13,29 @@
     "simulate/src/main.cc": "4d8776be78233b92ca741af88aa3ad77f5102693a3e1b5b6772d64100a1607cd",
     "docs/research/PHASE2_ACCEPTANCE.md": "6d5895644fd0f471b6b09a4a920b0663855bf7a0a2b90c226220d3ef77b1c514",
     "docs/research/PHASE2_HOLDOUT_MANIFEST.json": "2550526025594aa379441e1d7eb071c8809abeaf9234f6cf8a335f22288a5a40",
-    "example/cpp/tools/analyze_phase2_terrain.py": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873"
+    "example/cpp/tools/analyze_phase2_terrain.py": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873",
+    "example/cpp/trot/trot_experiment_wbc.cpp": "518849da5d88a143793fc033cb9ba086837b2b170bf8a9fea132eedbe989ba1f",
+    "example/cpp/trot/terrain_nominal_com_height.h": "e63949047610f94b3702b61cda6ebec5177991d879bc3de1a064d0d9d787abd7",
+    "example/cpp/tests/test_terrain_nominal_com_height.cpp": "0c82b0d094630e94a8c1556b157aa3557d77e3969fde46eef03468b5bd83913c",
+    "example/cpp/tools/analysis/audit_b1_impulse.py": "2ab708396c38552bf12565b736ac578f306c35aa8aa33dca8a081483b2ae1ab1",
+    "example/cpp/tools/analysis/test_audit_b1_impulse.py": "2d4982905bf32c37d0257852366928a00e19290a7183cc94d623ef82d2a2464b",
+    "docs/research/B1_DYNAMIC_TRAVERSAL_V3.md": "bda49291851aa0161b35858ce664f67d8b6149ea6c0db767b8e573fe012fd0ce",
+    "unitree_robots/go2/b1_v3_running_step_5cm.xml": "46f6118585b9d151229e6e0edda6993c39f9f3159eda353102dc579aaaac24a0",
+    "example/cpp/configs/b1_v3_running_1mps.csv": "62f2ff9701b2f2d6189cad97877d7891177a32b17ded255677434eb1d8f41ac6",
+    "example/cpp/scripts/run_b1_research_probe.sh": "7b4195f446fc01106a25aafbbd3acd4d008df3241a18eb3f04f18ee659824cfe"
   },
   "curated_sha256": {
     "hold_flat_failure.json": "a595844f460ab60a22c3b11b0091c22c290b62c66f13d76f516070a5357c46c4",
     "commitment_audit.md": "c75d2eaef3ac6efff446770a10f7dc0d639a8b69c371903bc6d2ddbc27ea2b47",
-    "README.md": "0885123e1a2c52346b3ad052a706caa1050aa73e957411c26a87b93199aad6d4",
+    "README.md": "267844d4d117952dd7a1db79611bf94f4468563e7975908a4f23e6e68ff13362",
     "commitment_flat_failure.json": "8c33d7f78888852396c764e5339a33f231de5cef9e1ee2171b8245c57e2aea86",
     "rejected_acceptance_draft.json": "eab97370b50da670d61a580b3231a98bc7dd4881e09d101067419907794a9619",
+    "terrain_frame_audit.md": "53a52726ea46bdc6754b577093ed9538c5b6ee20279cd82be231da2c1f50834d",
+    "stance_ablation_results.json": "26e5123a69eda5c0fba9ea9e1b6e1f7583b00c508bce49125678d582e63f5f9c",
     "schema_audit.md": "cf20ad5677c55c1a9d61f8ab5ec9f8d8a9509c938587366fa9916c29afd58dc3",
+    "dynamic_transition_audit.md": "a5a6d0d338ad3dbc705b4ede1d04653df79821dea3926f3adf9aa18c8b645553",
     "lift_results.json": "f3a7d1d8fb1e77792843fc4da2282a81d6f86b45e833e01d35aebdd01387c12b"
   },
-  "previous_implementation_sha": "c7f20b2775ff19459871628106b3c45bd38aa3dc",
+  "previous_implementation_sha": "764a21c61127e01831f5bb47601158b696e7a211",
   "implementation_tests": "37/37 at fa84f51, then focused 3/3 for hold correction"
 }

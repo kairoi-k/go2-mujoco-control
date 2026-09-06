@@ -478,3 +478,8 @@ The c7f20b2 hold correction removed initial false swing applications, but its fl
 probe still failed IK at gait_time 9.39195. The next isolated ablation removes
 direct world-Z stance anchoring while retaining committed swing lifecycle.
 Implicit body-height feedback versus stale map frames remains under investigation.
+
+Clean 764a21c stance ablation restores a complete flat run and one physical
+5 cm traversal subclaim, but an identical-SHA repeat fails IK. No candidate.
+Map capture-pose registration and a default-OFF COM/base-height consistency
+ablation are next; full facts/raw hashes are in `stance_ablation_results.json`.

@@ -8,9 +8,12 @@ mode=${1:?terrain-b1-execution or terrain-sensor-only}
 name=${2:?unique run name}
 scene=${3:-phase2_step_5cm.xml}
 duration=${4:-25}
+profile=${5:-phase1_velocity_steps.csv}
+if [[ "$scene" == b1_v3_running_step_5cm.xml ]]; then profile=b1_v3_running_1mps.csv; fi
+[[ "$profile" == phase1_velocity_steps.csv || "$profile" == b1_v3_running_1mps.csv ]]
 [[ "$mode" == terrain-b1-execution || "$mode" == terrain-sensor-only ]]
 [[ "$name" =~ ^[a-zA-Z0-9_-]+$ ]]
-[[ "$scene" == phase2_step_5cm.xml || "$scene" == phase2_flat.xml ]]
+[[ "$scene" == phase2_step_5cm.xml || "$scene" == phase2_flat.xml || "$scene" == b1_v3_running_step_5cm.xml ]]
 [[ ! -e example/cpp/experiments/_runs/$name ]]
 export TROT_DYNAMICS_TOLERANCE_N=20
 export TROT_HS_START_PERIOD=0.20 TROT_HS_START_DUTY=0.50 TROT_HS_SPEED_LEAD=0.25
@@ -27,5 +30,5 @@ exec flock -n /tmp/go2_mujoco_experiment.lock bash example/cpp/scripts/run_trot.
  --raibert-velocity-gain 0.010 --raibert-max-adjustment 0.06 --preview-horizon 4 \
  --support-anchor-feedback --support-anchor-gain 0.35 --velocity-max-accel 0.80 \
  --velocity-max-decel 1.20 --velocity-max-jerk 4.0 \
- --velocity-command-script "$PWD/example/cpp/configs/phase1_velocity_steps.csv" \
+ --velocity-command-script "$PWD/example/cpp/configs/$profile" \
  --velocity-max-tracking-lead 0.20 --domain-id 231 --gait-phase-offset 0 --initial-x 0 --initial-y 0 --$mode
