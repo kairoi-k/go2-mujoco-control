@@ -60,6 +60,14 @@ go2_terrain::TerrainMotionPlan FixturePlan()
 int main()
 {
     const auto plan = FixturePlan();
+    auto due_now = plan;
+    due_now.predicted_foothold[0][0].touchdown = true;
+    due_now.predicted_foothold[0][0].touchdown_time_s = 1.0;
+    const auto strictly_future =
+        go2_terrain::TerrainPlanNextTouchdown(due_now, 0, 1.0);
+    if (!Check(strictly_future.valid && strictly_future.knot == 1,
+               "touchdown at the current knot was reused as a new commitment"))
+        return 1;
     const auto first = go2_terrain::TerrainPlanNextTouchdown(plan, 0, 1.0);
     const auto next_cycle = go2_terrain::TerrainPlanNextTouchdown(plan, 0, 1.08);
     if (!Check(first.valid && first.knot == 1 &&

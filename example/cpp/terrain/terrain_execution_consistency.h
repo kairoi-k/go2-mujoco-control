@@ -218,8 +218,8 @@ inline TerrainTouchdownEvent TerrainPlanNextTouchdown(
         const auto &foot = plan.predicted_foothold[k][leg];
         if (!foot.valid || !foot.touchdown ||
             !std::isfinite(foot.touchdown_time_s) ||
-            foot.touchdown_time_s + kTerrainExecutionTimeToleranceS <
-                minimum_time_s ||
+            foot.touchdown_time_s <= minimum_time_s +
+                kTerrainExecutionTimeToleranceS ||
             !FiniteTerrainVec3(foot.position_world))
             continue;
         const auto lookup = TerrainPlanKnotAtTime(
