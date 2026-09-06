@@ -243,11 +243,12 @@ bool TrotExperiment::Init()
         params_.terrain_actuation || terrain_consistency_shadow;
     if (terrain_consistency_shadow)
     {
-        // The shadow consumer validates an 8-knot MPC horizon after planner
-        // consumption delay. Keep extra absolute-time knots available; do not
-        // let the consumer copy a terminal knot or extend an expired plan.
-        terrain_config.horizon_knots = 16;
-        terrain_config.plan_validity_s = 0.30;
+        // The shadow consumer validates an 8-knot MPC horizon after the
+        // observed planner-consumption delay (up to about 300 ms). Generate
+        // real absolute-time knots through that delay plus the MPC horizon;
+        // do not copy a terminal knot or extend an expired plan.
+        terrain_config.horizon_knots = 24;
+        terrain_config.plan_validity_s = 0.46;
     }
     terrain_planner_ = go2_terrain::TerrainPlanner(terrain_config);
 

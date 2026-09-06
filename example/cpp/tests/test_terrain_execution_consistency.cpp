@@ -115,6 +115,31 @@ int main()
                "overrun fabricated a current foot and marked it valid"))
         return 1;
 
+    auto delayed_plan = FixturePlan();
+    delayed_plan.horizon_knots = 24;
+    delayed_plan.valid_until_s = 1.46;
+    for (std::size_t k = 8; k < delayed_plan.horizon_knots; ++k)
+    {
+        delayed_plan.body_reference[k] = delayed_plan.body_reference[7];
+        delayed_plan.contact_schedule.planned_contact[k] =
+            delayed_plan.contact_schedule.planned_contact[7];
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            delayed_plan.predicted_foothold[k][leg] =
+                delayed_plan.predicted_foothold[7][leg];
+        }
+    }
+    auto short_plan = delayed_plan;
+    short_plan.horizon_knots = 16;
+    short_plan.valid_until_s = 1.30;
+    if (!Check(!go2_terrain::TerrainPlanCoversMpcHorizon(
+                   short_plan, 1.162, 0.02, 8, &coverage) &&
+                   !coverage.valid,
+               "short horizon masked delayed consumption") ||
+        !Check(go2_terrain::TerrainPlanCoversMpcHorizon(
+                   delayed_plan, 1.30, 0.02, 8, &coverage),
+               "extended real horizon did not cover delay"))
+        return 1;
     auto inherited = commitments;
     inherited[0].source_plan_id = plan.plan_id + 1;
     inherited[0].source_plan_epoch = plan.plan_epoch + 1;
