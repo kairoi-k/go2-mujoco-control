@@ -289,6 +289,14 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code = 0;
     wbc_shadow_diagnostics_.terrain_execution_shadow_failure_reason = 0;
     wbc_shadow_diagnostics_.terrain_execution_shadow_failure_leg_mask = 0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_plan_state_stamp_s = 0.0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_plan_valid_until_s = 0.0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_plan_last_covered_s = 0.0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_horizon_first_sample_s = 0.0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_horizon_last_sample_s = 0.0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_mpc_dt_s = 0.0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_mpc_horizon = 0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_plan_horizon_knots = 0;
     wbc_shadow_diagnostics_.terrain_execution_shadow_commitment_inherited_mask = 0;
     wbc_shadow_diagnostics_.terrain_execution_shadow_event_count = 0;
     wbc_shadow_diagnostics_.terrain_execution_shadow_plan_id = 0;
@@ -311,6 +319,24 @@ void TrotExperiment::UpdateWbcFull(
             shadow_plan.plan_id;
         wbc_shadow_diagnostics_.terrain_execution_shadow_plan_epoch =
             shadow_plan.plan_epoch;
+        wbc_shadow_diagnostics_.terrain_execution_shadow_plan_state_stamp_s =
+            shadow_plan.state_stamp_s;
+        wbc_shadow_diagnostics_.terrain_execution_shadow_plan_valid_until_s =
+            shadow_plan.valid_until_s;
+        wbc_shadow_diagnostics_.terrain_execution_shadow_plan_last_covered_s =
+            shadow_plan.state_stamp_s + shadow_plan.knot_dt_s *
+                static_cast<double>(shadow_plan.horizon_knots - 1);
+        wbc_shadow_diagnostics_.terrain_execution_shadow_horizon_first_sample_s =
+            terrain_now_s;
+        wbc_shadow_diagnostics_.terrain_execution_shadow_mpc_dt_s =
+            mpc_params.dt_s;
+        wbc_shadow_diagnostics_.terrain_execution_shadow_mpc_horizon =
+            mpc_params.horizon;
+        wbc_shadow_diagnostics_.terrain_execution_shadow_plan_horizon_knots =
+            static_cast<int>(shadow_plan.horizon_knots);
+        wbc_shadow_diagnostics_.terrain_execution_shadow_horizon_last_sample_s =
+            terrain_now_s + mpc_params.dt_s *
+                static_cast<double>(mpc_params.horizon - 1);
         const auto commitment_update =
             go2_terrain::AdvanceTerrainExecutionCommitments(
                 shadow_plan, terrain_now_s, measured_contact, true,

@@ -63,6 +63,14 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_terrain_execution_shadow_rejection_code"
          << ",wbc_terrain_execution_shadow_failure_reason"
          << ",wbc_terrain_execution_shadow_failure_leg_mask"
+         << ",wbc_terrain_execution_shadow_plan_state_stamp_s"
+         << ",wbc_terrain_execution_shadow_plan_valid_until_s"
+         << ",wbc_terrain_execution_shadow_plan_last_covered_s"
+         << ",wbc_terrain_execution_shadow_horizon_first_sample_s"
+         << ",wbc_terrain_execution_shadow_horizon_last_sample_s"
+         << ",wbc_terrain_execution_shadow_mpc_dt_s"
+         << ",wbc_terrain_execution_shadow_mpc_horizon"
+         << ",wbc_terrain_execution_shadow_plan_horizon_knots"
          << ",wbc_terrain_execution_shadow_commitment_inherited_mask"
          << ",wbc_terrain_execution_shadow_event_count"
          << ",wbc_terrain_execution_shadow_plan_id"
@@ -836,6 +844,14 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_failure_reason
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_failure_leg_mask
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_plan_state_stamp_s
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_plan_valid_until_s
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_plan_last_covered_s
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_horizon_first_sample_s
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_horizon_last_sample_s
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_mpc_dt_s
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_mpc_horizon
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_plan_horizon_knots
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_commitment_inherited_mask
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_event_count
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_plan_id

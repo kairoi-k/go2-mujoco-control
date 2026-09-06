@@ -288,6 +288,14 @@ struct WbcShadowDiagnostics
     int terrain_execution_shadow_rejection_code = 0;
     int terrain_execution_shadow_failure_reason = 0;
     std::uint32_t terrain_execution_shadow_failure_leg_mask = 0;
+    double terrain_execution_shadow_plan_state_stamp_s = 0.0;
+    double terrain_execution_shadow_plan_valid_until_s = 0.0;
+    double terrain_execution_shadow_plan_last_covered_s = 0.0;
+    double terrain_execution_shadow_horizon_first_sample_s = 0.0;
+    double terrain_execution_shadow_horizon_last_sample_s = 0.0;
+    double terrain_execution_shadow_mpc_dt_s = 0.0;
+    int terrain_execution_shadow_mpc_horizon = 0;
+    int terrain_execution_shadow_plan_horizon_knots = 0;
     std::uint32_t terrain_execution_shadow_commitment_inherited_mask = 0;
     std::uint32_t terrain_execution_shadow_event_count = 0;
     std::uint64_t terrain_execution_shadow_plan_id = 0;
