@@ -10,6 +10,7 @@
 #include <unitree/idl/go2/HeightMap_.hpp>
 #include <unitree/idl/ros2/String_.hpp>
 #include "../../example/cpp/terrain/terrain_map_envelope.h"
+#include "../../example/cpp/terrain/terrain_map_transport.h"
 #include <unitree/idl/hg/BmsState_.hpp>
 #include <unitree/idl/hg/IMUState_.hpp>
 
@@ -302,7 +303,7 @@ public:
                 "rt/go2/lidar_heightmap");
         lidar_heightmap_envelope = unitree::robot::ChannelFactory::Instance()
             ->CreateSendChannel<std_msgs::msg::dds_::String_>(
-                "rt/go2/lidar_heightmap_capture_v1");
+                "rt/go2/lidar_heightmap_capture_chunks_v1");
         lidar_world_z_.assign(kLidarWorldCellCount,
                               std::numeric_limits<double>::quiet_NaN());
         lidar_world_t_.assign(kLidarWorldCellCount, -1.0e9);
@@ -777,12 +778,21 @@ public:
                               << " bytes=" << wire.size() << "\n";
                 if (serialized)
                 {
-                    std_msgs::msg::dds_::String_ message;
-                    message.data(wire);
-                    const bool sent = lidar_heightmap_envelope->Write(message, 0);
+                    std::vector<std::string> packets;
+                    bool sent = go2_terrain::EncodeTerrainMapWireChunks(
+                        wire, envelope.sequence, packets);
+                    for (const auto &packet : packets)
+                    {
+                        std_msgs::msg::dds_::String_ message;
+                        message.data(packet);
+                        const bool packet_sent =
+                            lidar_heightmap_envelope->Write(message, 0);
+                        sent = sent && packet_sent;
+                    }
                     if (lidar_map_sequence_ <= 3)
                         std::cout << "Terrain envelope publish seq=" << lidar_map_sequence_
-                                  << " bytes=" << wire.size() << " sent=" << sent
+                                  << " bytes=" << wire.size() << " chunks=" << packets.size()
+                                  << " sent=" << sent
                                   << " stamp=" << sim_time << "\n";
                 }
             }

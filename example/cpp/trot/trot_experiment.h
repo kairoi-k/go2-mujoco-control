@@ -19,6 +19,7 @@
 #include <unitree/idl/go2/Error_.hpp>
 #include <unitree/idl/go2/HeightMap_.hpp>
 #include <unitree/idl/ros2/String_.hpp>
+#include "terrain_map_transport.h"
 #include <unitree/idl/go2/LowCmd_.hpp>
 #include <unitree/idl/go2/LowState_.hpp>
 #include <unitree/idl/go2/SportModeState_.hpp>
@@ -63,7 +64,7 @@ using unitree::robot::ChannelSubscriberPtr;
 #endif
 #ifndef GO2_TROT_TOPIC_LIDAR_MAP
 #define GO2_TROT_TOPIC_LIDAR_MAP "rt/go2/lidar_heightmap"
-#define GO2_TROT_TOPIC_LIDAR_MAP_ENVELOPE "rt/go2/lidar_heightmap_capture_v1"
+#define GO2_TROT_TOPIC_LIDAR_MAP_ENVELOPE "rt/go2/lidar_heightmap_capture_chunks_v1"
 #endif
 
 class TrotExperiment
@@ -639,6 +640,10 @@ private:
         lidar_heightmap_subscriber_;
     ChannelSubscriberPtr<std_msgs::msg::dds_::String_>
         lidar_map_envelope_subscriber_;
+    // Only the dedicated capture-message callback thread mutates these.
+    go2_terrain::TerrainMapChunkReassembler lidar_map_reassembler_;
+    std::uint64_t lidar_map_transport_errors_ = 0;
+    std::uint64_t lidar_map_complete_count_ = 0;
     std::atomic<bool> external_stop_requested_{false};
 
     ChannelPublisherPtr<unitree_go::msg::dds_::LowCmd_> lowcmd_publisher_;

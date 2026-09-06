@@ -138,10 +138,33 @@ void TrotExperiment::LidarTerrainEnvelopeMessageHandler(const void *message)
         return;
     const auto *msg =
         static_cast<const std_msgs::msg::dds_::String_ *>(message);
-    const auto decoded = go2_terrain::DeserializeTerrainMapEnvelope(
-        msg->data());
+    const auto now_ms = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count());
+    std::string wire;
+    std::uint64_t sequence = 0;
+    const auto transport = lidar_map_reassembler_.PushPacket(
+        msg->data(), now_ms, wire, &sequence);
+    if (transport == go2_terrain::TerrainMapChunkError::kNone ||
+        transport == go2_terrain::TerrainMapChunkError::kDuplicate ||
+        transport == go2_terrain::TerrainMapChunkError::kStaleSequence)
+        return;
+    if (transport != go2_terrain::TerrainMapChunkError::kComplete)
+    {
+        std::lock_guard<std::mutex> lock(terrain_map_mutex_);
+        have_lidar_map_envelope_ = false;
+        lidar_map_envelope_ = {};
+        ++lidar_map_transport_errors_;
+        if (lidar_map_transport_errors_ <= 3 ||
+            lidar_map_transport_errors_ % 100 == 0)
+            std::cerr << "Rejected terrain map transport error="
+                      << go2_terrain::TerrainMapChunkErrorName(transport)
+                      << " count=" << lidar_map_transport_errors_ << "\n";
+        return;
+    }
+    const auto decoded = go2_terrain::DeserializeTerrainMapEnvelope(wire);
     std::lock_guard<std::mutex> lock(terrain_map_mutex_);
-    if (!decoded.ok())
+    if (!decoded.ok() || decoded.envelope.sequence != sequence)
     {
         // Keep the legacy HeightMap for diagnostics, but make the
         // actuation envelope unavailable after any malformed packet.
@@ -153,6 +176,11 @@ void TrotExperiment::LidarTerrainEnvelopeMessageHandler(const void *message)
     }
     lidar_map_envelope_ = decoded.envelope;
     have_lidar_map_envelope_ = true;
+    ++lidar_map_complete_count_;
+    if (lidar_map_complete_count_ <= 3)
+        std::cerr << "Terrain envelope received sequence=" << sequence
+                  << " bytes=" << wire.size()
+                  << " capture=" << lidar_map_envelope_.map_stamp_s << "\n";
     if (lidar_map_envelope_.frame_id != "base_link")
     {
         have_lidar_map_envelope_ = false;
@@ -380,7 +408,7 @@ bool TrotExperiment::Init()
                 &TrotExperiment::LidarTerrainEnvelopeMessageHandler,
                 this,
                 std::placeholders::_1),
-            1);
+            512);
         std::cout << "Terrain capture envelope: "
                   << GO2_TROT_TOPIC_LIDAR_MAP_ENVELOPE << "\n";
     }
