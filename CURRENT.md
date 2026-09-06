@@ -8,18 +8,20 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
 
 ## Active autonomous B1 research: no candidate
 
-Latest checkpoint: bounded capture-map transport is working. Clean `f6708ec`
-flat execution received and registered maps and applied terrain targets;
-the paired V3 5 cm execution probe still hit the riser and overturned.
-The previous sensor-only flat independently showed 49/49 steady cycles with
-both diagonals and total-force aerial intervals. No B1 candidate or holdout use.
-Current work binds one world swing curve to its actual next Phase-1 touchdown
-and the plan-owned immutable map. Heading height is local to the registered
-base origin along world Z; it is not an absolute world height or a pitched
-body coordinate. Unknown coverage and initial penetration must fail closed.
-Candidate geometry screening remains distinct from absolute-time execution
-validation and from dynamics. Future body motion and MPC prefix coupling remain
-unresolved. After focused validation, run a clean flat regression and V3 canary.
+Latest checkpoint: clean `d355a2f` world-swing execution completed both the V3
+32 s flat profile and a complete physical 5 cm step exit with every foot
+supported on top. The step still fails V3: foot-riser collisions, 1/8 good
+contained running cycles, and interaction speed median 0.75621 m/s. There was
+no nonfoot collision or safety termination. No candidate or holdout use.
+At the first FL/FR riser contacts the terrain plan was rejected no-safe-foothold
+and no terrain target was applied; do not mislabel this as target tracking
+failure. Flat steady cycles were 46/49 good, with minimum 3/5 in sliding windows.
+
+Next: predeclared sensor-only dynamics-capacity probes in
+`docs/research/B1_RUNNING_DYNAMICS_ABLATION_V1.md`, isolating global period and
+lift floor while preserving the old defaults and V3 analyzer. In parallel,
+identify the specific planner rejection before changing observation/geometry.
+Longer-period probes do not claim to repair terrain MPC horizon coupling.
 
 The 2026-09-06 user mandate reopened the research route from clean
 `5cbc547f225dbb60683d96e440beffb0b014a075`: solving real 5 cm dynamic

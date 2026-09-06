@@ -344,7 +344,8 @@ public:
             {
                 std::fprintf(
                     stderr,
-                    "Terrain planner leg=%zu regions=%zu valid=%zu evaluated=%zu feasible=%zu",
+                    "Terrain planner id=%llu state=%.9f leg=%zu regions=%zu valid=%zu evaluated=%zu feasible=%zu",
+                    static_cast<unsigned long long>(plan_id), input.state_stamp_s,
                     leg, result.regions[leg].size(), valid_regions,
                     valid_regions, hard_feasible);
                 for (std::size_t reason = 1; reason < reject_counts.size();

@@ -15,7 +15,7 @@ map epoch and state stamp must match the curve frame.
 Candidate generation checks normalized geometry only. Runtime must recheck
 from the previous commanded world foot to the selected contact patch plus the
 22 mm foot-site offset over the actual remaining Phase-1 swing. The planner's
-50 ms contact grid is a candidate event association, not an exact touchdown
+20 ms contact grid is a candidate event association, not an exact touchdown
 clock. No local swing retiming is introduced. A change to the subsequent global
 gait schedule is not certified by this fixed-interval geometry check.
 

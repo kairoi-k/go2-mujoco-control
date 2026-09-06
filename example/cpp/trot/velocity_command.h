@@ -1,6 +1,8 @@
 #pragma once
 #include <algorithm>
+#include <cerrno>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <limits>
 #include <sstream>
@@ -183,6 +185,87 @@ struct ContinuousVelocityGaitSchedule
     double foot_lift_m = 0.035;
     const char *regime = "continuous-trot";
 };
+// Research-only running-gait overrides.  The defaults are the validated
+// runtime schedule, so constructing a scheduler without an explicit
+// configuration is bit-for-bit equivalent to the historical path.
+inline constexpr double kDefaultResearchRunningPeriodS = 0.14;
+inline constexpr double kDefaultResearchRunningLiftFloorM = 0.0;
+inline constexpr double kMinResearchRunningPeriodS = 0.05;
+inline constexpr double kMaxResearchRunningPeriodS = 1.0;
+inline constexpr double kMaxResearchRunningLiftFloorM = 0.50;
+struct ContinuousVelocityGaitResearchConfig
+{
+    double running_period_s = kDefaultResearchRunningPeriodS;
+    double running_lift_floor_m = kDefaultResearchRunningLiftFloorM;
+};
+inline bool ParseStrictFiniteEnvironmentDouble(
+    const char *name,
+    double fallback,
+    double &value,
+    std::string *error = nullptr)
+{
+    const char *raw = std::getenv(name);
+    if (raw == nullptr)
+    {
+        value = fallback;
+        return true;
+    }
+    if (raw[0] == '\0')
+    {
+        if (error)
+            *error = std::string(name) + " must be a finite decimal";
+        return false;
+    }
+    errno = 0;
+    char *end = nullptr;
+    const double parsed = std::strtod(raw, &end);
+    if (end == raw || *end != '\0' || errno == ERANGE ||
+        !std::isfinite(parsed))
+    {
+        if (error)
+            *error = std::string(name) + " must be a finite decimal";
+        return false;
+    }
+    value = parsed;
+    return true;
+}
+inline bool IsValidContinuousVelocityGaitResearchConfig(
+    const ContinuousVelocityGaitResearchConfig &config) noexcept
+{
+    return std::isfinite(config.running_period_s) &&
+        config.running_period_s >= kMinResearchRunningPeriodS &&
+        config.running_period_s <= kMaxResearchRunningPeriodS &&
+        std::isfinite(config.running_lift_floor_m) &&
+        config.running_lift_floor_m >= 0.0 &&
+        config.running_lift_floor_m <= kMaxResearchRunningLiftFloorM;
+}
+inline bool LoadContinuousVelocityGaitResearchConfigFromEnvironment(
+    ContinuousVelocityGaitResearchConfig &config,
+    std::string *error = nullptr)
+{
+    ContinuousVelocityGaitResearchConfig parsed;
+    if (!ParseStrictFiniteEnvironmentDouble(
+            "TROT_RESEARCH_RUNNING_PERIOD_S",
+            kDefaultResearchRunningPeriodS,
+            parsed.running_period_s,
+            error) ||
+        !ParseStrictFiniteEnvironmentDouble(
+            "TROT_RESEARCH_RUNNING_LIFT_FLOOR_M",
+            kDefaultResearchRunningLiftFloorM,
+            parsed.running_lift_floor_m,
+            error))
+    {
+        return false;
+    }
+    if (!IsValidContinuousVelocityGaitResearchConfig(parsed))
+    {
+        if (error)
+            *error = "research running-gait config outside input bounds";
+        return false;
+    }
+    config = parsed;
+    return true;
+}
 
 inline double GovernAppliedVelocity(
     double shaped_mps,
@@ -259,6 +342,18 @@ inline ContinuousVelocityGaitSchedule ScheduleContinuousVelocityGait(
 class ContinuousVelocityGaitScheduler
 {
 public:
+    bool ConfigureResearch(
+        ContinuousVelocityGaitResearchConfig config) noexcept
+    {
+        if (!IsValidContinuousVelocityGaitResearchConfig(config))
+            return false;
+        research_config_ = config;
+        return true;
+    }
+    const ContinuousVelocityGaitResearchConfig &ResearchConfig() const noexcept
+    {
+        return research_config_;
+    }
     void Reset() noexcept { low_speed_time_s_ = 0.0; }
     ContinuousVelocityGaitSchedule Step(
         double velocity_mps,
@@ -274,11 +369,24 @@ public:
             low_speed_time_s_ += dt;
         else
             low_speed_time_s_ = 0.0;
-        return ScheduleContinuousVelocityGait(
-            speed, low_speed_time_s_ >= kLowSpeedQualificationS);
+        const bool low_speed_support =
+            low_speed_time_s_ >= kLowSpeedQualificationS;
+        ContinuousVelocityGaitSchedule schedule =
+            ScheduleContinuousVelocityGait(speed, low_speed_support);
+        if (!low_speed_support)
+        {
+            schedule.period_s = research_config_.running_period_s;
+            schedule.foot_lift_m = std::max(
+                schedule.foot_lift_m,
+                research_config_.running_lift_floor_m);
+            schedule.step_length_m = speed * schedule.period_s /
+                std::max(0.20, 2.0 * schedule.duty_factor);
+        }
+        return schedule;
     }
 private:
     double low_speed_time_s_ = 0.0;
+    ContinuousVelocityGaitResearchConfig research_config_{};
 };
 
 // A zero velocity command is a supported stance, not an in-place stepping

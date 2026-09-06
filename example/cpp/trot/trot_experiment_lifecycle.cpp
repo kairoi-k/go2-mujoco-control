@@ -277,6 +277,27 @@ bool TrotExperiment::CaptureWorldReference()
 // --- TrotExperiment::Init ---
 bool TrotExperiment::Init()
 {
+    go2_trot::ContinuousVelocityGaitResearchConfig research_config;
+    std::string research_config_error;
+    if (!go2_trot::LoadContinuousVelocityGaitResearchConfigFromEnvironment(
+            research_config, &research_config_error))
+    {
+        std::cerr << "Invalid runtime running-gait research config: "
+                  << research_config_error << "\n";
+        return false;
+    }
+    if (!velocity_gait_scheduler_.ConfigureResearch(research_config))
+    {
+        std::cerr << "Invalid runtime running-gait research config after parse\n";
+        return false;
+    }
+    std::ostringstream research_config_record;
+    research_config_record << std::fixed << std::setprecision(9)
+                           << "Runtime running-gait research config: period_s="
+                           << research_config.running_period_s
+                           << " lift_floor_m="
+                           << research_config.running_lift_floor_m;
+    std::cout << research_config_record.str() << "\n";
     telemetry_start_time_ = std::chrono::steady_clock::now();
     csv_.open(csv_path_);
     if (!csv_)
