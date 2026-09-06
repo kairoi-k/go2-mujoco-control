@@ -354,10 +354,22 @@ inline bool TerrainMapEnvelopeFromHeightMap(
     return TerrainMapEnvelopeShapeValid(out);
 }
 
+enum class TerrainMapRegistrationPolicy : std::uint8_t
+{
+    kLegacyScalarV1 = 0,
+    kRegisteredIntervalsV2 = 1,
+};
+
 struct RegisteredTerrainMap
 {
     unitree_go::msg::dds_::HeightMap_ map{};
     std::vector<double> cell_age_s;
+    // V2 preserves a conservative interval for each registered destination cell.
+    // V1 leaves these vectors empty and retains scalar map behavior.
+    std::vector<double> cell_min_height_m;
+    std::vector<double> cell_max_height_m;
+    TerrainMapRegistrationPolicy registration_policy =
+        TerrainMapRegistrationPolicy::kLegacyScalarV1;
     std::uint64_t sequence = 0;
     double map_stamp_s = kTerrainMapUnknown;
     double registration_state_stamp_s = kTerrainMapUnknown;
@@ -423,12 +435,17 @@ inline TerrainMapXY TerrainMapToCaptureLocal(
 inline TerrainMapRegistrationResult RegisterTerrainMap(
     const TerrainMapEnvelope &source, double state_stamp_s,
     const std::array<double, 3> &current_position_world, double current_yaw_rad,
-    double max_age_s = kTerrainMapMaxAgeS)
+    double max_age_s = kTerrainMapMaxAgeS,
+    TerrainMapRegistrationPolicy policy =
+        TerrainMapRegistrationPolicy::kLegacyScalarV1)
 {
     TerrainMapRegistrationResult result;
+    const bool known_policy =
+        policy == TerrainMapRegistrationPolicy::kLegacyScalarV1 ||
+        policy == TerrainMapRegistrationPolicy::kRegisteredIntervalsV2;
     if (!TerrainMapEnvelopeShapeValid(source) || source.frame_id != "base_link" ||
         !std::isfinite(state_stamp_s) || !std::isfinite(max_age_s) ||
-        !(max_age_s >= 0.0))
+        !(max_age_s >= 0.0) || !known_policy)
     {
         result.error = TerrainMapRegistrationError::kInvalidEnvelope;
         return result;
@@ -488,6 +505,14 @@ inline TerrainMapRegistrationResult RegisterTerrainMap(
         count, std::numeric_limits<float>::quiet_NaN());
     registered.cell_age_s.assign(
         count, std::numeric_limits<double>::infinity());
+    registered.registration_policy = policy;
+    if (policy == TerrainMapRegistrationPolicy::kRegisteredIntervalsV2)
+    {
+        registered.cell_min_height_m.assign(
+            count, kTerrainMapUnknown);
+        registered.cell_max_height_m.assign(
+            count, kTerrainMapUnknown);
+    }
 
     const double eps = 1.0e-9;
     for (std::uint32_t dy = 0; dy < source.height; ++dy)
@@ -555,6 +580,8 @@ inline TerrainMapRegistrationResult RegisterTerrainMap(
             bool known = intersects_source && index_range_safe &&
                 min_ix <= max_ix && min_iy <= max_iy;
             double reference_height = kTerrainMapUnknown;
+            double min_height = kTerrainMapUnknown;
+            double max_height = kTerrainMapUnknown;
             double worst_age = 0.0;
             if (known)
             {
@@ -581,8 +608,19 @@ inline TerrainMapRegistrationResult RegisterTerrainMap(
                         { known = false; break; }
                         if (!std::isfinite(reference_height))
                             reference_height = height;
-                        else if (std::abs(height - reference_height) >
-                                 kTerrainMapHeightToleranceM)
+                        if (!std::isfinite(min_height))
+                        {
+                            min_height = height;
+                            max_height = height;
+                        }
+                        else
+                        {
+                            min_height = std::min(min_height, height);
+                            max_height = std::max(max_height, height);
+                        }
+                        if (policy == TerrainMapRegistrationPolicy::kLegacyScalarV1 &&
+                            std::abs(height - reference_height) >
+                                kTerrainMapHeightToleranceM)
                         { known = false; break; }
                         worst_age = std::max(worst_age, std::max(0.0, age));
                     }
@@ -590,18 +628,42 @@ inline TerrainMapRegistrationResult RegisterTerrainMap(
             }
             const std::size_t destination_index =
                 static_cast<std::size_t>(dy) * source.width + dx;
-            if (known && std::isfinite(reference_height))
+            if (known && std::isfinite(reference_height) &&
+                std::isfinite(min_height) && std::isfinite(max_height))
             {
-                const double registered_height = reference_height +
-                    source.capture_position_world[2] -
+                const double z_delta = source.capture_position_world[2] -
                     current_position_world[2];
-                if (!std::isfinite(registered_height))
+                const double registered_reference = reference_height + z_delta;
+                const double registered_min = min_height + z_delta;
+                const double registered_max = max_height + z_delta;
+                const bool valid_bounds = std::isfinite(registered_reference) &&
+                    std::isfinite(registered_min) && std::isfinite(registered_max) &&
+                    registered_min <= registered_max;
+                if (!valid_bounds)
                     known = false;
                 else
                 {
-                    registered.map.data()[destination_index] =
-                        static_cast<float>(registered_height);
-                    registered.cell_age_s[destination_index] = worst_age;
+                    const double output_height = policy ==
+                        TerrainMapRegistrationPolicy::kRegisteredIntervalsV2
+                        ? registered_max : registered_reference;
+                    const float output_height_f =
+                        static_cast<float>(output_height);
+                    if (!std::isfinite(output_height_f))
+                        known = false;
+                    else
+                    {
+                        registered.map.data()[destination_index] =
+                            output_height_f;
+                        if (policy ==
+                            TerrainMapRegistrationPolicy::kRegisteredIntervalsV2)
+                        {
+                            registered.cell_min_height_m[destination_index] =
+                                registered_min;
+                            registered.cell_max_height_m[destination_index] =
+                                registered_max;
+                        }
+                        registered.cell_age_s[destination_index] = worst_age;
+                    }
                 }
             }
         }

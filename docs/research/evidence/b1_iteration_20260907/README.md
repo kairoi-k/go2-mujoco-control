@@ -174,3 +174,9 @@ On paired flat gait time 17--24 s, audit_running_cycle_truth.py independently fi
 ## Atomic transport and V3 audit closure
 
 See map_transport_v1.md for the bounded small-packet implementation, real DDS100/100 exact delivery, native controller40/40 and simulator3/3, and46 Python evidence tests. Production closed-loop registration remains to be tested at this checkpoint. The new code preserves the complete capture envelope and existing freshness/frame checks; it changes transport only. V3 audit counterexamples were fixed without using a successful traversal to tune thresholds.
+
+## Registered intervals and running-period ablations
+
+`running_ablation_results.json` preserves five exact fb14417 runs. Both longer-period flat runs achieved 24/24 measured running cycles. Both step runs physically exited but had non-top foot contact and only 1/3 good interaction cycles; the lift floor improved interaction median speed to 1.024 m/s without establishing a candidate. The debug default-period run failed safety and remains diagnostic only.
+
+`interval_v2_validation.json` binds the 44/44 controller CTest and source/binaries for the opt-in observation representation in `../../B1_REGISTERED_INTERVALS_V2.md`. The timed flat/step comparison follows that preregistration. Runtime geometry and old acceptance are unchanged.

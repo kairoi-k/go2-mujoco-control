@@ -298,3 +298,7 @@ go2_add_ctest(test_terrain_map_envelope)
 add_executable(test_terrain_map_transport tests/test_terrain_map_transport.cpp)
 target_link_libraries(test_terrain_map_transport unitree_sdk2)
 go2_add_ctest(test_terrain_map_transport)
+
+add_executable(test_terrain_map_intervals_v2 tests/test_terrain_map_intervals_v2.cpp)
+target_link_libraries(test_terrain_map_intervals_v2 unitree_sdk2)
+go2_add_ctest(test_terrain_map_intervals_v2)

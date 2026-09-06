@@ -352,7 +352,8 @@ void TrotExperiment::TerrainPlannerWorker()
                 {work.input.base_position_world.x,
                  work.input.base_position_world.y,
                  work.input.base_position_world.z},
-                work.input.base_yaw_rad);
+                work.input.base_yaw_rad, go2_terrain::kTerrainMapMaxAgeS,
+                terrain_registration_policy_);
             registration_error = static_cast<int>(registered.error);
             if (registered.ok())
             {

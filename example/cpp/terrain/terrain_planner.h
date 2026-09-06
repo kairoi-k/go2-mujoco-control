@@ -369,6 +369,23 @@ public:
                 }
                 else
                 {
+                    go2::Vec3 start_heading{};
+                    TerrainPatch anchor_patch;
+                    if (planner_frame.BodyToHeading(
+                            input.current_feet_base[leg], start_heading))
+                    {
+                        input.terrain->SamplePatch(start_heading.x,
+                            start_heading.y, std::max(0.025,
+                                0.5 * input.terrain->resolution_m), anchor_patch);
+                        std::fprintf(stderr,
+                            " start_h=(%.9f,%.9f,%.9f) anchor_known=%zu/%zu"
+                            " anchor_outside=%zu start_bottom_clearance=%+.9f",
+                            start_heading.x, start_heading.y, start_heading.z,
+                            anchor_patch.known_cells, anchor_patch.total_cells,
+                            anchor_patch.outside_cells,
+                            start_heading.z - go2::kFootSiteToContactPatchOffsetM -
+                                anchor_patch.max_height_m);
+                    }
                     std::fprintf(stderr, " selected=none\n");
                 }
             }

@@ -58,11 +58,18 @@ enum class TerrainModelError : std::uint8_t
     kInvalidCellAge,
     kUnregisteredMap,
     kStateStampMismatch,
+    kInvalidHeightBounds,
 };
 
 struct TerrainCell
 {
+    // height_m is the scalar representative used by legacy callers.  V2
+    // additionally carries an observed source-cell envelope; it is not a
+    // claim about a continuous surface between sensor samples.
     double height_m = kTerrainNaN;
+    double height_min_m = kTerrainNaN;
+    double height_max_m = kTerrainNaN;
+    bool has_height_bounds = false;
     double age_s = kTerrainInf;
     double slope_rad = kTerrainInf;
     double roughness_m = kTerrainInf;
@@ -227,17 +234,24 @@ struct TerrainModel
                     static_cast<std::size_t>(ix), static_cast<std::size_t>(iy));
                 if (cell == nullptr || !cell->known)
                     continue;
+                const double cell_min = cell->has_height_bounds
+                    ? cell->height_min_m : cell->height_m;
+                const double cell_max = cell->has_height_bounds
+                    ? cell->height_max_m : cell->height_m;
+                if (!std::isfinite(cell_min) || !std::isfinite(cell_max) ||
+                    cell_min > cell_max)
+                    continue;
                 ++patch.known_cells;
                 sum_height += cell->height_m;
                 sum_slope += cell->slope_rad;
                 sum_roughness += cell->roughness_m;
                 sum_variance += cell->variance_m2;
                 patch.min_height_m = std::isfinite(patch.min_height_m)
-                    ? std::min(patch.min_height_m, cell->height_m)
-                    : cell->height_m;
+                    ? std::min(patch.min_height_m, cell_min)
+                    : cell_min;
                 patch.max_height_m = std::isfinite(patch.max_height_m)
-                    ? std::max(patch.max_height_m, cell->height_m)
-                    : cell->height_m;
+                    ? std::max(patch.max_height_m, cell_max)
+                    : cell_max;
                 for (int axis = 0; axis < 3; ++axis)
                     normal_sum[axis] += cell->normal[axis];
             }
@@ -454,11 +468,62 @@ inline TerrainModelBuildResult BuildRegisteredTerrainModel(
         result.error = TerrainModelError::kFutureStamp;
         return result;
     }
-    if (registered_map->cell_age_s.size() !=
-        registered_map->map.data().size())
+    const std::size_t expected = registered_map->map.data().size();
+    const bool intervals_v2 = registered_map->registration_policy ==
+        TerrainMapRegistrationPolicy::kRegisteredIntervalsV2;
+    const bool scalar_v1 = registered_map->registration_policy ==
+        TerrainMapRegistrationPolicy::kLegacyScalarV1;
+    if (!intervals_v2 && !scalar_v1)
     {
-        result.error = TerrainModelError::kInvalidCellAge;
+        result.error = TerrainModelError::kInvalidHeightBounds;
         return result;
+    }
+    if (registered_map->cell_age_s.size() != expected ||
+        (intervals_v2 && (registered_map->cell_min_height_m.size() != expected ||
+                          registered_map->cell_max_height_m.size() != expected)) ||
+        (scalar_v1 && (!registered_map->cell_min_height_m.empty() ||
+                       !registered_map->cell_max_height_m.empty())))
+    {
+        result.error = registered_map->cell_age_s.size() != expected
+            ? TerrainModelError::kInvalidCellAge
+            : TerrainModelError::kInvalidHeightBounds;
+        return result;
+    }
+    if (intervals_v2)
+    {
+        for (std::size_t i = 0; i < expected; ++i)
+        {
+            const float scalar = registered_map->map.data()[i];
+            const bool have_scalar = std::isfinite(scalar);
+            const double low = registered_map->cell_min_height_m[i];
+            const double high = registered_map->cell_max_height_m[i];
+            const bool have_low = std::isfinite(low);
+            const bool have_high = std::isfinite(high);
+            if (have_scalar != have_low || have_scalar != have_high ||
+                (!have_scalar &&
+                 (!std::isnan(scalar) || !std::isnan(low) ||
+                  !std::isnan(high))) ||
+                (have_scalar &&
+                 (low > high || !std::isfinite(static_cast<float>(high)))))
+            {
+                result.error = TerrainModelError::kInvalidHeightBounds;
+                return result;
+            }
+            if (have_scalar)
+            {
+                const double scalar_error =
+                    std::abs(static_cast<double>(scalar) - high);
+                const double scalar_tolerance =
+                    2.0 * std::numeric_limits<float>::epsilon() *
+                    std::max(1.0, std::abs(high));
+                if (!std::isfinite(scalar_error) ||
+                    scalar_error > scalar_tolerance)
+                {
+                    result.error = TerrainModelError::kInvalidHeightBounds;
+                    return result;
+                }
+            }
+        }
     }
     for (const double age : registered_map->cell_age_s)
     {
@@ -495,6 +560,14 @@ inline TerrainModelBuildResult BuildRegisteredTerrainModel(
                 return result;
             }
             result.model.cells[i].age_s = age;
+            if (intervals_v2)
+            {
+                result.model.cells[i].height_min_m =
+                    registered_map->cell_min_height_m[i];
+                result.model.cells[i].height_max_m =
+                    registered_map->cell_max_height_m[i];
+                result.model.cells[i].has_height_bounds = true;
+            }
         }
     }
     return result;

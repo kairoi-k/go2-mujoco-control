@@ -2,7 +2,7 @@
   "schema": "b1-iteration-evidence-v1",
   "candidate": false,
   "runtime_sha": "8bd8eb2b55b40579871f1472fe686b7ca6d49010",
-  "next_hypothesis": "preregistered global period/lift sensor-only dynamics probes; independently diagnose no-safe-foothold before first d355 riser impact",
+  "next_hypothesis": "preregistered V2 map-interval default-gait flat/step actuation comparison; initial support and future swing start semantics remain separate unresolved issues",
   "source_sha256": {
     "example/cpp/tools/analysis/analyze_b1_physical.py": "d836f95e515979a6f95695dbbd896237fdc404317fb2bfd4e1a8a9b6369a3d29",
     "example/cpp/tools/analysis/test_analyze_b1_physical.py": "94ea9cec463c2dc9e885a5ac5e50e574e7eab8f97bcfadf92f55458887020173",
@@ -23,12 +23,12 @@
     "unitree_robots/go2/b1_v3_running_step_5cm.xml": "46f6118585b9d151229e6e0edda6993c39f9f3159eda353102dc579aaaac24a0",
     "example/cpp/configs/b1_v3_running_1mps.csv": "62f2ff9701b2f2d6189cad97877d7891177a32b17ded255677434eb1d8f41ac6",
     "example/cpp/scripts/run_b1_research_probe.sh": "7b4195f446fc01106a25aafbbd3acd4d008df3241a18eb3f04f18ee659824cfe",
-    "example/cpp/terrain/terrain_map_envelope.h": "5a135b2e09b7f5bfa3e1862f050319c737ff06e3149910b5d87ae0f9817b09b0",
-    "example/cpp/terrain/terrain_model.h": "54afb12b2fa75b13f29a322032bbb660f3dcbe99e2e1cddde2ea119985fc4522",
+    "example/cpp/terrain/terrain_map_envelope.h": "4a208714c9100b2205a05348cf05ae2572c039d17ca14f479fb6661844944127",
+    "example/cpp/terrain/terrain_model.h": "1c4588707d23795f609d3af4cb6b98b9dea64700ac309d73af1307802f92fdfa",
     "example/cpp/tests/test_terrain_map_envelope.cpp": "939ccb40b48516d29bae0a0e78bf9bf0a0e56a0bd82941a0f8cc464e3a61b7d9",
-    "example/cpp/trot/trot_experiment.h": "54a02169a611d30938f9ad5362dc58d37eefd0cd55bb7d8ef799f0829ca3ff04",
-    "example/cpp/trot/trot_experiment_control.cpp": "5d0b9a25d07788c73342c6bc4ce500cf5969a4d0695908cc68bf6255a70db791",
-    "example/cpp/trot/trot_experiment_lifecycle.cpp": "d1ed72703e77eb45c27e2806d104aec0a03377cc4f42134fa1944d2a7e842dbf",
+    "example/cpp/trot/trot_experiment.h": "300f8850d49a44e7d5d147fd3f4776af3de76e8998e1bc62cf5be113d42e5504",
+    "example/cpp/trot/trot_experiment_control.cpp": "04fddac54124e57722d59c500d16a3ce3bc0d68a25494bf2db2c12ee6ea8f808",
+    "example/cpp/trot/trot_experiment_lifecycle.cpp": "af9cd876d63ec9ca078936e273bde297e5b69c96882c20cd2237e9c5d27b1412",
     "example/cpp/trot/trot_experiment_diagnostics.cpp": "fcb5aa740234f6f2c7b22005dec451c6151def0899e337dda3f9f4352fb1491e",
     "simulate/src/unitree_sdk2_bridge.h": "768eba04d32b64c00f8f96a7439334782d0998bd6b015c908be42353fb2ede4a",
     "example/cpp/scripts/run_trot.sh": "a12767230af26b80a9e29a8d7ffe7fd1189455bfa9576467e1eb966befc4c93b",
@@ -40,17 +40,19 @@
     "example/cpp/tools/analysis/test_analyze_b1_dynamic_v3.py": "adf2debf482c33d4875ffac89111c6a57acf29d67730edad62fa52b5a40944f3",
     "example/cpp/terrain/terrain_map_transport.h": "bef26fd4598f3790bd9bec973c5fa7f14cd478c776602f5e1a1b075f14370422",
     "example/cpp/tests/test_terrain_map_transport.cpp": "f4aaa00eb5fa11c91b215cefb3153417a9081eff922167a23b46acf8bc0275a7",
-    "example/cpp/CMakeLists.txt": "89c94f79db5d8555bfd431bc6274ee9e360428fd0e8f641b577757347ebb3ab9",
+    "example/cpp/CMakeLists.txt": "33b085dd8aa5fdce433dc5b91a9ca7b12231a0db61acc873551824394e34a8aa",
     "example/cpp/terrain/terrain_swing_contract.h": "fe371772467094e8023ed16a0a3bd1c3ad4c1a4a801e3e6c739f8046eaf9dd16",
     "example/cpp/terrain/terrain_feasibility.h": "4754f17ad175772400d0d5aae5470681389ec5b46678bd2f1b235d5576de721a",
     "example/cpp/terrain/terrain_motion_plan.h": "389dfcedf8793a52a420c45cb30a86f20c2807158cdb7c17ef6742a05d4f9c95",
-    "example/cpp/terrain/terrain_planner.h": "d228caa9502f9af1c06359b76aa186c2ec341bb76ad399c6efa6fad50cf93a19",
+    "example/cpp/terrain/terrain_planner.h": "924ad3faebd28fb5177829cfa36f0a4ac82c3f7d1e7100b795e8f399a8bd97d6",
     "example/cpp/tests/test_terrain_swing_contract.cpp": "b6d89b7b80e210203d8dda64a782f06898c7d8322607362d8dd7f56615a836a7",
     "example/cpp/tests/test_terrain_swing_world_audit.cpp": "50764baf33a6034447ce919c07dc825b5dc5b897c9fd6fa3bedcbecdf07baf19",
     "example/cpp/tests/test_terrain_interfaces.cpp": "4d888ab3057676ff5bceca0af6e69bd158be4ad466a84073f78ef0165a5a95d6",
     "example/cpp/trot/velocity_command.h": "2fca01a60c2bd9ba00900f66e2298b779a2a963bb45a5e0051d860b5627944dc",
     "example/cpp/tests/test_velocity_running_research.cpp": "0914c8d8ae859af3af2bc25c02dd3844103811bdbdb8c83a3f96d220c31a8ca0",
-    "docs/research/B1_RUNNING_DYNAMICS_ABLATION_V1.md": "6f24e121a6246b6e8ad4f15f4f6346101e89a8b68056a80fa323a762e14dbe1f"
+    "docs/research/B1_RUNNING_DYNAMICS_ABLATION_V1.md": "6f24e121a6246b6e8ad4f15f4f6346101e89a8b68056a80fa323a762e14dbe1f",
+    "example/cpp/tests/test_terrain_map_intervals_v2.cpp": "d0b41bab521c591d3c81f9bb937f0976dc4dd1d271e2c9d3b96223251e7bdfe1",
+    "docs/research/B1_REGISTERED_INTERVALS_V2.md": "1aaa083cede582924ddcb3653c925d6c2b380f026eb45e07dbfa87dc2d9d9aa6"
   },
   "curated_sha256": {
     "hold_flat_failure.json": "a595844f460ab60a22c3b11b0091c22c290b62c66f13d76f516070a5357c46c4",
@@ -58,7 +60,7 @@
     "world_swing_closed_loop_results.json": "53d5e577ab1ac6abe1296b80f59eb7bf7fbaea4cf4a5c468e47f39bdb6497bbe",
     "registered_closed_loop_results.json": "e84f81d0b062b6231bcca291f426548323ef039aabdc7d7fd8d95f630f46831c",
     "swing_execution_v1.md": "8f4c04fd6ec4d9bbc8aa1ff20d13119d1e23c0f60786937e0abd08964e62541e",
-    "README.md": "bb2d1a1e6103a9e34aa5fe3fac0d2ce2bf419dfba2bf1f700d2dc55479025eb6",
+    "README.md": "0d3088693ea8c667a77d6978baca0d2dc6908b1b37128ff62eb2253f66c2289b",
     "commitment_flat_failure.json": "8c33d7f78888852396c764e5339a33f231de5cef9e1ee2171b8245c57e2aea86",
     "swing_validation.json": "29b8ffbd0285c5b2897d73a9c78e4568d48be61bc4584fb8cfccaa5503f58fff",
     "rejected_acceptance_draft.json": "eab97370b50da670d61a580b3231a98bc7dd4881e09d101067419907794a9619",
@@ -71,7 +73,9 @@
     "dynamic_transition_audit.md": "d08a774565ea1c8537cee266a1ad42ebadee7f5d7928bba14140861499d3176d",
     "map_transport_v1.md": "1e5286444d6e8ee660458ed6e3b68121ba8f77e8fd764ab85fb5051209309e98",
     "registration_transport_diagnostics.json": "e1e452045aa40fa3f79e41ba59def50403a9ba414daf671b8a2ebd4bc4d3a622",
-    "lift_results.json": "f3a7d1d8fb1e77792843fc4da2282a81d6f86b45e833e01d35aebdd01387c12b"
+    "lift_results.json": "f3a7d1d8fb1e77792843fc4da2282a81d6f86b45e833e01d35aebdd01387c12b",
+    "running_ablation_results.json": "a0617e0800f88bd50e4453a1250b58171c27bb81c5ae85a8aa4fbcfa0ab07a33",
+    "interval_v2_validation.json": "9e4269aebef990de5102b5ba58ea0b456fe2d4d57ed9f0fd9c7b3a3f48a73313"
   },
   "previous_implementation_sha": "764a21c61127e01831f5bb47601158b696e7a211",
   "implementation_tests": "39/39 controller, 3/3 simulator, map codec/registration/model benchmark p50/p95/max 106.25/129.945/245.883 us",
@@ -90,6 +94,6 @@
     "ctest_final.log": "0a8960810a41a89e731fa95a98dfba2d972c6c18cca783a61119dffff660b1a4"
   },
   "runtime_sha_scope": "runtime_sha identifies the initial lift experiment only; each later raw probe has its own exact git_commit and manifest",
-  "latest_focused_validation": "42/42 controller CTest; 3/3 simulator CTest; 48/48 Python; swing_validation.json carries raw hashes and geometry-only benchmark",
+  "latest_focused_validation": "44/44 controller CTest; interval_v2_validation.json binds exact source, binaries and raw logs",
   "running_ablation_tests": "43/43 controller CTest, including baseline scheduler equality and explicit research configuration validation"
 }

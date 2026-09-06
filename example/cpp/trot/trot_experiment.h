@@ -501,6 +501,8 @@ private:
     bool have_lidar_heightmap_ = false;
 
     go2_terrain::TerrainPlanner terrain_planner_{};
+    go2_terrain::TerrainMapRegistrationPolicy terrain_registration_policy_ =
+        go2_terrain::TerrainMapRegistrationPolicy::kLegacyScalarV1;
     std::shared_ptr<const go2_terrain::TerrainModel> terrain_model_;
     go2::Vec3 terrain_model_com_world_{};
     double terrain_model_com_state_stamp_s_ = 0.0;

@@ -1,3 +1,19 @@
+## Latest autonomous B1 research checkpoint: interval representation V2
+
+B1 remains unaccepted. Exact fb14417 period-0.28 s sensor-only probes both
+crossed physically; 0.10 m lift floor improved interaction median speed to
+1.024 m/s, but both step runs retained non-top contact and only 1/3 good actual
+running cycles. Both flat controls had 24/24 good cycles. These are capacity
+diagnostics, not a retuned acceptance or a controller-coupling certificate.
+
+The opt-in registered interval V2 retains fully observed mixed-height bounds,
+while preserving unknown/future/stale rejection and V1 default behavior.
+44/44 controller CTest pass. The next exact-SHA experiment follows
+`docs/research/B1_REGISTERED_INTERVALS_V2.md`: default gait, flat then step,
+changing only registration policy. Actual runtime swing checks are unchanged.
+Initial support compliance and future-swing start semantics remain under audit;
+no geometry tolerance was relaxed to accept the observed penetration.
+
 # Go2 Phase 2 current
 
 Updated: 2026-09-07. This is the only route, status, plan, and handoff

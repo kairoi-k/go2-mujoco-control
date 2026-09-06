@@ -309,6 +309,21 @@ bool TrotExperiment::Init()
     WriteCsvHeader();
     InitLowCmd();
 
+    // Versioned research policy: legacy registration remains the default.
+    const char *interval_policy = std::getenv("TROT_RESEARCH_MAP_INTERVALS_V2");
+    if (interval_policy != nullptr && std::string(interval_policy) != "0" &&
+        std::string(interval_policy) != "1")
+    {
+        std::cerr << "Invalid TROT_RESEARCH_MAP_INTERVALS_V2: expected 0 or 1\n";
+        return false;
+    }
+    terrain_registration_policy_ = interval_policy != nullptr &&
+        std::string(interval_policy) == "1"
+        ? go2_terrain::TerrainMapRegistrationPolicy::kRegisteredIntervalsV2
+        : go2_terrain::TerrainMapRegistrationPolicy::kLegacyScalarV1;
+    std::cout << "Terrain registration policy: "
+              << static_cast<int>(terrain_registration_policy_) << "\n";
+
     go2_terrain::TerrainPlannerConfig terrain_config;
     const bool terrain_consistency_shadow = Full2EnvDouble(
         "TROT_TERRAIN_EXECUTION_CONSISTENCY_SHADOW", 0.0) > 0.5;
