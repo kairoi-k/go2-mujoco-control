@@ -1,0 +1,12 @@
+H7 old-version targeted failure witness
+
+Source SHA: ff937daf1bd768225066406940a6c46cec30a256
+Commit: test(terrain): capture execution consistency defects
+Scope: offline unit witness only; no Atlas run.
+Command: ctest --test-dir example/cpp/build --output-on-failure -R test_terrain_execution_consistency
+Result: expected FAIL on the legacy implementation.
+
+Observed output:
+1/1 Test #13: test_terrain_execution_consistency ...***Failed
+legacy overrun still fabricates a valid current foot
+0% tests passed

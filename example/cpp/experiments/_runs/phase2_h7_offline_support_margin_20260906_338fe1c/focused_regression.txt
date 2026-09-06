@@ -1,0 +1,20 @@
+H7 focused regression result
+
+Source SHA: 338fe1ceee0c7b5c094c79081fe9493334db56dc
+Predecessor contract-test SHA: 8c02c2a708218af56261da65986df905e7f8d9fa
+Scope: clean-source build and focused offline tests; no B1 run.
+
+Build command:
+cmake --build example/cpp/build --target test_terrain_execution_consistency real_trot_go2 -j2
+Result: PASS; real_trot_go2 built.
+
+Focused command:
+ctest --test-dir example/cpp/build --output-on-failure -R
+test_srbd_mpc|test_terrain_interfaces|test_terrain_execution_consistency|
+test_wbc_runtime_gate|test_centroidal_wbc
+Result: 5/5 PASS.
+
+Covered comparison: absolute planner/MPC time mapping and uncovered horizon,
+delayed consumption and 20/30 ms mismatch, knot boundaries, touchdown
+commitment lifetime, model-COM provenance, and measured/planned/applied
+contact separation. Shadow execution is disabled by default.

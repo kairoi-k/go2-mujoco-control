@@ -6,5 +6,8 @@
   "source_run_git_commit": "1f6adc1723b744265e74af17318dad4ee6f2ede9",
   "b1_run": false,
   "functional_experiment": false,
-  "notes": "Read-only post hoc calculation; no actuator, threshold, acceptance, or contract change."
+  "notes": "Read-only post hoc calculation; no actuator, threshold, acceptance, or contract change.",
+  "evidence_files": [
+    "old_defect_witness.txt",
+    "focused_regression.txt"
 }
