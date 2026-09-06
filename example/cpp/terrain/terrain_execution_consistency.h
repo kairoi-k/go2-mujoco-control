@@ -207,6 +207,23 @@ inline bool TerrainPlanCoversMpcHorizon(
     return true;
 }
 
+inline TerrainExecutionShadowFailureReason TerrainPlanReadinessFailure(
+    const TerrainMotionPlan *plan, double state_time_s, double mpc_dt_s,
+    std::size_t mpc_horizon)
+{
+    if (plan == nullptr || !plan->valid())
+        return TerrainExecutionShadowFailureReason::kPlanInvalid;
+    if (!std::isfinite(state_time_s))
+        return TerrainExecutionShadowFailureReason::kOtherSnapshotPrecondition;
+    if (state_time_s > plan->valid_until_s +
+            kTerrainExecutionTimeToleranceS)
+        return TerrainExecutionShadowFailureReason::kPlanExpired;
+    if (!TerrainPlanCoversMpcHorizon(
+            *plan, state_time_s, mpc_dt_s, mpc_horizon))
+        return TerrainExecutionShadowFailureReason::kHorizonCoverage;
+    return TerrainExecutionShadowFailureReason::kNone;
+}
+
 inline TerrainTouchdownEvent TerrainPlanNextTouchdown(
     const TerrainMotionPlan &plan, std::size_t leg, double minimum_time_s)
 {

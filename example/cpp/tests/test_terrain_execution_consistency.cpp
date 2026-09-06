@@ -55,6 +55,31 @@ go2_terrain::TerrainMotionPlan FixturePlan()
     return plan;
 }
 
+bool CheckPlanReadiness()
+{
+    const auto plan = FixturePlan();
+    if (!Check(
+            go2_terrain::TerrainPlanReadinessFailure(
+                &plan, 1.0, 0.02, 6) ==
+                go2_terrain::TerrainExecutionShadowFailureReason::kNone,
+            "valid plan readiness was rejected"))
+        return false;
+    auto expired_readiness = plan;
+    expired_readiness.valid_until_s = 1.05;
+    if (!Check(
+            go2_terrain::TerrainPlanReadinessFailure(
+                &expired_readiness, 1.06, 0.02, 6) ==
+                go2_terrain::TerrainExecutionShadowFailureReason::kPlanExpired,
+            "expired plan was not classified"))
+        return false;
+    if (!Check(
+            go2_terrain::TerrainPlanReadinessFailure(
+                &plan, 1.04, 0.03, 8) ==
+                go2_terrain::TerrainExecutionShadowFailureReason::kHorizonCoverage,
+            "horizon overrun was not classified"))
+        return false;
+    return true;
+}
 } // namespace
 
 int main()
@@ -78,6 +103,9 @@ int main()
                "touchdown lookup reused the first event across cycles"))
         return 1;
 
+    if (!Check(CheckPlanReadiness(),
+               "plan readiness classification failed"))
+        return 1;
     go2_terrain::TerrainExecutionCommitment commitment;
     commitment.valid = true;
     commitment.in_flight = true;

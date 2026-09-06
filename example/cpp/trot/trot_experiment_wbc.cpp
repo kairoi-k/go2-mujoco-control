@@ -301,10 +301,13 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_diagnostics_.terrain_execution_shadow_event_count = 0;
     wbc_shadow_diagnostics_.terrain_execution_shadow_plan_id = 0;
     wbc_shadow_diagnostics_.terrain_execution_shadow_plan_epoch = 0;
-    const bool shadow_plan_ready = terrain_tick_plan_ != nullptr &&
-        go2_terrain::TerrainPlanCoversMpcHorizon(
-            *terrain_tick_plan_, terrain_now_s, mpc_params.dt_s,
+    const auto shadow_plan_failure =
+        go2_terrain::TerrainPlanReadinessFailure(
+            terrain_tick_plan_.get(), terrain_now_s, mpc_params.dt_s,
             static_cast<std::size_t>(mpc_params.horizon));
+    const bool shadow_plan_ready =
+        shadow_plan_failure ==
+        go2_terrain::TerrainExecutionShadowFailureReason::kNone;
     if (!terrain_consistency_shadow)
     {
         terrain_shadow_commitments_.fill({});
@@ -314,9 +317,7 @@ void TrotExperiment::UpdateWbcFull(
         // No plan is explicitly unchecked, never a successful shadow sample.
         wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code = 2;
         wbc_shadow_diagnostics_.terrain_execution_shadow_failure_reason =
-            terrain_tick_plan_ != nullptr
-                ? static_cast<int>(go2_terrain::TerrainExecutionShadowFailureReason::kHorizonCoverage)
-                : static_cast<int>(go2_terrain::TerrainExecutionShadowFailureReason::kPlanInvalid);
+            static_cast<int>(shadow_plan_failure);
         wbc_shadow_diagnostics_.terrain_mpc_horizon_in_range = false;
     }
     else

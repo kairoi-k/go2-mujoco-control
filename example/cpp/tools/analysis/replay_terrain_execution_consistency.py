@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Replay CSV evidence for the opt-in terrain planner-consumer shadow."""
 import argparse
+import collections
 import csv
 import json
 import math
@@ -11,10 +12,12 @@ REQUIRED = (
     "state_tick_s", "terrain_plan_id", "terrain_plan_epoch",
     "terrain_plan_valid", "terrain_model_com_valid",
     "terrain_model_com_state_stamp_s",
+    "motion_stage",
     "wbc_terrain_execution_shadow_enabled",
     "wbc_terrain_execution_shadow_checked",
     "wbc_terrain_execution_snapshot_valid",
     "wbc_terrain_execution_shadow_rejection_code",
+    "wbc_terrain_execution_shadow_failure_reason",
     "wbc_terrain_execution_shadow_plan_id",
     "wbc_terrain_execution_shadow_plan_epoch",
 )
@@ -53,10 +56,20 @@ def inspect_csv(path):
         shadow_checked = 0
         shadow_valid = 0
         shadow_rejected = 0
+        rejection_codes = collections.Counter()
+        failure_reasons = collections.Counter()
+        stable_rows = 0
+        stable_checked = 0
+        stable_valid = 0
+        stable_invalid_checked = 0
+        stable_unchecked = 0
         errors = []
         for row in reader:
             rows += 1
             state_time = number(row, "state_tick_s")
+            stable = int(number(row, "motion_stage")) == 2
+            if stable:
+                stable_rows += 1
             if int(number(row, "terrain_model_com_valid")):
                 com_valid += 1
                 com_time = number(row, "terrain_model_com_state_stamp_s")
@@ -72,10 +85,18 @@ def inspect_csv(path):
                 row, "wbc_terrain_execution_snapshot_valid"))
             rejection = int(number(
                 row, "wbc_terrain_execution_shadow_rejection_code"))
+            reason = int(number(
+                row, "wbc_terrain_execution_shadow_failure_reason"))
+            rejection_codes[str(rejection)] += 1
+            failure_reasons[str(reason)] += 1
             if checked:
                 shadow_checked += 1
+                if stable:
+                    stable_checked += 1
             if valid:
                 shadow_valid += 1
+                if stable:
+                    stable_valid += 1
                 if not checked:
                     errors.append("valid sample was not checked")
                 if number(row, "wbc_terrain_execution_shadow_plan_id") <= 0:
@@ -93,10 +114,20 @@ def inspect_csv(path):
                         number(row, prefix + suffix)
             elif checked:
                 shadow_rejected += 1
+                if stable:
+                    stable_invalid_checked += 1
                 if rejection == 0:
                     errors.append("checked invalid sample has no rejection")
+            elif stable:
+                stable_unchecked += 1
             elif valid:
                 errors.append("unchecked sample was marked valid")
+        if stable_invalid_checked:
+            stable_gate = "fail"
+        elif stable_rows == 0 or stable_unchecked:
+            stable_gate = "incomplete"
+        else:
+            stable_gate = "pass"
         result = {
             "status": "pass" if not errors and
                 com_timestamp_mismatch == 0 else "fail",
@@ -107,6 +138,16 @@ def inspect_csv(path):
             "shadow_checked_rows": shadow_checked,
             "shadow_valid_rows": shadow_valid,
             "shadow_rejected_rows": shadow_rejected,
+            "shadow_rejection_code_counts": dict(rejection_codes),
+            "shadow_failure_reason_counts": dict(failure_reasons),
+            "stable_rows": stable_rows,
+            "stable_checked_rows": stable_checked,
+            "stable_valid_rows": stable_valid,
+            "stable_invalid_checked_rows": stable_invalid_checked,
+            "stable_unchecked_rows": stable_unchecked,
+            "stable_checked_valid_rate": (
+                stable_valid / stable_checked if stable_checked else None),
+            "stable_shadow_gate": stable_gate,
             "errors": errors,
         }
         if shadow_enabled and shadow_valid == 0:
