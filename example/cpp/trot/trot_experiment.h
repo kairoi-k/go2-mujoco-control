@@ -36,6 +36,7 @@
 #include "inverse_dynamics_wbc.h"
 #include "cartesian_world_trot.h"
 #include "terrain_model.h"
+#include "terrain_execution_consistency.h"
 #include "terrain_motion_plan.h"
 #include "terrain_planner.h"
 
@@ -534,11 +535,17 @@ private:
 
     std::array<go2::Vec3, go2::kLegCount>
         terrain_execution_target_world_{};
+    std::array<double, go2::kLegCount>
+        terrain_execution_target_time_s_{};
+    std::array<double, go2::kLegCount>
+        terrain_execution_last_touchdown_time_s_{};
     std::array<double, go2::kLegCount> terrain_execution_target_lift_{};
     std::array<double, go2::kLegCount>
         terrain_execution_swing_start_phase_{};
     std::array<std::uint64_t, go2::kLegCount>
         terrain_execution_target_plan_id_{};
+    std::array<std::uint64_t, go2::kLegCount>
+        terrain_execution_target_plan_epoch_{};
     std::array<bool, go2::kLegCount>
         terrain_execution_target_valid_{};
     std::array<bool, go2::kLegCount>

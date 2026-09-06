@@ -1481,12 +1481,16 @@ bool TrotExperiment::BuildGaitTargets(
     // running-trot phase.  The kernel remains the sole timing/topology source;
     // the planner-selected world foothold is only latched during the existing
     // swing and is blended to its endpoint before touchdown.
-    if (params_.terrain_actuation && terrain_tick_plan_ && have_high_state)
+    const double terrain_now_s =
+        static_cast<double>(state_snapshot.tick()) * 1.0e-3;
+    const auto terrain_now_lookup = terrain_tick_plan_
+        ? go2_terrain::TerrainPlanKnotAtTime(*terrain_tick_plan_, terrain_now_s)
+        : go2_terrain::TerrainPlanTimeLookup{};
+    if (params_.terrain_actuation && terrain_tick_plan_ && have_high_state &&
+        terrain_tick_plan_->usable_at(terrain_now_s) &&
+        terrain_now_lookup.valid)
     {
-        const double terrain_now_s =
-            static_cast<double>(state_snapshot.tick()) * 1.0e-3;
-        const std::size_t terrain_k0 = go2_terrain::TerrainPlanCurrentKnot(
-            *terrain_tick_plan_, terrain_now_s);
+        const std::size_t terrain_k0 = terrain_now_lookup.knot;
         int required_mask = 0;
         int committed_mask = 0;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -1506,6 +1510,7 @@ bool TrotExperiment::BuildGaitTargets(
                     if (measured)
                     {
                         terrain_execution_measured_touchdown_[leg] = true;
+                        terrain_execution_last_touchdown_time_s_[leg] = terrain_now_s;
                         committed_mask |= 1 << static_cast<int>(leg);
                         if (!terrain_execution_completion_recorded_[leg])
                         {
@@ -1522,28 +1527,34 @@ bool TrotExperiment::BuildGaitTargets(
                 terrain_execution_target_valid_[leg] = false;
                 terrain_execution_measured_touchdown_[leg] = false;
                 terrain_execution_completion_recorded_[leg] = false;
-                bool has_planner_touchdown = false;
-                for (std::size_t k = terrain_k0;
-                     k < terrain_tick_plan_->horizon_knots; ++k)
+                const double minimum_touchdown_time_s = std::max(
+                    terrain_now_s,
+                    terrain_execution_last_touchdown_time_s_[leg] + 1.0e-6);
+                const auto touchdown = go2_terrain::TerrainPlanNextTouchdown(
+                    *terrain_tick_plan_, leg, minimum_touchdown_time_s);
+                const bool has_planner_touchdown = touchdown.valid &&
+                    touchdown.knot >= terrain_k0;
+                if (has_planner_touchdown)
                 {
-                    const auto &foot = terrain_tick_plan_->predicted_foothold[k][leg];
-                    has_planner_touchdown = has_planner_touchdown || foot.touchdown;
-                    if (!foot.valid || !foot.touchdown)
-                        continue;
+                    const auto &foot = terrain_tick_plan_->predicted_foothold[
+                        touchdown.knot][leg];
                     terrain_execution_target_world_[leg] =
                         go2::ContactPatchToFootSite(foot.position_world);
                     terrain_execution_target_lift_[leg] = foot.swing_lift_m;
+                    terrain_execution_target_time_s_[leg] =
+                        foot.touchdown_time_s;
                     terrain_execution_swing_start_phase_[leg] = leg_phase;
                     terrain_execution_target_plan_id_[leg] =
                         terrain_tick_plan_->plan_id;
                     terrain_execution_target_valid_[leg] = true;
                     terrain_execution_in_flight_[leg] = true;
+                    terrain_execution_target_plan_epoch_[leg] =
+                        terrain_tick_plan_->plan_epoch;
                     {
                         std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
                         ++terrain_target_prepare_attempts_;
                         ++terrain_target_prepared_;
                     }
-                    break;
                 }
                 if (!terrain_execution_target_valid_[leg] && has_planner_touchdown)
                 {

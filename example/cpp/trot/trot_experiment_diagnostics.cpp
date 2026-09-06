@@ -68,7 +68,7 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_mpc_update_count,wbc_mpc_contact_mask_k0,wbc_mpc_min_contact_count"
          << ",wbc_mpc_reference_x_first_m,wbc_mpc_reference_x_last_m"
          << ",wbc_mpc_reference_vx_first_mps,wbc_mpc_reference_vx_last_mps"
-         << ",wbc_terrain_contact_coherent,wbc_terrain_mpc_horizon_in_range,wbc_terrain_plan_id"
+         << ",wbc_terrain_contact_coherent,wbc_terrain_mpc_horizon_in_range,wbc_terrain_execution_snapshot_valid,wbc_terrain_plan_id"
          << ",terrain_FR_candidate_count,terrain_FR_swing_candidate_count,terrain_FR_candidate_required,terrain_FR_touchdown_knot"
          << ",terrain_FL_candidate_count,terrain_FL_swing_candidate_count,terrain_FL_candidate_required,terrain_FL_touchdown_knot"
          << ",terrain_RR_candidate_count,terrain_RR_swing_candidate_count,terrain_RR_candidate_required,terrain_RR_touchdown_knot"
@@ -834,6 +834,7 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.mpc_reference_vx_last_mps
          << "," << (wbc_shadow_diagnostics_.terrain_contact_coherent ? 1 : 0)
          << "," << (wbc_shadow_diagnostics_.terrain_mpc_horizon_in_range ? 1 : 0)
+         << "," << (wbc_shadow_diagnostics_.terrain_execution_snapshot_valid ? 1 : 0)
          << "," << wbc_shadow_diagnostics_.terrain_plan_id;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             csv_ << "," << terrain_candidate_counts_[leg]

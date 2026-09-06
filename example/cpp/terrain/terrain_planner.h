@@ -42,6 +42,10 @@ struct TerrainPlannerInput
     double state_stamp_s = 0.0;
     double base_yaw_rad = 0.0;
     go2::Vec3 base_position_world{};
+    // Optional dynamics-model COM used by the consistency path.  The legacy
+    // base position remains present so missing H5 fields are not fabricated.
+    go2::Vec3 model_com_world{};
+    bool model_com_valid = false;
     go2::Vec3 base_velocity_world{};
     go2::Vec3 base_acceleration_world{};
     double base_roll_rad = 0.0;
@@ -402,7 +406,9 @@ private:
             if (contact_count == 0)
                 continue;
             const double margin = SupportMargin2D(
-                feet, contacts, body.position, config_.min_support_margin_m,
+                feet, contacts, body.model_com_valid
+                    ? body.model_com_world : body.position,
+                config_.min_support_margin_m,
                 config_.max_two_contact_line_error_m);
             result.plan.min_support_margin_m = std::min(
                 result.plan.min_support_margin_m, margin);
@@ -459,6 +465,8 @@ private:
             result.plan.contact_schedule.planned_contact[k] =
                 input.contact_schedule.planned_contact[k];
             result.plan.body_reference[k].position = input.base_position_world;
+            result.plan.body_reference[k].model_com_world = input.model_com_world;
+            result.plan.body_reference[k].model_com_valid = input.model_com_valid;
             result.plan.body_reference[k].linear_velocity =
                 input.base_velocity_world;
             result.plan.body_reference[k].linear_acceleration =

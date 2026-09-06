@@ -57,7 +57,11 @@ enum class TerrainPlanFailure : std::uint8_t
 
 struct TerrainBodyReference
 {
+    // position remains the base/body reference for legacy diagnostics.  The
+    // optional model COM is the only point accepted by the consistency path.
     go2::Vec3 position{};
+    go2::Vec3 model_com_world{};
+    bool model_com_valid = false;
     go2::Vec3 linear_velocity{};
     go2::Vec3 linear_acceleration{};
     double roll_rad = 0.0;
@@ -171,6 +175,11 @@ struct TerrainMotionPlan
         for (std::size_t k = 0; k < horizon_knots; ++k)
         {
             if (!body_reference[k].valid)
+                return false;
+            if (body_reference[k].model_com_valid &&
+                (!std::isfinite(body_reference[k].model_com_world.x) ||
+                 !std::isfinite(body_reference[k].model_com_world.y) ||
+                 !std::isfinite(body_reference[k].model_com_world.z)))
                 return false;
             for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             {

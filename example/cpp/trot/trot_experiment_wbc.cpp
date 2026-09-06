@@ -268,6 +268,39 @@ void TrotExperiment::UpdateWbcFull(
         if (hs_mpc_w_ori > 0.0)
             mpc_params.w_ori = hs_mpc_w_ori;
     }
+    // Explicit opt-in shadow path: one immutable snapshot binds absolute time,
+    // model COM, separate contact sources, and gait commitments.  It never
+    // changes the command path while the environment flag is absent.
+    const bool terrain_consistency_shadow = Full2EnvDouble(
+        "TROT_TERRAIN_EXECUTION_CONSISTENCY_SHADOW", 0.0) > 0.5;
+    wbc_shadow_diagnostics_.terrain_execution_snapshot_valid =
+        !terrain_consistency_shadow || !terrain_plan_active;
+    if (terrain_consistency_shadow && terrain_plan_active)
+    {
+        std::array<go2_terrain::TerrainExecutionCommitment, go2::kLegCount>
+            commitments{};
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            auto &commitment = commitments[leg];
+            commitment.valid = terrain_execution_target_valid_[leg];
+            commitment.in_flight = terrain_execution_in_flight_[leg];
+            commitment.measured_touchdown =
+                terrain_execution_measured_touchdown_[leg];
+            commitment.plan_id = terrain_execution_target_plan_id_[leg];
+            commitment.plan_epoch = terrain_execution_target_plan_epoch_[leg];
+            commitment.target_time_s = terrain_execution_target_time_s_[leg];
+            commitment.target_world = terrain_execution_target_world_[leg];
+        }
+        const go2::Vec3 model_com_world{
+            dyn.com_world.x(), dyn.com_world.y(), dyn.com_world.z()};
+        go2_terrain::TerrainExecutionSnapshot execution_snapshot;
+        wbc_shadow_diagnostics_.terrain_execution_snapshot_valid =
+            go2_terrain::BuildTerrainExecutionSnapshot(
+                *terrain_plan, terrain_now_s, mpc_params.dt_s,
+                static_cast<std::size_t>(mpc_params.horizon),
+                model_com_world, measured_contact, true, qp_contact, true,
+                commitments, execution_snapshot);
+    }
     const bool straight_line_reference =
         params_.world_feedback && have_world_reference_ &&
         !task_.goal_enabled_ &&
@@ -446,7 +479,10 @@ void TrotExperiment::UpdateWbcFull(
                 const auto plan_lookup = go2_terrain::TerrainPlanKnotAtTime(
                     *terrain_plan, sample_time_s);
                 if (!plan_lookup.valid)
+                {
                     wbc_shadow_diagnostics_.terrain_mpc_horizon_in_range = false;
+                    continue;
+                }
                 for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
                 {
                     if (!mpc_in.contact[k][leg])
