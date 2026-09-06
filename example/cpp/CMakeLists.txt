@@ -227,6 +227,12 @@ add_executable(test_terrain_execution_consistency
     tests/test_terrain_execution_consistency.cpp)
 go2_add_ctest(test_terrain_execution_consistency)
 
+# Stage C C0-01 contract witnesses and C0-02 deterministic discrete core.
+# This target is pure/offline and does not enter the terrain control path.
+add_executable(test_stage_c_foundations tests/test_stage_c_foundations.cpp)
+target_link_libraries(test_stage_c_foundations unitree_sdk2)
+go2_add_ctest(test_stage_c_foundations)
+
 add_executable(analyze_contact_torque_replay tools/analysis/analyze_contact_torque_replay.cpp)
 target_include_directories(analyze_contact_torque_replay PRIVATE ${GO2_CPP_INCLUDE_DIRS})
 target_link_libraries(analyze_contact_torque_replay Eigen3::Eigen)

@@ -126,6 +126,22 @@ struct SafeFootholdRegion
     bool valid = false;
 };
 
+// Keep the published safe-region geometry honest. At the current 5 cm grid
+// and 2.5 cm foot patch this is zero for exact doubles (and only round-off
+// positive for the float32 sensor resolution); callers must use point
+// candidates instead of adding an artificial epsilon.
+inline double SafeFootholdRegionHalfExtent(
+    double resolution_m, double foot_patch_radius_m,
+    double configured_half_extent_m)
+{
+    if (!std::isfinite(resolution_m) || !std::isfinite(foot_patch_radius_m) ||
+        !std::isfinite(configured_half_extent_m) || resolution_m <= 0.0 ||
+        foot_patch_radius_m < 0.0 || configured_half_extent_m <= 0.0)
+        return 0.0;
+    return std::min(configured_half_extent_m,
+                    0.5 * resolution_m - foot_patch_radius_m);
+}
+
 struct FootholdCandidate
 {
     go2::Leg leg = go2::Leg::FR;
@@ -1202,9 +1218,9 @@ inline std::vector<SafeFootholdRegion> BuildSafeFootholdRegions(
                 future_base_displacement_base);
             if (!candidate.hard_feasible)
                 continue;
-            const double half = std::min(
-                config.region_half_extent_m,
-                0.5 * model.resolution_m - config.foot_patch_radius_m);
+            const double half = SafeFootholdRegionHalfExtent(
+                model.resolution_m, config.foot_patch_radius_m,
+                config.region_half_extent_m);
             if (!(half > 0.0))
                 continue;
             SafeFootholdRegion region;
