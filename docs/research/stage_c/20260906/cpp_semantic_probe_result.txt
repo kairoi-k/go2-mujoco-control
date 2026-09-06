@@ -1,0 +1,4 @@
+promoted_resolution_m=0.0500000007450580597
+region_half_width_m=3.72529028458412625e-10
+shadow_anchor_can_initialize=0
+PASS: arithmetic/guard witnesses only; no Atlas controller build.

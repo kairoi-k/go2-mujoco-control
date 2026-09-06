@@ -1,0 +1,8 @@
+{
+  "python": "3.13.5",
+  "platform": "Linux",
+  "compiler": "g++ (Debian 14.2.0-19) 14.2.0",
+  "cpp_command": "g++ -std=c++17 -O2 -Wall -Wextra -pedantic cpp_semantic_probe.cpp -o <temporary-path>/cpp_semantic_probe",
+  "scope": "Independent review container, not Atlas. No production repository build or robot run.",
+  "source_version": "f3b452d56b2bedd5ea02249d4e5087b6ca151c47"
+}

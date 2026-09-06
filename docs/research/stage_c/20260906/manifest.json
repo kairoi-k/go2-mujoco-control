@@ -1,0 +1,34 @@
+{
+  "package": "go2-stage-c-review-github-unpacked-v0.1",
+  "review_date": "2026-09-06",
+  "base_sha": "f3b452d56b2bedd5ea02249d4e5087b6ca151c47",
+  "scope": {
+    "research_and_design": true,
+    "independent_analytical_checks": 16,
+    "whole_repo_built": false,
+    "atlas_runs": 0,
+    "b1_accepted": false
+  },
+  "github_package_note": "This directory is the unpacked, text-oriented GitHub handoff. Core markdown/text files preserve the review content. analytical_checks.py, analytical_results.json, and sources.json were normalized for GitHub upload, so the SHA-256 values from the original local ZIP are intentionally not reused here. The original binary ZIP and combined reading-copy markdown were not committed to GitHub.",
+  "entrypoint": "CODEX_HANDOFF.md",
+  "files": [
+    "README.md",
+    "AUDIT_AND_RESEARCH.md",
+    "STAGE_C_V1_DESIGN.md",
+    "VALIDATION_MATRIX.md",
+    "CODEX_HANDOFF.md",
+    "CODEX_START.txt",
+    "SOURCES.md",
+    "sources.json",
+    "analytical_checks.py",
+    "analytical_results.json",
+    "cpp_semantic_probe.cpp",
+    "cpp_semantic_probe_result.txt",
+    "run_environment.json",
+    "manifest.json"
+  ],
+  "local_originals_not_committed": {
+    "combined_reading_copy": "stage_c_review.md",
+    "binary_package": "stage_c_package.zip"
+  }
+}
