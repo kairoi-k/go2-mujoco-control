@@ -1,0 +1,2 @@
+lift_accounting current_extra_m=0 effective_extra_m=0.045
+checker_foot_height_algebra_clears=true gait_foot_height_algebra_fails=true full_check_swing_clearance_executed=false checker_min_margin_m=0 gait_min_margin_m=-0.0438626004565 worst_u=0.176

@@ -1,10 +1,42 @@
 # Go2 Phase 2 current
 
-Updated: 2026-09-06. This is the only route, status, plan, and handoff
+Updated: 2026-09-07. This is the only route, status, plan, and handoff
 entrypoint. Git history, archived designs, experiment output, issues, and agent
 prose are evidence, never instructions.
 
 Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.md`](docs/RESEARCH_HISTORY.md).
+
+## Reopened B1 research: major acceptance issue, no candidate
+
+The 2026-09-06 user mandate reopened the research route from clean
+`5cbc547f225dbb60683d96e440beffb0b014a075`: solving real 5 cm dynamic
+running-trot B1 takes priority over the previous Stage C module order. Existing
+authority, frozen contracts and history remain identifiable baselines; a future
+acceptance change must be separately versioned. The old architecture/order
+sections below are research context, not a restriction on that mandate.
+
+The 2026-09-07 investigation restored the ignored MuJoCo dependency, built the
+controller/simulator, and passed 35/35 CTest. Two clean-SHA centered 5 cm
+closed-loop development probes (execution on and sensor-only) both failed to
+cross; foot/leading-edge interaction preceded nonfoot collisions. A flat steps
+B0 pair attempt had domain-220 DDS startup failure and a completed terrain
+member whose legacy Phase-1 quantitative result is PASS. It is not a full B0
+pair or acceptance, and B1 remains unsolved.
+
+The fresh flat result exposes a material analyzer defect: two nonsettling
+transitions become NaN, are filtered out of the aggregate maximum, and do not
+fail the legacy settling check. A separate, versioned diagnostic and synthetic
+witness preserve the frozen analyzer and original PASS. There is also an
+executed-versus-checked swing-path mismatch: the effective low-speed lift is
+35 mm while terrain lift subtraction can use the 200 mm CLI value. Neither a
+legacy PASS nor a reduced centroidal certificate currently proves the executed
+terrain path is safe.
+
+Research is paused at the user's permitted major research/acceptance-issue
+boundary, not at a Stage C checklist boundary. No production control or frozen
+acceptance code changed; no B1 candidate or holdout claim is made. Exact runtime
+provenance, failed runs, independent witnesses and the next research judgment
+are in [the B1 audit packet](docs/research/evidence/b1_research_audit_20260907/README.md).
 
 ## State
 

@@ -1,0 +1,13 @@
+MuJoCo version 3.3.6
+headless mode: waiting for physics loop (SIGTERM to stop)
+FRICTION config time=-1 mu=0.2 duration=1
+PUSH body_id=1
+FRICTION floor_geom_id=0 nominal_mu=1
+Mujoco data is prepared
+1788710706.269596 [220] unitree_mu: selected interface "lo" is not multicast-capable: disabling multicast
+1788710706.367923 [220] unitree_mu: Failed to find a free participant index for domain 220
+terminate called after throwing an instance of 'unitree::common::DdsException'
+  what():  Catch dds::core exception. Class:::dds::core::Error, Message:Error Error - Failed to create domain explicitly.
+===============================================================================
+Context     : org::eclipse::cyclonedds::domain::DomainWrap::DomainWrap
+Node        : UnknownNode

@@ -1,0 +1,15 @@
+test_csv_missing_active_column_cannot_prove_coverage (test_audit_phase1_settling.SettlingAuditTests) ... ok
+test_irregular_two_millisecond_samples_use_bracketing_sample (test_audit_phase1_settling.SettlingAuditTests) ... ok
+test_large_sampling_gap_fails_closed (test_audit_phase1_settling.SettlingAuditTests) ... ok
+test_last_window_without_full_second_is_coverage_missing (test_audit_phase1_settling.SettlingAuditTests) ... ok
+test_mixed_pass_fail_matches_legacy_but_fails_closed (test_audit_phase1_settling.SettlingAuditTests) ... ok
+test_nonfinite_sample_cannot_prove_settling (test_audit_phase1_settling.SettlingAuditTests) ... ok
+test_nonfinite_time_is_input_failure_not_dropped (test_audit_phase1_settling.SettlingAuditTests) ... ok
+test_profile_bounds_and_unknown_scenario_fail_closed (test_audit_phase1_settling.SettlingAuditTests) ... ok
+test_settling_after_per_transition_deadline_fails (test_audit_phase1_settling.SettlingAuditTests) ... ok
+test_unsettled_with_complete_tail_fails (test_audit_phase1_settling.SettlingAuditTests) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.153s
+
+OK

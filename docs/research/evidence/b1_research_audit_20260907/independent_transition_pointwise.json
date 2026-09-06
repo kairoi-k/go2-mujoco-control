@@ -1,0 +1,28 @@
+[
+  {
+    "start_s": 32.0,
+    "end_s": 40.0,
+    "target_mps": 2.0,
+    "rows": 4000,
+    "observed_first_s": 32.000059189,
+    "observed_last_s": 39.998022762,
+    "abs_error_min_mps": 0.2522822640000002,
+    "abs_error_max_mps": 0.28613495899999997,
+    "rows_inside_tolerance": 0,
+    "longest_consecutive_inside_span_s": 0.0,
+    "tolerance_mps": 0.15
+  },
+  {
+    "start_s": 48.0,
+    "end_s": 56.0,
+    "target_mps": 3.0,
+    "rows": 4001,
+    "observed_first_s": 48.00001056,
+    "observed_last_s": 55.999992313999996,
+    "abs_error_min_mps": 0.13444076399999982,
+    "abs_error_max_mps": 0.4096089420000002,
+    "rows_inside_tolerance": 78,
+    "longest_consecutive_inside_span_s": 0.046008924999995315,
+    "tolerance_mps": 0.15000000000000002
+  }
+]

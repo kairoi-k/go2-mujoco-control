@@ -1,0 +1,59 @@
+{
+  "schema": "b1-research-audit-v1",
+  "runtime_source_sha": "5cbc547f225dbb60683d96e440beffb0b014a075",
+  "runtime_clean": true,
+  "acceptance_claim": false,
+  "files_sha256": {
+    "docs/research/PHASE2_ACCEPTANCE.md": "6d5895644fd0f471b6b09a4a920b0663855bf7a0a2b90c226220d3ef77b1c514",
+    "docs/research/PHASE2_HOLDOUT_MANIFEST.json": "2550526025594aa379441e1d7eb071c8809abeaf9234f6cf8a335f22288a5a40",
+    "example/cpp/scripts/analyze_phase1_velocity.py": "d1d352575a35798edc9bc2f5df421ca39c75fbc05bc59925e1feb5e78e69f5af",
+    "example/cpp/tools/analyze_phase2_terrain.py": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873",
+    "example/cpp/tools/analyze_phase2_b0.py": "63c4467c6ffbc9e09e98f86af2842fc5a59584eb8d7b8dbc1845b46746e848bb",
+    "example/cpp/trot/trot_experiment_gait.cpp": "c84db9fd4b09437dc63efd2f299bb88a6a58caa16e847a7a6e47e9303cee2179",
+    "example/cpp/terrain/terrain_feasibility.h": "742d667f669f9cc94c3442005c4dfee60b5248ba628fcdd9a3f519b142c77774",
+    "example/cpp/build/real_trot_go2": "b30be043671146d063833f513a18dba6135c67936e41ddc9887dc12b12ed5e5a",
+    "simulate/build/unitree_mujoco": "476af3569f3b252f0ad67c1ceb474a95e7d2b612728f948c7b68ff6cb2c67e9d",
+    "unitree_robots/go2/go2.xml": "01acff1a72a10cd38ab3c95142bfc63db197c5fba39a11b45b15b6fc4899ba10",
+    "unitree_robots/go2/phase2_step_5cm.xml": "ab2106afe65c86827aae02158e3b35b5ebb61e2b14d3665ddbd7c971e7573b0e"
+  },
+  "flat_run_artifacts_sha256": {
+    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\contact_ground_truth.csv": "95d80f77ac718c0ae981f3cdcf80b55a96d012d5c35ae5d9d24fdc1ff603b308",
+    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\contact_ground_truth_analysis.txt": "e7b6f4b683a9c52d5cc3f686d52b6347598cd65573bc742b9b41c759a0a53a87",
+    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\contact_ground_truth_dynamics_analysis.txt": "8d4fd01a8ff23995481b02ae66317fed04dc15fd6c5d4beed216f6863f8ef081",
+    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\controller.log": "6167e801aa6e1188fb4397522243b2a89966fbcdfc3bfe8ce26b2dd00cb55c25",
+    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\data.csv": "32d4dd6e6af6f297d9152e938b87e690ca9a10f29cd9668ac1523650a562083e",
+    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\environment.txt": "e58ef4d783c73849d6ad99764e06fbe1d092194385c759a971477ec3cafc695e",
+    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\phase1_quantitative.json": "629a185b942ed2e8bbfa5ae90278ddbc35aa458eb026f4614f3cab6832456065",
+    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\run_manifest.json": "ac0e4db381e671e9ec04375977529a1038f8407dd8186f1085317ca669475032",
+    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\run_metadata.txt": "7126560e27ec558604441a266ae2474fe63ebff63ae723ecf95988e194d5f11f",
+    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\simulator.log": "d53566f35ca4ceae3ba8479ade9f0c7c26bd6ba945a79f823a527137015ea0dc",
+    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\wallclock_runtime_telemetry.csv": "65691a4d883089fc80aa6274f3defa3277896999614cf86a80e9492a37a1be1b"
+  },
+  "audit_source_sha256": {
+    "example/cpp/tools/analysis/audit_phase1_settling.py": "1c653c44d6b66afc90bdcebed7f8477eb09901d6f2620f9635cf9c33fe35f109",
+    "example/cpp/tools/analysis/test_audit_phase1_settling.py": "7992f5d0bab6dbe4b644458998e3a92d19099742a278e67fe415ddc4a50e08c5"
+  },
+  "curated_sha256": {
+    "baseline_first_anomalies.txt": "f9599468477b4c45844e4a7dde3adb572bdde304875b82c3f2e54371ebe7fbdd",
+    "ctest_35.txt": "998738ac6b154f1626507dee6eed89a767a49e2bdfed3bdb4fd723fa3a2b75ea",
+    "dds_domain220_failure.txt": "8eb9a957a61b9256570e17759a5bb826f8a0db4a2f301f3538c14c63fa025cad",
+    "independent_transition_pointwise.json": "4b47bad47ee0b494185a5fb75ab008040fe622130927eae8be0813907f2b9a1a",
+    "legacy_b1_result.json": "7b115a2b85fb5f44a002254fc04270f589f62aad39b9d913a33b14c95c25a86d",
+    "legacy_flat_steps_result.json": "629a185b942ed2e8bbfa5ae90278ddbc35aa458eb026f4614f3cab6832456065",
+    "physical_results.json": "27f84d8055167b025f887336e65d8b2995010903261f5c99d4c4f7909ddadd71",
+    "README.md": "0ff12025e08273e5aac11fc674a87c1628f2813e9a39edd209ff44f22344c35e",
+    "reproduce_first_anomalies.py": "0786a8457443ad61e839ae04a48c7ac277a65a2615ceec1e41a872d1e4a6f8af",
+    "reproduce_physical.py": "0ce31ca2eb9c34aef6638aaf2e6ff511cd882301719fdf00a470447e92f5aaa4",
+    "settling_audit.json": "d2cdde3319db35d8ea9fad516dea9290abd8f0a8fd42fa1426592968cb726117",
+    "settling_tests.txt": "ecf17e04996fdcb24ce7173f3f275b583a6d5867b0b0d313abfd2f6474f72ba3",
+    "swing_path_witness.cpp": "aa751d0c02c031275148c64e5f4ca53b1bcd89371c6c0025dda1ff66ce2f4eb2",
+    "swing_path_witness_result.txt": "c1f41412f13b9a50e6562ea416bcf993625b83d89eca65d280d1f6cc43b4c16c",
+    "windows_udp_exclusions.txt": "3e87b99b0c3d4d4b63a326a59e9bdb819ebffee0c80e7b9c4490624af2ef0c71"
+  },
+  "additional_raw_sha256": {
+    "example\\cpp\\experiments\\_runs\\wsl_exec_recovery_20260906_2348\\windows_udp_exclusions_at_closeout.txt": "2b9905bda6de62f0ee8ade666d4448dfee5c0a122dbd77a00397e0a7ac4becb0",
+    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_baseline\\simulator.log": "58320eee1887c5f11e307f9a45b5e6e387d8903bda08a772d1f2f117a63f8fb4",
+    "example\\cpp\\experiments\\_runs\\b1_research_baseline_5cbc547_20260907_0001_runtime_analysis_20260907\\baseline_first_anomalies.txt": "f9599468477b4c45844e4a7dde3adb572bdde304875b82c3f2e54371ebe7fbdd"
+  },
+  "curated_text_format": "UTF-8 LF, trailing whitespace normalized; original raw artifact hashes retained"
+}

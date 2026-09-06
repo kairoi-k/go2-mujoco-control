@@ -135,3 +135,15 @@ terrain-crossing acceptance. The containing commit and
 The new evidence README records fixed-event dynamics, foundation audit
 corrections, independent residual/feasibility oracles, synthetic latency and
 remaining C0-03/integration gates. CURRENT.md owns current status.
+
+## 2026-09-07: B1 reopened research audit
+
+Clean runtime source `5cbc547f225dbb60683d96e440beffb0b014a075`; real MuJoCo
+restored and 35/35 CTest pass. Centered execution-on and sensor-only probes
+both fail to cross. The flat steps terrain member's legacy quantitative PASS
+contains two NaN settling transitions omitted from its aggregate; the baseline
+member fails DDS startup, so there is no B0 pair PASS. New independent
+diagnostics retain old contracts/results. Production lift accounting and
+validated-versus-executed swing mismatch are isolated, without claiming a B1
+fix. Research stops at the user-authorized major acceptance-issue boundary.
+See [evidence and reproducible witnesses](research/evidence/b1_research_audit_20260907/README.md).

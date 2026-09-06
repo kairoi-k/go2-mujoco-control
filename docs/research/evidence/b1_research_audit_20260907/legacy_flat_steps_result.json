@@ -1,0 +1,202 @@
+{
+  "accel_abs_max_mps2": 1.2,
+  "accel_step_abs_max_mps3": 0.00999836400000001,
+  "acceptance_semantics": "legacy status gate unchanged; quantitative gate is explicit and threshold-frozen",
+  "acceptance_status": "PASS",
+  "active_rows": 47403,
+  "active_start_cmd_time_s": 4.300077432,
+  "analysis_status": "0",
+  "applied_shaped_gap_max_mps": 0.36114285699999993,
+  "base_height_min_m": 0.347708824,
+  "completion_status": "0",
+  "contact_count_min": 0.0,
+  "contact_loss_fraction": 0.12689070312005568,
+  "controller_status": "0",
+  "duration_s": 94.804001285,
+  "duty_range": [
+    0.44,
+    0.66
+  ],
+  "foot_lift_max_m": 0.199570593,
+  "footstep_plan_valid_fraction": 1.0,
+  "git_head": "5cbc547f225dbb60683d96e440beffb0b014a075",
+  "id_wbc_ok_fraction": 1.0,
+  "jerk_abs_max_mps3": 4.0,
+  "measured_speed_max_mps": 3.409608942,
+  "overshoot_excursion_max_mps": 0.4096089420000002,
+  "overshoot_excursion_min_mps": -0.157334654,
+  "period_range_s": [
+    0.14,
+    0.36
+  ],
+  "pitch_abs_max_deg": 4.240071316941432,
+  "pitch_abs_p95_deg": 2.6004816196220757,
+  "quality_status": "0",
+  "quantitative_checks": {
+    "base_height": true,
+    "contact_loss": true,
+    "footstep_plan_valid": true,
+    "id_wbc_ok": true,
+    "overshoot": true,
+    "pitch_p95": true,
+    "requested_profile_reproduction": true,
+    "roll_p95": true,
+    "settling": true,
+    "shaped_to_measured_p95": true,
+    "shaper_accel": true,
+    "shaper_accel_continuity": true,
+    "shaper_jerk": true,
+    "single_contact": true,
+    "slip_evidence": true,
+    "solver_budget": true,
+    "solver_ok": true,
+    "srbd_ok": true,
+    "steady_state_error": true,
+    "stop_tail": true,
+    "torque_saturation": true,
+    "touchdown_x": true,
+    "touchdown_y": true,
+    "tracking_p95": true,
+    "undershoot": true
+  },
+  "quantitative_pass": true,
+  "quantitative_scenario": "steps",
+  "quantitative_thresholds": {
+    "overshoot": 0.5,
+    "settling": 8.2,
+    "steady_state": 0.4,
+    "tracking_p95": 0.4,
+    "undershoot": -0.25
+  },
+  "regimes": [
+    "continuous-trot",
+    "inactive"
+  ],
+  "requested_profile_max_error_mps": 5.000022618162347e-10,
+  "requested_shaped_error_abs_max_mps": 0.17880004400000005,
+  "requested_shaped_error_abs_p95_mps": 0.0,
+  "roll_abs_max_deg": 3.2727827104673763,
+  "roll_abs_p95_deg": 1.150883374987705,
+  "rows": 49553,
+  "safety_status": "0",
+  "settling_evaluated_transitions": 5,
+  "settling_time_max_s": 0.24800149600000054,
+  "settling_time_mean_s": 0.08333928000000412,
+  "shaped_measured_error_abs_max_mps": 0.4096089420000002,
+  "shaped_measured_error_abs_p95_mps": 0.32335716039999995,
+  "shaped_speed_max_mps": 3.0,
+  "single_contact_fraction": 0.23319199206801258,
+  "slip_evidence_fraction": 0.0,
+  "slip_indicator_max_mps": 0.0,
+  "solver_budget_ok_fraction": 0.9163976963483323,
+  "solver_ok_fraction": 1.0,
+  "srbd_ok_fraction": 1.0,
+  "steady_state_error_abs_max_mps": 0.3614678549999999,
+  "steady_state_plateaus": [
+    {
+      "end_s": 8.0,
+      "mean_abs_error_mps": 0.0033889968890277464,
+      "start_s": 0.0,
+      "steady_state_max_abs_error_mps": 8.1187e-05,
+      "steady_state_mean_abs_error_mps": 7.617785114885112e-05,
+      "target_mps": 0.0
+    },
+    {
+      "end_s": 24.0,
+      "mean_abs_error_mps": 0.0991969611350001,
+      "start_s": 16.0,
+      "steady_state_max_abs_error_mps": 0.12482660199999995,
+      "steady_state_mean_abs_error_mps": 0.10026137837700017,
+      "target_mps": 1.0
+    },
+    {
+      "end_s": 40.0,
+      "mean_abs_error_mps": 0.2685349977704991,
+      "start_s": 32.0,
+      "steady_state_max_abs_error_mps": 0.28613495899999997,
+      "steady_state_mean_abs_error_mps": 0.2677991250049997,
+      "target_mps": 2.0
+    },
+    {
+      "end_s": 56.0,
+      "mean_abs_error_mps": 0.267420893655586,
+      "start_s": 48.0,
+      "steady_state_max_abs_error_mps": 0.3614678549999999,
+      "steady_state_mean_abs_error_mps": 0.2718780350819998,
+      "target_mps": 3.0
+    },
+    {
+      "end_s": 72.0,
+      "mean_abs_error_mps": 0.04883007472749995,
+      "start_s": 64.0,
+      "steady_state_max_abs_error_mps": 0.07849441699999993,
+      "steady_state_mean_abs_error_mps": 0.04534231471271271,
+      "target_mps": 1.0
+    },
+    {
+      "end_s": 92.0,
+      "mean_abs_error_mps": 0.003440194860189974,
+      "start_s": 80.0,
+      "steady_state_max_abs_error_mps": 1.9509e-05,
+      "steady_state_mean_abs_error_mps": 1.7167738999999975e-05,
+      "target_mps": 0.0
+    }
+  ],
+  "step_length_max_m": 0.464388172,
+  "stop_tail_speed_abs_final_mps": 0.003393344,
+  "stop_tail_speed_abs_p95_mps": 0.0153983501,
+  "strict_pass": true,
+  "support_count_min": 0.0,
+  "torque_abs_max_nm": 45.430000305,
+  "torque_limit_magnitude_nm": 45.0,
+  "torque_saturation_fraction": 0.0011651323593605727,
+  "touchdown_events": 1948.0,
+  "touchdown_x_error_abs_max_m": 0.073002689,
+  "touchdown_y_error_abs_max_m": 0.040979721,
+  "tracking_to_profile_error_abs_max_mps": 0.4096089420000002,
+  "tracking_to_profile_error_abs_mean_mps": 0.12918765891411899,
+  "tracking_to_profile_error_abs_p95_mps": 0.32335716035,
+  "tracking_to_profile_signed_bias_mps": 0.12153292710222548,
+  "transitions": [
+    {
+      "excursion_mps": 0.1284074289999999,
+      "from_mps": 0.0,
+      "settling_time_s": 0.002012233000002084,
+      "settling_tolerance_mps": 0.15,
+      "time_s": 16.0,
+      "to_mps": 1.0
+    },
+    {
+      "excursion_mps": 0.28613495899999997,
+      "from_mps": 1.0,
+      "settling_time_s": NaN,
+      "settling_tolerance_mps": 0.15,
+      "time_s": 32.0,
+      "to_mps": 2.0
+    },
+    {
+      "excursion_mps": 0.4096089420000002,
+      "from_mps": 2.0,
+      "settling_time_s": NaN,
+      "settling_tolerance_mps": 0.15000000000000002,
+      "time_s": 48.0,
+      "to_mps": 3.0
+    },
+    {
+      "excursion_mps": -0.14100335399999997,
+      "from_mps": 3.0,
+      "settling_time_s": 4.111000009743293e-06,
+      "settling_tolerance_mps": 0.15,
+      "time_s": 64.0,
+      "to_mps": 1.0
+    },
+    {
+      "excursion_mps": -0.157334654,
+      "from_mps": 1.0,
+      "settling_time_s": 0.24800149600000054,
+      "settling_tolerance_mps": 0.15,
+      "time_s": 80.0,
+      "to_mps": 0.0
+    }
+  ]
+}
