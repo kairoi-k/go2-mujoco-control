@@ -330,6 +330,7 @@ void TrotExperiment::TerrainPlannerWorker()
         }
 
         std::shared_ptr<const go2_terrain::TerrainModel> model;
+        int registration_error = -1, registered_build_error = -1;
         if (work.have_map && work.have_base_pose)
         {
             const auto registered = go2_terrain::RegisterTerrainMap(
@@ -338,16 +339,25 @@ void TrotExperiment::TerrainPlannerWorker()
                  work.input.base_position_world.y,
                  work.input.base_position_world.z},
                 work.input.base_yaw_rad);
+            registration_error = static_cast<int>(registered.error);
             if (registered.ok())
             {
                 const auto built = go2_terrain::BuildRegisteredTerrainModel(
                     &registered.map, work.input.state_stamp_s, work.map_epoch,
                     go2_terrain::TerrainSource::kLidar);
+                registered_build_error = static_cast<int>(built.error);
                 if (built.ok())
                     model = std::make_shared<const go2_terrain::TerrainModel>(
                         built.model);
             }
         }
+        if (work.plan_id <= 3 || work.plan_id % 100 == 0)
+            std::cout << "Terrain registration id=" << work.plan_id
+                      << " have_map=" << work.have_map << " have_pose=" << work.have_base_pose
+                      << " registration_error=" << registration_error
+                      << " build_error=" << registered_build_error
+                      << " state=" << work.input.state_stamp_s
+                      << " capture=" << work.map_envelope.map_stamp_s << "\n";
         work.input.terrain = model.get();
         const auto result = terrain_planner_.Build(work.input, work.plan_id);
         if (result.publishable)

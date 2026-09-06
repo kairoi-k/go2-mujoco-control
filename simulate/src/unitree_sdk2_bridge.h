@@ -770,7 +770,11 @@ public:
                 {
                     std_msgs::msg::dds_::String_ message;
                     message.data(wire);
-                    (void)lidar_heightmap_envelope->Write(message, 0);
+                    const bool sent = lidar_heightmap_envelope->Write(message, 0);
+                    if (lidar_map_sequence_ <= 3)
+                        std::cout << "Terrain envelope publish seq=" << lidar_map_sequence_
+                                  << " bytes=" << wire.size() << " sent=" << sent
+                                  << " stamp=" << sim_time << "\n";
                 }
             }
         }
