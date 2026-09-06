@@ -1,0 +1,17 @@
+{
+  "status": "rejected draft, never used for acceptance",
+  "retained_location": "C:\\Users\\w1881\\Documents\\Codex\\2026-09-06\\feat-stage-c-joint-planner-fetch\\acceptance_v2_draft_0001",
+  "sha256": {
+    "analyze_b1_traversal_v2.py": "c7ae4bf23514bba68f30deab221d80dade29f28228e30c56b9414afc47dc2090",
+    "B1_TRAVERSAL_V2.md": "0d3d14d960861ec7263663804463b8bfbc8a195bb8ca979587edb4d69e7a0c4c",
+    "schema_audit.md": "3f6fcba48e681d2459bf7aa2b63340ad062cfbbfe9d43456607eb49572ff82ca",
+    "test_analyze_b1_traversal_v2.py": "e7cba519bb22411d59721102bb3758e672e3b11834c4592720f25eaf6b7a169c"
+  },
+  "reasons": [
+    "step-only foot mask incorrectly used for aerial/contact topology",
+    "runtime regime literal does not equal configured gait enum",
+    "frozen Phase1 PASS used as a gate despite independent-verdict claim",
+    "asynchronous stream endpoints wrongly required equal",
+    "body origin proxy insufficient for complete robot clearance"
+  ]
+}

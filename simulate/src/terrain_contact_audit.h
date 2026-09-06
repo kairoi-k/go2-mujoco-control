@@ -1,6 +1,8 @@
 #pragma once
 #include <mujoco/mujoco.h>
 #include <cmath>
+#include <limits>
+#include <algorithm>
 
 // Offline evidence only; never a controller input. Force is on the robot.
 struct TerrainContactAudit {
@@ -22,4 +24,24 @@ inline TerrainContactAudit AuditTerrainContact(
       contact.frame[5] * force[1] + contact.frame[8] * force[2]);
   return {top, top ? world_z : 0.0,
       top ? 0.0 : std::hypot(force[0], std::hypot(force[1], force[2]))};
+}
+
+// Conservative world-X rear bound of all collision geoms in the robot subtree.
+// MuJoCo geom_rbound encloses the geom for every orientation. Unlike a base
+// origin proxy, this also covers knees/calves trailing behind the feet.
+inline double RobotCollisionRearBound(
+    const mjModel* model, const mjData* data, int root_body) {
+  double bound = std::numeric_limits<double>::infinity();
+  for (int geom = 0; geom < model->ngeom; ++geom) {
+    if (!(model->geom_contype[geom] || model->geom_conaffinity[geom])) continue;
+    int body = model->geom_bodyid[geom];
+    while (body > 0 && body != root_body) body = model->body_parentid[body];
+    if (body != root_body || root_body <= 0) continue;
+    const double radius = model->geom_rbound[geom];
+    const double x = data->geom_xpos[3 * geom];
+    if (!std::isfinite(radius) || radius < 0 || !std::isfinite(x))
+      return std::numeric_limits<double>::quiet_NaN();
+    bound = std::min(bound, x - radius);
+  }
+  return std::isfinite(bound) ? bound : std::numeric_limits<double>::quiet_NaN();
 }

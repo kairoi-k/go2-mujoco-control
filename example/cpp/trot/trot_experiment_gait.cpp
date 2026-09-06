@@ -18,6 +18,7 @@
 #include "cartesian_world_trot.h"
 #include "full2_campaign_env.h"
 #include "terrain_swing_lift.h"
+#include "terrain_commitment_lifecycle.h"
 
 using namespace unitree::common;
 using namespace unitree::robot;
@@ -1480,7 +1481,7 @@ bool TrotExperiment::BuildGaitTargets(
     }
 
     // Terrain execution is a bounded endpoint transaction on top of the
-    // running-trot phase.  The kernel remains the sole timing/topology source;
+    // running-trot phase. The kernel remains the sole timing/topology source;
     // the planner-selected world foothold is only latched during the existing
     // swing and is blended to its endpoint before touchdown.
     const double terrain_now_s =
@@ -1488,11 +1489,14 @@ bool TrotExperiment::BuildGaitTargets(
     const auto terrain_now_lookup = terrain_tick_plan_
         ? go2_terrain::TerrainPlanKnotAtTime(*terrain_tick_plan_, terrain_now_s)
         : go2_terrain::TerrainPlanTimeLookup{};
-    if (params_.terrain_actuation && terrain_tick_plan_ && have_high_state &&
+    const bool terrain_plan_usable = params_.terrain_actuation &&
+        terrain_tick_plan_ && have_high_state &&
         terrain_tick_plan_->usable_at(terrain_now_s) &&
-        terrain_now_lookup.valid)
+        terrain_now_lookup.valid;
+    const std::size_t terrain_k0 = terrain_plan_usable
+        ? terrain_now_lookup.knot : 0;
+    if (params_.terrain_actuation && have_high_state)
     {
-        const std::size_t terrain_k0 = terrain_now_lookup.knot;
         int required_mask = 0;
         int committed_mask = 0;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -1500,35 +1504,53 @@ bool TrotExperiment::BuildGaitTargets(
             const double leg_phase = go2_control::GaitLegPhase(
                 leg, phase, params_.gait_pattern);
             const bool in_swing = leg_phase >= stance_duration;
-            if (terrain_execution_target_valid_[leg])
-                required_mask |= 1 << static_cast<int>(leg);
-            if (!in_swing)
-            {
-                terrain_execution_in_flight_[leg] = false;
-                if (terrain_execution_target_valid_[leg])
-                {
-                    const bool measured = state_snapshot.foot_force()[leg] >=
-                        kContactForceThreshold;
-                    if (measured)
-                    {
-                        terrain_execution_measured_touchdown_[leg] = true;
-                        terrain_execution_last_touchdown_time_s_[leg] = terrain_now_s;
-                        committed_mask |= 1 << static_cast<int>(leg);
-                        if (!terrain_execution_completion_recorded_[leg])
-                        {
-                            terrain_execution_completion_recorded_[leg] = true;
-                            ++terrain_surface_transition_completions_;
-                        }
-                    }
-                }
-                continue;
-            }
+            const bool measured = state_snapshot.foot_force()[leg] >=
+                kContactForceThreshold;
+            const auto commitment = go2_trot::DecideTerrainCommitment(
+                in_swing, terrain_plan_usable, measured,
+                terrain_execution_target_valid_[leg],
+                terrain_execution_in_flight_[leg],
+                terrain_execution_completion_recorded_[leg]);
 
-            if (!terrain_execution_in_flight_[leg])
+            if (commitment.clear_latched_target)
             {
                 terrain_execution_target_valid_[leg] = false;
                 terrain_execution_measured_touchdown_[leg] = false;
                 terrain_execution_completion_recorded_[leg] = false;
+            }
+
+            if (!in_swing)
+            {
+                terrain_execution_in_flight_[leg] = false;
+                if (!commitment.hold_stance_target)
+                    continue;
+                if (measured)
+                {
+                    terrain_execution_measured_touchdown_[leg] = true;
+                    terrain_execution_last_touchdown_time_s_[leg] = terrain_now_s;
+                    committed_mask |= 1 << static_cast<int>(leg);
+                    if (commitment.completion)
+                    {
+                        terrain_execution_completion_recorded_[leg] = true;
+                        ++terrain_surface_transition_completions_;
+                    }
+                }
+                // Hold world height while retaining the current world X/Y
+                // trajectory. Copying only target_body.z is wrong under tilt.
+                go2::Vec3 stance_foot{};
+                if (!HoldTerrainWorldHeight(pose.base, pose.quaternion,
+                        feet[leg], terrain_execution_target_world_[leg].z,
+                        stance_foot)) return false;
+                feet[leg] = stance_foot;
+                terrain_execution_applied_mask_ |= 1 << static_cast<int>(leg);
+                required_mask |= 1 << static_cast<int>(leg);
+                continue;
+            }
+            // Preparation is the only operation gated by the current usable
+            // plan. A latched in-flight target is applied below even after
+            // the plan expires.
+            if (commitment.prepare_allowed)
+            {
                 const double minimum_touchdown_time_s = std::max(
                     terrain_now_s,
                     terrain_execution_last_touchdown_time_s_[leg] + 1.0e-6);
@@ -1558,7 +1580,8 @@ bool TrotExperiment::BuildGaitTargets(
                         ++terrain_target_prepared_;
                     }
                 }
-                if (!terrain_execution_target_valid_[leg] && has_planner_touchdown)
+                if (!terrain_execution_target_valid_[leg] &&
+                    has_planner_touchdown)
                 {
                     std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);
                     ++terrain_target_prepare_attempts_;
@@ -1603,6 +1626,7 @@ bool TrotExperiment::BuildGaitTargets(
                 target_lift, nominal_lift);
             feet[leg].z += extra_lift * go2_terrain::TerrainSwingProfile(
                 swing_u, 0.5);
+            terrain_execution_applied_mask_ |= 1 << static_cast<int>(leg);
             if (handoff_u > 1.0e-6 || extra_lift > 1.0e-6)
             {
                 std::lock_guard<std::mutex> lock(terrain_diagnostics_mutex_);

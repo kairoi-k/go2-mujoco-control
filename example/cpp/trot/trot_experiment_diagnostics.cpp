@@ -88,7 +88,7 @@ void TrotExperiment::WriteCsvHeader()
     if (params_.terrain_actuation)
     {
         csv_ << ",terrain_support_failure_knot,terrain_support_failure_contact_mask,terrain_support_failure_margin_m"
-         << ",terrain_execution_plan_id,terrain_execution_map_epoch,terrain_execution_plan_usable"
+         << ",terrain_execution_plan_id,terrain_execution_map_epoch,terrain_execution_plan_usable,terrain_execution_applied_mask"
          << ",terrain_execution_planned_contact_mask,terrain_transfer_hold_active"
          << ",terrain_surface_transition_active,terrain_surface_transition_required_mask"
          << ",terrain_surface_transition_committed_mask,terrain_surface_transition_completions"
@@ -874,6 +874,7 @@ void TrotExperiment::LogSample(
          << "," << terrain_execution_plan_id
          << "," << terrain_execution_map_epoch
          << "," << (terrain_execution_plan_usable ? 1 : 0)
+         << "," << terrain_execution_applied_mask_
          << "," << terrain_execution_planned_contact_mask
          << "," << 0
          << "," << (terrain_surface_transition_required_mask_ != 0 ? 1 : 0)

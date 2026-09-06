@@ -458,6 +458,7 @@ bool TrotExperiment::LowCmdWrite(
     const double motion_dt = MotionClockStep(state_snapshot, motion_clock_paused);
 
     terrain_tick_plan_.reset();
+    terrain_execution_applied_mask_ = 0;
     const bool terrain_consistency_shadow = Full2EnvDouble(
         "TROT_TERRAIN_EXECUTION_CONSISTENCY_SHADOW", 0.0) > 0.5;
     if (params_.terrain_enabled &&

@@ -113,6 +113,9 @@ go2_add_ctest(test_velocity_command)
 add_executable(test_terrain_swing_lift tests/test_terrain_swing_lift.cpp)
 target_link_libraries(test_terrain_swing_lift Eigen3::Eigen)
 
+add_executable(test_terrain_commitment_lifecycle
+    tests/test_terrain_commitment_lifecycle.cpp)
+
 add_executable(test_trot_task tests/test_trot_task.cpp trot/trot_task.cpp)
 
 add_executable(test_lean_route_guard
@@ -253,6 +256,7 @@ go2_add_ctest(test_motion_frame_utils)
 go2_add_ctest(test_trot_task)
 go2_add_ctest(test_velocity_filter)
 go2_add_ctest(test_terrain_swing_lift)
+go2_add_ctest(test_terrain_commitment_lifecycle)
 go2_add_ctest(test_contact_state_filter)
 go2_add_ctest(test_contact_wrench_allocator)
 go2_add_ctest(test_go2_leg_jacobian)

@@ -43,6 +43,23 @@ physical traversal acceptance is being versioned independently. Exact runtime
 provenance, failed runs, independent witnesses and the next research judgment
 are in [the B1 audit packet](docs/research/evidence/b1_research_audit_20260907/README.md).
 
+## Current development observation
+
+Clean runtime `8bd8eb2b55b40579871f1472fe686b7ca6d49010` physically crossed
+the centered 5 cm box after effective-lift repair: base X reached 11.600 m,
+all four legs supplied sustained exact top-surface force, and the controller
+completed normally. This is not a candidate: nonfoot collisions occurred during
+18.848--19.192 s and posture/WBC gates failed. Flat actuation also degraded
+posture relative to its same-SHA sensor-only control. See
+[the iteration packet](docs/research/evidence/b1_iteration_20260907/README.md).
+
+The next hypothesis preserves existing committed targets through plan expiry
+and holds their world height through stance. Future MPC commitment coverage,
+checked/executed swing shape and unplanned fallback remain unresolved. A new
+[physical evidence subclaim](docs/research/B1_PHYSICAL_EVIDENCE_V2.md) uses exact
+per-contact forces and a conservative full-robot collision-geometry rear bound;
+it does not substitute for campaign acceptance or a planner certificate.
+
 ## State
 
 - Canonical worktree: `/home/che/dev/go2-workspace/current`

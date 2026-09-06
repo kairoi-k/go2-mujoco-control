@@ -289,7 +289,8 @@ namespace
                  << ",reactive_obstacle_contact_other_geom_id"
                  << ",phase2_terrain_foot_contact_mask"
                  << ",phase2_terrain_nonfoot_contact_count"
-                 << ",phase2_terrain_nonfoot_contact_force_N";
+                 << ",phase2_terrain_nonfoot_contact_force_N"
+                 << ",robot_collision_rear_bound_world_x_m";
         for (const char *leg : kLegs)
         {
           stream_ << "," << leg << "_sensor_force_site_x_N"
@@ -654,7 +655,8 @@ namespace
               << "," << obstacle_contact_other_geom_id
               << "," << terrain_foot_contact_mask
               << "," << terrain_nonfoot_contact_count
-              << "," << terrain_nonfoot_contact_force_N;
+              << "," << terrain_nonfoot_contact_force_N
+              << "," << RobotCollisionRearBound(model, data, base_body_id_);
 
       for (std::size_t i = 0; i < kLegs.size(); ++i)
       {

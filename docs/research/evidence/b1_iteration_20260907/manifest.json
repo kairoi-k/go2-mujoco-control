@@ -1,0 +1,25 @@
+{
+  "schema": "b1-iteration-evidence-v1",
+  "candidate": false,
+  "runtime_sha": "8bd8eb2b55b40579871f1472fe686b7ca6d49010",
+  "next_hypothesis": "committed target lifecycle and world height; focused implementation tests only so far",
+  "source_sha256": {
+    "example/cpp/tools/analysis/analyze_b1_physical.py": "d836f95e515979a6f95695dbbd896237fdc404317fb2bfd4e1a8a9b6369a3d29",
+    "example/cpp/tools/analysis/test_analyze_b1_physical.py": "94ea9cec463c2dc9e885a5ac5e50e574e7eab8f97bcfadf92f55458887020173",
+    "docs/research/B1_PHYSICAL_EVIDENCE_V2.md": "bdaecb3973de5ec10c1c3ec02349830d2e8c1206417159aa891e3c8650bbccf6",
+    "example/cpp/trot/trot_experiment_gait.cpp": "0379529940240ff21323987bf0a287fbd8134a866760fb715a2868c0fa9bd04e",
+    "example/cpp/trot/terrain_commitment_lifecycle.h": "48f1e95e280a7e708ad3fcff873d6a4e8428c232c86d0d869a45f34169adc758",
+    "simulate/src/terrain_contact_audit.h": "1aab243e34b07965bb8902638e24ade468c60ced3a10671c72fe078c4260eb16",
+    "simulate/src/main.cc": "4d8776be78233b92ca741af88aa3ad77f5102693a3e1b5b6772d64100a1607cd",
+    "docs/research/PHASE2_ACCEPTANCE.md": "6d5895644fd0f471b6b09a4a920b0663855bf7a0a2b90c226220d3ef77b1c514",
+    "docs/research/PHASE2_HOLDOUT_MANIFEST.json": "2550526025594aa379441e1d7eb071c8809abeaf9234f6cf8a335f22288a5a40",
+    "example/cpp/tools/analyze_phase2_terrain.py": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873"
+  },
+  "curated_sha256": {
+    "commitment_audit.md": "c75d2eaef3ac6efff446770a10f7dc0d639a8b69c371903bc6d2ddbc27ea2b47",
+    "README.md": "655a6eb904164ce16a195293a5148e616016270c0b26a425fa609533a18f20e5",
+    "rejected_acceptance_draft.json": "eab97370b50da670d61a580b3231a98bc7dd4881e09d101067419907794a9619",
+    "schema_audit.md": "cf20ad5677c55c1a9d61f8ab5ec9f8d8a9509c938587366fa9916c29afd58dc3",
+    "lift_results.json": "f3a7d1d8fb1e77792843fc4da2282a81d6f86b45e833e01d35aebdd01387c12b"
+  }
+}

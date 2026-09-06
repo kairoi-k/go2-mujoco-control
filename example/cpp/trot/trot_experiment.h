@@ -513,6 +513,7 @@ private:
     std::uint64_t terrain_plan_published_count_ = 0;
     std::uint64_t terrain_plan_consumed_count_ = 0;
     std::uint64_t terrain_gait_target_override_count_ = 0;
+    int terrain_execution_applied_mask_ = 0;
     std::uint64_t terrain_mpc_update_count_ = 0;
     std::uint64_t terrain_mpc_plan_consumed_count_ = 0;
     std::uint64_t terrain_target_prepare_attempts_ = 0;

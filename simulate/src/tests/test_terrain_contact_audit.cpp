@@ -17,6 +17,9 @@ int main() {
     if (!m) { std::cerr << error; return 1; }
     mjData* d = mj_makeData(m); mj_forward(m, d);
     if (d->ncon != 1) return 2;
+    const double expected_rear = top ? -0.02 : 0.099;
+    if (std::abs(RobotCollisionRearBound(m, d, 1) - expected_rear) > 1e-9) return 7;
+    ++checks;
     const mjContact& c = d->contact[0];
     const int terrain = mj_name2id(m, mjOBJ_GEOM, "step");
     const int side = c.geom[0] == terrain ? 0 : 1;
