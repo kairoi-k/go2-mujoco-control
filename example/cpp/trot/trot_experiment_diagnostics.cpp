@@ -61,6 +61,8 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_terrain_execution_shadow_checked"
          << ",wbc_terrain_execution_snapshot_valid"
          << ",wbc_terrain_execution_shadow_rejection_code"
+         << ",wbc_terrain_execution_shadow_failure_reason"
+         << ",wbc_terrain_execution_shadow_failure_leg_mask"
          << ",wbc_terrain_execution_shadow_commitment_inherited_mask"
          << ",wbc_terrain_execution_shadow_event_count"
          << ",wbc_terrain_execution_shadow_plan_id"
@@ -832,6 +834,8 @@ void TrotExperiment::LogSample(
          << "," << (wbc_shadow_diagnostics_.terrain_execution_shadow_checked ? 1 : 0)
          << "," << (wbc_shadow_diagnostics_.terrain_execution_snapshot_valid ? 1 : 0)
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_failure_reason
+         << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_failure_leg_mask
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_commitment_inherited_mask
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_event_count
          << "," << wbc_shadow_diagnostics_.terrain_execution_shadow_plan_id

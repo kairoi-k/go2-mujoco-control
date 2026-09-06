@@ -287,6 +287,8 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_diagnostics_.terrain_execution_shadow_checked = false;
     wbc_shadow_diagnostics_.terrain_execution_snapshot_valid = false;
     wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code = 0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_failure_reason = 0;
+    wbc_shadow_diagnostics_.terrain_execution_shadow_failure_leg_mask = 0;
     wbc_shadow_diagnostics_.terrain_execution_shadow_commitment_inherited_mask = 0;
     wbc_shadow_diagnostics_.terrain_execution_shadow_event_count = 0;
     wbc_shadow_diagnostics_.terrain_execution_shadow_plan_id = 0;
@@ -316,6 +318,10 @@ void TrotExperiment::UpdateWbcFull(
         terrain_shadow_commitments_ = commitment_update.commitments;
         wbc_shadow_diagnostics_.terrain_execution_shadow_commitment_inherited_mask =
             commitment_update.inherited_mask;
+        wbc_shadow_diagnostics_.terrain_execution_shadow_failure_reason =
+            static_cast<int>(commitment_update.rejection_reason);
+        wbc_shadow_diagnostics_.terrain_execution_shadow_failure_leg_mask =
+            commitment_update.rejection_reason_leg_mask;
         if (!commitment_update.valid)
         {
             wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code = 3;
@@ -327,12 +333,20 @@ void TrotExperiment::UpdateWbcFull(
             const go2::Vec3 model_com_world{
                 dyn.com_world.x(), dyn.com_world.y(), dyn.com_world.z()};
             wbc_shadow_diagnostics_.terrain_execution_shadow_checked = true;
+            go2_terrain::TerrainExecutionShadowFailureReason shadow_failure =
+                go2_terrain::TerrainExecutionShadowFailureReason::kNone;
+            std::uint32_t shadow_failure_leg_mask = 0;
             wbc_shadow_diagnostics_.terrain_execution_snapshot_valid =
                 go2_terrain::BuildTerrainExecutionSnapshot(
                     shadow_plan, terrain_now_s, mpc_params.dt_s,
                     static_cast<std::size_t>(mpc_params.horizon),
                     model_com_world, measured_contact, true, qp_contact, true,
-                    terrain_shadow_commitments_, execution_snapshot);
+                    terrain_shadow_commitments_, execution_snapshot,
+                    &shadow_failure, &shadow_failure_leg_mask);
+            wbc_shadow_diagnostics_.terrain_execution_shadow_failure_reason =
+                static_cast<int>(shadow_failure);
+            wbc_shadow_diagnostics_.terrain_execution_shadow_failure_leg_mask =
+                shadow_failure_leg_mask;
             if (!wbc_shadow_diagnostics_.terrain_execution_snapshot_valid)
             {
                 wbc_shadow_diagnostics_.terrain_execution_shadow_rejection_code = 4;

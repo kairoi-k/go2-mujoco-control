@@ -101,12 +101,17 @@ int main()
         return 1;
 
     go2_terrain::TerrainPlanHorizonCoverage coverage;
+    go2_terrain::TerrainExecutionShadowFailureReason snapshot_failure;
+    std::uint32_t snapshot_failure_leg_mask = 0;
     if (!Check(!go2_terrain::TerrainPlanCoversMpcHorizon(
                    plan, 1.04, 0.03, 8, &coverage) && !coverage.valid,
                "MPC overrun was silently accepted") ||
         !Check(!go2_terrain::BuildTerrainExecutionSnapshot(
                    plan, 1.04, 0.03, 8, {0.05, 0.01, 0.33}, measured, true,
-                   applied, true, commitments, snapshot) && !snapshot.valid,
+                   applied, true, commitments, snapshot, &snapshot_failure,
+                   &snapshot_failure_leg_mask) && !snapshot.valid &&
+                   snapshot_failure ==
+                       go2_terrain::TerrainExecutionShadowFailureReason::kHorizonCoverage,
                "overrun fabricated a current foot and marked it valid"))
         return 1;
 
@@ -122,9 +127,15 @@ int main()
 
     auto wrong_target = inherited;
     wrong_target[0].target_world.x += 0.02;
+    snapshot_failure = go2_terrain::TerrainExecutionShadowFailureReason::kNone;
+    snapshot_failure_leg_mask = 0;
     if (!Check(!go2_terrain::BuildTerrainExecutionSnapshot(
                    plan, 1.0, 0.02, 6, {0.05, 0.01, 0.33}, measured, true,
-                   applied, true, wrong_target, snapshot),
+                   applied, true, wrong_target, snapshot, &snapshot_failure,
+                   &snapshot_failure_leg_mask) &&
+                   snapshot_failure ==
+                       go2_terrain::TerrainExecutionShadowFailureReason::kTargetEventMismatch &&
+                   (snapshot_failure_leg_mask & 1u) != 0,
                "commitment target mismatch was not rejected"))
         return 1;
 
@@ -150,9 +161,13 @@ int main()
 
     auto expired = plan;
     expired.valid_until_s = 1.05;
+    snapshot_failure = go2_terrain::TerrainExecutionShadowFailureReason::kNone;
     if (!Check(!go2_terrain::BuildTerrainExecutionSnapshot(
-                   expired, 1.0, 0.02, 6, {0.05, 0.01, 0.33}, measured, true,
-                   applied, true, commitments, snapshot),
+                   expired, 1.06, 0.02, 6, {0.05, 0.01, 0.33}, measured, true,
+                   applied, true, commitments, snapshot, &snapshot_failure,
+                   &snapshot_failure_leg_mask) &&
+                   snapshot_failure ==
+                       go2_terrain::TerrainExecutionShadowFailureReason::kPlanExpired,
                "expired plan was marked as a complete snapshot"))
         return 1;
 

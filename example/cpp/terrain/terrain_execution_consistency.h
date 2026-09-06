@@ -82,6 +82,51 @@ inline bool FiniteTerrainVec3(const go2::Vec3 &value)
 constexpr double kTerrainExecutionTimeToleranceS = 1.0e-6;
 constexpr double kTerrainExecutionTargetToleranceM = 1.0e-5;
 
+// A shadow rejection must identify the first fail-closed contract that
+// rejected the immutable consumer snapshot. These values are telemetry
+// provenance, not acceptance-policy overrides.
+enum class TerrainExecutionShadowFailureReason : std::uint8_t
+{
+    kNone = 0,
+    kPlanInvalid,
+    kPlanExpired,
+    kHorizonCoverage,
+    kCommitmentCoherence,
+    kTargetEventMismatch,
+    kModelComInvalid,
+    kMeasuredContactInvalid,
+    kAppliedContactInvalid,
+    kOtherSnapshotPrecondition,
+};
+
+inline const char *TerrainExecutionShadowFailureReasonName(
+    TerrainExecutionShadowFailureReason reason)
+{
+    switch (reason)
+    {
+    case TerrainExecutionShadowFailureReason::kPlanInvalid:
+        return "plan_invalid";
+    case TerrainExecutionShadowFailureReason::kPlanExpired:
+        return "plan_expired";
+    case TerrainExecutionShadowFailureReason::kHorizonCoverage:
+        return "horizon_coverage";
+    case TerrainExecutionShadowFailureReason::kCommitmentCoherence:
+        return "commitment_coherence";
+    case TerrainExecutionShadowFailureReason::kTargetEventMismatch:
+        return "target_event_mismatch";
+    case TerrainExecutionShadowFailureReason::kModelComInvalid:
+        return "model_com_invalid";
+    case TerrainExecutionShadowFailureReason::kMeasuredContactInvalid:
+        return "measured_contact_invalid";
+    case TerrainExecutionShadowFailureReason::kAppliedContactInvalid:
+        return "applied_contact_invalid";
+    case TerrainExecutionShadowFailureReason::kOtherSnapshotPrecondition:
+        return "other_snapshot_precondition";
+    default:
+        return "none";
+    }
+}
+
 inline bool TerrainTimeClose(double lhs, double rhs)
 {
     return std::isfinite(lhs) && std::isfinite(rhs) &&
@@ -197,16 +242,38 @@ inline bool TerrainExecutionCommitmentsCoherent(
     const TerrainMotionPlan &plan, double state_time_s,
     const std::array<TerrainExecutionCommitment, go2::kLegCount>
         &commitments,
-    std::array<bool, go2::kLegCount> *inherited = nullptr)
+    std::array<bool, go2::kLegCount> *inherited = nullptr,
+    TerrainExecutionShadowFailureReason *failure = nullptr,
+    std::uint32_t *failure_leg_mask = nullptr)
 {
     if (inherited != nullptr)
         inherited->fill(false);
-    if (!plan.valid() || !plan.usable_at(state_time_s))
+    if (failure != nullptr)
+        *failure = TerrainExecutionShadowFailureReason::kNone;
+    if (failure_leg_mask != nullptr)
+        *failure_leg_mask = 0;
+    const auto reject = [&](TerrainExecutionShadowFailureReason reason,
+                            std::uint32_t leg_mask = 0u) {
+        if (failure != nullptr)
+            *failure = reason;
+        if (failure_leg_mask != nullptr)
+            *failure_leg_mask = leg_mask;
         return false;
+    };
+    if (!plan.valid())
+        return reject(TerrainExecutionShadowFailureReason::kPlanInvalid);
+    if (!std::isfinite(state_time_s))
+        return reject(
+            TerrainExecutionShadowFailureReason::kOtherSnapshotPrecondition);
+    if (!plan.usable_at(state_time_s))
+        return reject(state_time_s > plan.valid_until_s
+                ? TerrainExecutionShadowFailureReason::kPlanExpired
+                : TerrainExecutionShadowFailureReason::kPlanInvalid);
     const double last_covered_time_s = plan.state_stamp_s +
         plan.knot_dt_s * static_cast<double>(plan.horizon_knots - 1);
     if (!std::isfinite(last_covered_time_s))
-        return false;
+        return reject(
+            TerrainExecutionShadowFailureReason::kOtherSnapshotPrecondition);
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         const auto &commitment = commitments[leg];
@@ -218,21 +285,30 @@ inline bool TerrainExecutionCommitmentsCoherent(
             commitment.target_time_s > plan.valid_until_s +
                 kTerrainExecutionTimeToleranceS ||
             !FiniteTerrainVec3(commitment.target_world))
-            return false;
+            return reject(
+                TerrainExecutionShadowFailureReason::kTargetEventMismatch,
+                1u << leg);
         if (!commitment.in_flight && commitment.measured_touchdown)
         {
             if (commitment.target_time_s > state_time_s +
                     kTerrainExecutionTimeToleranceS)
-                return false;
+                return reject(
+                    TerrainExecutionShadowFailureReason::kTargetEventMismatch,
+                    1u << leg);
             continue;
+
         }
         if (commitment.target_time_s < state_time_s -
                 kTerrainExecutionTimeToleranceS)
-            return false;
+            return reject(
+                TerrainExecutionShadowFailureReason::kTargetEventMismatch,
+                1u << leg);
         if (!TerrainPlanHasTouchdownEvent(
                 plan, leg, commitment.target_time_s,
                 commitment.target_world))
-            return false;
+            return reject(
+                TerrainExecutionShadowFailureReason::kTargetEventMismatch,
+                1u << leg);
         if (inherited != nullptr &&
             (commitment.source_plan_id != plan.plan_id ||
              commitment.source_plan_epoch != plan.plan_epoch))
@@ -240,7 +316,6 @@ inline bool TerrainExecutionCommitmentsCoherent(
     }
     return true;
 }
-
 struct TerrainExecutionCommitmentUpdate
 {
     bool checked = false;
@@ -248,6 +323,9 @@ struct TerrainExecutionCommitmentUpdate
     std::uint32_t inherited_mask = 0;
     std::uint32_t prepared_mask = 0;
     std::uint32_t rejected_mask = 0;
+    TerrainExecutionShadowFailureReason rejection_reason =
+        TerrainExecutionShadowFailureReason::kNone;
+    std::uint32_t rejection_reason_leg_mask = 0;
     std::array<TerrainExecutionCommitment, go2::kLegCount>
         commitments{};
 };
@@ -262,9 +340,26 @@ inline TerrainExecutionCommitmentUpdate AdvanceTerrainExecutionCommitments(
     TerrainExecutionCommitmentUpdate result;
     result.checked = true;
     result.commitments = previous;
-    if (!measured_contact_valid || !plan.valid() ||
-        !plan.usable_at(state_time_s))
+    if (!measured_contact_valid)
+    {
+        result.rejection_reason =
+            TerrainExecutionShadowFailureReason::kMeasuredContactInvalid;
         return result;
+    }
+    if (!plan.valid())
+    {
+        result.rejection_reason =
+            TerrainExecutionShadowFailureReason::kPlanInvalid;
+        return result;
+    }
+    if (!plan.usable_at(state_time_s))
+    {
+        result.rejection_reason = std::isfinite(state_time_s) &&
+                state_time_s > plan.valid_until_s
+            ? TerrainExecutionShadowFailureReason::kPlanExpired
+            : TerrainExecutionShadowFailureReason::kPlanInvalid;
+        return result;
+    }
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         const auto &old = previous[leg];
@@ -282,6 +377,9 @@ inline TerrainExecutionCommitmentUpdate AdvanceTerrainExecutionCommitments(
                         plan, leg, old.target_time_s, old.target_world))
                 {
                     result.rejected_mask |= 1u << leg;
+                    result.rejection_reason =
+                        TerrainExecutionShadowFailureReason::kTargetEventMismatch;
+                    result.rejection_reason_leg_mask |= 1u << leg;
                     result.commitments[leg] = {};
                     continue;
                 }
@@ -326,8 +424,14 @@ inline bool BuildTerrainExecutionSnapshot(
     bool applied_contact_valid,
     const std::array<TerrainExecutionCommitment, go2::kLegCount>
         &commitments,
-    TerrainExecutionSnapshot &snapshot)
+    TerrainExecutionSnapshot &snapshot,
+    TerrainExecutionShadowFailureReason *failure = nullptr,
+    std::uint32_t *failure_leg_mask = nullptr)
 {
+    if (failure != nullptr)
+        *failure = TerrainExecutionShadowFailureReason::kNone;
+    if (failure_leg_mask != nullptr)
+        *failure_leg_mask = 0;
     snapshot = TerrainExecutionSnapshot{};
     snapshot.state_time_s = state_time_s;
     snapshot.mpc_dt_s = mpc_dt_s;
@@ -340,22 +444,71 @@ inline bool BuildTerrainExecutionSnapshot(
     snapshot.measured_contact_valid = measured_contact_valid;
     snapshot.applied_contact_valid = applied_contact_valid;
     snapshot.committed_targets = commitments;
-    if (!plan.valid() || !FiniteTerrainVec3(model_com_world) ||
-        !measured_contact_valid || !applied_contact_valid ||
-        !TerrainExecutionCommitmentsCoherent(
-            plan, state_time_s, commitments, &snapshot.commitment_inherited))
+    if (!plan.valid())
+    {
+        if (failure != nullptr)
+            *failure = TerrainExecutionShadowFailureReason::kPlanInvalid;
         return false;
+    }
+    if (std::isfinite(state_time_s) && state_time_s > plan.valid_until_s)
+    {
+        if (failure != nullptr)
+            *failure = TerrainExecutionShadowFailureReason::kPlanExpired;
+        return false;
+    }
+    if (!FiniteTerrainVec3(model_com_world))
+    {
+        if (failure != nullptr)
+            *failure = TerrainExecutionShadowFailureReason::kModelComInvalid;
+        return false;
+    }
+    if (!measured_contact_valid)
+    {
+        if (failure != nullptr)
+            *failure = TerrainExecutionShadowFailureReason::kMeasuredContactInvalid;
+        return false;
+    }
+    if (!applied_contact_valid)
+    {
+        if (failure != nullptr)
+            *failure = TerrainExecutionShadowFailureReason::kAppliedContactInvalid;
+        return false;
+    }
+    TerrainExecutionShadowFailureReason commitment_failure =
+        TerrainExecutionShadowFailureReason::kNone;
+    std::uint32_t commitment_failure_leg_mask = 0;
+    if (!TerrainExecutionCommitmentsCoherent(
+            plan, state_time_s, commitments, &snapshot.commitment_inherited,
+            &commitment_failure, &commitment_failure_leg_mask))
+    {
+        if (failure != nullptr)
+            *failure = commitment_failure ==
+                    TerrainExecutionShadowFailureReason::kTargetEventMismatch
+                ? commitment_failure
+                : TerrainExecutionShadowFailureReason::kCommitmentCoherence;
+        if (failure_leg_mask != nullptr)
+            *failure_leg_mask = commitment_failure_leg_mask;
+        return false;
+    }
     TerrainPlanHorizonCoverage coverage;
     if (!TerrainPlanCoversMpcHorizon(
             plan, state_time_s, mpc_dt_s, mpc_horizon, &coverage))
+    {
+        if (failure != nullptr)
+            *failure = TerrainExecutionShadowFailureReason::kHorizonCoverage;
         return false;
+    }
     for (std::size_t k = 0; k < mpc_horizon; ++k)
     {
         const double sample_time_s = state_time_s +
             static_cast<double>(k) * mpc_dt_s;
         const auto lookup = TerrainPlanKnotAtTime(plan, sample_time_s);
         if (!lookup.valid)
+        {
+            if (failure != nullptr)
+                *failure = TerrainExecutionShadowFailureReason::kHorizonCoverage;
             return false;
+        }
         snapshot.sample_time_s[k] = sample_time_s;
         snapshot.planned_contact[k] =
             plan.contact_schedule.planned_contact[lookup.knot];
