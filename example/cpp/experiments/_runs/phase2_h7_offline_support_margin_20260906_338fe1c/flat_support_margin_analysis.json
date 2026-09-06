@@ -1,0 +1,44 @@
+{
+  "kind": "read_only_offline_support_margin_diagnostic",
+  "algorithm": "SupportMargin2D copied from terrain_planner.h; two-contact signed projection/line error and 3/4-contact signed convex-hull edge cross",
+  "analysis_git_commit": "338fe1ceee0c7b5c094c79081fe9493334db56dc",
+  "analysis_git_dirty": false,
+  "source_run": "phase2_b0_development_fixed_3mps_r0_20260906_123514_baseline",
+  "source_run_git_commit": "1f6adc1723b744265e74af17318dad4ee6f2ede9",
+  "source_run_git_dirty": false,
+  "source_csv": "/home/che/dev/go2-workspace/current/example/cpp/experiments/_runs/phase2_b0_development_fixed_3mps_r0_20260906_123514_baseline/contact_ground_truth.csv",
+  "source_csv_sha256": "898bada8a4925d566400d1daaad72bb8691ce140ae816a7839fdcb6b41bcefbf",
+  "criterion": {
+    "minimum_margin_m": 0.015,
+    "two_contact_line_half_width_m": 0.04
+  },
+  "contact_provenance": {
+    "source": "FR/FL/RR/RL touch force",
+    "threshold_N": 20.0,
+    "phase2_terrain_foot_contact_mask": "present but all zero; not used"
+  },
+  "body_point_provenance": {
+    "base": "base_pos_world_x/y_m",
+    "model_com": "subtree_com_world_x/y_m"
+  },
+  "rows_total": 39942,
+  "support_rows_ge_2": 18615,
+  "base_point": {
+    "pass": 12005,
+    "fail": 6610,
+    "pass_fraction": 0.6449100188020414,
+    "median_margin_m": 0.023524884834922204
+  },
+  "model_com": {
+    "pass": 12803,
+    "fail": 5812,
+    "pass_fraction": 0.6877786731130808,
+    "median_margin_m": 0.024941291185703877
+  },
+  "four_contact_subset": {
+    "rows": 3072,
+    "base_pass": 3072,
+    "model_com_pass": 3072
+  },
+  "interpretation": "Four-foot ground-truth support rows pass the unchanged 15 mm geometric criterion in this flat reference data. Two-contact rows are dynamic running-state diagnostics, not proof of stable-state safety or B1 acceptance. H5 selected foothold coordinates are absent and were not reconstructed."
+}

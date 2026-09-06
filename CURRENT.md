@@ -113,6 +113,26 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   a WBC plan, 84 collision rows, coherence 0.3358, and cycle-quality stop.
   The new horizon field recorded 2,104 in-range and 8,958 out-of-range rows.
   B1 remains unaccepted.
+- H7 offline/shadow planner-execution consistency repair is recorded at source SHA
+  338fe1ceee0c7b5c094c79081fe9493334db56dc; the old-version witness at
+  ff937daf1bd768225066406940a6c46cec30a256 failed because legacy horizon
+  overrun fabricated a valid current foot. Contract tests at
+  They also cover absolute-time horizon bounds, delayed consumption, 20/30 ms
+  mismatch, touchdown commitment lifetime, model-COM provenance, and separate
+  measured, planned, and applied contacts. Focused CTest is 5/5 PASS and
+  real_trot_go2 builds. The new path is env-gated by
+  TROT_TERRAIN_EXECUTION_CONSISTENCY_SHADOW and defaults off; it changes no
+  commands and no B1 run was made.
+- Read-only flat-reference support analysis is retained at
+  example/cpp/experiments/_runs/phase2_h7_offline_support_margin_20260906_338fe1c;
+  with the unchanged 15 mm criterion, 12,005/18,615 base-point rows passed
+  and 12,803/18,615 model-COM rows passed. The exact four-contact subset passed
+  3,072/3,072 for both. Two-contact rows are dynamic diagnostics, not proof of
+  stable-state safety; H5 selected foothold coordinates remain missing.
+- Remaining gaps are the fully populated worker model-COM snapshot, complete
+  Stage-C joint planning of body/CoM/contact promises, and shadow validation in
+  Atlas. B1 remains unaccepted; B0 evidence and all prior failure directories
+  are retained, with no threshold, contract, or acceptance-semantic change.
 - B1 5 cm is the active next milestone and remains not accepted. Production
   terrain actuation is still absent until the Stage C shadow gates pass; B2 10
   cm and B3 mixed/repeated terrain remain not started.

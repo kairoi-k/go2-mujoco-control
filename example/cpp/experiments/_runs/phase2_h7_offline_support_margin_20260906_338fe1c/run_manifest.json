@@ -1,0 +1,10 @@
+{
+  "type": "derived_offline_evidence",
+  "name": "phase2_h7_offline_support_margin_20260906_338fe1c",
+  "source_csv_sha256": "898bada8a4925d566400d1daaad72bb8691ce140ae816a7839fdcb6b41bcefbf",
+  "analysis_git_commit": "338fe1ceee0c7b5c094c79081fe9493334db56dc",
+  "source_run_git_commit": "1f6adc1723b744265e74af17318dad4ee6f2ede9",
+  "b1_run": false,
+  "functional_experiment": false,
+  "notes": "Read-only post hoc calculation; no actuator, threshold, acceptance, or contract change."
+}

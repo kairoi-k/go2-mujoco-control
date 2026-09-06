@@ -131,6 +131,26 @@ collisions, WBC coherence 0.3358, and a cycle-quality stop. No support-margin,
 contact, COM, parameter, threshold, or acceptance-semantic change was made;
 B1 remains unaccepted.
 
+## B1 H7 planner-execution consistency offline/shadow repair (2026-09-06)
+
+Diagnostic only; not accepted at source SHA 338fe1ceee0c7b5c094c79081fe9493334db56dc.
+The old-version targeted witness at ff937da failed because horizon overrun
+fabricated a valid current foot; contract tests begin at 8c02c2a.
+The integration at 338fe1ce now covers absolute-time horizon bounds, delayed
+consumption, 20/30 ms mismatch, touchdown commitment lifetime, model-COM
+provenance, and separate measured/planned/applied contacts. Focused CTest is
+5/5 PASS and real_trot_go2 builds. The new path is guarded by
+TROT_TERRAIN_EXECUTION_CONSISTENCY_SHADOW and defaults off; no B1 run was made.
+
+Read-only flat evidence is phase2_h7_offline_support_margin_20260906_338fe1c
+under example/cpp/experiments/_runs. With the unchanged 15 mm criterion,
+12,005/18,615 base-point rows and 12,803/18,615 model-COM rows passed; the
+exact four-contact subset passed 3,072/3,072 for both. Two-contact running
+rows are dynamic diagnostics, not proof of stable-state safety. H5 selected
+foothold coordinates are missing; remaining gaps are the complete worker COM
+snapshot, full Stage-C joint planning, and Atlas shadow validation; B1 remains
+unaccepted.
+
 **Stand-walk-lie sequencing + `--wbc-full` Raibert trot**, 2026-08-18 (`2b82dae`).
 
 | Item | Record |
