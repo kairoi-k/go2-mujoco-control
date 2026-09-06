@@ -125,3 +125,13 @@ Kine2Go / Genesis imitation, the seam JSON record, and the conditional-AMP negat
 **Result.** All three repeats passed. Median speeds were 3.2257–3.2353 m/s, continuous accepted windows were 61.342–61.630 s, roll/pitch P95 stayed below 3.081/2.563°, and stop-tail speed P95 was 0.003713–0.003905 m/s. This is a simulation-only `running-trot` result; it does not upgrade the historical slow-trot number into a hardware or natural-gait claim.
 
 **Evidence.** [`docs/validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md`](validation/SUSTAINED_RUNNING_3MPS_REVALIDATION_2026-08-24.md) and the retained protocol/acceptance document [`docs/SUSTAINED_RUNNING_3MPS_ACCEPTANCE_2026-08-22.md`](SUSTAINED_RUNNING_3MPS_ACCEPTANCE_2026-08-22.md). Raw `_runs/` are ignored and were not committed.
+
+
+## Stage C continuous core, 2026-09-06
+
+C0-02 reduced centroidal dynamics is an offline implementation result, not
+terrain-crossing acceptance. The containing commit and
+`research/evidence/stage_c_continuous_core/manifest.json` bind its source.
+The new evidence README records fixed-event dynamics, foundation audit
+corrections, independent residual/feasibility oracles, synthetic latency and
+remaining C0-03/integration gates. CURRENT.md owns current status.

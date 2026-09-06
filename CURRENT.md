@@ -282,7 +282,7 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   foothold coordinates were inferred. The legacy snapshot producer still
   gates force-backed anchor initialization on terrain actuation; the new typed
   adapter is a default-off preparation seam and is not claimed as an
-  integration repair. C0-02 currently stops at deterministic discrete joint
+  integration repair. That C0-02 foundation stopped at deterministic discrete joint
   search/oracle, typed event/candidate/failure/rollout/bundle interfaces, and
   test framework; no continuous COM/body/contact-force solver, terrain
   actuation, B1, or threshold/analyzer change was made. Evidence is
@@ -290,6 +290,24 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   is blocked by the absent `simulate/mujoco/include/mujoco/mujoco.h`; all 30
   available registered CTest targets pass, while the MuJoCo-dependent
   integration target is not counted.
+
+
+- Stage C C0-02 continuous dynamics core is implemented offline on
+  `feat/stage-c-joint-planner`, based on fetched `57dbd790de23107c870c5135e0fb18a8e57198b9`.
+  The containing commit and source hashes in
+  `docs/research/evidence/stage_c_continuous_core/manifest.json` identify the
+  tested source. It provides fixed-event COM/velocity/angular-momentum and
+  contact-force trajectories, exact constant-force centroidal integration,
+  deterministic SCP using existing DenseQP, independent original-model
+  verification, and sound separating infeasibility witnesses. Focused tests
+  pass 4/4, the core has 93 checks and external synthetic oracles pass 9/9.
+  This is a reduced dynamics certificate: no body pose, full geometry, torque,
+  execution or B0/B1 acceptance. The 15 mm geometric diagnostic and T13 aerial
+  conflict remain separate and unchanged. Evidence, formulation, latency,
+  audit corrections and limitations are in the packet README. It is ready
+  to begin C0-03 offline comparison, not to connect controller consumers.
+  Missing MuJoCo still blocks the full build/integration target. No new
+  terrain actuation, B0/B1 or threshold/analyzer/old-planner change occurred.
 
 ## Goal
 

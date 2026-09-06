@@ -30,7 +30,7 @@ inline PredictionCoverageCheck CheckPredictionIntervalCoverage(
     if (state_knots.empty() || required_end < required_start)
         return result;
     for (std::size_t i = 1; i < state_knots.size(); ++i)
-        if (state_knots[i] < state_knots[i - 1])
+        if (state_knots[i] <= state_knots[i - 1])
             return result;
     result.available_end = state_knots.back();
     result.covered = state_knots.front() <= required_start &&
@@ -201,7 +201,7 @@ public:
         std::vector<std::size_t> current(request.candidate_sets.size(), 0);
         bool budget_exhausted = false;
         bool saw_numerical_failure = false;
-        bool saw_other_failure = false;
+        JointPlannerFailure unresolved = JointPlannerFailure::kNone;
 
         std::function<void(std::size_t)> visit = [&](std::size_t event) {
             if (budget_exhausted)
@@ -221,8 +221,11 @@ public:
                 {
                     saw_numerical_failure = saw_numerical_failure ||
                         evaluation.failure == JointPlannerFailure::kNumericalFailure;
-                    saw_other_failure = saw_other_failure ||
-                        evaluation.failure != JointPlannerFailure::kNumericalFailure;
+                    if (evaluation.failure != JointPlannerFailure::kDynamicsInfeasible &&
+                        evaluation.failure != JointPlannerFailure::kNoFeasibleCandidateInSet &&
+                        unresolved == JointPlannerFailure::kNone)
+                        unresolved = evaluation.failure == JointPlannerFailure::kNone
+                            ? JointPlannerFailure::kNumericalFailure : evaluation.failure;
                     return;
                 }
                 if (!std::isfinite(evaluation.cost))
@@ -273,11 +276,12 @@ public:
         }
         if (!result.feasible)
         {
-            result.failure = saw_numerical_failure && !saw_other_failure
+            result.failure = saw_numerical_failure
                 ? JointPlannerFailure::kNumericalFailure
-                : JointPlannerFailure::kNoFeasibleCandidateInSet;
+                : (unresolved != JointPlannerFailure::kNone ? unresolved
+                    : JointPlannerFailure::kNoFeasibleCandidateInSet);
             result.witness = {result.failure, 0, -1,
-                              saw_numerical_failure && !saw_other_failure
+                              saw_numerical_failure
                                   ? "continuous_evaluation_failed"
                                   : "all_joint_combinations_rejected"};
         }
@@ -291,7 +295,9 @@ private:
 inline JointPlanResult ExhaustiveOracle(
     const JointPlanningRequest &request, const JointEvaluationFunction &evaluate)
 {
-    return DeterministicExhaustivePlanner{}.Plan(request, evaluate);
+    auto unbounded = request;
+    unbounded.input.budget.max_candidate_combinations = 0;
+    return DeterministicExhaustivePlanner{}.Plan(unbounded, evaluate);
 }
 
 } // namespace stage_c

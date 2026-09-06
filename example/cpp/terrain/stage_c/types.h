@@ -25,9 +25,12 @@ struct TimeNs
 
     static TimeNs FromSeconds(double seconds)
     {
-        if (!std::isfinite(seconds))
-            return {};
-        return {static_cast<std::int64_t>(std::llround(seconds * 1.0e9))};
+        const long double ns = static_cast<long double>(seconds) * 1.0e9L;
+        if (!std::isfinite(seconds) ||
+            ns >= static_cast<long double>(std::numeric_limits<std::int64_t>::max()) ||
+            ns <= static_cast<long double>(std::numeric_limits<std::int64_t>::min()))
+            return {std::numeric_limits<std::int64_t>::min()};
+        return {static_cast<std::int64_t>(std::round(ns))};
     }
 
     double seconds() const
@@ -131,7 +134,8 @@ inline MapCoverageState ClassifyMapCoverage(const MapObservation &map)
 {
     if (!map.metadata_valid || map.width == 0 || map.height == 0 ||
         map.total_cells == 0 || map.known_cells > map.total_cells ||
-        map.outside_cells > map.total_cells)
+        map.outside_cells > map.total_cells ||
+        map.known_cells > map.total_cells - map.outside_cells)
         return MapCoverageState::kMetadataUnavailable;
     if (map.known_cells == 0)
         return map.outside_cells == map.total_cells
@@ -272,6 +276,10 @@ struct TouchdownEventTable
         {
             const auto &event = events[i];
             if (event.id.schedule_epoch == 0 || event.id.sequence == 0 ||
+                static_cast<std::size_t>(event.id.leg) >= go2::kLegCount ||
+                !std::isfinite(event.target_world.value.x) ||
+                !std::isfinite(event.target_world.value.y) ||
+                !std::isfinite(event.target_world.value.z) ||
                 event.touchdown_time.value < 0 ||
                 event.contact_interval_end < event.touchdown_time ||
                 !event.target_world.valid ||
@@ -309,6 +317,7 @@ struct TouchdownEventTable
                 });
             if (it == proposal.events.end() || !it->committed ||
                 it->touchdown_time != old_event.touchdown_time ||
+                it->contact_interval_end != old_event.contact_interval_end ||
                 it->target_world.value.x != old_event.target_world.value.x ||
                 it->target_world.value.y != old_event.target_world.value.y ||
                 it->target_world.value.z != old_event.target_world.value.z)
@@ -375,12 +384,15 @@ enum class JointPlannerFailure : std::uint8_t
     kCoverageIncomplete,
     kCommitmentConflict,
     kDeadlineExceeded,
+    kDynamicsInfeasible,
 };
 
 inline const char *JointPlannerFailureName(JointPlannerFailure failure)
 {
     switch (failure)
     {
+    case JointPlannerFailure::kDynamicsInfeasible:
+        return "dynamics_infeasible";
     case JointPlannerFailure::kObservationUnavailable:
         return "observation_unavailable";
     case JointPlannerFailure::kInitialConditionConflict:
@@ -419,6 +431,9 @@ struct RolloutKnot
     TimeNs time{};
     go2::Vec3 com_world{};
     go2::Vec3 body_position_world{};
+    go2::Vec3 com_velocity_world{};
+    go2::Vec3 angular_momentum_world{};
+    bool body_pose_valid = false;
     std::array<double, 3> orientation_rpy{};
     int contact_mask = 0;
 };

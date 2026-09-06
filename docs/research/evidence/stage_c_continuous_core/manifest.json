@@ -1,0 +1,50 @@
+{
+  "base_remote_head": "57dbd790de23107c870c5135e0fb18a8e57198b9",
+  "source_identity": "containing Git commit, verified against these source SHA256 hashes after commit",
+  "scope": "offline synthetic continuous core only; measurements before commit; not B0/B1 acceptance",
+  "source_sha256": {
+    "example/cpp/CMakeLists.txt": "21d29cbb222ed2b83d83e516b740ef31ea8203be5d160cd3ad888dfdae7461cb",
+    "example/cpp/wbc/srbd_mpc.h": "68a40e8a1fa8011cc492b181b3c874a22b604adf611e2bfc7d39de223e35c4d1",
+    "example/cpp/wbc/dense_qp.h": "bde3c4132037c0c8873a65b0b33f32240b9fc97f13a45726f3af3c033d23df9f",
+    "example/cpp/wbc/inverse_dynamics_wbc.h": "73705961156b37f78f68536e2824eaa079cea4b8e5dd7786dcdcff953a22838f",
+    "example/cpp/terrain/terrain_model.h": "db89cf05c4e3afde4a0a9a7b71b003aa0000c6c22402d571785844b8ed1bbba4",
+    "example/cpp/terrain/terrain_planner.h": "8a70777a63a2ceb7f6d57480db30d314581a6720e2ce6cf759c9696f477bed6b",
+    "example/cpp/kinematics/go2_forward_kinematics.h": "f3eea71b234801ad681af4ea6abfce971f1759684ea8ed5655b3a084dcae4b8f",
+    "example/cpp/tests/test_stage_c_centroidal.cpp": "f958baf80b32277004c9c9974ede96e1e4d4aec2a15053bd98253206f6352956",
+    "example/cpp/tests/test_stage_c_foundations.cpp": "706010830db0d6d21246ca2c20ac80f0fd2c3477c85cf9f11597890407a312c7",
+    "example/cpp/tools/analysis/verify_stage_c_centroidal.py": "a221ddff5626df26ac7039ef52e01cdd47559c27217344a3b1ef9974c112f69a",
+    "example/cpp/terrain/stage_c/centroidal_internal.h": "445098798a751e5715732ec5fb04d7b5970afa0dd38d465d7357485a4c34d50b",
+    "example/cpp/terrain/stage_c/centroidal_subproblem.h": "4f3034fb1e9f900357f488d6e74da98c93601fbce1bb14de602641982382b020",
+    "example/cpp/terrain/stage_c/input_adapter.h": "faa7eef9a2e150ea50d30cf6c7919129923ea0dde889f6c548f440c3ec8061ca",
+    "example/cpp/terrain/stage_c/joint_planner.h": "9a53b8c3b42e05ea25bbe6c01dadbec60af5231b28bc7586a92f33da824d7e43",
+    "example/cpp/terrain/stage_c/types.h": "9eb88dc4efb31cfd8cbf5a1956ddfab2f5474b26a0b847ddb170c3bc97a814ed",
+    "example/cpp/terrain/stage_c/centroidal_subproblem.cpp": "629ac0cfa9eb451469ce36d65b0dde9fec758c0d4a0cbac05b7022c8dbd0cb50",
+    "example/cpp/terrain/stage_c/verify_centroidal.cpp": "d752b5e3a804357c7fe64d957eb6f9a0d034100029efbdf711c7ae9acd38f430"
+  },
+  "frozen_sha256": {
+    "docs/research/PHASE2_ACCEPTANCE.md": "6d5895644fd0f471b6b09a4a920b0663855bf7a0a2b90c226220d3ef77b1c514",
+    "docs/research/PHASE2_HOLDOUT_MANIFEST.json": "2550526025594aa379441e1d7eb071c8809abeaf9234f6cf8a335f22288a5a40",
+    "example/cpp/tools/analyze_phase2_terrain.py": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873"
+  },
+  "binary_sha256": "3abcdde34539b8ca12f9bc11845f64dd74b4117a4454e8739d1dcb40fbe44fbc",
+  "environment": {
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "compiler": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+    "cmake_build_type": "Release",
+    "cpu": "AMD Ryzen 7 9700X 8-Core Processor",
+    "new_affinity_or_priority": false
+  },
+  "benchmark": {
+    "warmups_per_case": 5,
+    "measured_calls_per_case": 100,
+    "timer": "steady_clock; full continuous core only",
+    "input_fixture_source": "example/cpp/tests/test_stage_c_centroidal.cpp"
+  },
+  "mujoCo_blocker": "simulate/mujoco/include/mujoco/mujoco.h absent; full_build.log",
+  "results_sha256": {
+    "synthetic_results.json": "edd621b45428061df2ac93c40fb7a8316ccf53129494d7d864dad1dabb4aa67a",
+    "full_build.log": "aa88c652fb6dc07cf82c01ecb4a467df0ff88fe7b02704dd9d5fca6881cd858f",
+    "independent_results.json": "6f1ed15efd8b9b0d5880cd40ca2d10eeaac8a5caf9e766031e87be1fee86d945",
+    "focused_tests.log": "025f372b7fdb1d7817689fc63b1fcdb695f43b3a324712af31e9ae7fbe134008"
+  }
+}

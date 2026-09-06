@@ -1,0 +1,55 @@
+Consolidate compiler generated dependencies of target stand_go2
+Consolidate compiler generated dependencies of target hold_pose_go2
+[  4%] Built target hold_pose_go2
+[  4%] Built target stand_go2
+Consolidate compiler generated dependencies of target single_leg_lift_go2
+Consolidate compiler generated dependencies of target track_lowcmd_lowstate_go2
+[  6%] Built target single_leg_lift_go2
+[  8%] Built target track_lowcmd_lowstate_go2
+[  9%] Building CXX object CMakeFiles/real_trot_go2.dir/trot/real_trot_go2.cpp.o
+Consolidate compiler generated dependencies of target real_leg_lift_go2
+[ 16%] Built target real_leg_lift_go2
+Consolidate compiler generated dependencies of target test_go2_inverse_kinematics
+[ 18%] Built target test_go2_inverse_kinematics
+Consolidate compiler generated dependencies of target test_raibert_footstep_planner
+[ 20%] Built target test_raibert_footstep_planner
+Consolidate compiler generated dependencies of target test_raibert_trot_kernel
+[ 22%] Built target test_raibert_trot_kernel
+Consolidate compiler generated dependencies of target test_cartesian_world_trot
+[ 24%] Built target test_cartesian_world_trot
+Consolidate compiler generated dependencies of target test_motion_frame_utils
+[ 26%] Built target test_motion_frame_utils
+Consolidate compiler generated dependencies of target test_velocity_filter
+[ 28%] Built target test_velocity_filter
+Consolidate compiler generated dependencies of target test_velocity_command
+[ 30%] Built target test_velocity_command
+Consolidate compiler generated dependencies of target test_trot_task
+[ 33%] Built target test_trot_task
+Consolidate compiler generated dependencies of target test_lean_route_guard
+[ 37%] Built target test_lean_route_guard
+Consolidate compiler generated dependencies of target test_contact_state_filter
+[ 39%] Built target test_contact_state_filter
+Consolidate compiler generated dependencies of target test_contact_fusion_fault_harness
+[ 41%] Built target test_contact_fusion_fault_harness
+Consolidate compiler generated dependencies of target test_contact_wrench_allocator
+[ 43%] Built target test_contact_wrench_allocator
+Consolidate compiler generated dependencies of target test_go2_leg_jacobian
+[ 44%] Built target test_go2_leg_jacobian
+Consolidate compiler generated dependencies of target test_contact_wrench_constraints
+[ 46%] Built target test_contact_wrench_constraints
+Consolidate compiler generated dependencies of target test_contact_torque_mapping
+[ 48%] Built target test_contact_torque_mapping
+Consolidate compiler generated dependencies of target test_projected_contact_wrench_allocator
+[ 50%] Built target test_projected_contact_wrench_allocator
+In file included from /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/trot/trot_experiment.h:34,
+                 from /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/trot/real_trot_go2.cpp:11:
+/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/kinematics/go2_rigid_body.h:15:10: fatal error: mujoco/mujoco.h: No such file or directory
+   15 | #include <mujoco/mujoco.h>
+      |          ^~~~~~~~~~~~~~~~~
+compilation terminated.
+Consolidate compiler generated dependencies of target test_contact_wrench_lexicographic_allocator
+gmake[2]: *** [CMakeFiles/real_trot_go2.dir/build.make:76: CMakeFiles/real_trot_go2.dir/trot/real_trot_go2.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:291: CMakeFiles/real_trot_go2.dir/all] Error 2
+gmake[1]: *** Waiting for unfinished jobs....
+[ 52%] Built target test_contact_wrench_lexicographic_allocator
+gmake: *** [Makefile:101: all] Error 2

@@ -257,3 +257,10 @@ go2_add_ctest(test_centroidal_wbc)
 go2_add_ctest(test_preview_footstep_horizon)
 go2_add_ctest(test_dense_qp)
 go2_add_ctest(test_contact_wrench_qp)
+
+# Offline Stage C core only; no controller dependency or actuation path.
+add_library(stage_c_centroidal STATIC terrain/stage_c/centroidal_subproblem.cpp terrain/stage_c/verify_centroidal.cpp)
+target_link_libraries(stage_c_centroidal PUBLIC Eigen3::Eigen unitree_sdk2)
+add_executable(test_stage_c_centroidal tests/test_stage_c_centroidal.cpp)
+target_link_libraries(test_stage_c_centroidal stage_c_centroidal unitree_sdk2)
+go2_add_ctest(test_stage_c_centroidal)
