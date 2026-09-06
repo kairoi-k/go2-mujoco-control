@@ -32,12 +32,17 @@
     "example/cpp/trot/trot_experiment_diagnostics.cpp": "fcb5aa740234f6f2c7b22005dec451c6151def0899e337dda3f9f4352fb1491e",
     "simulate/src/unitree_sdk2_bridge.h": "40ba73e53f04f827e26def5272df921c0b6ca0b76a866abd4aa24ec2fed0129b",
     "example/cpp/scripts/run_trot.sh": "a12767230af26b80a9e29a8d7ffe7fd1189455bfa9576467e1eb966befc4c93b",
-    "example/cpp/tools/analysis/audit_b1_approach_contact.py": "9c6945467d1216deb766c2ff81e6bb32c4b025a437e719f3c46fc144f2faaccf"
+    "example/cpp/tools/analysis/audit_b1_approach_contact.py": "9c6945467d1216deb766c2ff81e6bb32c4b025a437e719f3c46fc144f2faaccf",
+    "example/cpp/tools/analysis/audit_running_cycle_truth.py": "65950b32e0ffb063a320f808a6c7c48992ad1aa9e2f3a6308026cb51af39794e",
+    "example/cpp/tools/analysis/b1_dynamic_protocol.py": "8dc9d57ed275696bda7fbe4317b61ae486f648e5697a4d2eb3c5d70bfea1da5a",
+    "example/cpp/tools/analysis/test_b1_dynamic_protocol.py": "2919d39e26d483b55be68be0cf82d0b32d49a35e3ed8e960d5748e9a20f7f5a4",
+    "example/cpp/tools/analysis/analyze_b1_dynamic_v3.py": "b149c24bc2ab98203127ae72509288adc2b79fac5497155da1e63a2dbf07b0e1",
+    "example/cpp/tools/analysis/test_analyze_b1_dynamic_v3.py": "1c8a673c71fefd97a047290b692b49511956c51ebab2973ce7cd5b21d0316aa1"
   },
   "curated_sha256": {
     "hold_flat_failure.json": "a595844f460ab60a22c3b11b0091c22c290b62c66f13d76f516070a5357c46c4",
     "commitment_audit.md": "c75d2eaef3ac6efff446770a10f7dc0d639a8b69c371903bc6d2ddbc27ea2b47",
-    "README.md": "f95341442f3a4e0a32799e2e2347e2234c680e96a93cac62f3e40ba914ecb3a0",
+    "README.md": "4058922c4267611d55534d7fec0fd9ee0fcef9835b1bb2f590d9a0e7641605a5",
     "commitment_flat_failure.json": "8c33d7f78888852396c764e5339a33f231de5cef9e1ee2171b8245c57e2aea86",
     "rejected_acceptance_draft.json": "eab97370b50da670d61a580b3231a98bc7dd4881e09d101067419907794a9619",
     "audit_stance_ablation_dynamic.py": "eef36f710efe3a4b658895a94dcb2d7360fce9ed286247097d4e1bb3893ffd34",
