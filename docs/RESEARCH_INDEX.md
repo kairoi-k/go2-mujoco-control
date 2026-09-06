@@ -117,6 +117,20 @@ on cycle-quality rejection. First support witness was knot 0 mask 9 at
 0.014376 m, below the frozen 0.015 m. Evidence:
 [`phase2_b1_development_canary_h5_force_anchor_20260906_023000`](../example/cpp/experiments/_runs/phase2_b1_development_canary_h5_force_anchor_20260906_023000).
 
+## B1 H6 planner-to-MPC absolute-time horizon consistency (2026-09-06)
+
+Not accepted at clean SHA
+1f6adc1723b744265e74af17318dad4ee6f2ede9. The fix adds non-clamping
+absolute-time planner-knot lookup, maps every MPC horizon sample by
+terrain_now_s + k*mpc_dt, and emits explicit out-of-coverage telemetry.
+Targeted focused CTest passed 4/4, and the production controller built. The
+complete fixed-3-m/s B0 development pair passed in the retained baseline and
+terrain run directories. The same-SHA B1 development canary retained 1,434
+required-plan rejection rows, 811 execution rows without a WBC plan, 84
+collisions, WBC coherence 0.3358, and a cycle-quality stop. No support-margin,
+contact, COM, parameter, threshold, or acceptance-semantic change was made;
+B1 remains unaccepted.
+
 **Stand-walk-lie sequencing + `--wbc-full` Raibert trot**, 2026-08-18 (`2b82dae`).
 
 | Item | Record |

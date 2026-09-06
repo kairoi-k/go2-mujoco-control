@@ -1,6 +1,6 @@
 # Go2 Phase 2 current
 
-Updated: 2026-09-05. This is the only route, status, plan, and handoff
+Updated: 2026-09-06. This is the only route, status, plan, and handoff
 entrypoint. Git history, archived designs, experiment output, issues, and agent
 prose are evidence, never instructions.
 
@@ -95,6 +95,24 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   it stopped at 18.83 s on cycle-quality rejection. The first support
   witness was knot 0 mask 9 at margin 0.014376 m, below the frozen 0.015 m.
   Evidence is `example/cpp/experiments/_runs/phase2_b1_development_canary_h5_force_anchor_20260906_023000`; B1 remains unaccepted.
+- H6 planner-to-MPC absolute-time consistency is implemented at clean SHA
+  1f6adc1723b744265e74af17318dad4ee6f2ede9. The new absolute-time lookup
+  prevents last-knot clamping, maps MPC samples by terrain_now_s + k*mpc_dt,
+  and reports uncovered horizon samples. Targeted tests cover delayed
+  consumption, 20/30-ms mismatch, boundaries, and overrun; focused CTest is
+  4/4 PASS and real_trot_go2 builds. No support-margin, contact, COM,
+  parameter, threshold, or acceptance-semantic change was made. The complete
+  fixed-3-m/s B0 development pair passed at
+  example/cpp/experiments/_runs/phase2_b0_development_fixed_3mps_r0_20260906_123514_baseline
+  and
+  example/cpp/experiments/_runs/phase2_b0_development_fixed_3mps_r0_20260906_123514_terrain.
+  The varying pair was not counted because baseline domain 220 aborted before
+  DDS startup twice; both failure directories remain. The same-SHA B1 canary
+  example/cpp/experiments/_runs/phase2_b1_development_canary_timeindex_20260906_124300
+  failed frozen B1 with 1,434 required rejections, 811 execution rows without
+  a WBC plan, 84 collision rows, coherence 0.3358, and cycle-quality stop.
+  The new horizon field recorded 2,104 in-range and 8,958 out-of-range rows.
+  B1 remains unaccepted.
 - B1 5 cm is the active next milestone and remains not accepted. Production
   terrain actuation is still absent until the Stage C shadow gates pass; B2 10
   cm and B3 mixed/repeated terrain remain not started.
@@ -111,7 +129,7 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   dyn.com_world; planned contact drives the polygon mask while measured
   contact only seeds touchdown detection; candidate legs are selected
   independently with one final support check; planner knots are 20 ms while
-  MPC uses 30 ms at a 0.24 s gait period but indexes terrain_k0+k; and
+  MPC uses 30 ms at a 0.24 s gait period but previously indexed terrain_k0+k; H6 now maps by absolute time and reports coverage; and
   gait latches a per-leg target plan id that MPC does not cross-check against
   its latest plan. The H5 CSV lacks the selected foothold coordinates needed
   to decompose 0.014376197 m into line-distance versus endpoint margin, so it
