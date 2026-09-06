@@ -2,12 +2,12 @@
   "schema": "b1-iteration-evidence-v1",
   "candidate": false,
   "runtime_sha": "8bd8eb2b55b40579871f1472fe686b7ca6d49010",
-  "next_hypothesis": "committed target lifecycle and world height; focused implementation tests only so far",
+  "next_hypothesis": "canonical Phase1 stance-hold authority correction",
   "source_sha256": {
     "example/cpp/tools/analysis/analyze_b1_physical.py": "d836f95e515979a6f95695dbbd896237fdc404317fb2bfd4e1a8a9b6369a3d29",
     "example/cpp/tools/analysis/test_analyze_b1_physical.py": "94ea9cec463c2dc9e885a5ac5e50e574e7eab8f97bcfadf92f55458887020173",
     "docs/research/B1_PHYSICAL_EVIDENCE_V2.md": "bdaecb3973de5ec10c1c3ec02349830d2e8c1206417159aa891e3c8650bbccf6",
-    "example/cpp/trot/trot_experiment_gait.cpp": "0379529940240ff21323987bf0a287fbd8134a866760fb715a2868c0fa9bd04e",
+    "example/cpp/trot/trot_experiment_gait.cpp": "fbaed527109fc36b4dce5c9bb37efa67251fd4be1d2602808dda6a0dae4df73c",
     "example/cpp/trot/terrain_commitment_lifecycle.h": "48f1e95e280a7e708ad3fcff873d6a4e8428c232c86d0d869a45f34169adc758",
     "simulate/src/terrain_contact_audit.h": "1aab243e34b07965bb8902638e24ade468c60ced3a10671c72fe078c4260eb16",
     "simulate/src/main.cc": "4d8776be78233b92ca741af88aa3ad77f5102693a3e1b5b6772d64100a1607cd",
@@ -17,9 +17,12 @@
   },
   "curated_sha256": {
     "commitment_audit.md": "c75d2eaef3ac6efff446770a10f7dc0d639a8b69c371903bc6d2ddbc27ea2b47",
-    "README.md": "655a6eb904164ce16a195293a5148e616016270c0b26a425fa609533a18f20e5",
+    "README.md": "7637de7eb7bfb73e092fcaf32e73ac7d98c09bc77c353eca37a43ce2697a0cb5",
+    "commitment_flat_failure.json": "8c33d7f78888852396c764e5339a33f231de5cef9e1ee2171b8245c57e2aea86",
     "rejected_acceptance_draft.json": "eab97370b50da670d61a580b3231a98bc7dd4881e09d101067419907794a9619",
     "schema_audit.md": "cf20ad5677c55c1a9d61f8ab5ec9f8d8a9509c938587366fa9916c29afd58dc3",
     "lift_results.json": "f3a7d1d8fb1e77792843fc4da2282a81d6f86b45e833e01d35aebdd01387c12b"
-  }
+  },
+  "previous_implementation_sha": "fa84f5185cb52de8fa2ef62d28cf3809998be23a",
+  "implementation_tests": "37/37 at fa84f51, then focused 3/3 for hold correction"
 }

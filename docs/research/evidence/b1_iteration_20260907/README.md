@@ -83,3 +83,21 @@ commanded world X/Y and applies the desired world Z using the complete pose.
 The new physical analyzer has 10/10 bookkeeping tests, and the native controller
 suite has 37/37 tests. The rejected analyzer draft and corrected schema/clock
 audit are indexed beside this report. Original frozen reports are preserved.
+
+## Stance-hold authority correction
+
+fa84f5185cb52de8fa2ef62d28cf3809998be23a failed its flat development
+probe at gait_time=9.12001 with IK failure; no step canary was run. During the
+initial zero-command Phase-1 stance hold, cyclic phase had incorrectly caused
+terrain to prepare/apply targets for FL/RR (applied mask 6). Those latched world
+heights were -5.329 mm on a flat floor, while later FR/RL targets were +26.818 mm.
+The held old targets persisted and the last active base height reached 0.4103 m.
+This is direct evidence of an execution-authority mismatch; the cause of the
+initial map/world-height discrepancy is being audited separately.
+
+The next patch derives terrain swing status from the same canonical Phase-1
+stance-hold flag used by MPC/WBC. Hold means all four legs are in stance, so an
+otherwise usable cyclic plan cannot prepare fictitious swing targets. It does
+not add a local contact authority or alter the Phase-1 velocity command. The
+three relevant native tests pass. Failure logs now also include commanded foot
+positions, phase, duty, hold state and applied mask for the first IK failure.

@@ -1503,7 +1503,10 @@ bool TrotExperiment::BuildGaitTargets(
         {
             const double leg_phase = go2_control::GaitLegPhase(
                 leg, phase, params_.gait_pattern);
-            const bool in_swing = leg_phase >= stance_duration;
+            // Phase-1 stance hold is the same four-contact authority used
+            // by MPC/WBC. Frozen cyclic phase is not a real swing during hold.
+            const bool in_swing = !runtime_velocity_stance_hold_active_ &&
+                leg_phase >= stance_duration;
             const bool measured = state_snapshot.foot_force()[leg] >=
                 kContactForceThreshold;
             const auto commitment = go2_trot::DecideTerrainCommitment(
@@ -1670,6 +1673,14 @@ bool TrotExperiment::BuildGaitTargets(
         if (!go2::AllLegInverseKinematicsClamped(feet, joint_targets))
         {
             std::cerr << "Trot IK failed at gait_time=" << gait_time_s << "\n";
+            std::cerr << "Terrain IK context phase=" << phase
+                      << " duty=" << stance_duration
+                      << " hold=" << runtime_velocity_stance_hold_active_
+                      << " applied_mask=" << terrain_execution_applied_mask_;
+            for (std::size_t leg=0; leg<go2::kLegCount; ++leg)
+                std::cerr << " foot" << leg << "=(" << feet[leg].x << ","
+                          << feet[leg].y << "," << feet[leg].z << ")";
+            std::cerr << "\n";
             return false;
         }
     }

@@ -16,6 +16,12 @@ int main()
 {
     using go2_trot::DecideTerrainCommitment;
 
+    // During the canonical Phase-1 four-contact hold no leg is in swing:
+    // even an otherwise usable cyclic plan cannot prepare a touchdown.
+    const auto hold = DecideTerrainCommitment(false,true,true,false,false,false);
+    if (hold.prepare_allowed || hold.apply_swing_target || hold.hold_stance_target)
+        return 6;
+
     // Initial swing: a usable plan may prepare a new target.
     const auto initial = DecideTerrainCommitment(
         true, true, false, false, false, false);

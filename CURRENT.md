@@ -60,6 +60,11 @@ checked/executed swing shape and unplanned fallback remain unresolved. A new
 per-contact forces and a conservative full-robot collision-geometry rear bound;
 it does not substitute for campaign acceptance or a planner certificate.
 
+The fa84f51 commitment implementation then failed its flat regression before
+forward traversal: cyclic phase prepared terrain targets during the canonical
+four-contact stance hold. The current correction honors that Phase-1 hold flag;
+no B1 canary or candidate is attributed to fa84f51.
+
 ## State
 
 - Canonical worktree: `/home/che/dev/go2-workspace/current`
