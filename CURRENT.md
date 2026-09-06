@@ -222,6 +222,54 @@ Historical milestones and non-acceptance are indexed in [`docs/RESEARCH_HISTORY.
   is not a dynamic-stability measurement. Focused CTest remained 4/4 PASS;
   B1 stays unaccepted pending architecture-level consistency repair.
 
+- H9 H8 stable no-plan lifecycle attribution is complete from the clean
+  analysis head 39c6fbf12858088d7f496cf05b72c1820f23c10e, using the two
+  terrain-sensor-only shadow manifests at clean source
+  e6253fd0940724042d682fccc35b7cbaf1d89774:
+  [flat](example/cpp/experiments/_runs/phase2_h8_shadow_fixed_e6253fd_flat_lockstep)
+  and
+  [5 cm](example/cpp/experiments/_runs/phase2_h8_shadow_fixed_e6253fd_step5cm_lockstep).
+  Both manifests are clean, complete, lockstep shadow runs with terrain
+  actuation off; no new run or control-code change was made.
+- In stable locomotion, all 5,629 flat and 5,776 5-cm rows classified as
+  shadow failure reason 1 were true no-plan rows: the consumer plan pointer
+  was null, and the recorded plan state/valid-until fields were missing
+  (zero), never a valid plan rejected by the shadow checker. Every such row
+  had terrain_map_valid=1, terrain_model_com_valid=1, terrain_map_source=lidar,
+  terrain_plan_status=rejected, terrain_planner_deadline_misses=0, and
+  terrain_plan_contact_rejections=0. The terrain planner update counter
+  continued through stable motion (181 flat and 183 5-cm update events; event
+  gaps 0.002--0.102 s), so no-opportunity, missing TerrainModel/COM input,
+  and deadline are not supported as the direct cause.
+- The direct consumer lifecycle is expiry: flat has a 27-row initial gap
+  after the sixth publication, then the last valid plan 56 was generated at
+  4.986 s with valid_until=5.446 s; no-plan starts at 5.448 s while the
+  publication counter remains 17 and consumption remains 1,194. The 5-cm
+  run has a 29-row initial gap, then plan 47 at 4.650 s expires at 5.110 s;
+  no-plan starts at 5.112 s while publication remains 15 and consumption
+  remains 1,237. No separate arbitration-drop field exists; the observable
+  store path publishes only valid plans and retains the latest one until
+  expiry.
+- The upstream cause is planner infeasibility, not publication scheduling:
+  the latest planner snapshot is rejected for every stable no-plan row.
+  Failure 5 (support-infeasible) accounts for flat 4,105/5,629 (72.93%) and
+  5-cm 4,209/5,776 (72.87%); failure 4 (no-safe-foothold) accounts for
+  1,524/5,629 (27.07%) and 1,567/5,776 (27.13%). Stable planner events
+  independently show flat 128 support/42 no-safe/11 valid and 5-cm
+  130/44/9. Late no-safe rows have zero known cells and zero feasible regions
+  (flat 1,449; 5-cm 1,493), but the map/model readiness fields remain valid.
+- Candidate-per-leg summaries and support failure knot/contact-mask are
+  missing from these H8 CSVs; the row-level cause is therefore covered
+  100%, while the exact per-leg candidate witness is not fabricated. Source
+  confirms the old planner selects each touchdown independently and performs
+  one final whole-plan support check. This is the first information-bearing
+  Stage-C boundary: stop repairing the old planner and hand off a joint
+  foothold plus COM/body-trajectory planner, with absolute-time coverage,
+  measured/planned/applied contact provenance, and a shared execution
+  commitment snapshot as interface constraints. No threshold, contract,
+  support/COM/contact semantic, analyzer, terrain actuation, or B1
+  canary/holdout change was made.
+
 ## Goal
 
 Build sensor-derived dynamic locomotion that can grow into continuous,

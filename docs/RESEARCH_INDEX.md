@@ -241,6 +241,27 @@ decomposition by time, phase, plan/epoch, leg, and commitment state is in
 LowState/HighState command-invariance replay infrastructure is not present.
 No terrain actuation or B1 canary/holdout was run.
 
+## H9 H8 stable no-plan lifecycle attribution (2026-09-06)
+
+Diagnostic attribution is complete at analysis head
+39c6fbf12858088d7f496cf05b72c1820f23c10e, using clean-source
+e6253fd0940724042d682fccc35b7cbaf1d89774 manifests
+[flat](../example/cpp/experiments/_runs/phase2_h8_shadow_fixed_e6253fd_flat_lockstep)
+and
+[5 cm](../example/cpp/experiments/_runs/phase2_h8_shadow_fixed_e6253fd_step5cm_lockstep).
+The stable shadow no-plan rows are 5,629/5,629 and 5,776/5,776 direct
+consumer misses: the plan pointer is null after store expiry, not a checked
+plan rejected by the shadow gate. All rows have ready terrain map/model COM,
+rejected latest planner status, zero deadline misses, and continuing planner
+updates. The final valid plan expires at 5.446 s (flat, plan 56) and 5.110 s
+(5 cm, plan 47), after which publication and consumption plateau at 17/1,194
+and 15/1,237. The latest planner rejection is support-infeasible in 4,105
+flat and 4,209 5-cm rows, and no-safe-foothold in 1,524 and 1,567 rows:
+72.9%/27.1% in both scenes. Per-leg candidate and support-knot/mask fields
+are missing. The evidence supports stopping the old per-leg planner and
+starting Stage-C joint foothold plus COM/body-trajectory design; no threshold,
+contract, semantic, actuation, or B1 change was made.
+
 ## Evidence policy
 
 Keep artifacts needed to understand the controller. Bulk logs and generated
