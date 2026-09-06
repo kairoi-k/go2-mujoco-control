@@ -17,17 +17,17 @@
     "unitree_robots/go2/phase2_step_5cm.xml": "ab2106afe65c86827aae02158e3b35b5ebb61e2b14d3665ddbd7c971e7573b0e"
   },
   "flat_run_artifacts_sha256": {
-    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\contact_ground_truth.csv": "95d80f77ac718c0ae981f3cdcf80b55a96d012d5c35ae5d9d24fdc1ff603b308",
-    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\contact_ground_truth_analysis.txt": "e7b6f4b683a9c52d5cc3f686d52b6347598cd65573bc742b9b41c759a0a53a87",
-    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\contact_ground_truth_dynamics_analysis.txt": "8d4fd01a8ff23995481b02ae66317fed04dc15fd6c5d4beed216f6863f8ef081",
-    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\controller.log": "6167e801aa6e1188fb4397522243b2a89966fbcdfc3bfe8ce26b2dd00cb55c25",
-    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\data.csv": "32d4dd6e6af6f297d9152e938b87e690ca9a10f29cd9668ac1523650a562083e",
-    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\environment.txt": "e58ef4d783c73849d6ad99764e06fbe1d092194385c759a971477ec3cafc695e",
-    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\phase1_quantitative.json": "629a185b942ed2e8bbfa5ae90278ddbc35aa458eb026f4614f3cab6832456065",
-    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\run_manifest.json": "ac0e4db381e671e9ec04375977529a1038f8407dd8186f1085317ca669475032",
-    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\run_metadata.txt": "7126560e27ec558604441a266ae2474fe63ebff63ae723ecf95988e194d5f11f",
-    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\simulator.log": "d53566f35ca4ceae3ba8479ade9f0c7c26bd6ba945a79f823a527137015ea0dc",
-    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_terrain\\wallclock_runtime_telemetry.csv": "65691a4d883089fc80aa6274f3defa3277896999614cf86a80e9492a37a1be1b"
+    "example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260907_000505_terrain/contact_ground_truth.csv": "95d80f77ac718c0ae981f3cdcf80b55a96d012d5c35ae5d9d24fdc1ff603b308",
+    "example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260907_000505_terrain/contact_ground_truth_analysis.txt": "e7b6f4b683a9c52d5cc3f686d52b6347598cd65573bc742b9b41c759a0a53a87",
+    "example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260907_000505_terrain/contact_ground_truth_dynamics_analysis.txt": "8d4fd01a8ff23995481b02ae66317fed04dc15fd6c5d4beed216f6863f8ef081",
+    "example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260907_000505_terrain/controller.log": "6167e801aa6e1188fb4397522243b2a89966fbcdfc3bfe8ce26b2dd00cb55c25",
+    "example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260907_000505_terrain/data.csv": "32d4dd6e6af6f297d9152e938b87e690ca9a10f29cd9668ac1523650a562083e",
+    "example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260907_000505_terrain/environment.txt": "e58ef4d783c73849d6ad99764e06fbe1d092194385c759a971477ec3cafc695e",
+    "example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260907_000505_terrain/phase1_quantitative.json": "629a185b942ed2e8bbfa5ae90278ddbc35aa458eb026f4614f3cab6832456065",
+    "example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260907_000505_terrain/run_manifest.json": "ac0e4db381e671e9ec04375977529a1038f8407dd8186f1085317ca669475032",
+    "example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260907_000505_terrain/run_metadata.txt": "7126560e27ec558604441a266ae2474fe63ebff63ae723ecf95988e194d5f11f",
+    "example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260907_000505_terrain/simulator.log": "d53566f35ca4ceae3ba8479ade9f0c7c26bd6ba945a79f823a527137015ea0dc",
+    "example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260907_000505_terrain/wallclock_runtime_telemetry.csv": "65691a4d883089fc80aa6274f3defa3277896999614cf86a80e9492a37a1be1b"
   },
   "audit_source_sha256": {
     "example/cpp/tools/analysis/audit_phase1_settling.py": "1c653c44d6b66afc90bdcebed7f8477eb09901d6f2620f9635cf9c33fe35f109",
@@ -51,9 +51,9 @@
     "windows_udp_exclusions.txt": "3e87b99b0c3d4d4b63a326a59e9bdb819ebffee0c80e7b9c4490624af2ef0c71"
   },
   "additional_raw_sha256": {
-    "example\\cpp\\experiments\\_runs\\wsl_exec_recovery_20260906_2348\\windows_udp_exclusions_at_closeout.txt": "2b9905bda6de62f0ee8ade666d4448dfee5c0a122dbd77a00397e0a7ac4becb0",
-    "example\\cpp\\experiments\\_runs\\phase2_b0_development_steps_r0_20260907_000505_baseline\\simulator.log": "58320eee1887c5f11e307f9a45b5e6e387d8903bda08a772d1f2f117a63f8fb4",
-    "example\\cpp\\experiments\\_runs\\b1_research_baseline_5cbc547_20260907_0001_runtime_analysis_20260907\\baseline_first_anomalies.txt": "f9599468477b4c45844e4a7dde3adb572bdde304875b82c3f2e54371ebe7fbdd"
+    "example/cpp/experiments/_runs/wsl_exec_recovery_20260906_2348/windows_udp_exclusions_at_closeout.txt": "2b9905bda6de62f0ee8ade666d4448dfee5c0a122dbd77a00397e0a7ac4becb0",
+    "example/cpp/experiments/_runs/phase2_b0_development_steps_r0_20260907_000505_baseline/simulator.log": "58320eee1887c5f11e307f9a45b5e6e387d8903bda08a772d1f2f117a63f8fb4",
+    "example/cpp/experiments/_runs/b1_research_baseline_5cbc547_20260907_0001_runtime_analysis_20260907/baseline_first_anomalies.txt": "f9599468477b4c45844e4a7dde3adb572bdde304875b82c3f2e54371ebe7fbdd"
   },
   "curated_text_format": "UTF-8 LF, trailing whitespace normalized; original raw artifact hashes retained"
 }
