@@ -167,6 +167,16 @@ int main()
                     {{2, 0, -1, -1}});
         auto request = Request(problem);
         request.initial_velocity_world[1] = {0.05, 0.0, 0.0};
+        auto prefix_problem=problem;
+        prefix_problem.schedule.back().end=T(1.40);
+        for(auto &surfaces:prefix_problem.candidate_surfaces)
+            for(auto &surface:surfaces)surface.valid_until=T(1.40);
+        auto prefix_request=request;prefix_request.problem=&prefix_problem;prefix_request.end=T(1.40);
+        Check(!SampleFootTrajectoryAt(prefix_request,T(1.39)).valid,"legacy full contact lifetime remains strict");
+        prefix_request.allow_surface_contact_tail_beyond_horizon=true;
+        Check(SampleFootTrajectoryAt(prefix_request,T(1.39)).valid,"covered feedback prefix accepted");
+        prefix_problem.candidate_surfaces[2][0].valid_until=T(1.34);
+        Check(!SampleFootTrajectoryAt(prefix_request,T(1.39)).valid,"uncovered touchdown rejected");
         const std::vector<TimeNs> times{
             T(1.0), T(1.05), T(1.08), T(1.10), T(1.15), T(1.20),
             T(1.25), T(1.30), T(1.35), T(1.40), T(1.49)};

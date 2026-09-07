@@ -36,6 +36,10 @@ struct FootTrajectoryRequest
     std::array<bool, go2::kLegCount> initial_velocity_valid{};
     std::array<FootSwingContinuation, go2::kLegCount> continuation{};
     double swing_clearance_m = 0.0;
+    // A feedback prefix only needs stance surface coverage through its end.
+    // Future swing targets still require coverage through touchdown. Default
+    // preserves the historical full contact-lifetime contract.
+    bool allow_surface_contact_tail_beyond_horizon = false;
 };
 struct FootTrajectorySample
 {
@@ -408,9 +412,12 @@ inline JointPlannerFailure Prepare(
             problem, index, candidate_index, surface);
         if (surface_failure != JointPlannerFailure::kNone)
             return surface_failure;
+        const TimeNs surface_end = request.allow_surface_contact_tail_beyond_horizon
+            ? std::min(event.contact_interval_end,
+                       std::max(request.end,event.touchdown_time))
+            : event.contact_interval_end;
         if (surface == nullptr ||
-            !ValidSurface(*surface, input.identity.map_epoch,
-                          event.contact_interval_end))
+            !ValidSurface(*surface, input.identity.map_epoch, surface_end))
             return JointPlannerFailure::kCoverageIncomplete;
         const Eigen::Vector3d normal = surface->basis_world.col(2);
         const Eigen::Vector3d target = ToEigen(candidate.target_world.value) +

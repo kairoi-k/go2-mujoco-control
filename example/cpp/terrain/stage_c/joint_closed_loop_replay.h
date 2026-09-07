@@ -1003,6 +1003,7 @@ inline bool BuildFootReplayRequest(
     request.start = problem.request.input.identity.source_state_time;
     request.end = end;
     request.swing_clearance_m = config.swing_clearance_m;
+    request.allow_surface_contact_tail_beyond_horizon = true;
     const auto *source_interval = FindSchedule(problem, request.start);
     if (source_interval == nullptr)
     {
@@ -1627,7 +1628,9 @@ inline JointClosedLoopReplayResult RunJointClosedLoopReplay(
                 proposal.selected_result, time, actual, config, desired, weights,
                 planned_force, planned_state, failure))
         {
-            row.status = failure.empty() ? "reference_unavailable" : failure;
+            row.status = !feet_result.valid
+                ? std::string("foot_reference_")+JointPlannerFailureName(feet_result.failure)
+                : (failure.empty() ? "reference_unavailable" : failure);
             FillReplayRowState(row, step, source_time_s, state, actual,
                                observation, recorded_source_measured_mask, nominal, &feet,
                                nullptr, nullptr, nullptr, nullptr, nullptr);

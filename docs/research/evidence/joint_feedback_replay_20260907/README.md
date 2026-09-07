@@ -67,3 +67,13 @@ q/dq, physical rotation and body velocities remain unprojected. This third
 preflight failure triggered review: remove duplicated stricter representation
 contracts rather than treating adapter defects as plant failure or tuning
 dynamics. The focused test now includes a float-rounded quaternion.
+
+Fourth exact45c36e4 attempt has one retained initial observation and no
+applied step: foot references are unavailable. Source inspection identifies
+another contract mismatch: candidate surfaces cover the280ms dynamics horizon,
+while the foot sampler requires the full contact end beyond it. The opt-in
+feedback prefix now requires surface coverage through min(contact_end,
+max(replay_end,touchdown)); it does not modify event lifetimes or unknown
+coverage. Legacy defaults remain strict. Independent fixtures cover both
+contracts and reject missing touchdown coverage. Runtime next checks whether
+this resolves the actual rejection; this cause is not yet physically tested.
