@@ -179,8 +179,44 @@ int main()
                     {{-1, 0, -1, -1}});
         AddInterval(problem, 1.35, 1.50, {{true, true, true, true}},
                     {{2, 0, -1, -1}});
+        // Independent full-curve versus re-seeded tail equivalence, including
+        // early ascent, apex and descent on a non-axis-aligned normal.
+        {
+            foot_trajectory_detail::PreparedEvent full;
+            full.liftoff=T(0);full.interpolation_start=T(0);full.touchdown=T(1);
+            full.p0=Eigen::Vector3d(.1,-.2,.3);full.p1=Eigen::Vector3d(.4,.1,.2);
+            full.v0=Eigen::Vector3d(.2,.1,0);full.normal=Eigen::Vector3d(.2,0,1).normalized();
+            for(double phase : {.05,.5,.9}) {
+                auto tail=full;Eigen::Vector3d a;
+                foot_trajectory_detail::EvaluateSwing(full,T(phase),.03,tail.p0,tail.v0,a);
+                tail.interpolation_start=T(phase);
+                const double remaining=1-phase;
+                for(int step=0;step<=20;++step) {
+                    const auto time=T(phase+remaining*step/20.);
+                    Eigen::Vector3d p1,v1,a1,p2,v2,a2;
+                    foot_trajectory_detail::EvaluateSwing(full,time,.03,p1,v1,a1);
+                    foot_trajectory_detail::EvaluateSwing(tail,time,.03*std::pow(remaining,4),p2,v2,a2);
+                    Check((p1-p2).norm()<1e-10 && (v1-v2).norm()<1e-9 && (a1-a2).norm()<1e-8,
+                          "phase-preserving tail exactly retains full position velocity acceleration");
+                }
+            }
+        }
         auto request = Request(problem);
         request.initial_velocity_world[1] = {0.05, 0.0, 0.0};
+        {
+            auto phase_request=request;phase_request.preserve_inflight_clearance_phase=true;
+            phase_request.add_clearance_to_inflight_continuation=false;
+            foot_trajectory_detail::PreparedTrajectory prepared;
+            Check(foot_trajectory_detail::Prepare(phase_request,prepared)==JointPlannerFailure::kNone,
+                  "phase-preserving request prepares through production seam");
+            bool checked=false;
+            for(const auto &event:prepared.events)if(event.starts_in_flight) {
+                Check(std::abs(event.inflight_clearance_m-.03*std::pow(.08/.18,4))<1e-12,
+                      "original absolute event duration sets remaining amplitude");checked=true;
+            }
+            Check(checked,"in-flight amplitude fixture actually exercised");
+        }
+
         { auto continued=request;continued.add_clearance_to_inflight_continuation=false;
         const auto original_start=SampleFootTrajectoryAt(request,T(1.0));
         const auto continued_start=SampleFootTrajectoryAt(continued,T(1.0));

@@ -72,6 +72,11 @@ struct FootTrajectoryRequest
     // A measured-state continuation may already be descending after apex.
     // Disable a new extra bump without altering its p/v or touchdown time.
     bool add_clearance_to_inflight_continuation = true;
+    // Opt-in phase-preserving continuation for a measured in-flight swing.
+    // The source p/v seed is kept and the residual quartic bump is scaled by
+    // the fourth power of the remaining original swing phase. This option
+    // takes precedence over add_clearance_to_inflight_continuation.
+    bool preserve_inflight_clearance_phase = false;
     // A feedback prefix only needs stance surface coverage through its end.
     // Future swing targets still require coverage through touchdown. Default
     // preserves the historical full contact-lifetime contract.
@@ -112,6 +117,9 @@ struct PreparedEvent
     TimeNs contact_end{};
     TimeNs interpolation_start{};
     TimeNs target_source_time{};
+    // Residual clearance coefficient for a phase-preserving initial
+    // in-flight continuation.
+    double inflight_clearance_m = 0.0;
     Eigen::Vector3d p0 = Eigen::Vector3d::Zero();
     Eigen::Vector3d surface_point = Eigen::Vector3d::Zero();
     Eigen::Vector3d p1 = Eigen::Vector3d::Zero();
@@ -121,6 +129,7 @@ struct PreparedEvent
 };
 struct PreparedTrajectory
 {
+    bool preserve_inflight_clearance_phase = false;
     TimeNs start{};
     TimeNs end{};
     // Source provenance for generated initial references. For the default path
@@ -429,6 +438,8 @@ inline JointPlannerFailure Prepare(
          request.commanded_stance_settling_duration_s <= 0.0 ||
          request.commanded_stance_settling_duration_s > 0.020))
         return JointPlannerFailure::kInitialConditionConflict;
+    prepared.preserve_inflight_clearance_phase =
+        request.preserve_inflight_clearance_phase;
     if (has_commanded_boundary &&
         !request.commanded_initial.valid_for(request.start))
         return JointPlannerFailure::kObservationUnavailable;
@@ -700,6 +711,11 @@ inline JointPlannerFailure Prepare(
                 return JointPlannerFailure::kInvalidInput;
             event.starts_in_flight = event.liftoff < request.start &&
                 request.start < event.touchdown;
+            if (event.starts_in_flight && prepared.preserve_inflight_clearance_phase) {
+                const double fraction=static_cast<double>(event.touchdown.value-request.start.value)/
+                    static_cast<double>(event.touchdown.value-event.liftoff.value);
+                event.inflight_clearance_m=prepared.clearance_m*fraction*fraction*fraction*fraction;
+            }
             if (event.touchdown <= request.start)
             {
                 event.interpolation_start = request.start;
@@ -806,8 +822,16 @@ inline FootTrajectorySample SamplePrepared(
                 break;
             if (time < event.touchdown)
             {
-                EvaluateSwing(event, time, event.starts_in_flight && !prepared.add_clearance_to_inflight_continuation ? 0.0 : prepared.clearance_m, position,
-                              velocity, acceleration);
+                double clearance_m = prepared.clearance_m;
+                if (event.starts_in_flight)
+                {
+                    if (prepared.preserve_inflight_clearance_phase)
+                        clearance_m = event.inflight_clearance_m;
+                    else if (!prepared.add_clearance_to_inflight_continuation)
+                        clearance_m = 0.0;
+                }
+                EvaluateSwing(event, time, clearance_m, position, velocity,
+                              acceleration);
                 done = true;
                 break;
             }

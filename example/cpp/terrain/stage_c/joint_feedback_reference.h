@@ -137,6 +137,7 @@ struct ClosedLoopResearchConfig
     // This replaces independent attitude PD; it is not attitude stability.
     bool coherent_body_acceleration = false;
     bool coherent_attitude_feedback = false;
+    bool preserve_inflight_clearance_phase = false;
     double swing_clearance_m = 0.03;
     double com_kp_xy = 18.0;
     double com_kp_z = 24.0;
@@ -293,6 +294,7 @@ inline bool BuildFootReplayRequest(
     request.swing_clearance_m = config.swing_clearance_m;
     request.allow_surface_contact_tail_beyond_horizon = true;
     request.add_clearance_to_inflight_continuation = false;
+    request.preserve_inflight_clearance_phase = config.preserve_inflight_clearance_phase;
     const auto *source_interval = FindSchedule(problem, request.start);
     if (source_interval == nullptr)
     {

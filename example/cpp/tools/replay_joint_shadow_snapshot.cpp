@@ -304,7 +304,8 @@ int main(int argc,char**argv){try {
  const bool roundtrip=argc==3 && std::string(argv[2])=="--roundtrip";
  const bool terminal_audit=argc==5 && std::string(argv[2])=="--articulated-tail-audit";
  const bool swing_audit=argc==3 && std::string(argv[2])=="--swing-audit";
- const bool articulated_audit=argc==3 && std::string(argv[2])=="--articulated-audit";
+ const bool phase_audit=argc==3 && std::string(argv[2])=="--articulated-phase-audit";
+ const bool articulated_audit=phase_audit || (argc==3 && std::string(argv[2])=="--articulated-audit");
  const bool attitude_loop=argc==5 && std::string(argv[2])=="--closed-loop-coherent-attitude";
  const bool coherent_loop=attitude_loop || (argc==5 && std::string(argv[2])=="--closed-loop-coherent");
  const bool closed_loop=argc==5 && (std::string(argv[2])=="--closed-loop" || coherent_loop);
@@ -362,7 +363,9 @@ int main(int argc,char**argv){try {
  if(articulated_audit || terminal_audit){
   using namespace go2_terrain::stage_c;
   std::string proposal_failure;
-  const auto proposal=shadow.BuildExecutionProposal(proposal_failure);
+  joint_feedback_reference::ClosedLoopResearchConfig foot_config;
+  foot_config.preserve_inflight_clearance_phase=phase_audit;
+  const auto proposal=shadow.BuildExecutionProposal(proposal_failure,foot_config);
   if(!proposal){articulated_audit_detail::PrintAudit(state,input.state_stamp_s,proposal,proposal_failure,nullptr);return 2;}
   const auto &selected_problem=proposal->selected->selected_problem;
   const auto runtime_coverage=articulated_audit_detail::CheckFootCoverage(proposal->foot_request);
