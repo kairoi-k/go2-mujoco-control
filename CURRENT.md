@@ -192,3 +192,8 @@ support and one shared immutable terrain snapshot; no local recovery authority
 or quasi-static/crawl fallback. User-authorized new contracts must be versioned.
 Never commit, delete, overwrite or rename `example/cpp/experiments/_runs/`,
 stashes, archived branches or other worktrees. Curated evidence has manifests.
+
+## Registered bounded flat0011
+Add only TROT_RESEARCH_JOINT_COHERENT_ATTITUDE=1 to0010 settings.
+This enables the short-replay-verified same-state feedback correction; requires
+coherent-body mode. Default off. One exact-source flat canary, no gain sweep.

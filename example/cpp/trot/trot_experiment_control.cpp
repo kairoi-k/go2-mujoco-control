@@ -244,6 +244,8 @@ bool TrotExperiment::ApplyJointExecutionTorque(
             Full2EnvDouble("TROT_RESEARCH_JOINT_SOFT_ORIENTATION",0.0)<=0.5;
         const char *coherent=std::getenv("TROT_RESEARCH_JOINT_COHERENT_BODY");
         config.coherent_body_acceleration=coherent && std::string(coherent)=="1";
+        const char *attitude=std::getenv("TROT_RESEARCH_JOINT_COHERENT_ATTITUDE");
+        config.coherent_attitude_feedback=attitude && std::string(attitude)=="1";
         return config;
     }();
     go2_control::IdWbcQpSnapshot first_qp;
