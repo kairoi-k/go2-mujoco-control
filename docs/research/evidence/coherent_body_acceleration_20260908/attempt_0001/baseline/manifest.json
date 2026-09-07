@@ -1,0 +1,20 @@
+{
+  "runtime_sha": "ceed2971ebe66ebc8283ed248c7551fe0c4f2403",
+  "command": [
+    "example/cpp/build/replay_joint_shadow_snapshot",
+    "docs/research/evidence/joint_execution_flat_20260908/attempt_0006/articulated_source.txt",
+    "--closed-loop",
+    "unitree_robots/go2/phase2_flat.xml",
+    "example/cpp/experiments/_runs/joint_coherent_accel_20260908_0001/baseline.csv"
+  ],
+  "binary_sha256": "db74035764a595d956f95dd7132e4cd061bd97441205c56c13512accbd55b6b9",
+  "raw_run": "example/cpp/experiments/_runs/joint_coherent_accel_20260908_0001",
+  "hashes": {
+    "docs/research/evidence/joint_execution_flat_20260908/attempt_0006/articulated_source.txt": "64001f076d4d98c601eb66a02f8aece49883c2241087c43bd894dcaff94e5e58",
+    "unitree_robots/go2/phase2_flat.xml": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e"
+  },
+  "files": {
+    "feedback.csv": "a6cb066808d879d58fa499a3498e9cb380b758b6b6cd030db9309a06e7d52623",
+    "independent_plant.json": "67f1c6360b9fc7104f4fb282d3d7563d51a131c9701169475acd16a10d039b3c"
+  }
+}

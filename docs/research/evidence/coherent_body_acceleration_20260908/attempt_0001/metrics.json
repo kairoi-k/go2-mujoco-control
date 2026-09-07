@@ -1,0 +1,31 @@
+{
+  "scope": "one fixed source, 0.2s privileged model replay; not B1",
+  "modes": {
+    "baseline": {
+      "state_rows": 101,
+      "applied_steps": 100,
+      "max_foot_error_m": 0.05812481213969572,
+      "max_com_error_m": 0.013787253418225414,
+      "max_roll_deg": 1.1906660089547327,
+      "max_pitch_deg": 1.3327550807683706,
+      "max_nonfoot_contact_count": 0.0,
+      "max_motor_saturation_nm": 0.0,
+      "max_certificate_force_residual_n": 1.1715073355844652e-12,
+      "max_certificate_moment_residual_nm": 2.26929586233382e-13,
+      "planned_geom_mask_mismatch_rows": 30
+    },
+    "coherent": {
+      "state_rows": 101,
+      "applied_steps": 100,
+      "max_foot_error_m": 0.024115652079236254,
+      "max_com_error_m": 0.007885561741498744,
+      "max_roll_deg": 2.536487663920921,
+      "max_pitch_deg": 5.192704464831128,
+      "max_nonfoot_contact_count": 0.0,
+      "max_motor_saturation_nm": 0.0,
+      "max_certificate_force_residual_n": 7.958078640513122e-13,
+      "max_certificate_moment_residual_nm": 1.4585554986012994e-12,
+      "planned_geom_mask_mismatch_rows": 25
+    }
+  }
+}

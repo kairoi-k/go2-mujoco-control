@@ -1,0 +1,12 @@
+{
+  "schema": "independent-plant-command-replay-v1",
+  "runtime_sha": "ceed2971ebe66ebc8283ed248c7551fe0c4f2403",
+  "mujoco_version": "3.3.6",
+  "steps": 100,
+  "max_recorded_state_residual": 6.217248937900877e-14,
+  "max_actual_actuator_torque_residual_nm": 0.0,
+  "max_plant_clock_residual_s": 0.0,
+  "b1_claim": false,
+  "scope": "saved torque commands reproduce nonlinear plant; not WBC or planner optimality",
+  "script_sha256": "a044bc8be9e1aaa380e142dee94b25f59c8fcc0baa6637c674f603bccb9af6f8"
+}

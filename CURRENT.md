@@ -65,6 +65,16 @@ reconstruction (0 samples). A separate unchanged-state nominal acceleration
 lift passes a conditional sample certificate, with31.4344Nm peak torque; it
 uses actual lever arms and no foot PD, not the actual feedback task. Both
 momentum targets agree at this source sample. No new closed-loop run occurred.
+## Coherent acceleration reference experiment
+At ceed297, opt-in research config derives body angular acceleration from the
+same COM/Ldot and feedback-corrected foot tasks at actual q/dq. Default remains
+independent attitude PD; no runtime activation flag was added. A0.2s paired
+MuJoCo counterfactual at source21.018 reduces max foot error58.12->24.12mm and
+COM13.79->7.89mm, while pitch rises1.33->5.19deg. Both100-step replays complete;
+independent saved-command plant replay agrees on recorded states. Contact-mask
+mismatches remain30/25 rows. Evidence: coherent_body_acceleration_20260908.
+This is a promising task-coherence result, not full-runtime stability. It does
+not resolve strict trajectory initial conditions or absolute attitude control.
 ## Next research action
 Conditional terminal binding at b49e9e8 now resolves the full-grid foot coverage
 with observed next-event candidates under an explicit longer stationary-terrain
