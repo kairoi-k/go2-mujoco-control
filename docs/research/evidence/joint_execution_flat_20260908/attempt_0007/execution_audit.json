@@ -1,0 +1,64 @@
+{
+  "runtime_manifest_repository": {
+    "git_branch": "feat/stage-c-joint-planner",
+    "git_commit": "9c5c836fe98370812f0f1bc94b9c2ec718d638e6",
+    "git_dirty": "false"
+  },
+  "b1_claim": false,
+  "first_applied_state_s": 21.024,
+  "first_stop": null,
+  "sampled_applied_log_rows": 8,
+  "logged_applied_count_lower_bound": 73,
+  "accepted_versions": [
+    1,
+    2
+  ],
+  "first_post_adoption_proposal_failure": {
+    "id": "887",
+    "state": "21.109999999999999",
+    "phase": "0.67274170274105316",
+    "period": "0.14000000000000001",
+    "clock": "0",
+    "epoch": "1",
+    "phase_residual_ns": "0",
+    "anchor_source": "force_conditioned_geometry_estimate",
+    "command_authority": "0",
+    "events": "8",
+    "combinations": "0",
+    "feasible": "0",
+    "failure": "observation_unavailable",
+    "detail": "initial_contact_anchor_unavailable",
+    "history_candidates": "0",
+    "history_selected": "0",
+    "history_initial_queries": "0",
+    "terrain_query_error": "none",
+    "residual": "0",
+    "anchor_gap_m": "5.653160975279542e-05",
+    "qp_iterations": "0",
+    "scp_iterations": "0",
+    "solver_detail": "not_called",
+    "elapsed_us": "99.709000000000003"
+  },
+  "csv_active_window_rows": 72,
+  "csv_zero_extra_pd_rows": 72,
+  "latency_sampled_us": {
+    "p50": 260.82349999999997,
+    "p95": 600.8544999999999,
+    "max": 654.548
+  },
+  "sampled_maxima": {
+    "com_error_m": 0.0151966,
+    "foot_error_m": 0.428841,
+    "force_residual_N": 1.28466e-11,
+    "moment_residual_Nm": 6.12843e-11,
+    "joint_residual_Nm": 7.10543e-15
+  },
+  "raw_hashes": {
+    "controller.log": "5eba458d08e65a72634b10647e20c200111cdb97d52fae4bd718e0fd67c0cc2d",
+    "data.csv": "684c0b419815298418d46730e7a38a54ec6a5259331679fe20ff578ba4836fa3",
+    "contact_ground_truth.csv": "562990a0fbff9d9053d497ac0d80b951ef7f5dbe1bf28c296c0e832fd911bd63",
+    "run_manifest.json": "bae846e0926331374389530f9fb2d15dcece409154f880b2546f2a38c1df7d3f",
+    "run_metadata.txt": "86fc9eb158c1d537f59dab88a350831eb37b8e3b49f9e0fe041fcfbc1ed08f1a",
+    "environment.txt": "8f68ec9b01666ed05f5f1a70f3f8864367bf838a08e80e3a84f0e194ba4f8ffd"
+  }
+}

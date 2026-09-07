@@ -119,8 +119,13 @@ Next controlled hypothesis: opt-in TROT_RESEARCH_JOINT_SOFT_ORIENTATION=1
 keeps COM/support priority and all force/torque constraints, moves orientation
 tracking to the existing secondary cost with swing/momentum. Default old
 hierarchy remains. No gait/terrain/acceptance changes; same fixed-start flat
-canary evaluates actual body excursion and contact evolution, not just task
-residual. This is not yet a full horizon articulated planning solution. Sampled foot error in the
+canary actual9c5c836 (attempt0007) FAILS: first adoption21.024, last sampled
+command21.168/count73, then posture roll22.8689deg,pitch12.02deg; no WBC failure.
+The first QP confirms primary_orientation=0; exact replay passes15-row layout.
+This candidate is not promoted and the old hierarchy stays default.
+Next investigate articulated-plan execution admission and physical contact
+realization; no further unbounded priority/weight sweep. This is not yet a full
+horizon articulated planning solution. Sampled foot error in the
 failed run reaches118.023mm and remains an execution concern. Variable-period calendar transitions remain an unresolved requirement. The clock caller
 now passes commitment activity rather than silently resetting the epoch.
 Default remains off. See joint_execution_flat_20260908.
@@ -139,7 +144,9 @@ combination path; historical bound-event defaults and commitments remain strict.
 ## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
 Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
-`0a853346bff0005bc9175bd9d3f33eb01fa49e79`: actual first-QP capture flat0006,
+`9c5c836fe98370812f0f1bc94b9c2ec718d638e6`: shared-priority flat0007 fails
+posture after last sampled command21.168, no WBC failure.
+Prior `0a853346bff0005bc9175bd9d3f33eb01fa49e79`: actual first-QP capture flat0006,
 posture failure without QP failure; exact fixed-state task audit retained.
 Prior `4b09ccd217130c77b492040554c891d29746c7f5`: actual tracking diagnostic0005;
 191commands/13versions, secondary numerical failure21.402 after growing foot
