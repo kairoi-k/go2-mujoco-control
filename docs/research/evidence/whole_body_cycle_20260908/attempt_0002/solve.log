@@ -1,0 +1,40 @@
+{"derivative_check": [{"epsilon": 0.0001, "relative_error": 481.6100059224858, "max_abs": 50.751209836469755}, {"epsilon": 1e-05, "relative_error": 481.6100118743519, "max_abs": 50.75120983641291}]}
+`xtol` termination condition is satisfied.
+Function evaluations 22, initial cost 1.1687e+01, final cost 1.0617e+01, first-order optimality 2.52e+00.
+{
+  "out": "example/cpp/experiments/_runs/whole_body_cycle_20260908_0002/result.json",
+  "solver": {
+    "method": "scipy least_squares bounded full MuJoCo shooting",
+    "jacobian": "finite",
+    "requested_jacobian": "chain",
+    "wall_budget_s": 240.0,
+    "block_steps": 2,
+    "force_penalty_scale": 10,
+    "force_objective_target_n": 170.0,
+    "success": true,
+    "message": "`xtol` termination condition is satisfied.",
+    "nfev": 22,
+    "calls": 3806,
+    "jac_calls": 1,
+    "elapsed_s": 99.6698024260113,
+    "cost": 21.23415856194247,
+    "derivative_checks": [
+      {
+        "epsilon": 0.0001,
+        "relative_error": 481.6100059224858,
+        "max_abs": 50.751209836469755
+      },
+      {
+        "epsilon": 1e-05,
+        "relative_error": 481.6100118743519,
+        "max_abs": 50.75120983641291
+      }
+    ]
+  },
+  "peak_force": 170.1202880074066,
+  "end_omega": [
+    -0.0048463285985609365,
+    0.020535176792018953,
+    0.0791435343564226
+  ]
+}
