@@ -25,17 +25,21 @@ int main(int argc,char**argv){try{
   while(f>>name>>rows>>cols){Eigen::MatrixXd m(rows,cols);for(int r=0;r<rows;++r)for(int c=0;c<cols;++c)Check(bool(f>>m(r,c)),"matrix parse");q[name]=m;}
   H=q.at("H");g=q.at("g");A=q.at("Aineq");b=q.at("bineq");E=q.at("Aeq");d=q.at("beq");
   // Independent HiGHS witness retained alongside original runtime QP.
-  std::ifstream sf(std::string(argv[1])+".seed");seed.resize(H.rows());for(int j=0;j<seed.size();++j)Check(bool(sf>>seed[j]),"seed parse");
+  const bool embedded_seed=q.count("seed")!=0;
+  if(embedded_seed) seed=q.at("seed");
+  else {std::ifstream sf(std::string(argv[1])+".seed");seed.resize(H.rows());for(int j=0;j<seed.size();++j)Check(bool(sf>>seed[j]),"seed parse");}
   Check(SolveDenseQpPrimalActiveSet(H,g,A,b,E,d,seed,x,iterations),"actual WBC matrix");
   const double objective=.5*x.dot(H*x)+g.dot(x);
   Check((E*x-d).lpNorm<Eigen::Infinity>()<1e-7,"actual equality certificate");
   Check((A*x-b).maxCoeff()<1e-7,"actual inequality certificate");
-  Check(std::abs(objective-(-97581902.95771791))<.01,"independent SLSQP optimum");
+  Check(std::abs(objective-(embedded_seed ? 17524222.67510441 : -97581902.95771791))<.01,"independent SLSQP optimum");
   const auto lp_seed_optimum=x;
+  if(!embedded_seed) {
   std::ifstream ff(std::string(argv[1])+".freefall_seed");
   for(int j=0;j<seed.size();++j)Check(bool(ff>>seed[j]),"freefall seed parse");
   Check(SolveDenseQpPrimalActiveSet(H,g,A,b,E,d,seed,x,iterations),"actual freefall seed solve");
   Check((x-lp_seed_optimum).norm()<1e-5,"seed independent optimum");
+  }
   const auto first=x;const int first_iterations=iterations;
   Check(SolveDenseQpPrimalActiveSet(H,g,A,b,E,d,seed,x,iterations),"deterministic repeat");
   Check((x-first).norm()==0 && first_iterations==iterations,"deterministic exact repeat");

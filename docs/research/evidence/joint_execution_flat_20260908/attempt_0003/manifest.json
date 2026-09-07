@@ -1,0 +1,17 @@
+{
+  "runtime_sha": "f58695069e832a8c58acc4b5614245e11154d965",
+  "raw_run": "example/cpp/experiments/_runs/joint_execution_flat_20260908_0003",
+  "files": {
+    "qp.txt": "244ae8dfd153f30a3de520a47714f78645143664b4e70c9b25a5e01400f4519f",
+    "README.md": "dbbd6a10c97d86c932cfae457d0eb67c23d573fcc49578a709c51c79927ab48c",
+    "repaired_solver.txt": "2d4b919d3cfca7f49286230decd82a5a3d59f1f3a98ffb8571eabac30f8c2536",
+    "repair_source_binding.json": "7ef72ada7bb044650c4306b6b9be2b901fa3be81764a34357d94983f1ba76b58",
+    "focused_tests.txt": "7386ecaa9520fc9fdae8f7f171ac2f9f0f2362a7096448d17b6b12e8842545f4",
+    "verify_kkt.py": "cb8d549acdcce6cd153f6caf19bfe74c40f76f1509fd8f647b93dd35b7fab169",
+    "execution_excerpt.txt": "737164b9460d8faf0caebcf2c9b2cb3001d77d483440c5daecbf4f80ac98cc62",
+    "original_solver.txt": "27bb412bde0fce34ff5ec4d42a8e4570f3e6bf973a7e99e3547d1ea2cda214e6",
+    "execution_audit.json": "361e02e322faf937bb3ec922dc4aed31179ee7c089052a3828533181fc9fbd3c",
+    "independent.json": "40d52c0db8f27f1572462c8ff21eb2721460f9bce567e58497fb9d7f7dcf98ad",
+    "witness.json": "1907ecd17fcabfbce279274b2cb6154e34c8ba334283a325541862d777188583"
+  }
+}

@@ -1,0 +1,2 @@
+actual objective=17524222.675105095 iterations=16 eq=5.5224921857721654e-14 ineq=2.743754891454531e-11
+active set analytic oracles passed

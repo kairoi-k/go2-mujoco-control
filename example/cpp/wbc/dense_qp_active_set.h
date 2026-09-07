@@ -210,22 +210,22 @@ inline bool SolveDenseQpPrimalActiveSet(
       const int k = static_cast<int>(working.size());
       Eigen::MatrixXd CW(k, d);
       for (int i = 0; i < k; ++i) CW.row(i) = C.row(working[i]);
-      Eigen::MatrixXd K = Eigen::MatrixXd::Zero(d + k, d + k);
-      K.topLeftCorner(d, d).setIdentity();
-      K.topRightCorner(d, k) = CW.transpose();
-      K.bottomLeftCorner(k, d) = CW;
-      Eigen::VectorXd rhs_kkt = Eigen::VectorXd::Zero(d + k);
-      rhs_kkt.head(d) = -grad_now;
-      Eigen::FullPivLU<Eigen::MatrixXd> lu(K);
-      if (!lu.isInvertible()) return fail("active_KKT_singular");
-      const Eigen::VectorXd sol = lu.solve(rhs_kkt);
-      const double kres = inf_norm(K * sol - rhs_kkt);
-      if (!sol.allFinite() || !std::isfinite(kres) ||
-          kres > kKktTol * std::max(1.0, rhs_kkt.norm())) {
+      // Project through an orthonormal working-set nullspace. A saddle-point
+      // solve can leave tiny active-row drift that whitening amplifies past
+      // the original-coordinate feasibility limit (runtime attempt 0003).
+      Eigen::HouseholderQR<Eigen::MatrixXd> qr(CW.transpose());
+      const Eigen::MatrixXd Q =
+          qr.householderQ() * Eigen::MatrixXd::Identity(d, d);
+      const Eigen::MatrixXd Z = Q.rightCols(d - k);
+      direction = -Z * (Z.transpose() * grad_now);
+      multipliers = CW.transpose().colPivHouseholderQr().solve(-grad_now - direction);
+      const double kres = std::max(
+          inf_norm(direction + grad_now + CW.transpose() * multipliers),
+          inf_norm(CW * direction));
+      if (!direction.allFinite() || !multipliers.allFinite() || !std::isfinite(kres) ||
+          kres > kKktTol * std::max(1.0, grad_now.norm())) {
         return fail("active_KKT_numerical_failure");
       }
-      direction = sol.head(d);
-      multipliers = sol.tail(k);
     }
     const double direction_limit =
         kDirectionTol * std::max({1.0, w.norm(), grad.norm()});

@@ -1,0 +1,206 @@
+{
+  "kind": "independent_dense_qp_audit",
+  "source_qp": "/tmp/joint_execution_0003_qp.txt",
+  "matrix_sha256": "244ae8dfd153f30a3de520a47714f78645143664b4e70c9b25a5e01400f4519f",
+  "scipy_version": "1.15.3",
+  "dimensions": {
+    "H": [
+      24,
+      24
+    ],
+    "g": [
+      24,
+      1
+    ],
+    "Aineq": [
+      36,
+      24
+    ],
+    "bineq": [
+      36,
+      1
+    ],
+    "Aeq": [
+      6,
+      24
+    ],
+    "beq": [
+      6,
+      1
+    ],
+    "seed": [
+      24,
+      1
+    ],
+    "iterate": [
+      0,
+      1
+    ]
+  },
+  "sections": {
+    "H": {
+      "shape": [
+        24,
+        24
+      ],
+      "finite": true
+    },
+    "g": {
+      "shape": [
+        24,
+        1
+      ],
+      "finite": true
+    },
+    "Aineq": {
+      "shape": [
+        36,
+        24
+      ],
+      "finite": true
+    },
+    "bineq": {
+      "shape": [
+        36,
+        1
+      ],
+      "finite": true
+    },
+    "Aeq": {
+      "shape": [
+        6,
+        24
+      ],
+      "finite": true
+    },
+    "beq": {
+      "shape": [
+        6,
+        1
+      ],
+      "finite": true
+    },
+    "seed": {
+      "shape": [
+        24,
+        1
+      ],
+      "finite": true
+    },
+    "iterate": {
+      "shape": [
+        0,
+        1
+      ],
+      "finite": true
+    }
+  },
+  "solver_export": {
+    "stage": "body_stance_primary",
+    "failure": "search_step_left_original_feasible_set",
+    "iterate_shape": [
+      0,
+      1
+    ],
+    "iterate_present": false
+  },
+  "input_seed": {
+    "norm_2": 19883.31870966759,
+    "residual": {
+      "equality_inf": 1.0746958878371515e-13,
+      "inequality_max_violation": 0.0,
+      "minimum_inequality_slack": 0.0,
+      "objective": 49627305.76047826
+    }
+  },
+  "independent_feasibility": {
+    "method": "SciPy HiGHS zero-objective LP in equality-nullspace with Hessian whitening and row scaling",
+    "success": true,
+    "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
+    "witness_residual": {
+      "equality_inf": 1.1368683772161603e-13,
+      "inequality_max_violation": 6.394884621840902e-14,
+      "minimum_inequality_slack": -6.394884621840902e-14,
+      "objective": 20605848.566436917
+    }
+  },
+  "independent_qp_optimum": {
+    "method": "strictly convex original-coordinate KKT solve after independent active-set support identification",
+    "convexity": {
+      "H_min_eigenvalue": 9.999999995375553e-07,
+      "H_max_eigenvalue": 89.52734949766628,
+      "H_condition_2": 89527349.49998556,
+      "reduced_H_condition_2": 74436685.74591039
+    },
+    "active_inequality_rows": [
+      1,
+      3,
+      6,
+      8,
+      10,
+      13,
+      14,
+      16,
+      23,
+      24,
+      26,
+      29
+    ],
+    "active_multipliers": [
+      42293.630324227204,
+      63214.86147340818,
+      1313.7458788069653,
+      85.82132947130617,
+      1122.1107067758817,
+      5680.386802341822,
+      44485.3170758122,
+      202278.83603739963,
+      711.3136038942417,
+      2113.8552919379285,
+      3820.31757107309,
+      2713.604612453539
+    ],
+    "residual": {
+      "equality_inf": 3.347544463849772e-12,
+      "inequality_max_violation": 5.684341886080802e-14,
+      "minimum_inequality_slack": -5.684341886080802e-14,
+      "objective": 17524222.67510441
+    },
+    "stationarity_inf": 9.094947017729282e-12,
+    "complementarity_inf": 1.1498220603550614e-08,
+    "optimality_basis": "H positive definite; feasible KKT point certifies the unique global QP minimizer",
+    "witness": [
+      5.704376022207319,
+      5.2819167475505955,
+      -45.701905670623894,
+      -9.805463044089604,
+      57.64930568326692,
+      33.688687369063864,
+      -647.8015552045626,
+      6718.041476198758,
+      -16660.420153737905,
+      -136.8586915425486,
+      1028.3255566182634,
+      -2746.4038302465815,
+      599.1958070444766,
+      1552.5443095336684,
+      -3042.1811133763754,
+      -103.05029722920155,
+      317.40116293897125,
+      -650.4798778118347,
+      -101.82337649086284,
+      93.50954624497626,
+      180.0,
+      0.0,
+      0.0,
+      -0.0
+    ]
+  },
+  "interpretation": {
+    "feasible": true,
+    "qp_optimality_independent": true,
+    "controller_failure_is_numerical_or_algorithmic": true,
+    "not_a_B1_acceptance_result": true,
+    "note": "The exported iterate section is empty (0x1); seed is the only controller-provided primal point. All reported residuals use original unscaled Aineq/Aeq coordinates."
+  }
+}

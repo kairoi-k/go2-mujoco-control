@@ -409,3 +409,5 @@ add_test(NAME test_dense_qp_active_set COMMAND test_dense_qp_active_set "${CMAKE
 add_executable(test_stage_c_committed_candidates tests/test_stage_c_committed_candidates.cpp)
 target_link_libraries(test_stage_c_committed_candidates stage_c_centroidal unitree_sdk2)
 go2_add_ctest(test_stage_c_committed_candidates)
+
+add_test(NAME test_dense_qp_active_set_runtime_primary COMMAND test_dense_qp_active_set "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/research/evidence/joint_execution_flat_20260908/attempt_0003/qp.txt")

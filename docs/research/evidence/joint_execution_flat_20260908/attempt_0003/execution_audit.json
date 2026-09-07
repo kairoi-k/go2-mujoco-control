@@ -1,0 +1,71 @@
+{
+  "runtime_manifest_repository": {
+    "git_branch": "feat/stage-c-joint-planner",
+    "git_commit": "f58695069e832a8c58acc4b5614245e11154d965",
+    "git_dirty": "false"
+  },
+  "b1_claim": false,
+  "first_applied_state_s": 21.006,
+  "first_stop": {
+    "state": "21.11",
+    "applied": "0",
+    "stop_requested": "1",
+    "count": "53",
+    "reason": "wbc_solver_failed"
+  },
+  "sampled_applied_log_rows": 6,
+  "logged_applied_count_lower_bound": 44,
+  "accepted_versions": [
+    1,
+    2,
+    3
+  ],
+  "first_post_adoption_proposal_failure": {
+    "id": "884",
+    "state": "21.07",
+    "phase": "0.61587301587247723",
+    "period": "0.14000000000000001",
+    "clock": "0",
+    "epoch": "1",
+    "phase_residual_ns": "0",
+    "anchor_source": "force_conditioned_geometry_estimate",
+    "command_authority": "0",
+    "events": "8",
+    "combinations": "0",
+    "feasible": "0",
+    "failure": "observation_unavailable",
+    "detail": "initial_contact_anchor_unavailable",
+    "history_candidates": "0",
+    "history_selected": "0",
+    "history_initial_queries": "0",
+    "terrain_query_error": "none",
+    "residual": "0",
+    "anchor_gap_m": "0.0027053150671346518",
+    "qp_iterations": "0",
+    "scp_iterations": "0",
+    "solver_detail": "not_called",
+    "elapsed_us": "150.06399999999999"
+  },
+  "csv_active_window_rows": 53,
+  "csv_zero_extra_pd_rows": 53,
+  "latency_sampled_us": {
+    "p50": 214.1895,
+    "p95": 244.82725,
+    "max": 253.258
+  },
+  "sampled_maxima": {
+    "com_error_m": 0.0031276,
+    "foot_error_m": 0.118023,
+    "force_residual_N": 4.12115e-13,
+    "moment_residual_Nm": 2.82885e-13,
+    "joint_residual_Nm": 1.77636e-15
+  },
+  "raw_hashes": {
+    "controller.log": "512b75513524899cb982f3390dde323fbea89f1361f6ec456890693fe972a63d",
+    "data.csv": "6b0d699cf9aa8c7da82026769b478078d1145bd4a49f3361272896b483241a5c",
+    "contact_ground_truth.csv": "69ba8e2ab510ef3076e6e929c705b5608043c2e0e1ee25b061d189c324af5e41",
+    "run_manifest.json": "8b8288afdf5c0e657a8e4cd895c560133b2b5e76ec7c8a5afc12aa2b50ef9fd9",
+    "run_metadata.txt": "a85ce82ba0f8a38adb672917a8222b1aa0d7d1225f2bb09df29a9062aada815d",
+    "environment.txt": "df6dd29276c02c3400ed0ebc73cf581a35fe203c2f14d739a47f706b12a6014c"
+  }
+}

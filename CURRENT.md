@@ -80,8 +80,12 @@ requests stop. Sampled COM/foot maxima8.114/78.542mm; no traversal result.
 The fixed-start21s isolation (actual8f3e04afa97507ff4151838c4edf608923d2702e)
 also FAILS:46actual zero-PD commands/3versions, then wbc_solver_failed at21.112,
 with period.14/epoch1 unchanged. Earlier21.062 anchor observation rejection is
-separate. Next is failure-only exact primary/secondary QP capture under the same
-protocol. Variable-period calendar transitions remain an unresolved requirement. The clock caller
+separate. Actual f586950 repeats this failure at STATE21.110 after53 commands.
+Independent exact-matrix HiGHS/KKT analysis proves the QP feasible; active-row
+numerical drift in the saddle-point search direction caused rejection. QR
+nullspace projection passes both actual-matrix regressions without relaxing
+constraints. New full-runtime validation is pending; sampled foot error in the
+failed run reaches118.023mm and remains an execution concern. Variable-period calendar transitions remain an unresolved requirement. The clock caller
 now passes commitment activity rather than silently resetting the epoch.
 Default remains off. See joint_execution_flat_20260908.
 Then run isolated flat and 5cm, followed by 10cm only after credible 5cm evidence.
@@ -99,8 +103,8 @@ combination path; historical bound-event defaults and commitments remain strict.
 ## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
 Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
-`8f3e04afa97507ff4151838c4edf608923d2702e`: fixed-period actual joint flat,
-failed atSTATE21.112 on WBC numerical solve after46applied commands.
+`f58695069e832a8c58acc4b5614245e11154d965`: fixed-period actual joint flat,
+failed atSTATE21.110 on primary WBC numerical solve after53applied commands.
 Prior `f5b2ef98364bbc01f934de575c850696236e1342`: first actual joint actuation flat,
 failed on period-transition commitment conflict and reference expiry.
 Prior `cc696232eab2d184b5c98fa89674f8d029895dad`: bounded-history flat diagnostic.

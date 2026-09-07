@@ -1,0 +1,2 @@
+it=11 alpha=0.024980302753568596 blocker=13 violation=5.7822863358354019e-07 eq=9.1315843775419125e-14 bad=8 C_ap=1.987813355454717e-12 direction_limit=9.9999999999999994e-12 grad=0.0087713452592389669 active=1 ignored=0 scaled_violation=1.0255316436828274e-13
+ok=0 failure=search_step_left_original_feasible_set iterations=12 eq=inf ineq=inf
