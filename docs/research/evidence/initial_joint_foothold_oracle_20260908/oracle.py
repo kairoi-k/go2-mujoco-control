@@ -15,8 +15,10 @@ assert m.nv==18 and m.nu==12 and np.max(abs(m.actuator_gear[:,0]-1))<1e-12
 ids=m.actuator_trnid[:,0];qa=m.jnt_qposadr[ids];va=m.jnt_dofadr[ids]
 d.qpos[:3]=pos;d.qpos[3:7]=quat/np.linalg.norm(quat);d.qpos[qa]=q;d.qvel[:3]=vel;d.qvel[3:6]=omega;d.qvel[va]=dq
 mujoco.mj_forward(m,d)
+assert d.ncon==0, "oracle requires contact-free robot model"
+d.qacc[:]=0;mujoco.mj_inverse(m,d);model_bias=d.qfrc_inverse.copy()
 M=np.zeros((18,18));mujoco.mj_fullM(m,M,d.qM);S=np.zeros((18,12));S[va,np.arange(12)]=1
-A=np.linalg.solve(M,S);b=np.linalg.solve(M,-d.qfrc_bias)
+A=np.linalg.solve(M,S);b=np.linalg.solve(M,-model_bias)
 lines={int(re.search(r'leg=(\d+)',l)[1]):l for l in files[1].read_text().splitlines() if l.startswith('SwingAudit')}
 C=[];c=[];old=[];max_match=0
 for leg,name in enumerate(['FR','FL','RR','RL']):
@@ -47,6 +49,6 @@ if lp.success:
  tau=result.x;acc=A@tau+b;target=C@tau+c
  residual=max(float(np.max(abs(E@tau-f))),float(np.max(np.maximum(G@tau-h,0))),float(np.max(np.maximum(abs(tau)-35,0))))
  assert result.success and residual<1e-7
- report.update({'qp_success':bool(result.success),'constraint_residual':residual,'full_dynamics_residual':float(np.max(abs(M@acc+d.qfrc_bias-S@tau))),'torque_peak_nm':float(np.max(abs(tau))),'body_acceleration':acc[3:6].tolist(),'targets':target.reshape(4,3).tolist(),'old_targets':old.reshape(4,3).tolist(),'torque':tau.tolist()})
+ report.update({'qp_success':bool(result.success),'constraint_residual':residual,'full_dynamics_residual':float(np.max(abs(M@acc+model_bias-S@tau))),'torque_peak_nm':float(np.max(abs(tau))),'body_acceleration':acc[3:6].tolist(),'targets':target.reshape(4,3).tolist(),'old_targets':old.reshape(4,3).tolist(),'torque':tau.tolist()})
 with pathlib.Path(a.out).open('x') as f:json.dump(report,f,indent=2);f.write('\n')
 print(json.dumps({k:v for k,v in report.items() if k!='hashes'},indent=2))

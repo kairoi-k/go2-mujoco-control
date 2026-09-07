@@ -1,0 +1,6 @@
+{
+  "fixed_original_targets_torque_peak_nm": 311.84404885172546,
+  "difference_from_cpp_nm": 0.20000000001715534,
+  "zero_body_angular_acceleration_lp_status": 2,
+  "zero_body_angular_acceleration_message": "The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None)"
+}

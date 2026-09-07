@@ -280,3 +280,14 @@ and506.433Nm. Overall budget_exhausted correctly means unsearched combinations
 remain unknown, not global infeasibility. No new MuJoCo closed-loop run.
 Next generate/optimize physically realizable remaining-swing footholds jointly
 with body motion; a rejection gate alone cannot achieve the objective.
+
+## Independent initial joint foothold oracle
+Packet initial_joint_foothold_oracle_20260908 solves all four target positions
+through shared actual-state qacc/tau, fixed touchdown times and zero terminal
+velocity. Full production model bias crosschecks312.044Nm within1.7e-11Nm.
+Local planar +/-50mm target box admits35Nm solution but body pitch acceleration
+78.28rad/s2; forcing zero body angular acceleration is infeasible in this local
+problem. Not trajectory/terrain/impact or B1 evidence. Earlier omitted passive/
+friction oracle variants are explicitly superseded. Next jointly represent
+landing velocity/contact transition and body/limb motion; do not infer global
+infeasibility or patch gains from this instantaneous result.

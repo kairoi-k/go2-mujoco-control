@@ -1,0 +1,80 @@
+{
+  "scope": "same-state aerial joint body/foot target oracle; not horizon or terrain certification",
+  "mujoco_version": "3.3.6",
+  "source_model_match": 8.881784197001252e-16,
+  "lp_status": 0,
+  "lp_message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
+  "hashes": {
+    "docs/research/evidence/joint_execution_flat_20260908/attempt_0012/initial_source.txt": "b86474ca4e4e2bafa02d8db75e91499030865ab4fa67c46d7d664b8a94ad5a16",
+    "docs/research/evidence/joint_execution_flat_20260908/attempt_0012/swing_boundary_audit.txt": "a176fdb89a74a0c87525b76c694844e0f9a33258de7c3bb97172af4f9bd4a736",
+    "unitree_robots/go2/phase2_flat.xml": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/initial_joint_foothold_oracle_20260908/oracle.py": "85bbdc3fa719d60c94631edbf17b6321424824254786ed5627832bb1c9c3300b"
+  },
+  "qp_success": true,
+  "constraint_residual": 8.673617379884035e-19,
+  "full_dynamics_residual": 2.842170943040401e-14,
+  "torque_peak_nm": 35.0,
+  "body_acceleration": [
+    -27.703842120805316,
+    82.97705261186309,
+    5.1496672084401105
+  ],
+  "targets": [
+    [
+      2.8262972705199774,
+      -0.18358008468584944,
+      0.02200000865195726
+    ],
+    [
+      2.7743920353637157,
+      0.12743382852145357,
+      0.02200000865195726
+    ],
+    [
+      2.3879385846427232,
+      -0.1461341407214825,
+      0.02200000865195726
+    ],
+    [
+      2.4475433785973344,
+      0.10934044509320595,
+      0.02200000865195726
+    ]
+  ],
+  "old_targets": [
+    [
+      2.851277645243694,
+      -0.15029342771319032,
+      0.02200000865195726
+    ],
+    [
+      2.800189362910656,
+      0.1301027551718656,
+      0.02200000865195726
+    ],
+    [
+      2.409625138947372,
+      -0.14462034250094863,
+      0.02200000865195726
+    ],
+    [
+      2.468291403660437,
+      0.13491755699281233,
+      0.02200000865195726
+    ]
+  ],
+  "torque": [
+    -3.506025864806798,
+    -11.95171864416475,
+    -2.7808539174891655,
+    -35.0,
+    35.0,
+    27.288147589620444,
+    34.86858470470727,
+    -35.0,
+    35.0,
+    -1.373932552891696,
+    -13.602640947833954,
+    -2.8000820293091335
+  ]
+}

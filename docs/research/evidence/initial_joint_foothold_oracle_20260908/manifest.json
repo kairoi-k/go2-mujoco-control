@@ -1,0 +1,19 @@
+{
+  "b1_claim": false,
+  "input_baseline_sha": "d9fb4f66ead80dd1f6fa0a21fd358b053bc29d2e",
+  "authoritative_results": [
+    "result_model_bias.json",
+    "crosscheck_model_bias.json"
+  ],
+  "files": {
+    "README.md": "2df9672970c73986e436afc2ea7ed4ad3a036723821d5365b0d4ceb2444c0733",
+    "crosscheck.json": "b8932fe5222d7f2ad808cf3277a83e7965a2c85f3f9873ea9cb8b841c34716fb",
+    "crosscheck.py": "345db396cf43514ef64ca6483a167df509c4fee654abd555ef1ca3e2887b8ba5",
+    "crosscheck_model_bias.json": "985313968e6437e6407a592b041e028048aa22aa68f56b6fa91b51816ff2f65a",
+    "crosscheck_passive.json": "b528b585bf516bdad11738150516bb844ae0f0a020c8f29e544f48f8644c1739",
+    "oracle.py": "46e2f2be4d4d71a36986277c8f9ffd9e08ed4ef4cf74cb5b93cf2af1b1d75b3c",
+    "result.json": "171485c069696f7a9984a847d24f5ee2df21e7a2afc296dbd5fb3ad0da3006f8",
+    "result_model_bias.json": "32ad5a7a2e20d3be6f84c79e449621c09d47c5d33a4817d285da8f4b7541a2a6",
+    "result_passive.json": "94977d3f2f48ce2de30791ec2957e69055197a3a8355d6b4ea3bbbaf61132c37"
+  }
+}
