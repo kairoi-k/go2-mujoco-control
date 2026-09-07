@@ -95,6 +95,61 @@ class ShootingDerivativesTest(unittest.TestCase):
         saved_next = rows[1].qpos.copy()
         rows[0].qpos[:] = 10
         np.testing.assert_array_equal(rows[1].qpos, saved_next)
+    def test_checked_smooth_and_ownership(self):
+        model = make_model(True)
+        initial = mujoco.MjData(model)
+        initial.qvel[:] = .1
+        initial.qacc_warmstart[:] = .3
+        spec = mujoco.mjtState.mjSTATE_INTEGRATION
+        before = np.empty(mujoco.mj_stateSize(model, spec))
+        mujoco.mj_getState(model, initial, before, spec)
+        options = (model.opt.timestep, model.opt.tolerance, model.opt.iterations)
+        A, B, diag = helper.checked_transition_fd(model, initial)
+        self.assertIsNotNone(diag['selected_epsilon'])
+        self.assertTrue(np.all(np.isfinite(A)))
+        self.assertEqual(B.shape, (2*model.nv,model.nu))
+        after = np.empty_like(before)
+        mujoco.mj_getState(model, initial, after, spec)
+        np.testing.assert_array_equal(before, after)
+        self.assertEqual(options, (model.opt.timestep, model.opt.tolerance, model.opt.iterations))
+        controls = np.array([[.2],[.1]])
+        checked, _ = helper.rollout(model, initial, controls, compute_jacobian=True, transition_mode='checked')
+        native, _ = helper.rollout(model, initial, controls)
+        for a,b in zip(checked,native):
+            np.testing.assert_array_equal(a.qpos,b.qpos)
+            np.testing.assert_array_equal(a.qvel,b.qvel)
+
+    def test_checked_contact_boundary_shrinks(self):
+        model = mujoco.MjModel.from_xml_string("""<mujoco>
+        <option timestep="0.002"/><default><geom margin="0.001"/></default>
+        <worldbody><geom type="plane" size="1 1 .1"/>
+        <body pos="0 0 .1"><joint name="z" type="slide" axis="0 0 1"/>
+        <geom type="sphere" size=".1" mass="1"/></body></worldbody>
+        <actuator><motor joint="z"/></actuator></mujoco>""")
+        data = mujoco.MjData(model)
+        data.qpos[0] = .00100006
+        data.qvel[0] = -1.
+        A,B,diag = helper.checked_transition_fd(model,data)
+        self.assertLessEqual(diag['selected_epsilon'],1e-8)
+        self.assertTrue(any(not c['pass'] for t in diag['trials'] for c in t.get('matrix_convergence',[])))
+        # Independent one-step derivative at an epsilon wholly inside the branch.
+        plus,minus = copy.copy(data),copy.copy(data)
+        eps = 1e-9
+        plus.qpos[0] += eps
+        minus.qpos[0] -= eps
+        mujoco.mj_step(model,plus)
+        mujoco.mj_step(model,minus)
+        fd = np.r_[(plus.qpos-minus.qpos)/(2*eps),(plus.qvel-minus.qvel)/(2*eps)]
+        np.testing.assert_allclose(A[:,0],fd,rtol=1e-4,atol=1e-5)
+        data.qpos[0] = .001
+        with self.assertRaises(helper.UnresolvedDerivativeError):
+            helper.checked_transition_fd(model,data)
+
+    def test_checked_activation_rejects(self):
+        model = make_model(activation=True)
+        with self.assertRaises(ValueError):
+            helper.checked_transition_fd(model,mujoco.MjData(model))
+
     def test_invalid_inputs(self):
         model = make_model()
         initial = mujoco.MjData(model)

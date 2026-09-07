@@ -1,0 +1,8 @@
+# Contact-boundary derivative diagnosis
+At both saved nominal0001 and0002, fixed1e-6 coordinate finite differences cross an FL contact boundary at step32 (post-time21.086). Same-column independent mj_step finite differences agree with native mjd_transitionFD; this local failure is not native skip-cache or propagated warmstart evidence. Contact count switches3/4 and nefc30/36. Smaller1e-7 resolves the tested local direction for nominal0001; nominal0002 needs1e-8. This does not certify a finite neighborhood or feedback.
+
+Attempt0001: initial3direction/3scale whole-rollout audit. Attempt0002 adds per-column local audit on nominal0001. Attempt0003 audits selected nominal0002. Compact summaries bind full immutable raw JSON by SHA256 and retain exact audit source. Physical model, solver options, controls and acceptance thresholds unchanged. Runtime audit was WIP at HEAD0349725, explicitly identified by source hashes; no exact-clean-source or B1 claim.
+
+MuJoCo3.3.6 source checked for independent implementation context: https://raw.githubusercontent.com/google-deepmind/mujoco/3.3.6/src/engine/engine_derivative_fd.c . Numerical diagnosis above comes from local paired data.
+
+Attempt0004 explicitly checks state and objective chains with adaptive local derivatives. Three directions at three finite perturbation scales yield1.01e-5 to2.92e-5 relative discrepancy, no first divergence.69steps choose1e-7,step32 chooses1e-9 after adjacent1e-8 consistency. Eight focused derivative tests pass, including synthetic contact-boundary recovery/rejection and input/model preservation. No finite-neighborhood stability claim.

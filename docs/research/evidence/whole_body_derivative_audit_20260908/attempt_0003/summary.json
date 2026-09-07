@@ -1,0 +1,2600 @@
+{
+  "schema": "whole-body-derivative-audit-v1",
+  "mujoco_version": "3.3.6",
+  "methods": "Three deterministic unit Gaussian directions seed1301; centered whole-rollout FD. State FD uses nominal tangent origin. Frozen-memory probe replaces only pre-step qacc_warmstart with nominal values, preserving perturbed q/v/u. Repeated-forward probe repeats observation evaluation. No model or solver-option changes. Diagnostics do not certify smoothness or feedback.",
+  "divergence_definition": "combined relative error >0.03 and max absolute error >1e-6; diagnostic threshold only",
+  "force_target_n": 170.0,
+  "block_steps": 2,
+  "input_hashes": {
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/joint_execution_flat_20260908/attempt_0012/initial_source.txt": "b86474ca4e4e2bafa02d8db75e91499030865ab4fa67c46d7d664b8a94ad5a16",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/whole_body_cycle_20260908/previous_cycle_seed_v1.json": "2ad7d127b5744b7fa9182ab18c6402596d01c6398d8da4f7cf3663819fa98e1b",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_cycle_20260908_0002/result.json": "ea79172be79e447bca5d3535c97f025696ccb481a10ee7a3f6c1254a18ba5c44",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/audit_whole_body_cycle_derivatives.py": "bd845f93dd43713663c94b31d9f274b5557bc49361ae564445266efa56f77f25",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/whole_body_cycle.py": "2a7b6ee65d4585da3161040518e2a8509b2dde678f4b5775a49a6ff254d72e9b",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/whole_body_shooting_derivatives.py": "4d4483221fc9131f24d6b04bebde8dac1220c8d3aa1475149f4c5ec046dc6c9c",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_0.obj": "8cdc53719002a5ee737d867904e534a6d6fa930b616bdcc1b3131e577d4e46c0",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_1.obj": "39d2f4724ff64dd5a0640c308fd98902a2946660a8d033ec8dbf368fd5af0dd6",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_2.obj": "29cae463f95d678e4ede863c36c9b19b0d356b8340412add10670d70bdcc3095",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_3.obj": "f51ba43bf300e68957a0c1aa83eaf3e4926f4ac7e64a0d6c33ae5d21fcbcf5f6",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_4.obj": "49ddec0129546e5dd2075d5beacf7f207baa2860aeff7626818e64d2efbf3821",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/calf_0.obj": "4a818cd563c5b7e2a271504442d05fd777d38cbaa028d4a10ad29c9f87bb355e",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/calf_1.obj": "51950c3a153ae3208592df86ea11c9d6756f8f645ebca5caf6910c61aeb03817",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/calf_mirror_0.obj": "6dc0406207a1c08a5953fd5962aca1a270fd06593d30d100205e05c1b32d4af2",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/calf_mirror_1.obj": "f84f5af90b914633165beb3a5493ee499169144c5797dcf04c6eb5842f74b31a",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/foot.obj": "df9e78a7c0110d02557439010f2a5f11f0ec4fd907b32704145dbd6aa7affc0b",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/hip_0.obj": "cc29932ab4d251ce3f72389ec4c1f757e44eee138b87e772b648c2bc76b506cd",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/hip_1.obj": "3fd5bd9b2ef6abe622c0739d3c67eaa1679b19b47132951972c4892a779ea7cf",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/thigh_0.obj": "bb3edfe6a7b04f4f4dff1ce7b05d426ddce941e276cc6372fb542055893c71ec",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/thigh_1.obj": "3a631822f9f7d2114b1b79dcdff5abf95103630abb7d91d1f3b8b18117132ed2",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/thigh_mirror_0.obj": "07abaedce761f1dd48647384ac14ba1959276bc78d5a2a62051e8f1c6093933b",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/thigh_mirror_1.obj": "db984a3e983eabbc9b38183427cca9ab0bb3bdb049f9eab030e06edda36579d6",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/go2.xml": "01acff1a72a10cd38ab3c95142bfc63db197c5fba39a11b45b15b6fc4899ba10",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/phase2_flat.xml": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e"
+  },
+  "elapsed_s": 4.414016139999148,
+  "checks": [
+    {
+      "direction": 0,
+      "epsilon": 0.0001,
+      "overall": {
+        "relative_error": 162.7066931351625,
+        "max_abs": 18.89445581395423,
+        "reference_norm": 0.4307332683946811
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 1093.5549463237714,
+        "max_abs": 18.89445581395423,
+        "reference_norm": 0.021136174232677333
+      }
+    },
+    {
+      "direction": 0,
+      "epsilon": 1e-05,
+      "overall": {
+        "relative_error": 162.70669401151255,
+        "max_abs": 18.89445581387879,
+        "reference_norm": 0.4307332660643341
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 1093.5549416764752,
+        "max_abs": 18.89445581387879,
+        "reference_norm": 0.021136174322417656
+      }
+    },
+    {
+      "direction": 0,
+      "epsilon": 1e-06,
+      "overall": {
+        "relative_error": 162.70665763754153,
+        "max_abs": 18.894455814536162,
+        "reference_norm": 0.43073336148245683
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 1093.5549956537006,
+        "max_abs": 18.894455814536162,
+        "reference_norm": 0.02113617328042852
+      }
+    },
+    {
+      "direction": 1,
+      "epsilon": 0.0001,
+      "overall": {
+        "relative_error": 3139.828223463486,
+        "max_abs": 170.83815199222508,
+        "reference_norm": 0.2018171447672935
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 12819.29474564049,
+        "max_abs": 170.83815199222508,
+        "reference_norm": 0.016302488325512093
+      }
+    },
+    {
+      "direction": 1,
+      "epsilon": 1e-05,
+      "overall": {
+        "relative_error": 3139.8282738190346,
+        "max_abs": 170.83815199218864,
+        "reference_norm": 0.2018171415322196
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 12819.294797757811,
+        "max_abs": 170.83815199218864,
+        "reference_norm": 0.01630248825922091
+      }
+    },
+    {
+      "direction": 1,
+      "epsilon": 1e-06,
+      "overall": {
+        "relative_error": 3139.8284724627856,
+        "max_abs": 170.83815199320938,
+        "reference_norm": 0.20181712877248806
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 12819.294315373925,
+        "max_abs": 170.83815199320938,
+        "reference_norm": 0.01630248887273444
+      }
+    },
+    {
+      "direction": 2,
+      "epsilon": 0.0001,
+      "overall": {
+        "relative_error": 4888.77289191558,
+        "max_abs": 386.5687078216585,
+        "reference_norm": 0.2932958426144239
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 22176.87967908103,
+        "max_abs": 386.5687078216585,
+        "reference_norm": 0.021323546292619757
+      }
+    },
+    {
+      "direction": 2,
+      "epsilon": 1e-05,
+      "overall": {
+        "relative_error": 4888.772879842359,
+        "max_abs": 386.56870782169756,
+        "reference_norm": 0.2932958433416865
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 22176.87952363859,
+        "max_abs": 386.56870782169756,
+        "reference_norm": 0.021323546442081995
+      }
+    },
+    {
+      "direction": 2,
+      "epsilon": 1e-06,
+      "overall": {
+        "relative_error": 4888.773398285592,
+        "max_abs": 386.5687078223552,
+        "reference_norm": 0.2932958122399528
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 22176.879852565646,
+        "max_abs": 386.5687078223552,
+        "reference_norm": 0.02132354612582381
+      }
+    }
+  ],
+  "raw_audit_path": "example/cpp/experiments/_runs/whole_body_derivative_audit_20260908_0003/audit.json",
+  "raw_audit_sha256": "9c5f3ca9afbfb575af6304194613c2d59661f45d5235d9b7f6272d7d7dceb8a0",
+  "max_repeated_forward_force_change_n": 0.0,
+  "local_axis_audit": {
+    "step": 32,
+    "pre_time": 21.083999999999964,
+    "post_time": 21.085999999999963,
+    "method": "48 independent centered axes over tangent q, v, u with original pre-step integration memory; compare native transitionFD and direct mj_step. Direction is chained S31 times seed1301 direction0 plus corresponding block control direction.",
+    "nominal": {
+      "ncon": 3,
+      "nefc": 30,
+      "solver_niter": [
+        7,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "contacts": [
+        {
+          "geom1": 0,
+          "geom2": 20,
+          "dist": -0.001874837097599287
+        },
+        {
+          "geom1": 0,
+          "geom2": 44,
+          "dist": -0.0005195994342590618
+        },
+        {
+          "geom1": 0,
+          "geom2": 56,
+          "dist": -0.002428439275490253
+        }
+      ]
+    },
+    "results": [
+      {
+        "epsilon": 0.0001,
+        "native_vs_manual_matrix": {
+          "relative_error": 2.5345357920422757e-09,
+          "max_abs": 3.461893951273165e-05,
+          "reference_norm": 20256.231440444684
+        },
+        "native_vs_directional": {
+          "relative_error": 41.46363538364508,
+          "max_abs": 2.6054590622974025,
+          "reference_norm": 0.0713603737025552
+        },
+        "manual_vs_directional": {
+          "relative_error": 41.46363538364508,
+          "max_abs": 2.6054590622974025,
+          "reference_norm": 0.0713603737025552
+        },
+        "directional_plus": {
+          "ncon": 3,
+          "nefc": 30,
+          "solver_niter": [
+            7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "contacts": [
+            {
+              "geom1": 0,
+              "geom2": 20,
+              "dist": -0.0018748376398043456
+            },
+            {
+              "geom1": 0,
+              "geom2": 44,
+              "dist": -0.0005196547734803506
+            },
+            {
+              "geom1": 0,
+              "geom2": 56,
+              "dist": -0.0024284378550751343
+            }
+          ]
+        },
+        "directional_minus": {
+          "ncon": 3,
+          "nefc": 30,
+          "solver_niter": [
+            7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "contacts": [
+            {
+              "geom1": 0,
+              "geom2": 20,
+              "dist": -0.0018748365553940063
+            },
+            {
+              "geom1": 0,
+              "geom2": 44,
+              "dist": -0.0005195440949953625
+            },
+            {
+              "geom1": 0,
+              "geom2": 56,
+              "dist": -0.002428440695904789
+            }
+          ]
+        },
+        "contact_count_changed_columns": [
+          {
+            "column": 2,
+            "native_vs_manual": {
+              "relative_error": 1.744571583635281e-11,
+              "max_abs": 1.3363959047024698e-07,
+              "reference_norm": 7673.428600288386
+            },
+            "native_norm": 7673.428600288387,
+            "manual_norm": 7673.428600288386,
+            "plus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001774837097599298
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0004195994342590728
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002328439275490264
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001974837097599276
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.0009000607753375453
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0006195994342590508
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002528439275490242
+                }
+              ]
+            }
+          },
+          {
+            "column": 3,
+            "native_vs_manual": {
+              "relative_error": 1.4390102809164348e-09,
+              "max_abs": 1.0831165322910952e-05,
+              "reference_norm": 7654.150411585128
+            },
+            "native_norm": 7654.1504115851285,
+            "manual_norm": 7654.150411585128,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.0018615933691314493
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.0009854498286307398
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005054145886054587
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.0024423764752230584
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001888077348779195
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005337808202367025
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.0024144985973853575
+                }
+              ]
+            }
+          },
+          {
+            "column": 4,
+            "native_vs_manual": {
+              "relative_error": 4.521596351732893e-09,
+              "max_abs": 3.455446940505563e-05,
+              "reference_norm": 7655.004182488193
+            },
+            "native_norm": 7655.004182488193,
+            "manual_norm": 7655.004182488193,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.0018906968428008888
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.000980511550176609
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005001786857044624
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002405609243283542
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.0018589738838496253
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005390167283028727
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.00245126581959957
+                }
+              ]
+            }
+          },
+          {
+            "column": 5,
+            "native_vs_manual": {
+              "relative_error": 4.741499281133074e-09,
+              "max_abs": 3.461893951273165e-05,
+              "reference_norm": 7652.135705011127
+            },
+            "native_norm": 7652.135705011127,
+            "manual_norm": 7652.135705011127,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874934107813038
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.0009999767852661365
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195156301613171
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.00242830554443655
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.0018747400822865593
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005196832287138534
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428573011006442
+                }
+              ]
+            }
+          },
+          {
+            "column": 9,
+            "native_vs_manual": {
+              "relative_error": 4.9649498677781253e-14,
+              "max_abs": 2.992417424962923e-10,
+              "reference_norm": 7653.393938899889
+            },
+            "native_norm": 7653.393938899888,
+            "manual_norm": 7653.393938899889,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.0009900997649443175
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            }
+          },
+          {
+            "column": 10,
+            "native_vs_manual": {
+              "relative_error": 7.538687696973606e-14,
+              "max_abs": 5.342254139062419e-10,
+              "reference_norm": 7651.405383871413
+            },
+            "native_norm": 7651.405383871413,
+            "manual_norm": 7651.405383871413,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.000999851219094204
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            }
+          },
+          {
+            "column": 11,
+            "native_vs_manual": {
+              "relative_error": 2.914648239869928e-14,
+              "max_abs": 1.9153040958785894e-10,
+              "reference_norm": 7653.402556344848
+            },
+            "native_norm": 7653.402556344848,
+            "manual_norm": 7653.402556344848,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.0009875518009789183
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "epsilon": 1e-05,
+        "native_vs_manual_matrix": {
+          "relative_error": 2.1219039876151457e-10,
+          "max_abs": 3.4540560730766945e-05,
+          "reference_norm": 171110.4526003452
+        },
+        "native_vs_directional": {
+          "relative_error": 150.3491529483457,
+          "max_abs": 9.447053548678781,
+          "reference_norm": 0.07136037367793381
+        },
+        "manual_vs_directional": {
+          "relative_error": 150.34915294834573,
+          "max_abs": 9.447053548678781,
+          "reference_norm": 0.07136037367793381
+        },
+        "directional_plus": {
+          "ncon": 3,
+          "nefc": 30,
+          "solver_niter": [
+            7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "contacts": [
+            {
+              "geom1": 0,
+              "geom2": 20,
+              "dist": -0.001874837151819693
+            },
+            {
+              "geom1": 0,
+              "geom2": 44,
+              "dist": -0.000519604968183103
+            },
+            {
+              "geom1": 0,
+              "geom2": 56,
+              "dist": -0.00242843913344868
+            }
+          ]
+        },
+        "directional_minus": {
+          "ncon": 3,
+          "nefc": 30,
+          "solver_niter": [
+            7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "contacts": [
+            {
+              "geom1": 0,
+              "geom2": 20,
+              "dist": -0.00187483704337877
+            },
+            {
+              "geom1": 0,
+              "geom2": 44,
+              "dist": -0.000519593900334521
+            },
+            {
+              "geom1": 0,
+              "geom2": 56,
+              "dist": -0.002428439417531632
+            }
+          ]
+        },
+        "contact_count_changed_columns": [
+          {
+            "column": 2,
+            "native_vs_manual": {
+              "relative_error": 1.7427109957169722e-12,
+              "max_abs": 1.3314171593004076e-07,
+              "reference_norm": 76529.73677143612
+            },
+            "native_norm": 76529.73677143612,
+            "manual_norm": 76529.73677143612,
+            "plus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001864837097599277
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005095994342590518
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002418439275490243
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001884837097599297
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.0009900607753375243
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005295994342590718
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002438439275490263
+                }
+              ]
+            }
+          },
+          {
+            "column": 3,
+            "native_vs_manual": {
+              "relative_error": 1.438535783511315e-10,
+              "max_abs": 1.0824619913307743e-05,
+              "reference_norm": 76521.37665655477
+            },
+            "native_norm": 76521.37665655477,
+            "manual_norm": 76521.37665655477,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.0018735128812282023
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.000998599525461212
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005181811053768873
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002429833151992501
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.0018761612791971874
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005210177285444664
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.0024270453642040515
+                }
+              ]
+            }
+          },
+          {
+            "column": 4,
+            "native_vs_manual": {
+              "relative_error": 4.5214207733068885e-10,
+              "max_abs": 3.4540560730766945e-05,
+              "reference_norm": 76522.04370690747
+            },
+            "native_norm": 76522.04370690747,
+            "manual_norm": 76522.04370690747,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.0018764232282065044
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.0009981056973812283
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.000517657514853366
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.0024261564292301155
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.0018732509323063987
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005215413191195575
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.0024307220868692372
+                }
+              ]
+            }
+          },
+          {
+            "column": 9,
+            "native_vs_manual": {
+              "relative_error": 4.966679599945278e-15,
+              "max_abs": 2.992015524228009e-10,
+              "reference_norm": 76520.74970033029
+            },
+            "native_norm": 76520.74970033027,
+            "manual_norm": 76520.74970033029,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.0009990645189853972
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            }
+          },
+          {
+            "column": 11,
+            "native_vs_manual": {
+              "relative_error": 2.914499023191693e-15,
+              "max_abs": 1.9151297214747842e-10,
+              "reference_norm": 76520.69575807286
+            },
+            "native_norm": 76520.69575807286,
+            "manual_norm": 76520.69575807286,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.0009988098003258991
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "epsilon": 1e-06,
+        "native_vs_manual_matrix": {
+          "relative_error": 2.121919440276383e-11,
+          "max_abs": 3.453944226627925e-05,
+          "reference_norm": 1711033.219044407
+        },
+        "native_vs_directional": {
+          "relative_error": 1503.5247724227422,
+          "max_abs": 94.47227905664559,
+          "reference_norm": 0.0713603725034296
+        },
+        "manual_vs_directional": {
+          "relative_error": 1503.5247724227434,
+          "max_abs": 94.4722790566457,
+          "reference_norm": 0.0713603725034296
+        },
+        "directional_plus": {
+          "ncon": 3,
+          "nefc": 30,
+          "solver_niter": [
+            7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "contacts": [
+            {
+              "geom1": 0,
+              "geom2": 20,
+              "dist": -0.0018748371030213942
+            },
+            {
+              "geom1": 0,
+              "geom2": 44,
+              "dist": -0.0005195999876515603
+            },
+            {
+              "geom1": 0,
+              "geom2": 56,
+              "dist": -0.002428439261285921
+            }
+          ]
+        },
+        "directional_minus": {
+          "ncon": 3,
+          "nefc": 30,
+          "solver_niter": [
+            7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "contacts": [
+            {
+              "geom1": 0,
+              "geom2": 20,
+              "dist": -0.0018748370921771798
+            },
+            {
+              "geom1": 0,
+              "geom2": 44,
+              "dist": -0.0005195988808666743
+            },
+            {
+              "geom1": 0,
+              "geom2": 56,
+              "dist": -0.002428439289694169
+            }
+          ]
+        },
+        "contact_count_changed_columns": [
+          {
+            "column": 2,
+            "native_vs_manual": {
+              "relative_error": 1.7425798138088137e-13,
+              "max_abs": 1.3311534807769476e-07,
+              "reference_norm": 765203.2649143174
+            },
+            "native_norm": 765203.2649143174,
+            "manual_norm": 765203.2649143174,
+            "plus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.0018738370975993138
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005185994342590886
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.00242743927549028
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.0018758370975992603
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.000999060775337561
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.000520599434259035
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.0024294392754902264
+                }
+              ]
+            }
+          },
+          {
+            "column": 3,
+            "native_vs_manual": {
+              "relative_error": 1.4384938156241539e-11,
+              "max_abs": 1.0824039599732771e-05,
+              "reference_norm": 765195.991090294
+            },
+            "native_norm": 765195.991090294,
+            "manual_norm": 765195.991090294,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.0018747046775268242
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.000999914648797999
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005194576029278267
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.0024285786647056176
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.0018749695173237782
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005197412652444625
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428299885926778
+                }
+              ]
+            }
+          },
+          {
+            "column": 4,
+            "native_vs_manual": {
+              "relative_error": 4.521414143496066e-11,
+              "max_abs": 3.453944226627925e-05,
+              "reference_norm": 765196.6394788048
+            },
+            "native_norm": 765196.6394788048,
+            "manual_norm": 765196.6394788048,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874995712220863
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.000999865265987547
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005194052438729849
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.0024282109924338227
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874678482630683
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005197936242996096
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.0024286675581977404
+                }
+              ]
+            }
+          },
+          {
+            "column": 9,
+            "native_vs_manual": {
+              "relative_error": 5.183458348507712e-16,
+              "max_abs": 2.991704661781114e-10,
+              "reference_norm": 765195.3770767099
+            },
+            "native_norm": 765195.3770767098,
+            "manual_norm": 765195.3770767099,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.0009999611481493129
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            }
+          },
+          {
+            "column": 11,
+            "native_vs_manual": {
+              "relative_error": 2.9178478825650977e-16,
+              "max_abs": 1.9168666653968103e-10,
+              "reference_norm": 765195.3168843625
+            },
+            "native_norm": 765195.3168843625,
+            "manual_norm": 765195.3168843625,
+            "plus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.000999935677060658
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.001874837097599287
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005195994342590618
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428439275490253
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "epsilon": 1e-07,
+        "native_vs_manual_matrix": {
+          "relative_error": 1.742577649759333e-14,
+          "max_abs": 1.3311359481349427e-07,
+          "reference_norm": 7651949.535788033
+        },
+        "native_vs_directional": {
+          "relative_error": 1483.6191827218593,
+          "max_abs": 93.22145974820627,
+          "reference_norm": 0.0713603763624256
+        },
+        "manual_vs_directional": {
+          "relative_error": 1483.6191827218593,
+          "max_abs": 93.22145974820627,
+          "reference_norm": 0.0713603763624256
+        },
+        "directional_plus": {
+          "ncon": 3,
+          "nefc": 30,
+          "solver_niter": [
+            7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "contacts": [
+            {
+              "geom1": 0,
+              "geom2": 20,
+              "dist": -0.001874837098141409
+            },
+            {
+              "geom1": 0,
+              "geom2": 44,
+              "dist": -0.0005195994895983505
+            },
+            {
+              "geom1": 0,
+              "geom2": 56,
+              "dist": -0.0024284392740696395
+            }
+          ]
+        },
+        "directional_minus": {
+          "ncon": 3,
+          "nefc": 30,
+          "solver_niter": [
+            7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "contacts": [
+            {
+              "geom1": 0,
+              "geom2": 20,
+              "dist": -0.0018748370970570818
+            },
+            {
+              "geom1": 0,
+              "geom2": 44,
+              "dist": -0.0005195993789198286
+            },
+            {
+              "geom1": 0,
+              "geom2": 56,
+              "dist": -0.0024284392769105337
+            }
+          ]
+        },
+        "contact_count_changed_columns": [
+          {
+            "column": 2,
+            "native_vs_manual": {
+              "relative_error": 1.7425773769813072e-14,
+              "max_abs": 1.3311359481349427e-07,
+              "reference_norm": 7651949.535766866
+            },
+            "native_norm": 7651949.535766866,
+            "manual_norm": 7651949.535766866,
+            "plus": {
+              "ncon": 3,
+              "nefc": 30,
+              "solver_niter": [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.0018747370975992841
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005194994342590589
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.0024283392754902502
+                }
+              ]
+            },
+            "minus": {
+              "ncon": 4,
+              "nefc": 36,
+              "solver_niter": [
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "contacts": [
+                {
+                  "geom1": 0,
+                  "geom2": 20,
+                  "dist": -0.00187493709759929
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 32,
+                  "dist": 0.0009999607753375314
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 44,
+                  "dist": -0.0005196994342590647
+                },
+                {
+                  "geom1": 0,
+                  "geom2": 56,
+                  "dist": -0.002428539275490256
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "epsilon": 1e-08,
+        "native_vs_manual_matrix": {
+          "relative_error": 1.1491973188579973e-11,
+          "max_abs": 2.60208743441126e-10,
+          "reference_norm": 60.55615133151671
+        },
+        "native_vs_directional": {
+          "relative_error": 5.839223620541708e-06,
+          "max_abs": 3.3144287065606237e-07,
+          "reference_norm": 0.07136014957506187
+        },
+        "manual_vs_directional": {
+          "relative_error": 5.8392237447504344e-06,
+          "max_abs": 3.3144287065606237e-07,
+          "reference_norm": 0.07136014957506187
+        },
+        "directional_plus": {
+          "ncon": 3,
+          "nefc": 30,
+          "solver_niter": [
+            7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "contacts": [
+            {
+              "geom1": 0,
+              "geom2": 20,
+              "dist": -0.001874837097653466
+            },
+            {
+              "geom1": 0,
+              "geom2": 44,
+              "dist": -0.0005195994397930517
+            },
+            {
+              "geom1": 0,
+              "geom2": 56,
+              "dist": -0.0024284392753482556
+            }
+          ]
+        },
+        "directional_minus": {
+          "ncon": 3,
+          "nefc": 30,
+          "solver_niter": [
+            7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "contacts": [
+            {
+              "geom1": 0,
+              "geom2": 20,
+              "dist": -0.0018748370975449416
+            },
+            {
+              "geom1": 0,
+              "geom2": 44,
+              "dist": -0.0005195994287250441
+            },
+            {
+              "geom1": 0,
+              "geom2": 56,
+              "dist": -0.002428439275632223
+            }
+          ]
+        },
+        "contact_count_changed_columns": []
+      }
+    ]
+  }
+}

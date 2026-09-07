@@ -7,3 +7,5 @@ Raw data preserved under _runs; attempt_0001 retains original and path-normalize
 result plus exact runtime source copies. Normalized paths alone changed; its
 independent curated certificate reproduces the original verdict. Current solver
 170N objective and periodic feedback script are unrun drafts, not this result.
+
+Resumed attempt_0002:170N objective executed at0349725, force170.120N passes180N. V1 remains FAIL only for2.287774e-7 absolute dynamics residual. Chain derivatives fail481.61 relative; fallback whole finite differences used. Read attempt_0002/README.md and its unchanged verdict.

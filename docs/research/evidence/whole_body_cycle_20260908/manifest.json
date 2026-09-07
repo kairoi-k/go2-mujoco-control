@@ -1,9 +1,9 @@
 {
   "b1_claim": false,
   "runtime_source_sha": "6356c21c9474f58156065044a7fd1c2f82c61008",
-  "status": "one initialized full-cycle diagnostic, V1 FAIL; current feedback drafts unrun",
+  "status": "two initialized cycles:170N objective force-feasible; both V1 FAIL dynamics; feedback pending",
   "files": {
-    "README.md": "7c2455d271fa3149a95a682a0955b1eef722712f30bd6f58dc52cd7e4e670a37",
+    "README.md": "5b1e7e6e2ece178b50325c36e1972360b4fe8be8969b0de9ab199cae9ba06d38",
     "attempt_0001/certificate.json": "8c42c1083783eeb3b6c767944cdfc0d492719559119cb03f97f519b13a10a824",
     "attempt_0001/contact_diagnostic.json": "261d8ff4fefb1d825413a2996b12685ba58e17c5687df30db84a0016b85a3b64",
     "attempt_0001/curated_certificate.json": "99243f0a21ac842cb21057a76d0cc979a418c0dbf878f05ac8bde10c68725d3e",
@@ -13,6 +13,23 @@
     "attempt_0001/runtime_sources/whole_body_cycle.py": "26678a2447e1f6dc8f16955173a1785ef81816a9726adf7c2c9eafece2ccef57",
     "attempt_0001/runtime_sources/whole_body_shooting_derivatives.py": "4d4483221fc9131f24d6b04bebde8dac1220c8d3aa1475149f4c5ec046dc6c9c",
     "attempt_0001/solver.log": "084bcd24821ab0ec817cb9aab2fb1c549ff92ac55b1c6c5ddd61c22b5cd53f0b",
+    "attempt_0002/README.md": "60232a347eafbe750d03fd24e79e3dec178d67c9e56334f47cd1f9d135b371b7",
+    "attempt_0002/certificate.json": "e4c57099b91430f75dc3db68e33983cfc736202b07f8997ed9decd399a423b13",
+    "attempt_0002/contact_diagnostic.json": "9f3972a9d6b6fa9cfbbf919784915a451c7b967f2e93b1b88becdaabe40228ef",
+    "attempt_0002/curated_certificate.json": "8b09cd34e6cec675d20122e79e65d3b44cccbf7847011a3b100c3c0e4a073044",
+    "attempt_0002/manifest.json": "9ccf6db8edcffedfa33a79ae3d0b47ecf0a92578bf092c6e071d75b767a02744",
+    "attempt_0002/raw_result.json": "ea79172be79e447bca5d3535c97f025696ccb481a10ee7a3f6c1254a18ba5c44",
+    "attempt_0002/result.json": "ba7362e1c0578704660cc47229cb6a3cfe6b0f66e2ea9d961bb6ec08cd2710d6",
+    "attempt_0002/runtime_sources/verify_whole_body_shooting.py": "c6c4c1b0a1821363a9211e2f0f5addfa9c8396c5238ae67c636ce5afd0dd40f4",
+    "attempt_0002/runtime_sources/whole_body_cycle.py": "2a7b6ee65d4585da3161040518e2a8509b2dde678f4b5775a49a6ff254d72e9b",
+    "attempt_0002/runtime_sources/whole_body_shooting_derivatives.py": "4d4483221fc9131f24d6b04bebde8dac1220c8d3aa1475149f4c5ec046dc6c9c",
+    "attempt_0002/solve.log": "63058f67812982864cc666bb2a0fa59a749e14bc2837f839c1f0f24736100be2",
+    "attempt_0002/source_sha.txt": "05ab0d71d78ebde3a39a052d1c72f50e2ad6e14c4b9aa1e5a23ebd1507337d7c",
+    "attempt_0002/source_status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "previous_cycle_seed_v1.json": "2ad7d127b5744b7fa9182ab18c6402596d01c6398d8da4f7cf3663819fa98e1b"
+  },
+  "runtime_source_sha_by_attempt": {
+    "attempt_0001": "6356c21c9474f58156065044a7fd1c2f82c61008",
+    "attempt_0002": "0349725c90cf5e3a15addfc8715a32f21a3a98bd"
   }
 }

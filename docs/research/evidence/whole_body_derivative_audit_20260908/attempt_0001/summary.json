@@ -1,0 +1,202 @@
+{
+  "schema": "whole-body-derivative-audit-v1",
+  "mujoco_version": "3.3.6",
+  "methods": "Three deterministic unit Gaussian directions seed1301; centered whole-rollout FD. State FD uses nominal tangent origin. Frozen-memory probe replaces only pre-step qacc_warmstart with nominal values, preserving perturbed q/v/u. Repeated-forward probe repeats observation evaluation. No model or solver-option changes. Diagnostics do not certify smoothness or feedback.",
+  "divergence_definition": "combined relative error >0.03 and max absolute error >1e-6; diagnostic threshold only",
+  "force_target_n": 170.0,
+  "block_steps": 2,
+  "input_hashes": {
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/joint_execution_flat_20260908/attempt_0012/initial_source.txt": "b86474ca4e4e2bafa02d8db75e91499030865ab4fa67c46d7d664b8a94ad5a16",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/whole_body_cycle_20260908/attempt_0001/result.json": "54352684e1b31526f2e51113f51da38972e9b1b665e95676153f00ce0065767e",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/whole_body_cycle_20260908/previous_cycle_seed_v1.json": "2ad7d127b5744b7fa9182ab18c6402596d01c6398d8da4f7cf3663819fa98e1b",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/audit_whole_body_cycle_derivatives.py": "8bb0ccf35ea0be7bf9afc31e310ed386eb53f9b7ea74b985339c2bc3e610d73f",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/whole_body_cycle.py": "2a7b6ee65d4585da3161040518e2a8509b2dde678f4b5775a49a6ff254d72e9b",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/whole_body_shooting_derivatives.py": "4d4483221fc9131f24d6b04bebde8dac1220c8d3aa1475149f4c5ec046dc6c9c",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_0.obj": "8cdc53719002a5ee737d867904e534a6d6fa930b616bdcc1b3131e577d4e46c0",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_1.obj": "39d2f4724ff64dd5a0640c308fd98902a2946660a8d033ec8dbf368fd5af0dd6",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_2.obj": "29cae463f95d678e4ede863c36c9b19b0d356b8340412add10670d70bdcc3095",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_3.obj": "f51ba43bf300e68957a0c1aa83eaf3e4926f4ac7e64a0d6c33ae5d21fcbcf5f6",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_4.obj": "49ddec0129546e5dd2075d5beacf7f207baa2860aeff7626818e64d2efbf3821",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/calf_0.obj": "4a818cd563c5b7e2a271504442d05fd777d38cbaa028d4a10ad29c9f87bb355e",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/calf_1.obj": "51950c3a153ae3208592df86ea11c9d6756f8f645ebca5caf6910c61aeb03817",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/calf_mirror_0.obj": "6dc0406207a1c08a5953fd5962aca1a270fd06593d30d100205e05c1b32d4af2",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/calf_mirror_1.obj": "f84f5af90b914633165beb3a5493ee499169144c5797dcf04c6eb5842f74b31a",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/foot.obj": "df9e78a7c0110d02557439010f2a5f11f0ec4fd907b32704145dbd6aa7affc0b",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/hip_0.obj": "cc29932ab4d251ce3f72389ec4c1f757e44eee138b87e772b648c2bc76b506cd",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/hip_1.obj": "3fd5bd9b2ef6abe622c0739d3c67eaa1679b19b47132951972c4892a779ea7cf",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/thigh_0.obj": "bb3edfe6a7b04f4f4dff1ce7b05d426ddce941e276cc6372fb542055893c71ec",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/thigh_1.obj": "3a631822f9f7d2114b1b79dcdff5abf95103630abb7d91d1f3b8b18117132ed2",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/thigh_mirror_0.obj": "07abaedce761f1dd48647384ac14ba1959276bc78d5a2a62051e8f1c6093933b",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/thigh_mirror_1.obj": "db984a3e983eabbc9b38183427cca9ab0bb3bdb049f9eab030e06edda36579d6",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/go2.xml": "01acff1a72a10cd38ab3c95142bfc63db197c5fba39a11b45b15b6fc4899ba10",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/phase2_flat.xml": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e"
+  },
+  "elapsed_s": 4.3164308609993896,
+  "checks": [
+    {
+      "direction": 0,
+      "epsilon": 0.0001,
+      "overall": {
+        "relative_error": 481.6100059224858,
+        "max_abs": 50.751209836469755,
+        "reference_norm": 0.44556258538225113
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 3310.4144002369703,
+        "max_abs": 50.751209836469755,
+        "reference_norm": 0.019543500186696903
+      }
+    },
+    {
+      "direction": 0,
+      "epsilon": 1e-05,
+      "overall": {
+        "relative_error": 481.6100118743519,
+        "max_abs": 50.75120983641291,
+        "reference_norm": 0.44556257986948355
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 3310.4143775705825,
+        "max_abs": 50.75120983641291,
+        "reference_norm": 0.019543500320471297
+      }
+    },
+    {
+      "direction": 0,
+      "epsilon": 1e-06,
+      "overall": {
+        "relative_error": 481.60993338531995,
+        "max_abs": 50.751209836857086,
+        "reference_norm": 0.445562652652101
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 3310.4142678834983,
+        "max_abs": 50.751209836857086,
+        "reference_norm": 0.019543500968502412
+      }
+    },
+    {
+      "direction": 1,
+      "epsilon": 0.0001,
+      "overall": {
+        "relative_error": 385.30929815068384,
+        "max_abs": 20.064938570091314,
+        "reference_norm": 0.22018420524877158
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 1557.236681887353,
+        "max_abs": 20.064938570091314,
+        "reference_norm": 0.01642561321210493
+      }
+    },
+    {
+      "direction": 1,
+      "epsilon": 1e-05,
+      "overall": {
+        "relative_error": 385.3093203656735,
+        "max_abs": 20.06493857005758,
+        "reference_norm": 0.220184192547698
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 1557.2366950008607,
+        "max_abs": 20.06493857005758,
+        "reference_norm": 0.016425613073801852
+      }
+    },
+    {
+      "direction": 1,
+      "epsilon": 1e-06,
+      "overall": {
+        "relative_error": 385.30938006945354,
+        "max_abs": 20.064938570173158,
+        "reference_norm": 0.22018415820211118
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 1557.2367404630895,
+        "max_abs": 20.064938570173158,
+        "reference_norm": 0.016425612594814315
+      }
+    },
+    {
+      "direction": 2,
+      "epsilon": 0.0001,
+      "overall": {
+        "relative_error": 329.61908429606524,
+        "max_abs": 24.297400854832418,
+        "reference_norm": 0.3116772647666183
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 1276.133034662605,
+        "max_abs": 24.297400854832418,
+        "reference_norm": 0.024271790475555347
+      }
+    },
+    {
+      "direction": 2,
+      "epsilon": 1e-05,
+      "overall": {
+        "relative_error": 329.6190857065614,
+        "max_abs": 24.29740085483775,
+        "reference_norm": 0.3116772634233976
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 1276.133026547461,
+        "max_abs": 24.29740085483775,
+        "reference_norm": 0.02427179062990618
+      }
+    },
+    {
+      "direction": 2,
+      "epsilon": 1e-06,
+      "overall": {
+        "relative_error": 329.61902710410743,
+        "max_abs": 24.297400854633466,
+        "reference_norm": 0.31167731923169306
+      },
+      "first_state_divergence": 32,
+      "worst_state_step": 32,
+      "worst_residual": {
+        "step": 32,
+        "category": "velocity",
+        "relative_error": 1276.1329310151298,
+        "max_abs": 24.297400854633466,
+        "reference_norm": 0.024271792447826512
+      }
+    }
+  ],
+  "raw_audit_path": "example/cpp/experiments/_runs/whole_body_derivative_audit_20260908_0001/audit.json",
+  "raw_audit_sha256": "b4eed69e322a06880d3bd0c3d1515f3845ef0da8e8958aef45b12eb6c200b895",
+  "max_repeated_forward_force_change_n": 0.0
+}

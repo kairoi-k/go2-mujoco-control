@@ -1,0 +1,4 @@
+# Attempt 0002: hard force reserve, V1 remains FAIL
+Clean runtime0349725c90cf5e3a15addfc8715a32f21a3a98bd; pre-registered170N objective, unchanged180N hard force limit. Warm-start0001; full-cycle unchanged model and source state. Chained derivative error481.610 triggers whole-rollout finite difference fallback. Solve99.670s,22function evaluations/3806objective calls. Saved-command replay reproduces states/forces/torques exactly. Peak force170.120288N, torque28.15256Nm, terminal body error0.883mm. All V1 checks pass except absolute dynamics balance2.287774e-7>1e-7. Do not relabel V1. Relative residual1.467443e-9 is diagnostic only. At10N both diagonals appear68/46ms,6ms aerial,12ms four-foot overlap. One initialized cycle is not feedback, real controller or5cm B1.
+
+Original raw result remains unchanged; portable result only resolves paths to source copies. OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1.

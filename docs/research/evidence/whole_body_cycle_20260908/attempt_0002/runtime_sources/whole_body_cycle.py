@@ -44,8 +44,7 @@ def validate_seed(seed,source,t0,period):
    values=np.asarray(seed[name],float)
    if values.shape!=(len(ts),width) or not np.all(np.isfinite(values)):raise ValueError('invalid seed '+name)
 class CycleProblem:
- def __init__(self,source,seed,scene,cycles=1,block_steps=2,force_scale=10.,force_target=170.,transition_mode="native"):
-  self.transition_mode=transition_mode;self.derivative_diagnostics=[]
+ def __init__(self,source,seed,scene,cycles=1,block_steps=2,force_scale=10.,force_target=170.):
   self.m=mujoco.MjModel.from_xml_path(str(scene));m=self.m
   if m.na or m.nu!=12 or m.nv!=18 or abs(m.opt.timestep-.002)>1e-12:raise ValueError('unsupported model')
   t=pathlib.Path(source).read_text().split()
@@ -85,7 +84,7 @@ class CycleProblem:
   return np.concatenate(r)
  def evaluate(self,x,jac=False):
   if self.cache_x is not None and np.array_equal(x,self.cache_x) and (not jac or self.cache_j is not None):return self.cache_j if jac else self.cache_r
-  u=x.reshape(self.blocks,12);ds,S=rollout(self.m,self.initial,u,self.bs,jac,transition_mode=self.transition_mode,derivative_diagnostics=self.derivative_diagnostics);res=[];jacs=[];m=self.m;eps=1e-6
+  u=x.reshape(self.blocks,12);ds,S=rollout(self.m,self.initial,u,self.bs,jac);res=[];jacs=[];m=self.m;eps=1e-6
   for k,d in enumerate(ds):
    r=self.local(d,k);res.append(r)
    if jac:

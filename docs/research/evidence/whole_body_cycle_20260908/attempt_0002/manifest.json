@@ -1,0 +1,25 @@
+{
+  "source_sha": "0349725c90cf5e3a15addfc8715a32f21a3a98bd",
+  "raw_directory": "example/cpp/experiments/_runs/whole_body_cycle_20260908_0002",
+  "status": "V1_FAIL_dynamics_balance_only; no B1",
+  "command": "python3 example/cpp/tools/research/whole_body_cycle.py --source docs/research/evidence/joint_execution_flat_20260908/attempt_0012/initial_source.txt --seed docs/research/evidence/whole_body_cycle_20260908/previous_cycle_seed_v1.json --scene unitree_robots/go2/phase2_flat.xml --warm-start docs/research/evidence/whole_body_cycle_20260908/attempt_0001/result.json --force-target-n 170 --check-jac --max-nfev 35 --wall-budget-s 240 --out example/cpp/experiments/_runs/whole_body_cycle_20260908_0002/result.json",
+  "environment": {
+    "OPENBLAS_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1"
+  },
+  "sha256": {
+    "README.md": "60232a347eafbe750d03fd24e79e3dec178d67c9e56334f47cd1f9d135b371b7",
+    "certificate.json": "e4c57099b91430f75dc3db68e33983cfc736202b07f8997ed9decd399a423b13",
+    "contact_diagnostic.json": "9f3972a9d6b6fa9cfbbf919784915a451c7b967f2e93b1b88becdaabe40228ef",
+    "curated_certificate.json": "8b09cd34e6cec675d20122e79e65d3b44cccbf7847011a3b100c3c0e4a073044",
+    "raw_result.json": "ea79172be79e447bca5d3535c97f025696ccb481a10ee7a3f6c1254a18ba5c44",
+    "result.json": "ba7362e1c0578704660cc47229cb6a3cfe6b0f66e2ea9d961bb6ec08cd2710d6",
+    "runtime_sources/verify_whole_body_shooting.py": "c6c4c1b0a1821363a9211e2f0f5addfa9c8396c5238ae67c636ce5afd0dd40f4",
+    "runtime_sources/whole_body_cycle.py": "2a7b6ee65d4585da3161040518e2a8509b2dde678f4b5775a49a6ff254d72e9b",
+    "runtime_sources/whole_body_shooting_derivatives.py": "4d4483221fc9131f24d6b04bebde8dac1220c8d3aa1475149f4c5ec046dc6c9c",
+    "solve.log": "63058f67812982864cc666bb2a0fa59a749e14bc2837f839c1f0f24736100be2",
+    "source_sha.txt": "05ab0d71d78ebde3a39a052d1c72f50e2ad6e14c4b9aa1e5a23ebd1507337d7c",
+    "source_status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

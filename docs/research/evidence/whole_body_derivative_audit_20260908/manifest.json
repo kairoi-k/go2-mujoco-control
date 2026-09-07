@@ -1,0 +1,23 @@
+{
+  "sha256": {
+    "README.md": "0a55e19e0b7077b9aa071bd1ea92567ec7bfb9637fcf30537f79a620e40f57f2",
+    "attempt_0001/runtime_source.py": "8bb0ccf35ea0be7bf9afc31e310ed386eb53f9b7ea74b985339c2bc3e610d73f",
+    "attempt_0001/runtime_sources/whole_body_cycle.py": "2a7b6ee65d4585da3161040518e2a8509b2dde678f4b5775a49a6ff254d72e9b",
+    "attempt_0001/runtime_sources/whole_body_shooting_derivatives.py": "4d4483221fc9131f24d6b04bebde8dac1220c8d3aa1475149f4c5ec046dc6c9c",
+    "attempt_0001/summary.json": "2fb2398ceaf09e1ed6ba2c8152710f5ee0fa89ad9534f975f83b9ae4c7d4d2e9",
+    "attempt_0002/runtime_source.py": "bd845f93dd43713663c94b31d9f274b5557bc49361ae564445266efa56f77f25",
+    "attempt_0002/runtime_sources/whole_body_cycle.py": "2a7b6ee65d4585da3161040518e2a8509b2dde678f4b5775a49a6ff254d72e9b",
+    "attempt_0002/runtime_sources/whole_body_shooting_derivatives.py": "4d4483221fc9131f24d6b04bebde8dac1220c8d3aa1475149f4c5ec046dc6c9c",
+    "attempt_0002/summary.json": "f2c196d3e1a8f081b5df03946c49dc07e75377dd7385350cc631752a893bd689",
+    "attempt_0003/runtime_source.py": "bd845f93dd43713663c94b31d9f274b5557bc49361ae564445266efa56f77f25",
+    "attempt_0003/runtime_sources/whole_body_cycle.py": "2a7b6ee65d4585da3161040518e2a8509b2dde678f4b5775a49a6ff254d72e9b",
+    "attempt_0003/runtime_sources/whole_body_shooting_derivatives.py": "4d4483221fc9131f24d6b04bebde8dac1220c8d3aa1475149f4c5ec046dc6c9c",
+    "attempt_0003/summary.json": "cef32a4b0a3425f392b60e94df6821488ffb5d7156e15145b141464f62b1de12",
+    "attempt_0004/runtime_sources/audit_whole_body_cycle_derivatives.py": "d92548a4e3243d97b12e6cbdb8df3a30441e7e51707d5434ca70cc331a0b3774",
+    "attempt_0004/runtime_sources/whole_body_cycle.py": "f2d6fd4cb0038a710c24221bb00891a63441925c28352b7ff55cdc9bf6ccbff7",
+    "attempt_0004/runtime_sources/whole_body_shooting_derivatives.py": "9bf2462e82375fe4b6212b503907ffcdd499868d3bf0de0fb6ac5ded4c03eeb5",
+    "attempt_0004/summary.json": "adbe990b2a6522ba014c9c40ce42d92edba3e87cef8102b55b01be92a450bd52"
+  },
+  "base_sha": "0349725c90cf5e3a15addfc8715a32f21a3a98bd",
+  "status": "local derivative fix checked; no physical feedback run yet"
+}

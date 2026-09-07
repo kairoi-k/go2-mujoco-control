@@ -27,6 +27,28 @@ def episodes(rows, key, timestep):
         episode['body_advance_between_samples_m'] = episode['body_x_last_m'] - episode['body_x_first_m']
     return output
 
+def complete_cycle_diagnostics(rows, initial_time, phase, period, timestep):
+    """Report fully covered phase-zero cycles; samples represent 2ms cells.
+    Assignment uses sample midpoints and reports the resulting quantization.
+    This is a diagnostic, not the B1 terrain interaction analyzer.
+    """
+    result = []
+    end = initial_time + len(rows)*timestep
+    for index in range(int(np.ceil(phase+len(rows)*timestep/period))+1):
+        start = initial_time + (index-phase)*period
+        stop = start + period
+        if start < initial_time-1e-10 or stop > end+1e-10:
+            continue
+        selected = [row for row in rows if start <= row['time']-timestep/2 < stop]
+        diagonal = {}
+        for mask, name in ((9,'FR_RL'),(6,'FL_RR')):
+            diagonal[name] = max((e['duration_s'] for e in episodes(selected,'mask_10',timestep) if e['value']==mask),default=0.)
+        aerial = max((e['duration_s'] for e in episodes(selected,'aerial_below_10n',timestep) if e['value']),default=0.)
+        result.append({'phase_cycle_index':index,'start_s':start,'end_s':stop,'samples':len(selected),
+            'max_contiguous_diagonal_s':diagonal,'max_contiguous_total_grf_below_10n_s':aerial,
+            'running_contact_diagnostic':bool(all(v>=.010-1e-12 for v in diagonal.values()) and aerial>=.004-1e-12)})
+    return result
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('result')
@@ -53,6 +75,7 @@ def main():
         d = mujoco.MjData(m)
         mujoco.mj_setState(m, d, np.array(r['initial_integration_state']), r['integration_state_spec'])
         initial_x = float(d.qpos[0])
+        initial_time = float(d.time)
         dt = float(m.opt.timestep)
         feet = [mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, n) for n in ('FR', 'FL', 'RR', 'RL')]
         floor = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, 'phase2_floor')
@@ -125,7 +148,7 @@ def main():
                   'result_sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'model_input_hashes': model_hashes,
                   'recorded_input_hashes': r['input_hashes'], 'state_reproduction_max': reproduction,
                   'timestep_s': dt, 'steps': len(rows), 'duration_s': len(rows)*dt,
-                  'body_advancement_m': float(d.qpos[0]) - initial_x, 'contact_duration_summary': summary, 'contact_episodes': gait,
+                  'body_advancement_m': float(d.qpos[0]) - initial_x, 'contact_duration_summary': summary, 'contact_episodes': gait, 'complete_phase_cycles': complete_cycle_diagnostics(rows,initial_time,r['initial_phase'],r['period_s'],dt),
                   'aerial_grf_below_10n_episodes': aerial, 'aerial_at_least_4ms': any(e['duration_s'] >= .004 - 1e-12 for e in aerial),
                   'foot_clearance_min_m': np.min([row['foot_sphere_surface_plane_clearance_m'] for row in rows], axis=0).tolist(),
                   'foot_clearance_max_m': np.max([row['foot_sphere_surface_plane_clearance_m'] for row in rows], axis=0).tolist(),

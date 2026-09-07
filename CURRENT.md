@@ -1,11 +1,15 @@
 # Go2 current research checkpoint
 Updated: 2026-09-08. This is the only live route/status/handoff entrypoint.
 
-**Latest handoff:** [SESSION_HANDOFF_20260908.md](docs/research/SESSION_HANDOFF_20260908.md).
-User requested clean checkpoint and new-session handoff. Full-cycle source6356c21
-ran; V1 fails180.588N force and3.584e-7 absolute dynamics residual, despite exact
-replay and small terminal error. New170N objective and periodic TVLQR are UNRUN
-drafts. No live controller/B1 result. Read handoff before older chronological notes.
+**Resume base:** [SESSION_HANDOFF_20260908.md](docs/research/SESSION_HANDOFF_20260908.md),0349725.
+The resumed results below supersede its UNRUN170N objective status.
+B1 remains NOT_CERTIFIED; feedback has not yet been physically validated.
+
+## Resumed whole-body work at0349725
+Attempt0002 executed the registered170N objective from clean0349725: hard force170.120N passes180N, exact independent state/force/torque replay, terminalbody0.883mm. V1 still FAILS absolute dynamics2.287774e-7>1e-7; relative1.467443e-9 does not override it. Chained derivative relative error481.61 caused automatic full-rollout finite difference fallback; solve99.67s. Evidence whole_body_cycle_20260908/attempt_0002. The next separately registered WHOLE_BODY_FEEDBACK_DIAGNOSTIC_V1 probe investigates five-cycle actual feedback, without claiming V1 or B1 certification.
+
+## Contact-boundary derivative correction
+Native1e-6 finite differences cross FL contact inclusion at step32 on both nominal cycles. Independent same-axis mj_step agrees; warmstart propagation is not the principal cause. checked_transition_fd selects locally converged, topology-consistent derivatives and rejects unresolved points. Whole-chain0004 selected0002 audit:3directions x3scales, relative1.01e-5..2.92e-5, no first divergence.69steps1e-7;step32 requires1e-9. Physical models/options unchanged. Feedback now requires this checker; finite-radius stability remains untested. Evidence whole_body_derivative_audit_20260908.
 
 ## Objective and acceptance
 Continue toward a long-term extensible locomotion architecture with genuine
