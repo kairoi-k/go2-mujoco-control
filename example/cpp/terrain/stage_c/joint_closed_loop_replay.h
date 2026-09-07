@@ -869,6 +869,7 @@ inline bool WriteReplayMetadata(
     double source_time_s, const ClosedLoopResearchConfig &config)
 {
     out << "# replay_kind=same_mjcf_closed_loop_diagnostic\n"
+        << "# coherent_body_acceleration=" << config.coherent_body_acceleration << "\n"
         << "# execution_authority=0\n"
         << "# b1_claim=0\n"
         << "# contact_evolution_verified=0\n"

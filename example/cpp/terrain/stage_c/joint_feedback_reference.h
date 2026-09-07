@@ -12,6 +12,7 @@
 #include "centroidal_wbc_task.h"
 #include "contact_state_filter.h"
 #include "foot_trajectory.h"
+#include "body_acceleration.h"
 #include "go2_rigid_body.h"
 #include "inverse_dynamics_wbc.h"
 namespace go2_terrain { namespace stage_c { namespace joint_feedback_reference {
@@ -129,6 +130,10 @@ struct ClosedLoopResearchConfig
     // These are research replay settings, recorded in the sidecar metadata by
     // the caller. They are not B1 thresholds and do not change the planner.
     bool primary_include_orientation = true;
+    // Research-only: derive body angular acceleration from the same COM,
+    // momentum and feedback-corrected foot tasks at the unmodified state.
+    // This replaces independent attitude PD; it is not attitude stability.
+    bool coherent_body_acceleration = false;
     double swing_clearance_m = 0.03;
     double com_kp_xy = 18.0;
     double com_kp_z = 24.0;
@@ -576,6 +581,28 @@ inline bool BuildWbcReplayInput(
         return false;
     }
     input.have_force_application_jacobian = true;
+    if (config.coherent_body_acceleration)
+    {
+        BodyReconstruction seed;seed.state=state;seed.model=actual;
+        seed.kinematics_valid=true;
+        BodyAccelerationTarget target;
+        target.com_acceleration_valid=true;
+        target.angular_momentum_derivative_valid=true;
+        target.com_acceleration_world=desired.head<3>();
+        target.angular_momentum_derivative_world=desired.tail<3>();
+        target.foot_acceleration_valid.fill(true);
+        target.foot_acceleration_world=input.swing_acc_world;
+        const auto lift=LiftBodyAcceleration(robot,seed,target);
+        if(!lift.valid) {
+            failure="coherent_body_acceleration_lift_failed";
+            return false;
+        }
+        orientation_acc=lift.qacc.segment<3>(3);
+        orientation_clipped=false;
+        input.desired_angular_acc_body=orientation_acc;
+        input.have_centroidal_orientation_task=true;
+        return true;
+    }
     const Eigen::Vector3d rpy = Rpy(state.quat_world_from_body);
     orientation_acc = Eigen::Vector3d(
         -config.orientation_kp_roll * rpy.x() -

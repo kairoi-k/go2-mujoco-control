@@ -303,7 +303,8 @@ int main(int argc,char**argv){try {
  const bool roundtrip=argc==3 && std::string(argv[2])=="--roundtrip";
  const bool terminal_audit=argc==5 && std::string(argv[2])=="--articulated-tail-audit";
  const bool articulated_audit=argc==3 && std::string(argv[2])=="--articulated-audit";
- const bool closed_loop=argc==5 && std::string(argv[2])=="--closed-loop";
+ const bool coherent_loop=argc==5 && std::string(argv[2])=="--closed-loop-coherent";
+ const bool closed_loop=argc==5 && (std::string(argv[2])=="--closed-loop" || coherent_loop);
  if(argc!=2 && !roundtrip && !articulated_audit && !closed_loop && !terminal_audit)throw std::runtime_error("usage: replay_joint_shadow_snapshot EXTRACTED_SNAPSHOT [--roundtrip | --articulated-audit | --articulated-tail-audit PREDICTION_END_S CHOICES_CSV | --closed-loop SCENE NEW_OUTPUT_CSV]");
  Reader r(argv[1]);const auto schema=r.word();const bool has_history=schema=="joint-shadow-snapshot-v2";
  if(schema!="joint-shadow-snapshot-v1" && !has_history)throw std::runtime_error("unsupported snapshot");
@@ -412,8 +413,10 @@ int main(int argc,char**argv){try {
   return articulated.model_samples_verified?0:2;
  }
  if(closed_loop){
+  go2_terrain::stage_c::joint_feedback_reference::ClosedLoopResearchConfig config;
+  config.coherent_body_acceleration=coherent_loop;
   const auto replay=go2_terrain::stage_c::joint_closed_loop_detail::RunJointClosedLoopReplay(
-   shadow.last_source_state(),shadow.last_proposal(),argv[3],argv[4]);
+   shadow.last_source_state(),shadow.last_proposal(),argv[3],argv[4],0.2,config);
   std::cout<<"closed_loop completed="<<replay.completed<<" model_match="<<replay.model_match
    <<" rows="<<replay.rows<<" failure="<<replay.failure<<"\n";
   return replay.completed?0:2;

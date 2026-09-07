@@ -69,6 +69,39 @@ int main(){try {
  Check((coupled_qp.Aineq-captured.Aineq).norm()==0 &&
        (coupled_qp.bineq-captured.bineq).norm()==0,
        "physical force/torque constraints changed");
+ ClosedLoopResearchConfig coherent_config;
+ coherent_config.coherent_body_acceleration=true;
+ auto asymmetric_feet=foot_sample.samples.front();
+ asymmetric_feet.acceleration_world[0].x=0.25;
+ asymmetric_feet.acceleration_world[3].z=-0.15;
+ const auto coherent=joint_feedback_controller::FeedbackTick(proposal,robot,initial,
+     asymmetric_feet,contact.mask,t0,0.0,coherent_config);
+ Check(coherent.ok && coherent.id_certificate_valid && coherent.motor_envelope_valid,
+       "coherent acceleration fixture fails physical certificate");
+ Check(!coherent.orientation_clipped,"coherent body acceleration silently clamped");
+ // Independent compatibility oracle: solve COM + body angular acceleration
+ // + feet (not the lift's COM + angular momentum + feet), then check Ldot.
+ // Physical bounds may still make the constrained WBC compromise soft tasks.
+ Eigen::Matrix<double,18,18> compatibility;
+ Eigen::Matrix<double,18,1> target;
+ const auto &ci=coherent.wbc_input;
+ compatibility.topRows<3>()=ci.centroidal_motion_map.topRows<3>();
+ target.head<3>()=(ci.desired_centroidal_derivative-ci.centroidal_motion_bias).head<3>();
+ compatibility.middleRows<3>(3).setZero();
+ compatibility.block<3,3>(3,3).setIdentity();
+ target.segment<3>(3)=ci.desired_angular_acc_body;
+ for(int leg=0;leg<4;++leg) {
+   compatibility.block<3,18>(6+3*leg,0)=ci.dynamics.foot_jac_world[leg];
+   target.segment<3>(6+3*leg)=ci.swing_acc_world[leg]-
+       ci.dynamics.foot_jac_dot_world[leg]*ci.dynamics.qvel;
+ }
+ const Eigen::FullPivLU<Eigen::Matrix<double,18,18>> factor(compatibility);
+ Check(factor.rank()==18,"independent compatibility map singular");
+ const Eigen::Matrix<double,18,1> witness=factor.solve(target);
+ Check((compatibility*witness-target).norm()<1e-8,"independent task residual");
+ Check((ci.centroidal_motion_map.bottomRows<3>()*witness+
+       ci.centroidal_motion_bias.tail<3>()-ci.desired_centroidal_derivative.tail<3>()).norm()<1e-7,
+       "coherent orientation conflicts with angular momentum task");
  const auto expired=joint_feedback_controller::FeedbackTick(proposal,robot,initial,
      foot_sample.samples.front(),contact.mask,t2,0.0);
  Check(!expired.ok && !expired.tau_valid && !expired.tau.allFinite(),
