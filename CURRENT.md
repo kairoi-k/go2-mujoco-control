@@ -43,12 +43,17 @@ posture state23.874s/cmd21.868s. Historical23.216s is STATE time, not command.
 p50/p95/max 1.547/1.862/1.954 ms. A live 60.6 ms outlier remains explicit.
 The short replay backend now initializes an actual retained state in MuJoCo,
 tracks joint COM/momentum/feet through WBC with explicit attitude feedback and
-zero extra motor PD. Its first executed QP is numerically rejected before any
-plant step; independent HiGHS and SLSQP prove the same QP feasible. A new opt-in
-primal active-set solver is under verification; no new B1 result yet. A separate
-mid-swing bump restart creates ~1000m/s2 reference acceleration and must be
-resolved through commitment/continuation after the numerical comparison.
-See joint_feedback_replay_20260907 for exact unsuccessful preflights and matrices.
+zero extra motor PD. The numerical failure was independently shown feasible and resolved through
+an opt-in verified-seed primal active-set solver. Exact short runtime
+fb837929e16e312e95611bf33ff3b1fe8e02d851 completes 100 MuJoCo steps with
+body/support priority, no new inflight clearance bump, and no extra motor PD.
+Maximum COM/foot errors are 16.382/29.753 mm; no nonfoot contact or actuator
+saturation. Independent physical sample residuals are below 7e-13; independent
+Python MuJoCo replay reproduces logged states and actuator torques exactly.
+QP p50/p95/max are 73.315/113.525/206.282 us. This privileged-state, 0.2-second
+cold-start counterfactual is not full runtime adoption or B1 acceptance.
+The separately retained negative anchor input still rejects before stepping.
+See joint_feedback_replay_20260907 attempts 0009 and negative_0001.
 Next: complete the [joint feedback execution route](docs/research/JOINT_FEEDBACK_EXECUTION_V1.md).
 The new input path retains bounded immutable capture history with explicit
 stationary-terrain/freshness/conflict semantics and v2 exact-state replay.

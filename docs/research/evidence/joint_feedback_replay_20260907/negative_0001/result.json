@@ -1,0 +1,8 @@
+{
+  "returncode": 2,
+  "input_files_changed": [],
+  "output_hashes": {
+    "stdout.txt": "d0798a10435193f188de6e9b98f77ddfce293f07933455cd1a55021519fccd05",
+    "manifest.json": "2d42a580019ca4c9834f629f29d1331582d4bf332472e033d75c2b7c60f514eb"
+  }
+}

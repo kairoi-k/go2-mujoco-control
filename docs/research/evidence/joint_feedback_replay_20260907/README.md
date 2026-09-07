@@ -133,3 +133,14 @@ reference; it cannot override body/stance to force limb angular momentum.
 No contact truth is invented, no actuator bound changes, historical weighted
 solver remains default. An analytic conflict test must show a swing target
 cannot erase the achieved primary COM task. Then repeat the identical prefix.
+
+## Body/support priority short feedback (runtime fb837929)
+Attempt 0009 retains the original raw files plus independent audit and Python
+MuJoCo replay. All 100 applied rows converge and pass physical/motor checks;
+COM max 16.382 mm, feet max 29.753 mm. QP p50/p95/max 73.315/113.525/206.282 us.
+Independent replay state, actuator and clock residuals are exactly zero.
+The plant still reports 32 nominal-versus-geom mask disagreements and nonzero
+contact couples; this is not proof of exact scheduled contact execution.
+The historical weighted comparison 0008 had COM max 89.877 mm. These are
+short counterfactuals, not traversal, robustness, or full-controller acceptance.
+Negative 0001 retains the separate actual anchor rejection unchanged.

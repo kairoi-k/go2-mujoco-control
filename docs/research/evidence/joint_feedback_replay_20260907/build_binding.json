@@ -1,13 +1,14 @@
 {
-  "example/cpp/build/replay_joint_shadow_snapshot": "879050ec8c509950da5ecf71bf7739ed743a1c9f2ea8ea1e89dcebe6e77109fb",
-  "example/cpp/build/test_joint_closed_loop_reference": "815739f895cbfaaecc4683fc6f69a4e23a725577509cf2170d20c129c34aee93",
+  "example/cpp/build/replay_joint_shadow_snapshot": "5e7d0386a53aa4de63b3fa8867c10be08e71bcff8c22738abc8ef4bd29936830",
+  "example/cpp/build/test_joint_closed_loop_reference": "3770635e4ddc9205fdd66b1567b404b2a24a6982fe6113c2a29023d7059a9996",
   "example/cpp/build/test_stage_c_centroidal_wbc": "d188cb5c6c1045d5e65a33ca7e3571634a303eab74e1cea9826284b9639685f3",
-  "example/cpp/terrain/stage_c/joint_closed_loop_replay.h": "4293fc8cc18e1722865e2efaa2ace8e0ddc739a01a4eaf10077d725670f8530b",
+  "example/cpp/terrain/stage_c/joint_closed_loop_replay.h": "39e5f09ad14ecd24b1c51cff981c65c131bfd695c7f2ff48d0a061111e8671d9",
   "example/cpp/wbc/inverse_dynamics_wbc.h": "53f5015f9788669a725601dcdbc8e9f2658338a4ceba3148750322fb5ffec83d",
   "example/cpp/tools/replay_joint_shadow_snapshot.cpp": "0b562810fc9b1adc62714e5a7738b4d956e366facc01a516632df46cd57fb6d1",
   "example/cpp/tests/test_joint_closed_loop_reference.cpp": "dfe129d99aff8fef1d352e11378cde12580a83987a60b4cf2af72a008fbd47c7",
   "example/cpp/terrain/stage_c/foot_trajectory.h": "3631069dd1db2687fb9a5f150039184614335562c23ce8c23bd703e23593ca73",
   "example/cpp/wbc/dense_qp_active_set.h": "c7445ba02d3be368cf48b547d7d999021fbe5aee95753c2dc15c3621c5637296",
   "example/cpp/tests/test_dense_qp_active_set.cpp": "511d408741f8baaeab634a3ffd22efd50c1ea602aa67ef9eb0caf5c5706093f8",
-  "example/cpp/build/test_dense_qp_active_set": "4c9530d3ac2065310e7b162c37832ebefbc1f90c4b6a339e3bddf80d995ad592"
+  "example/cpp/build/test_dense_qp_active_set": "4c9530d3ac2065310e7b162c37832ebefbc1f90c4b6a339e3bddf80d995ad592",
+  "example/cpp/terrain/stage_c/joint_feedback_reference.h": "b5965c7164dd1ec4bd3af84c1181b19552f5a37fa771975df78fc6d8390aec56"
 }
