@@ -26,16 +26,28 @@ The 5/10 cm V4 analyzer versions height/period assumptions while retaining
 physical traversal gates and historical V3 output. The older baselines and
 T13 frozen aerial conflict remain available unchanged. A single passing run
 still cannot replace the registered campaign and coverage review.
-Next: freeze/test/source-bind the implementation, run isolated same-source
-flat contact-point off/on probes, then complete joint planning runtime adoption,
+Same-source e1e68de flat off/on probes completed: 40/42 versus 33/42 good
+cycles in the identical 18--24 s window; 210 versus 372 sample certificate
+failures. The point model remains opt-in. Historical 49-cycle counts used a
+17--24 s window, not a different period. See the joint_point_pair_20260907 packet.
+Next: validate the opt-in event-indexed joint runtime shadow, then complete adoption,
 coherent event commitment/execution and geometry/actuator validation using real
 MuJoCo feedback. Sample-level model success alone keeps `execution_ready=false`.
 See `docs/research/evidence/joint_articulated_20260907/` for model evidence.
+The next source adds the existing WBC QP's optional articulated COM/momentum
+objective and a non-projecting feedback sample preview. Material-point speed
+and normal gap remain explicit diagnostics; contact evolution/execution remain
+unverified. The [joint shadow protocol](docs/research/JOINT_RUNTIME_SHADOW_V1.md)
+binds actual worker snapshots to multi-event candidate combinations. It has no
+command authority. Unbound future event targets are now accepted by the new
+combination path; historical bound-event defaults and commitments remain strict.
 ## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
 Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
-`43c5f5a91e5c075a69170bc8af7d5582d1031474`: two flat diagnostics described
-above; the first overlaps archival load, the second isolates that confound.
+`e1e68de1cee4edb93d1094a39a52c8e4bb5347ec`: the same-source contact-point
+flat pair. The earlier `43c5f5a91e5c075a69170bc8af7d5582d1031474` two flat
+diagnostics retain their separate window/provenance; the first overlaps archival
+load, the second was registered as isolated.
 The previous observer-only runtime71d242a had 47/49 good running cycles.
 The following step results belong to prior runtime
 `7a8ffc6b9269490d7e46c3adfbd2e13ed8609dc6`. HEAD itself is given by Git.

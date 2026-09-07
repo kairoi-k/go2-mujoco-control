@@ -4,6 +4,7 @@
 namespace go2_terrain { namespace stage_c {
 // Assemble one immutable observation through the same articulated model used
 // by WBC. Contact points are explicit producer inputs, never copied from sites.
+// Point-estimate provenance is separate from force-contact provenance.
 // The caller supplies measured contact evidence and its observed terrain patch;
 // planned or applied masks cannot become measured through this adapter.
 inline InputAdapterResult CaptureModelPlanningObservation(
@@ -11,7 +12,8 @@ inline InputAdapterResult CaptureModelPlanningObservation(
     const PlanningIdentity &identity,const ContactEvidence &measured,
     const std::array<TimedPoint,4> &measured_surface_points,
     const MapObservation &map,const Phase1CommandAuthority &command,
-    const PlanningBudget &budget,go2_control::RigidBodyPlanningKinematics &model) {
+    const PlanningBudget &budget,go2_control::RigidBodyPlanningKinematics &model,
+    SupportAnchorProvenance anchor_provenance=SupportAnchorProvenance::kProvidedSurfacePoint) {
     InputAdapterResult failure;failure.failure=JointPlannerFailure::kObservationUnavailable;
     if(!robot.EvaluatePlanningKinematics(state,model)) return failure;
     RawPlanningObservation raw;raw.identity=identity;raw.measured_contact=measured;
@@ -36,6 +38,7 @@ inline InputAdapterResult CaptureModelPlanningObservation(
         raw.feet[l].foot_site_world=point(model.dynamics.foot_site_world[l],PointRole::kFootSite);
         raw.feet[l].foot_collision_center_world=point(model.dynamics.foot_pos_world[l],PointRole::kFootCollisionCenter);
         if(measured.mask[l]) {
+            raw.feet[l].support_anchor_provenance=anchor_provenance;
             raw.feet[l].measured_support_anchor_world=measured_surface_points[l];
             raw.feet[l].measured_support_anchor_valid=TimedPointValidAt(
                 measured_surface_points[l],PointRole::kSurfaceContactPoint,Frame::kWorld,identity.source_state_time);

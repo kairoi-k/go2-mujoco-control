@@ -81,7 +81,7 @@ inline JointPlannerFailure Prepare(const CentroidalProblem &p, Prepared &q,
        (q.initial.array()>p.bounds.front().upper.array()).any())
         return fail(F::kInitialConditionConflict,"fixed_initial_state_outside_bounds");
     const auto &ev=r.events.events;
-    if((!ev.empty() && !r.events.valid()) || ev.size()!=r.candidate_sets.size() ||
+    if((!ev.empty() && !r.events.valid(false)) || ev.size()!=r.candidate_sets.size() ||
        ev.size()!=p.combination.size() ||
        (p.candidate_surfaces.empty() ? ev.size()!=p.event_surfaces.size() :
          (ev.size()!=p.candidate_surfaces.size() || !p.event_surfaces.empty())))

@@ -57,6 +57,20 @@ struct IdWbcInput
     RigidBodyDynamics dynamics{};
     Eigen::Vector3d desired_linear_acc_world = Eigen::Vector3d::Zero();
     Eigen::Vector3d desired_angular_acc_body = Eigen::Vector3d::Zero();
+    // Optional articulated COM / angular-momentum objective. These are world
+    // [cddot, Ldot] rows, not base translational / angular accelerations.
+    // Caller supplies the SAME model's [Jcom; Amom], map_dot*qvel and explicit
+    // weights with the appropriate physical units. Dynamics constraints stay
+    // unchanged. The legacy base objective is used only when this is absent.
+    bool have_centroidal_motion_task = false;
+    Eigen::Matrix<double, 6, kGo2Nv> centroidal_motion_map =
+        Eigen::Matrix<double, 6, kGo2Nv>::Constant(std::numeric_limits<double>::quiet_NaN());
+    Eigen::Matrix<double, 6, 1> centroidal_motion_bias =
+        Eigen::Matrix<double, 6, 1>::Constant(std::numeric_limits<double>::quiet_NaN());
+    Eigen::Matrix<double, 6, 1> desired_centroidal_derivative =
+        Eigen::Matrix<double, 6, 1>::Constant(std::numeric_limits<double>::quiet_NaN());
+    Eigen::Matrix<double, 6, 1> centroidal_motion_weights =
+        Eigen::Matrix<double, 6, 1>::Constant(std::numeric_limits<double>::quiet_NaN());
     // contact is the mask actually applied to this WBC solve.  The following
     // fields carry terrain plan provenance without silently replacing it.
     bool has_terrain_plan = false;
@@ -96,6 +110,7 @@ struct IdWbcInput
 
 struct IdWbcCostTerms
 {
+    double centroidal_motion = 0.0;
     double base_linear = 0.0;
     double base_angular = 0.0;
     double stance_no_slip = 0.0;
@@ -112,6 +127,7 @@ struct IdWbcOutput
     // Preserve solver-attempt status even when the caller falls back to the
     // last accepted command.  This makes a rare invalid tick diagnosable
     // without changing plant authority or relaxing a safety constraint.
+    bool centroidal_motion_task_used = false;
     bool qp_converged = false;
     bool qp_recovery_used = false;
     bool solution_finite = false;
@@ -254,8 +270,27 @@ inline bool SolveInverseDynamicsWbc(
         ? params.w_base_lin_x : params.w_base_lin;
     Wb.diagonal() << w_base_x, params.w_base_lin, params.w_base_lin,
         params.w_base_ang, params.w_base_ang, params.w_base_ang;
-    H.topLeftCorner<6, 6>() += 2.0 * Wb;
-    g.head<6>() += -2.0 * Wb * a_des;
+    if (input.have_centroidal_motion_task)
+    {
+        if (!input.centroidal_motion_map.allFinite() ||
+            !input.centroidal_motion_bias.allFinite() ||
+            !input.desired_centroidal_derivative.allFinite() ||
+            !input.centroidal_motion_weights.allFinite() ||
+            (input.centroidal_motion_weights.array() < 0.0).any() ||
+            !(input.centroidal_motion_weights.maxCoeff() > 0.0))
+            return false;
+        const auto weights = input.centroidal_motion_weights.asDiagonal();
+        const auto &map = input.centroidal_motion_map;
+        H.topLeftCorner<nqdd, nqdd>() += 2.0 * map.transpose() * weights * map;
+        g.head<nqdd>() += 2.0 * map.transpose() * weights *
+            (input.centroidal_motion_bias - input.desired_centroidal_derivative);
+        output.centroidal_motion_task_used = true;
+    }
+    else
+    {
+        H.topLeftCorner<6, 6>() += 2.0 * Wb;
+        g.head<6>() += -2.0 * Wb * a_des;
+    }
 
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
@@ -506,6 +541,15 @@ inline bool SolveInverseDynamicsWbc(
         params.w_base_lin * (base_lin_error.y() * base_lin_error.y() +
                              base_lin_error.z() * base_lin_error.z());
     output.cost_terms.base_angular = params.w_base_ang * base_ang_error.squaredNorm();
+    if (input.have_centroidal_motion_task)
+    {
+        const Eigen::Matrix<double, 6, 1> error = input.centroidal_motion_map *
+            output.qdd + input.centroidal_motion_bias - input.desired_centroidal_derivative;
+        output.cost_terms.centroidal_motion =
+            (input.centroidal_motion_weights.array() * error.array().square()).sum();
+        output.cost_terms.base_linear = 0.0;
+        output.cost_terms.base_angular = 0.0;
+    }
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         const auto Jl = input.dynamics.foot_jac_world[leg];

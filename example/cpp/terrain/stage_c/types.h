@@ -202,8 +202,20 @@ struct BodyObservation
     bool model_com_valid = false;
 };
 
+enum class SupportAnchorProvenance : std::uint8_t
+{
+    kUnknown = 0,
+    // Caller explicitly supplies a terrain point; this does not assert a
+    // direct 3D contact sensor or promote a planned contact mask to measured.
+    kProvidedSurfacePoint,
+    // Estimated from articulated pose, sphere geometry and terrain normal,
+    // conditioned on the separately recorded measured force contact mask.
+    kForceConditionedGeometryEstimate,
+};
 struct FootObservation
 {
+    SupportAnchorProvenance support_anchor_provenance =
+        SupportAnchorProvenance::kProvidedSurfacePoint;
     TimedPoint foot_site_world{};
     TimedPoint foot_collision_center_world{};
     TimedPoint contact_patch_world{};
@@ -267,7 +279,8 @@ struct TerrainPlanningInput
     {
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
             if (measured_contact.mask[leg] &&
-                (!feet[leg].measured_support_anchor_valid ||
+                (feet[leg].support_anchor_provenance == SupportAnchorProvenance::kUnknown ||
+                 !feet[leg].measured_support_anchor_valid ||
                  !TimedPointValidAt(
                      feet[leg].measured_support_anchor_world,
                      PointRole::kSurfaceContactPoint, Frame::kWorld,
@@ -332,7 +345,10 @@ struct TouchdownEventTable
 {
     std::vector<TouchdownEvent> events;
 
-    bool valid() const
+    // Unselected schedule events have no target. Legacy callers keep the
+    // default bound-target contract; combination planners explicitly permit
+    // unbound future events. A committed event always requires its old target.
+    bool valid(bool require_target = true) const
     {
         if (events.empty() || events.size() > kStageCMaxEvents)
             return false;
@@ -341,17 +357,15 @@ struct TouchdownEventTable
             const auto &event = events[i];
             if (event.id.schedule_epoch == 0 || event.id.sequence == 0 ||
                 static_cast<std::size_t>(event.id.leg) >= go2::kLegCount ||
-                !std::isfinite(event.target_world.value.x) ||
-                !std::isfinite(event.target_world.value.y) ||
-                !std::isfinite(event.target_world.value.z) ||
                 event.touchdown_time.value < 0 ||
                 event.contact_interval_end < event.touchdown_time ||
                 (event.liftoff_valid &&
                  (event.liftoff_time.value < 0 ||
                   event.liftoff_time >= event.touchdown_time)) ||
-                !TimedPointValidForRole(event.target_world,
+                ((require_target || event.committed || event.target_world.valid) &&
+                 !TimedPointValidForRole(event.target_world,
                                         PointRole::kSurfaceContactPoint,
-                                        Frame::kWorld))
+                                        Frame::kWorld)))
                 return false;
             if (i > 0 && events[i - 1].touchdown_time > event.touchdown_time)
                 return false;
@@ -372,7 +386,7 @@ struct TouchdownEventTable
 
     bool committed_prefix_compatible(const TouchdownEventTable &proposal) const
     {
-        if (!valid() || !proposal.valid())
+        if (!valid() || !proposal.valid(false))
             return false;
         for (const auto &old_event : events)
         {

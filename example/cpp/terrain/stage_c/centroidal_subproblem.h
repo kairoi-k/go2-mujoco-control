@@ -95,6 +95,7 @@ struct DynamicsCertificate {
     bool coverage_checked = false;
     bool commitment_checked = false;
     bool original_dynamics_checked = false;
+    bool initial_anchor_estimates_used = false;
     bool full_geometry_checked = false;
     bool geometric_15mm_checked = false;
     bool geometric_15mm_pass = false;

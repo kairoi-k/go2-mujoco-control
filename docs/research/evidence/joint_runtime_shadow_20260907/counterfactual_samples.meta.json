@@ -1,0 +1,41 @@
+{
+  "candidate_rows": 1502,
+  "claim_boundary": "offline same-model sample evaluation only; no mj_step, contact evolution, final PD actuator, or B1 claim",
+  "controller_sha256": "2e70faea860f4519ba9eacbc8039feb4f59a71f34dfc378dabe2086b8583918f",
+  "data_csv": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/wbc_active_flat_43c5f5a_20260907_0001/data.csv",
+  "data_sha256": "da0ae1da04a82ac8e3f3c126bbc23e8e2ea385c8af677fd1c8b7a1294b560312",
+  "emitted_rows": 7,
+  "ground_truth_csv": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/wbc_active_flat_43c5f5a_20260907_0001/contact_ground_truth.csv",
+  "ground_truth_sha256": "f590daeeefbc7e86d1d8d4431c3af05a631022b0361d66a0183568e32d7256c1",
+  "missing_from_raw": [
+    "centroidal_derivative_6",
+    "foot_acceleration_12",
+    "full_12d_force_reference",
+    "contact_surface_normal_per_sample"
+  ],
+  "repository": {
+    "git_branch": "feat/stage-c-joint-planner",
+    "git_commit": "43c5f5a91e5c075a69170bc8af7d5582d1031474",
+    "git_dirty": "false"
+  },
+  "run_dir": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/wbc_active_flat_43c5f5a_20260907_0001",
+  "run_manifest": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/wbc_active_flat_43c5f5a_20260907_0001/run_manifest.json",
+  "run_manifest_sha256": "c5bd6328ed886ea6db9c7fc69537e4050d369078003a14150edff2e44dae521e",
+  "scenario_sha256": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e",
+  "scene_file": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/phase2_flat.xml",
+  "scene_plane_source": "scene:/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/phase2_flat.xml:phase2_floor",
+  "scene_plane_z_m": 0.0,
+  "scene_sha256": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e",
+  "schema": "stage_c_feedback_samples_v1",
+  "state_sources": {
+    "angular_velocity": "data.csv:imu_gyro_body_x/y/z_radps",
+    "joints": "data.csv:*_q_state/*_dq_state",
+    "linear_velocity": "contact_ground_truth.csv:base_qvel_world_x/y/z_mps",
+    "orientation": "contact_ground_truth.csv:base_quat_w/x/y/z",
+    "position": "data.csv:world_base_x/y/z_m"
+  },
+  "window": {
+    "end_s": 24.0,
+    "start_s": 18.0
+  }
+}

@@ -22,10 +22,14 @@ export TROT_HS_HYBRID_CONTACT=2 TROT_HS_PITCH_GAIN=24 TROT_HS_PITCH_DAMP=6
 export TROT_HS_ROLL_GAIN=20 TROT_HS_ROLL_DAMP=10 TROT_HS_STABILITY_GOV=1
 export TROT_SEED=11 TROT_CPU_AUTOPIN=1
 unset TROT_EXPLORATORY_CONTINUE
+# Versioned timing experiment. The historical wall-clock route remains default;
+# state-clock selection is explicit in environment.txt and controller argv.
+motion_clock_args=(--wall-clock-motion)
+if [[ "${TROT_RESEARCH_STATE_CLOCK:-0}" == 1 ]]; then motion_clock_args=(); fi
 exec flock -n /tmp/go2_mujoco_experiment.lock bash example/cpp/scripts/run_trot.sh 65 _runs/$name \
  --headless --controller-duration "$duration" --phase2-milestone B1 \
  --scene-file "$PWD/unitree_robots/go2/$scene" \
- --wall-clock-motion --wbc-full --gait-pattern running-trot --kernel raibert-trot \
+ "${motion_clock_args[@]}" --wbc-full --gait-pattern running-trot --kernel raibert-trot \
  --period 0.14 --duty 0.44 --step-length 0.50 --foot-lift 0.20 --tau-limit 45 \
  --raibert-velocity-gain 0.010 --raibert-max-adjustment 0.06 --preview-horizon 4 \
  --support-anchor-feedback --support-anchor-gain 0.35 --velocity-max-accel 0.80 \

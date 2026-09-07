@@ -31,7 +31,7 @@ public:
     {
         JointPlanResult result;
         if (!request.input.basic_valid() ||
-            (!request.events.events.empty() && !request.events.valid()) ||
+            (!request.events.events.empty() && !request.events.valid(false)) ||
             request.candidate_sets.size() != request.events.events.size())
         {
             result.failure = JointPlannerFailure::kObservationUnavailable;

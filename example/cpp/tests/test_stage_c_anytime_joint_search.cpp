@@ -100,6 +100,14 @@ int main()
                       exhaustive.plan.candidate_indices &&
                   best.plan.cost == exhaustive.plan.cost,
               "unbounded best-first differs from exhaustive oracle");
+        auto unbound = small;
+        for(auto &event:unbound.events.events) event.target_world=TimedPoint{};
+        const auto unbound_result=DeterministicBestFirstPlanner{}.Plan(unbound,evaluator);
+        Check(unbound_result.feasible && unbound_result.plan.candidate_indices==best.plan.candidate_indices,
+              "unselected events must not require an arbitrary first foothold");
+        Check(!unbound.events.valid() && unbound.events.valid(false),"legacy bound-target contract preserved");
+        unbound.events.events.front().committed=true;
+        Check(!unbound.events.valid(false),"committed target cannot be unknown");
         auto ties = Request({{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}});
         std::vector<std::vector<std::size_t>> order;
         const auto tie_evaluator =

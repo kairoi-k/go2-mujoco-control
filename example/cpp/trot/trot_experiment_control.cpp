@@ -1,5 +1,6 @@
 #include "trot_experiment.h"
 #include "trot_rigid_body_observation.h"
+#include "joint_planning_shadow.h"
 
 #include <algorithm>
 #include <chrono>
@@ -326,6 +327,16 @@ void TrotExperiment::TerrainPlannerWorker()
         });
         return;
     }
+    const bool joint_shadow_enabled = Full2EnvDouble("TROT_RESEARCH_JOINT_SHADOW", 0.0) > 0.5;
+    go2_trot::JointPlanningShadow joint_shadow;
+    bool joint_shadow_loaded = false;
+#ifdef GO2_MODEL_PATH
+    if (joint_shadow_enabled)
+        joint_shadow_loaded = joint_shadow.Load(GO2_MODEL_PATH);
+#endif
+    if (joint_shadow_enabled)
+        std::cout << "JointShadow model_loaded=" << joint_shadow_loaded << " command_authority=0\n";
+    double joint_shadow_last_s = -1.0;
     std::uint64_t consumed_generation = 0;
     for (;;)
     {
@@ -384,6 +395,13 @@ void TrotExperiment::TerrainPlannerWorker()
                       << " state=" << work.input.state_stamp_s
                       << " capture=" << work.map_envelope.map_stamp_s << "\n";
         work.input.terrain = model.get();
+        if (joint_shadow_loaded && work.rigid_body_state_valid &&
+            work.input.state_stamp_s >= 18.0 && work.input.state_stamp_s <= 24.0 &&
+            work.input.state_stamp_s - joint_shadow_last_s >= 0.5)
+        {
+            joint_shadow.Capture(work.rigid_body_state, work.input, work.plan_id, params_.gait_pattern);
+            joint_shadow_last_s = work.input.state_stamp_s;
+        }
         auto result = terrain_planner_.Build(work.input, work.plan_id);
         result.plan.terrain_snapshot = model;
         if (result.publishable)

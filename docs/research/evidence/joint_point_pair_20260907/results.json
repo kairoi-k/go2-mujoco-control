@@ -1,0 +1,920 @@
+{
+  "captured_at": "2026-09-07",
+  "historical_reference": {
+    "certificate": {
+      "failure_mask_counts": {
+        "0": 16175,
+        "32": 31,
+        "64": 190,
+        "96": 6
+      },
+      "sha256": "fdc98d89833081df5ed916d064349ab2c2c2d9bfcaa39c49c1e0dd6ceb6e0284",
+      "source": "/tmp/wbc-active-flat2-certificate.json",
+      "status": "NOT_CERTIFIED",
+      "validator_overhead_us": {
+        "coverage": 1.0,
+        "finite": 16402,
+        "invalid": 0,
+        "max": 22.152,
+        "missing": 0,
+        "nonfinite": 0,
+        "p50": 1.332,
+        "p95": 1.643,
+        "rows": 16402
+      }
+    },
+    "manifest": {
+      "artifacts": {
+        "controller_sha256": "2e70faea860f4519ba9eacbc8039feb4f59a71f34dfc378dabe2086b8583918f",
+        "event_script_sha256": "",
+        "phase2_acceptance_contract_sha256": "6d5895644fd0f471b6b09a4a920b0663855bf7a0a2b90c226220d3ef77b1c514",
+        "phase2_analyzer_sha256": "",
+        "phase2_b0_analyzer_sha256": "63c4467c6ffbc9e09e98f86af2842fc5a59584eb8d7b8dbc1845b46746e848bb",
+        "phase2_b123_analyzer_sha256": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873",
+        "phase2_contract_sha256": "",
+        "phase2_fixed_3mps_analyzer_sha256": "39bc8b24774766c3800c053effe4804287ab2cb59e94ec9ff250edd0ab540f53",
+        "phase2_holdout_manifest_sha256": "2550526025594aa379441e1d7eb071c8809abeaf9234f6cf8a335f22288a5a40",
+        "scenario_sha256": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e",
+        "simulator_sha256": "5f22b3c7d2a67679017327d5143ed149f6510143d7f389a16dcad1942d2637c2"
+      },
+      "effective_argv": [
+        "--wall-clock-motion",
+        "--wbc-full",
+        "--gait-pattern",
+        "running-trot",
+        "--kernel",
+        "raibert-trot",
+        "--period",
+        "0.14",
+        "--duty",
+        "0.44",
+        "--step-length",
+        "0.50",
+        "--foot-lift",
+        "0.20",
+        "--tau-limit",
+        "45",
+        "--raibert-velocity-gain",
+        "0.010",
+        "--raibert-max-adjustment",
+        "0.06",
+        "--preview-horizon",
+        "4",
+        "--support-anchor-feedback",
+        "--support-anchor-gain",
+        "0.35",
+        "--velocity-max-accel",
+        "0.80",
+        "--velocity-max-decel",
+        "1.20",
+        "--velocity-max-jerk",
+        "4.0",
+        "--velocity-command-script",
+        "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/configs/b1_v3_running_1mps.csv",
+        "--velocity-max-tracking-lead",
+        "0.20",
+        "--domain-id",
+        "231",
+        "--gait-phase-offset",
+        "0",
+        "--terrain-b1-execution"
+      ],
+      "path": "example/cpp/experiments/_runs/wbc_active_flat_43c5f5a_20260907_0002/run_manifest.json",
+      "profile": {
+        "path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/configs/b1_v3_running_1mps.csv",
+        "sha256": "62f2ff9701b2f2d6189cad97877d7891177a32b17ded255677434eb1d8f41ac6"
+      },
+      "repository": {
+        "git_branch": "feat/stage-c-joint-planner",
+        "git_commit": "43c5f5a91e5c075a69170bc8af7d5582d1031474",
+        "git_dirty": "false"
+      },
+      "run": {
+        "controller_duration_s": "32",
+        "domain_id": "231",
+        "headless": "true",
+        "initial_x_m": "0.0",
+        "initial_y_m": "0.0",
+        "phase2_milestone": "B1",
+        "run_mode": "bounded",
+        "scene_file": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/phase2_flat.xml",
+        "wall_timeout_s": "65"
+      },
+      "seed": "11",
+      "semantic_env_snapshot": {
+        "TROT_CPU_AUTOPIN": "1",
+        "TROT_DYNAMICS_TOLERANCE_N": "20",
+        "TROT_HS_ACC_GAIN": "10",
+        "TROT_HS_ACC_LIMIT": "4",
+        "TROT_HS_HYBRID_CONTACT": "2",
+        "TROT_HS_PITCH_DAMP": "6",
+        "TROT_HS_PITCH_GAIN": "24",
+        "TROT_HS_ROLL_DAMP": "10",
+        "TROT_HS_ROLL_GAIN": "20",
+        "TROT_HS_SPEED_LEAD": "0.25",
+        "TROT_HS_STABILITY_GOV": "1",
+        "TROT_HS_START_DUTY": "0.50",
+        "TROT_HS_START_PERIOD": "0.20",
+        "TROT_HS_STEP_CAP": "0.52",
+        "TROT_HS_SWING_REACH": "0.90",
+        "TROT_RESEARCH_MAP_INTERVALS_V2": "1",
+        "TROT_RESEARCH_RUNNING_LIFT_FLOOR_M": "0",
+        "TROT_RESEARCH_RUNNING_PERIOD_S": "0.14",
+        "TROT_SEED": "11",
+        "TROT_SIM_BRIDGE_CPU": "2",
+        "TROT_SIM_LIDAR_CPU": "5",
+        "TROT_SIM_PHYSICS_CPU": "2",
+        "TROT_TERRAIN_CPU": "",
+        "TROT_WALLCLOCK_TELEMETRY_PATH": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/wbc_active_flat_43c5f5a_20260907_0002/wallclock_runtime_telemetry.csv",
+        "TROT_WRITER_CPU": "3"
+      },
+      "sha256": "1eaa0bfa3397071c53d250ca8aa4affb54e3107b3de0c550229fe8016e658448"
+    },
+    "period_check": {
+      "all_window_rows_period_0_14": true,
+      "gait_time_window_s": [
+        17,
+        24
+      ],
+      "period_values": {
+        "0.140000000": 3500
+      }
+    },
+    "raw_core_sha256": {
+      "contact_ground_truth.csv": "23192740cb12275132c0604c8ba8ad8469731352d06db672e22a6c90adffb64e",
+      "data.csv": "511c29412c505d14e7a2460ce61d39330b5ff6443bcde44ec49cabb671681439",
+      "environment.txt": "28b17991a4e581a4905fbb79f39f35308351bb49a10f7d44dda982f68233a0d8",
+      "run_metadata.txt": "535c7553b21948b1b3fe1dd986f65cba73ad710d8528b02cd6c44840afc8db27",
+      "wallclock_runtime_telemetry.csv": "da51246614e02b0d0156f1d96cc4ec7607ce126aa1ff508203addc2f1796756a"
+    },
+    "raw_latency": {
+      "lidar": {
+        "events": {
+          "lidar": 749
+        },
+        "lidar_lock_hold_s": {
+          "blank_rows": 0,
+          "count": 749,
+          "max": 9.72e-07,
+          "negative_sentinel_rows": 0,
+          "nonfinite_rows": 0,
+          "p50": 3.21e-07,
+          "p95": 3.91e-07
+        },
+        "lidar_lock_wait_s": {
+          "blank_rows": 0,
+          "count": 749,
+          "max": 0.000155043,
+          "negative_sentinel_rows": 0,
+          "nonfinite_rows": 0,
+          "p50": 2.41e-07,
+          "p95": 8.4661e-05
+        },
+        "lidar_operation_s": {
+          "blank_rows": 1,
+          "count": 748,
+          "max": 0.010961067,
+          "negative_sentinel_rows": 0,
+          "nonfinite_rows": 0,
+          "p50": 0.008289408,
+          "p95": 0.009400463
+        },
+        "lidar_publish_s": {
+          "blank_rows": 1,
+          "count": 510,
+          "max": 0.001039119,
+          "negative_sentinel_rows": 238,
+          "nonfinite_rows": 0,
+          "p50": 0.000318855,
+          "p95": 0.000740363
+        },
+        "rows": 749
+      },
+      "wbc_full_certificate_elapsed_us": {
+        "count": 18552,
+        "max": 22.152,
+        "p50": 1.323,
+        "p95": 1.643
+      },
+      "wbc_shadow_elapsed_us": {
+        "count": 18552,
+        "max": 2532.57,
+        "p50": 175.923,
+        "p95": 216.67
+      }
+    },
+    "run_id": "wbc_active_flat_43c5f5a_20260907_0002",
+    "running_cycle_truth": {
+      "complete_cycles": 49,
+      "five_cycle_min_good": 3,
+      "gait_interval_s": [
+        17.0,
+        24.0
+      ],
+      "good_cycles": 37,
+      "sha256": "cd3877945fdc93fcab3ea3a67fbede676e83374ae69ed56a00785e4ba2a1da5a",
+      "source": "/tmp/wbc-active-flat2-cycles.json"
+    },
+    "timing_contamination": {
+      "note": "The prior packet records old 0002 as isolated; the raw run has no scheduler event field.",
+      "reference": "docs/research/evidence/wbc_active_forces_20260907/README.md",
+      "status": "REGISTERED_ABSENT_BUT_NOT_RAW_PROVEN"
+    }
+  },
+  "interpretation": {
+    "contamination": "New-run scheduler/build/archive contamination is unknown from raw files. Historical isolation is registration context, not raw scheduler proof.",
+    "cycle_count_comparison": "The pair uses telemetry_gait_time_s 18-24 and has 42 complete cycles. Historical 43c5f5a uses 17-24 and has 49. Both raw windows are exactly 0.14; 49 is the seven-second analyzer window, not 0.12.",
+    "latency": "Raw WBC certificate/shadow and LiDAR timing are included per run. LiDAR publish -1 rows are sentinels excluded from nonnegative quantiles.",
+    "status": "Controller, safety, completion, quality, dynamics, and truth statuses are zero for both new runs. Phase1 and terrain wrapper statuses are one due known analyzer failures. Certificate returncode 1 agrees with NOT_CERTIFIED; cycle returncode is zero."
+  },
+  "protocol": {
+    "domain_id": 231,
+    "duration_s": 32,
+    "duty": 0.44,
+    "foot_lift_m": 0.2,
+    "gait_interval_s": [
+      18,
+      24
+    ],
+    "period_s": 0.14,
+    "point_model_off": 0,
+    "point_model_on": 1,
+    "profile": "example/cpp/configs/b1_v3_running_1mps.csv",
+    "scene": "unitree_robots/go2/phase2_flat.xml",
+    "seed": 11,
+    "step_length_m": 0.5,
+    "tau_limit": 45,
+    "terrain_execution": true
+  },
+  "reproduction": {
+    "audit_scripts": {
+      "certificate": {
+        "path": "example/cpp/tools/analysis/audit_wbc_certificate.py",
+        "sha256": "44d1c2d8e53cba953b6bf50e00a76fca67ddf762b7bb09e71c335a1659c62c05"
+      },
+      "running_cycle_truth": {
+        "path": "example/cpp/tools/analysis/audit_running_cycle_truth.py",
+        "sha256": "65950b32e0ffb063a320f808a6c7c48992ad1aa9e2f3a6308026cb51af39794e"
+      }
+    },
+    "commands": [
+      "python3 docs/research/evidence/joint_articulated_20260907/reproduce.py example/cpp/experiments/_runs/joint_point_flat_off_20260907_0001 --runtime-sha e1e68de1cee4edb93d1094a39a52c8e4bb5347ec --point-model 0 --out /tmp/joint_point_pair_reproduce_off_e1e68de",
+      "python3 docs/research/evidence/joint_articulated_20260907/reproduce.py example/cpp/experiments/_runs/joint_point_flat_on_20260907_0001 --runtime-sha e1e68de1cee4edb93d1094a39a52c8e4bb5347ec --point-model 1 --out /tmp/joint_point_pair_reproduce_on_e1e68de"
+    ],
+    "pre_run_binding": {
+      "path": "docs/research/evidence/joint_articulated_20260907/pre_run_binding.json",
+      "runtime_sha": "e1e68de1cee4edb93d1094a39a52c8e4bb5347ec",
+      "sha256": "f22515d06b7de2b7d0e688fc2982698ed9d497db8b34061476d8823eabd9935d"
+    },
+    "recheck": {
+      "matches_supplied_audits": true,
+      "off": {
+        "certificate_sha256": "550658bb45ccc2fc6776b0d7ca7a3e8b4875110fcbff13fac7f0b7f27b2f41dc",
+        "cycles_sha256": "e335fb4cfc45dede07c139eb3f5a7dae3b21a23e4616e4e809b05546e3bf64a6",
+        "result_sha256": "67f7e2e8c97ac1f5b5359eedc037997a06f5405b65435c8fafaabcc98dd16b21"
+      },
+      "on": {
+        "certificate_sha256": "b84241e4b03f9db7609e80685af23a7430b1594361933ce868dc04b46f0283da",
+        "cycles_sha256": "8e92f72f3113f9f1a9d57761536682ae881fb7b74f940e2264e0dd0993a35b08",
+        "result_sha256": "73913bbf72e0aca32409410fbe61b682f036d2cbd9ca78c1bfa87c265c2f1f65"
+      }
+    },
+    "source_replay_script": {
+      "path": "docs/research/evidence/joint_articulated_20260907/reproduce.py",
+      "sha256": "e4500488e598a2d9e6f875d06673f9ee358dd81548dd6e710f5733b933468518"
+    }
+  },
+  "runs": {
+    "off": {
+      "certificate": {
+        "analyzer_returncode": 1,
+        "attempt_selected_same": true,
+        "audit_output_sha256": {
+          "certificate.json": "550658bb45ccc2fc6776b0d7ca7a3e8b4875110fcbff13fac7f0b7f27b2f41dc",
+          "cycles.json": "e335fb4cfc45dede07c139eb3f5a7dae3b21a23e4616e4e809b05546e3bf64a6"
+        },
+        "checked_rows": 16402,
+        "failure_breakdown_nonoverlap": {
+          "both": 5,
+          "friction_only": 156,
+          "normal_only": 49
+        },
+        "failure_mask_counts": {
+          "0": 16192,
+          "32": 49,
+          "64": 156,
+          "96": 5
+        },
+        "failure_rows": 210,
+        "feasible_rows": 16192,
+        "residual_max": {
+          "force_residual_n": 4.209e-06,
+          "friction_violation_n": 0.081551497,
+          "joint_residual_nm": 0.0,
+          "moment_residual_nm": 0.000224273,
+          "normal_violation_n": 0.109500547,
+          "stance_acc_residual_mps2": 0.0,
+          "swing_violation_n": 0.0,
+          "torque_violation_nm": 0.0
+        },
+        "status": "NOT_CERTIFIED",
+        "validator_overhead_us": {
+          "coverage": 1.0,
+          "finite": 16402,
+          "invalid": 0,
+          "max": 61.116,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 1.583,
+          "p95": 1.943,
+          "rows": 16402
+        }
+      },
+      "force_point_adoption": {
+        "checked_rows": 18552,
+        "expected": 0,
+        "joint_planner_adoption": false,
+        "mismatched_rows": 0
+      },
+      "manifest": {
+        "artifacts": {
+          "controller_sha256": "748e971333a152e2537d6022c154052aef2dbaac076e084cfd70349d92e352b1",
+          "event_script_sha256": "",
+          "phase2_acceptance_contract_sha256": "6d5895644fd0f471b6b09a4a920b0663855bf7a0a2b90c226220d3ef77b1c514",
+          "phase2_analyzer_sha256": "",
+          "phase2_b0_analyzer_sha256": "63c4467c6ffbc9e09e98f86af2842fc5a59584eb8d7b8dbc1845b46746e848bb",
+          "phase2_b123_analyzer_sha256": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873",
+          "phase2_contract_sha256": "",
+          "phase2_fixed_3mps_analyzer_sha256": "39bc8b24774766c3800c053effe4804287ab2cb59e94ec9ff250edd0ab540f53",
+          "phase2_holdout_manifest_sha256": "2550526025594aa379441e1d7eb071c8809abeaf9234f6cf8a335f22288a5a40",
+          "scenario_sha256": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e",
+          "simulator_sha256": "5f22b3c7d2a67679017327d5143ed149f6510143d7f389a16dcad1942d2637c2"
+        },
+        "effective_argv": [
+          "--wall-clock-motion",
+          "--wbc-full",
+          "--gait-pattern",
+          "running-trot",
+          "--kernel",
+          "raibert-trot",
+          "--period",
+          "0.14",
+          "--duty",
+          "0.44",
+          "--step-length",
+          "0.50",
+          "--foot-lift",
+          "0.20",
+          "--tau-limit",
+          "45",
+          "--raibert-velocity-gain",
+          "0.010",
+          "--raibert-max-adjustment",
+          "0.06",
+          "--preview-horizon",
+          "4",
+          "--support-anchor-feedback",
+          "--support-anchor-gain",
+          "0.35",
+          "--velocity-max-accel",
+          "0.80",
+          "--velocity-max-decel",
+          "1.20",
+          "--velocity-max-jerk",
+          "4.0",
+          "--velocity-command-script",
+          "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/configs/b1_v3_running_1mps.csv",
+          "--velocity-max-tracking-lead",
+          "0.20",
+          "--domain-id",
+          "231",
+          "--gait-phase-offset",
+          "0",
+          "--terrain-b1-execution"
+        ],
+        "path": "example/cpp/experiments/_runs/joint_point_flat_off_20260907_0001/run_manifest.json",
+        "profile": {
+          "path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/configs/b1_v3_running_1mps.csv",
+          "sha256": "62f2ff9701b2f2d6189cad97877d7891177a32b17ded255677434eb1d8f41ac6"
+        },
+        "repository": {
+          "git_branch": "feat/stage-c-joint-planner",
+          "git_commit": "e1e68de1cee4edb93d1094a39a52c8e4bb5347ec",
+          "git_dirty": "false"
+        },
+        "run": {
+          "controller_duration_s": "32",
+          "domain_id": "231",
+          "headless": "true",
+          "initial_x_m": "0.0",
+          "initial_y_m": "0.0",
+          "phase2_milestone": "B1",
+          "run_mode": "bounded",
+          "scene_file": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/phase2_flat.xml",
+          "wall_timeout_s": "65"
+        },
+        "seed": "11",
+        "semantic_env_snapshot": {
+          "TROT_CPU_AUTOPIN": "1",
+          "TROT_DYNAMICS_TOLERANCE_N": "20",
+          "TROT_HS_ACC_GAIN": "10",
+          "TROT_HS_ACC_LIMIT": "4",
+          "TROT_HS_HYBRID_CONTACT": "2",
+          "TROT_HS_PITCH_DAMP": "6",
+          "TROT_HS_PITCH_GAIN": "24",
+          "TROT_HS_ROLL_DAMP": "10",
+          "TROT_HS_ROLL_GAIN": "20",
+          "TROT_HS_SPEED_LEAD": "0.25",
+          "TROT_HS_STABILITY_GOV": "1",
+          "TROT_HS_START_DUTY": "0.50",
+          "TROT_HS_START_PERIOD": "0.20",
+          "TROT_HS_STEP_CAP": "0.52",
+          "TROT_HS_SWING_REACH": "0.90",
+          "TROT_RESEARCH_CONTACT_POINT_MODEL": "0",
+          "TROT_RESEARCH_MAP_INTERVALS_V2": "1",
+          "TROT_RESEARCH_RUNNING_LIFT_FLOOR_M": "0",
+          "TROT_RESEARCH_RUNNING_PERIOD_S": "0.14",
+          "TROT_SEED": "11",
+          "TROT_SIM_BRIDGE_CPU": "2",
+          "TROT_SIM_LIDAR_CPU": "5",
+          "TROT_SIM_PHYSICS_CPU": "2",
+          "TROT_TERRAIN_CPU": "",
+          "TROT_WALLCLOCK_TELEMETRY_PATH": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/joint_point_flat_off_20260907_0001/wallclock_runtime_telemetry.csv",
+          "TROT_WRITER_CPU": "3"
+        },
+        "sha256": "ab29701f7ba5d1b4ba0332a8d91d01634b71dfadefbb0cdcda9c27a43f7c887c"
+      },
+      "period_check": {
+        "all_window_rows_period_0_14": true,
+        "gait_time_window_s": [
+          18,
+          24
+        ],
+        "period_values": {
+          "0.140000000": 3000
+        }
+      },
+      "point_model_expected": 0,
+      "raw_files": {
+        "contact_ground_truth.csv": {
+          "bytes": 67678207,
+          "sha256": "ac29134a8958c61068915f8a42a3b52030dd5675add913b9e9ae1c211ac4d554"
+        },
+        "contact_ground_truth_analysis.txt": {
+          "bytes": 214,
+          "sha256": "a1fde697878ce1cac85cbb05aa62ed0996978622d3c67194ab5ab5dc66af0675"
+        },
+        "contact_ground_truth_dynamics_analysis.txt": {
+          "bytes": 512,
+          "sha256": "944dfa7803e7714efaac3fcde20de497f2d14e7494376ba1175d61d1812848ee"
+        },
+        "controller.log": {
+          "bytes": 57967,
+          "sha256": "489087fa107dd227cc4a0f6b79401afdd1f108d2ddf07b6aa8b0d79e24c04d24"
+        },
+        "data.csv": {
+          "bytes": 80829954,
+          "sha256": "4dcfe7f68e76f44bcc084b14601739ad205281d2be409a3e1a4b751f2adaf34e"
+        },
+        "environment.txt": {
+          "bytes": 782,
+          "sha256": "8222e7e2cc0a15127fcc577bacfcf523bf10d174db259ee12cba68c51d3838e7"
+        },
+        "phase1_quantitative.log": {
+          "bytes": 602,
+          "sha256": "62d6cd0dfe26f3c81e35b550b3180d622cf9d08ba945b56c5286b498ef32165a"
+        },
+        "phase2_terrain_analysis.log": {
+          "bytes": 118,
+          "sha256": "e745dcf19b59eec459e6c65300508b024c7c4396a765161d70d7438a3b14dd80"
+        },
+        "run_manifest.json": {
+          "bytes": 4538,
+          "sha256": "ab29701f7ba5d1b4ba0332a8d91d01634b71dfadefbb0cdcda9c27a43f7c887c"
+        },
+        "run_metadata.txt": {
+          "bytes": 4022,
+          "sha256": "de8ddcfa9a168e9eb9030e443d588fe0b9433201647b8cf6542a8d7de8724dae"
+        },
+        "simulator.log": {
+          "bytes": 4562,
+          "sha256": "de063f5a2ca594d10271403646b18a133177153384780d25f10e6f377dd5b312"
+        },
+        "wallclock_runtime_telemetry.csv": {
+          "bytes": 65685,
+          "sha256": "3e6c6ecf7eb85c19cd886c3a74d9f117ed03974e70ed2cfb3bd066b2965aa7d2"
+        }
+      },
+      "raw_latency": {
+        "lidar": {
+          "events": {
+            "lidar": 749
+          },
+          "lidar_lock_hold_s": {
+            "blank_rows": 1,
+            "count": 748,
+            "max": 1.442e-06,
+            "negative_sentinel_rows": 0,
+            "nonfinite_rows": 0,
+            "p50": 2.9e-07,
+            "p95": 5.11e-07
+          },
+          "lidar_lock_wait_s": {
+            "blank_rows": 1,
+            "count": 748,
+            "max": 0.000189708,
+            "negative_sentinel_rows": 0,
+            "nonfinite_rows": 0,
+            "p50": 2.5e-07,
+            "p95": 9.9553e-05
+          },
+          "lidar_operation_s": {
+            "blank_rows": 1,
+            "count": 748,
+            "max": 0.009119034,
+            "negative_sentinel_rows": 0,
+            "nonfinite_rows": 0,
+            "p50": 0.007735079,
+            "p95": 0.008612057
+          },
+          "lidar_publish_s": {
+            "blank_rows": 1,
+            "count": 465,
+            "max": 0.000980793,
+            "negative_sentinel_rows": 283,
+            "nonfinite_rows": 0,
+            "p50": 0.000246575,
+            "p95": 0.000590495
+          },
+          "rows": 749
+        },
+        "wbc_full_certificate_elapsed_us": {
+          "count": 18552,
+          "max": 61.116,
+          "p50": 1.583,
+          "p95": 1.934
+        },
+        "wbc_shadow_elapsed_us": {
+          "count": 18552,
+          "max": 1769.482,
+          "p50": 176.734,
+          "p95": 228.281
+        }
+      },
+      "replay_recheck": {
+        "result_sha256": "67f7e2e8c97ac1f5b5359eedc037997a06f5405b65435c8fafaabcc98dd16b21"
+      },
+      "run_id": "joint_point_flat_off_20260907_0001",
+      "running_cycle_truth": {
+        "acceptance_claim": false,
+        "aerial_p50_s": 0.008000000000002672,
+        "analyzer_returncode": 0,
+        "complete_cycles": 42,
+        "five_cycle_min_good": 4,
+        "gait_interval_s": [
+          18.0,
+          24.0
+        ],
+        "good_cycles": 40
+      },
+      "statuses": {
+        "analysis_status": "0",
+        "completion_status": "0",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "ground_truth_status": "0",
+        "phase1_quantitative_status": "1",
+        "quality_status": "0",
+        "safety_status": "0",
+        "terrain_analysis_status": "1"
+      },
+      "timing_contamination": {
+        "concurrent_build_or_archive_marker": false,
+        "note": "Raw files contain no scheduler/build/archive event field; absence of a marker does not prove isolation.",
+        "status": "UNKNOWN_FROM_RAW"
+      }
+    },
+    "on": {
+      "certificate": {
+        "analyzer_returncode": 1,
+        "attempt_selected_same": true,
+        "audit_output_sha256": {
+          "certificate.json": "b84241e4b03f9db7609e80685af23a7430b1594361933ce868dc04b46f0283da",
+          "cycles.json": "8e92f72f3113f9f1a9d57761536682ae881fb7b74f940e2264e0dd0993a35b08"
+        },
+        "checked_rows": 16402,
+        "failure_breakdown_nonoverlap": {
+          "both": 9,
+          "friction_only": 306,
+          "normal_only": 57
+        },
+        "failure_mask_counts": {
+          "0": 16030,
+          "32": 57,
+          "64": 306,
+          "96": 9
+        },
+        "failure_rows": 372,
+        "feasible_rows": 16030,
+        "residual_max": {
+          "force_residual_n": 4.764e-06,
+          "friction_violation_n": 0.073922442,
+          "joint_residual_nm": 0.0,
+          "moment_residual_nm": 0.000251007,
+          "normal_violation_n": 0.082786205,
+          "stance_acc_residual_mps2": 0.0,
+          "swing_violation_n": 0.0,
+          "torque_violation_nm": 0.0
+        },
+        "status": "NOT_CERTIFIED",
+        "validator_overhead_us": {
+          "coverage": 1.0,
+          "finite": 16402,
+          "invalid": 0,
+          "max": 33.524,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 1.694,
+          "p95": 2.064,
+          "rows": 16402
+        }
+      },
+      "force_point_adoption": {
+        "checked_rows": 18552,
+        "expected": 1,
+        "joint_planner_adoption": false,
+        "mismatched_rows": 0
+      },
+      "manifest": {
+        "artifacts": {
+          "controller_sha256": "748e971333a152e2537d6022c154052aef2dbaac076e084cfd70349d92e352b1",
+          "event_script_sha256": "",
+          "phase2_acceptance_contract_sha256": "6d5895644fd0f471b6b09a4a920b0663855bf7a0a2b90c226220d3ef77b1c514",
+          "phase2_analyzer_sha256": "",
+          "phase2_b0_analyzer_sha256": "63c4467c6ffbc9e09e98f86af2842fc5a59584eb8d7b8dbc1845b46746e848bb",
+          "phase2_b123_analyzer_sha256": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873",
+          "phase2_contract_sha256": "",
+          "phase2_fixed_3mps_analyzer_sha256": "39bc8b24774766c3800c053effe4804287ab2cb59e94ec9ff250edd0ab540f53",
+          "phase2_holdout_manifest_sha256": "2550526025594aa379441e1d7eb071c8809abeaf9234f6cf8a335f22288a5a40",
+          "scenario_sha256": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e",
+          "simulator_sha256": "5f22b3c7d2a67679017327d5143ed149f6510143d7f389a16dcad1942d2637c2"
+        },
+        "effective_argv": [
+          "--wall-clock-motion",
+          "--wbc-full",
+          "--gait-pattern",
+          "running-trot",
+          "--kernel",
+          "raibert-trot",
+          "--period",
+          "0.14",
+          "--duty",
+          "0.44",
+          "--step-length",
+          "0.50",
+          "--foot-lift",
+          "0.20",
+          "--tau-limit",
+          "45",
+          "--raibert-velocity-gain",
+          "0.010",
+          "--raibert-max-adjustment",
+          "0.06",
+          "--preview-horizon",
+          "4",
+          "--support-anchor-feedback",
+          "--support-anchor-gain",
+          "0.35",
+          "--velocity-max-accel",
+          "0.80",
+          "--velocity-max-decel",
+          "1.20",
+          "--velocity-max-jerk",
+          "4.0",
+          "--velocity-command-script",
+          "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/configs/b1_v3_running_1mps.csv",
+          "--velocity-max-tracking-lead",
+          "0.20",
+          "--domain-id",
+          "231",
+          "--gait-phase-offset",
+          "0",
+          "--terrain-b1-execution"
+        ],
+        "path": "example/cpp/experiments/_runs/joint_point_flat_on_20260907_0001/run_manifest.json",
+        "profile": {
+          "path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/configs/b1_v3_running_1mps.csv",
+          "sha256": "62f2ff9701b2f2d6189cad97877d7891177a32b17ded255677434eb1d8f41ac6"
+        },
+        "repository": {
+          "git_branch": "feat/stage-c-joint-planner",
+          "git_commit": "e1e68de1cee4edb93d1094a39a52c8e4bb5347ec",
+          "git_dirty": "false"
+        },
+        "run": {
+          "controller_duration_s": "32",
+          "domain_id": "231",
+          "headless": "true",
+          "initial_x_m": "0.0",
+          "initial_y_m": "0.0",
+          "phase2_milestone": "B1",
+          "run_mode": "bounded",
+          "scene_file": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/phase2_flat.xml",
+          "wall_timeout_s": "65"
+        },
+        "seed": "11",
+        "semantic_env_snapshot": {
+          "TROT_CPU_AUTOPIN": "1",
+          "TROT_DYNAMICS_TOLERANCE_N": "20",
+          "TROT_HS_ACC_GAIN": "10",
+          "TROT_HS_ACC_LIMIT": "4",
+          "TROT_HS_HYBRID_CONTACT": "2",
+          "TROT_HS_PITCH_DAMP": "6",
+          "TROT_HS_PITCH_GAIN": "24",
+          "TROT_HS_ROLL_DAMP": "10",
+          "TROT_HS_ROLL_GAIN": "20",
+          "TROT_HS_SPEED_LEAD": "0.25",
+          "TROT_HS_STABILITY_GOV": "1",
+          "TROT_HS_START_DUTY": "0.50",
+          "TROT_HS_START_PERIOD": "0.20",
+          "TROT_HS_STEP_CAP": "0.52",
+          "TROT_HS_SWING_REACH": "0.90",
+          "TROT_RESEARCH_CONTACT_POINT_MODEL": "1",
+          "TROT_RESEARCH_MAP_INTERVALS_V2": "1",
+          "TROT_RESEARCH_RUNNING_LIFT_FLOOR_M": "0",
+          "TROT_RESEARCH_RUNNING_PERIOD_S": "0.14",
+          "TROT_SEED": "11",
+          "TROT_SIM_BRIDGE_CPU": "2",
+          "TROT_SIM_LIDAR_CPU": "5",
+          "TROT_SIM_PHYSICS_CPU": "2",
+          "TROT_TERRAIN_CPU": "",
+          "TROT_WALLCLOCK_TELEMETRY_PATH": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/joint_point_flat_on_20260907_0001/wallclock_runtime_telemetry.csv",
+          "TROT_WRITER_CPU": "3"
+        },
+        "sha256": "a51288dac180ebc5a7967b2e6f5e86f9ee0aefc3deda6ac97fe77499207e191a"
+      },
+      "period_check": {
+        "all_window_rows_period_0_14": true,
+        "gait_time_window_s": [
+          18,
+          24
+        ],
+        "period_values": {
+          "0.140000000": 3000
+        }
+      },
+      "point_model_expected": 1,
+      "raw_files": {
+        "contact_ground_truth.csv": {
+          "bytes": 67750969,
+          "sha256": "d3cc7c2bb66ae127fe0e9dd08f0177b61582b18b3f69248c28d510904a384bbf"
+        },
+        "contact_ground_truth_analysis.txt": {
+          "bytes": 215,
+          "sha256": "47e3df87578514cca218f8a4dd3be9416903a5f3d1c6c3982bf2b9d8eb893496"
+        },
+        "contact_ground_truth_dynamics_analysis.txt": {
+          "bytes": 514,
+          "sha256": "7dd23261214b6a6bb0b41b0f8072487c72395915827301f2fd0172d24066a5ab"
+        },
+        "controller.log": {
+          "bytes": 57930,
+          "sha256": "8653ad4dbf203794ba7a085d6a68874a265e222b6f111cfd476f0be749d7cdeb"
+        },
+        "data.csv": {
+          "bytes": 80802225,
+          "sha256": "5017880ed7c9dbf8309b19c9af7755b05cdfca884d1a0dfcbe55f39023366b2b"
+        },
+        "environment.txt": {
+          "bytes": 781,
+          "sha256": "a0565e627aec61ebdfcdc3cf2214ed63f055f058620626e484a7b623806fd805"
+        },
+        "phase1_quantitative.log": {
+          "bytes": 602,
+          "sha256": "62d6cd0dfe26f3c81e35b550b3180d622cf9d08ba945b56c5286b498ef32165a"
+        },
+        "phase2_terrain_analysis.log": {
+          "bytes": 118,
+          "sha256": "e745dcf19b59eec459e6c65300508b024c7c4396a765161d70d7438a3b14dd80"
+        },
+        "run_manifest.json": {
+          "bytes": 4536,
+          "sha256": "a51288dac180ebc5a7967b2e6f5e86f9ee0aefc3deda6ac97fe77499207e191a"
+        },
+        "run_metadata.txt": {
+          "bytes": 4015,
+          "sha256": "e2ca1d903ea8312d7322eb5ce24f13f683bcafc3abca89b1c41b855e995b7ba7"
+        },
+        "simulator.log": {
+          "bytes": 4554,
+          "sha256": "7cbee133a782b7c405c89ab30ebb29ef28a6d5a6c6efb8c5bded84419aedc030"
+        },
+        "wallclock_runtime_telemetry.csv": {
+          "bytes": 65682,
+          "sha256": "b827f8dcc3331f21403b206eec42526685ad166689d2cd78984c3b02befcc91b"
+        }
+      },
+      "raw_latency": {
+        "lidar": {
+          "events": {
+            "lidar": 749
+          },
+          "lidar_lock_hold_s": {
+            "blank_rows": 0,
+            "count": 749,
+            "max": 1.322e-06,
+            "negative_sentinel_rows": 0,
+            "nonfinite_rows": 0,
+            "p50": 2.9e-07,
+            "p95": 4e-07
+          },
+          "lidar_lock_wait_s": {
+            "blank_rows": 0,
+            "count": 749,
+            "max": 9.42e-07,
+            "negative_sentinel_rows": 0,
+            "nonfinite_rows": 0,
+            "p50": 2.31e-07,
+            "p95": 3.21e-07
+          },
+          "lidar_operation_s": {
+            "blank_rows": 0,
+            "count": 749,
+            "max": 0.010276942,
+            "negative_sentinel_rows": 0,
+            "nonfinite_rows": 0,
+            "p50": 0.007721494,
+            "p95": 0.008643667
+          },
+          "lidar_publish_s": {
+            "blank_rows": 1,
+            "count": 526,
+            "max": 0.00096396,
+            "negative_sentinel_rows": 222,
+            "nonfinite_rows": 0,
+            "p50": 0.000239733,
+            "p95": 0.000541553
+          },
+          "rows": 749
+        },
+        "wbc_full_certificate_elapsed_us": {
+          "count": 18552,
+          "max": 33.524,
+          "p50": 1.693,
+          "p95": 2.054
+        },
+        "wbc_shadow_elapsed_us": {
+          "count": 18552,
+          "max": 1902.663,
+          "p50": 188.205,
+          "p95": 304.565
+        }
+      },
+      "replay_recheck": {
+        "result_sha256": "73913bbf72e0aca32409410fbe61b682f036d2cbd9ca78c1bfa87c265c2f1f65"
+      },
+      "run_id": "joint_point_flat_on_20260907_0001",
+      "running_cycle_truth": {
+        "acceptance_claim": false,
+        "aerial_p50_s": 0.006999999999999673,
+        "analyzer_returncode": 0,
+        "complete_cycles": 42,
+        "five_cycle_min_good": 3,
+        "gait_interval_s": [
+          18.0,
+          24.0
+        ],
+        "good_cycles": 33
+      },
+      "statuses": {
+        "analysis_status": "0",
+        "completion_status": "0",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "ground_truth_status": "0",
+        "phase1_quantitative_status": "1",
+        "quality_status": "0",
+        "safety_status": "0",
+        "terrain_analysis_status": "1"
+      },
+      "timing_contamination": {
+        "concurrent_build_or_archive_marker": false,
+        "note": "Raw files contain no scheduler/build/archive event field; absence of a marker does not prove isolation.",
+        "status": "UNKNOWN_FROM_RAW"
+      }
+    }
+  },
+  "runtime": {
+    "git_branch": "feat/stage-c-joint-planner",
+    "git_commit": "e1e68de1cee4edb93d1094a39a52c8e4bb5347ec",
+    "raw_runs_are_immutable_references": true,
+    "run_manifest_git_dirty": "false"
+  },
+  "schema": "joint-point-pair-evidence-v1",
+  "scope": {
+    "b1_acceptance": false,
+    "diagnostic_only": true,
+    "joint_planner_adoption": false,
+    "physical_cone_certificate_final_pd_included": false
+  }
+}

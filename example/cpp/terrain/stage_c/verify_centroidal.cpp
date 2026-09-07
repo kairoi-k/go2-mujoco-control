@@ -32,6 +32,11 @@ DynamicsCertificate VerifyCentroidalTrajectory(const CentroidalProblem &p,
     DynamicsCertificate cert; Prepared q; std::string why;
     if(Prepare(p,q,why)!=JointPlannerFailure::kNone) return cert;
     cert.input_checked=true; cert.coverage_checked=true; cert.commitment_checked=true;
+    for(int l=0;l<4;++l)
+        if(p.request.input.measured_contact.mask[l] &&
+           p.request.input.feet[l].support_anchor_provenance==
+               SupportAnchorProvenance::kForceConditionedGeometryEstimate)
+            cert.initial_anchor_estimates_used=true;
     cert.geometric_15mm_checked=p.request.input.initial_support_margin_valid;
     cert.geometric_15mm_pass=cert.geometric_15mm_checked && p.request.input.initial_support_margin_m>=0.015;
     bool aerial=false; int min_contacts=4;

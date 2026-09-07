@@ -44,6 +44,14 @@ int main(int argc,char **){try {
         moment_residual=std::max(moment_residual,sample.model_certificate.dynamics.max_dynamics_moment_residual_Nm);
         max_tau=std::max(max_tau,sample.torque.cwiseAbs().maxCoeff());
     }
+    auto estimated_problem=p;
+    for(auto &foot:estimated_problem.request.input.feet)
+        foot.support_anchor_provenance=SupportAnchorProvenance::kForceConditionedGeometryEstimate;
+    const auto estimated=SolveCentroidalSubproblem(estimated_problem);
+    Check(estimated.certificate.feasible && estimated.certificate.initial_anchor_estimates_used &&
+          !estimated.certificate.full_geometry_checked,"estimated anchor scope recorded");
+    estimated_problem.request.input.feet[0].support_anchor_provenance=SupportAnchorProvenance::kUnknown;
+    Check(!SolveCentroidalSubproblem(estimated_problem).certificate.feasible,"unknown anchor provenance rejected");
     const auto searched=SearchJointTrajectories(robot,initial,p,feet,35,30);
     Check(searched.search.feasible && searched.selected.model_samples_verified && searched.search.diagnostics.search_complete,"joint search evaluator composition");
     auto conflict=initial;conflict.dq[0]=.2;

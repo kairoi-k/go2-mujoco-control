@@ -1,6 +1,7 @@
 #pragma once
 #include "centroidal_subproblem.h"
 #include "terrain_model.h"
+#include "world_terrain_view.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -40,6 +41,9 @@ struct TerrainCandidateConfig
         {{0.0, 0.0}}, {{0.02, 0.0}}, {{-0.02, 0.0}},
         {{0.0, 0.02}}, {{0.0, -0.02}}}};
     std::string required_frame = "world";
+    // Explicit opt-in to querying a registered heading-relative production
+    // grid through the world view. No relabelling or resampling is performed.
+    bool allow_registered_heading_frame = false;
     double minimum_edge_margin_m = 0.0;
     double maximum_slope_rad = 0.50;
     double maximum_surface_height_span_m = 0.02;
@@ -228,7 +232,11 @@ inline bool ValidTerrainMetadata(
     const TerrainModel &model, TimeNs source_state_time,
     std::uint64_t map_epoch, const TerrainCandidateConfig &config)
 {
-    if (!model.registered || !model.valid() || model.frame_id != config.required_frame ||
+    const bool frame_matches=model.frame_id==config.required_frame && model.frame_id=="world";
+    const bool registered_heading=config.allow_registered_heading_frame &&
+        config.required_frame=="world" && model.frame_id=="base_link";
+    if (!model.registered || !model.valid() || (!frame_matches && !registered_heading) ||
+        !WorldTerrainMetadataValid(model) ||
         !std::isfinite(model.origin_m[0]) || !std::isfinite(model.origin_m[1]) ||
         !std::isfinite(model.resolution_m) || source_state_time.value < 0 ||
         map_epoch == 0 || model.epoch != map_epoch ||
@@ -245,21 +253,6 @@ inline bool ValidTerrainMetadata(
         model.age_s > config.maximum_map_age_s + kTerrainMapTimeToleranceS ||
         std::abs(model.age_s - std::max(0.0, age)) > kTerrainMapTimeToleranceS)
         return false;
-    return true;
-}
-// Coverage/freshness belongs to the queried support patch. Unknown cells in
-// another part of the sensor grid do not invalidate a fully observed patch.
-inline bool FreshPatchCells(const TerrainModel &model,double x,double y,double radius,
-                            const TerrainCandidateConfig &config) {
-    const double r=std::max(radius,0.5*model.resolution_m);
-    std::size_t x0,y0,x1,y1;
-    if(!model.CellIndex(x-r,y-r,x0,y0) || !model.CellIndex(x+r,y+r,x1,y1)) return false;
-    for(std::size_t iy=y0;iy<=y1;++iy) for(std::size_t ix=x0;ix<=x1;++ix) {
-        const auto *cell=model.CellAt(ix,iy);
-        if(!cell || !cell->known || !std::isfinite(cell->age_s) ||
-           cell->age_s < -kTerrainMapTimeToleranceS ||
-           cell->age_s>config.maximum_cell_age_s+kTerrainMapTimeToleranceS) return false;
-    }
     return true;
 }
 inline bool MakeBasis(const std::array<double, 3> &normal_array,
@@ -390,9 +383,8 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
             const double x = nominal.x + config.xy_offsets_m[candidate_index][0];
             const double y = nominal.y + config.xy_offsets_m[candidate_index][1];
             TerrainPatch patch;
-            if (!terrain.SamplePatch(x, y, radius, patch) ||
-                !patch.valid || !patch.all_known ||
-                !FreshPatchCells(terrain,x,y,radius,config))
+            if (!SampleWorldTerrainPatch(terrain,x,y,radius,config.maximum_cell_age_s,patch) ||
+                !patch.valid || !patch.all_known)
             {
                 saw_coverage_rejection = true;
                 continue;
