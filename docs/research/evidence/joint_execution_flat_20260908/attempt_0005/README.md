@@ -44,3 +44,18 @@ in this checkpoint.
 Next experiment must isolate actual contact realization and task competition
 at a retained state, with all original tasks/constraints and state provenance.
 Do not continue long canaries or increase gains solely to reduce these residuals.
+
+## Collision-truth cross-check
+`../analyze_contact_divergence.py --out NEW_OUTPUT.json` reads the actual raw
+run and uses FOOT-only world-z GRF fields, not terrain-obstacle mask or all-leg
+collision force. FL sustained foot contact starts21.054s with188.3909N; RR
+starts21.066s with118.4611N. Both are before their sampled planned support.
+The independent raw checks confirm the per-leg and foot-only forces agree at
+these onset samples. The first sampled state21.022 has actual FR/RL foot normal
+forces64.1442/86.1232N, versus WBC model86.8356/36.2286N. This is a synchronized
+state comparison, not a same-tick actuator-response identification: transport
+and integration timing must be retained when interpreting the difference.
+The audit retains preceding/following2ms truth rows, raw input hashes and source
+SHA. No new simulation, controller setting or acceptance threshold changed.
+The next fixed-state task comparison must first establish complete replay input;
+source planner snapshots alone cannot stand in for later control-tick state.

@@ -1,11 +1,13 @@
 {
   "runtime_sha": "4b09ccd217130c77b492040554c891d29746c7f5",
   "files": {
+    "contact_divergence.json": "d11f39f508fbb07d7eb8ed4e2539dbe1bfeab496435718674112ee829559435e",
     "qp.txt": "1051df24a557f3429851b5d677cb755caea7ba655529f8f221da45892fc3bb65",
     "tracking_excerpt.txt": "8ac8e51b715ea23d0212f0d64aa95cf106eea7e2f2adaada98ba3880137f862a",
-    "README.md": "f7fd44227b40458a2975887740b5b0b792445d224ae33dc53fba2c271c6c68ea",
+    "README.md": "376c7ae96715d236cac7495fabdede77386fe3b2e350d49ef85d4e8c75e1c017",
     "tracking_audit.json": "a16137372437d8114fd117d5e4f8c45870db0955e728315f44319edffe66b75d",
     "execution_audit.json": "1b005067a8ff1368b2532d8006faa65ff9a0e72dddc1d6eb5c8f211a46eaac54"
   },
-  "analysis_script_sha256": "c53c67ccf353024a9b18305ed563614f4c0f0103ca59e3a9b0cd30042220a27b"
+  "analysis_script_sha256": "c53c67ccf353024a9b18305ed563614f4c0f0103ca59e3a9b0cd30042220a27b",
+  "contact_analysis_script_sha256": "1c1972d41aa6e9fcf12e57e03029bde8fb2867e6c5c4253e6a7a1e0cfaabee7f"
 }

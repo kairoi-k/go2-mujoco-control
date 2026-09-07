@@ -99,7 +99,11 @@ Offline task audit finds initial stance bridge prescribes23--27m/s2 downward
 acceleration while the WBC assumes positive support force. Current physical
 certificate omits contact acceleration/compliance compatibility. Secondary swing
 tracking competes with momentum and qdd regularization; fixed-state isolation
-is required before gain changes. See attempt0005 tracking_audit and review. Sampled foot error in the
+is required before gain changes. See attempt0005 tracking_audit and review.
+Foot-only collision truth independently confirms FL contact21.054 and RR21.066
+before planned support. At21.022 model/actual support forces differ; this is
+state-aligned evidence, not a same-tick actuator response. Exact fixed-state
+replay input sufficiency is the next gate before changing task hierarchy. Sampled foot error in the
 failed run reaches118.023mm and remains an execution concern. Variable-period calendar transitions remain an unresolved requirement. The clock caller
 now passes commitment activity rather than silently resetting the epoch.
 Default remains off. See joint_execution_flat_20260908.
