@@ -1,0 +1,8 @@
+{
+  "schema": "joint-shadow-replay-extraction-v1",
+  "runtime_sha": "4b09ccd217130c77b492040554c891d29746c7f5",
+  "run": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/joint_execution_flat_20260908_0005",
+  "controller_log_sha256": "9b24cca48d0602a2e3863ce65e92fedab18018cb3fca76d6d08b18439232bd2d",
+  "extracted_sha256": "0d235e3abc71750029b79c0f92ddb9c4a232e675b750db24ffbad3f80ca325f2",
+  "scope": "exact recorded state/map and same-code query replay; clock epoch numbering restarts; no actuation"
+}

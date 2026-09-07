@@ -2,6 +2,7 @@
 """Exclusive, exact-source short feedback diagnostic; no traversal claim."""
 import argparse, datetime, fcntl, hashlib, json, pathlib, subprocess
 p=argparse.ArgumentParser();p.add_argument('--name',required=True);p.add_argument('--snapshot',required=True);p.add_argument('--snapshot-runtime-sha',required=True)
+p.add_argument('--coherent-body-acceleration',action='store_true',help='opt-in coherent body reference diagnostic')
 a=p.parse_args();root=pathlib.Path(__file__).resolve().parents[4]
 def git(*args):return subprocess.check_output(['git',*args],cwd=root,text=True).strip()
 def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -15,7 +16,8 @@ with open('/tmp/go2_mujoco_experiment.lock','a') as lock:
  files=[snapshot,binary,scene,root/'simulate/mujoco/lib/libmujoco.so.3.3.6']
  files += [root/s for s in git('ls-files','example/cpp','unitree_robots/go2').splitlines() if (root/s).is_file()]
  binding={str(f):sha(f) for f in files}
- cmd=[str(binary),str(snapshot),'--closed-loop',str(scene),str(run/'feedback.csv')]
+ mode='--closed-loop-coherent' if a.coherent_body_acceleration else '--closed-loop'
+ cmd=[str(binary),str(snapshot),mode,str(scene),str(run/'feedback.csv')]
  manifest={'schema':'joint-feedback-replay-v1','utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'runtime_sha':git('rev-parse','HEAD'),'source_clean':True,'snapshot_runtime_sha':a.snapshot_runtime_sha,'kind':'counterfactual_torque_only_recorded_state','b1_claim':False,'command':cmd,'hashes':binding}
  (run/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
  with (run/'stdout.txt').open('x') as out:

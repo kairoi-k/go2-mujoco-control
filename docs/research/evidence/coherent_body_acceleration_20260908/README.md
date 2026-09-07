@@ -38,3 +38,10 @@ Next: test different captured phases and bounded execution, while introducing
 horizon-level body orientation/contact-motion consistency rather than weight
 sweeps or resetting the initial state. The strict full-body reconstruction
 initial_condition_conflict remains unresolved by this acceleration-only mode.
+
+## Additional source registered before replay
+Use actual0005 source (opposite diagonal phase to0006), extracted with the
+existing exact-clean-runtime snapshot tool. Repeat the same0.2s baseline versus
+coherent comparison; no gain changes, no selection based on the new results.
+The shared run_replay.py accepts --coherent-body-acceleration while retaining
+its clean-source, complete input-hash and exclusive-lock protocol.
