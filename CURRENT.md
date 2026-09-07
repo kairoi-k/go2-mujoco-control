@@ -205,3 +205,11 @@ stashes, archived branches or other worktrees. Curated evidence has manifests.
 Add only TROT_RESEARCH_JOINT_COHERENT_ATTITUDE=1 to0010 settings.
 This enables the short-replay-verified same-state feedback correction; requires
 coherent-body mode. Default off. One exact-source flat canary, no gain sweep.
+
+## Clock loss localized after0011
+CSV reconstruction proves MotionClockStep permanently drops10ms at state21.064:
+state gap exceeds8ms, last tick advances but running_time/phase do not. Predicted
+-10000000ns equals observed shadow rejection. Evidence attempt_0011/clock_loss.json
+and reconstruct_clock.py. Transport stall cause unknown. Separate absolute event
+time from bounded control integration; retain committed epoch and fail-closed
+input quality. No controller change or new sim in this localization step.

@@ -1,0 +1,22 @@
+{
+  "raw_sha256": "244881e884b3c1534684aaf82487f1a59a4fc1a1d46b9d0db1474bf37770ee20",
+  "witness": {
+    "previous": {
+      "state_tick_s": "21.054000000",
+      "motion_dt_s": "0.000000000",
+      "state_tick_gap_s": "0.000000000",
+      "telemetry_running_time_s": "19.100000000",
+      "phase": "0.409084804"
+    },
+    "first_discard": {
+      "state_tick_s": "21.064000000",
+      "motion_dt_s": "0.000000000",
+      "state_tick_gap_s": "0.010000000",
+      "telemetry_running_time_s": "19.100000000",
+      "phase": "0.409084804"
+    }
+  },
+  "lost_elapsed_s": 0.010000000000001563,
+  "predicted_phase_residual_ns": -10000000,
+  "scope": "clock loss only; not transport root cause or stability"
+}
