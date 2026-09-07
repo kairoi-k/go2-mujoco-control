@@ -69,6 +69,8 @@ struct IdWbcInput
     // world-Z friction cone, preserving the established flat WBC path.
     std::array<Eigen::Vector3d, go2::kLegCount> contact_normal{};
     std::array<bool, go2::kLegCount> contact_normal_valid{};
+    // Physical acceleration at the foot collision-geom center, world frame.
+    // The QP accounts for Jdot*qvel; callers must not pre-subtract it.
     std::array<Eigen::Vector3d, go2::kLegCount> swing_acc_world{};
     std::array<Eigen::Vector3d, go2::kLegCount> stance_acc_world{};
     bool have_stance_acc = false;
@@ -230,8 +232,11 @@ inline bool SolveInverseDynamicsWbc(
                 Wswing(0, 0) = params.w_swing_x;
             H.topLeftCorner(nqdd, nqdd) +=
                 2.0 * Jl.transpose() * Wswing * Jl;
+            const Eigen::Vector3d jdot_qvel =
+                input.dynamics.foot_jac_dot_world[leg] * input.dynamics.qvel;
             g.head(nqdd) +=
-                -2.0 * Jl.transpose() * Wswing * input.swing_acc_world[leg];
+                2.0 * Jl.transpose() * Wswing *
+                (jdot_qvel - input.swing_acc_world[leg]);
         }
         H(col_f, col_f) += 2.0 * params.w_force;
         H(col_f + 1, col_f + 1) += 2.0 * params.w_force;
@@ -462,7 +467,8 @@ inline bool SolveInverseDynamicsWbc(
         }
         else
         {
-            const Eigen::Vector3d swing_error = Jl * output.qdd - input.swing_acc_world[leg];
+            const Eigen::Vector3d swing_error =
+                Jl * output.qdd + jdot_qvel - input.swing_acc_world[leg];
             const double wx = params.w_swing_x >= 0.0 ? params.w_swing_x : params.w_swing;
             output.cost_terms.swing += wx * swing_error.x() * swing_error.x() +
                 params.w_swing * (swing_error.y() * swing_error.y() + swing_error.z() * swing_error.z());

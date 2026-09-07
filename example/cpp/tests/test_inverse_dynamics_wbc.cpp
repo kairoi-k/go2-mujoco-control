@@ -172,6 +172,73 @@ int main()
     }
     passed &= Check(fx > 8.0, "aniso X should allow sagittal GRF");
 
+
+    // Audit F02: independent position finite differences, then an equivalent
+    // acceleration-target formulation through the real production WBC QP.
+    // Keeping M/h/J unchanged isolates Jdot*qvel from Coriolis forces.
+    auto moving_state = state;
+    moving_state.dq << 0.4, 3.0, -4.0, -0.3, -2.5, 3.5,
+                       0.2, 2.0, -3.0, -0.4, -3.0, 4.0;
+    go2_control::RigidBodyDynamics moving, plus, minus;
+    passed &= Check(model.Evaluate(moving_state, moving), "moving dynamics");
+    constexpr double dt = 1.0e-4;
+    auto shifted = moving_state;
+    shifted.q += dt * moving_state.dq;
+    passed &= Check(model.Evaluate(shifted, plus), "plus dynamics");
+    shifted.q = moving_state.q - dt * moving_state.dq;
+    passed &= Check(model.Evaluate(shifted, minus), "minus dynamics");
+    std::array<Eigen::Vector3d, 4> bias_acc;
+    double fd_error = 0.0;
+    for (int leg = 0; leg < 4; ++leg)
+    {
+        bias_acc[leg] = (plus.foot_pos_world[leg] -
+            2.0 * moving.foot_pos_world[leg] + minus.foot_pos_world[leg]) / (dt * dt);
+        fd_error = std::max(fd_error, (bias_acc[leg] -
+            moving.foot_jac_dot_world[leg] * moving.qvel).norm());
+    }
+    passed &= Check(fd_error < 2.0e-5, "Jdot differs from position curvature");
+    passed &= Check(bias_acc[1].norm() > 1.0, "moving fixture has no useful bias");
+    for (bool aerial : {false, true})
+    {
+        go2_control::IdWbcInput physical;
+        physical.dynamics = moving;
+        physical.contact = aerial ? std::array<bool, 4>{false, false, false, false}
+                                  : std::array<bool, 4>{true, false, false, true};
+        for (int leg = 0; leg < 4; ++leg)
+            physical.swing_acc_world[leg] = Eigen::Vector3d(0.7, -0.2, 1.3);
+        auto equivalent = physical;
+        for (int leg = 0; leg < 4; ++leg)
+            if (!physical.contact[leg])
+            {
+                equivalent.dynamics.foot_jac_dot_world[leg].setZero();
+                equivalent.swing_acc_world[leg] -= bias_acc[leg];
+            }
+        go2_control::IdWbcParams params;
+        params.w_swing_x = 37.0;
+        go2_control::IdWbcOutput actual, oracle;
+        const bool actual_ok = go2_control::SolveInverseDynamicsWbc(params, physical, actual);
+        const bool oracle_ok = go2_control::SolveInverseDynamicsWbc(params, equivalent, oracle);
+        passed &= Check(actual_ok && oracle_ok, "moving QP rejected");
+        const double qdd_delta = (actual.qdd - oracle.qdd).norm();
+        passed &= Check(qdd_delta < 2.0e-3, "physical and compensated swing QPs disagree");
+        double physical_cost = 0.0;
+        for (int leg = 0; leg < 4; ++leg)
+            if (!physical.contact[leg])
+            {
+                const Eigen::Vector3d error = moving.foot_jac_world[leg] * actual.qdd +
+                    bias_acc[leg] - physical.swing_acc_world[leg];
+                physical_cost += 37.0 * error.x() * error.x() +
+                    params.w_swing * (error.y() * error.y() + error.z() * error.z());
+                passed &= Check(actual.force.segment<3>(3 * leg).norm() < 0.2,
+                                "swing force exceeds existing QP allowance");
+            }
+        const double cost_delta = std::abs(physical_cost - actual.cost_terms.swing);
+        passed &= Check(cost_delta < 2.0e-3, "swing diagnostic omits physical bias");
+        passed &= Check(actual.rne_residual < 1.0e-3, "moving RNE residual");
+        std::cout << "swing_bias aerial=" << aerial << " fd_error=" << fd_error
+                  << " qdd_delta=" << qdd_delta << " cost_delta=" << cost_delta
+                  << " rne=" << actual.rne_residual << "\n";
+    }
     if (!passed)
     {
         std::cerr << "eq=" << out.eq_residual

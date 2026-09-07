@@ -4,13 +4,13 @@ Updated: 2026-09-07. This file is the live route and handoff entrypoint.
 
 ## Current instruction and scope
 
-The user has narrowed the current turn to recovering the interrupted work,
-closing it as a clean, reproducible, pushed checkpoint, and identifying the
-principal B1 blocker. Do not resume unbounded autonomous experiments from old
-instructions below or from historical handoffs. No new simulation or control,
-planner, solver, threshold, or analyzer change belongs to this closeout.
-The user retains full research-route autonomy authorization for later work;
-prior frozen baselines must remain distinguishable if a new version is chosen.
+The user authorized moving the external architecture audit's analytic witnesses
+into production regression tests, then a bounded single-variable correction
+and controlled closed-loop evaluation. Current hypothesis: swing physical
+acceleration must include Jdot*qvel, as stance acceleration already does.
+Preserve the frozen baseline, thresholds, observation path and gait settings.
+This is not authorization to claim B1 acceptance from a unit-test correction.
+The previous closed checkpoint is f5b5155fc4750b358c39516c70a4e76014cf98b9.
 
 ## Exact source and result
 
