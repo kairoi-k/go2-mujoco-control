@@ -1,0 +1,12 @@
+Internal ctest changing into directory: /home/che/dev/go2-workspace/feat-stage-c-joint-planner/simulate/build
+Test project /home/che/dev/go2-workspace/feat-stage-c-joint-planner/simulate/build
+    Start 1: test_lockstep
+1/3 Test #1: test_lockstep ....................   Passed    2.01 sec
+    Start 2: test_lockstep_sim
+2/3 Test #2: test_lockstep_sim ................   Passed    9.20 sec
+    Start 3: test_terrain_contact_audit
+3/3 Test #3: test_terrain_contact_audit .......   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Total Test time (real) =  11.22 sec

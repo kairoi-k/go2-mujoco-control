@@ -1,0 +1,1 @@
+{"schema": "running-cycle-truth-diagnostic-v1", "acceptance_claim": false, "gait_interval_s": [17.0, 24.0], "complete_cycles": 49, "good_cycles": 46, "five_cycle_min_good": 4, "aerial_p50_s": 0.013999999999999346, "script_sha256": "65950b32e0ffb063a320f808a6c7c48992ad1aa9e2f3a6308026cb51af39794e"}
