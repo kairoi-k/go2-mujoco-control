@@ -1,0 +1,80 @@
+{
+  "scope": "same-state aerial joint body/foot target oracle; not horizon or terrain certification",
+  "mujoco_version": "3.3.6",
+  "source_model_match": 8.881784197001252e-16,
+  "lp_status": 0,
+  "lp_message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
+  "hashes": {
+    "docs/research/evidence/joint_execution_flat_20260908/attempt_0012/initial_source.txt": "b86474ca4e4e2bafa02d8db75e91499030865ab4fa67c46d7d664b8a94ad5a16",
+    "docs/research/evidence/joint_execution_flat_20260908/attempt_0012/swing_boundary_audit.txt": "a176fdb89a74a0c87525b76c694844e0f9a33258de7c3bb97172af4f9bd4a736",
+    "unitree_robots/go2/phase2_flat.xml": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/initial_joint_foothold_oracle_20260908/oracle.py": "2b7ef056462ee2427968351e2623a7ff218608b32aa66d4a40bcdc5d50c896ac"
+  },
+  "qp_success": true,
+  "constraint_residual": 3.469446951953614e-18,
+  "full_dynamics_residual": 3.552713678800501e-14,
+  "torque_peak_nm": 35.0,
+  "body_acceleration": [
+    -8.47188669356518,
+    73.6314641541248,
+    -2.9668231409129056
+  ],
+  "targets": [
+    [
+      2.8373359487203573,
+      -0.15763479880533934,
+      0.02200000865195726
+    ],
+    [
+      2.774467704874257,
+      0.1274404165183375,
+      0.02200000865195726
+    ],
+    [
+      2.387940438002804,
+      -0.1467718912527339,
+      0.02200000865195726
+    ],
+    [
+      2.453467206633736,
+      0.13116696485195062,
+      0.022000008651957264
+    ]
+  ],
+  "old_targets": [
+    [
+      2.851277645243694,
+      -0.15029342771319032,
+      0.02200000865195726
+    ],
+    [
+      2.800189362910656,
+      0.1301027551718656,
+      0.02200000865195726
+    ],
+    [
+      2.409625138947372,
+      -0.14462034250094863,
+      0.02200000865195726
+    ],
+    [
+      2.468291403660437,
+      0.13491755699281233,
+      0.02200000865195726
+    ]
+  ],
+  "torque": [
+    -0.03446758797479401,
+    -12.758211499162757,
+    -3.991189107313157,
+    -35.0,
+    35.0,
+    26.079951512419385,
+    27.080821548756607,
+    -35.0,
+    35.0,
+    1.1446459726587448,
+    -14.559564574158742,
+    -2.7891108741067416
+  ]
+}
