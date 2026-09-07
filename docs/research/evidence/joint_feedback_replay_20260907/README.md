@@ -58,3 +58,12 @@ Second exact ac423a6 attempt also has zero physical steps: identical robot
 models were rejected because the canonical free joint is unnamed. Match its
 unique base body/type with unchanged qpos/dof layout checks; the actual scene
 identity and deliberately changed gravity/gear now have focused tests.
+
+Third exact30e2564 attempt matches the robot but still has zero physical
+steps: source quaternion norm error is-1.5618637605463448e-8 from DDS float
+representation. The replay had invented a1e-8 unit-norm gate inconsistent with
+Go2RigidBody::SetState. Use that existing normalized representation; joint
+q/dq, physical rotation and body velocities remain unprojected. This third
+preflight failure triggered review: remove duplicated stricter representation
+contracts rather than treating adapter defects as plant failure or tuning
+dynamics. The focused test now includes a float-rounded quaternion.

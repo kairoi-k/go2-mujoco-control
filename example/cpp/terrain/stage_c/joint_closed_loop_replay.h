@@ -279,19 +279,19 @@ inline bool WriteStateToPlant(
         failure = "free_base_address_invalid";
         return false;
     }
-    if (std::abs(state.quat_world_from_body.norm() - 1.0) > 1.0e-8)
-    {
-        failure = "initial_quaternion_not_unit";
-        return false;
-    }
+    // Match Go2RigidBody::SetState: normalize the quaternion representation,
+    // preserving its rotation and every physical q/dq. DDS float rounding
+    // produces nonunit norms even for the recorded valid robot orientation.
+    Eigen::Quaterniond quat=state.quat_world_from_body;
+    quat.coeffs()/=quat.coeffs().stableNorm();
     mj_resetData(&model, &data);
     data.qpos[qa + 0] = state.position_world.x();
     data.qpos[qa + 1] = state.position_world.y();
     data.qpos[qa + 2] = state.position_world.z();
-    data.qpos[qa + 3] = state.quat_world_from_body.w();
-    data.qpos[qa + 4] = state.quat_world_from_body.x();
-    data.qpos[qa + 5] = state.quat_world_from_body.y();
-    data.qpos[qa + 6] = state.quat_world_from_body.z();
+    data.qpos[qa + 3] = quat.w();
+    data.qpos[qa + 4] = quat.x();
+    data.qpos[qa + 5] = quat.y();
+    data.qpos[qa + 6] = quat.z();
     data.qvel[va + 0] = state.linear_vel_world.x();
     data.qvel[va + 1] = state.linear_vel_world.y();
     data.qvel[va + 2] = state.linear_vel_world.z();
@@ -1443,6 +1443,7 @@ inline bool WriteReplayMetadata(
         << "# execution_authority=0\n"
         << "# b1_claim=0\n"
         << "# contact_evolution_verified=0\n"
+        << "# quaternion_representation=normalized_as_Go2RigidBody_SetState\n"
         << "# cold_start=1\n"
         << "# original_warmstart_replayed=0\n"
         << "# torque_mode=direct_torque_only_kp0_kd0\n"

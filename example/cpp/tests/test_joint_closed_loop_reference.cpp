@@ -57,7 +57,8 @@ int main(){try {
  scene.model->actuator_gear[0]=2;
  Check(!ValidateRobotModels(*scene.model,*plant.model,failure),"gear mismatch rejected");
  initial.linear_vel_world<<.3,-.2,.1;initial.angular_vel_body<<.1,.2,-.3;initial.dq.setConstant(.12);
- Check(WriteStateToPlant(*plant.model,*plant.data,initial,failure),"state load");
+ initial.quat_world_from_body.coeffs()*=1.0+2e-8;
+ Check(WriteStateToPlant(*plant.model,*plant.data,initial,failure),"float-rounded quaternion state load");
  const auto recovered=StateFromPlant(*plant.model,*plant.data);
  Check((initial.dq-recovered.dq).norm()<1e-12 && (initial.linear_vel_world-recovered.linear_vel_world).norm()<1e-12 && (initial.angular_vel_body-recovered.angular_vel_body).norm()<1e-12,"state velocity unchanged");
  ReplayRow row;row.plant_time_s=.002;ContactObservation observation;std::array<bool,4> mask{};
