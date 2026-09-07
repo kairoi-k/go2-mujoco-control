@@ -1,6 +1,7 @@
 #include "trot_experiment.h"
 #include "trot_rigid_body_observation.h"
 #include "joint_planning_shadow.h"
+#include "stage_c/capture_terrain_view.h"
 
 #include <algorithm>
 #include <chrono>
@@ -396,7 +397,7 @@ void TrotExperiment::TerrainPlannerWorker()
                       << " capture=" << work.map_envelope.map_stamp_s << "\n";
         work.input.terrain = model.get();
         if (joint_shadow_loaded && work.rigid_body_state_valid &&
-            work.input.state_stamp_s >= 18.0 && work.input.state_stamp_s <= 24.0 &&
+            work.input.state_stamp_s >= 20.0 && work.input.state_stamp_s <= 28.0 &&
             work.input.state_stamp_s - joint_shadow_last_s >= 0.5)
         {
             // Capture-side coverage separates sensor unknowns from registration
@@ -409,7 +410,17 @@ void TrotExperiment::TerrainPlannerWorker()
             for (double height : work.map_envelope.heights_m)
                 source_line << (std::isfinite(height) ? 'K' : '?');
             source_line << "\n";std::cout << source_line.str();
-            joint_shadow.Capture(work.rigid_body_state, work.input, work.plan_id, params_.gait_pattern);
+            const auto capture_view = go2_terrain::stage_c::BuildCaptureHeadingTerrainView(
+                work.map_envelope, work.input.state_stamp_s, work.map_epoch,
+                go2_terrain::TerrainSource::kLidar);
+            std::cout << "JointTerrainView id=" << work.plan_id
+                      << " representation=capture_heading error="
+                      << go2_terrain::stage_c::CaptureTerrainViewErrorName(capture_view.error)
+                      << " source_known=" << capture_view.source_known_cells
+                      << " view_known=" << capture_view.view_known_cells << "\n";
+            auto shadow_input = work.input;
+            shadow_input.terrain = capture_view.ok() ? &capture_view.model : nullptr;
+            joint_shadow.Capture(work.rigid_body_state, shadow_input, work.plan_id, params_.gait_pattern);
             joint_shadow_last_s = work.input.state_stamp_s;
         }
         auto result = terrain_planner_.Build(work.input, work.plan_id);

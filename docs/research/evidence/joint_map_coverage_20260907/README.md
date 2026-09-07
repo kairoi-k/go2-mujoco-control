@@ -34,3 +34,27 @@ same raw envelope, so the next run distinguishes source and registration loss.
 Full controller build and 62/62 CTests passed before this probe. The exact
 serializer/extractor/C++ reader roundtrip preserves nonzero pose/velocity and
 unknown map numerics; malformed/truncated/extra input fields are rejected.
+
+## Actual f9623e1 probe
+Runtime `f9623e1486d03830101aa80d132fc8f3c04489bb`, exact clean source and
+binaries independently verified; raw `joint_map_state_flat_20260907_0001`.
+12 complete captures: 6 reduced-model proposals, 5 initial unknown, 1 candidate
+coverage. All 6 attempted solves succeed; each evaluates two combinations.
+Maximum reported continuous-equation residual is 5.71765e-15 (position,
+velocity and momentum residual components are logged under one maximum).
+No articulated body/contact-evolution or final actuator certificate follows.
+Snapshot id350/state20.10, first 0.14 s capture: source318/320 known, registered
+271/320. The full mask shows one row and one column lost, plus expansion of
+two source holes. Independent patch-cell accounting agrees with all five
+recorded rejected candidate queries: four hit the cropped low-Y row and one
+hits an interior hole. Same-code offline replay reproduces exact feasible
+status and residual1.8873791418627661e-15; epoch numbering restarts at1.
+31 isolated standalone replays all match semantic output exactly. Capture
+pipeline p50/p95/max=1546.845/1861.745/1953.679 us, including one snapshot
+serialization and query logs each process. Model load is outside the timer.
+Actual six attempted-capture timings p50/p95/max=1310.008/45866.77375/60611.528
+us; the 60.6ms outlier is at period0.28 during the ramp, not solver iteration
+proof. Report both isolated and closed-loop timing; no realtime guarantee.
+The chosen next architecture change queries the immutable capture-heading
+observation directly in world coordinates, preserving source unknowns and
+actual age instead of losing extra cells in current-heading resampling.

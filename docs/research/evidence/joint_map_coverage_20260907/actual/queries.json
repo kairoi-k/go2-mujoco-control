@@ -1,0 +1,311 @@
+{
+  "schema": "joint-query-accounting-v1",
+  "runtime_sha": "f9623e1486d03830101aa80d132fc8f3c04489bb",
+  "scope": "query coverage only; no optimizer or physical acceptance",
+  "controller_log_sha256": "10f72857acdd82c02af3c8978442cb9b81e4858e83e09cff1363698d4aa6ebf4",
+  "query_count": 30,
+  "reason_counts": {
+    "unknown_cells": 30
+  },
+  "stage_reason_counts": {
+    "candidate:unknown_cells": 25,
+    "initial:unknown_cells": 5
+  },
+  "snapshot_id": 350,
+  "snapshot_time": 20.1,
+  "map_sequence": 278,
+  "capture_source": {
+    "id": "350",
+    "sequence": "278",
+    "width": "32",
+    "height": "10",
+    "mask": "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK?KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK?KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK"
+  },
+  "capture_source_known": 318,
+  "map_known": 271,
+  "map_total": 320,
+  "row_masks_low_to_high_y": [
+    "????????????????????????????????",
+    "KKK??KKKKKKKKKKKKKKKKKKKKKKKKKK?",
+    "KKK??KKKKKKKKKKKKKKKKKKKKKKKKKK?",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK?",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK?",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK?",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK?",
+    "KKKKKKKKKKK??KKKKKKKKKKKKKKKKKK?",
+    "KKKKKKKKKKK??KKKKKKKKKKKKKKKKKK?",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK?"
+  ],
+  "snapshot_query_checks": [
+    {
+      "query": {
+        "id": "350",
+        "stage": "candidate",
+        "leg": "1",
+        "event": "0",
+        "candidate": "2",
+        "reason": "unknown_cells",
+        "world_x": "1.9351885248104483",
+        "world_y": "0.13783317960309416",
+        "local_x": "0.2238955604629865",
+        "local_y": "0.14271213395987647",
+        "radius": "0.021999999999999999",
+        "known": "3",
+        "total": "4",
+        "outside": "0",
+        "age_max": "0.072000000000222997",
+        "age_limit": "0.20000000000000001"
+      },
+      "cells": [
+        {
+          "ix": 12,
+          "iy": 6,
+          "inside": true,
+          "known": true,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 13,
+          "iy": 6,
+          "inside": true,
+          "known": true,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 12,
+          "iy": 7,
+          "inside": true,
+          "known": false,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 13,
+          "iy": 7,
+          "inside": true,
+          "known": true,
+          "age": 0.072000000000223
+        }
+      ],
+      "independent_known": 3,
+      "independent_total": 4,
+      "independent_outside": 0,
+      "reported_counts_match": true
+    },
+    {
+      "query": {
+        "id": "350",
+        "stage": "candidate",
+        "leg": "2",
+        "event": "1",
+        "candidate": "4",
+        "reason": "unknown_cells",
+        "world_x": "1.5675483260607193",
+        "world_y": "-0.16077192995623601",
+        "local_x": "-0.14268088996955416",
+        "local_y": "-0.15719790785259596",
+        "radius": "0.021999999999999999",
+        "known": "2",
+        "total": "4",
+        "outside": "0",
+        "age_max": "0.072000000000222997",
+        "age_limit": "0.20000000000000001"
+      },
+      "cells": [
+        {
+          "ix": 5,
+          "iy": 0,
+          "inside": true,
+          "known": false,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 6,
+          "iy": 0,
+          "inside": true,
+          "known": false,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 5,
+          "iy": 1,
+          "inside": true,
+          "known": true,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 6,
+          "iy": 1,
+          "inside": true,
+          "known": true,
+          "age": 0.072000000000223
+        }
+      ],
+      "independent_known": 2,
+      "independent_total": 4,
+      "independent_outside": 0,
+      "reported_counts_match": true
+    },
+    {
+      "query": {
+        "id": "350",
+        "stage": "candidate",
+        "leg": "0",
+        "event": "2",
+        "candidate": "4",
+        "reason": "unknown_cells",
+        "world_x": "1.9910075313293309",
+        "world_y": "-0.16417729827917246",
+        "local_x": "0.28078774479622254",
+        "local_y": "-0.1590980209408876",
+        "radius": "0.021999999999999999",
+        "known": "2",
+        "total": "4",
+        "outside": "0",
+        "age_max": "0.072000000000222997",
+        "age_limit": "0.20000000000000001"
+      },
+      "cells": [
+        {
+          "ix": 14,
+          "iy": 0,
+          "inside": true,
+          "known": false,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 15,
+          "iy": 0,
+          "inside": true,
+          "known": false,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 14,
+          "iy": 1,
+          "inside": true,
+          "known": true,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 15,
+          "iy": 1,
+          "inside": true,
+          "known": true,
+          "age": 0.072000000000223
+        }
+      ],
+      "independent_known": 2,
+      "independent_total": 4,
+      "independent_outside": 0,
+      "reported_counts_match": true
+    },
+    {
+      "query": {
+        "id": "350",
+        "stage": "candidate",
+        "leg": "2",
+        "event": "5",
+        "candidate": "4",
+        "reason": "unknown_cells",
+        "world_x": "1.6691876839339816",
+        "world_y": "-0.16113322085148105",
+        "local_x": "-0.041040889969553698",
+        "local_y": "-0.15719790785259594",
+        "radius": "0.021999999999999999",
+        "known": "2",
+        "total": "4",
+        "outside": "0",
+        "age_max": "0.072000000000222997",
+        "age_limit": "0.20000000000000001"
+      },
+      "cells": [
+        {
+          "ix": 7,
+          "iy": 0,
+          "inside": true,
+          "known": false,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 8,
+          "iy": 0,
+          "inside": true,
+          "known": false,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 7,
+          "iy": 1,
+          "inside": true,
+          "known": true,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 8,
+          "iy": 1,
+          "inside": true,
+          "known": true,
+          "age": 0.072000000000223
+        }
+      ],
+      "independent_known": 2,
+      "independent_total": 4,
+      "independent_outside": 0,
+      "reported_counts_match": true
+    },
+    {
+      "query": {
+        "id": "350",
+        "stage": "candidate",
+        "leg": "0",
+        "event": "6",
+        "candidate": "4",
+        "reason": "unknown_cells",
+        "world_x": "2.0926468892025931",
+        "world_y": "-0.16453858917441749",
+        "local_x": "0.38242774479622282",
+        "local_y": "-0.15909802094088762",
+        "radius": "0.021999999999999999",
+        "known": "2",
+        "total": "4",
+        "outside": "0",
+        "age_max": "0.072000000000222997",
+        "age_limit": "0.20000000000000001"
+      },
+      "cells": [
+        {
+          "ix": 16,
+          "iy": 0,
+          "inside": true,
+          "known": false,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 17,
+          "iy": 0,
+          "inside": true,
+          "known": false,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 16,
+          "iy": 1,
+          "inside": true,
+          "known": true,
+          "age": 0.072000000000223
+        },
+        {
+          "ix": 17,
+          "iy": 1,
+          "inside": true,
+          "known": true,
+          "age": 0.072000000000223
+        }
+      ],
+      "independent_known": 2,
+      "independent_total": 4,
+      "independent_outside": 0,
+      "reported_counts_match": true
+    }
+  ]
+}
