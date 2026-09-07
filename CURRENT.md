@@ -94,7 +94,12 @@ planned/measured masks. Legacy WBC CSV task fields are not executor witnesses.
 Actual4b09ccd diagnostic0005 exposes swing task acceleration errors41.76/70.42
 m/s2 at first sampled adoption21.022; measured contact precedes planned touchdown
 at21.060. Terminal secondary numerical failure21.402 comes after tracking loss,
-with planned/measured masks6/1. Exact matrix and per-leg tracking retained. Sampled foot error in the
+with planned/measured masks6/1. Exact matrix and per-leg tracking retained.
+Offline task audit finds initial stance bridge prescribes23--27m/s2 downward
+acceleration while the WBC assumes positive support force. Current physical
+certificate omits contact acceleration/compliance compatibility. Secondary swing
+tracking competes with momentum and qdd regularization; fixed-state isolation
+is required before gain changes. See attempt0005 tracking_audit and review. Sampled foot error in the
 failed run reaches118.023mm and remains an execution concern. Variable-period calendar transitions remain an unresolved requirement. The clock caller
 now passes commitment activity rather than silently resetting the epoch.
 Default remains off. See joint_execution_flat_20260908.

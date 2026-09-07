@@ -17,3 +17,30 @@ planned mask6 versus measured1. Its exact matrices are retained separately.
 0.414984m. No B1 claim and no physical infeasibility claim from numerical failure.
 Next use retained task/state evidence to investigate primary/secondary task
 competition and contact-timing mismatch before further parameter experiments.
+
+## Contact realization and task hierarchy review
+Reproduce sampled-task calculations with `../analyze_tracking.py tracking_excerpt.txt
+--out NEW_OUTPUT.json`. At21.022 the commanded stance bridge prescribes world-z
+accelerations -23.4726/-26.8239m/s2 for legs0/3. WBC achieves corrected tasks
+-22.9168/-26.2217m/s2 while assuming normal forces86.8356/36.2286N.
+These values are model predictions, not measured force or acceleration.
+Source review: `joint_feedback_reference.h::BuildWbcReplayInput` adds the same
+reference acceleration and clipped position/velocity feedback to stance and swing.
+`inverse_dynamics_wbc.h` uses soft stance tasks by default, and the primary HQP
+preserves their optimum together with COM and orientation. It does not impose
+normal contact acceleration compatibility. The independent inverse-dynamics
+certificate checks equations, force cones and torque limits, not whether MuJoCo
+will realize the assumed force under its compliant unilateral contact law.
+Thus command C1 continuity plus a model-equation certificate is insufficient for
+physical contact-consistent handover. This is a verified certificate coverage gap;
+it is not yet proof that the bridge is the sole cause of the failure.
+The secondary cost mixes swing acceleration tracking, angular momentum, joint
+acceleration regularization and force/torque terms. `w_posture` penalizes qdd,
+not posture error or joint velocity. First sampled maximum absolute qdd is
+984.1924rad/s2 or m/s2 depending row. The named task hierarchy does not guarantee
+swing-task preservation against these secondary costs. A fixed-state comparison
+is needed before changing weights or replacing hierarchy. No such change is made
+in this checkpoint.
+Next experiment must isolate actual contact realization and task competition
+at a retained state, with all original tasks/constraints and state provenance.
+Do not continue long canaries or increase gains solely to reduce these residuals.
