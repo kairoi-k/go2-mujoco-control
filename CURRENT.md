@@ -28,6 +28,16 @@ prepared swing-curve leases. Body/force validity is never extended by a curve
 lease. An initial <=20ms stance-reference bridge currently propagates its
 acceleration into WBC; contact-motion compatibility is unresolved. Planned,
 measured, applied and collision-truth contact remain different quantities.
+## Bounded attitude-feedback diagnostic
+An opt-in replay mode now maps a body-frame angular acceleration correction
+through the actual-state COM/body/feet Jacobian system into total momentum-rate
+correction. The same corrected momentum target feeds WBC and the coherent lift.
+COM/foot acceleration targets and natural feedforward body acceleration are
+preserved; only the feedback increment is capped using existing gains/limits.
+This is instantaneous feedback, NOT horizon body attitude planning or resolution
+of moving initial support/contact realization. Production runtime is unchanged.
+The mapper has an independent finite-difference kinematics test; body acceleration
+and closed-loop reference focused tests pass. Real replay remains pending.
 ## Latest actual runtime: bounded-admission canary0010 FAILED
 Clean97b6d02158a797f1bb02e9817495152964a3a322, admission budget80ms with0009 settings.
 15 versions, first21.012, last sampled21.658/count325; then posture

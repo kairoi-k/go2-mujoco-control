@@ -1,3 +1,4 @@
+#include "stage_c/body_momentum_feedback.h"
 #include "stage_c/body_acceleration.h"
 #include <cmath>
 #include <iostream>
@@ -152,6 +153,28 @@ int main()
             expected_qacc, 1.0e-5);
         const auto lift = LiftBodyAcceleration(robot, reconstruction, target);
         Check(lift.valid, "general acceleration lift");
+        const Eigen::Vector3d angular_delta(.7,-.4,.2);
+        const auto correction=go2_terrain::stage_c::MapBodyAngularCorrection(reconstruction.model,angular_delta);
+        Check(correction.valid,"body momentum correction");
+        auto corrected_target=target;
+        corrected_target.angular_momentum_derivative_world+=correction.momentum_rate_delta_world;
+        const auto corrected=LiftBodyAcceleration(robot,reconstruction,corrected_target);
+        Check(corrected.valid,"corrected full momentum lift");
+        Check((corrected.qacc-lift.qacc-correction.qacc_delta).norm()<1e-7,
+              "independent momentum lift disagrees with correction");
+        Check((corrected.qacc.segment<3>(3)-lift.qacc.segment<3>(3)-angular_delta).norm()<1e-8,
+              "body-frame angular correction not realized");
+        const auto delta_target=FiniteDifferenceTarget(robot,reconstruction.state,
+            reconstruction.model.dynamics.qvel,lift.qacc+correction.qacc_delta,1e-5);
+        Check((delta_target.com_acceleration_world-target.com_acceleration_world).norm()<2e-5,
+              "attitude correction changed COM target");
+        for(int leg=0;leg<4;++leg)
+            Check((delta_target.foot_acceleration_world[leg]-target.foot_acceleration_world[leg]).norm()<2e-5,
+                  "attitude correction changed foot acceleration");
+        auto unavailable=reconstruction.model;unavailable.valid=false;
+        Check(!go2_terrain::stage_c::MapBodyAngularCorrection(unavailable,angular_delta).valid,
+              "unknown model produced attitude correction");
+
         Check(lift.map_rank == go2_control::kGo2Nv, "full acceleration map rank");
         Check(std::isfinite(lift.map_rcond) && lift.map_rcond >= 1.0e-10,
               "acceleration map conditioning");

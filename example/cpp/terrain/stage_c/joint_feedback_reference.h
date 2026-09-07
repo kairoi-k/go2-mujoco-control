@@ -13,6 +13,7 @@
 #include "contact_state_filter.h"
 #include "foot_trajectory.h"
 #include "body_acceleration.h"
+#include "body_momentum_feedback.h"
 #include "go2_rigid_body.h"
 #include "inverse_dynamics_wbc.h"
 namespace go2_terrain { namespace stage_c { namespace joint_feedback_reference {
@@ -134,6 +135,7 @@ struct ClosedLoopResearchConfig
     // momentum and feedback-corrected foot tasks at the unmodified state.
     // This replaces independent attitude PD; it is not attitude stability.
     bool coherent_body_acceleration = false;
+    bool coherent_attitude_feedback = false;
     double swing_clearance_m = 0.03;
     double com_kp_xy = 18.0;
     double com_kp_z = 24.0;
@@ -157,6 +159,7 @@ struct ClosedLoopResearchConfig
 };
 inline bool ValidClosedLoopConfig(const ClosedLoopResearchConfig &c)
 {
+    if(c.coherent_attitude_feedback && !c.coherent_body_acceleration) return false;
     const std::array<double, 19> values = {
         c.swing_clearance_m, c.com_kp_xy, c.com_kp_z, c.com_kd_xy,
         c.com_kd_z, c.momentum_kp, c.foot_kp, c.foot_kd,
@@ -592,13 +595,27 @@ inline bool BuildWbcReplayInput(
         target.angular_momentum_derivative_world=desired.tail<3>();
         target.foot_acceleration_valid.fill(true);
         target.foot_acceleration_world=input.swing_acc_world;
+        orientation_clipped=false;
+        if(config.coherent_attitude_feedback) {
+            const Eigen::Quaterniond desired_rotation(Eigen::AngleAxisd(initial_yaw,Eigen::Vector3d::UnitZ()));
+            const Eigen::AngleAxisd error(state.quat_world_from_body.normalized().conjugate()*desired_rotation);
+            const Eigen::Vector3d rotation_error_body=error.angle()*error.axis();
+            Eigen::Vector3d correction;
+            correction << config.orientation_kp_roll*rotation_error_body.x()-config.orientation_kd_roll*state.angular_vel_body.x(),
+                          config.orientation_kp_pitch*rotation_error_body.y()-config.orientation_kd_pitch*state.angular_vel_body.y(),
+                          config.orientation_kp_yaw*rotation_error_body.z()-config.orientation_kd_yaw*state.angular_vel_body.z();
+            correction=ClampComponentwise(correction,config.orientation_acc_limit_radps2,orientation_clipped);
+            const auto mapped=MapBodyAngularCorrection(actual,correction);
+            if(!mapped.valid) {failure="body_momentum_correction_unavailable";return false;}
+            target.angular_momentum_derivative_world+=mapped.momentum_rate_delta_world;
+            input.desired_centroidal_derivative.tail<3>()=target.angular_momentum_derivative_world;
+        }
         const auto lift=LiftBodyAcceleration(robot,seed,target);
         if(!lift.valid) {
             failure="coherent_body_acceleration_lift_failed";
             return false;
         }
         orientation_acc=lift.qacc.segment<3>(3);
-        orientation_clipped=false;
         input.desired_angular_acc_body=orientation_acc;
         input.have_centroidal_orientation_task=true;
         return true;
