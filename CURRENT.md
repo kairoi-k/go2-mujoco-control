@@ -90,7 +90,11 @@ error grows to461.764mm; closed-loop tracking is now the primary investigation.
 See attempt0004; no traversal acceptance. The next diagnostic source adds
 sampled JointExecutionTracking rows from the actual executor: per-leg p/v/a
 references, actual p/v, requested/solved acceleration, force and separate
-planned/measured masks. Legacy WBC CSV task fields are not executor witnesses. Sampled foot error in the
+planned/measured masks. Legacy WBC CSV task fields are not executor witnesses.
+Actual4b09ccd diagnostic0005 exposes swing task acceleration errors41.76/70.42
+m/s2 at first sampled adoption21.022; measured contact precedes planned touchdown
+at21.060. Terminal secondary numerical failure21.402 comes after tracking loss,
+with planned/measured masks6/1. Exact matrix and per-leg tracking retained. Sampled foot error in the
 failed run reaches118.023mm and remains an execution concern. Variable-period calendar transitions remain an unresolved requirement. The clock caller
 now passes commitment activity rather than silently resetting the epoch.
 Default remains off. See joint_execution_flat_20260908.
@@ -109,7 +113,10 @@ combination path; historical bound-event defaults and commitments remain strict.
 ## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
 Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
-`4bff757c1a465fc620edd2f32d220d22819b824b`: QR repaired actual joint flat;
+`4b09ccd217130c77b492040554c891d29746c7f5`: actual tracking diagnostic0005;
+191commands/13versions, secondary numerical failure21.402 after growing foot
+error (sampled maximum414.984mm).
+Prior `4bff757c1a465fc620edd2f32d220d22819b824b`: QR repaired actual joint flat;
 10versions, last sampled command STATE21.418 count208, then hard posture
 failure. No WBC failure log; sampled foot tracking error461.764mm.
 Prior `f5b2ef98364bbc01f934de575c850696236e1342`: first actual joint actuation flat,

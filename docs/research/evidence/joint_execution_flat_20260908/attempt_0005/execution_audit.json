@@ -1,0 +1,81 @@
+{
+  "runtime_manifest_repository": {
+    "git_branch": "feat/stage-c-joint-planner",
+    "git_commit": "4b09ccd217130c77b492040554c891d29746c7f5",
+    "git_dirty": "false"
+  },
+  "b1_claim": false,
+  "first_applied_state_s": 21.022,
+  "first_stop": {
+    "state": "21.402",
+    "applied": "0",
+    "stop_requested": "1",
+    "count": "191",
+    "reason": "wbc_solver_failed"
+  },
+  "sampled_applied_log_rows": 28,
+  "logged_applied_count_lower_bound": 189,
+  "accepted_versions": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+  ],
+  "first_post_adoption_proposal_failure": {
+    "id": "881",
+    "state": "21.222000000000001",
+    "phase": "0.57268467643435272",
+    "period": "0.14000000000000001",
+    "clock": "0",
+    "epoch": "1",
+    "phase_residual_ns": "0",
+    "anchor_source": "force_conditioned_geometry_estimate",
+    "command_authority": "0",
+    "events": "8",
+    "combinations": "0",
+    "feasible": "0",
+    "failure": "observation_unavailable",
+    "detail": "initial_contact_anchor_unavailable",
+    "history_candidates": "0",
+    "history_selected": "0",
+    "history_initial_queries": "0",
+    "terrain_query_error": "none",
+    "residual": "0",
+    "anchor_gap_m": "0.00084723185934167805",
+    "qp_iterations": "0",
+    "scp_iterations": "0",
+    "solver_detail": "not_called",
+    "elapsed_us": "117.893"
+  },
+  "csv_active_window_rows": 191,
+  "csv_zero_extra_pd_rows": 191,
+  "latency_sampled_us": {
+    "p50": 213.233,
+    "p95": 274.50629999999995,
+    "max": 524.021
+  },
+  "sampled_maxima": {
+    "com_error_m": 0.0038671,
+    "foot_error_m": 0.414984,
+    "force_residual_N": 8.41283e-12,
+    "moment_residual_Nm": 1.50209e-11,
+    "joint_residual_Nm": 3.55271e-15
+  },
+  "raw_hashes": {
+    "controller.log": "9b24cca48d0602a2e3863ce65e92fedab18018cb3fca76d6d08b18439232bd2d",
+    "data.csv": "6ad46721135e8894fa2c4ee279588bc786e6ab35d0999f377c353f3d37d91f03",
+    "contact_ground_truth.csv": "b9a50b3b28ba892a26b64cd5b52958585f4f40be44e9412216b88eee1a7475be",
+    "run_manifest.json": "6282c3445006949d24110e29b1e041611491e51f725e1d36903d4d597a05884b",
+    "run_metadata.txt": "8de0f09866c2dffc621f189569a78cb9611092d35d218e49b79f6c8375c8f5e1",
+    "environment.txt": "0b53ceee49fde463f8f7ea1172b02fc3adb30fb07b647f1d4245e3c442bcdbd1"
+  }
+}
