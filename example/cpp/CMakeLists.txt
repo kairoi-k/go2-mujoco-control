@@ -167,6 +167,10 @@ add_executable(test_lockstep_writer_gate tests/test_lockstep_writer_gate.cpp)
 go2_add_ctest(test_lockstep_writer_gate)
 
 # Order-109 verification-only state-synchronous motion clock (DDS-free).
+add_executable(test_state_elapsed_clock tests/test_state_elapsed_clock.cpp)
+target_link_libraries(test_state_elapsed_clock unitree_sdk2 Eigen3::Eigen)
+go2_add_ctest(test_state_elapsed_clock)
+
 add_executable(test_lockstep_motion_clock tests/test_lockstep_motion_clock.cpp)
 go2_add_ctest(test_lockstep_motion_clock)
 

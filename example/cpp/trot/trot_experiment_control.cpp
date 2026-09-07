@@ -1691,6 +1691,9 @@ double TrotExperiment::MotionClockStep(
     last_writer_time_ = writer_now;
     }
 
+    const char *absolute_clock=std::getenv("TROT_RESEARCH_ABSOLUTE_STATE_CLOCK");
+    state_elapsed_clock_active_=absolute_clock && std::string(absolute_clock)=="1" &&
+        !params_.wall_clock_motion && !lockstep_ack_enabled_;
     double motion_dt = 0.0;
     double state_tick_gap = 0.0;
     bool state_clock_paused = false;
@@ -1705,7 +1708,8 @@ double TrotExperiment::MotionClockStep(
     else
     {
     state_tick_gap = state_tick_s - last_state_tick_s_;
-    last_state_tick_s_ = state_tick_s;
+    if (!state_elapsed_clock_active_ || state_tick_s >= last_state_tick_s_)
+        last_state_tick_s_ = state_tick_s;
     if (state_tick_gap > 1e-6 &&
         state_tick_gap <= kStateClockMaxGapS)
         motion_dt = state_tick_gap;
@@ -1758,7 +1762,18 @@ double TrotExperiment::MotionClockStep(
     ++clock_pause_count_;
     if (motion_clock_paused)
     ++motion_clock_pause_count_;
-    running_time_ += motion_dt;
+    // Research migration: elapsed schedule time and bounded integration are
+    // distinct. Wall-clock and lockstep authorities retain their old behavior.
+    double schedule_dt=motion_dt;
+    if(state_elapsed_clock_active_) {
+        const auto step=state_elapsed_clock_.Step(state_tick_s,kStateClockMaxGapS);
+        schedule_dt=step.elapsed_s;
+        motion_dt=step.integration_dt_s;
+        motion_clock_paused=!step.integration_valid;
+        last_motion_dt_s_=motion_dt;
+        last_motion_clock_paused_=motion_clock_paused;
+    }
+    running_time_ += schedule_dt;
     return motion_dt;
 }
 bool TrotExperiment::WbcStopHoldActive() const

@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <thread>
 
@@ -33,6 +34,25 @@ unitree_go::msg::dds_::LowState_ State(std::uint32_t tick)
     return state;
 }
 
+void TestAbsoluteElapsedGap() {
+    setenv("TROT_RESEARCH_ABSOLUTE_STATE_CLOCK","1",1);
+    go2_trot::TrotParams params;
+    params.wall_clock_motion=false;params.wbc_full=true;params.wbc_primary=true;
+    TrotExperiment experiment(10.0,"/tmp/absolute_state_clock.csv",params,1000,false,"",false);
+    Check(experiment.TestRunWallClockTick(State(21054)),"absolute initial tick");
+    auto first=experiment.TestLastMotionClockSample();
+    Check(experiment.TestRunWallClockTick(State(21064)),"absolute gap tick");
+    auto gap=experiment.TestLastMotionClockSample();
+    Check(std::abs(gap.cmd_time_s-first.cmd_time_s-.010)<1e-12,"gap retains elapsed schedule time");
+    Check(gap.motion_dt_s==0,"gap does not authorize integration");
+    Check(experiment.TestRunWallClockTick(State(21064)),"absolute duplicate");
+    Check(std::abs(experiment.TestLastMotionClockSample().cmd_time_s-gap.cmd_time_s)<1e-12,"duplicate cannot advance schedule");
+    Check(experiment.TestRunWallClockTick(State(21066)),"absolute next fresh tick");
+    auto next=experiment.TestLastMotionClockSample();
+    Check(std::abs(next.cmd_time_s-first.cmd_time_s-.012)<1e-12,"no persistent lost interval");
+    Check(std::abs(next.motion_dt_s-.002)<1e-12,"bounded integration resumes");
+    unsetenv("TROT_RESEARCH_ABSOLUTE_STATE_CLOCK");
+}
 void TestProductionChain()
 {
     go2_trot::TrotParams params;
@@ -114,6 +134,7 @@ void TestProductionChain()
 int main()
 {
     TestProductionChain();
+    TestAbsoluteElapsedGap();
     if (failures != 0)
     {
         std::fprintf(stderr, "lockstep_motion_clock_integration: %d failure(s)\n", failures);

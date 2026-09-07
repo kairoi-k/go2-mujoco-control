@@ -1,3 +1,4 @@
+#include "state_elapsed_clock.h"
 #pragma once
 // Diagonal-trot experiment controller (DDS in/out, gait, WBC, CSV).
 
@@ -395,6 +396,8 @@ private:
     double last_touchdown_x_error_m_ = 0.0;
     double last_touchdown_y_error_m_ = 0.0;
 
+    go2_trot::StateElapsedClock state_elapsed_clock_;
+    bool state_elapsed_clock_active_ = false;
     double running_time_ = 0.0;
     double last_state_tick_s_ = 0.0;
     bool have_last_state_tick_ = false;

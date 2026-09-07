@@ -142,14 +142,15 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
         velocity_stance_hold_gate_.Reset();
         velocity_command_initialized_ = true;
     }
+    if (state_elapsed_clock_active_ && last_motion_dt_s_ <= 1.0e-4)
+        return; // Preserve shaper, scheduler and gates without invented elapsed time.
     const double dt = (std::isfinite(last_motion_dt_s_) &&
                        last_motion_dt_s_ > 1.0e-4)
         ? last_motion_dt_s_
         : dt_;
     const double requested_mps =
         params_.velocity_command_profile.Sample(gait_time_s);
-    velocity_command_state_ = velocity_command_shaper_.Step(
-        requested_mps, dt);
+    velocity_command_state_ = velocity_command_shaper_.Step(requested_mps, dt);
     const bool zero_command_profile_finished =
         !params_.velocity_command_profile.points.empty() &&
         params_.velocity_command_profile.points.back().velocity_mps <= 1.0e-6 &&

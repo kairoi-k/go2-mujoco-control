@@ -213,3 +213,19 @@ state gap exceeds8ms, last tick advances but running_time/phase do not. Predicte
 and reconstruct_clock.py. Transport stall cause unknown. Separate absolute event
 time from bounded control integration; retain committed epoch and fail-closed
 input quality. No controller change or new sim in this localization step.
+
+## Absolute-state elapsed migration (opt-in, not yet simulated)
+TROT_RESEARCH_ABSOLUTE_STATE_CLOCK=1 separates monotonically observed state
+elapsed time from the original <=8ms integration allowance. Active only in
+state-time mode without lockstep acknowledgment. Gap ticks preserve absolute
+gait elapsed time and commitments; integration dt stays zero. Duplicate/rewind
+never adds elapsed time; rewinds leave the high-water mark intact. Runtime
+velocity shaper/scheduler/gates retain state when integration is unavailable.
+No PhaseClock tolerance, validity deadline or accepted epoch is changed.
+The pure seam test includes0011's10ms gap and existing PhaseClock with active
+commitments. Production call-chain test verifies elapsed/integration separation;
+it uses synthetic stand observations, not running gait or physical acceptance.
+Independent review confirms Raibert advances phase from gait elapsed, but missed
+cycles are not replayed and this cannot certify contact realization. Run one
+flat canary with prior0011 settings plus this flag only after runtime build and
+focused checks. No new simulation has yet exercised this option.
