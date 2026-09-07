@@ -3,14 +3,17 @@
   "input_baseline_sha": "d9fb4f66ead80dd1f6fa0a21fd358b053bc29d2e",
   "authoritative_results": [
     "result_model_bias.json",
-    "crosscheck_model_bias.json"
+    "crosscheck_model_bias.json",
+    "landing_velocity_result.json"
   ],
   "files": {
-    "README.md": "2df9672970c73986e436afc2ea7ed4ad3a036723821d5365b0d4ceb2444c0733",
+    "README.md": "15cdd6a6793d07804c5d31b2377d9b1c04b9100c25a1491a7ae7ae32016d9765",
     "crosscheck.json": "b8932fe5222d7f2ad808cf3277a83e7965a2c85f3f9873ea9cb8b841c34716fb",
     "crosscheck.py": "345db396cf43514ef64ca6483a167df509c4fee654abd555ef1ca3e2887b8ba5",
     "crosscheck_model_bias.json": "985313968e6437e6407a592b041e028048aa22aa68f56b6fa91b51816ff2f65a",
     "crosscheck_passive.json": "b528b585bf516bdad11738150516bb844ae0f0a020c8f29e544f48f8644c1739",
+    "landing_velocity.py": "25d252fd4a2cfc29805053966b5eb956cdc48fb483cefa12a6a0459e5134d526",
+    "landing_velocity_result.json": "c45e7c6fe7e5dfa4f2166cdeedd7a68ef26339be314a5e15b7b9588b0a9c8ce2",
     "oracle.py": "46e2f2be4d4d71a36986277c8f9ffd9e08ed4ef4cf74cb5b93cf2af1b1d75b3c",
     "result.json": "171485c069696f7a9984a847d24f5ee2df21e7a2afc296dbd5fb3ad0da3006f8",
     "result_model_bias.json": "32ad5a7a2e20d3be6f84c79e449621c09d47c5d33a4817d285da8f4b7541a2a6",

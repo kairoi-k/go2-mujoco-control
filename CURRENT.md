@@ -291,3 +291,13 @@ problem. Not trajectory/terrain/impact or B1 evidence. Earlier omitted passive/
 friction oracle variants are explicitly superseded. Next jointly represent
 landing velocity/contact transition and body/limb motion; do not infer global
 infeasibility or patch gains from this instantaneous result.
+
+## Landing velocity boundary experiment
+The same initial oracle with normal touchdown velocities in[-2,0]m/s finds a
+35Nm solution with zero body angular acceleration, unlike the zero-velocity
+boundary. Chosen maximum descent0.249892m/s; residual1.13e-13. Tangential landing
+velocity remains zero. Evidence landing_velocity_result.json in initial joint
+foothold oracle packet. This is conditional instantaneous feasibility only.
+Do not patch nonzero terminal velocity into a zero-velocity stance reference:
+next explicitly model pre/post-contact transition and verify against MuJoCo.
+No impact/horizon or B1 certificate, no new controller or simulation run.
