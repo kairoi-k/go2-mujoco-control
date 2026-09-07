@@ -110,6 +110,13 @@ Later adoptions require normal commanded boundaries and commitment checks.
 Default remains legacy commanded handover. After focused tests, run one flat
 canary0009 with coherent-body1 and all0008 settings, adding only this option.
 An owner unit test does not establish5cm readiness or traversal acceptance.
+## Registered bounded admission protocol
+JOINT_PLANNING_ADMISSION_V1 adds an optional absolute admission deadline and
+producer frozen prefix for events that can begin by that deadline. Live leases
+remain authoritative; stale results cannot extend force validity. Deterministic
+delayed-adoption test covers conflict, protected success and expiry. After
+focused tests/build, run only flat0010 with admission budget0.080s added to
+0009 settings. This is an enforced experimental budget, not a latency guarantee.
 ## Next research action
 Conditional terminal binding at b49e9e8 now resolves the full-grid foot coverage
 with observed next-event candidates under an explicit longer stationary-terrain

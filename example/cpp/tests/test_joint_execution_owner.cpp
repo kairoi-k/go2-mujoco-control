@@ -234,6 +234,48 @@ void TestCommandedHandoverNeverRewritesMeasuredInput()
           "handover accepted a seed with a conflicting source time");
 
 }
+void TestDelayedAdmissionPlanningPrefix()
+{
+    AtomicJointExecutionOwner owner;
+    auto first=ValidProposal(1,1.0,1.5,true,1.15,1.25,1.6);
+    owner.Publish(first);
+    Check(owner.Adopt(T(1.10),101).status==OwnerStatus::kAdopted,"delay fixture setup");
+    Check(owner.CommittedEvents(T(1.10)).events.empty(),"fixture already in flight");
+    Check(owner.PlanningPrefix(T(1.10),T(1.14))->events.empty(),"prefix froze beyond deadline");
+    const auto prefix=owner.PlanningPrefix(T(1.10),T(1.18));
+    Check(prefix && prefix->events.size()==1 && prefix->events[0].committed,
+          "deadline prefix missed imminent liftoff");
+    auto changing=ValidProposal(2,1.0,1.5,true,1.15,1.25,1.6,false);
+    auto changed=std::make_shared<CentroidalJointProposal>(*changing->selected);
+    auto &problem=changed->selected_problem;
+    problem.request.events.events[0].committed=false;
+    problem.request.events.events[0].target_world.value.x+=.01;
+    problem.request.candidate_sets[0].candidates[0].target_world.value.x+=.01;
+    changing->selected=changed;changing->foot_request.problem=&changed->selected_problem;
+    owner.Publish(changing);
+    Check(owner.Adopt(T(1.16),102).status==OwnerStatus::kCommitmentConflict,
+          "delayed changed target bypassed newly active lease");
+    auto protected_plan=ValidProposal(3,1.0,1.5,true,1.15,1.25,1.6);
+    auto bound=std::make_shared<CentroidalJointProposal>(*protected_plan->selected);
+    bound->selected_problem.request.events.events[0]=prefix->events[0];
+    bound->selected_problem.request.accepted_commitments=*prefix;
+    bound->selected_problem.request.candidate_sets[0].candidates[0].target_world=prefix->events[0].target_world;
+    protected_plan->selected=bound;
+    protected_plan->foot_request.problem=&bound->selected_problem;
+    protected_plan->latest_adoption_time=T(1.18);
+    owner.Publish(protected_plan);
+    Check(owner.Adopt(T(1.16),103).status==OwnerStatus::kAdopted,
+          "protected target failed delayed admission");
+    Check(owner.Adopt(T(1.20),103).status==OwnerStatus::kRetained &&
+          owner.SampleAt(T(1.20)).valid && owner.Accepted()->proposal->valid_until==T(1.5),
+          "admission deadline changed accepted trajectory validity");
+    AtomicJointExecutionOwner late;late.Publish(protected_plan);
+    Check(late.Adopt(T(1.19),104).status==OwnerStatus::kStale && !late.Accepted(),
+          "late proposal was admitted on unprotected prefix");
+    AtomicJointExecutionOwner endpoint;endpoint.Publish(protected_plan);
+    Check(endpoint.Adopt(T(1.18),104).status==OwnerStatus::kAdopted,
+          "inclusive admission endpoint rejected");
+}
 void TestProposalInitializationOnlyBeforeFirstAcceptance()
 {
     AtomicJointExecutionOwner owner;
@@ -390,6 +432,7 @@ int main()
         TestStaleDoesNotDropAccepted();
         TestCommandedHandoverNeverRewritesMeasuredInput();
         TestProposalInitializationOnlyBeforeFirstAcceptance();
+        TestDelayedAdmissionPlanningPrefix();
         TestInflightLeaseRefreshAndReplan();
         TestLeaseSurvivesExpiredFootHorizon();
         TestLeaseDoesNotExtendWholeBundle();

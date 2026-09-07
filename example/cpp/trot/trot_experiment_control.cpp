@@ -112,6 +112,17 @@ bool TrotExperiment::ResearchJointExecutionEnabled() const
     return enabled;
 }
 namespace {
+double JointPlanningAdmissionBudgetS()
+{
+    static const double value=[] {
+        double parsed=0.0;std::string error;
+        if(!go2_trot::ParseStrictFiniteEnvironmentDouble(
+             "TROT_RESEARCH_JOINT_ADMISSION_BUDGET_S",0.0,parsed,&error) || parsed<0.0 || parsed>0.2)
+            throw std::invalid_argument("invalid joint planning admission budget");
+        return parsed;
+    }();
+    return value;
+}
 double JointExecutionStartS()
 {
     static const double value = [] {
@@ -404,8 +415,18 @@ void TrotExperiment::PublishTerrainControlSnapshot(
                 high_state_snapshot.velocity()[2]));
         snapshot.rigid_body_state_valid = true;
     }
-    snapshot.joint_commitments = joint_execution_owner_.CommittedEvents(
-        go2_terrain::stage_c::TimeNs::FromSeconds(snapshot.state_stamp_s));
+    const auto source_time=go2_terrain::stage_c::TimeNs::FromSeconds(snapshot.state_stamp_s);
+    const double admission_budget=JointPlanningAdmissionBudgetS();
+    if(admission_budget>0.0) {
+        snapshot.joint_latest_adoption_time=go2_terrain::stage_c::TimeNs::FromSeconds(
+            snapshot.state_stamp_s+admission_budget);
+        const auto prefix=joint_execution_owner_.PlanningPrefix(source_time,snapshot.joint_latest_adoption_time);
+        if(!prefix) {
+            std::cout<<"JointPlanningPrefix unavailable source="<<snapshot.state_stamp_s<<"\n";
+            return;
+        }
+        snapshot.joint_commitments=*prefix;
+    } else snapshot.joint_commitments=joint_execution_owner_.CommittedEvents(source_time);
     snapshot.gait_phase = current_phase_;
     snapshot.gait_period_s = gait_period_s;
     snapshot.duty_factor = duty_factor;
@@ -503,6 +524,7 @@ void TrotExperiment::UpdateTerrainRuntime()
 
     TerrainPlannerWork work;
     work.joint_commitments = control.joint_commitments;
+    work.joint_latest_adoption_time = control.joint_latest_adoption_time;
     work.rigid_body_state = control.rigid_body_state;
     work.rigid_body_state_valid = control.rigid_body_state_valid;
     work.map_epoch = ++terrain_map_epoch_;
@@ -726,8 +748,16 @@ void TrotExperiment::TerrainPlannerWorker()
             if (ResearchJointExecutionEnabled())
             {
                 std::string execution_failure;
-                auto proposal = joint_shadow.BuildExecutionProposal(execution_failure);
-                if (proposal) joint_execution_owner_.Publish(std::move(proposal));
+                auto proposal = joint_shadow.BuildExecutionProposal(execution_failure,{},work.joint_latest_adoption_time);
+                if (proposal) {
+                    std::ostringstream published;published.precision(17);
+                    published<<"JointExecutionProposal id="<<work.plan_id<<" valid=1 source="
+                        <<proposal->identity.source_state_time.seconds()<<" latest_adoption="
+                        <<proposal->latest_adoption_time.seconds()<<" protected_events="
+                        <<work.joint_commitments.events.size()<<"\n";
+                    joint_execution_owner_.Publish(std::move(proposal));
+                    std::cout<<published.str();
+                }
                 else std::cout << "JointExecutionProposal id=" << work.plan_id
                     << " valid=0 reason=" << execution_failure << "\n";
             }

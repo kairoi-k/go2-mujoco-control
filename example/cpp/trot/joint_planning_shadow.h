@@ -110,7 +110,8 @@ public:
  std::shared_ptr<const go2_terrain::stage_c::joint_execution::JointExecutionProposal>
  BuildExecutionProposal(
      std::string &failure,
-     const go2_terrain::stage_c::joint_feedback_reference::ClosedLoopResearchConfig &config = {}) {
+     const go2_terrain::stage_c::joint_feedback_reference::ClosedLoopResearchConfig &config = {},
+     go2_terrain::stage_c::TimeNs latest_adoption_time = {}) {
   using Proposal = go2_terrain::stage_c::joint_execution::JointExecutionProposal;
   using namespace go2_terrain::stage_c;
   using namespace go2_terrain::stage_c::joint_feedback_reference;
@@ -120,6 +121,9 @@ public:
    return {};
   };
   if (!ValidClosedLoopConfig(config)) return reject("invalid closed-loop config");
+  if(latest_adoption_time.value<0 ||
+     (latest_adoption_time.value>0 && latest_adoption_time<last_proposal_.selected_problem.request.input.identity.source_state_time))
+   return reject("invalid adoption deadline");
   if (!last_proposal_.selected_valid || !last_proposal_.search.feasible)
    return reject("no valid selected centroidal proposal");
 
@@ -166,6 +170,7 @@ public:
   proposal->valid_until = coverage_end;
   proposal->selected = std::move(selected);
   proposal->foot_request = foot_request;
+  proposal->latest_adoption_time = latest_adoption_time;
   proposal->first_handover_from_commanded = true;
   if (proposal->foot_request.problem != &proposal->selected->selected_problem)
    return reject("final foot request lost selected ownership");

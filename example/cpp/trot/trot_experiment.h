@@ -258,6 +258,7 @@ private:
     struct TerrainPlannerWork
     {
         go2_terrain::stage_c::TouchdownEventTable joint_commitments{};
+        go2_terrain::stage_c::TimeNs joint_latest_adoption_time{};
         go2_control::RigidBodyState rigid_body_state{};
         bool rigid_body_state_valid = false;
         bool have_map = false;
@@ -271,6 +272,7 @@ private:
     struct TerrainControlSnapshot
     {
         go2_terrain::stage_c::TouchdownEventTable joint_commitments{};
+        go2_terrain::stage_c::TimeNs joint_latest_adoption_time{};
         go2_control::RigidBodyState rigid_body_state{};
         bool rigid_body_state_valid = false;
         bool valid = false;

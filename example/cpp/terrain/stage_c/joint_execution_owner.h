@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <utility>
 namespace go2_terrain
 {
@@ -79,6 +80,9 @@ struct JointExecutionProposal
     std::uint64_t proposal_id = 0;
     PlanningIdentity identity{};
     TimeNs valid_until{};
+    // Optional inclusive admission deadline. It never extends trajectory
+    // validity and no longer applies after this exact proposal is accepted.
+    TimeNs latest_adoption_time{};
     std::shared_ptr<const CentroidalJointProposal> selected{};
     FootTrajectoryRequest foot_request{};
     // Bind an explicit command boundary at owner-thread adoption time.
@@ -450,6 +454,33 @@ public:
         return result;
     }
 
+    // Producer-side constraints, not newly measured contact or a reservation
+    // of every future footstep. Preserve accepted targets that could enter
+    // execution before this solve's inclusive admission deadline. Admission
+    // still checks the live leases; a result after the deadline is stale.
+    std::optional<TouchdownEventTable> PlanningPrefix(TimeNs now, TimeNs latest_adoption) const
+    {
+        auto result=CommittedEvents(now);
+        if(now.value<0 || latest_adoption<=now) return std::nullopt;
+        if(!accepted_) return result;
+        const auto &problem=accepted_->proposal->selected->selected_problem;
+        for(const auto &event:problem.request.events.events) {
+            if(!event.liftoff_valid || event.liftoff_time>latest_adoption ||
+               event.touchdown_time<=now) continue;
+            if(std::any_of(result.events.begin(),result.events.end(),
+                [&](const TouchdownEvent &e){return e.id==event.id;})) continue;
+            TouchdownEvent resolved;
+            if(!ResolveSelectedEvent(problem,event,resolved)) return std::nullopt;
+            resolved.committed=true;
+            result.events.push_back(resolved);
+        }
+        std::sort(result.events.begin(),result.events.end(),
+            [](const TouchdownEvent &a,const TouchdownEvent &b){
+                return a.touchdown_time==b.touchdown_time ? a.id<b.id
+                    : a.touchdown_time<b.touchdown_time;
+            });
+        return result;
+    }
     // Consumer-side sampling. It returns collision-center p/v/a. The same
     // accepted version is visible to gait and WBC; active leases override only
     // their leg and retain the old request/curve through contact_interval_end.
@@ -569,6 +600,12 @@ private:
         const JointExecutionProposal &proposal, TimeNs now,
         std::uint64_t current_state_tick) const
     {
+        if(proposal.latest_adoption_time.value<0 ||
+           (proposal.latest_adoption_time.value>0 &&
+            proposal.latest_adoption_time<proposal.identity.source_state_time))
+            return OwnerStatus::kInvalid;
+        if(proposal.latest_adoption_time.value>0 && now>proposal.latest_adoption_time)
+            return OwnerStatus::kStale;
         if (!proposal.selected || !proposal.selected->selected_valid ||
             !proposal.selected->search.feasible ||
             !proposal.selected->selected_result.certificate.feasible ||
