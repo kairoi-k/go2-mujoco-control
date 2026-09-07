@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/build
+Test project /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/build
+    Start 50: test_joint_execution_owner
+1/1 Test #50: test_joint_execution_owner .......   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.00 sec

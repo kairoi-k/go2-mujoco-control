@@ -28,7 +28,17 @@ prepared swing-curve leases. Body/force validity is never extended by a curve
 lease. An initial <=20ms stance-reference bridge currently propagates its
 acceleration into WBC; contact-motion compatibility is unresolved. Planned,
 measured, applied and collision-truth contact remain different quantities.
-## Latest actual runtime: proposal-initialized canary0009 FAILED
+## Latest actual runtime: bounded-admission canary0010 FAILED
+Clean97b6d02158a797f1bb02e9817495152964a3a322, admission budget80ms with0009 settings.
+15 versions, first21.012, last sampled21.658/count325; then posture
+roll23.8593deg/pitch14.4483deg. No executor expiry or QP stop. Foot242.760mm,
+COM24.177mm sampled maxima. All15 observed admissions before deadlines,
+max age52ms; no sampled commitment conflicts. Evidence flat packet attempt_0010.
+The protocol now admits continuous replans in this case, but physical stability
+is unresolved. Coherent acceleration has no absolute attitude feedback; next
+supply body/limb-consistent momentum/attitude planning rather than restoring
+an independent conflicting body task or extending stale forces.
+## Previous actual runtime: proposal-initialized canary0009 FAILED
 Clean6d0f75123d736f91c4ab114d37f8de178cfca54d. First21.026, five versions,
 stop21.332/count154 for reference_expired_or_unavailable. No posture stop or
 executor QP failure; max IMU roll15.47/pitch11.09deg over active window.

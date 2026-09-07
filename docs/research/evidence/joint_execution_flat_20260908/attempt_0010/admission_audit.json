@@ -1,0 +1,129 @@
+{
+  "observed_admissions": [
+    {
+      "proposal": "876",
+      "state_s": 21.012,
+      "source_s": 21.008000000000003,
+      "deadline_s": 21.088,
+      "age_ms": 3.999999999997783,
+      "protected_events": 0
+    },
+    {
+      "proposal": "877",
+      "state_s": 21.032,
+      "source_s": 21.03,
+      "deadline_s": 21.110000000000003,
+      "age_ms": 1.9999999999988916,
+      "protected_events": 4
+    },
+    {
+      "proposal": "878",
+      "state_s": 21.054,
+      "source_s": 21.052,
+      "deadline_s": 21.132,
+      "age_ms": 1.9999999999988916,
+      "protected_events": 6
+    },
+    {
+      "proposal": "880",
+      "state_s": 21.1,
+      "source_s": 21.098000000000003,
+      "deadline_s": 21.178,
+      "age_ms": 1.9999999999988916,
+      "protected_events": 4
+    },
+    {
+      "proposal": "881",
+      "state_s": 21.122,
+      "source_s": 21.118000000000002,
+      "deadline_s": 21.198,
+      "age_ms": 3.999999999997783,
+      "protected_events": 6
+    },
+    {
+      "proposal": "883",
+      "state_s": 21.166,
+      "source_s": 21.164,
+      "deadline_s": 21.244,
+      "age_ms": 1.9999999999988916,
+      "protected_events": 4
+    },
+    {
+      "proposal": "884",
+      "state_s": 21.188,
+      "source_s": 21.186,
+      "deadline_s": 21.266000000000002,
+      "age_ms": 1.9999999999988916,
+      "protected_events": 6
+    },
+    {
+      "proposal": "886",
+      "state_s": 21.234,
+      "source_s": 21.232000000000003,
+      "deadline_s": 21.312,
+      "age_ms": 1.9999999999988916,
+      "protected_events": 4
+    },
+    {
+      "proposal": "887",
+      "state_s": 21.254,
+      "source_s": 21.254,
+      "deadline_s": 21.334,
+      "age_ms": 0.0,
+      "protected_events": 6
+    },
+    {
+      "proposal": "890",
+      "state_s": 21.322,
+      "source_s": 21.32,
+      "deadline_s": 21.400000000000002,
+      "age_ms": 1.9999999999988916,
+      "protected_events": 4
+    },
+    {
+      "proposal": "892",
+      "state_s": 21.366,
+      "source_s": 21.364,
+      "deadline_s": 21.444000000000003,
+      "age_ms": 1.9999999999988916,
+      "protected_events": 4
+    },
+    {
+      "proposal": "893",
+      "state_s": 21.388,
+      "source_s": 21.386000000000003,
+      "deadline_s": 21.466,
+      "age_ms": 1.9999999999988916,
+      "protected_events": 4
+    },
+    {
+      "proposal": "896",
+      "state_s": 21.452,
+      "source_s": 21.452,
+      "deadline_s": 21.532,
+      "age_ms": 0.0,
+      "protected_events": 4
+    },
+    {
+      "proposal": "897",
+      "state_s": 21.476,
+      "source_s": 21.474,
+      "deadline_s": 21.554000000000002,
+      "age_ms": 1.9999999999988916,
+      "protected_events": 6
+    },
+    {
+      "proposal": "903",
+      "state_s": 21.658,
+      "source_s": 21.606,
+      "deadline_s": 21.686,
+      "age_ms": 51.9999999999996,
+      "protected_events": 4
+    }
+  ],
+  "all_before_deadline": true,
+  "sampled_commitment_conflicts": 0,
+  "sampled_stale_rejections": 0,
+  "max_observed_admission_age_ms": 51.9999999999996,
+  "scope": "sampled logs; not a bound on unobserved latency or traversal acceptance"
+}

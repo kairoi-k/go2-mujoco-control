@@ -88,3 +88,7 @@ handover reference differs substantially from actual foot velocities.
 [attempt_0009](attempt_0009/README.md): proposal-based first acquisition avoids
 legacy settling, but actual execution expires after154 commands. Contact anchor
 failures and delayed-proposal commitment conflicts both need resolution.
+
+[attempt_0010](attempt_0010/README.md): bounded admission yields15 observed
+on-time versions without sampled commitment conflict, but actual posture fails.
+Task-compatible acceleration alone does not establish body attitude stability.
