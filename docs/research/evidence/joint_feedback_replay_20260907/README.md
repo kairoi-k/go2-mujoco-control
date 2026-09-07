@@ -144,3 +144,22 @@ contact couples; this is not proof of exact scheduled contact execution.
 The historical weighted comparison 0008 had COM max 89.877 mm. These are
 short counterfactuals, not traversal, robustness, or full-controller acceptance.
 Negative 0001 retains the separate actual anchor rejection unchanged.
+
+## Atomic reference integration fixtures
+The owner retains selected body/force results and exact selected touchdown
+curves, resolves unbound schedule events through the chosen combination,
+refreshes leases each tick without mutating published snapshots, and does not
+extend expired body/force coverage with a retained curve. First adoption binds
+an explicit command-only p/v boundary at the actual adoption timestamp; measured
+input remains unchanged. An inconsistent stance boundary rejects instead of
+being zeroed silently. Current-map commitment candidates preserve exact old
+coordinates/source role/time, with fresh footprint and 1 mm center-height checks.
+Capture binds commitments before combination search; current map/history epochs
+must agree. FeedbackTick shares the proven reference/WBC construction and returns
+motor-order torque only after solver, independent dynamics and motor gates pass.
+Six focused targets pass with rebuilt binaries (adoption_focused_tests.txt and
+adoption_build_binding.json). These are integration prerequisites, not full
+LowCmdWrite activation or new MuJoCo traversal results. The first bulk build
+requested the CTest-only name test_joint_shadow_snapshot_roundtrip as a build
+target and stopped; replay_joint_shadow_snapshot was then rebuilt explicitly
+before the retained passing CTest run.

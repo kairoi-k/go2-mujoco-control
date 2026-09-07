@@ -134,6 +134,13 @@ void CheckCenter(
     Check((EigenValue(sample.center_world[leg]) - expected).norm() <= tolerance,
           message);
 }
+bool SameTimedPoint(const TimedPoint &a, const TimedPoint &b)
+{
+    return a.valid == b.valid && a.role == b.role && a.frame == b.frame &&
+        a.source_time == b.source_time &&
+        (!a.valid || (a.value.x == b.value.x && a.value.y == b.value.y &&
+                      a.value.z == b.value.z));
+}
 } // namespace
 int main()
 {
@@ -410,6 +417,156 @@ int main()
         retimed_request.problem = &retimed;
         Check(!SampleFootTrajectory(retimed_request, times).valid,
               "committed liftoff was locally retimed");
+        // A command-only handover may seed the initial collision-center p/v
+        // without rewriting measured input or the planning identity.
+        auto commanded_problem = problem;
+        const auto identity_before = commanded_problem.request.input.identity;
+        std::array<TimedPoint, go2::kLegCount> measured_before{};
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            measured_before[leg] =
+                commanded_problem.request.input.feet[leg].foot_collision_center_world;
+        auto commanded_request = request;
+        commanded_request.problem = &commanded_problem;
+        // The legacy initial-velocity fields are intentionally unavailable and
+        // differ from the command seed; the command branch must not consume them.
+        commanded_request.initial_velocity_valid.fill(false);
+        commanded_request.initial_velocity_world[1] = {0.20, 0.0, 0.0};
+        commanded_request.commanded_initial.enabled = true;
+        commanded_request.commanded_initial.command_epoch = 41;
+        commanded_request.commanded_initial.source_time = T(1.0);
+        commanded_request.commanded_initial.valid_until = T(1.20);
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            commanded_request.commanded_initial.valid[leg] = true;
+            commanded_request.commanded_initial.center_world[leg] =
+                Point(0.50 + 0.03 * static_cast<double>(leg),
+                      -0.20 + 0.02 * static_cast<double>(leg), 0.27,
+                      PointRole::kFootCollisionCenter, T(1.0));
+            commanded_request.commanded_initial.velocity_world[leg] =
+                leg == 1 ? go2::Vec3{0.05, 0.0, 0.0}
+                         : go2::Vec3{0.0, 0.0, 0.0};
+        }
+        const auto commanded_start =
+            SampleFootTrajectoryAt(commanded_request, T(1.0));
+        Check(commanded_start.valid,
+              "valid command boundary was not accepted independently");
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            CheckCenter(commanded_start.samples.front(), leg,
+                        EigenValue(commanded_request.commanded_initial.center_world[leg]),
+                        1.0e-12, "command boundary center was not used");
+            Check(commanded_start.samples.front().center_world[leg].source_time ==
+                      T(1.0),
+                  "command boundary provenance was retimestamped");
+            Check(SameTimedPoint(
+                      commanded_problem.request.input.feet[leg].foot_collision_center_world,
+                      measured_before[leg]),
+                  "measured foot center was modified by command handover");
+        }
+        Check(identity_before.source_state_tick ==
+                  commanded_problem.request.input.identity.source_state_tick &&
+                  identity_before.source_state_time ==
+                      commanded_problem.request.input.identity.source_state_time &&
+                  identity_before.map_epoch ==
+                      commanded_problem.request.input.identity.map_epoch &&
+                  identity_before.schedule_epoch ==
+                      commanded_problem.request.input.identity.schedule_epoch &&
+                  identity_before.source_plan_id ==
+                      commanded_problem.request.input.identity.source_plan_id,
+              "planning identity was modified by command handover");
+        Check(std::abs(commanded_start.samples.front().velocity_world[1].x -
+                           0.05) < 1.0e-10,
+              "command boundary velocity was not used for in-flight swing");
+        const auto commanded_td =
+            SampleFootTrajectoryAt(commanded_request, T(1.08));
+        Check(commanded_td.valid, "command handover touchdown sample failed");
+        CheckCenter(commanded_td.samples.front(), 1,
+                    EigenValue(in_flight_target) + Eigen::Vector3d(0.0, 0.0, 0.022),
+                    1.0e-12, "command handover changed absolute touchdown");
+        Check(Norm(commanded_td.samples.front().velocity_world[1]) == 0.0 &&
+                  Norm(commanded_td.samples.front().acceleration_world[1]) == 0.0,
+              "command handover touchdown was not C1");
+        auto command_no_bump = commanded_request;
+        command_no_bump.add_clearance_to_inflight_continuation = false;
+        const auto command_no_bump_start =
+            SampleFootTrajectoryAt(command_no_bump, T(1.0));
+        Check(command_no_bump_start.valid,
+              "command boundary no-bump variant failed");
+        Check((EigenValue(command_no_bump_start.samples.front().center_world[1]) -
+               EigenValue(commanded_start.samples.front().center_world[1])).norm() <
+                  1.0e-12 &&
+                  std::abs(command_no_bump_start.samples.front().velocity_world[1].x -
+                           commanded_start.samples.front().velocity_world[1].x) < 1.0e-12,
+              "command boundary restarted the in-flight swing");
+        auto late_problem = commanded_problem;
+        auto late_request = commanded_request;
+        late_request.problem = &late_problem;
+        late_request.start = T(1.01);
+        late_request.commanded_initial.source_time = T(1.01);
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            late_request.commanded_initial.center_world[leg].source_time =
+                T(1.01);
+        const auto late = SampleFootTrajectoryAt(late_request, T(1.01));
+        Check(late.valid,
+              "command boundary at a later source time was rejected");
+        Check(late.samples.front().center_world[1].source_time == T(1.01),
+              "late command boundary lost source provenance");
+        auto missing_boundary = commanded_request;
+        missing_boundary.commanded_initial.valid[0] = false;
+        const auto missing_boundary_result =
+            SampleFootTrajectoryAt(missing_boundary, T(1.0));
+        Check(!missing_boundary_result.valid &&
+                  missing_boundary_result.failure ==
+                      JointPlannerFailure::kObservationUnavailable,
+              "missing command boundary was not fail-closed");
+        auto expired_boundary = commanded_request;
+        expired_boundary.commanded_initial.valid_until = T(0.99);
+        const auto expired_boundary_result =
+            SampleFootTrajectoryAt(expired_boundary, T(1.0));
+        Check(!expired_boundary_result.valid &&
+                  expired_boundary_result.failure ==
+                      JointPlannerFailure::kObservationUnavailable,
+              "expired command boundary was not fail-closed");
+        auto future_boundary = commanded_request;
+        future_boundary.commanded_initial.source_time = T(1.01);
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            future_boundary.commanded_initial.center_world[leg].source_time =
+                T(1.01);
+        const auto future_boundary_result =
+            SampleFootTrajectoryAt(future_boundary, T(1.0));
+        Check(!future_boundary_result.valid &&
+                  future_boundary_result.failure ==
+                      JointPlannerFailure::kObservationUnavailable,
+              "future command boundary was not fail-closed");
+        auto wrong_role_boundary = commanded_request;
+        wrong_role_boundary.commanded_initial.center_world[0].role =
+            PointRole::kFootSite;
+        const auto wrong_role_result =
+            SampleFootTrajectoryAt(wrong_role_boundary, T(1.0));
+        Check(!wrong_role_result.valid &&
+                  wrong_role_result.failure ==
+                      JointPlannerFailure::kObservationUnavailable,
+              "wrong command boundary role was not fail-closed");
+        auto wrong_time_boundary = commanded_request;
+        wrong_time_boundary.commanded_initial.center_world[0].source_time =
+            T(1.01);
+        const auto wrong_time_result =
+            SampleFootTrajectoryAt(wrong_time_boundary, T(1.0));
+        Check(!wrong_time_result.valid &&
+                  wrong_time_result.failure ==
+                      JointPlannerFailure::kObservationUnavailable,
+              "inconsistent command boundary time was not fail-closed");
+        auto invalid_measured_problem = commanded_problem;
+        invalid_measured_problem.request.input.feet[0]
+            .foot_collision_center_world.role = PointRole::kFootSite;
+        auto invalid_measured_request = commanded_request;
+        invalid_measured_request.problem = &invalid_measured_problem;
+        const auto invalid_measured_result =
+            SampleFootTrajectoryAt(invalid_measured_request, T(1.0));
+        Check(!invalid_measured_result.valid &&
+                  invalid_measured_result.failure ==
+                      JointPlannerFailure::kObservationUnavailable,
+              "invalid measured center was hidden by command boundary");
         std::cout << "Stage C foot trajectory role/time, radius-normal, C1 swing, "
                      "multi-touchdown and fail-closed checks passed\n";
         return 0;

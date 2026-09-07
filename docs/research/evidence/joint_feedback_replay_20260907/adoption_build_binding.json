@@ -1,0 +1,19 @@
+{
+  "example/cpp/CMakeLists.txt": "ead985731ede5d1b19359d71d3eed78ebd3e50e2b6e1e8f793ed9455323a302f",
+  "example/cpp/terrain/stage_c/foot_trajectory.h": "2d92fc9329c5ff4cc57f8c16b2633fd56e6d935cbf51e23fe1129c6984b44fae",
+  "example/cpp/terrain/stage_c/terrain_candidates.h": "50f64d7970351bf0cbd857465dffa13ca75e29b99eaec5aca6cb7eb8bac5440b",
+  "example/cpp/terrain/stage_c/joint_feedback_reference.h": "b5965c7164dd1ec4bd3af84c1181b19552f5a37fa771975df78fc6d8390aec56",
+  "example/cpp/terrain/stage_c/joint_execution_owner.h": "f3572d7953c64725d596ebaf4326d45d89905a9a11d9e0cff30dcbbe8d79f95a",
+  "example/cpp/terrain/stage_c/joint_feedback_controller.h": "33d2d748cae0c16a5ca5b04e22dbe51904abab1d590a97e39e90b1f795bca552",
+  "example/cpp/trot/joint_planning_shadow.h": "a9e8f9caef06522fc027bed1f8dd12274ff0fec1bfd9a894e0bd403b46b99fc1",
+  "example/cpp/tests/test_joint_execution_owner.cpp": "4355cf5d32f252ffe8ccfb79b4870250584a50eccc10d0f0da6e4213e1832907",
+  "example/cpp/tests/test_stage_c_committed_candidates.cpp": "187fef90742a20b23bb3bd95ddde0ae43f39241929553722e77b99f8d855a1b6",
+  "example/cpp/tests/test_stage_c_foot_trajectory.cpp": "d1c11ce8a522d58c93ba23505ea6e0fc044f044e55ca0c98539df7bacc410b3d",
+  "example/cpp/tests/test_joint_closed_loop_reference.cpp": "b1b83d6250bc9ef383361d3cca487389b38be1ed66afa8a145f8935df3156dac",
+  "example/cpp/build/test_joint_execution_owner": "e5e15aa6408147dfd7e30bf36dca910238a860e9233a30e07cdfbcf7f8325c34",
+  "example/cpp/build/test_stage_c_committed_candidates": "fd8aae97aefa0c9aa5d9bf362d387ef67c28efd0cfa99b19514572aea7e9db76",
+  "example/cpp/build/test_stage_c_terrain_candidates": "ffe7bb83a7b65b1a55c82645cc53816116c6879a22382d78ffde4aea0a068b7a",
+  "example/cpp/build/test_stage_c_foot_trajectory": "694b765ba127cb251c749f6868c73c922b346241e54cdc6ea8b21dd57b071e86",
+  "example/cpp/build/test_joint_closed_loop_reference": "74a4b82906f26279d5bfd970bde4669d768b551c5467fc67aa6ec729781334ee",
+  "example/cpp/build/replay_joint_shadow_snapshot": "da000ac9df25ad0c87fbfce55c8c21a76d75bb855d1cf50c71f55e4c3068bf43"
+}

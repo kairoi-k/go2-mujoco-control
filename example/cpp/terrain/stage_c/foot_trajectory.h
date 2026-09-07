@@ -22,6 +22,39 @@ struct FootSwingContinuation
     StageCCandidate candidate{};
     ContactSurface surface{};
 };
+// Optional command-only initial boundary for a trajectory handover. It is
+// reference provenance, never measured plant state, contact evidence, or an
+// identity replacement. Every leg must share the same source timestamp.
+struct CommandedReferenceBoundary
+{
+    bool enabled = false;
+    std::uint64_t command_epoch = 0;
+    TimeNs source_time{};
+    TimeNs valid_until{};
+    std::array<TimedPoint, go2::kLegCount> center_world{};
+    std::array<go2::Vec3, go2::kLegCount> velocity_world{};
+    std::array<bool, go2::kLegCount> valid{};
+    bool valid_for(TimeNs reference_start) const
+    {
+        // The timestamp is the exact handover boundary. Later samples are
+        // generated from this seed; no stale p/v is silently reused as a new
+        // boundary.
+        if (!enabled || command_epoch == 0 || source_time.value < 0 ||
+            valid_until < source_time || reference_start != source_time ||
+            reference_start > valid_until)
+            return false;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (!valid[leg] ||
+                !TimedPointValidAt(center_world[leg],
+                                   PointRole::kFootCollisionCenter,
+                                   Frame::kWorld, source_time) ||
+                !FinitePointValue(velocity_world[leg]))
+                return false;
+        }
+        return true;
+    }
+};
 struct FootTrajectoryRequest
 {
     // CentroidalProblem is the existing owner of input, events, candidate
@@ -43,6 +76,9 @@ struct FootTrajectoryRequest
     // Future swing targets still require coverage through touchdown. Default
     // preserves the historical full contact-lifetime contract.
     bool allow_surface_contact_tail_beyond_horizon = false;
+    // Optional command-only handover seed. When enabled, Prepare reads only
+    // this boundary for initial center/p/v and leaves measured input untouched.
+    CommandedReferenceBoundary commanded_initial{};
 };
 struct FootTrajectorySample
 {
@@ -82,6 +118,10 @@ struct PreparedTrajectory
 {
     TimeNs start{};
     TimeNs end{};
+    // Source provenance for generated initial references. For the default path
+    // this is the measured observation time; for a handover it is the command
+    // boundary timestamp.
+    TimeNs initial_reference_source_time{};
     double clearance_m = 0.0;
     bool add_clearance_to_inflight_continuation = true;
     std::array<Eigen::Vector3d, go2::kLegCount> initial_center;
@@ -184,10 +224,27 @@ inline JointPlannerFailure ValidateSchedule(
     if (schedule.empty())
         return JointPlannerFailure::kCoverageIncomplete;
     TimeNs cursor = start;
+    bool covered_any = false;
     std::array<bool, go2::kLegCount> anchor_ended{};
     for (const auto &interval : schedule)
     {
-        if (interval.start != cursor || interval.end <= interval.start)
+        if (interval.end <= interval.start)
+            return JointPlannerFailure::kCoverageIncomplete;
+        if (interval.end <= start)
+            continue;
+        if (interval.start >= end)
+            break;
+        const TimeNs segment_start = interval.start < start ? start : interval.start;
+        const TimeNs segment_end = interval.end < end ? interval.end : end;
+        if (segment_end <= segment_start)
+            continue;
+        if (!covered_any)
+        {
+            if (segment_start != start)
+                return JointPlannerFailure::kCoverageIncomplete;
+            covered_any = true;
+        }
+        else if (segment_start != cursor)
             return JointPlannerFailure::kCoverageIncomplete;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
@@ -213,9 +270,9 @@ inline JointPlannerFailure ValidateSchedule(
                         return JointPlannerFailure::kInvalidInput;
                     const auto &event = events[static_cast<std::size_t>(event_index)];
                     if (static_cast<std::size_t>(event.id.leg) != leg ||
-                        interval.start < event.touchdown_time)
+                        segment_start < event.touchdown_time)
                         return JointPlannerFailure::kInvalidInput;
-                    if (interval.end > event.contact_interval_end)
+                    if (segment_end > event.contact_interval_end)
                         return JointPlannerFailure::kCoverageIncomplete;
                     const bool prepared_core = std::any_of(
                         prepared.events.begin(), prepared.events.end(),
@@ -238,21 +295,22 @@ inline JointPlannerFailure ValidateSchedule(
                     prepared.events_by_leg[leg].end(),
                     [&](std::size_t prepared_index) {
                         const auto &event = prepared.events[prepared_index];
-                        return event.liftoff <= interval.start &&
-                            interval.end <= event.touchdown;
+                        return event.liftoff <= segment_start &&
+                            segment_end <= event.touchdown;
                     });
                 if (!covered)
                     return JointPlannerFailure::kCoverageIncomplete;
                 anchor_ended[leg] = true;
             }
         }
-        cursor = interval.end;
+        cursor = segment_end;
+        if (cursor == end)
+            break;
     }
-    if (cursor != end)
+    if (!covered_any || cursor != end)
         return JointPlannerFailure::kCoverageIncomplete;
     // Every core event that intersects the requested horizon must be visible
-    // in the authoritative schedule. This rejects an unused event list being
-    // masked by an all-stance schedule. Continuations are intentionally absent
+    // in the authoritative schedule. Continuations are intentionally absent
     // here and are represented only by contact=false swing intervals above.
     for (std::size_t event_index = 0; event_index < events.size();
          ++event_index)
@@ -267,19 +325,25 @@ inline JointPlannerFailure ValidateSchedule(
             return JointPlannerFailure::kInvalidInput;
         for (const auto &interval : schedule)
         {
+            if (interval.end <= start || interval.start >= end)
+                continue;
+            const TimeNs segment_start = interval.start < start ? start : interval.start;
+            const TimeNs segment_end = interval.end < end ? interval.end : end;
+            if (segment_end <= segment_start)
+                continue;
             if (static_cast<std::size_t>(prepared_it->leg) >=
                 go2::kLegCount)
                 return JointPlannerFailure::kInvalidInput;
             const std::size_t leg = prepared_it->leg;
             const bool swing_overlap =
-                interval.start < prepared_it->touchdown &&
-                interval.end > prepared_it->liftoff;
+                segment_start < prepared_it->touchdown &&
+                segment_end > prepared_it->liftoff;
             if (swing_overlap &&
                 (interval.contact[leg] || interval.event_index[leg] != -1))
                 return JointPlannerFailure::kInvalidInput;
             const bool stance_overlap =
-                interval.start < prepared_it->contact_end &&
-                interval.end > prepared_it->touchdown;
+                segment_start < prepared_it->contact_end &&
+                segment_end > prepared_it->touchdown;
             if (stance_overlap &&
                 (!interval.contact[leg] ||
                  interval.event_index[leg] !=
@@ -342,15 +406,23 @@ inline JointPlannerFailure Prepare(
     const auto &problem = *request.problem;
     const auto &input = problem.request.input;
     const auto observation_time = input.identity.source_state_time;
+    const bool has_commanded_boundary = request.commanded_initial.enabled;
     if (!input.basic_valid() || !input.identity.valid() ||
-        request.start != observation_time || request.end <= request.start ||
+        request.end <= request.start ||
+        (!has_commanded_boundary && request.start != observation_time) ||
+        (has_commanded_boundary && request.start < observation_time) ||
         !std::isfinite(request.swing_clearance_m) ||
         request.swing_clearance_m < 0.0 ||
         problem.schedule_epoch != input.identity.schedule_epoch ||
         problem.schedule_epoch == 0)
         return JointPlannerFailure::kObservationUnavailable;
+    if (has_commanded_boundary &&
+        !request.commanded_initial.valid_for(request.start))
+        return JointPlannerFailure::kObservationUnavailable;
     prepared.start = request.start;
     prepared.end = request.end;
+    prepared.initial_reference_source_time = has_commanded_boundary
+        ? request.commanded_initial.source_time : observation_time;
     prepared.clearance_m = request.swing_clearance_m;
     prepared.add_clearance_to_inflight_continuation = request.add_clearance_to_inflight_continuation;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -362,14 +434,30 @@ inline JointPlannerFailure Prepare(
                 PointRole::kFootCollisionCenter, observation_time) ||
             !request.collision_radius_valid[leg] ||
             !std::isfinite(request.collision_radius_m[leg]) ||
-            request.collision_radius_m[leg] <= 0.0 ||
-            !request.initial_velocity_valid[leg] ||
-            !Finite(ToEigen(request.initial_velocity_world[leg])))
+            request.collision_radius_m[leg] <= 0.0)
             return JointPlannerFailure::kObservationUnavailable;
-        prepared.initial_center[leg] =
-            ToEigen(input.feet[leg].foot_collision_center_world.value);
-        prepared.initial_velocity[leg] =
-            ToEigen(request.initial_velocity_world[leg]);
+        if (has_commanded_boundary)
+        {
+            // This branch is deliberately independent of measured feet and
+            // never writes back into problem.request.input.
+            prepared.initial_center[leg] =
+                ToEigen(request.commanded_initial.center_world[leg].value);
+            prepared.initial_velocity[leg] =
+                ToEigen(request.commanded_initial.velocity_world[leg]);
+        }
+        else
+        {
+            if (!ValidMeasuredPointAt(
+                    input.feet[leg].foot_collision_center_world,
+                    PointRole::kFootCollisionCenter, observation_time) ||
+                !request.initial_velocity_valid[leg] ||
+                !Finite(ToEigen(request.initial_velocity_world[leg])))
+                return JointPlannerFailure::kObservationUnavailable;
+            prepared.initial_center[leg] =
+                ToEigen(input.feet[leg].foot_collision_center_world.value);
+            prepared.initial_velocity[leg] =
+                ToEigen(request.initial_velocity_world[leg]);
+        }
     }
     const auto &events = problem.request.events.events;
     const auto &sets = problem.request.candidate_sets;
@@ -523,6 +611,24 @@ inline JointPlannerFailure Prepare(
         if (prepared.initial_velocity[leg].norm() > 1.0e-12 &&
             !in_flight_at_start)
             return JointPlannerFailure::kInitialConditionConflict;
+        const PreparedEvent *completed_at_start = nullptr;
+        if (has_commanded_boundary && !in_flight_at_start)
+        {
+            for (const auto prepared_index : prepared.events_by_leg[leg])
+            {
+                const auto &event = prepared.events[prepared_index];
+                if (event.touchdown <= request.start)
+                    completed_at_start = &event;
+            }
+            // SamplePrepared selects the completed touchdown state at the
+            // handover boundary. Reject a mismatched commanded p/v instead
+            // of silently truncating or restarting a swing.
+            if (completed_at_start != nullptr &&
+                ((prepared.initial_center[leg] - completed_at_start->p1).norm() >
+                     1.0e-10 ||
+                 prepared.initial_velocity[leg].norm() > 1.0e-12))
+                return JointPlannerFailure::kInitialConditionConflict;
+        }
         const PreparedEvent *previous = nullptr;
         for (const auto prepared_index : prepared.events_by_leg[leg])
         {
@@ -637,9 +743,10 @@ inline FootTrajectorySample SamplePrepared(
         }
         (void)done;
         // time is the applicability stamp; source_time remains the
-        // observation provenance of this generated reference.
+        // initial-reference provenance of this generated reference.
         sample.center_world[leg] = {
-            ToVec3(position), Frame::kWorld, prepared.start, true,
+            ToVec3(position), Frame::kWorld,
+            prepared.initial_reference_source_time, true,
             PointRole::kFootCollisionCenter};
         sample.velocity_world[leg] = ToVec3(velocity);
         sample.acceleration_world[leg] = ToVec3(acceleration);

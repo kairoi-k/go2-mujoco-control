@@ -1,5 +1,6 @@
 #include "stage_c/joint_closed_loop_replay.h"
 #include "stage_c/model_observation.h"
+#include "stage_c/joint_feedback_controller.h"
 #include <iostream>
 using namespace go2_terrain::stage_c;
 using namespace go2_terrain::stage_c::joint_closed_loop_detail;
@@ -34,6 +35,27 @@ int main(){try {
  Check(prefix.grid==p.grid && prefix.schedule.back().end==TimeNs::FromSeconds(1.031),"original dynamics grid preserved");
  auto result=SolveCentroidalSubproblem(p);
  Check(result.certificate.feasible,"nominal fixture");
+ CentroidalJointProposal proposal; proposal.selected_valid=true; proposal.search.feasible=true;
+ proposal.selected_problem=p; proposal.selected_result=result;
+ feet.problem=&proposal.selected_problem; feet.start=t0; feet.end=t2;
+ const auto foot_sample=SampleFootTrajectoryAt(feet,t0);
+ Check(foot_sample.valid && foot_sample.samples.size()==1,"feedback feet fixture");
+ const auto tick=joint_feedback_controller::FeedbackTick(proposal,robot,initial,
+     foot_sample.samples.front(),contact.mask,t0,0.0);
+ Check(tick.ok && tick.tau_valid && tick.id_certificate_valid && tick.motor_envelope_valid,
+       tick.failure.c_str());
+ const auto repeated=joint_feedback_controller::FeedbackTick(proposal,robot,initial,
+     foot_sample.samples.front(),contact.mask,t0,0.0);
+ Check((tick.tau-repeated.tau).norm()==0,"feedback tick deterministic");
+ const auto expired=joint_feedback_controller::FeedbackTick(proposal,robot,initial,
+     foot_sample.samples.front(),contact.mask,t2,0.0);
+ Check(!expired.ok && !expired.tau_valid && !expired.tau.allFinite(),
+       "expired force interval exposed executable torque");
+ auto invalid=proposal;invalid.selected_result.certificate.original_dynamics_checked=false;
+ const auto uncertified=joint_feedback_controller::FeedbackTick(invalid,robot,initial,
+     foot_sample.samples.front(),contact.mask,t0,0.0);
+ Check(!uncertified.tau_valid && !uncertified.tau.allFinite(),"unchecked proposal exposed torque");
+
  ClosedLoopResearchConfig config; Eigen::Matrix<double,6,1> desired,weights;
  ContactForceInterval force; CentroidalState reference; std::string failure;
  const auto interior=TimeNs::FromSeconds(1.002);

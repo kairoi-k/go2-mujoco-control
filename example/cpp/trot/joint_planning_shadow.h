@@ -11,6 +11,63 @@
 #include <iostream>
 #include <sstream>
 namespace go2_trot {
+inline bool SameCommittedTimedPoint(
+    const go2_terrain::stage_c::TimedPoint &left,
+    const go2_terrain::stage_c::TimedPoint &right)
+{
+  return left.valid == right.valid && left.frame == right.frame &&
+    left.source_time == right.source_time && left.role == right.role &&
+    left.value.x == right.value.x && left.value.y == right.value.y &&
+    left.value.z == right.value.z;
+}
+inline go2_terrain::stage_c::JointPlannerFailure BindAcceptedCommitments(
+    go2_terrain::stage_c::FixedSchedulePreview &preview,
+    const go2_terrain::stage_c::TouchdownEventTable &accepted,
+    std::string &detail)
+{
+  using namespace go2_terrain::stage_c;
+  if (accepted.events.empty())
+    return JointPlannerFailure::kNone;
+  if (!accepted.valid() ||
+      std::any_of(accepted.events.begin(), accepted.events.end(),
+                  [](const TouchdownEvent &event) {
+                    return !event.committed;
+                  }))
+  {
+    detail = "accepted_commitments_invalid";
+    return JointPlannerFailure::kCommitmentConflict;
+  }
+  for (const TouchdownEvent &old_event : accepted.events)
+  {
+    auto current = std::find_if(
+        preview.events.events.begin(), preview.events.events.end(),
+        [&](const TouchdownEvent &event) { return event.id == old_event.id; });
+    if (current == preview.events.events.end() ||
+        current->touchdown_time != old_event.touchdown_time ||
+        current->contact_interval_end != old_event.contact_interval_end ||
+        current->liftoff_valid != old_event.liftoff_valid ||
+        (current->liftoff_valid &&
+         current->liftoff_time != old_event.liftoff_time) ||
+        (current->committed &&
+         !SameCommittedTimedPoint(
+             current->target_world, old_event.target_world)))
+    {
+      detail = "accepted_commitment_event_mismatch";
+      return JointPlannerFailure::kCommitmentConflict;
+    }
+    current->committed = true;
+    current->target_world = old_event.target_world;
+    current->source_plan_id = old_event.source_plan_id;
+  }
+  if (!preview.events.valid(false) ||
+      !accepted.committed_prefix_compatible(preview.events))
+  {
+    detail = "accepted_commitment_prefix_conflict";
+    return JointPlannerFailure::kCommitmentConflict;
+  }
+  return JointPlannerFailure::kNone;
+}
+
 // Worker-owned model and absolute clock. This probe emits reduced-model
 // proposals only; it cannot publish a TerrainMotionPlan or motor command.
 class JointPlanningShadow {
@@ -23,7 +80,8 @@ public:
  void Capture(const go2_control::RigidBodyState &state,
               const go2_terrain::TerrainPlannerInput &legacy,std::uint64_t id,
               go2_control::GaitPattern pattern,
-              const go2_terrain::stage_c::WorldTerrainSnapshot *terrain_history=nullptr) {
+              const go2_terrain::stage_c::WorldTerrainSnapshot *terrain_history=nullptr,
+              const go2_terrain::stage_c::TouchdownEventTable *accepted_commitments=nullptr) {
   using namespace go2_terrain;using namespace stage_c;
   const auto begin=std::chrono::steady_clock::now();
   last_proposal_={};last_source_state_=state;
@@ -62,10 +120,13 @@ public:
   if(!clock.accepted){report();return;}
   const auto *terrain=legacy.terrain;
   if(!terrain || !terrain->valid() || !terrain->registered){detail="map_unavailable";report();return;}
-  if(terrain_history && (!terrain_history->ok() || terrain_history->metadata.aggregate_epoch!=terrain->epoch ||
+  const bool has_accepted_commitments = accepted_commitments != nullptr &&
+      !accepted_commitments->events.empty();
+  if(terrain_history && (!terrain_history->ok() ||
+      !std::isfinite(terrain_history->metadata.state_time_s) ||
+      terrain_history->metadata.aggregate_epoch != terrain->epoch ||
       std::abs(terrain_history->metadata.state_time_s-legacy.state_stamp_s)>1e-9)) {
-   failure=JointPlannerFailure::kInvalidInput;detail="history_state_epoch_conflict";report();return;
-  }
+   failure=JointPlannerFailure::kInvalidInput;detail="history_state_epoch_conflict";report();return;}
   if(!snapshot_dumped_ && legacy.gait_period_s<=.140000001) {
    std::cout<<"JointSnapshot "<<JointShadowSnapshotJson(state,legacy,id,static_cast<int>(pattern),terrain_history)<<"\n";
    snapshot_dumped_=true;
@@ -77,11 +138,18 @@ public:
   FixedSchedulePreviewRequest timing{now,end,phase.origin_time,TimeNs::FromSeconds(phase.period_s),TimeNs{20000000},phase.epoch,phase.duty_factor,phase.leg_offsets};
   const auto preview=BuildFixedSchedulePreview(timing);events=preview.events.events.size();
   if(!preview.complete){failure=preview.failure;detail="preview_incomplete";report();return;}
+  FixedSchedulePreview bound_preview = preview;
+  if (has_accepted_commitments) {
+   failure = BindAcceptedCommitments(
+       bound_preview, *accepted_commitments, detail);
+   if (failure != JointPlannerFailure::kNone) { report(); return; }
+  }
   ContactEvidence measured;measured.valid=legacy.contact_schedule.measured_valid;measured.provenance=ContactProvenance::kMeasured;
   measured.source_time=now;measured.mask=legacy.contact_schedule.measured_contact;
   std::array<TimedPoint,4> anchors;std::array<ContactSurface,4> initial_surfaces;
   TerrainCandidateConfig candidate_config;candidate_config.allow_registered_heading_frame=true;
   candidate_config.allow_contact_continuation_beyond_horizon=true;
+  candidate_config.bind_committed_targets = has_accepted_commitments;
   for(int l=0;l<4;++l)if(measured.mask[l]) {
    const auto c=model.dynamics.foot_pos_world[l];
    const double radius=model.dynamics.foot_geometry[l].collision_radius_m;
@@ -141,7 +209,7 @@ public:
    reference.nominal_foot_center_offset_world[l]={offset.x(),offset.y(),offset.z()};
    reference.foot_radius_m[l]=model.dynamics.foot_geometry[l].collision_radius_m;
   }
-  auto candidates=GenerateTerrainCandidates(*terrain,preview.events,now,terrain->epoch,reference,end,candidate_config,terrain_history);
+  auto candidates=GenerateTerrainCandidates(*terrain,bound_preview.events,now,terrain->epoch,reference,end,candidate_config,terrain_history);
   history_candidates=candidates.history_used_candidates;
   for(const auto &q:candidates.rejected_query_diagnostics)
    report_query("candidate",static_cast<int>(q.leg),q.event_index,q.candidate_index,q.query);
@@ -151,8 +219,10 @@ public:
   for(const auto t:preview.grid){CentroidalState ref=CentroidalState::Zero();
    const double dt=(t.value-now.value)*1e-9;ref.head<3>()=model.dynamics.com_world+dt*Eigen::Vector3d(reference.com_velocity_world.x,reference.com_velocity_world.y,0);
    ref.segment<3>(3)<<reference.com_velocity_world.x,reference.com_velocity_world.y,0;refs.push_back(ref);}
-  auto prepared=PrepareJointProblem(input.input,preview,candidates,initial_surfaces,model,physical,bounds,refs);
+  auto prepared=PrepareJointProblem(input.input,bound_preview,candidates,initial_surfaces,model,physical,bounds,refs);
   if(!prepared.ok){failure=prepared.failure;detail=prepared.detail;report();return;}
+  if (has_accepted_commitments)
+    prepared.problem.request.accepted_commitments = *accepted_commitments;
   last_proposal_=SearchCentroidalJointProposal(prepared.problem);
   const auto &result=last_proposal_.search;
   qp_iterations=static_cast<int>(last_proposal_.total_qp_iterations);

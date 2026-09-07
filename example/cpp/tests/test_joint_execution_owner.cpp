@@ -1,0 +1,324 @@
+// Atomic proposal adoption and retained-curve contract fixtures.
+#include "stage_c/joint_execution_owner.h"
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+using namespace go2_terrain::stage_c;
+using namespace go2_terrain::stage_c::joint_execution;
+namespace
+{
+TimeNs T(double seconds)
+{
+    return TimeNs::FromSeconds(seconds);
+}
+TimedPoint Point(double x, double y, double z, PointRole role, TimeNs time)
+{
+    return {{x, y, z}, Frame::kWorld, time, true, role};
+}
+std::shared_ptr<JointExecutionProposal> ValidProposal(
+    std::uint64_t id, double source_s, double end_s,
+    bool with_inflight = false, double liftoff_s = -1.0,
+    double touchdown_s = -1.0, double contact_end_s = -1.0,
+    bool include_commitment = false)
+{
+    auto selected = std::make_shared<CentroidalJointProposal>();
+    auto &problem = selected->selected_problem;
+    auto &input = problem.request.input;
+    const TimeNs source = T(source_s);
+    const TimeNs end = T(end_s);
+    input.identity = {100 + id, source, 7, 3, id};
+    input.body.valid = true;
+    input.body.base_position_world =
+        Point(0.0, 0.0, 0.42, PointRole::kBodyOrigin, source);
+    input.body.mass_kg = 12.0;
+    input.measured_contact.mask.fill(true);
+    input.measured_contact.provenance = ContactProvenance::kMeasured;
+    input.measured_contact.source_time = source;
+    input.measured_contact.valid = true;
+    input.map.metadata_valid = true;
+    input.map.epoch = 7;
+    input.map.width = input.map.height = input.map.total_cells =
+        input.map.known_cells = 8;
+    problem.schedule_epoch = 3;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        const double x = -0.25 + 0.16 * static_cast<double>(leg);
+        const double y = -0.12 + 0.08 * static_cast<double>(leg);
+        input.feet[leg].foot_collision_center_world =
+            Point(x, y, 0.22, PointRole::kFootCollisionCenter, source);
+        input.feet[leg].measured_support_anchor_world =
+            Point(x, y, 0.0, PointRole::kSurfaceContactPoint, source);
+        input.feet[leg].measured_support_anchor_valid = true;
+    }
+    if (!with_inflight)
+    {
+        problem.schedule.push_back({
+            source, end, {true, true, true, true}, {-1, -1, -1, -1}});
+    }
+    else
+    {
+        const double liftoff_seconds = liftoff_s >= 0.0
+            ? liftoff_s : source_s - 0.10;
+        const double touchdown_seconds = touchdown_s >= 0.0
+            ? touchdown_s : source_s + 0.10;
+        const double contact_end_seconds = contact_end_s >= 0.0
+            ? contact_end_s : source_s + 0.30;
+        const TimeNs liftoff = T(liftoff_seconds);
+        const TimeNs touchdown = T(touchdown_seconds);
+        const TimeNs contact_end = T(contact_end_seconds);
+        // Keep target provenance stable across replans; source_time may be
+        // older than the new observation but must not be fabricated.
+        const TimedPoint target = Point(
+            0.30, -0.12, 0.0, PointRole::kSurfaceContactPoint, T(1.0));
+        TouchdownEvent event;
+        event.id = {3, go2::Leg::FR, 1};
+        event.liftoff_time = liftoff;
+        event.liftoff_valid = true;
+        event.touchdown_time = touchdown;
+        event.contact_interval_end = contact_end;
+        event.target_world = target;
+        event.committed = true;
+        problem.request.events.events.push_back(event);
+        if (include_commitment)
+            problem.request.accepted_commitments.events.push_back(event);
+        StageCCandidate candidate;
+        candidate.candidate_id = 1;
+        candidate.target_world = target;
+        candidate.coverage = MapCoverageState::kKnown;
+        candidate.geometry_hard_feasible = true;
+        problem.request.candidate_sets.push_back({
+            event.id, {candidate}, true});
+        problem.combination.push_back(0);
+        ContactSurface surface;
+        surface.frame = Frame::kWorld;
+        surface.coverage = MapCoverageState::kKnown;
+        surface.map_epoch = 7;
+        surface.valid_until = T(end_s + 0.20);
+        surface.friction_mu = 0.8;
+        surface.max_normal_n = 180.0;
+        problem.candidate_surfaces.push_back({surface});
+        if (source < liftoff)
+            problem.schedule.push_back({
+                source, liftoff, {true, true, true, true},
+                {-1, -1, -1, -1}});
+        const TimeNs swing_start = source < liftoff ? liftoff : source;
+        problem.schedule.push_back({
+            swing_start, touchdown, {false, true, true, true},
+            {-1, -1, -1, -1}});
+        problem.schedule.push_back({
+            touchdown, end, {true, true, true, true}, {0, -1, -1, -1}});
+    }
+    selected->selected_valid = true;
+    selected->search.feasible = true;
+    selected->selected_result.certificate.feasible = true;
+    auto proposal = std::make_shared<JointExecutionProposal>();
+    proposal->proposal_id = id;
+    proposal->identity = input.identity;
+    proposal->valid_until = end;
+    proposal->selected = selected;
+    proposal->foot_request.problem = &proposal->selected->selected_problem;
+    proposal->foot_request.start = source;
+    proposal->foot_request.end = end;
+    proposal->foot_request.swing_clearance_m = 0.0;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        proposal->foot_request.collision_radius_m[leg] = 0.022;
+        proposal->foot_request.collision_radius_valid[leg] = true;
+        proposal->foot_request.initial_velocity_world[leg] = {0.0, 0.0, 0.0};
+        proposal->foot_request.initial_velocity_valid[leg] = true;
+    }
+    if (with_inflight && liftoff_s >= 0.0 && liftoff_s < source_s)
+        proposal->foot_request.initial_velocity_world[0] = {0.05, 0.0, 0.0};
+    return proposal;
+}
+
+void Check(bool condition, const char *message)
+{
+    if (!condition)
+        throw std::runtime_error(message);
+}
+void TestNoPendingAndAtomicRetain()
+{
+    OwnerConfig config;
+    config.expected_schedule_epoch = 3;
+    config.expected_map_epoch = 7;
+    AtomicJointExecutionOwner owner(config);
+    auto empty = owner.Adopt(T(1.10), 101);
+    Check(empty.status == OwnerStatus::kNoPending, "empty owner adopted");
+    auto first = ValidProposal(1, 1.0, 1.5);
+    owner.Publish(first);
+    auto adopted = owner.Adopt(T(1.10), 101);
+    Check(adopted.status == OwnerStatus::kAdopted, "valid proposal rejected");
+    Check(adopted.accepted && adopted.accepted->execution_version == 1,
+          "first version missing");
+    Check(adopted.accepted->proposal->selected.get() == first->selected.get(),
+          "selected problem/result were copied or replaced");
+    owner.Publish(first);
+    auto retained = owner.Adopt(T(1.20), 102);
+    Check(retained.status == OwnerStatus::kRetained,
+          "same proposal was adopted twice");
+    Check(retained.accepted->execution_version == 1,
+          "same proposal incremented version");
+    const auto sample = owner.SampleAt(T(1.20));
+    Check(sample.valid && sample.execution_version == 1,
+          "accepted reference sample missing");
+    Check(sample.center_reference.center_world[0].role ==
+              PointRole::kFootCollisionCenter,
+          "sample lost center role");
+}
+void TestStaleDoesNotDropAccepted()
+{
+    AtomicJointExecutionOwner owner;
+    auto first = ValidProposal(1, 1.0, 1.5);
+    owner.Publish(first);
+    Check(owner.Adopt(T(1.10), 101).status == OwnerStatus::kAdopted,
+          "setup proposal rejected");
+    auto expired = ValidProposal(2, 1.0, 1.5);
+    expired->valid_until = T(1.05);
+    owner.Publish(expired);
+    auto result = owner.Adopt(T(1.10), 101);
+    Check(result.status == OwnerStatus::kStale,
+          "expired proposal was not rejected");
+    Check(result.accepted && result.accepted->execution_version == 1 &&
+              result.accepted->proposal->proposal_id == 1,
+          "stale proposal displaced accepted reference");
+}
+void TestCommandedHandoverNeverRewritesMeasuredInput()
+{
+    AtomicJointExecutionOwner owner;
+    auto first = ValidProposal(1, 1.0, 1.5);
+    first->first_handover_from_commanded = true;
+    CommandedFootSeed seed;
+    seed.command_epoch = 9;
+    seed.source_time = T(1.10);
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        seed.valid[leg] = true;
+        seed.center_world[leg] =
+            Point(0.1, 0.1, 0.2, PointRole::kFootCollisionCenter, T(1.10));
+        seed.velocity_world[leg] = {0.2, 0.0, 0.0};
+    }
+    owner.Publish(first);
+    auto result = owner.Adopt(T(1.10), 101, &seed);
+    Check(result.status == OwnerStatus::kCommandHandoverConflict,
+          "nonzero stance boundary was silently reset");
+    Check(!owner.Accepted(), "failed handover changed accepted state");
+    for (auto &v : seed.velocity_world) v = {0.0, 0.0, 0.0};
+    result = owner.Adopt(T(1.10), 101, &seed);
+    Check(result.status == OwnerStatus::kAdopted,
+          "continuous commanded boundary could not be adopted");
+    Check(result.accepted->proposal->selected.get() == first->selected.get(),
+          "handover replaced physical optimization input");
+    Check(first->selected->selected_problem.request.input.feet[0]
+              .foot_collision_center_world.source_time == T(1.0),
+          "handover rewrote measured source timestamp");
+    Check(owner.Adopt(T(1.11), 102).status == OwnerStatus::kRetained,
+          "bound copy caused repeated adoption or requested another seed");
+
+}
+void TestInflightLeaseRefreshAndReplan()
+{
+    AtomicJointExecutionOwner owner;
+    auto first = ValidProposal(1, 1.0, 1.30, true, 1.05, 1.15, 1.35);
+    auto unbound = std::make_shared<CentroidalJointProposal>(*first->selected);
+    unbound->selected_problem.request.events.events[0].target_world = {};
+    unbound->selected_problem.request.events.events[0].committed = false;
+    first->selected = unbound;
+    first->foot_request.problem = &first->selected->selected_problem;
+    owner.Publish(first);
+    Check(owner.Adopt(T(1.00), 101).status == OwnerStatus::kAdopted,
+          "inflight setup proposal rejected");
+    const auto before_liftoff = owner.Accepted();
+    // The event was not active at the first adoption. Refresh must commit it
+    // before the same pending pointer is returned as retained.
+    Check(owner.Adopt(T(1.06), 102).status == OwnerStatus::kRetained,
+          "same pending was not retained after lease refresh");
+    const auto commitments = owner.CommittedEvents(T(1.06));
+    Check(commitments.events.size() == 1 &&
+              commitments.events.front().touchdown_time == T(1.15),
+          "future touchdown commitment was not exported");
+    Check(!before_liftoff->in_flight[0].valid,
+          "lease refresh mutated an already published accepted snapshot");
+    Check(owner.CommittedEvents(T(1.08)).valid(),
+          "unbound selected event did not resolve exact combination target");
+    auto second = ValidProposal(
+        2, 1.02, 1.30, true, 1.05, 1.15, 1.35, true);
+    second->foot_request.swing_clearance_m = 0.02;
+    const auto old_sample = SampleFootTrajectoryAt(
+        first->foot_request, T(1.08));
+    owner.Publish(second);
+    auto adopted = owner.Adopt(T(1.08), 103);
+    Check(adopted.status == OwnerStatus::kAdopted &&
+              adopted.accepted->execution_version == 2,
+          "compatible replan was rejected");
+    const auto sample = owner.SampleAt(T(1.08));
+    Check(sample.valid && sample.bundle_valid && sample.execution_version == 2 &&
+              old_sample.valid &&
+              std::abs(sample.center_reference.center_world[0].value.z -
+                       old_sample.samples.front().center_world[0].value.z) <
+                  1.0e-12,
+          "midflight curve was restarted by replan");
+    Check(owner.CommittedEvents(T(1.20)).events.empty(),
+          "post-touchdown event remained a future commitment");
+    const auto stance = owner.SampleAt(T(1.20));
+    Check(stance.valid && stance.curve_valid[0],
+          "old curve lease was dropped before contact end");
+}
+void TestLeaseDoesNotExtendWholeBundle()
+{
+    AtomicJointExecutionOwner owner;
+    auto proposal = ValidProposal(3, 1.0, 1.30, true, 1.05, 1.15, 1.35);
+    proposal->valid_until = T(1.10);
+    owner.Publish(proposal);
+    Check(owner.Adopt(T(1.06), 103).status == OwnerStatus::kAdopted,
+          "short-lived proposal rejected");
+    const auto retained = owner.Adopt(T(1.20), 104);
+    Check(retained.status == OwnerStatus::kStale,
+          "expired body bundle reported executable retention");
+    const auto curve_only = owner.SampleAt(T(1.20));
+    Check(!curve_only.valid && !curve_only.bundle_valid &&
+              curve_only.curve_valid[0],
+          "lease incorrectly extended centroidal/body/force validity");
+}
+void TestCommittedEventComparisonIsStrict()
+{
+    TouchdownEvent old_event;
+    old_event.id = {3, go2::Leg::FR, 1};
+    old_event.liftoff_valid = true;
+    old_event.liftoff_time = T(1.0);
+    old_event.touchdown_time = T(1.1);
+    old_event.contact_interval_end = T(1.3);
+    old_event.target_world =
+        Point(0.2, -0.1, 0.0, PointRole::kSurfaceContactPoint, T(1.0));
+    TouchdownEvent same = old_event;
+    TouchdownEvent changed = same;
+    changed.touchdown_time = T(1.11);
+    Check(SameCommittedEventCore(old_event, same),
+          "identical committed event rejected");
+    Check(!SameCommittedEventCore(old_event, changed),
+          "retimed committed event accepted");
+}
+} // namespace
+int main()
+{
+    try
+    {
+        TestNoPendingAndAtomicRetain();
+        TestStaleDoesNotDropAccepted();
+        TestCommandedHandoverNeverRewritesMeasuredInput();
+        TestInflightLeaseRefreshAndReplan();
+        TestLeaseDoesNotExtendWholeBundle();
+        TestCommittedEventComparisonIsStrict();
+    }
+    catch (const std::exception &error)
+    {
+        std::cerr << error.what() << "\n";
+        return 1;
+    }
+    std::cout << "atomic joint execution owner draft checks passed\n";
+    return 0;
+}

@@ -58,9 +58,17 @@ Next: complete the [joint feedback execution route](docs/research/JOINT_FEEDBACK
 The new input path retains bounded immutable capture history with explicit
 stationary-terrain/freshness/conflict semantics and v2 exact-state replay.
 Whole-combination search now retains its actual selected problem/result for
-an execution consumer, rather than only scalar diagnostics. No command
-adoption exists yet. The next slice is one atomic commitment/reference owner,
-coherent WBC feedback and final actuator validation, followed by flat/5cm.
+an execution consumer, rather than only scalar diagnostics. The atomic reference owner and shared FeedbackTick now have focused tests,
+including command-only C1 handover, selected-combination commitments, curve
+leases, expiry, independent ID-WBC and final motor-envelope gates. Capture accepts
+commitments before solve, preserving exact targets under current-map verification.
+Six rebuilt focused targets pass; see the adoption files in the feedback packet.
+There is still no LowCmdWrite activation. Next is the actual controller transport:
+worker publishes the immutable selected bundle; control snapshot returns owner
+commitments; LowCmdWrite supplies exact commanded geom-center p/v for handover,
+consumes the shared tick and writes torque-only commands under the existing stop
+owner. Gait's legacy foot-site references require model-consistent center conversion.
+Then run isolated flat and 5cm, followed by 10cm only after credible 5cm evidence.
 Strict stationary-foot reconstruction remains a conditional fixture: actual
 compliant running q/dq must not be projected to make it pass. Sample-level
 model success alone keeps `execution_ready=false`.

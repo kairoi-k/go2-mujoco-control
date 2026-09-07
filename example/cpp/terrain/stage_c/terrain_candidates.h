@@ -45,6 +45,13 @@ struct TerrainCandidateConfig
     // Explicit opt-in to querying a registered heading-relative production
     // grid through the world view. No relabelling or resampling is performed.
     bool allow_registered_heading_frame = false;
+    // Explicit opt-in to bind committed touchdown events to their exact
+    // accepted target. The default retains candidate generation behavior.
+    bool bind_committed_targets = false;
+    // A zero-width old target is compatible with a fresh known patch when it
+    // overlaps its height interval within this stationary-history tolerance.
+    double committed_height_conflict_tolerance_m =
+        kWorldTerrainSnapshotDefaultHeightConflictToleranceM;
     // A schedule event may remain in stance beyond the bounded planning
     // horizon. Opt-in preserves that physical event end while all generated
     // surface evidence remains valid only through prediction_valid_until.
@@ -150,6 +157,10 @@ struct TerrainCandidateGenerationResult
     double history_conflict_normal_dot = kTerrainMapUnknown;
     std::uint64_t history_conflict_newer_sequence = 0;
     std::uint64_t history_conflict_older_sequence = 0;
+    bool commitment_conflict = false;
+    double commitment_height_gap_m = kTerrainMapUnknown;
+    std::uint64_t commitment_current_sequence = 0;
+    std::size_t committed_targets_bound = 0;
     JointPlannerFailure failure = JointPlannerFailure::kInvalidInput;
     bool valid = false;
 };
@@ -165,6 +176,10 @@ inline bool ValidConfig(const TerrainCandidateConfig &config)
     if (config.required_frame.empty() ||
         !std::isfinite(config.minimum_edge_margin_m) ||
         config.minimum_edge_margin_m < 0.0 ||
+        !std::isfinite(config.committed_height_conflict_tolerance_m) ||
+        config.committed_height_conflict_tolerance_m < 0.0 ||
+        config.committed_height_conflict_tolerance_m >
+            kWorldTerrainSnapshotMaxHeightConflictToleranceM ||
         !std::isfinite(config.maximum_slope_rad) ||
         config.maximum_slope_rad < 0.0 ||
         !std::isfinite(config.maximum_surface_height_span_m) ||
@@ -322,6 +337,34 @@ inline TimeNs MapSourceTime(const TerrainModel &model)
 {
     return TimeNs::FromSeconds(model.map_stamp_s);
 }
+inline bool ValidCommittedTarget(
+    const TouchdownEvent &event, TimeNs source_state_time)
+{
+    return !event.committed ||
+        (TimedPointValidForRole(
+             event.target_world, PointRole::kSurfaceContactPoint,
+             Frame::kWorld) &&
+         event.target_world.source_time <= source_state_time);
+}
+inline double HeightGapToPatch(
+    const TimedPoint &target, const TerrainPatch &patch)
+{
+    if (!std::isfinite(target.value.z) ||
+        !std::isfinite(patch.center_height_m))
+        return kTerrainMapUnknown;
+    return std::abs(target.value.z - patch.center_height_m);
+}
+inline bool CommittedTargetHeightCompatible(
+    const TimedPoint &target, const TerrainPatch &patch, double tolerance_m)
+{
+    return std::isfinite(target.value.z) &&
+        std::isfinite(patch.min_height_m) &&
+        std::isfinite(patch.max_height_m) &&
+        patch.min_height_m <= patch.max_height_m &&
+        target.value.z >= patch.min_height_m - tolerance_m &&
+        target.value.z <= patch.max_height_m + tolerance_m &&
+        HeightGapToPatch(target, patch) <= tolerance_m;
+}
 } // namespace terrain_candidate_detail
 // Generate terrain-only alternatives for every absolute touchdown event. The
 // caller's prediction_valid_until is a stationary-terrain assumption; this
@@ -345,8 +388,24 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
         result.failure = JointPlannerFailure::kObservationUnavailable;
         return result;
     }
+    const bool has_committed_event = std::any_of(
+        events.events.begin(), events.events.end(),
+        [](const TouchdownEvent &event) { return event.committed; });
+    if (config.bind_committed_targets)
+    {
+        for (const TouchdownEvent &event : events.events)
+        {
+            if (!ValidCommittedTarget(event, source_state_time))
+            {
+                result.failure = JointPlannerFailure::kCommitmentConflict;
+                return result;
+            }
+        }
+    }
     if (terrain_snapshot != nullptr &&
         (!terrain_snapshot->ok() ||
+         !world_terrain_snapshot_detail::SnapshotEntriesValid(
+             *terrain_snapshot) ||
          terrain_snapshot->metadata.aggregate_epoch != map_epoch ||
          !std::isfinite(terrain_snapshot->metadata.state_time_s) ||
          std::abs(terrain_snapshot->metadata.state_time_s -
@@ -360,7 +419,9 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
         return result;
     }
     const TimeNs map_source_time = MapSourceTime(terrain);
-    if (terrain_snapshot == nullptr && map_source_time.value < 0)
+    if ((terrain_snapshot == nullptr && map_source_time.value < 0) ||
+        (config.bind_committed_targets && has_committed_event &&
+         (terrain.map_sequence == 0 || map_source_time.value < 0)))
     {
         result.failure = JointPlannerFailure::kObservationUnavailable;
         return result;
@@ -436,11 +497,19 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
             com.y + reference.nominal_foot_center_offset_world[leg].y,
             com.z + reference.nominal_foot_center_offset_world[leg].z};
         const double radius = reference.foot_radius_m[leg];
+        const bool bind_committed_target =
+            config.bind_committed_targets && event.committed;
+        const std::size_t candidate_count = bind_committed_target
+            ? 1 : config.xy_offsets_m.size();
         for (std::size_t candidate_index = 0;
-             candidate_index < config.xy_offsets_m.size(); ++candidate_index)
+             candidate_index < candidate_count; ++candidate_index)
         {
-            const double x = nominal.x + config.xy_offsets_m[candidate_index][0];
-            const double y = nominal.y + config.xy_offsets_m[candidate_index][1];
+            const double x = bind_committed_target
+                ? event.target_world.value.x
+                : nominal.x + config.xy_offsets_m[candidate_index][0];
+            const double y = bind_committed_target
+                ? event.target_world.value.y
+                : nominal.y + config.xy_offsets_m[candidate_index][1];
             TerrainPatch patch;
             WorldTerrainQueryDiagnostic query_diagnostic;
             TimeNs selected_source_time = map_source_time;
@@ -448,7 +517,17 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
             bool selected_history_used = false;
             bool query_ok = false;
             bool candidate_history_conflict = false;
-            if (terrain_snapshot != nullptr)
+            if (bind_committed_target)
+            {
+                // Revalidate an in-flight target against this capture's
+                // current map. Its old source time and role stay untouched.
+                query_ok = SampleWorldTerrainPatch(
+                    terrain, x, y, radius, config.maximum_cell_age_s, patch,
+                    &query_diagnostic);
+                selected_source_time = event.target_world.source_time;
+                selected_source_sequence = terrain.map_sequence;
+            }
+            else if (terrain_snapshot != nullptr)
             {
                 const auto snapshot_query = SampleWorldTerrainSnapshot(
                     *terrain_snapshot, x, y, radius,
@@ -507,6 +586,22 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
                 }
                 continue;
             }
+            if (bind_committed_target &&
+                !CommittedTargetHeightCompatible(
+                    event.target_world, patch,
+                    config.committed_height_conflict_tolerance_m))
+            {
+                query_diagnostic.failure =
+                    WorldTerrainQueryFailure::kConflictingHistory;
+                result.rejected_query_diagnostics.push_back({
+                    event_index, event.id.leg, candidate_index,
+                    query_diagnostic});
+                result.commitment_conflict = true;
+                result.commitment_height_gap_m =
+                    HeightGapToPatch(event.target_world, patch);
+                result.commitment_current_sequence = terrain.map_sequence;
+                continue;
+            }
             const double height_span = patch.max_height_m - patch.min_height_m;
             const bool finite_patch_observation =
                 std::isfinite(height_span) && std::isfinite(patch.slope_rad) &&
@@ -533,7 +628,11 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
                 continue;
             }
             const Eigen::Vector3d normal = basis.col(2);
-            const Eigen::Vector3d surface(x, y, patch.center_height_m);
+            const Eigen::Vector3d surface(
+                bind_committed_target ? event.target_world.value.x : x,
+                bind_committed_target ? event.target_world.value.y : y,
+                bind_committed_target ? event.target_world.value.z
+                                       : patch.center_height_m);
             const Eigen::Vector3d sphere_center = surface + radius * normal;
             if (!surface.allFinite() || !sphere_center.allFinite())
             {
@@ -541,9 +640,12 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
                 event_had_other_rejection = true;
                 continue;
             }
-            const TimedPoint surface_point{
-                {surface.x(), surface.y(), surface.z()}, Frame::kWorld,
-                selected_source_time, true, PointRole::kSurfaceContactPoint};
+            const TimedPoint surface_point = bind_committed_target
+                ? event.target_world
+                : TimedPoint{
+                      {surface.x(), surface.y(), surface.z()}, Frame::kWorld,
+                      selected_source_time, true,
+                      PointRole::kSurfaceContactPoint};
             const TimedPoint sphere_point{
                 {sphere_center.x(), sphere_center.y(), sphere_center.z()},
                 Frame::kWorld, selected_source_time, true,
@@ -560,9 +662,10 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
             StageCCandidate candidate;
             candidate.candidate_id = static_cast<std::uint32_t>(candidate_index + 1);
             candidate.target_world = surface_point;
-            candidate.foothold_cost = std::hypot(
-                config.xy_offsets_m[candidate_index][0],
-                config.xy_offsets_m[candidate_index][1]);
+            candidate.foothold_cost = bind_committed_target ? 0.0 :
+                std::hypot(
+                    config.xy_offsets_m[candidate_index][0],
+                    config.xy_offsets_m[candidate_index][1]);
             candidate.edge_margin_m = patch.map_edge_margin_m;
             // Existing transport requires a finite placeholder. This is not
             // an IK/reachability result; geometry_hard_feasible covers only
@@ -582,6 +685,8 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
                 selected_source_sequence, selected_history_used});
             if (selected_history_used)
                 ++result.history_used_candidates;
+            if (bind_committed_target)
+                ++result.committed_targets_bound;
         }
         if (output_set.event_set.candidates.empty())
         {
@@ -590,6 +695,11 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
                 all_empty_sets_history_conflict = false;
         }
         result.sets.push_back(std::move(output_set));
+    }
+    if (result.commitment_conflict)
+    {
+        result.failure = JointPlannerFailure::kCommitmentConflict;
+        return result;
     }
     if (saw_empty_set)
     {
