@@ -1,0 +1,48 @@
+{
+  "raw_sha256": "3bb77e015a7913abe5324983fd13e5da16841d686677f72ceb95c26f36622e42",
+  "first_tick": [
+    {
+      "time": 21.024,
+      "leg": 0,
+      "planned": 0,
+      "measured": 0,
+      "reference_speed": 0.6046937644605084,
+      "reference_acceleration": 120.00092939420891,
+      "actual_speed": 0.5475214549276213,
+      "task_residual": 92.43271317178265
+    },
+    {
+      "time": 21.024,
+      "leg": 1,
+      "planned": 0,
+      "measured": 0,
+      "reference_speed": 5.728014702007816,
+      "reference_acceleration": 451.80829059936815,
+      "actual_speed": 1.9682622904707316,
+      "task_residual": 207.4493240340046
+    },
+    {
+      "time": 21.024,
+      "leg": 2,
+      "planned": 0,
+      "measured": 0,
+      "reference_speed": 5.975619567154102,
+      "reference_acceleration": 464.33764382355326,
+      "actual_speed": 2.020809176607568,
+      "task_residual": 219.05341859348673
+    },
+    {
+      "time": 21.024,
+      "leg": 3,
+      "planned": 0,
+      "measured": 0,
+      "reference_speed": 0.6216383157722036,
+      "reference_acceleration": 128.36768656774365,
+      "actual_speed": 0.4697659097086455,
+      "task_residual": 149.4428206565698
+    }
+  ],
+  "sampled_max_reference_acceleration": 464.33764382355326,
+  "sampled_max_task_residual": 14741.810103557496,
+  "claim": "first logged tick already has large requested-versus-solved acceleration compromise; not a physical infeasibility proof"
+}

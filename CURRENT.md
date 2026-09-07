@@ -239,3 +239,14 @@ Independent review confirms Raibert advances phase from gait elapsed, but missed
 cycles are not replayed and this cannot certify contact realization. Run one
 flat canary with prior0011 settings plus this flag only after runtime build and
 focused checks. No new simulation has yet exercised this option.
+
+##0012 first-task incompatibility localized
+First logged tick21.024 is all-leg planned/measured aerial. Leg1/2 reference
+speeds5.728/5.976m/s vs actual1.968/2.021; reference acceleration451.808/464.338
+m/s2 and solved-task residual207.449/219.053m/s2. See attempt_0012 tracking audit.
+The attitude momentum correction is only kinematically compatible: aerial
+external Ldot is constrained to zero, so arbitrary correction with fixed feet
+need not be physically feasible. Do not promote or tune this as a complete
+body planner. Next reconstruct initial remaining-swing reference from actual
+q/dq and touchdown timing, then jointly coordinate limbs/body with conservation.
+This observation does not attribute the entire residual to attitude feedback.
