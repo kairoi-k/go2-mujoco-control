@@ -116,3 +116,20 @@ already-inflight continuation. Future full swings retain30mm clearance. This
 is still a measured-state counterfactual; production adoption must preserve
 the actual commanded committed curve, unavailable in this old snapshot.
 Body/stance task weighting remains unchanged for this comparison.
+
+Eighth exact091399f also completes100 steps with every physical/motor gate.
+Removing the repeated initial bump lowers max foot error54.80->25.57mm,
+but COM error worsens48.95->89.88mm. No nonfoot contact, no saturation.
+Thus the bump was not the sole tracking cause. The same low COM weight1
+versus swing80/stance8 allows whole-body tracking to be traded away.
+
+Next registered architecture change: opt-in two-level QP in the same WBC.
+Primary tracks COM acceleration, absolute attitude acceleration, and stance
+center acceleration under the same dynamics/cone/force/torque constraints.
+A1e-6 diagonal regularizer makes the primary Hessian SPD. Secondary preserves
+all achieved primary task values exactly and optimizes the existing full cost
+(swing, nominal momentum/forces, posture/torque). Nominal momentum is a soft
+reference; it cannot override body/stance to force limb angular momentum.
+No contact truth is invented, no actuator bound changes, historical weighted
+solver remains default. An analytic conflict test must show a swing target
+cannot erase the achieved primary COM task. Then repeat the identical prefix.

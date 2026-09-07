@@ -1,0 +1,39 @@
+{
+  "runtime_sha": "091399f0931b30e887d1233a09def6a72a9ea24f",
+  "snapshot_runtime_sha": "f9623e1486d03830101aa80d132fc8f3c04489bb",
+  "b1_claim": false,
+  "rows": 101,
+  "applied_rows": 100,
+  "returncode": 0,
+  "input_files_changed": [],
+  "clock_residual_s": 1.9845236565174673e-15,
+  "requested_applied_residual_nm": 0.0,
+  "max_foot_error_m": 0.025568986216588437,
+  "first_failure": null,
+  "first_nonfoot_contact": null,
+  "nominal_geom_disagreement_rows": 17,
+  "solver_unconverged_rows": 0,
+  "maxima": {
+    "com_error_m": 0.08987733573345448,
+    "com_velocity_error_mps": 0.8846529813747063,
+    "momentum_error_nms": 0.5136799658657164,
+    "max_tau_nm": 35.00000000012492,
+    "max_motor_saturation_nm": 0.0,
+    "certificate_force_residual_n": 2.3092638912203256e-13,
+    "certificate_moment_residual_nm": 4.154949170451166e-14,
+    "certificate_joint_residual_nm": 7.105427357601002e-15,
+    "gt_contact_couple_norm_nm": 4.99147217146014
+  },
+  "raw_hashes": {
+    "stdout.txt": "6f8aa37264c9cc86ff3c716457231b637909a8c5db67b9005303c1392e247004",
+    "manifest.json": "c429edf4f9939645837f2d54c1e3e58f65049b4ad0116c7382943c4a3594578f",
+    "feedback.csv": "6be00f9e286df513df3e979a8107d4223ac4f12b60c7fc84d9b68e4b7d7f1a0c"
+  },
+  "analyzer_sha256": "d11826e1a8dbb8a9a31de9494619fd8b40b743099fcaf80243ec592401ba528f",
+  "qp_latency_us": {
+    "count": 100,
+    "p50": 95.24199999999999,
+    "p95": 132.2358,
+    "max": 263.09
+  }
+}

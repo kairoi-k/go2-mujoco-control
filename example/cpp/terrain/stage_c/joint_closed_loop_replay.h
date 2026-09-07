@@ -1214,6 +1214,7 @@ inline bool BuildWbcReplayInput(
     params = go2_control::IdWbcParams{};
     params.tau_limit_nm = config.torque_limit_nm;
     params.use_primal_active_set = true;
+    params.prioritize_body_and_stance = true;
     params.w_force_track = config.force_track_weight;
     params.min_normal_n = 0.0;
     params.max_normal_n = std::numeric_limits<double>::infinity();
@@ -1454,7 +1455,7 @@ inline bool WriteReplayMetadata(
         << "# cold_start=1\n"
         << "# original_warmstart_replayed=0\n"
         << "# torque_mode=direct_torque_only_kp0_kd0\n"
-        << "# qp_solver=primal_active_set_verified_feasible_seed\n"
+        << "# qp_solver=two_level_primal_active_set_body_stance_then_swing_momentum\n"
         << "# inflight_continuation=measured_p_v_no_additional_bump\n"
         << "# contact_merge_mode=0_scheduled_only\n"
         << "# map_source=proposal_only_scene_geometry_not_used_to_fill_map\n"

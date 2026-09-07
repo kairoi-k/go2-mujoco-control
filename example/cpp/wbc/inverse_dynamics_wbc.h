@@ -48,6 +48,7 @@ struct IdWbcParams
     double w_tau = 1.0e-4;
     bool hard_stance_no_slip = false;
     bool use_primal_active_set = false;
+    bool prioritize_body_and_stance = false;
 };
 
 using IdWbcFootJacobian = Eigen::Matrix<double, 3, kGo2Nv>;
@@ -133,6 +134,8 @@ struct IdWbcOutput
     // Preserve solver-attempt status even when the caller falls back to the
     // last accepted command.  This makes a rare invalid tick diagnosable
     // without changing plant authority or relaxing a safety constraint.
+    bool body_stance_priority_used = false;
+    double priority_preservation_residual = 0.0;
     bool centroidal_motion_task_used = false;
     bool centroidal_orientation_task_used = false;
     bool qp_converged = false;
@@ -273,6 +276,16 @@ inline bool SolveInverseDynamicsWbc(
     const int n = nqdd + nf;
     Eigen::MatrixXd H = Eigen::MatrixXd::Zero(n, n);
     Eigen::VectorXd g = Eigen::VectorXd::Zero(n);
+    Eigen::MatrixXd priority_map(0,n);Eigen::VectorXd priority_target(0);
+    const auto add_priority=[&](const auto &map,const auto &target,const auto &weights) {
+        if(!params.prioritize_body_and_stance)return;
+        for(int r=0;r<map.rows();++r)if(weights[r]>0) {
+            const int k=priority_map.rows();priority_map.conservativeResize(k+1,n);
+            priority_map.row(k).setZero();priority_map.row(k).head(nqdd)=std::sqrt(weights[r])*map.row(r);
+            priority_target.conservativeResize(k+1);priority_target[k]=std::sqrt(weights[r])*target[r];
+        }
+    };
+    if(params.prioritize_body_and_stance && !params.use_primal_active_set)return false;
 
     if (input.have_centroidal_orientation_task && !input.have_centroidal_motion_task)
         return false;
@@ -297,6 +310,9 @@ inline bool SolveInverseDynamicsWbc(
         H.topLeftCorner<nqdd, nqdd>() += 2.0 * map.transpose() * weights * map;
         g.head<nqdd>() += 2.0 * map.transpose() * weights *
             (input.centroidal_motion_bias - input.desired_centroidal_derivative);
+        add_priority(map.topRows<3>(),
+            (input.desired_centroidal_derivative-input.centroidal_motion_bias).head<3>(),
+            input.centroidal_motion_weights.head<3>());
         output.centroidal_motion_task_used = true;
         if (input.have_centroidal_orientation_task)
         {
@@ -305,6 +321,9 @@ inline bool SolveInverseDynamicsWbc(
                 return false;
             H.block<3,3>(3,3).diagonal().array() += 2.0 * params.w_base_ang;
             g.segment<3>(3) -= 2.0 * params.w_base_ang * input.desired_angular_acc_body;
+            Eigen::Matrix<double,3,nqdd> orientation_map=Eigen::Matrix<double,3,nqdd>::Zero();
+            orientation_map.block<3,3>(0,3).setIdentity();
+            add_priority(orientation_map,input.desired_angular_acc_body,Eigen::Vector3d::Constant(params.w_base_ang));
             output.centroidal_orientation_task_used = true;
         }
     }
@@ -312,6 +331,8 @@ inline bool SolveInverseDynamicsWbc(
     {
         H.topLeftCorner<6, 6>() += 2.0 * Wb;
         g.head<6>() += -2.0 * Wb * a_des;
+        Eigen::Matrix<double,6,nqdd> body_map=Eigen::Matrix<double,6,nqdd>::Zero();body_map.leftCols<6>().setIdentity();
+        add_priority(body_map,a_des,Wb.diagonal());
     }
 
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
@@ -343,6 +364,7 @@ inline bool SolveInverseDynamicsWbc(
                     : Eigen::Vector3d::Zero();
                 g.head(nqdd) +=
                     2.0 * Jl.transpose() * Wns * (jdot_qvel - a_des);
+                add_priority(Jl,a_des-jdot_qvel,Wns.diagonal());
             }
         }
         else
@@ -497,7 +519,27 @@ inline bool SolveInverseDynamicsWbc(
     if(params.use_primal_active_set) {
         Eigen::VectorXd seed=Eigen::VectorXd::Zero(n);
         seed.head(nqdd)=M.ldlt().solve(-h);
-        qp_ok=SolveDenseQpPrimalActiveSet(H,g,Aineq,bineq,Aeq,beq,seed,x,iters);
+        if(params.prioritize_body_and_stance && priority_map.rows()>0) {
+            Eigen::MatrixXd Hp=2.0*priority_map.transpose()*priority_map;
+            Hp.diagonal().array()+=1e-6;
+            const Eigen::VectorXd gp=-2.0*priority_map.transpose()*priority_target;
+            Eigen::VectorXd primary;int first_iters=0;
+            qp_ok=SolveDenseQpPrimalActiveSet(Hp,gp,Aineq,bineq,Aeq,beq,seed,primary,first_iters);
+            if(qp_ok) {
+                Eigen::MatrixXd E(Aeq.rows()+priority_map.rows(),n);
+                Eigen::VectorXd d(beq.size()+priority_map.rows());
+                E<<Aeq,priority_map;d<<beq,priority_map*primary;
+                qp_ok=SolveDenseQpPrimalActiveSet(H,g,Aineq,bineq,E,d,primary,x,iters);
+                if(snapshot){snapshot->Aeq=E;snapshot->beq=d;}
+                if(qp_ok) {
+                    output.priority_preservation_residual=(priority_map*(x-primary)).lpNorm<Eigen::Infinity>();
+                    output.body_stance_priority_used=true;
+                }
+            }
+            iters+=first_iters;
+        } else {
+            qp_ok=SolveDenseQpPrimalActiveSet(H,g,Aineq,bineq,Aeq,beq,seed,x,iters);
+        }
     } else {
         qp_ok=SolveDenseQpEq(H, g, Aineq, bineq, Aeq, beq, x, iters, settings);
     }

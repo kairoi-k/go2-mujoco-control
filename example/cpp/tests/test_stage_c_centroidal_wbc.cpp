@@ -21,6 +21,13 @@ int main(){try {
     IdWbcOutput out;Check(SolveInverseDynamicsWbc(params,input,out),"mapped solve");
     Check(out.centroidal_motion_task_used && std::abs(out.qdd[6]-2)<1e-5,"independent scalar optimum (5-1)/2");
     Check(out.cost_terms.centroidal_motion<1e-9 && out.cost_terms.base_linear==0,"objective decomposition");
+    auto priority_input=input;auto priority_params=params;
+    priority_input.dynamics.foot_jac_world[0](0,6)=1;
+    priority_input.swing_acc_world[0].x()=-100;
+    priority_params.use_primal_active_set=true;priority_params.prioritize_body_and_stance=true;
+    Check(SolveInverseDynamicsWbc(priority_params,priority_input,out) && out.ok,"priority solve");
+    Check(out.body_stance_priority_used && std::abs(out.qdd[6]-2)<1e-5,"body task preserved despite conflicting swing");
+    Check(out.priority_preservation_residual<1e-8,"priority preservation residual");
     auto bad=input;bad.centroidal_motion_map(1,2)=NAN;
     Check(!SolveInverseDynamicsWbc(params,bad,out),"unknown task rejected");
     bad=input;bad.centroidal_motion_weights[0]=-1;
