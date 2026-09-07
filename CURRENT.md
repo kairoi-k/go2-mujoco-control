@@ -301,3 +301,13 @@ foothold oracle packet. This is conditional instantaneous feasibility only.
 Do not patch nonzero terminal velocity into a zero-velocity stance reference:
 next explicitly model pre/post-contact transition and verify against MuJoCo.
 No impact/horizon or B1 certificate, no new controller or simulation run.
+
+## Soft-contact probe contradicts pure-aerial transfer
+20ms held oracle torque at unchanged source in full scene has residual FR/RL
+contact immediately; body angular acceleration is not zero. Original GT forces
+at21.020 are2.447/7.674N, while counterfactual force under new torque is39N each;
+keep those distinct. Soft-contact landing has nonzero foot velocity while force
+builds. Evidence transition_probe_result and actual_source_contact in oracle
+packet. This is not a planned-trajectory rollout or new B1 run. Next inspect
+initial in-flight clearance by phase and model liftoff/landing force transition;
+do not promote contact-free torque or impose a velocity reset.

@@ -1,0 +1,11 @@
+{
+  "raw_sha256": "a0f0a1d9a900cda0a644f3aa814cd0ffd7788c9413e112a3584182d2286383a9",
+  "time_s": 21.02,
+  "foot_grf_world_z_N": {
+    "FR": 2.44731356186,
+    "FL": 0.0,
+    "RR": 0.0,
+    "RL": 7.67407032403
+  },
+  "scope": "original run, distinct from counterfactual probe forces"
+}

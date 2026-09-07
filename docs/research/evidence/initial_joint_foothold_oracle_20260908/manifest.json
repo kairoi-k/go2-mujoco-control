@@ -4,10 +4,13 @@
   "authoritative_results": [
     "result_model_bias.json",
     "crosscheck_model_bias.json",
-    "landing_velocity_result.json"
+    "landing_velocity_result.json",
+    "transition_probe_result.json",
+    "actual_source_contact.json"
   ],
   "files": {
-    "README.md": "15cdd6a6793d07804c5d31b2377d9b1c04b9100c25a1491a7ae7ae32016d9765",
+    "README.md": "49f554f61ced32b4f9f51eee5a476b755dfbc452e94cf93642f241881e92ae01",
+    "actual_source_contact.json": "7bf5ec0a9a39298cffb68990ca417043aac29fa7dae4628b682e7fc3dc672e49",
     "crosscheck.json": "b8932fe5222d7f2ad808cf3277a83e7965a2c85f3f9873ea9cb8b841c34716fb",
     "crosscheck.py": "345db396cf43514ef64ca6483a167df509c4fee654abd555ef1ca3e2887b8ba5",
     "crosscheck_model_bias.json": "985313968e6437e6407a592b041e028048aa22aa68f56b6fa91b51816ff2f65a",
@@ -17,6 +20,8 @@
     "oracle.py": "46e2f2be4d4d71a36986277c8f9ffd9e08ed4ef4cf74cb5b93cf2af1b1d75b3c",
     "result.json": "171485c069696f7a9984a847d24f5ee2df21e7a2afc296dbd5fb3ad0da3006f8",
     "result_model_bias.json": "32ad5a7a2e20d3be6f84c79e449621c09d47c5d33a4817d285da8f4b7541a2a6",
-    "result_passive.json": "94977d3f2f48ce2de30791ec2957e69055197a3a8355d6b4ea3bbbaf61132c37"
+    "result_passive.json": "94977d3f2f48ce2de30791ec2957e69055197a3a8355d6b4ea3bbbaf61132c37",
+    "transition_probe.py": "3725441032ff6516780672e05a13a11c49c1f7f2eda202258a41cf41840162c4",
+    "transition_probe_result.json": "6a70215669c2b63f593d5d3ad0023ec8d2cb838c5b8d69d4e1beac9c36435247"
   }
 }
