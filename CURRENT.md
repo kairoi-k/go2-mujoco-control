@@ -13,12 +13,19 @@ Active forces are now the only force optimization variables. Two clean43c5f5a
 flat runs have zero swing violations; remaining normal/friction failures are
 160/16403 and 227/16402. Running topology is 40/49 and 37/49, so this is
 a correctness checkpoint, not an empirical locomotion improvement.
-The current investigation follows contact/command lineage and shared model
-geometry before future-event planning;
+Contact-lineage audit confirms qp_contact can differ from measured/terrain
+planned masks; no fallback/cache reuse occurred in either run. Certificates
+validate the declared model, not actual plant support. The shared model geometry
+seam now exposes distinct site/geom observations with explicit validity;
+future-event planning and its observation/execution integration are next;
 remaining inequalities and final actuator validation are still open. See
 `docs/research/evidence/wbc_certificate_20260907/README.md` and
 `docs/research/evidence/wbc_active_forces_20260907/README.md`.
 Luna implements bounded subtasks; the lead owns scientific decisions and review.
+The geometry observation seam passes45/45 controller tests, including real
+MuJoCo/FK and missing-site/non-sphere cases. See
+`docs/research/evidence/foot_geometry_20260907/README.md`. It has no new
+closed-loop performance claim; remaining work starts from this clean checkpoint.
 
 B1 remains NOT_CERTIFIED. The corrected model is a mathematical correctness
 baseline, not a validated locomotion release. No fresh full B0 or holdout

@@ -1,0 +1,1 @@
+go2 rigid body checks passed. mass=15.2064 rne=0.0630302

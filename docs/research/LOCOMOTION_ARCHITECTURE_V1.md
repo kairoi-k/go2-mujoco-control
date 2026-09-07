@@ -104,3 +104,20 @@ registered experiment, immutable raw logs, independent replay, explicit legacy
 and current verdicts, then a clean pushed checkpoint. Full B0/holdout admission
 is still required for its historical campaign; development diagnostics do not
 become holdouts. Any replacement acceptance remains separately versioned.
+
+## First-slice findings and next bounded admission
+Observer71d242a exposed4.52N inactive-force allocation; active-variable
+elimination at43c5f5a removes that path but flat running topology is40/49
+and37/49 versus observer47/49. Preserve this behavior regression as evidence.
+The certificate applies to the declared qp_contact model, not measured plant
+support. WBC schedule/measured merge and terrain observation have different
+sampling/filter semantics. A new backend must expose their common-tick lineage
+and select one explicit contact/execution authority; names such as fused or
+scheduled must not conceal provenance. No cache reuse occurred in these runs.
+The geometry seam extracts real site/geom roles from the sole robot model.
+Next admission needs an actual observation producer, absolute event identities
+(including already-in-flight committed liftoffs before t0), candidate-specific
+surfaces, and a future body/joint pose sufficient to validate the same swing
+curve executed by the consumer. Do not impose t0<=liftoff on an already
+committed flight or relabel current FK as its future start. Geometry metadata
+alone is not an executable joint plan.

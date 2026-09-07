@@ -42,6 +42,14 @@ inline const char *Go2FootGeomName(std::size_t leg)
     return kNames[leg];
 }
 
+inline const char *Go2FootSiteName(std::size_t leg)
+{
+    static constexpr const char *kNames[go2::kLegCount] = {
+        "FR_foot_contact", "FL_foot_contact", "RR_foot_contact",
+        "RL_foot_contact"};
+    return kNames[leg];
+}
+
 struct RigidBodyState
 {
     Eigen::Vector3d position_world = Eigen::Vector3d::Zero();
@@ -50,6 +58,25 @@ struct RigidBodyState
     Eigen::Vector3d angular_vel_body = Eigen::Vector3d::Zero();
     Eigen::Matrix<double, go2::kJointCount, 1> q = {};
     Eigen::Matrix<double, go2::kJointCount, 1> dq = {};
+};
+
+// Immutable geometry metadata read from the loaded MJCF. The local positions
+// retain their owning body IDs; they must not be subtracted when those IDs
+// differ. Dynamic world positions are supplied by Evaluate() after mj_forward.
+struct RigidBodyFootGeometry
+{
+    bool geom_id_valid = false;
+    bool site_id_valid = false;
+    bool sphere_valid = false;
+    bool metadata_valid = false;
+    int geom_id = -1;
+    int site_id = -1;
+    int geom_body_id = -1;
+    int site_body_id = -1;
+    int geom_type = -1;
+    double collision_radius_m = 0.0;
+    Eigen::Vector3d geom_pos_local = Eigen::Vector3d::Zero();
+    Eigen::Vector3d site_pos_local = Eigen::Vector3d::Zero();
 };
 
 struct RigidBodyDynamics
@@ -62,7 +89,20 @@ struct RigidBodyDynamics
         Eigen::Matrix<double, kGo2Nv, kGo2Nv>::Zero();
     Eigen::Matrix<double, kGo2Nv, 1> bias =
         Eigen::Matrix<double, kGo2Nv, 1>::Zero();
+    // Existing interface: the named MJCF foot geom center in world frame.
     std::array<Eigen::Vector3d, go2::kLegCount> foot_pos_world{};
+    // The MJCF contact site position in the same evaluated world state.
+    std::array<Eigen::Vector3d, go2::kLegCount> foot_site_world{
+        Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(),
+        Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
+    std::array<bool, go2::kLegCount> foot_geom_center_valid{};
+    std::array<bool, go2::kLegCount> foot_site_valid{};
+    // True only when the named geom is a valid sphere and the named site is
+    // available. Missing sites and non-sphere geoms remain explicitly false.
+    std::array<bool, go2::kLegCount> foot_geometry_valid{};
+    std::array<RigidBodyFootGeometry, go2::kLegCount> foot_geometry{
+        RigidBodyFootGeometry{}, RigidBodyFootGeometry{},
+        RigidBodyFootGeometry{}, RigidBodyFootGeometry{}};
     std::array<Eigen::Matrix<double, 3, kGo2Nv>, go2::kLegCount> foot_jac_world{};
     std::array<Eigen::Matrix<double, 3, kGo2Nv>, go2::kLegCount> foot_jac_dot_world{};
     Eigen::Matrix<double, kGo2Nv, 1> qvel =
@@ -124,12 +164,58 @@ public:
                 Reset();
                 return false;
             }
+
+            // Geometry metadata is an independent observation seam. The
+            // existing dynamics path still requires the named geom above,
+            // while an absent site or non-sphere geom only invalidates this
+            // metadata, leaving Load() usable for existing dynamics callers.
+            RigidBodyFootGeometry metadata;
+            metadata.geom_id = foot_geom_[leg];
+            metadata.geom_id_valid = true;
+            metadata.geom_body_id = model_->geom_bodyid[foot_geom_[leg]];
+            metadata.geom_type = static_cast<int>(
+                model_->geom_type[foot_geom_[leg]]);
+            metadata.geom_pos_local = Eigen::Vector3d(
+                model_->geom_pos[3 * foot_geom_[leg] + 0],
+                model_->geom_pos[3 * foot_geom_[leg] + 1],
+                model_->geom_pos[3 * foot_geom_[leg] + 2]);
+            if (metadata.geom_type == mjGEOM_SPHERE)
+            {
+                metadata.collision_radius_m =
+                    model_->geom_size[3 * foot_geom_[leg]];
+                metadata.sphere_valid = std::isfinite(
+                    metadata.collision_radius_m) &&
+                    metadata.collision_radius_m > 0.0;
+            }
+            metadata.site_id = mj_name2id(
+                model_, mjOBJ_SITE, Go2FootSiteName(leg));
+            if (metadata.site_id >= 0)
+            {
+                metadata.site_id_valid = true;
+                metadata.site_body_id = model_->site_bodyid[metadata.site_id];
+                metadata.site_pos_local = Eigen::Vector3d(
+                    model_->site_pos[3 * metadata.site_id + 0],
+                    model_->site_pos[3 * metadata.site_id + 1],
+                    model_->site_pos[3 * metadata.site_id + 2]);
+            }
+            metadata.metadata_valid = metadata.geom_id_valid &&
+                metadata.site_id_valid && metadata.sphere_valid &&
+                metadata.geom_body_id >= 0 && metadata.site_body_id >= 0 &&
+                metadata.geom_pos_local.allFinite() &&
+                metadata.site_pos_local.allFinite();
+            foot_geometry_[leg] = metadata;
         }
         loaded_ = true;
         return true;
     }
 
     bool loaded() const { return loaded_; }
+
+    // No MuJoCo ownership or raw model pointer escapes this interface.
+    const std::array<RigidBodyFootGeometry, go2::kLegCount> &FootGeometry() const
+    {
+        return foot_geometry_;
+    }
 
     int MotorDof(int motor) const
     {
@@ -172,6 +258,7 @@ public:
         {
             const int geom = foot_geom_[leg];
             const int body = model_->geom_bodyid[geom];
+            out.foot_geometry[leg] = foot_geometry_[leg];
             // The named foot geom is offset from the calf body origin.  Its
             // position must match mj_jacGeom's point; using body xpos here
             // silently paired a calf-origin lever arm with a foot Jacobian.
@@ -179,6 +266,20 @@ public:
                 data_->geom_xpos[3 * geom + 0],
                 data_->geom_xpos[3 * geom + 1],
                 data_->geom_xpos[3 * geom + 2]);
+            out.foot_geom_center_valid[leg] =
+                out.foot_pos_world[leg].allFinite();
+            const int site = foot_geometry_[leg].site_id;
+            if (site >= 0)
+            {
+                out.foot_site_world[leg] = Eigen::Vector3d(
+                    data_->site_xpos[3 * site + 0],
+                    data_->site_xpos[3 * site + 1],
+                    data_->site_xpos[3 * site + 2]);
+                out.foot_site_valid[leg] = out.foot_site_world[leg].allFinite();
+            }
+            out.foot_geometry_valid[leg] =
+                foot_geometry_[leg].metadata_valid &&
+                out.foot_geom_center_valid[leg] && out.foot_site_valid[leg];
             mj_jacGeom(model_, data_, jacp, jacr, geom);
             const mjtNum point[3] = {
                 out.foot_pos_world[leg].x(),
@@ -296,6 +397,7 @@ private:
         base_body_ = -1;
         joint_id_.fill(-1);
         foot_geom_.fill(-1);
+        foot_geometry_.fill(RigidBodyFootGeometry{});
     }
 
     mjModel *model_ = nullptr;
@@ -304,6 +406,9 @@ private:
     int base_body_ = -1;
     std::array<int, go2::kJointCount> joint_id_{};
     std::array<int, go2::kLegCount> foot_geom_{};
+    std::array<RigidBodyFootGeometry, go2::kLegCount> foot_geometry_{
+        RigidBodyFootGeometry{}, RigidBodyFootGeometry{},
+        RigidBodyFootGeometry{}, RigidBodyFootGeometry{}};
 };
 
 }  // namespace go2_control

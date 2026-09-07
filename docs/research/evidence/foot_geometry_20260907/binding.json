@@ -1,0 +1,12 @@
+{
+  "schema": "foot-geometry-verification-v1",
+  "baseline_checkpoint": "1f2a2f415f748a790cc398066f67e37ad59f8ebd",
+  "last_executed_runtime": "43c5f5a91e5c075a69170bc8af7d5582d1031474",
+  "files": {
+    "example/cpp/kinematics/go2_rigid_body.h": "d8fe2b0f8dabb1eda9cf914204671c0aa41c2c910b7732c86d878b0a3dc72d63",
+    "example/cpp/tests/test_go2_rigid_body.cpp": "691890fa1f533ea7485d483af9405f332924d9079cd6b084165f26ab3569deb8",
+    "unitree_robots/go2/go2.xml": "01acff1a72a10cd38ab3c95142bfc63db197c5fba39a11b45b15b6fc4899ba10",
+    "example/cpp/build/real_trot_go2": "6674c5984d4294b921df304dc4b9c2b08e3048c160ac70d7613263188ce2e25c",
+    "example/cpp/build/test_go2_rigid_body": "8122259fab0555e36225978ab1ad4e32df72b29ec99bc732bfed4c8832c8aadd"
+  }
+}

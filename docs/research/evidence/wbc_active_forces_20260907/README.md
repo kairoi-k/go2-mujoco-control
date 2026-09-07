@@ -78,3 +78,14 @@ Use those arguments as one command. The resulting results.json binds both
 runs, imported replay dependency, source/binaries, raw files and analyzers.
 
 Root independently replayed both runs and compared complete results.json: identical.
+
+## Contact lineage qualification
+The independent review in contact_lineage_review.md is source-bound to43c5f5a.
+Root independently confirmed the mask construction, cache/observer locations,
+and raw mismatch counts. Inactive means absent from the declared qp_contact
+mask; this can differ from measured and terrain planned contact. The physical
+certificate does not prove that a declared support actually exists in the plant.
+On plan-active rows, qp versus measured masks differ in601/2347 and527/1858
+rows. No cache reuse occurred. Therefore a cache-fallback explanation is not
+supported for these runs. The reason for mask disagreement requires common-tick
+contact/action lineage; existing CSV cannot decide planned-ahead versus sensor-lag.
