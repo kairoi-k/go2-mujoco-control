@@ -1,7 +1,8 @@
 {
   "source_sha": "ceed2971ebe66ebc8283ed248c7551fe0c4f2403",
+  "additional_source_sha": "ca873a0091c12a89499362cd4c6552317c2a87eb",
   "files": {
-    "README.md": "afb1891315196d62ab62c693004f52a1ada8e90b5d46f425fc73303aba81c096",
+    "README.md": "acc7e3d224a05641dfa29bfe7a61297e1359ad641a5e60ae8f9e689c4ca0e50e",
     "analyze_pair.py": "c3b5695c35803cff7e89349d4c76ec015a935cacc2bae2ac0acb6557138982ef",
     "attempt_0001/baseline/feedback.csv": "a6cb066808d879d58fa499a3498e9cb380b758b6b6cd030db9309a06e7d52623",
     "attempt_0001/baseline/independent_plant.json": "67f1c6360b9fc7104f4fb282d3d7563d51a131c9701169475acd16a10d039b3c",
@@ -10,6 +11,17 @@
     "attempt_0001/coherent/independent_plant.json": "c6d930ccb6eb34bf088f03a49ef8d4c9e84c71f2a1c28fb622c11215e2c83d0b",
     "attempt_0001/coherent/manifest.json": "d645c0e7e21af1640c7bbc89b8b653198ba799f74ce2a77f64a2f0f90e6945e5",
     "attempt_0001/focused_tests.txt": "8a53562ddfb87e06ac80e46428a1b3449cbc856f232ae375f582440dee6de21c",
-    "attempt_0001/metrics.json": "9451449035bd5e1d88798dcba911540d03255e4deeb2dd6a5d3bcb597932f4c2"
+    "attempt_0001/metrics.json": "9451449035bd5e1d88798dcba911540d03255e4deeb2dd6a5d3bcb597932f4c2",
+    "attempt_0002/baseline/feedback.csv": "ca8c8cb17305b62e1499ee02023fe0f4a803b77c23d6d04127ee4d63f8a4a44b",
+    "attempt_0002/baseline/independent_plant.json": "386fd0353367a3e1446528757df969afc72b3ef3ba3a111964155cc9b094e153",
+    "attempt_0002/baseline/manifest.json": "62ac89d63f893c15fcf8d27cc4ad30b4475725aab1e8d87574a5c8d41c3faa0e",
+    "attempt_0002/baseline/result.json": "0f4debdcfc8d7476d962cb0adda4b52c61f615b827007b88383b3649a7f3c102",
+    "attempt_0002/coherent/feedback.csv": "3e508957b102a0ec210bd037d8b3627f53e62a5c902c3758b943882f9972ced7",
+    "attempt_0002/coherent/independent_plant.json": "d2b7a9cbff78f06880e731955130db7ec77a186f14ad408c0d5ddad1cfa82127",
+    "attempt_0002/coherent/manifest.json": "9814c72fc914c9705b4d96ebd3e0d075e9c36a87a4724f7c5e54e6bc663ea189",
+    "attempt_0002/coherent/result.json": "64944c7ca7babf51fe0f6c1ac340ca63a3109f31dbc385894ae4bd9ceb4cd479",
+    "attempt_0002/metrics.json": "67287fc66665cec600da85926476a2dc48445b91aa174a5158cdc83f77eaf944",
+    "inputs/source_0005.txt": "0d235e3abc71750029b79c0f92ddb9c4a232e675b750db24ffbad3f80ca325f2",
+    "inputs/source_0005.txt.meta.json": "e6b646c52020b86aa13dddf9d14059663f58331f58094f18a4b40167451138b2"
   }
 }

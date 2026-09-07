@@ -68,13 +68,17 @@ momentum targets agree at this source sample. No new closed-loop run occurred.
 ## Coherent acceleration reference experiment
 At ceed297, opt-in research config derives body angular acceleration from the
 same COM/Ldot and feedback-corrected foot tasks at actual q/dq. Default remains
-independent attitude PD; no runtime activation flag was added. A0.2s paired
+independent attitude PD; runtime opt-in is TROT_RESEARCH_JOINT_COHERENT_BODY=1 (exact string). A0.2s paired
 MuJoCo counterfactual at source21.018 reduces max foot error58.12->24.12mm and
 COM13.79->7.89mm, while pitch rises1.33->5.19deg. Both100-step replays complete;
 independent saved-command plant replay agrees on recorded states. Contact-mask
 mismatches remain30/25 rows. Evidence: coherent_body_acceleration_20260908.
 This is a promising task-coherence result, not full-runtime stability. It does
 not resolve strict trajectory initial conditions or absolute attitude control.
+The opposite-phase paired replay also improves foot59.11->18.36mm and
+COM10.44->5.39mm, with pitch3.06->4.50deg; contact mismatches remain32/22.
+Both complete and independently reproduce. One actual flat canary0008 is
+registered with coherent-body1, soft-orientation0 and all prior settings.
 ## Next research action
 Conditional terminal binding at b49e9e8 now resolves the full-grid foot coverage
 with observed next-event candidates under an explicit longer stationary-terrain

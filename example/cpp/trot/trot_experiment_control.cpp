@@ -222,6 +222,8 @@ bool TrotExperiment::ApplyJointExecutionTorque(
         joint_feedback_reference::ClosedLoopResearchConfig config;
         config.primary_include_orientation=
             Full2EnvDouble("TROT_RESEARCH_JOINT_SOFT_ORIENTATION",0.0)<=0.5;
+        const char *coherent=std::getenv("TROT_RESEARCH_JOINT_COHERENT_BODY");
+        config.coherent_body_acceleration=coherent && std::string(coherent)=="1";
         return config;
     }();
     go2_control::IdWbcQpSnapshot first_qp;
@@ -276,6 +278,7 @@ bool TrotExperiment::ApplyJointExecutionTorque(
         std::ostringstream dump;dump.precision(17);
         dump << "JointExecutionFirstQp state=" << now.seconds()
             << " stage=" << first_qp.stage
+            << " coherent_body=" << execution_config.coherent_body_acceleration
             << " primary_orientation=" << tick.params.primary_include_orientation
             << " w_posture=" << tick.params.w_posture
             << " solution_applied=1\n";

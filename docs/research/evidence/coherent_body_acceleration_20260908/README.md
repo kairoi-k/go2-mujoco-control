@@ -9,7 +9,7 @@ A separate COM/body-angular/foot linear system checks angular-momentum task
 compatibility in the focused test. Compatibility does not imply exact tracking
 under physical bounds: the existing WBC still has soft motion objectives.
 This is not a finished attitude controller. Absolute orientation regulation and
-initial contact-motion realization remain unresolved. There is no runtime
+initial contact-motion realization remain unresolved. At ceed297 there was no runtime
 activation flag; CLI --closed-loop-coherent enables only the short diagnostic.
 ## Registered comparison and results
 Both modes start from the exact attempt0006 STATE21.018 snapshot, on the same
@@ -45,3 +45,12 @@ existing exact-clean-runtime snapshot tool. Repeat the same0.2s baseline versus
 coherent comparison; no gain changes, no selection based on the new results.
 The shared run_replay.py accepts --coherent-body-acceleration while retaining
 its clean-source, complete input-hash and exclusive-lock protocol.
+
+Opposite-phase result (attempt_0002): both100 steps complete, no non-foot contact
+or motor saturation; baseline/coherent foot59.109/18.361mm, COM10.436/5.391mm,
+pitch3.062/4.502deg, contact mask mismatches32/22. Independent plant verification
+passes for both. The run wrapper bound all source/model/library files before
+execution and confirmed no changes. This supports one bounded actual flat
+canary, not promotion. Register joint_execution_flat_20260908_0008 with the
+prior fixed-start21s protocol, coherent-body flag1 and soft-orientation flag0;
+no other gains/thresholds change. Stop at the first useful failure.
