@@ -1,0 +1,2 @@
+id_wbc_certificate_benchmark_us p50=0.35 p95=0.351 max=29.957 sink=16
+id-wbc physical certificate checks passed.

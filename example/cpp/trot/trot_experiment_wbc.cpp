@@ -21,6 +21,7 @@
 #include "go2_contact_torque_mapping.h"
 #include "go2_inverse_kinematics.h"
 #include "inverse_dynamics_wbc.h"
+#include "id_wbc_certificate.h"
 #include "motion_frame_utils.h"
 #include "preview_footstep_horizon.h"
 #include "srbd_mpc.h"
@@ -1104,6 +1105,35 @@ void TrotExperiment::UpdateWbcFull(
             wbc_out.ok;
     }
     const go2_control::IdWbcOutput wbc_attempt = wbc_out;
+    // Read-only current-state model checks: no change to command authority.
+    const auto certificate_start = std::chrono::steady_clock::now();
+    const auto retain_certificate = [](const go2_control::IdWbcPhysicalCertificate &c) {
+        WbcPhysicalCertificateDiagnostics d;
+        d.checked = c.checked;
+        d.input_valid = c.input_valid;
+        d.valid = c.valid;
+        d.feasible = c.feasible;
+        d.failure_mask = c.failure_bitmask;
+        d.force_residual_n = c.max_dynamics_force_residual_N;
+        d.moment_residual_nm = c.max_dynamics_moment_residual_Nm;
+        d.joint_residual_nm = c.max_joint_dynamics_residual_Nm;
+        d.friction_violation_n = c.max_friction_violation_N;
+        d.normal_violation_n = c.max_normal_violation_N;
+        d.swing_violation_n = c.max_swing_force_violation_N;
+        d.torque_violation_nm = c.max_tau_violation_Nm;
+        d.stance_acc_residual_mps2 = c.hard_stance_acc_residual_mps2;
+
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            if (c.normal_defaulted_by_leg[leg]) d.assumed_flat_mask |= 1u << leg;
+        return d;
+    };
+    if (wbc_attempt.solution_finite)
+        wbc_shadow_diagnostics_.id_cert_attempt = retain_certificate(
+            go2_control::VerifyIdWbcPhysicalCertificate(id_params, wbc_in, wbc_attempt));
+    wbc_shadow_diagnostics_.id_certificate_elapsed_us =
+        std::chrono::duration<double, std::micro>(
+            std::chrono::steady_clock::now() - certificate_start).count();
+
     if (solved)
     {
         last_id_wbc_ = wbc_out;
@@ -1283,6 +1313,15 @@ void TrotExperiment::UpdateWbcFull(
             wbc_out.tau[i] = std::clamp(wbc_out.tau[i], -35.0, 35.0);
     }
 
+
+    const auto selected_certificate_start = std::chrono::steady_clock::now();
+    if (wbc_out.solution_finite)
+        wbc_shadow_diagnostics_.id_cert_selected = retain_certificate(
+            go2_control::VerifyIdWbcPhysicalCertificate(id_params, wbc_in, wbc_out));
+    wbc_shadow_diagnostics_.id_cert_selected_reused = !solved;
+    wbc_shadow_diagnostics_.id_certificate_elapsed_us +=
+        std::chrono::duration<double, std::micro>(
+            std::chrono::steady_clock::now() - selected_certificate_start).count();
     wbc_shadow_diagnostics_.solver_ok = true;
     if (terrain_plan_active)
     {

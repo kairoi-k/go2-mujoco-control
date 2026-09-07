@@ -251,6 +251,24 @@ struct CycleDiagnostics
     std::array<bool, go2::kLegCount> support_reference_valid{};
 };
 
+// Current-model physical diagnostics only; not a final plant-command gate.
+struct WbcPhysicalCertificateDiagnostics
+{
+    bool checked = false;
+    bool input_valid = false;
+    bool valid = false;
+    bool feasible = false;
+    unsigned int failure_mask = 0;
+    unsigned int assumed_flat_mask = 0;
+    double force_residual_n = 0.0;
+    double moment_residual_nm = 0.0;
+    double joint_residual_nm = 0.0;
+    double friction_violation_n = 0.0;
+    double normal_violation_n = 0.0;
+    double swing_violation_n = 0.0;
+    double torque_violation_nm = 0.0;
+    double stance_acc_residual_mps2 = 0.0;
+};
 struct WbcShadowDiagnostics
 {
     bool enabled = false;
@@ -352,6 +370,10 @@ struct WbcShadowDiagnostics
     double id_attempt_eq_residual = 0.0;
     double id_attempt_max_tau_violation_nm = 0.0;
     double id_attempt_max_abs_tau_nm = 0.0;
+    WbcPhysicalCertificateDiagnostics id_cert_attempt{};
+    WbcPhysicalCertificateDiagnostics id_cert_selected{};
+    bool id_cert_selected_reused = false;
+    double id_certificate_elapsed_us = 0.0;
     int feedforward_gate_code =
         static_cast<int>(go2_control::WbcFeedforwardGateCode::kDisabled);
     bool feedforward_ready = false;

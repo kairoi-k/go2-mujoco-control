@@ -14,12 +14,13 @@ the only velocity authority, and one immutable terrain snapshot shared by gait,
 SRBD-MPC, and ID-WBC. Keep planned and measured contact separate. Do not add a
 consumer-local state machine, contact policy, or recovery authority.
 
-The active target is the early Stage C architecture defined in `CURRENT.md`:
-estimated terrain/contact belief, joint receding-horizon planning, and one
-atomic `TerrainExecutionState`, all shadowed before actuation. Keep the current
-per-leg scorer only as a candidate generator or fallback. Do not restore or
-copy archived Stage-C implementations, and do not optimize the Stage B scorer
-as the final planner.
+The active architecture route is owned by CURRENT.md and the versioned
+LOCOMOTION_ARCHITECTURE_V1 decision. Reuse the existing Stage-C contracts where
+they fit, but do not force every future control backend to produce foothold
+plans. Current model-based migration targets event-indexed joint body/foothold/
+force planning and one atomic execution owner. Keep the current per-leg scorer
+only as candidate generation or a named reference, not the final architecture.
+New command authority requires independent validation and shadow evidence first.
 
 For timed simulations hold `/tmp/go2_mujoco_experiment.lock`. One hypothesis,
 one clean commit, focused tests, B0 development regression, then one B1 canary.

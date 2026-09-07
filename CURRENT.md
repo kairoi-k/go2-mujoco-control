@@ -1,12 +1,16 @@
 # Go2 current research checkpoint
 Updated: 2026-09-07. This is the live route/status/handoff entrypoint.
 ## Current scope and conclusion
-The user authorized moving the supplied architecture audit's analytic witnesses
-into real implementation tests, then a bounded correction and closed-loop
-comparison. The first single-variable experiment (F02 swing acceleration bias)
-is complete. Do not describe a math fix as solving B1 or silently tune gains
-against this result. The user retains research-route autonomy; preserve old
-baselines and version any subsequent acceptance change.
+The user authorized the shared-contract architecture migration and delegated
+implementation choices to the lead agent. The active route is
+[Locomotion architecture V1](docs/research/LOCOMOTION_ARCHITECTURE_V1.md):
+independent proposal/actuator validation, shared geometry/frame/time semantics,
+event-indexed body/foothold/force planning, and replaceable control backends.
+First slice: a read-only current-model WBC physical certificate with independent
+tests and separate raw/selected proposal telemetry. It must not change command
+selection or claim final actuator feasibility. The F02 baseline stays intact.
+Luna implements bounded subtasks; the lead owns scientific decisions and review.
+
 B1 remains NOT_CERTIFIED. The corrected model is a mathematical correctness
 baseline, not a validated locomotion release. No fresh full B0 or holdout
 campaign was run. The next evidence-driven work is the executable future

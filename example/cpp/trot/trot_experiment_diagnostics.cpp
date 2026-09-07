@@ -161,6 +161,35 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_full_id_attempt_eq_residual"
          << ",wbc_full_id_attempt_max_tau_violation_nm"
          << ",wbc_full_id_attempt_max_abs_tau_nm"
+         << ",wbc_full_cert_attempt_checked"
+         << ",wbc_full_cert_attempt_input_valid"
+         << ",wbc_full_cert_attempt_valid"
+         << ",wbc_full_cert_attempt_feasible"
+         << ",wbc_full_cert_attempt_failure_mask"
+         << ",wbc_full_cert_attempt_assumed_flat_mask"
+         << ",wbc_full_cert_attempt_force_residual_n"
+         << ",wbc_full_cert_attempt_moment_residual_nm"
+         << ",wbc_full_cert_attempt_joint_residual_nm"
+         << ",wbc_full_cert_attempt_friction_violation_n"
+         << ",wbc_full_cert_attempt_normal_violation_n"
+         << ",wbc_full_cert_attempt_swing_violation_n"
+         << ",wbc_full_cert_attempt_torque_violation_nm"
+         << ",wbc_full_cert_attempt_stance_acc_residual_mps2"
+         << ",wbc_full_cert_selected_checked"
+         << ",wbc_full_cert_selected_input_valid"
+         << ",wbc_full_cert_selected_valid"
+         << ",wbc_full_cert_selected_feasible"
+         << ",wbc_full_cert_selected_failure_mask"
+         << ",wbc_full_cert_selected_assumed_flat_mask"
+         << ",wbc_full_cert_selected_force_residual_n"
+         << ",wbc_full_cert_selected_moment_residual_nm"
+         << ",wbc_full_cert_selected_joint_residual_nm"
+         << ",wbc_full_cert_selected_friction_violation_n"
+         << ",wbc_full_cert_selected_normal_violation_n"
+         << ",wbc_full_cert_selected_swing_violation_n"
+         << ",wbc_full_cert_selected_torque_violation_nm"
+         << ",wbc_full_cert_selected_stance_acc_residual_mps2"
+         << ",wbc_full_cert_selected_reused,wbc_full_certificate_elapsed_us"
          << ",wbc_full_velocity_target_x_mps,wbc_full_requested_acc_x_mps2"
          << ",wbc_full_srbd_acc_x_mps2,wbc_full_id_qdd_x_mps2"
          << ",wbc_full_id_contact_force_x_n";
@@ -1033,6 +1062,36 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.id_attempt_eq_residual
          << "," << wbc_shadow_diagnostics_.id_attempt_max_tau_violation_nm
          << "," << wbc_shadow_diagnostics_.id_attempt_max_abs_tau_nm
+         << "," << (wbc_shadow_diagnostics_.id_cert_attempt.checked ? 1 : 0)
+         << "," << (wbc_shadow_diagnostics_.id_cert_attempt.input_valid ? 1 : 0)
+         << "," << (wbc_shadow_diagnostics_.id_cert_attempt.valid ? 1 : 0)
+         << "," << (wbc_shadow_diagnostics_.id_cert_attempt.feasible ? 1 : 0)
+         << "," << wbc_shadow_diagnostics_.id_cert_attempt.failure_mask
+         << "," << wbc_shadow_diagnostics_.id_cert_attempt.assumed_flat_mask
+         << "," << wbc_shadow_diagnostics_.id_cert_attempt.force_residual_n
+         << "," << wbc_shadow_diagnostics_.id_cert_attempt.moment_residual_nm
+         << "," << wbc_shadow_diagnostics_.id_cert_attempt.joint_residual_nm
+         << "," << wbc_shadow_diagnostics_.id_cert_attempt.friction_violation_n
+         << "," << wbc_shadow_diagnostics_.id_cert_attempt.normal_violation_n
+         << "," << wbc_shadow_diagnostics_.id_cert_attempt.swing_violation_n
+         << "," << wbc_shadow_diagnostics_.id_cert_attempt.torque_violation_nm
+         << "," << wbc_shadow_diagnostics_.id_cert_attempt.stance_acc_residual_mps2
+         << "," << (wbc_shadow_diagnostics_.id_cert_selected.checked ? 1 : 0)
+         << "," << (wbc_shadow_diagnostics_.id_cert_selected.input_valid ? 1 : 0)
+         << "," << (wbc_shadow_diagnostics_.id_cert_selected.valid ? 1 : 0)
+         << "," << (wbc_shadow_diagnostics_.id_cert_selected.feasible ? 1 : 0)
+         << "," << wbc_shadow_diagnostics_.id_cert_selected.failure_mask
+         << "," << wbc_shadow_diagnostics_.id_cert_selected.assumed_flat_mask
+         << "," << wbc_shadow_diagnostics_.id_cert_selected.force_residual_n
+         << "," << wbc_shadow_diagnostics_.id_cert_selected.moment_residual_nm
+         << "," << wbc_shadow_diagnostics_.id_cert_selected.joint_residual_nm
+         << "," << wbc_shadow_diagnostics_.id_cert_selected.friction_violation_n
+         << "," << wbc_shadow_diagnostics_.id_cert_selected.normal_violation_n
+         << "," << wbc_shadow_diagnostics_.id_cert_selected.swing_violation_n
+         << "," << wbc_shadow_diagnostics_.id_cert_selected.torque_violation_nm
+         << "," << wbc_shadow_diagnostics_.id_cert_selected.stance_acc_residual_mps2
+         << "," << (wbc_shadow_diagnostics_.id_cert_selected_reused ? 1 : 0)
+         << "," << wbc_shadow_diagnostics_.id_certificate_elapsed_us
          << "," << wbc_shadow_diagnostics_.full_velocity_target_x_mps
          << "," << wbc_shadow_diagnostics_.full_requested_acc_x_mps2
          << "," << wbc_shadow_diagnostics_.full_srbd_acc_x_mps2

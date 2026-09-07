@@ -1,0 +1,26 @@
+{
+  "schema": "f02-actuator-reference-v1",
+  "runtime_sha": "7a8ffc6b9269490d7e46c3adfbd2e13ed8609dc6",
+  "raw_sha256": "72d1bf2210d1e9b4483dffc192ae5545296d8a296cf53d59b185114240f64f63",
+  "interpretation": "Actual joint actuator force versus 35 Nm WBC feedforward bound; NOT a physical motor-limit violation claim.",
+  "intervals": {
+    "approach": {
+      "inclusive_time_s": [
+        22.416,
+        23.216
+      ],
+      "rows": 401,
+      "max_abs_actuator_joint_torque_Nm": 26.8581250923,
+      "rows_any_joint_above_35_05_Nm": 0
+    },
+    "interaction": {
+      "inclusive_time_s": [
+        23.216,
+        24.468
+      ],
+      "rows": 627,
+      "max_abs_actuator_joint_torque_Nm": 45.43,
+      "rows_any_joint_above_35_05_Nm": 31
+    }
+  }
+}

@@ -231,6 +231,12 @@ if(EXISTS "${_go2_mujoco_lib}")
         test_inverse_dynamics_wbc PROPERTIES
         BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
     go2_add_ctest(test_inverse_dynamics_wbc)
+    add_executable(test_id_wbc_certificate tests/test_id_wbc_certificate.cpp)
+    target_include_directories(test_id_wbc_certificate PRIVATE "${_go2_mujoco_inc}")
+    target_link_libraries(test_id_wbc_certificate "${_go2_mujoco_lib}" Eigen3::Eigen)
+    set_target_properties(test_id_wbc_certificate PROPERTIES
+        BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
+    go2_add_ctest(test_id_wbc_certificate)
 endif()
 
 add_executable(test_srbd_mpc tests/test_srbd_mpc.cpp)

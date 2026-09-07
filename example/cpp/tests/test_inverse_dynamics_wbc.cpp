@@ -3,6 +3,7 @@
 
 #include "go2_rigid_body.h"
 #include "inverse_dynamics_wbc.h"
+#include "id_wbc_certificate.h"
 #include "srbd_mpc.h"
 
 #ifndef GO2_MODEL_PATH
@@ -67,6 +68,22 @@ int main()
     passed &= Check(out.cost_terms.force_regularization >= 0.0,
                     "ID-WBC force cost is negative");
 
+    // The independent certificate checks an actual MuJoCo-backed solution,
+    // disregards convergence flags, and detects tampering of an accepted tau.
+    auto certificate_proposal = out;
+    certificate_proposal.qp_converged = false;
+    const auto stand_certificate = go2_control::VerifyIdWbcPhysicalCertificate(
+        {}, input, certificate_proposal);
+    passed &= Check(stand_certificate.valid && stand_certificate.feasible,
+                    "physical stand certificate must not depend on convergence flag");
+    certificate_proposal.tau[0] += 1.0;
+    certificate_proposal.ok = true;
+    certificate_proposal.qp_converged = true;
+    const auto tampered_certificate = go2_control::VerifyIdWbcPhysicalCertificate(
+        {}, input, certificate_proposal);
+    passed &= Check(!tampered_certificate.feasible &&
+                    tampered_certificate.max_joint_dynamics_residual_Nm > 0.99,
+                    "accepted output flags cannot certify a tampered joint torque");
     // A terrain hold must keep every selected contact physically loadable,
     // rather than allowing the solver to satisfy the base equations with a
     // near-zero held-foot force.
