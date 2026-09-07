@@ -258,3 +258,12 @@ are30.533/31.196mm forward with terminal velocity zero. Cubic initial ax
 replays recorded source, not physical feasibility. Next include actual-state
 remaining-swing articulated reachability in candidate evaluation and preserve
 initial commitments; no arbitrary clipping/retiming or further gain sweep.
+
+## Initial target physical constraint proven
+Shared VerifyArticulatedAccelerationTarget composes existing lift and full-model
+certificate.0012 initial reference requires312.044Nm vs35Nm, with277.044Nm
+violation, rank18 and well-resolved kinematics. Ballistic, excessive-aerial and
+unknown-input focused fixtures pass. Evidence initial_target_certificate.json.
+This checker is used in replay audit, not yet runtime selection. Next integrate
+actual-state target verification into combination evaluation and jointly alter
+body/limb references; rejection alone cannot create a successful B1 candidate.
