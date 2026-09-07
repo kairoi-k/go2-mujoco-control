@@ -302,11 +302,12 @@ void PrintAudit(const go2_control::RigidBodyState &initial, double source_time_s
 int main(int argc,char**argv){try {
  const bool roundtrip=argc==3 && std::string(argv[2])=="--roundtrip";
  const bool terminal_audit=argc==5 && std::string(argv[2])=="--articulated-tail-audit";
+ const bool swing_audit=argc==3 && std::string(argv[2])=="--swing-audit";
  const bool articulated_audit=argc==3 && std::string(argv[2])=="--articulated-audit";
  const bool attitude_loop=argc==5 && std::string(argv[2])=="--closed-loop-coherent-attitude";
  const bool coherent_loop=attitude_loop || (argc==5 && std::string(argv[2])=="--closed-loop-coherent");
  const bool closed_loop=argc==5 && (std::string(argv[2])=="--closed-loop" || coherent_loop);
- if(argc!=2 && !roundtrip && !articulated_audit && !closed_loop && !terminal_audit)throw std::runtime_error("usage: replay_joint_shadow_snapshot EXTRACTED_SNAPSHOT [--roundtrip | --articulated-audit | --articulated-tail-audit PREDICTION_END_S CHOICES_CSV | --closed-loop SCENE NEW_OUTPUT_CSV]");
+ if(argc!=2 && !roundtrip && !articulated_audit && !swing_audit && !closed_loop && !terminal_audit)throw std::runtime_error("usage: replay_joint_shadow_snapshot EXTRACTED_SNAPSHOT [--roundtrip | --articulated-audit | --articulated-tail-audit PREDICTION_END_S CHOICES_CSV | --closed-loop SCENE NEW_OUTPUT_CSV]");
  Reader r(argv[1]);const auto schema=r.word();const bool has_history=schema=="joint-shadow-snapshot-v2";
  if(schema!="joint-shadow-snapshot-v1" && !has_history)throw std::runtime_error("unsupported snapshot");
  const auto id=r.integer();const auto pattern=r.integer();if(pattern>static_cast<unsigned>(go2_control::GaitPattern::kRunningTrot))throw std::runtime_error("invalid pattern");
@@ -340,6 +341,23 @@ int main(int argc,char**argv){try {
  if(roundtrip){std::cout<<go2_trot::JointShadowSnapshotJson(state,input,id,static_cast<int>(pattern),has_history?&history:nullptr)<<"\n";return 0;}
  go2_trot::JointPlanningShadow shadow;if(!shadow.Load(GO2_MODEL_PATH))throw std::runtime_error("model load");
  shadow.Capture(state,input,id,static_cast<go2_control::GaitPattern>(pattern),has_history?&history:nullptr);
+ if(swing_audit) {
+  using namespace go2_terrain::stage_c;
+  std::string failure;auto proposal=shadow.BuildExecutionProposal(failure);
+  if(!proposal)throw std::runtime_error(failure);
+  foot_trajectory_detail::PreparedTrajectory prepared;
+  auto status=foot_trajectory_detail::Prepare(proposal->foot_request,prepared);
+  if(status!=JointPlannerFailure::kNone)throw std::runtime_error(JointPlannerFailureName(status));
+  std::cout.precision(17);
+  for(const auto &event:prepared.events) {
+   if(!event.starts_in_flight)continue;
+   const double dt=(event.touchdown.value-event.interpolation_start.value)*1e-9;
+   const Eigen::Vector3d a0=6.0*(event.p1-event.p0)/(dt*dt)-4.0*event.v0/dt;
+   std::cout<<"SwingAudit leg="<<event.leg<<" source="<<input.state_stamp_s<<" start="<<event.interpolation_start.seconds()<<" touchdown="<<event.touchdown.seconds()<<" remaining_s="<<dt
+    <<" p0="<<event.p0.transpose()<<" v0="<<event.v0.transpose()<<" p1="<<event.p1.transpose()<<" hermite_a0="<<a0.transpose()<<"\n";
+  }
+  return 0;
+ }
  if(articulated_audit || terminal_audit){
   using namespace go2_terrain::stage_c;
   std::string proposal_failure;
