@@ -44,7 +44,7 @@ def validate_seed(seed,source,t0,period):
    values=np.asarray(seed[name],float)
    if values.shape!=(len(ts),width) or not np.all(np.isfinite(values)):raise ValueError('invalid seed '+name)
 class CycleProblem:
- def __init__(self,source,seed,scene,cycles=1,block_steps=2,force_scale=10.,force_target=170.):
+ def __init__(self,source,seed,scene,cycles=1,block_steps=2,force_scale=10.):
   self.m=mujoco.MjModel.from_xml_path(str(scene));m=self.m
   if m.na or m.nu!=12 or m.nv!=18 or abs(m.opt.timestep-.002)>1e-12:raise ValueError('unsupported model')
   t=pathlib.Path(source).read_text().split()
@@ -57,7 +57,7 @@ class CycleProblem:
   self.state_spec=int(mujoco.mjtState.mjSTATE_INTEGRATION);self.initial_state=np.empty(mujoco.mj_stateSize(m,self.state_spec));mujoco.mj_getState(m,d,self.initial_state,self.state_spec)
   self.steps=int(round(cycles*self.period/m.opt.timestep));self.bs=block_steps
   if self.steps%block_steps:raise ValueError('horizon does not divide control blocks')
-  self.blocks=self.steps//block_steps;self.force_scale=force_scale;self.force_target=force_target
+  self.blocks=self.steps//block_steps;self.force_scale=force_scale
   old=json.loads(pathlib.Path(seed).read_text());validate_seed(old,source,self.t0,self.period);times=np.array(old['times']);gt=np.array(old['gt_times']);qs=np.array(old['joint_q']);vs=np.array(old['joint_v']);base=np.array(old['base_state']);taus=np.array(old['torque'])
   def interp(t,ts,a):return np.array([np.interp(t,ts,a[:,i]) for i in range(a.shape[1])])
   qstart=interp(self.t0-self.period,times,qs);vstart=interp(self.t0-self.period,times,vs);zstart=interp(self.t0-self.period,gt,base)[2]
@@ -78,7 +78,7 @@ class CycleProblem:
   self.cache_x=None;self.cache_r=None;self.cache_j=None;self.calls=0;self.jcalls=0;self.history=[];self.best=(float('inf'),self.u0.ravel().copy());self.started=time.perf_counter()
  def local(self,d,k):
   m=self.m;delta=np.zeros(m.nv);mujoco.mj_differentiatePos(m,delta,1,self.refs[k].qpos,d.qpos)
-  r=[delta/self.qscale,(d.qvel-self.refs[k].qvel)/self.vscale,(d.geom_xpos[self.gids]-self.feet[k]).ravel()/.025,np.maximum(forces(m,d,self.gids)-self.force_target,0)/self.force_scale,np.maximum(abs(d.qvel[self.va])-30,0)/.5]
+  r=[delta/self.qscale,(d.qvel-self.refs[k].qvel)/self.vscale,(d.geom_xpos[self.gids]-self.feet[k]).ravel()/.025,np.maximum(forces(m,d,self.gids)-180,0)/self.force_scale,np.maximum(abs(d.qvel[self.va])-30,0)/.5]
   ids=m.actuator_trnid[:,0];q=d.qpos[self.qa];r.extend([np.maximum(m.jnt_range[ids,0]-q,0)/.02,np.maximum(q-m.jnt_range[ids,1],0)/.02])
   if k==self.steps-1:r.extend([delta/np.r_[[.01]*3,[.025]*3,[.075]*12],(d.qvel-self.refs[k].qvel)/np.r_[[.075]*3,[.15]*3,[1.5]*12]])
   return np.concatenate(r)
@@ -96,7 +96,7 @@ class CycleProblem:
       v=np.zeros(m.nv);v[col]=1;mujoco.mj_integratePos(m,plus.qpos,v,eps);mujoco.mj_integratePos(m,minus.qpos,v,-eps)
      else:plus.qvel[col-m.nv]+=eps;minus.qvel[col-m.nv]-=eps
      mujoco.mj_forward(m,plus);mujoco.mj_forward(m,minus);D[:,col]=(self.local(plus,k)-self.local(minus,k))/(2*eps)
-    if np.any(forces(m,d,self.gids)>self.force_target):
+    if np.any(forces(m,d,self.gids)>180):
      for col in range(m.nu):
       plus=copy.copy(d);minus=copy.copy(d);plus.ctrl[col]+=eps;minus.ctrl[col]-=eps;mujoco.mj_forward(m,plus);mujoco.mj_forward(m,minus);U[:,col]=(self.local(plus,k)-self.local(minus,k))/(2*eps)
     J=D@S[k];J[:,(k//self.bs)*12:(k//self.bs+1)*12]+=U;jacs.append(J)
@@ -112,9 +112,9 @@ class CycleProblem:
   self.cache_x=x.copy();self.cache_r=r;self.cache_j=J
   return J if jac else r
 def main():
- p=argparse.ArgumentParser();p.add_argument('--source',required=True);p.add_argument('--seed',required=True);p.add_argument('--scene',required=True);p.add_argument('--out',required=True);p.add_argument('--warm-start');p.add_argument('--cycles',type=int,default=1);p.add_argument('--block-steps',type=int,default=2);p.add_argument('--max-nfev',type=int,default=35);p.add_argument('--force-scale',type=float,default=10);p.add_argument('--force-target-n',type=float,default=170);p.add_argument('--jac',choices=['chain','finite'],default='chain');p.add_argument('--check-jac',action='store_true');p.add_argument('--wall-budget-s',type=float,default=240);a=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('--source',required=True);p.add_argument('--seed',required=True);p.add_argument('--scene',required=True);p.add_argument('--out',required=True);p.add_argument('--warm-start');p.add_argument('--cycles',type=int,default=1);p.add_argument('--block-steps',type=int,default=2);p.add_argument('--max-nfev',type=int,default=35);p.add_argument('--force-scale',type=float,default=10);p.add_argument('--jac',choices=['chain','finite'],default='chain');p.add_argument('--check-jac',action='store_true');p.add_argument('--wall-budget-s',type=float,default=240);a=p.parse_args()
  with open('/tmp/go2_mujoco_experiment.lock','a') as lock:
-  fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);pb=CycleProblem(a.source,a.seed,a.scene,a.cycles,a.block_steps,a.force_scale,a.force_target_n);x=pb.u0.ravel()
+  fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);pb=CycleProblem(a.source,a.seed,a.scene,a.cycles,a.block_steps,a.force_scale);x=pb.u0.ravel()
   if a.warm_start:
    w=json.loads(pathlib.Path(a.warm_start).read_text());ctrl=np.array(w.get('controls',[r['torque'] for r in w.get('rows',[])]));n=min(len(ctrl)//pb.bs,pb.blocks);x[:n*12]=ctrl[:n*pb.bs].reshape(n,pb.bs,12).mean(axis=1).ravel();x=np.clip(x,-34.999999,34.999999)
   started=time.perf_counter();checks=[]
@@ -138,7 +138,7 @@ def main():
   elapsed=time.perf_counter()-started;u=pb.best[1].reshape(pb.blocks,12);ds,_=rollout(pb.m,pb.initial,u,pb.bs,False)
   files=dependencies(a.scene)|{pathlib.Path(f).resolve() for f in [a.source,a.seed,__file__,pathlib.Path(__file__).with_name('whole_body_shooting_derivatives.py')]}
   if a.warm_start:files.add(pathlib.Path(a.warm_start).resolve())
-  report={'schema':'whole-body-shooting-v1','scope':'privileged initialized full-model offline trajectory; not live controller or B1','source_sha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'scene':str(pathlib.Path(a.scene).resolve()),'mujoco_version':mujoco.__version__,'input_hashes':{str(f):hashlib.sha256(f.read_bytes()).hexdigest() for f in sorted(files)},'integration_state_spec':pb.state_spec,'initial_integration_state':pb.initial_state.tolist(),'initialization':'source q/dq unchanged except unit quaternion normalization; omitted integration memory uses model defaults, not original full simulator state','times_are_absolute':True,'timestep_s':float(pb.m.opt.timestep),'period_s':pb.period,'initial_phase':pb.phase,'duty':pb.duty,'leg_offsets':[0,.46,.46,0],'command_vx':pb.vcmd,'constraints':{'torque_limit_nm':35,'joint_speed_limit_radps':30,'normal_force_limit_n':180,'roll_pitch_limit_rad':float(np.pi/12),'min_base_height_m':.28},'terminal_reference':{'qpos':pb.refs[-1].qpos.tolist(),'qvel':pb.refs[-1].qvel.tolist()},'controls':np.repeat(u,pb.bs,axis=0).tolist(),'rows':[{'time':float(d.time),'qpos':d.qpos.tolist(),'qvel':d.qvel.tolist(),'normal_forces':forces(pb.m,d,pb.gids).tolist(),'torque':d.qfrc_actuator[pb.va].tolist()} for d in ds],'solver':{'method':'scipy least_squares bounded full MuJoCo shooting','jacobian':effective_jac,'requested_jacobian':a.jac,'wall_budget_s':a.wall_budget_s,'block_steps':pb.bs,'force_penalty_scale':a.force_scale,'force_objective_target_n':a.force_target_n,'success':fit_success,'message':fit_message,'nfev':fit_nfev,'calls':pb.calls,'jac_calls':pb.jcalls,'elapsed_s':elapsed,'cost':pb.best[0],'history':pb.history,'derivative_checks':checks}}
+  report={'schema':'whole-body-shooting-v1','scope':'privileged initialized full-model offline trajectory; not live controller or B1','source_sha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'scene':str(pathlib.Path(a.scene).resolve()),'mujoco_version':mujoco.__version__,'input_hashes':{str(f):hashlib.sha256(f.read_bytes()).hexdigest() for f in sorted(files)},'integration_state_spec':pb.state_spec,'initial_integration_state':pb.initial_state.tolist(),'initialization':'source q/dq unchanged except unit quaternion normalization; omitted integration memory uses model defaults, not original full simulator state','times_are_absolute':True,'timestep_s':float(pb.m.opt.timestep),'period_s':pb.period,'initial_phase':pb.phase,'duty':pb.duty,'leg_offsets':[0,.46,.46,0],'command_vx':pb.vcmd,'constraints':{'torque_limit_nm':35,'joint_speed_limit_radps':30,'normal_force_limit_n':180,'roll_pitch_limit_rad':float(np.pi/12),'min_base_height_m':.28},'terminal_reference':{'qpos':pb.refs[-1].qpos.tolist(),'qvel':pb.refs[-1].qvel.tolist()},'controls':np.repeat(u,pb.bs,axis=0).tolist(),'rows':[{'time':float(d.time),'qpos':d.qpos.tolist(),'qvel':d.qvel.tolist(),'normal_forces':forces(pb.m,d,pb.gids).tolist(),'torque':d.qfrc_actuator[pb.va].tolist()} for d in ds],'solver':{'method':'scipy least_squares bounded full MuJoCo shooting','jacobian':effective_jac,'requested_jacobian':a.jac,'wall_budget_s':a.wall_budget_s,'block_steps':pb.bs,'force_penalty_scale':a.force_scale,'success':fit_success,'message':fit_message,'nfev':fit_nfev,'calls':pb.calls,'jac_calls':pb.jcalls,'elapsed_s':elapsed,'cost':pb.best[0],'history':pb.history,'derivative_checks':checks}}
   with open(a.out,'x') as f:json.dump(report,f,indent=2);f.write('\n')
   print(json.dumps({'out':a.out,'solver':{k:v for k,v in report['solver'].items() if k!='history'},'peak_force':max(max(r['normal_forces']) for r in report['rows']),'end_omega':report['rows'][-1]['qvel'][3:6]},indent=2))
 if __name__=='__main__':main()

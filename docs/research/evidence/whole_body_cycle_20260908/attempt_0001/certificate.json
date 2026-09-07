@@ -1,0 +1,163 @@
+{
+  "schema": "whole-body-shooting-certificate-v1",
+  "scope": "checked saved-state simulation diagnostic; not B1 or closed-loop acceptance",
+  "diagnostic_success": false,
+  "checks": {
+    "state_reproduction": true,
+    "time_reproduction": true,
+    "force_reproduction": true,
+    "torque_reproduction": true,
+    "dynamics_balance": false,
+    "friction_cone": true,
+    "unilateral": true,
+    "torque_bound": true,
+    "normal_force_bound": false,
+    "joint_speed_bound": true,
+    "joint_position_bound": true,
+    "attitude_bound": true,
+    "base_height_bound": true,
+    "no_nonfoot_contact_force": true,
+    "full_period": true,
+    "terminal_body_position": true,
+    "terminal_orientation": true,
+    "terminal_base_velocity": true,
+    "terminal_body_omega": true,
+    "terminal_joint_position": true,
+    "terminal_joint_velocity": true
+  },
+  "maxima": {
+    "state_error": 0.0,
+    "time_error": 7.760458942129844e-14,
+    "force_error": 0.0,
+    "row_torque_error": 0.0,
+    "applied_torque_error": 0.0,
+    "dynamics_residual": 3.583742369528409e-07,
+    "normal_force_n": 180.5879118954955,
+    "friction_cone_violation_n": 0.0,
+    "unilateral_violation_n": 0.0,
+    "torque_nm": 28.25336909273605,
+    "joint_speed_radps": 11.955476272403745,
+    "joint_position_violation_rad": 0.0,
+    "roll_rad": 0.007042816894533412,
+    "pitch_rad": 0.002386858713189806,
+    "nonfoot_force_n": 0.0
+  },
+  "minimum_base_height_m": 0.3675317219858157,
+  "foot_center_height_min_m": [
+    0.016777883669824828,
+    0.018212993082440426,
+    0.017603478899429564,
+    0.014514080138722518
+  ],
+  "foot_center_height_max_m": [
+    0.05067304331736705,
+    0.05319362329132263,
+    0.0548199529057844,
+    0.04941991646873209
+  ],
+  "terminal_errors": {
+    "body_position_m": 0.0010451159544019647,
+    "orientation_rad": 0.002196663327037266,
+    "base_velocity_mps": 0.012405326827450838,
+    "body_omega_radps": 0.026747072468443888,
+    "joint_position_rad": 0.013244396040143602,
+    "joint_velocity_radps": 0.1383052682871977
+  },
+  "steps": 70,
+  "periods_covered": 1.0,
+  "nonfoot_contact_samples": 0,
+  "contact_mask_mismatch_samples": 18,
+  "actual_contact_samples_per_leg": [
+    40,
+    34,
+    34,
+    41
+  ],
+  "contact_force_presence_threshold_n": 1e-06,
+  "contact_episodes": [
+    {
+      "first_time": 21.022,
+      "last_time": 21.023999999999997,
+      "samples": 2,
+      "actual_mask": 9,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.025999999999996,
+      "last_time": 21.025999999999996,
+      "samples": 1,
+      "actual_mask": 0,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.027999999999995,
+      "last_time": 21.031999999999993,
+      "samples": 3,
+      "actual_mask": 0,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.033999999999992,
+      "last_time": 21.081999999999965,
+      "samples": 25,
+      "actual_mask": 6,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.083999999999964,
+      "last_time": 21.083999999999964,
+      "samples": 1,
+      "actual_mask": 14,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.085999999999963,
+      "last_time": 21.087999999999962,
+      "samples": 2,
+      "actual_mask": 15,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.08999999999996,
+      "last_time": 21.08999999999996,
+      "samples": 1,
+      "actual_mask": 15,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.09199999999996,
+      "last_time": 21.099999999999955,
+      "samples": 5,
+      "actual_mask": 15,
+      "planned_mask": 9
+    },
+    {
+      "first_time": 21.101999999999954,
+      "last_time": 21.151999999999926,
+      "samples": 26,
+      "actual_mask": 9,
+      "planned_mask": 9
+    },
+    {
+      "first_time": 21.153999999999925,
+      "last_time": 21.159999999999922,
+      "samples": 4,
+      "actual_mask": 9,
+      "planned_mask": 0
+    }
+  ],
+  "source_sha": "6356c21c9474f58156065044a7fd1c2f82c61008",
+  "mujoco_version": "3.3.6",
+  "xml_dependencies_checked": 2,
+  "input_hash_count": 22,
+  "result_sha256": "e504a3c1714afc3dc6b78af246a8e8526812cd2b04e9c5f1190af4b7980fa7e1",
+  "numerical_tolerances": {
+    "state": 1e-09,
+    "time": 1e-12,
+    "force": 1e-07,
+    "dynamics": 1e-07,
+    "friction": 1e-06
+  },
+  "external_cartesian_force_handling": "mj_applyFT at body COM, world force/torque",
+  "contact_provenance": "poststep collision-force truth; planned mask is reported separately"
+}

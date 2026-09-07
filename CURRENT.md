@@ -1,5 +1,12 @@
 # Go2 current research checkpoint
 Updated: 2026-09-08. This is the only live route/status/handoff entrypoint.
+
+**Latest handoff:** [SESSION_HANDOFF_20260908.md](docs/research/SESSION_HANDOFF_20260908.md).
+User requested clean checkpoint and new-session handoff. Full-cycle source6356c21
+ran; V1 fails180.588N force and3.584e-7 absolute dynamics residual, despite exact
+replay and small terminal error. New170N objective and periodic TVLQR are UNRUN
+drafts. No live controller/B1 result. Read handoff before older chronological notes.
+
 ## Objective and acceptance
 Continue toward a long-term extensible locomotion architecture with genuine
 joint body/foothold/contact-force planning and coherent execution. Establish
