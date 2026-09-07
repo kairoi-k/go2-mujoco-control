@@ -320,3 +320,14 @@ identity pass. Read-only --articulated-phase-audit is available; no controller
 runtime switch wired.0012 initial torque310.601Nm still fails35Nm. Evidence
 phase_preserving_clearance_20260908. Include this corrected shape in subsequent
 joint body/landing-target/velocity optimization; it does not itself fix B1.
+
+## Full-cycle whole-body shooting challenger registered
+The user resumed focused attack and permits Astra low independent assistance.
+WHOLE_BODY_SHOOTING_V1.md registers one complete0.14s actual-model torque
+trajectory diagnostic, initialized from0012 with privileged prior-cycle seed.
+Body, legs and contact transition evolve through the same MuJoCo model; no
+controller change. Independent saved-integration-state verification is required.
+Latest20ms offline shooting costs0.880s and reaches189.448N>180N, so it is neither
+real-time nor force-feasible admission. Short results are preserved in the
+initial_joint_foothold_oracle packet. New results belong to whole_body_cycle_20260908.
+B1 remains NOT_CERTIFIED; do not promote objective penalties as hard feasibility.

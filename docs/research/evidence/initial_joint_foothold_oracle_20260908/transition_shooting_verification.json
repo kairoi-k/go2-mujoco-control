@@ -1,0 +1,9 @@
+{
+  "state_residual": 0.0,
+  "clock_residual": 0.0,
+  "torque_residual": 0.0,
+  "steps": 10,
+  "result_sha256": "68765f995571aca9080e659ff3cae372580e093456e721cc483a04d9e96a7768",
+  "max_recorded_normal_force_N": 189.44825708860154,
+  "scope": "full-state saved-control reproduction; not acceptance"
+}

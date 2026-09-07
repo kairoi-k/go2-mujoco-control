@@ -6,22 +6,32 @@
     "crosscheck_model_bias.json",
     "landing_velocity_result.json",
     "transition_probe_result.json",
-    "actual_source_contact.json"
+    "actual_source_contact.json",
+    "phase_landing_velocity_result.json",
+    "phase_transition_probe_result.json",
+    "transition_shooting_result.json",
+    "transition_shooting_verification.json"
   ],
   "files": {
-    "README.md": "49f554f61ced32b4f9f51eee5a476b755dfbc452e94cf93642f241881e92ae01",
+    "README.md": "fe77c0262546fea3a676550186a491f50af9f3c1074b6ed198f15d6331f0f9f0",
     "actual_source_contact.json": "7bf5ec0a9a39298cffb68990ca417043aac29fa7dae4628b682e7fc3dc672e49",
     "crosscheck.json": "b8932fe5222d7f2ad808cf3277a83e7965a2c85f3f9873ea9cb8b841c34716fb",
     "crosscheck.py": "345db396cf43514ef64ca6483a167df509c4fee654abd555ef1ca3e2887b8ba5",
     "crosscheck_model_bias.json": "985313968e6437e6407a592b041e028048aa22aa68f56b6fa91b51816ff2f65a",
     "crosscheck_passive.json": "b528b585bf516bdad11738150516bb844ae0f0a020c8f29e544f48f8644c1739",
-    "landing_velocity.py": "25d252fd4a2cfc29805053966b5eb956cdc48fb483cefa12a6a0459e5134d526",
+    "landing_velocity.py": "89e3dd1314626bad52cfae8e625e2c23b62a8d318accd4d3f752c195a7a3ec6e",
     "landing_velocity_result.json": "c45e7c6fe7e5dfa4f2166cdeedd7a68ef26339be314a5e15b7b9588b0a9c8ce2",
     "oracle.py": "46e2f2be4d4d71a36986277c8f9ffd9e08ed4ef4cf74cb5b93cf2af1b1d75b3c",
+    "phase_landing_velocity_result.json": "fe82e7674324c1113c1bfc751dd25f8ce930d8a3fbc316b01ad6d5985dae767d",
+    "phase_transition_probe_result.json": "2af7d7bac783a62344736598340c9a7aa80a60c37b9db9b0e4b2646047fdf6e6",
     "result.json": "171485c069696f7a9984a847d24f5ee2df21e7a2afc296dbd5fb3ad0da3006f8",
     "result_model_bias.json": "32ad5a7a2e20d3be6f84c79e449621c09d47c5d33a4817d285da8f4b7541a2a6",
     "result_passive.json": "94977d3f2f48ce2de30791ec2957e69055197a3a8355d6b4ea3bbbaf61132c37",
     "transition_probe.py": "3725441032ff6516780672e05a13a11c49c1f7f2eda202258a41cf41840162c4",
-    "transition_probe_result.json": "6a70215669c2b63f593d5d3ad0023ec8d2cb838c5b8d69d4e1beac9c36435247"
+    "transition_probe_result.json": "6a70215669c2b63f593d5d3ad0023ec8d2cb838c5b8d69d4e1beac9c36435247",
+    "transition_shooting.py": "803146c15d8e1f263de66bcb2f7fe26fe5776810c884287b1831972fb4582518",
+    "transition_shooting_result.json": "68765f995571aca9080e659ff3cae372580e093456e721cc483a04d9e96a7768",
+    "transition_shooting_verification.json": "d854318cd77f30f37874a3fd1ed6bf33e06bb338fdca1465431cfcef260af8a2",
+    "verify_shooting.py": "81b3a3ffd8e8e2fe2ff57ea3650a46b27ece92055cd004b494d18f06c532be1a"
   }
 }
