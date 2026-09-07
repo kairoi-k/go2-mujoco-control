@@ -155,6 +155,10 @@ bool TrotExperiment::ApplyJointExecutionTorque(
     }
     const auto actual = go2_trot::MakeRigidBodyState(state, high_state,
         Eigen::Vector3d(high_state.velocity()[0], high_state.velocity()[1], high_state.velocity()[2]));
+    static const bool proposal_initialization=[] {
+        const char *value=std::getenv("TROT_RESEARCH_JOINT_INITIAL_PROPOSAL");
+        return value && std::string(value)=="1";
+    }();
     joint_execution::CommandedFootSeed seed;
     seed.command_epoch = joint_execution_tick_count_ + 1;
     seed.source_time = now;
@@ -166,7 +170,7 @@ bool TrotExperiment::ApplyJointExecutionTorque(
             seed.velocity_world[leg] = old_reference.center_reference.velocity_world[leg];
             seed.valid[leg] = old_reference.center_reference.leg_valid[leg];
         }
-    } else if (!joint_execution_started_) {
+    } else if (!joint_execution_started_ && !proposal_initialization) {
         // The old servo's q/dq command defines this reference; actual state
         // remains a separate object and is restored by FeedbackTick.
         auto command_state = actual;
@@ -191,7 +195,9 @@ bool TrotExperiment::ApplyJointExecutionTorque(
             joint_previous_command_valid_=true;
         } else joint_previous_command_valid_=false;
     }
-    const auto adoption = joint_execution_owner_.Adopt(now,state.tick(),&seed);
+    const auto adoption = joint_execution_owner_.Adopt(now,state.tick(),&seed,
+        proposal_initialization ? joint_execution::InitialReferenceMode::kProposalReference
+                                : joint_execution::InitialReferenceMode::kCommandedBoundary);
     const auto reference = joint_execution_owner_.SampleAt(now);
     if (!reference.valid || !adoption.accepted) {
         if (joint_execution_started_) return request_stop("reference_expired_or_unavailable");
@@ -208,7 +214,10 @@ bool TrotExperiment::ApplyJointExecutionTorque(
         std::ostringstream handover;handover.precision(17);
         handover << "JointExecutionHandover state=" << now.seconds()
             << " source=" << adoption.accepted->proposal->identity.source_state_time.seconds()
-            << " proposal=" << adoption.accepted->proposal->proposal_id;
+            << " proposal=" << adoption.accepted->proposal->proposal_id
+            << " initialization=" << (proposal_initialization ? "proposal_reference" : "commanded_boundary");
+        if (proposal_initialization)
+            seed.velocity_world=reference.center_reference.velocity_world;
         for (std::size_t leg=0;leg<go2::kLegCount;++leg)
             handover << " seed_vx" << leg << "=" << seed.velocity_world[leg].x
                 << " seed_vy" << leg << "=" << seed.velocity_world[leg].y

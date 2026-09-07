@@ -19,6 +19,9 @@ namespace stage_c
 {
 namespace joint_execution
 {
+// First controller acquisition may use the proposal's observed-state reference.
+// Once accepted, all later handovers still require the normal command boundary.
+enum class InitialReferenceMode : std::uint8_t { kCommandedBoundary, kProposalReference };
 enum class OwnerStatus : std::uint8_t
 {
     kAdopted = 0,
@@ -299,7 +302,8 @@ public:
     // Owner side only. No LowCmdWrite dependency is present in this draft.
     // Call once per control tick before any consumer samples the reference.
     OwnerResult Adopt(TimeNs now, std::uint64_t current_state_tick,
-                      const CommandedFootSeed *handover_seed = nullptr)
+                      const CommandedFootSeed *handover_seed = nullptr,
+                      InitialReferenceMode initial_mode = InitialReferenceMode::kCommandedBoundary)
     {
         OwnerResult out;
         RefreshActiveLeases(now);
@@ -319,7 +323,9 @@ public:
                 out.status = OwnerStatus::kStale;
             return out;
         }
-        if (pending->first_handover_from_commanded)
+        const bool acquire_proposal_reference = !accepted_ &&
+            initial_mode == InitialReferenceMode::kProposalReference;
+        if (pending->first_handover_from_commanded && !acquire_proposal_reference)
         {
             if (handover_seed == nullptr || !handover_seed->valid_for_handover() ||
                 handover_seed->source_time != now)

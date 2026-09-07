@@ -90,6 +90,15 @@ The opposite-phase paired replay also improves foot59.11->18.36mm and
 COM10.44->5.39mm, with pitch3.06->4.50deg; contact mismatches remain32/22.
 Both complete and independently reproduce. One actual flat canary0008 is
 registered with coherent-body1, soft-orientation0 and all prior settings.
+## Registered first-acquisition comparison
+Opt-in TROT_RESEARCH_JOINT_INITIAL_PROPOSAL=1 skips only the legacy commanded
+boundary before the owner has accepted any bundle. It uses the proposal's
+existing observation-based nominal reference at current absolute time; actual
+q/dq are unchanged. Nominal stance velocity is still zero, not measured truth.
+Later adoptions require normal commanded boundaries and commitment checks.
+Default remains legacy commanded handover. After focused tests, run one flat
+canary0009 with coherent-body1 and all0008 settings, adding only this option.
+An owner unit test does not establish5cm readiness or traversal acceptance.
 ## Next research action
 Conditional terminal binding at b49e9e8 now resolves the full-grid foot coverage
 with observed next-event candidates under an explicit longer stationary-terrain

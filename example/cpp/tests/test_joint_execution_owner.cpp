@@ -234,6 +234,34 @@ void TestCommandedHandoverNeverRewritesMeasuredInput()
           "handover accepted a seed with a conflicting source time");
 
 }
+void TestProposalInitializationOnlyBeforeFirstAcceptance()
+{
+    AtomicJointExecutionOwner owner;
+    auto first=ValidProposal(1,1.0,1.5);
+    first->first_handover_from_commanded=true;
+    const auto expected=SampleFootTrajectoryAt(first->foot_request,T(1.10));
+    Check(expected.valid,"proposal reference fixture");
+    owner.Publish(first);
+    Check(owner.Adopt(T(1.10),101).status==OwnerStatus::kMissingCommandedSeed,
+          "default silently bypassed commanded boundary");
+    const auto adopted=owner.Adopt(T(1.10),101,nullptr,InitialReferenceMode::kProposalReference);
+    Check(adopted.status==OwnerStatus::kAdopted && adopted.accepted->proposal.get()==first.get(),
+          "initial proposal acquisition replaced source bundle");
+    const auto actual=owner.SampleAt(T(1.10));
+    Check(actual.valid && !adopted.accepted->proposal->foot_request.commanded_initial.enabled,
+          "initial proposal acquisition fabricated commanded boundary");
+    for(int leg=0;leg<4;++leg) {
+        const auto &p=actual.center_reference.center_world[leg];
+        const auto &q=expected.samples[0].center_world[leg];
+        Check(p.source_time==q.source_time && p.value.x==q.value.x && p.value.y==q.value.y && p.value.z==q.value.z,
+              "initial proposal reference was reseeded");
+    }
+    auto next=ValidProposal(2,1.0,1.5);next->first_handover_from_commanded=true;
+    owner.Publish(next);
+    Check(owner.Adopt(T(1.11),102,nullptr,InitialReferenceMode::kProposalReference).status==OwnerStatus::kMissingCommandedSeed,
+          "proposal initialization bypassed later handover");
+    Check(owner.Accepted()->proposal.get()==first.get(),"failed later handover lost accepted plan");
+}
 void TestInflightLeaseRefreshAndReplan()
 {
     AtomicJointExecutionOwner owner;
@@ -361,6 +389,7 @@ int main()
         TestNoPendingAndAtomicRetain();
         TestStaleDoesNotDropAccepted();
         TestCommandedHandoverNeverRewritesMeasuredInput();
+        TestProposalInitializationOnlyBeforeFirstAcceptance();
         TestInflightLeaseRefreshAndReplan();
         TestLeaseSurvivesExpiredFootHorizon();
         TestLeaseDoesNotExtendWholeBundle();
