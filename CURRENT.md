@@ -250,3 +250,11 @@ need not be physically feasible. Do not promote or tune this as a complete
 body planner. Next reconstruct initial remaining-swing reference from actual
 q/dq and touchdown timing, then jointly coordinate limbs/body with conservation.
 This observation does not attribute the entire residual to attitude feedback.
+
+## Remaining-swing boundary reproduced
+0012 source21.020 legs1/2 have7.532828ms until touchdown yet selected targets
+are30.533/31.196mm forward with terminal velocity zero. Cubic initial ax
+2258.800/2318.130m/s2; independent formula check<1e-9. Audit --swing-audit
+replays recorded source, not physical feasibility. Next include actual-state
+remaining-swing articulated reachability in candidate evaluation and preserve
+initial commitments; no arbitrary clipping/retiming or further gain sweep.

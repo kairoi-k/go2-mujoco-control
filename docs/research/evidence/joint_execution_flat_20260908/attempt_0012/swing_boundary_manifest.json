@@ -1,0 +1,12 @@
+{
+  "runtime_sha": "943f61b55dffad81683d05e58273ce78ce5fb889",
+  "command": "example/cpp/build/replay_joint_shadow_snapshot docs/research/evidence/joint_execution_flat_20260908/attempt_0012/initial_source.txt --swing-audit",
+  "source_clean": true,
+  "hashes": {
+    "example/cpp/build/replay_joint_shadow_snapshot": "b21b9e4a57929f68d115e2b933939d664907d411d218aed06dd9975c311eb3ae",
+    "example/cpp/tools/replay_joint_shadow_snapshot.cpp": "b17b6ce13a19345d65abd08ec33e1ebb8f4ede9b2f98fbe28ebfd9bef52f2426",
+    "docs/research/evidence/joint_execution_flat_20260908/attempt_0012/initial_source.txt": "b86474ca4e4e2bafa02d8db75e91499030865ab4fa67c46d7d664b8a94ad5a16",
+    "unitree_robots/go2/go2.xml": "01acff1a72a10cd38ab3c95142bfc63db197c5fba39a11b45b15b6fc4899ba10"
+  },
+  "scope": "recorded source replanning and prepared cubic boundary; not physical feasibility"
+}
