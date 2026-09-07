@@ -37,3 +37,44 @@ All 45 controller tests pass after full rebuild. Existing swing-bias
 finite-difference error is 2.13037e-8 m/s^2; equivalent-QP qdd differences
 are 6.59269e-8 (mixed) and 1.2748e-7 (aerial). Four exact-zero fixtures
 pass after failing on the old solver. See red.txt, green.txt and controller_tests.txt.
+
+## Collected result and limitation
+Executed clean source: `43c5f5a91e5c075a69170bc8af7d5582d1031474`.
+Two flat runs `wbc_active_flat_43c5f5a_20260907_0001` and `_0002`.
+Both complete with controller/safety/completion/quality/dynamics/truth status zero.
+Legacy velocity-profile KeyError and dependent Phase-2 failure remain separate.
+Run 0001 has 16243/16403 physically certified proposals, 160 failures
+(23 normal-only, 131 friction-only, 6 both). Swing violations are zero.
+Maximum force/moment residuals: 4.756e-6 N / 0.000209812 Nm.
+Maximum friction/normal violations: 0.092163896 N / 0.001734946 N.
+Running topology is 40/49 good cycles, compared with prior observer 47/49.
+Root archived prior evidence concurrently for approximately 8.6 seconds during
+this run. Preserve this scheduling confound; do not use it for timing claims.
+Run 0002 is the same clean source/configuration, repeated without concurrent
+build/archive. It has 16175/16402 certified proposals and 227 failures
+(31 normal-only, 190 friction-only, 6 both), zero swing violations, 37/49
+good cycles. Paired validator p50/p95/max: 1.332/1.643/22.152 microseconds.
+No proposal reuse occurred in 0001; replay records per-run lineage coverage.
+Neither run is B0/B1 acceptance or evidence of improved running performance.
+
+## Research judgment
+The exact-zero structural claim is confirmed. The locomotion improvement
+hypothesis is not: isolated repeat still has fewer good running cycles.
+A physically incorrect force path may have influenced historical behavior;
+that does not justify restoring it or labeling the corrected backend a release.
+Normal/friction failures remain and require correct solver/acceptance semantics,
+but these small residuals alone do not establish the cause of the B1 impacts.
+Continue contact/command-lineage audit and shared geometry/future-event work.
+Do not retune gains to hide this result or claim that a green certificate alone
+solves traversal. The older no-executable-plan-before-impact evidence remains
+the most direct terrain failure witness; no new step run was collected here.
+
+## Read-only reproduction
+From the repo, run `python3 docs/research/evidence/wbc_active_forces_20260907/reproduce.py`
+with `--out-dir /tmp/CHOOSE_NEW_DIRECTORY` and both
+`--run-dir example/cpp/experiments/_runs/wbc_active_flat_43c5f5a_20260907_0001`
+and `--run-dir example/cpp/experiments/_runs/wbc_active_flat_43c5f5a_20260907_0002`.
+Use those arguments as one command. The resulting results.json binds both
+runs, imported replay dependency, source/binaries, raw files and analyzers.
+
+Root independently replayed both runs and compared complete results.json: identical.

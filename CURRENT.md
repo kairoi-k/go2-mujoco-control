@@ -9,7 +9,12 @@ event-indexed body/foothold/force planning, and replaceable control backends.
 First slice is implemented: independent current-model WBC certificates and
 raw/selected proposal telemetry. Clean runtime 71d242a flat diagnostic found
 4201/16403 legacy-accepted proposals infeasible, dominated by swing forces.
-The next registered intervention removes inactive force variables structurally;
+Active forces are now the only force optimization variables. Two clean43c5f5a
+flat runs have zero swing violations; remaining normal/friction failures are
+160/16403 and 227/16402. Running topology is 40/49 and 37/49, so this is
+a correctness checkpoint, not an empirical locomotion improvement.
+The current investigation follows contact/command lineage and shared model
+geometry before future-event planning;
 remaining inequalities and final actuator validation are still open. See
 `docs/research/evidence/wbc_certificate_20260907/README.md` and
 `docs/research/evidence/wbc_active_forces_20260907/README.md`.
@@ -24,8 +29,9 @@ privileged sensing and shared observation/action architecture remain open.
 ## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
 Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
-`71d242a80e84356cf9dd786830a01ff425a1a838`: flat 47/49 running cycles,
-normal runtime integrity, physical certificate failures described above.
+`43c5f5a91e5c075a69170bc8af7d5582d1031474`: two flat diagnostics described
+above; the first overlaps archival load, the second isolates that confound.
+The previous observer-only runtime71d242a had 47/49 good running cycles.
 The following step results belong to prior runtime
 `7a8ffc6b9269490d7e46c3adfbd2e13ed8609dc6`. HEAD itself is given by Git.
 WBC swing cost now uses physical `J qdd + Jdot qvel - a_des`, matching stance.
