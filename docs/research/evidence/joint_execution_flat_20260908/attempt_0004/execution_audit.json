@@ -1,0 +1,72 @@
+{
+  "runtime_manifest_repository": {
+    "git_branch": "feat/stage-c-joint-planner",
+    "git_commit": "4bff757c1a465fc620edd2f32d220d22819b824b",
+    "git_dirty": "false"
+  },
+  "b1_claim": false,
+  "first_applied_state_s": 21.004,
+  "first_stop": null,
+  "sampled_applied_log_rows": 25,
+  "logged_applied_count_lower_bound": 208,
+  "accepted_versions": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "first_post_adoption_proposal_failure": {
+    "id": "867",
+    "state": "21.044",
+    "phase": "0.086392496392239337",
+    "period": "0.14000000000000001",
+    "clock": "0",
+    "epoch": "1",
+    "phase_residual_ns": "0",
+    "anchor_source": "force_conditioned_geometry_estimate",
+    "command_authority": "0",
+    "events": "8",
+    "combinations": "0",
+    "feasible": "0",
+    "failure": "observation_unavailable",
+    "detail": "initial_contact_anchor_unavailable",
+    "history_candidates": "1",
+    "history_selected": "0",
+    "history_initial_queries": "0",
+    "terrain_query_error": "none",
+    "residual": "0",
+    "anchor_gap_m": "0",
+    "qp_iterations": "0",
+    "scp_iterations": "0",
+    "solver_detail": "not_called",
+    "elapsed_us": "133.91300000000001"
+  },
+  "csv_active_window_rows": 207,
+  "csv_zero_extra_pd_rows": 207,
+  "latency_sampled_us": {
+    "p50": 231.889,
+    "p95": 560.0107999999997,
+    "max": 636.684
+  },
+  "sampled_maxima": {
+    "com_error_m": 0.00954908,
+    "foot_error_m": 0.461764,
+    "force_residual_N": 2.3752e-10,
+    "moment_residual_Nm": 9.301e-11,
+    "joint_residual_Nm": 7.10543e-15
+  },
+  "raw_hashes": {
+    "controller.log": "f43ed983e27b26c37a85946c6878caf303d355d0e3d5bb2bd8d799eab4a2c198",
+    "data.csv": "e36657ac4877d6f58f51fb180562f080ae5c39a212fdc70ee652615816492a8e",
+    "contact_ground_truth.csv": "bd307d631d7c2b8393b1d3ce6f295fbbaa3ae9869dd305e96e6d74c47096208c",
+    "run_manifest.json": "d1ef94152e20447d6f53809b9ae76821db469c7df900e264ab7fbd1ef6bcf940",
+    "run_metadata.txt": "12bbebb8b7d93b3bac8be9e79df0bd0854d1bee1a7ef7f502f7d06da8aa30082",
+    "environment.txt": "b4f9c10f3df5807cf47b527ec36592400cf17be0b29e803901b84717e6f05833"
+  }
+}

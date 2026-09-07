@@ -84,7 +84,10 @@ separate. Actual f586950 repeats this failure at STATE21.110 after53 commands.
 Independent exact-matrix HiGHS/KKT analysis proves the QP feasible; active-row
 numerical drift in the saddle-point search direction caused rejection. QR
 nullspace projection passes both actual-matrix regressions without relaxing
-constraints. New full-runtime validation is pending; sampled foot error in the
+constraints. Actual repaired4bff757 flat runs through STATE21.418 with10accepted versions
+and no WBC failure, then hard posture failure (first roll-27.7917deg). Foot
+error grows to461.764mm; closed-loop tracking is now the primary investigation.
+See attempt0004; no traversal acceptance. Sampled foot error in the
 failed run reaches118.023mm and remains an execution concern. Variable-period calendar transitions remain an unresolved requirement. The clock caller
 now passes commitment activity rather than silently resetting the epoch.
 Default remains off. See joint_execution_flat_20260908.
@@ -103,8 +106,9 @@ combination path; historical bound-event defaults and commitments remain strict.
 ## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
 Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
-`f58695069e832a8c58acc4b5614245e11154d965`: fixed-period actual joint flat,
-failed atSTATE21.110 on primary WBC numerical solve after53applied commands.
+`4bff757c1a465fc620edd2f32d220d22819b824b`: QR repaired actual joint flat;
+10versions, last sampled command STATE21.418 count208, then hard posture
+failure. No WBC failure log; sampled foot tracking error461.764mm.
 Prior `f5b2ef98364bbc01f934de575c850696236e1342`: first actual joint actuation flat,
 failed on period-transition commitment conflict and reference expiry.
 Prior `cc696232eab2d184b5c98fa89674f8d029895dad`: bounded-history flat diagnostic.
