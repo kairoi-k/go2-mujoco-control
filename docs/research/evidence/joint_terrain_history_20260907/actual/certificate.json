@@ -1,0 +1,1209 @@
+{
+  "acceptance_scope": {
+    "b1_acceptance": false,
+    "b1_acceptance_status": "NOT_APPLICABLE",
+    "diagnostic_only": true,
+    "final_pd_included": false,
+    "note": "The physical-cone certificate excludes finalPD torque and does not establish B1 acceptance.",
+    "physical_cone_certificate": true
+  },
+  "analyzer_sha256": {
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/analysis/audit_wbc_certificate.py": "44d1c2d8e53cba953b6bf50e00a76fca67ddf762b7bb09e71c335a1659c62c05"
+  },
+  "certificates": {
+    "attempt": {
+      "active_rows": 16417,
+      "checked_feasible_ratio": 0.985441919961016,
+      "checked_rows": 16417,
+      "failure_category_coverage": {
+        "dynamics_residual": {
+          "bit": 16,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "friction": {
+          "bit": 64,
+          "coverage": 0.011634281537430713,
+          "rows": 191
+        },
+        "hard_stance_acceleration": {
+          "bit": 512,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "input_conflict": {
+          "bit": 4,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "invalid_configuration": {
+          "bit": 1,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "invalid_dynamics": {
+          "bit": 2,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "known_mask": 1023,
+        "mask_finite_rows": 16417,
+        "mask_invalid_or_unknown_rows": 0,
+        "nonfinite_proposal": {
+          "bit": 8,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "normal_force": {
+          "bit": 32,
+          "coverage": 0.0032892733142474264,
+          "rows": 54
+        },
+        "swing_force": {
+          "bit": 128,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "torque": {
+          "bit": 256,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "unknown_bit_rows": 0
+      },
+      "feasible_ratio": 0.985441919961016,
+      "feasible_rows": 16178,
+      "feasible_with_failure_mask_rows": 0,
+      "field_coverage": {
+        "assumed_flat_mask": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "checked": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "failure_mask": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "feasible": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "force_residual_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "friction_violation_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "input_valid": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "joint_residual_nm": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "moment_residual_nm": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "normal_violation_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "stance_acc_residual_mps2": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "swing_violation_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "torque_violation_nm": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "valid": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        }
+      },
+      "flag_counts": {
+        "checked": {
+          "false": 0,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "true": 16417
+        },
+        "feasible": {
+          "false": 239,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "true": 16178
+        },
+        "input_valid": {
+          "false": 0,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "true": 16417
+        },
+        "valid": {
+          "false": 0,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "true": 16417
+        }
+      },
+      "input_valid_feasible_ratio": 0.985441919961016,
+      "input_valid_rows": 16417,
+      "known_feasible_ratio": 0.985441919961016,
+      "mask_counts": {
+        "assumed_flat_mask": {
+          "0": 2738,
+          "11": 3,
+          "15": 7705,
+          "6": 2953,
+          "9": 3018
+        },
+        "failure_mask": {
+          "0": 16178,
+          "32": 48,
+          "64": 185,
+          "96": 6
+        }
+      },
+      "residuals": {
+        "force_residual_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 4.815e-06,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 1.2e-08,
+          "p95": 5.215999999999967e-07,
+          "rows": 16417
+        },
+        "friction_violation_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.122747382,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 0.0,
+          "p95": 0.0,
+          "rows": 16417
+        },
+        "joint_residual_nm": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.0,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 0.0,
+          "p95": 0.0,
+          "rows": 16417
+        },
+        "moment_residual_nm": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.000263951,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 2.9e-08,
+          "p95": 1.5743999999999487e-06,
+          "rows": 16417
+        },
+        "normal_violation_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.013621856,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 0.0,
+          "p95": 0.0,
+          "rows": 16417
+        },
+        "stance_acc_residual_mps2": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.0,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 0.0,
+          "p95": 0.0,
+          "rows": 16417
+        },
+        "swing_violation_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.0,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 0.0,
+          "p95": 0.0,
+          "rows": 16417
+        },
+        "torque_violation_nm": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.0,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 0.0,
+          "p95": 0.0,
+          "rows": 16417
+        }
+      },
+      "status_counts": {
+        "CERTIFIED": 16178,
+        "NOT_CERTIFIED": 239
+      },
+      "valid_rows": 16417
+    },
+    "selected": {
+      "active_rows": 16417,
+      "checked_feasible_ratio": 0.985441919961016,
+      "checked_rows": 16417,
+      "failure_category_coverage": {
+        "dynamics_residual": {
+          "bit": 16,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "friction": {
+          "bit": 64,
+          "coverage": 0.011634281537430713,
+          "rows": 191
+        },
+        "hard_stance_acceleration": {
+          "bit": 512,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "input_conflict": {
+          "bit": 4,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "invalid_configuration": {
+          "bit": 1,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "invalid_dynamics": {
+          "bit": 2,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "known_mask": 1023,
+        "mask_finite_rows": 16417,
+        "mask_invalid_or_unknown_rows": 0,
+        "nonfinite_proposal": {
+          "bit": 8,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "normal_force": {
+          "bit": 32,
+          "coverage": 0.0032892733142474264,
+          "rows": 54
+        },
+        "swing_force": {
+          "bit": 128,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "torque": {
+          "bit": 256,
+          "coverage": 0.0,
+          "rows": 0
+        },
+        "unknown_bit_rows": 0
+      },
+      "feasible_ratio": 0.985441919961016,
+      "feasible_rows": 16178,
+      "feasible_with_failure_mask_rows": 0,
+      "field_coverage": {
+        "assumed_flat_mask": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "checked": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "failure_mask": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "feasible": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "force_residual_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "friction_violation_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "input_valid": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "joint_residual_nm": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "moment_residual_nm": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "normal_violation_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "stance_acc_residual_mps2": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "swing_violation_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "torque_violation_nm": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        },
+        "valid": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "rows": 16417
+        }
+      },
+      "flag_counts": {
+        "checked": {
+          "false": 0,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "true": 16417
+        },
+        "feasible": {
+          "false": 239,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "true": 16178
+        },
+        "input_valid": {
+          "false": 0,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "true": 16417
+        },
+        "valid": {
+          "false": 0,
+          "invalid": 0,
+          "missing": 0,
+          "nonfinite": 0,
+          "true": 16417
+        }
+      },
+      "input_valid_feasible_ratio": 0.985441919961016,
+      "input_valid_rows": 16417,
+      "known_feasible_ratio": 0.985441919961016,
+      "mask_counts": {
+        "assumed_flat_mask": {
+          "0": 2738,
+          "11": 3,
+          "15": 7705,
+          "6": 2953,
+          "9": 3018
+        },
+        "failure_mask": {
+          "0": 16178,
+          "32": 48,
+          "64": 185,
+          "96": 6
+        }
+      },
+      "residuals": {
+        "force_residual_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 4.815e-06,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 1.2e-08,
+          "p95": 5.215999999999967e-07,
+          "rows": 16417
+        },
+        "friction_violation_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.122747382,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 0.0,
+          "p95": 0.0,
+          "rows": 16417
+        },
+        "joint_residual_nm": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.0,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 0.0,
+          "p95": 0.0,
+          "rows": 16417
+        },
+        "moment_residual_nm": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.000263951,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 2.9e-08,
+          "p95": 1.5743999999999487e-06,
+          "rows": 16417
+        },
+        "normal_violation_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.013621856,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 0.0,
+          "p95": 0.0,
+          "rows": 16417
+        },
+        "stance_acc_residual_mps2": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.0,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 0.0,
+          "p95": 0.0,
+          "rows": 16417
+        },
+        "swing_violation_n": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.0,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 0.0,
+          "p95": 0.0,
+          "rows": 16417
+        },
+        "torque_violation_nm": {
+          "coverage": 1.0,
+          "finite": 16417,
+          "invalid": 0,
+          "max": 0.0,
+          "missing": 0,
+          "nonfinite": 0,
+          "p50": 0.0,
+          "p95": 0.0,
+          "rows": 16417
+        }
+      },
+      "status_counts": {
+        "CERTIFIED": 16178,
+        "NOT_CERTIFIED": 239
+      },
+      "valid_rows": 16417
+    }
+  },
+  "convergence_groups": {
+    "converged": {
+      "attempt_failure_mask_counts": {
+        "0": 16168,
+        "32": 48,
+        "64": 179,
+        "96": 6
+      },
+      "attempt_status_counts": {
+        "CERTIFIED": 16168,
+        "NOT_CERTIFIED": 233
+      },
+      "legacy_accepted_rows": 16401,
+      "legacyaccepted_but_selected_cert_not_pass_rows": 233,
+      "rows": 16401,
+      "selected_failure_mask_counts": {
+        "0": 16168,
+        "32": 48,
+        "64": 179,
+        "96": 6
+      },
+      "selected_feasible_ratio": 0.9857935491738309,
+      "selected_feasible_rows": 16168,
+      "selected_status_counts": {
+        "CERTIFIED": 16168,
+        "NOT_CERTIFIED": 233
+      }
+    },
+    "nonconverged": {
+      "attempt_failure_mask_counts": {
+        "0": 10,
+        "64": 6
+      },
+      "attempt_status_counts": {
+        "CERTIFIED": 10,
+        "NOT_CERTIFIED": 6
+      },
+      "legacy_accepted_rows": 16,
+      "legacyaccepted_but_selected_cert_not_pass_rows": 6,
+      "rows": 16,
+      "selected_failure_mask_counts": {
+        "0": 10,
+        "64": 6
+      },
+      "selected_feasible_ratio": 0.625,
+      "selected_feasible_rows": 10,
+      "selected_status_counts": {
+        "CERTIFIED": 10,
+        "NOT_CERTIFIED": 6
+      }
+    },
+    "unknown": {
+      "attempt_failure_mask_counts": {},
+      "attempt_status_counts": {},
+      "legacy_accepted_rows": 0,
+      "legacyaccepted_but_selected_cert_not_pass_rows": 0,
+      "rows": 0,
+      "selected_failure_mask_counts": {},
+      "selected_feasible_ratio": null,
+      "selected_feasible_rows": 0,
+      "selected_status_counts": {}
+    }
+  },
+  "failure_category_coverage": {
+    "attempt": {
+      "dynamics_residual": {
+        "bit": 16,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "friction": {
+        "bit": 64,
+        "coverage": 0.011634281537430713,
+        "rows": 191
+      },
+      "hard_stance_acceleration": {
+        "bit": 512,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "input_conflict": {
+        "bit": 4,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "invalid_configuration": {
+        "bit": 1,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "invalid_dynamics": {
+        "bit": 2,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "known_mask": 1023,
+      "mask_finite_rows": 16417,
+      "mask_invalid_or_unknown_rows": 0,
+      "nonfinite_proposal": {
+        "bit": 8,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "normal_force": {
+        "bit": 32,
+        "coverage": 0.0032892733142474264,
+        "rows": 54
+      },
+      "swing_force": {
+        "bit": 128,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "torque": {
+        "bit": 256,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "unknown_bit_rows": 0
+    },
+    "selected": {
+      "dynamics_residual": {
+        "bit": 16,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "friction": {
+        "bit": 64,
+        "coverage": 0.011634281537430713,
+        "rows": 191
+      },
+      "hard_stance_acceleration": {
+        "bit": 512,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "input_conflict": {
+        "bit": 4,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "invalid_configuration": {
+        "bit": 1,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "invalid_dynamics": {
+        "bit": 2,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "known_mask": 1023,
+      "mask_finite_rows": 16417,
+      "mask_invalid_or_unknown_rows": 0,
+      "nonfinite_proposal": {
+        "bit": 8,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "normal_force": {
+        "bit": 32,
+        "coverage": 0.0032892733142474264,
+        "rows": 54
+      },
+      "swing_force": {
+        "bit": 128,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "torque": {
+        "bit": 256,
+        "coverage": 0.0,
+        "rows": 0
+      },
+      "unknown_bit_rows": 0
+    }
+  },
+  "input_sha256": {
+    "example/cpp/experiments/_runs/joint_history_flat_20260907_0001/data.csv": "0edb0fbe8a53aaca6fd7dc0ba443491bf25f6affb21a1d0cd5e63ba84657a401",
+    "example/cpp/experiments/_runs/joint_history_flat_20260907_0001/run_manifest.json": "234bbe5e52fd1bc0cc039bf9c09db896dd9181e8bbf804fe24289e44057a9144"
+  },
+  "input_validation": {
+    "common_field_issues": {},
+    "required_field_coverage": {
+      "motion_stage": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "state_tick_s": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "velocity_command_active": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_assumed_flat_mask": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_checked": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_failure_mask": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_feasible": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_force_residual_n": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_friction_violation_n": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_input_valid": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_joint_residual_nm": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_moment_residual_nm": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_normal_violation_n": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_stance_acc_residual_mps2": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_swing_violation_n": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_torque_violation_nm": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_attempt_valid": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_assumed_flat_mask": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_checked": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_failure_mask": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_feasible": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_force_residual_n": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_friction_violation_n": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_input_valid": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_joint_residual_nm": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_moment_residual_nm": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_normal_violation_n": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_reused": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_stance_acc_residual_mps2": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_swing_violation_n": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_torque_violation_nm": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_cert_selected_valid": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_certificate_elapsed_us": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_id_attempt_qp_converged": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      },
+      "wbc_full_id_ok": {
+        "coverage": 1.0,
+        "finite": 18567,
+        "invalid": 0,
+        "missing": 0,
+        "nonfinite": 0,
+        "rows": 18567
+      }
+    },
+    "status": "PASS"
+  },
+  "legacy": {
+    "accepted_rows": 16417,
+    "legacyaccepted_but_cert_not_pass_rows": 239,
+    "rejected_rows": 0,
+    "unknown_rows": 0
+  },
+  "missing_header_fields": [],
+  "required_fields": [
+    "motion_stage",
+    "velocity_command_active",
+    "state_tick_s",
+    "wbc_full_id_ok",
+    "wbc_full_id_attempt_qp_converged",
+    "wbc_full_cert_selected_reused",
+    "wbc_full_certificate_elapsed_us",
+    "wbc_full_cert_attempt_checked",
+    "wbc_full_cert_attempt_valid",
+    "wbc_full_cert_attempt_input_valid",
+    "wbc_full_cert_attempt_feasible",
+    "wbc_full_cert_attempt_failure_mask",
+    "wbc_full_cert_attempt_assumed_flat_mask",
+    "wbc_full_cert_attempt_force_residual_n",
+    "wbc_full_cert_attempt_moment_residual_nm",
+    "wbc_full_cert_attempt_joint_residual_nm",
+    "wbc_full_cert_attempt_friction_violation_n",
+    "wbc_full_cert_attempt_normal_violation_n",
+    "wbc_full_cert_attempt_swing_violation_n",
+    "wbc_full_cert_attempt_torque_violation_nm",
+    "wbc_full_cert_attempt_stance_acc_residual_mps2",
+    "wbc_full_cert_selected_checked",
+    "wbc_full_cert_selected_valid",
+    "wbc_full_cert_selected_input_valid",
+    "wbc_full_cert_selected_feasible",
+    "wbc_full_cert_selected_failure_mask",
+    "wbc_full_cert_selected_assumed_flat_mask",
+    "wbc_full_cert_selected_force_residual_n",
+    "wbc_full_cert_selected_moment_residual_nm",
+    "wbc_full_cert_selected_joint_residual_nm",
+    "wbc_full_cert_selected_friction_violation_n",
+    "wbc_full_cert_selected_normal_violation_n",
+    "wbc_full_cert_selected_swing_violation_n",
+    "wbc_full_cert_selected_torque_violation_nm",
+    "wbc_full_cert_selected_stance_acc_residual_mps2"
+  ],
+  "reuse": {
+    "count": 0,
+    "not_reused_rows": 16417,
+    "reused_rows": 0,
+    "unknown_rows": 0
+  },
+  "schema": "wbc-physical-certificate-audit-v1",
+  "script_sha256": "44d1c2d8e53cba953b6bf50e00a76fca67ddf762b7bb09e71c335a1659c62c05",
+  "selection": {
+    "active_rows": 16417,
+    "inactive_rows": 2150,
+    "invalid_rows": 0,
+    "predicate": "motion_stage in {2,3} and velocity_command_active == 1",
+    "total_rows": 18567,
+    "unknown_reasons": {},
+    "unknown_rows": 0
+  },
+  "source": {
+    "data_csv": "example/cpp/experiments/_runs/joint_history_flat_20260907_0001/data.csv",
+    "manifest_sha256": "234bbe5e52fd1bc0cc039bf9c09db896dd9181e8bbf804fe24289e44057a9144",
+    "manifest_source": "example/cpp/experiments/_runs/joint_history_flat_20260907_0001/run_manifest.json",
+    "repository": {
+      "git_branch": "feat/stage-c-joint-planner",
+      "git_commit": "cc696232eab2d184b5c98fa89674f8d029895dad",
+      "git_dirty": "false"
+    },
+    "run_id": "joint_history_flat_20260907_0001",
+    "schema_version": 1
+  },
+  "status": "NOT_CERTIFIED",
+  "validator_overhead_us": {
+    "coverage": 1.0,
+    "finite": 16417,
+    "invalid": 0,
+    "max": 33.212,
+    "missing": 0,
+    "nonfinite": 0,
+    "p50": 1.643,
+    "p95": 1.964,
+    "rows": 16417
+  }
+}

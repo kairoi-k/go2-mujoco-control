@@ -1,0 +1,238 @@
+{
+  "schema": "raw-motor-envelope-audit-v1",
+  "runtime_sha": "cc696232eab2d184b5c98fa89674f8d029895dad",
+  "scope": "current consumed-state composition with declared MJCF limits, not later measured actuator force",
+  "input_sha256": {
+    "example/cpp/experiments/_runs/joint_history_flat_20260907_0001/run_manifest.json": "234bbe5e52fd1bc0cc039bf9c09db896dd9181e8bbf804fe24289e44057a9144",
+    "example/cpp/experiments/_runs/joint_history_flat_20260907_0001/data.csv": "0edb0fbe8a53aaca6fd7dc0ba443491bf25f6affb21a1d0cd5e63ba84657a401",
+    "example/cpp/experiments/_runs/joint_history_flat_20260907_0001/controller.log": "bd481e87e7c045ca942107b957d41da27f4d79fd6f39c26326d84fc5e9600deb",
+    "unitree_robots/go2/go2.xml": "01acff1a72a10cd38ab3c95142bfc63db197c5fba39a11b45b15b6fc4899ba10",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/joint_terrain_history_20260907/analyze_motor_envelope.py": "fc3874d31628321015d928b672d7f8bb8c110a107979b900b9752f657e202b36"
+  },
+  "maximum_csv_vs_runtime_residual_nm": 9.837445080762564e-08,
+  "windows": {
+    "all": {
+      "samples": 1839,
+      "saturated_samples": 13,
+      "max_saturation_nm": 67.5131729809797,
+      "witnesses": [
+        {
+          "state_time_s": 14.780000000000001,
+          "command_time_s": 12.776,
+          "requested_speed_mps": 0.0595,
+          "motor": "RL_hip",
+          "pd_nm": -43.56047095347625,
+          "tau_ff_nm": -3.699904442,
+          "requested_nm": -47.260375395476245,
+          "predicted_applied_nm": -40.0,
+          "saturation_nm": 7.260375395476245
+        },
+        {
+          "state_time_s": 15.44,
+          "command_time_s": 13.436,
+          "requested_speed_mps": 0.142,
+          "motor": "FR_calf",
+          "pd_nm": -64.26389945033839,
+          "tau_ff_nm": -2.473851919,
+          "requested_nm": -66.73775136933838,
+          "predicted_applied_nm": -45.43,
+          "saturation_nm": 21.307751369338384
+        },
+        {
+          "state_time_s": 16.72,
+          "command_time_s": 14.716,
+          "requested_speed_mps": 0.302,
+          "motor": "FL_calf",
+          "pd_nm": -73.98133666108075,
+          "tau_ff_nm": 7.028707027,
+          "requested_nm": -66.95262963408075,
+          "predicted_applied_nm": -45.43,
+          "saturation_nm": 21.52262963408075
+        },
+        {
+          "state_time_s": 17.04,
+          "command_time_s": 15.036,
+          "requested_speed_mps": 0.342,
+          "motor": "RR_calf",
+          "pd_nm": 101.3300001383401,
+          "tau_ff_nm": 3.11765027,
+          "requested_nm": 104.4476504083401,
+          "predicted_applied_nm": 45.43,
+          "saturation_nm": 59.017650408340096
+        },
+        {
+          "state_time_s": 18.22,
+          "command_time_s": 16.216,
+          "requested_speed_mps": 0.4895,
+          "motor": "RL_calf",
+          "pd_nm": 108.74956781040483,
+          "tau_ff_nm": 2.965663433,
+          "requested_nm": 111.71523124340483,
+          "predicted_applied_nm": 45.43,
+          "saturation_nm": 66.28523124340484
+        },
+        {
+          "state_time_s": 19.88,
+          "command_time_s": 17.876,
+          "requested_speed_mps": 0.697,
+          "motor": "FR_calf",
+          "pd_nm": 47.00269877569954,
+          "tau_ff_nm": 1.478960514,
+          "requested_nm": 48.48165928969954,
+          "predicted_applied_nm": 45.43,
+          "saturation_nm": 3.0516592896995434
+        },
+        {
+          "state_time_s": 22.52,
+          "command_time_s": 20.516,
+          "requested_speed_mps": 1.0,
+          "motor": "FL_calf",
+          "pd_nm": 50.13654187600452,
+          "tau_ff_nm": 3.712058306,
+          "requested_nm": 53.848600182004525,
+          "predicted_applied_nm": 45.43,
+          "saturation_nm": 8.418600182004525
+        },
+        {
+          "state_time_s": 22.580000000000002,
+          "command_time_s": 20.576,
+          "requested_speed_mps": 1.0,
+          "motor": "FR_calf",
+          "pd_nm": 47.96221306308685,
+          "tau_ff_nm": 2.101847887,
+          "requested_nm": 50.06406095008685,
+          "predicted_applied_nm": 45.43,
+          "saturation_nm": 4.634060950086848
+        },
+        {
+          "state_time_s": 24.62,
+          "command_time_s": 22.616,
+          "requested_speed_mps": 1.0,
+          "motor": "FL_calf",
+          "pd_nm": 45.57420144203931,
+          "tau_ff_nm": 2.720596313,
+          "requested_nm": 48.29479775503931,
+          "predicted_applied_nm": 45.43,
+          "saturation_nm": 2.864797755039312
+        },
+        {
+          "state_time_s": 25.18,
+          "command_time_s": 23.176,
+          "requested_speed_mps": 1.0,
+          "motor": "FL_calf",
+          "pd_nm": -81.51224009040818,
+          "tau_ff_nm": -3.854743481,
+          "requested_nm": -85.36698357140818,
+          "predicted_applied_nm": -45.43,
+          "saturation_nm": 39.936983571408184
+        },
+        {
+          "state_time_s": 26.72,
+          "command_time_s": 24.716,
+          "requested_speed_mps": 1.0,
+          "motor": "RR_hip",
+          "pd_nm": 45.4053408740367,
+          "tau_ff_nm": 4.441221237,
+          "requested_nm": 49.846562111036704,
+          "predicted_applied_nm": 40.0,
+          "saturation_nm": 9.846562111036704
+        },
+        {
+          "state_time_s": 27.900000000000002,
+          "command_time_s": 25.896,
+          "requested_speed_mps": 1.0,
+          "motor": "RL_calf",
+          "pd_nm": -112.52384855297971,
+          "tau_ff_nm": -0.419324428,
+          "requested_nm": -112.94317298097971,
+          "predicted_applied_nm": -45.43,
+          "saturation_nm": 67.5131729809797
+        },
+        {
+          "state_time_s": 31.48,
+          "command_time_s": 29.466,
+          "requested_speed_mps": 0.417,
+          "motor": "RR_thigh",
+          "pd_nm": -37.22887802086036,
+          "tau_ff_nm": -3.332359552,
+          "requested_nm": -40.56123757286036,
+          "predicted_applied_nm": -40.0,
+          "saturation_nm": 0.5612375728603567
+        }
+      ]
+    },
+    "state20_28": {
+      "samples": 393,
+      "saturated_samples": 6,
+      "max_saturation_nm": 67.5131729809797,
+      "witnesses": [
+        {
+          "state_time_s": 22.52,
+          "command_time_s": 20.516,
+          "requested_speed_mps": 1.0,
+          "motor": "FL_calf",
+          "pd_nm": 50.13654187600452,
+          "tau_ff_nm": 3.712058306,
+          "requested_nm": 53.848600182004525,
+          "predicted_applied_nm": 45.43,
+          "saturation_nm": 8.418600182004525
+        },
+        {
+          "state_time_s": 22.580000000000002,
+          "command_time_s": 20.576,
+          "requested_speed_mps": 1.0,
+          "motor": "FR_calf",
+          "pd_nm": 47.96221306308685,
+          "tau_ff_nm": 2.101847887,
+          "requested_nm": 50.06406095008685,
+          "predicted_applied_nm": 45.43,
+          "saturation_nm": 4.634060950086848
+        },
+        {
+          "state_time_s": 24.62,
+          "command_time_s": 22.616,
+          "requested_speed_mps": 1.0,
+          "motor": "FL_calf",
+          "pd_nm": 45.57420144203931,
+          "tau_ff_nm": 2.720596313,
+          "requested_nm": 48.29479775503931,
+          "predicted_applied_nm": 45.43,
+          "saturation_nm": 2.864797755039312
+        },
+        {
+          "state_time_s": 25.18,
+          "command_time_s": 23.176,
+          "requested_speed_mps": 1.0,
+          "motor": "FL_calf",
+          "pd_nm": -81.51224009040818,
+          "tau_ff_nm": -3.854743481,
+          "requested_nm": -85.36698357140818,
+          "predicted_applied_nm": -45.43,
+          "saturation_nm": 39.936983571408184
+        },
+        {
+          "state_time_s": 26.72,
+          "command_time_s": 24.716,
+          "requested_speed_mps": 1.0,
+          "motor": "RR_hip",
+          "pd_nm": 45.4053408740367,
+          "tau_ff_nm": 4.441221237,
+          "requested_nm": 49.846562111036704,
+          "predicted_applied_nm": 40.0,
+          "saturation_nm": 9.846562111036704
+        },
+        {
+          "state_time_s": 27.900000000000002,
+          "command_time_s": 25.896,
+          "requested_speed_mps": 1.0,
+          "motor": "RL_calf",
+          "pd_nm": -112.52384855297971,
+          "tau_ff_nm": -0.419324428,
+          "requested_nm": -112.94317298097971,
+          "predicted_applied_nm": -45.43,
+          "saturation_nm": 67.5131729809797
+        }
+      ]
+    }
+  }
+}

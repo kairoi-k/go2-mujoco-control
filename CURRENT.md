@@ -62,7 +62,15 @@ combination path; historical bound-event defaults and commitments remain strict.
 ## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
 Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
-`0ff9dc8fb755df231d26b4816d086fd77ed5d1b8`: capture-heading shadow pair.
+`cc696232eab2d184b5c98fa89674f8d029895dad`: bounded-history flat diagnostic.
+Normal completion,15/16 reduced proposals,35/42 cycle diagnostic; no joint
+actuation. Pipeline p50/p95/max1.072/50.146/50.718ms includes two2400-QP-iteration
+captures. Raw CSV independently confirms six sampled final-command saturations
+in STATE20--28, max67.513Nm beyond model limit, dominated by joint PD. See
+joint_terrain_history_20260907. Recorded v2 first snapshot reproduces its
+initial-contact-anchor rejection; use the separately attributed retained f962
+feasible snapshot for the next short-horizon feedback experiment.
+Earlier `0ff9dc8fb755df231d26b4816d086fd77ed5d1b8`: capture-heading shadow pair.
 Flat completes (9/16 proposals); 5cm FAILS with nonfoot collision/posture stop.
 See joint_capture_view_20260907; joint command authority remains off.
 Earlier f9623e1 is the horizon/query flat diagnostic with six proposals.

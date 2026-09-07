@@ -1,0 +1,106 @@
+{
+  "schema": "joint-motor-envelope-audit-v1",
+  "runtime_sha": "cc696232eab2d184b5c98fa89674f8d029895dad",
+  "controller_log_sha256": "bd481e87e7c045ca942107b957d41da27f4d79fd6f39c26326d84fc5e9600deb",
+  "scope": "sampled current consumed-state PD/feedforward composition, not measured later-tick actuator force",
+  "windows": {
+    "all": {
+      "samples": 1839,
+      "invalid": 0,
+      "saturated": 13,
+      "max_saturation_nm": 67.51317299114595
+    },
+    "state20_28": {
+      "samples": 393,
+      "invalid": 0,
+      "saturated": 6,
+      "max_saturation_nm": 67.51317299114595
+    }
+  },
+  "running_saturation_witnesses": [
+    {
+      "state": 22.52,
+      "source_tick": 22520,
+      "motor": 5,
+      "requested_nm": 53.84860021713399,
+      "predicted_applied_nm": 45.43,
+      "saturation_nm": 8.418600217133992,
+      "cmd_time_s": 20.516,
+      "motion_stage": 2.0,
+      "velocity_command_requested_mps": 1.0,
+      "velocity_command_shaped_mps": 1.0,
+      "velocity_command_applied_mps": 1.0,
+      "velocity_command_measured_mps": 1.067765503
+    },
+    {
+      "state": 22.580000000000002,
+      "source_tick": 22580,
+      "motor": 2,
+      "requested_nm": 50.06406094906372,
+      "predicted_applied_nm": 45.43,
+      "saturation_nm": 4.6340609490637235,
+      "cmd_time_s": 20.576,
+      "motion_stage": 2.0,
+      "velocity_command_requested_mps": 1.0,
+      "velocity_command_shaped_mps": 1.0,
+      "velocity_command_applied_mps": 1.0,
+      "velocity_command_measured_mps": 1.104838111
+    },
+    {
+      "state": 24.62,
+      "source_tick": 24620,
+      "motor": 5,
+      "requested_nm": 48.29479774008348,
+      "predicted_applied_nm": 45.43,
+      "saturation_nm": 2.864797740083482,
+      "cmd_time_s": 22.616,
+      "motion_stage": 2.0,
+      "velocity_command_requested_mps": 1.0,
+      "velocity_command_shaped_mps": 1.0,
+      "velocity_command_applied_mps": 1.0,
+      "velocity_command_measured_mps": 1.03411202
+    },
+    {
+      "state": 25.18,
+      "source_tick": 25180,
+      "motor": 5,
+      "requested_nm": -85.36698353345105,
+      "predicted_applied_nm": -45.43,
+      "saturation_nm": 39.93698353345105,
+      "cmd_time_s": 23.176,
+      "motion_stage": 2.0,
+      "velocity_command_requested_mps": 1.0,
+      "velocity_command_shaped_mps": 1.0,
+      "velocity_command_applied_mps": 1.0,
+      "velocity_command_measured_mps": 1.065757379
+    },
+    {
+      "state": 26.72,
+      "source_tick": 26720,
+      "motor": 6,
+      "requested_nm": 49.84656210814502,
+      "predicted_applied_nm": 40.0,
+      "saturation_nm": 9.846562108145022,
+      "cmd_time_s": 24.716,
+      "motion_stage": 2.0,
+      "velocity_command_requested_mps": 1.0,
+      "velocity_command_shaped_mps": 1.0,
+      "velocity_command_applied_mps": 1.0,
+      "velocity_command_measured_mps": 1.064140284
+    },
+    {
+      "state": 27.900000000000002,
+      "source_tick": 27900,
+      "motor": 11,
+      "requested_nm": -112.94317299114596,
+      "predicted_applied_nm": -45.43,
+      "saturation_nm": 67.51317299114595,
+      "cmd_time_s": 25.896,
+      "motion_stage": 2.0,
+      "velocity_command_requested_mps": 1.0,
+      "velocity_command_shaped_mps": 1.0,
+      "velocity_command_applied_mps": 1.0,
+      "velocity_command_measured_mps": 1.013602232
+    }
+  ]
+}
