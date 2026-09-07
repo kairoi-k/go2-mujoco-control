@@ -77,3 +77,10 @@ max(replay_end,touchdown)); it does not modify event lifetimes or unknown
 coverage. Legacy defaults remain strict. Independent fixtures cover both
 contracts and reject missing touchdown coverage. Runtime next checks whether
 this resolves the actual rejection; this cause is not yet physically tested.
+
+Fifth exact37e900e attempt resolves reference coverage and reaches WBC.
+The first sample is rejected before actuation: tau max35.0697429Nm exceeds
+its35Nm QP bound, qp_converged=false, while dynamics residual is~1e-13.
+This is now a numerical QP investigation. Preserve the physical certificate
+and limits; export original matrices and compare with independent SciPy
+feasibility/optimization before selecting a numerical fix. No step applied.

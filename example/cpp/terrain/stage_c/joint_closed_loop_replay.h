@@ -1658,8 +1658,9 @@ inline JointClosedLoopReplayResult RunJointClosedLoopReplay(
             return result;
         }
         go2_control::IdWbcOutput wbc;
+        go2_control::IdWbcQpSnapshot qp_snapshot;
         const bool solver_returned =
-            go2_control::SolveInverseDynamicsWbc(params, input, wbc) && wbc.ok;
+            go2_control::SolveInverseDynamicsWbc(params, input, wbc, &qp_snapshot) && wbc.ok;
         go2_control::IdWbcPhysicalCertificate certificate;
         if (wbc.solution_finite)
             certificate = go2_control::VerifyIdWbcPhysicalCertificate(params, input, wbc);
@@ -1709,6 +1710,16 @@ inline JointClosedLoopReplayResult RunJointClosedLoopReplay(
         if (!solver_returned || !certificate.feasible || !motor.input_valid ||
             !motor.within_model_envelope || !failure.empty())
         {
+            const auto path=output_path.string()+".qp.txt";
+            if(!std::filesystem::exists(path)) {
+                std::ofstream qp(path);qp<<std::setprecision(17);
+                const auto matrix=[&](const char*name,const Eigen::MatrixXd &m){
+                    qp<<name<<" "<<m.rows()<<" "<<m.cols()<<"\n"<<m<<"\n";};
+                matrix("H",qp_snapshot.H);matrix("g",qp_snapshot.g);
+                matrix("Aineq",qp_snapshot.Aineq);matrix("bineq",qp_snapshot.bineq);
+                matrix("Aeq",qp_snapshot.Aeq);matrix("beq",qp_snapshot.beq);
+                matrix("iterate",qp_snapshot.iterate);
+            }
             result.failure = row.status; result.rows = rows;
             return result;
         }

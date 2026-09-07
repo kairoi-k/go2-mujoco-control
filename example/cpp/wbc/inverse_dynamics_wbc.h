@@ -220,10 +220,14 @@ inline bool ValidateIdWbcTerrainReference(const IdWbcInput &input)
 }
 
 
+struct IdWbcQpSnapshot {
+    Eigen::MatrixXd H,Aineq,Aeq;
+    Eigen::VectorXd g,bineq,beq,iterate;
+};
 inline bool SolveInverseDynamicsWbc(
     const IdWbcParams &params,
     const IdWbcInput &input,
-    IdWbcOutput &output)
+    IdWbcOutput &output, IdWbcQpSnapshot *snapshot = nullptr)
 {
     output = IdWbcOutput{};
     if (!input.dynamics.valid || !ValidateIdWbcTerrainReference(input))
@@ -477,6 +481,8 @@ inline bool SolveInverseDynamicsWbc(
         ++row;
     }
 
+    if(snapshot) { snapshot->H=H; snapshot->g=g; snapshot->Aineq=Aineq;
+        snapshot->bineq=bineq; snapshot->Aeq=Aeq; snapshot->beq=beq; }
     Eigen::VectorXd x;
     int iters = 0;
     DenseQpSettings settings;
@@ -517,6 +523,7 @@ inline bool SolveInverseDynamicsWbc(
                 (Aineq * x - bineq).cwiseMax(0.0).maxCoeff();
         }
     }
+    if(snapshot) snapshot->iterate=x;
     output.qp_converged = qp_ok;
     output.iterations = iters;
     if (x.size() != n || !x.allFinite())
