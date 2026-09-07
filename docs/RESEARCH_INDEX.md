@@ -1,5 +1,7 @@
 # Research index
 
+Latest bounded recovery: [B1 checkpoint, 2026-09-07](research/evidence/b1_checkpoint_20260907/README.md). Follow CURRENT.md for the current route; older next-step sections are historical.
+
 This repository records **model-based Go2 control in MuJoCo**. Isaac Lab velocity RL and Kine2Go imitation are maintained in separate companion repositories.
 
 This index records accepted Phase 1 and explicitly scoped Phase 2 claims. It

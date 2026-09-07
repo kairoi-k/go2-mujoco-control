@@ -1,5 +1,7 @@
 # Research history
 
+2026-09-07 bounded B1 recovery closes the eeb5d757620712759604d8c51b2b9075d05625dc interval-V2 flat/step/debug evidence. Physical step exit is complete, but non-top contacts, 1/7 good running cycles and 28.318033 ms clock drift prevent a candidate. No new closed-loop run or algorithm/acceptance change in closeout. [Packet](research/evidence/b1_checkpoint_20260907/README.md).
+
 Milestone-level research progress.
 
 

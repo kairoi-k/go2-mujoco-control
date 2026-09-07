@@ -1,0 +1,16 @@
+{
+  "schema": "b1-read-only-replay-validation-v1",
+  "new_closed_loop_runs": 0,
+  "original_flat_cycle_result_identical": true,
+  "original_step_v3_result_identical": true,
+  "original_step_first_contact_result_identical": true,
+  "debug_first_contact_s": 23.05,
+  "debug_parsed_planner_lines": 17,
+  "debug_rejection_totals": {
+    "swing_clearance": 249,
+    "unknown": 332
+  },
+  "reproduction_script_sha256": "d7ddad157e87cbda73444e3c790b696f35216c8e11d93583ecb9a910b98775db",
+  "results_sha256": "0d5ee9060c083941c6f1be56a3095a343f3dc6b864ff3981d281247373e64741",
+  "v3_cli_semantics": "exit 1 with NOT_CERTIFIED is a valid reproduced negative verdict, not an analyzer crash"
+}

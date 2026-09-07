@@ -1,0 +1,711 @@
+{
+  "acceptance_claim": false,
+  "derived_geometry": {
+    "foot_collision_radius_m": 0.022,
+    "foot_geom_center_x_offset_m": -0.002,
+    "interpretation": "site center is below the collision sphere radius over the observed 0.0145..0.0212 m band; this is compliant contact penetration evidence, not a proof of step collision",
+    "site_to_contact_patch_offset_m": 0.022,
+    "site_z_minus_radius_m_for_prompt_band": [
+      -0.0075,
+      -0.0008
+    ]
+  },
+  "ground_truth_contacts": {
+    "FL": {
+      "near_radius_rows": 111,
+      "near_radius_site_z_m": {
+        "count": 111,
+        "max": 0.0211037838947,
+        "min": 0.0158773929473
+      },
+      "near_radius_time_s": {
+        "count": 111,
+        "max": 23.214,
+        "min": 22.444
+      },
+      "near_radius_touch_N": {
+        "count": 111,
+        "max": 252.534965795,
+        "min": 5.20419831502
+      },
+      "terrain_nontop_force_N": {
+        "count": 401,
+        "max": 112.628082466,
+        "min": 0.0
+      },
+      "terrain_nontop_positive_rows": 1,
+      "touch_force_N": {
+        "count": 144,
+        "max": 395.222471576,
+        "min": 5.20419831502
+      },
+      "touch_rows": 144,
+      "touch_site_z_m": {
+        "count": 144,
+        "max": 0.0240427739981,
+        "min": 0.00741476871243
+      },
+      "touch_threshold_N": 5.0
+    },
+    "FR": {
+      "near_radius_rows": 115,
+      "near_radius_site_z_m": {
+        "count": 115,
+        "max": 0.0211840425376,
+        "min": 0.0145725341864
+      },
+      "near_radius_time_s": {
+        "count": 115,
+        "max": 23.228,
+        "min": 22.474
+      },
+      "near_radius_touch_N": {
+        "count": 115,
+        "max": 160.568895482,
+        "min": 5.3186092943
+      },
+      "terrain_nontop_force_N": {
+        "count": 401,
+        "max": 0.0,
+        "min": 0.0
+      },
+      "terrain_nontop_positive_rows": 0,
+      "touch_force_N": {
+        "count": 166,
+        "max": 241.277614797,
+        "min": 5.3186092943
+      },
+      "touch_rows": 166,
+      "touch_site_z_m": {
+        "count": 166,
+        "max": 0.0241018884548,
+        "min": 0.0128870266107
+      },
+      "touch_threshold_N": 5.0
+    },
+    "RL": {
+      "near_radius_rows": 95,
+      "near_radius_site_z_m": {
+        "count": 95,
+        "max": 0.0211918032309,
+        "min": 0.0156310210027
+      },
+      "near_radius_time_s": {
+        "count": 95,
+        "max": 23.2,
+        "min": 22.458
+      },
+      "near_radius_touch_N": {
+        "count": 95,
+        "max": 181.19956245,
+        "min": 5.93691642608
+      },
+      "terrain_nontop_force_N": {
+        "count": 401,
+        "max": 0.0,
+        "min": 0.0
+      },
+      "terrain_nontop_positive_rows": 0,
+      "touch_force_N": {
+        "count": 200,
+        "max": 184.528027056,
+        "min": 5.93691642608
+      },
+      "touch_rows": 200,
+      "touch_site_z_m": {
+        "count": 200,
+        "max": 0.0236253043055,
+        "min": 0.0156310210027
+      },
+      "touch_threshold_N": 5.0
+    },
+    "RR": {
+      "near_radius_rows": 123,
+      "near_radius_site_z_m": {
+        "count": 123,
+        "max": 0.0211464430617,
+        "min": 0.0167879616554
+      },
+      "near_radius_time_s": {
+        "count": 123,
+        "max": 23.244,
+        "min": 22.544
+      },
+      "near_radius_touch_N": {
+        "count": 123,
+        "max": 148.520548342,
+        "min": 7.06690647466
+      },
+      "terrain_nontop_force_N": {
+        "count": 401,
+        "max": 0.0,
+        "min": 0.0
+      },
+      "terrain_nontop_positive_rows": 0,
+      "touch_force_N": {
+        "count": 161,
+        "max": 149.521115927,
+        "min": 7.06690647466
+      },
+      "touch_rows": 161,
+      "touch_site_z_m": {
+        "count": 161,
+        "max": 0.024124646752,
+        "min": 0.0167879616554
+      },
+      "touch_threshold_N": 5.0
+    }
+  },
+  "mujoco_model_resolved": {
+    "foot_sites": [
+      {
+        "name": "FL_foot_contact",
+        "pos": [
+          0.0,
+          0.0,
+          -0.213
+        ],
+        "size": [
+          0.025,
+          0.005,
+          0.005
+        ]
+      },
+      {
+        "name": "FR_foot_contact",
+        "pos": [
+          0.0,
+          0.0,
+          -0.213
+        ],
+        "size": [
+          0.025,
+          0.005,
+          0.005
+        ]
+      },
+      {
+        "name": "RL_foot_contact",
+        "pos": [
+          0.0,
+          0.0,
+          -0.213
+        ],
+        "size": [
+          0.025,
+          0.005,
+          0.005
+        ]
+      },
+      {
+        "name": "RR_foot_contact",
+        "pos": [
+          0.0,
+          0.0,
+          -0.213
+        ],
+        "size": [
+          0.025,
+          0.005,
+          0.005
+        ]
+      }
+    ],
+    "geoms": [
+      {
+        "conaffinity": 1,
+        "contype": 1,
+        "gap_m": 0.0,
+        "margin_m": 0.0,
+        "name": "phase2_floor",
+        "pos": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "priority": 0,
+        "size": [
+          0.0,
+          0.0,
+          0.05
+        ],
+        "solimp": [
+          0.9,
+          0.95,
+          0.001,
+          0.5,
+          2.0
+        ],
+        "solref": [
+          0.02,
+          1.0
+        ]
+      },
+      {
+        "conaffinity": 1,
+        "contype": 1,
+        "gap_m": 0.0,
+        "margin_m": 0.0,
+        "name": "phase2_step_5cm",
+        "pos": [
+          5.25,
+          0.0,
+          0.025
+        ],
+        "priority": 0,
+        "size": [
+          0.25,
+          0.75,
+          0.025
+        ],
+        "solimp": [
+          0.9,
+          0.95,
+          0.001,
+          0.5,
+          2.0
+        ],
+        "solref": [
+          0.02,
+          1.0
+        ]
+      },
+      {
+        "conaffinity": 1,
+        "contype": 1,
+        "gap_m": 0.0,
+        "margin_m": 0.001,
+        "name": "FL",
+        "pos": [
+          -0.002,
+          0.0,
+          -0.213
+        ],
+        "priority": 1,
+        "size": [
+          0.022,
+          0.0,
+          0.0
+        ],
+        "solimp": [
+          0.9,
+          0.95,
+          0.001,
+          0.5,
+          2.0
+        ],
+        "solref": [
+          0.02,
+          1.0
+        ]
+      },
+      {
+        "conaffinity": 1,
+        "contype": 1,
+        "gap_m": 0.0,
+        "margin_m": 0.001,
+        "name": "FR",
+        "pos": [
+          -0.002,
+          0.0,
+          -0.213
+        ],
+        "priority": 1,
+        "size": [
+          0.022,
+          0.0,
+          0.0
+        ],
+        "solimp": [
+          0.9,
+          0.95,
+          0.001,
+          0.5,
+          2.0
+        ],
+        "solref": [
+          0.02,
+          1.0
+        ]
+      },
+      {
+        "conaffinity": 1,
+        "contype": 1,
+        "gap_m": 0.0,
+        "margin_m": 0.001,
+        "name": "RL",
+        "pos": [
+          -0.002,
+          0.0,
+          -0.213
+        ],
+        "priority": 1,
+        "size": [
+          0.022,
+          0.0,
+          0.0
+        ],
+        "solimp": [
+          0.9,
+          0.95,
+          0.001,
+          0.5,
+          2.0
+        ],
+        "solref": [
+          0.02,
+          1.0
+        ]
+      },
+      {
+        "conaffinity": 1,
+        "contype": 1,
+        "gap_m": 0.0,
+        "margin_m": 0.001,
+        "name": "RR",
+        "pos": [
+          -0.002,
+          0.0,
+          -0.213
+        ],
+        "priority": 1,
+        "size": [
+          0.022,
+          0.0,
+          0.0
+        ],
+        "solimp": [
+          0.9,
+          0.95,
+          0.001,
+          0.5,
+          2.0
+        ],
+        "solref": [
+          0.02,
+          1.0
+        ]
+      }
+    ],
+    "mujoco_version": "3.11.0",
+    "option_solimp": [
+      0.9,
+      0.95,
+      0.001,
+      0.5,
+      2.0
+    ],
+    "option_solref": [
+      0.02,
+      1.0
+    ],
+    "timestep_s": 0.002
+  },
+  "planner_rejection_aggregate": {
+    "swing_clearance": 373,
+    "unknown": 323
+  },
+  "planner_rejection_lines": [
+    {
+      "evaluated": 57,
+      "feasible": 0,
+      "leg": 0,
+      "plan_id": 311,
+      "regions": 57,
+      "rejections": {
+        "swing_clearance": 57
+      },
+      "selected": "none",
+      "state_s": 22.476,
+      "valid": 57
+    },
+    {
+      "evaluated": 58,
+      "feasible": 52,
+      "leg": 0,
+      "plan_id": 312,
+      "regions": 58,
+      "rejections": {
+        "unknown": 6
+      },
+      "selected": "(0.225000,-0.150000,-0.374004)",
+      "state_s": 22.528,
+      "valid": 58
+    },
+    {
+      "evaluated": 57,
+      "feasible": 0,
+      "leg": 1,
+      "plan_id": 312,
+      "regions": 57,
+      "rejections": {
+        "unknown": 57
+      },
+      "selected": "none",
+      "state_s": 22.528,
+      "valid": 57
+    },
+    {
+      "evaluated": 62,
+      "feasible": 0,
+      "leg": 0,
+      "plan_id": 313,
+      "regions": 62,
+      "rejections": {
+        "unknown": 62
+      },
+      "selected": "none",
+      "state_s": 22.582,
+      "valid": 62
+    },
+    {
+      "evaluated": 56,
+      "feasible": 0,
+      "leg": 0,
+      "plan_id": 314,
+      "regions": 56,
+      "rejections": {
+        "unknown": 56
+      },
+      "selected": "none",
+      "state_s": 22.634,
+      "valid": 56
+    },
+    {
+      "evaluated": 57,
+      "feasible": 57,
+      "leg": 0,
+      "plan_id": 315,
+      "regions": 57,
+      "rejections": {},
+      "selected": "(0.225000,-0.150000,-0.373338)",
+      "state_s": 22.684,
+      "valid": 57
+    },
+    {
+      "evaluated": 56,
+      "feasible": 56,
+      "leg": 1,
+      "plan_id": 315,
+      "regions": 56,
+      "rejections": {},
+      "selected": "(0.225000,0.150000,-0.373338)",
+      "state_s": 22.684,
+      "valid": 56
+    },
+    {
+      "evaluated": 55,
+      "feasible": 0,
+      "leg": 2,
+      "plan_id": 315,
+      "regions": 55,
+      "rejections": {
+        "unknown": 55
+      },
+      "selected": "none",
+      "state_s": 22.684,
+      "valid": 55
+    },
+    {
+      "evaluated": 62,
+      "feasible": 61,
+      "leg": 0,
+      "plan_id": 316,
+      "regions": 62,
+      "rejections": {
+        "unknown": 1
+      },
+      "selected": "(0.225000,-0.150000,-0.366218)",
+      "state_s": 22.734,
+      "valid": 62
+    },
+    {
+      "evaluated": 62,
+      "feasible": 0,
+      "leg": 1,
+      "plan_id": 316,
+      "regions": 62,
+      "rejections": {
+        "swing_clearance": 62
+      },
+      "selected": "none",
+      "state_s": 22.734,
+      "valid": 62
+    },
+    {
+      "evaluated": 63,
+      "feasible": 0,
+      "leg": 0,
+      "plan_id": 317,
+      "regions": 63,
+      "rejections": {
+        "swing_clearance": 63
+      },
+      "selected": "none",
+      "state_s": 22.788,
+      "valid": 63
+    },
+    {
+      "evaluated": 61,
+      "feasible": 61,
+      "leg": 0,
+      "plan_id": 318,
+      "regions": 61,
+      "rejections": {},
+      "selected": "(0.225000,-0.150000,-0.368810)",
+      "state_s": 22.89,
+      "valid": 61
+    },
+    {
+      "evaluated": 62,
+      "feasible": 62,
+      "leg": 1,
+      "plan_id": 318,
+      "regions": 62,
+      "rejections": {},
+      "selected": "(0.225000,0.150000,-0.368810)",
+      "state_s": 22.89,
+      "valid": 62
+    },
+    {
+      "evaluated": 59,
+      "feasible": 59,
+      "leg": 2,
+      "plan_id": 318,
+      "regions": 59,
+      "rejections": {},
+      "selected": "(-0.175000,-0.150000,-0.368810)",
+      "state_s": 22.89,
+      "valid": 59
+    },
+    {
+      "evaluated": 59,
+      "feasible": 0,
+      "leg": 3,
+      "plan_id": 318,
+      "regions": 59,
+      "rejections": {
+        "swing_clearance": 59
+      },
+      "selected": "none",
+      "state_s": 22.89,
+      "valid": 59
+    },
+    {
+      "evaluated": 58,
+      "feasible": 0,
+      "leg": 0,
+      "plan_id": 319,
+      "regions": 58,
+      "rejections": {
+        "swing_clearance": 58
+      },
+      "selected": "none",
+      "state_s": 22.942,
+      "valid": 58
+    },
+    {
+      "evaluated": 58,
+      "feasible": 46,
+      "leg": 0,
+      "plan_id": 320,
+      "regions": 58,
+      "rejections": {
+        "unknown": 12
+      },
+      "selected": "(0.225000,-0.150000,-0.368128)",
+      "state_s": 23.044,
+      "valid": 58
+    },
+    {
+      "evaluated": 59,
+      "feasible": 46,
+      "leg": 1,
+      "plan_id": 320,
+      "regions": 59,
+      "rejections": {
+        "unknown": 13
+      },
+      "selected": "(0.225000,0.150000,-0.368128)",
+      "state_s": 23.044,
+      "valid": 59
+    },
+    {
+      "evaluated": 59,
+      "feasible": 59,
+      "leg": 2,
+      "plan_id": 320,
+      "regions": 59,
+      "rejections": {},
+      "selected": "(-0.175000,-0.150000,-0.368128)",
+      "state_s": 23.044,
+      "valid": 59
+    },
+    {
+      "evaluated": 59,
+      "feasible": 59,
+      "leg": 3,
+      "plan_id": 320,
+      "regions": 59,
+      "rejections": {},
+      "selected": "(-0.175000,0.150000,-0.368128)",
+      "state_s": 23.044,
+      "valid": 59
+    },
+    {
+      "evaluated": 61,
+      "feasible": 0,
+      "leg": 0,
+      "plan_id": 321,
+      "regions": 61,
+      "rejections": {
+        "unknown": 61
+      },
+      "selected": "none",
+      "state_s": 23.144,
+      "valid": 61
+    },
+    {
+      "evaluated": 74,
+      "feasible": 0,
+      "leg": 0,
+      "plan_id": 322,
+      "regions": 74,
+      "rejections": {
+        "swing_clearance": 74
+      },
+      "selected": "none",
+      "state_s": 23.196,
+      "valid": 74
+    }
+  ],
+  "rows": {
+    "controller": 401,
+    "ground_truth": 401
+  },
+  "run_dir": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/b1_planner_reject_diagnostic_fb14417_20260907_0001",
+  "run_metadata": {
+    "argv": "--headless --controller-duration 32 --phase2-milestone B1 --scene-file /home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/b1_v3_running_step_5cm.xml --wall-clock-motion --wbc-full --gait-pattern running-trot --kernel raibert-trot --period 0.14 --duty 0.44 --step-length 0.50 --foot-lift 0.20 --tau-limit 45 --raibert-velocity-gain 0.010 --raibert-max-adjustment 0.06 --preview-horizon 4 --support-anchor-feedback --support-anchor-gain 0.35 --velocity-max-accel 0.80 --velocity-max-decel 1.20 --velocity-max-jerk 4.0 --velocity-command-script /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/configs/b1_v3_running_1mps.csv --velocity-max-tracking-lead 0.20 --domain-id 231 --gait-phase-offset 0 --initial-x 0 --initial-y 0 --terrain-b1-execution",
+    "git_dirty": "false",
+    "git_head": "fb14417cbbf93e1f03dc65e29607fc8b26e514df",
+    "scene_file": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/b1_v3_running_step_5cm.xml"
+  },
+  "schema": "b1-initial-support-vs-feasibility-audit-v1",
+  "source_evidence": {
+    "feasibility_initial_geometry": "example/cpp/terrain/terrain_feasibility.h:467-548,563-588",
+    "kinematics": "example/cpp/kinematics/go2_forward_kinematics.h:30-45",
+    "planner_start": "example/cpp/terrain/terrain_planner.h:304-310",
+    "runtime_start_population": "example/cpp/trot/trot_experiment_control.cpp:167-201,260-270",
+    "scene": "unitree_robots/go2/go2.xml:4,8,29-34,107-108,143-144; b1_v3_running_step_5cm.xml:8-10",
+    "world_checker": "example/cpp/terrain/terrain_feasibility.h:1027-1112"
+  },
+  "step_mask": {
+    "first_positive_s": 23.244,
+    "positive_rows": 1
+  },
+  "window_s": [
+    22.444,
+    23.244
+  ],
+  "curation_note": "Controller transition rows omitted from this compact historical copy; recover them with the original script and raw inputs. This is a prior fb14417 diagnostic, not the eeb5d75 timed step. Force plus site height is not a direct contact.dist measurement; sphere/site offsets and initial support versus swing semantics require separate treatment."
+}

@@ -1,0 +1,16 @@
+{
+  "type": "measured-state visualization, no re-simulation or trajectory alteration",
+  "run_sha": "eeb5d757620712759604d8c51b2b9075d05625dc",
+  "frames": 325,
+  "fps": 30,
+  "max_state_join_gap_s": 0.0019999999999988916,
+  "max_reconstructed_foot_site_error_m": 0.007823750402536996,
+  "p95_reconstructed_foot_site_error_m": 0.0045998019925959505,
+  "sha256": {
+    "b1_v3_running_step_5cm.xml": "46f6118585b9d151229e6e0edda6993c39f9f3159eda353102dc579aaaac24a0",
+    "data.csv": "4da38fc183657f347d34091cea92f61174208fe33bf6b3e14a860bdcd41db71d",
+    "contact_ground_truth.csv": "f954d15d9a2c37a05fdf6682618db8d9272ffe8bab4889a2459b3a639a3aba79",
+    "render_recorded_traversal_v1.py": "d99ff9398bad0829cc0a52a83a2936c7bcaf84abe3c09696fdb0df60af711e7c",
+    "recorded_traversal_v1.mp4": "70d5afc8796399ef3c9b2dd0b365465770c1aaa733085a04f32fa017ce3c9edd"
+  }
+}
