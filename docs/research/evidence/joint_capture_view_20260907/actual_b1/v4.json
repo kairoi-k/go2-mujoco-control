@@ -1,0 +1,699 @@
+{
+  "analyzer_hashes": {
+    "legacy_protocol": "464a7388d83c870da33947d36f2e27b45f962dc41fb6a249f23e3efd7ff0b71e",
+    "legacy_v3": "02261a2f5b724897f876a8139e25819954acd28b9417b51edc331bde0a3b1a34",
+    "physical": "d836f95e515979a6f95695dbbd896237fdc404317fb2bfd4e1a8a9b6369a3d29",
+    "v4": "d832cd5e46028e2064e7814aac4af2bb51b7c60cd02609b74d248af448af0cd3"
+  },
+  "architecture_claim": {
+    "basis": "joint backend adoption requires independent architecture evidence; terrain_actuation flags are not proof",
+    "status": "NOT_ESTABLISHED"
+  },
+  "claim": "single-run empirical evidence; B1 acceptance still requires the registered campaign and coverage review",
+  "contract_version": "b1-dynamic-traversal-v4",
+  "detail": {
+    "active_gait_interval_s": [
+      0.0,
+      20.368
+    ],
+    "approach": {
+      "evidence": {
+        "duty_bad_rows": 0,
+        "interval_s": [
+          22.712,
+          23.512
+        ],
+        "period_bad_rows": 0,
+        "requested_speed_bad_rows": 0,
+        "rows": 400,
+        "speed_in_band_fraction": 1.0,
+        "speed_p05_mps": 0.9716121458577001,
+        "stage_bad_rows": 0
+      },
+      "reasons": [],
+      "status": "PASS"
+    },
+    "approach_v4": {
+      "duty": {
+        "max": 0.44,
+        "min": 0.44
+      },
+      "end_s": 23.512,
+      "period_s": {
+        "max": 0.14,
+        "min": 0.14
+      },
+      "reasons": [],
+      "speed_in_band_fraction": 1.0,
+      "start_s": 22.712,
+      "status": "PASS"
+    },
+    "interaction_s": [
+      23.512,
+      26.76
+    ],
+    "interaction_speed": {
+      "median": 0.000155350857332,
+      "p05": -0.1175046017916
+    },
+    "profile_mismatch_rows": 0,
+    "route_flags": {
+      "terrain_actuation": [
+        "1"
+      ],
+      "terrain_sensor_only": [
+        "0"
+      ]
+    },
+    "running_period_duty_bad_rows": 2339,
+    "topology": {
+      "evidence": {
+        "complete_cycles": 2,
+        "cycles": [
+          {
+            "aerial_s": 0.0,
+            "cycle_index": 46,
+            "diagonal_support_s": {
+              "6": 0.0,
+              "9": 0.004000000000001336
+            },
+            "duty": 0.44,
+            "good_cycle": false,
+            "interval_s": [
+              23.574,
+              23.712
+            ],
+            "period_s": 0.14,
+            "planned_masks": [
+              0
+            ],
+            "state_sample_interval_s": [
+              23.574,
+              23.71
+            ],
+            "truth_rows": 69,
+            "wrap_interval_s": [
+              23.574,
+              23.712
+            ]
+          },
+          {
+            "aerial_s": 0.0,
+            "cycle_index": 47,
+            "diagonal_support_s": {
+              "6": 0.0,
+              "9": 0.0
+            },
+            "duty": 0.44,
+            "good_cycle": false,
+            "interval_s": [
+              23.712,
+              23.852
+            ],
+            "period_s": 0.14,
+            "planned_masks": [
+              0
+            ],
+            "state_sample_interval_s": [
+              23.712,
+              23.848
+            ],
+            "truth_rows": 70,
+            "wrap_interval_s": [
+              23.712,
+              23.852
+            ]
+          }
+        ],
+        "windows": []
+      },
+      "reasons": [
+        "cycle_48_wrap_missing",
+        "complete_interaction_cycles_lt_4",
+        "no_registered_cycle_window"
+      ],
+      "status": "NOT_CERTIFIED"
+    },
+    "uncovered_truth_rows": 33,
+    "v4_uncovered_truth_rows": 33
+  },
+  "gates": {
+    "approach_interaction_join_coverage": false,
+    "complete_body_and_feet_exit": false,
+    "complete_cycle_topology": false,
+    "complete_profile_and_tail_coverage": false,
+    "contact_input_consistency": true,
+    "controller_window_coverage": false,
+    "each_leg_force_supported_on_top": false,
+    "finite_physical_window": true,
+    "interaction_speed": false,
+    "no_fatal_or_safety_stop": false,
+    "no_nonfoot_step_collision": false,
+    "nominal_running_through_interaction": false,
+    "posture_and_height": false,
+    "profile_motion_lifecycle": false,
+    "profile_state_clock_consistency": true,
+    "profile_truth_coverage": false,
+    "recorded_run_binding": true,
+    "registered_requested_profile": true,
+    "registered_scene_height": true,
+    "registered_stable_approach_geometry": true,
+    "registered_v3_scene": true,
+    "running_period_duty_valid": false,
+    "runtime_integrity": true,
+    "stable_running_approach": true,
+    "started_before_step": true,
+    "truth_time_coverage": true,
+    "v4_control_time_order": true,
+    "v4_input_rows_nonempty": true,
+    "v4_required_truth_control_coverage": false,
+    "v4_truth_time_order": true,
+    "whole_profile_posture_and_height": false,
+    "whole_profile_state_truth_join": false,
+    "whole_trace_required_truth_finite": true,
+    "whole_trace_step_collision_free": false
+  },
+  "input_sha256": {
+    "example/cpp/experiments/_runs/joint_capture_b1_20260907_0001/contact_ground_truth.csv": "230ad9ff8fee0f2b7878d9b8d8cda18b73f9be62f1c801f7575b3e4003f3a676",
+    "example/cpp/experiments/_runs/joint_capture_b1_20260907_0001/controller.log": "507b733bbed0036bbc3644dc73bb4720c4415f3d00826567ed5e47402a2cfe52",
+    "example/cpp/experiments/_runs/joint_capture_b1_20260907_0001/data.csv": "b3497115d799a7e5680280b1c948821ed8f7bd6a65f7a759974aaf0a26c6bacd",
+    "example/cpp/experiments/_runs/joint_capture_b1_20260907_0001/run_manifest.json": "095e8c6c04e17806c8702b6569c6ce589df66dbc3e4661347fed40ce0c18b8f1",
+    "unitree_robots/go2/b1_v3_running_step_5cm.xml": "46f6118585b9d151229e6e0edda6993c39f9f3159eda353102dc579aaaac24a0"
+  },
+  "issues": [],
+  "legacy_statuses": {
+    "analysis_status": "0",
+    "completion_status": "1",
+    "controller_status": "0",
+    "dynamics_status": "0",
+    "ground_truth_status": "0",
+    "phase1_quantitative_status": "1",
+    "quality_status": "0",
+    "safety_status": "1",
+    "terrain_analysis_status": "1"
+  },
+  "legacy_v3_verdict": {
+    "analyzer_sha256": {
+      "analyze_b1_dynamic_v3.py": "02261a2f5b724897f876a8139e25819954acd28b9417b51edc331bde0a3b1a34",
+      "analyze_b1_physical.py": "d836f95e515979a6f95695dbbd896237fdc404317fb2bfd4e1a8a9b6369a3d29",
+      "b1_dynamic_protocol.py": "464a7388d83c870da33947d36f2e27b45f962dc41fb6a249f23e3efd7ff0b71e"
+    },
+    "claim": "single-run empirical evidence; repetitions and holdouts still required",
+    "detail": {
+      "active_gait_interval_s": [
+        0.0,
+        20.368
+      ],
+      "approach": {
+        "evidence": {
+          "duty_bad_rows": 0,
+          "interval_s": [
+            22.712,
+            23.512
+          ],
+          "period_bad_rows": 0,
+          "requested_speed_bad_rows": 0,
+          "rows": 400,
+          "speed_in_band_fraction": 1.0,
+          "speed_p05_mps": 0.9716121458577001,
+          "stage_bad_rows": 0
+        },
+        "reasons": [],
+        "status": "PASS"
+      },
+      "interaction_s": [
+        23.512,
+        26.76
+      ],
+      "interaction_speed": {
+        "median": 0.000155350857332,
+        "p05": -0.1175046017916
+      },
+      "profile_mismatch_rows": 0,
+      "route_flags": {
+        "terrain_actuation": [
+          "1"
+        ],
+        "terrain_sensor_only": [
+          "0"
+        ]
+      },
+      "topology": {
+        "evidence": {
+          "complete_cycles": 2,
+          "cycles": [
+            {
+              "aerial_s": 0.0,
+              "cycle_index": 46,
+              "diagonal_support_s": {
+                "6": 0.0,
+                "9": 0.004000000000001336
+              },
+              "duty": 0.44,
+              "good_cycle": false,
+              "interval_s": [
+                23.574,
+                23.712
+              ],
+              "period_s": 0.14,
+              "planned_masks": [
+                0
+              ],
+              "state_sample_interval_s": [
+                23.574,
+                23.71
+              ],
+              "truth_rows": 69,
+              "wrap_interval_s": [
+                23.574,
+                23.712
+              ]
+            },
+            {
+              "aerial_s": 0.0,
+              "cycle_index": 47,
+              "diagonal_support_s": {
+                "6": 0.0,
+                "9": 0.0
+              },
+              "duty": 0.44,
+              "good_cycle": false,
+              "interval_s": [
+                23.712,
+                23.852
+              ],
+              "period_s": 0.14,
+              "planned_masks": [
+                0
+              ],
+              "state_sample_interval_s": [
+                23.712,
+                23.848
+              ],
+              "truth_rows": 70,
+              "wrap_interval_s": [
+                23.712,
+                23.852
+              ]
+            }
+          ],
+          "windows": []
+        },
+        "reasons": [
+          "cycle_48_wrap_missing",
+          "complete_interaction_cycles_lt_4",
+          "no_registered_cycle_window"
+        ],
+        "status": "NOT_CERTIFIED"
+      },
+      "uncovered_truth_rows": 33
+    },
+    "gates": {
+      "approach_interaction_join_coverage": false,
+      "complete_body_and_feet_exit": false,
+      "complete_cycle_topology": false,
+      "complete_profile_and_tail_coverage": false,
+      "contact_input_consistency": true,
+      "controller_window_coverage": false,
+      "each_leg_force_supported_on_top": false,
+      "finite_physical_window": true,
+      "interaction_speed": false,
+      "no_fatal_or_safety_stop": false,
+      "no_nonfoot_step_collision": false,
+      "nominal_running_through_interaction": false,
+      "posture_and_height": false,
+      "profile_motion_lifecycle": false,
+      "profile_state_clock_consistency": true,
+      "profile_truth_coverage": false,
+      "recorded_run_binding": true,
+      "registered_requested_profile": true,
+      "registered_v3_scene": true,
+      "runtime_integrity": true,
+      "stable_running_approach": true,
+      "started_before_step": true,
+      "truth_time_coverage": true,
+      "whole_profile_posture_and_height": false,
+      "whole_profile_state_truth_join": false,
+      "whole_trace_required_truth_finite": true,
+      "whole_trace_step_collision_free": false
+    },
+    "input_sha256": {
+      "example/cpp/experiments/_runs/joint_capture_b1_20260907_0001/contact_ground_truth.csv": "230ad9ff8fee0f2b7878d9b8d8cda18b73f9be62f1c801f7575b3e4003f3a676",
+      "example/cpp/experiments/_runs/joint_capture_b1_20260907_0001/controller.log": "507b733bbed0036bbc3644dc73bb4720c4415f3d00826567ed5e47402a2cfe52",
+      "example/cpp/experiments/_runs/joint_capture_b1_20260907_0001/data.csv": "b3497115d799a7e5680280b1c948821ed8f7bd6a65f7a759974aaf0a26c6bacd",
+      "example/cpp/experiments/_runs/joint_capture_b1_20260907_0001/run_manifest.json": "095e8c6c04e17806c8702b6569c6ce589df66dbc3e4661347fed40ce0c18b8f1",
+      "unitree_robots/go2/b1_v3_running_step_5cm.xml": "46f6118585b9d151229e6e0edda6993c39f9f3159eda353102dc579aaaac24a0"
+    },
+    "issues": [],
+    "legacy_statuses": {
+      "analysis_status": "0",
+      "completion_status": "1",
+      "controller_status": "0",
+      "dynamics_status": "0",
+      "ground_truth_status": "0",
+      "phase1_quantitative_status": "1",
+      "quality_status": "0",
+      "safety_status": "1",
+      "terrain_analysis_status": "1"
+    },
+    "physical_v2_diagnostic": {
+      "claim": "empirical physical traversal only; not planner feasibility or campaign acceptance",
+      "gates": {
+        "complete_body_and_feet_exit": false,
+        "continuous_active_execution": false,
+        "controller_window_coverage": false,
+        "dynamic_contact_witness": false,
+        "each_leg_force_supported_on_top": false,
+        "estimated_state_and_lidar": true,
+        "finite_physical_window": true,
+        "no_nonfoot_step_collision": false,
+        "posture_and_height": false,
+        "started_before_step": true,
+        "truth_time_coverage": true
+      },
+      "issues": [],
+      "metrics": {
+        "aerial_witness_s": 0.0,
+        "approach_time_s": 23.232,
+        "base_proxy_rear_crossed": false,
+        "diagonal_witness_s": {
+          "6": 0.018000000000000682,
+          "9": 0.004000000000001336
+        },
+        "effective_duty_range": [
+          0.44,
+          0.44
+        ],
+        "exit_end_time_s": null,
+        "first_nonfoot_collision_time_s": 23.706,
+        "foot_riser_contact_free": false,
+        "forward_speed_p05_mps": -0.1175046017916,
+        "forward_speed_p50_mps": 0.000155350857332,
+        "id_wbc_ok_fraction": 1.0,
+        "max_base_x_m": 5.22687395645,
+        "max_nontop_foot_force_N": {
+          "FL": 277.619358404,
+          "FR": 176.491463529,
+          "RL": 0.0,
+          "RR": 0.0
+        },
+        "nonfoot_collision_rows": 1528,
+        "obstacle_interaction_time_s": [
+          23.512,
+          26.76
+        ],
+        "pitch_abs_max_deg": 61.643344063071304,
+        "roll_abs_max_deg": 7.674665009676042,
+        "top_support": {
+          "FL": {
+            "longest_support_s": 0.0,
+            "max_top_force_N": 0.0
+          },
+          "FR": {
+            "longest_support_s": 0.0,
+            "max_top_force_N": 0.0
+          },
+          "RL": {
+            "longest_support_s": 0.0,
+            "max_top_force_N": 0.0
+          },
+          "RR": {
+            "longest_support_s": 0.0,
+            "max_top_force_N": 0.0
+          }
+        },
+        "uncovered_truth_rows": 33,
+        "window_end_source": "trace_end"
+      },
+      "policy": {
+        "aerial_witness_s": 0.004,
+        "controller_gap_s": 0.02,
+        "diagonal_witness_s": 0.004,
+        "force_witness_N": 10.0,
+        "minimum_base_height_m": 0.28,
+        "posture_max_deg": 15.0,
+        "rear_clearance_m": 0.02,
+        "stable_exit_s": 0.45,
+        "top_witness_s": 0.02,
+        "truth_gap_s": 0.01
+      },
+      "schema": "b1-physical-evidence-v2",
+      "status": "NOT_CERTIFIED"
+    },
+    "schema": "b1-dynamic-traversal-v3",
+    "status": "NOT_CERTIFIED"
+  },
+  "physical_v2_diagnostic": {
+    "claim": "empirical physical traversal only; not planner feasibility or campaign acceptance",
+    "gates": {
+      "complete_body_and_feet_exit": false,
+      "continuous_active_execution": false,
+      "controller_window_coverage": false,
+      "dynamic_contact_witness": false,
+      "each_leg_force_supported_on_top": false,
+      "estimated_state_and_lidar": true,
+      "finite_physical_window": true,
+      "no_nonfoot_step_collision": false,
+      "posture_and_height": false,
+      "started_before_step": true,
+      "truth_time_coverage": true
+    },
+    "issues": [],
+    "metrics": {
+      "aerial_witness_s": 0.0,
+      "approach_time_s": 23.232,
+      "base_proxy_rear_crossed": false,
+      "diagonal_witness_s": {
+        "6": 0.018000000000000682,
+        "9": 0.004000000000001336
+      },
+      "effective_duty_range": [
+        0.44,
+        0.44
+      ],
+      "exit_end_time_s": null,
+      "first_nonfoot_collision_time_s": 23.706,
+      "foot_riser_contact_free": false,
+      "forward_speed_p05_mps": -0.1175046017916,
+      "forward_speed_p50_mps": 0.000155350857332,
+      "id_wbc_ok_fraction": 1.0,
+      "max_base_x_m": 5.22687395645,
+      "max_nontop_foot_force_N": {
+        "FL": 277.619358404,
+        "FR": 176.491463529,
+        "RL": 0.0,
+        "RR": 0.0
+      },
+      "nonfoot_collision_rows": 1528,
+      "obstacle_interaction_time_s": [
+        23.512,
+        26.76
+      ],
+      "pitch_abs_max_deg": 61.643344063071304,
+      "roll_abs_max_deg": 7.674665009676042,
+      "top_support": {
+        "FL": {
+          "longest_support_s": 0.0,
+          "max_top_force_N": 0.0
+        },
+        "FR": {
+          "longest_support_s": 0.0,
+          "max_top_force_N": 0.0
+        },
+        "RL": {
+          "longest_support_s": 0.0,
+          "max_top_force_N": 0.0
+        },
+        "RR": {
+          "longest_support_s": 0.0,
+          "max_top_force_N": 0.0
+        }
+      },
+      "uncovered_truth_rows": 33,
+      "window_end_source": "trace_end"
+    },
+    "policy": {
+      "aerial_witness_s": 0.004,
+      "controller_gap_s": 0.02,
+      "diagonal_witness_s": 0.004,
+      "force_witness_N": 10.0,
+      "minimum_base_height_m": 0.28,
+      "posture_max_deg": 15.0,
+      "rear_clearance_m": 0.02,
+      "stable_exit_s": 0.45,
+      "top_witness_s": 0.02,
+      "truth_gap_s": 0.01
+    },
+    "schema": "b1-physical-evidence-v2",
+    "status": "NOT_CERTIFIED"
+  },
+  "provenance": {
+    "artifact_hashes_well_formed": true,
+    "input_sha256": {
+      "example/cpp/experiments/_runs/joint_capture_b1_20260907_0001/contact_ground_truth.csv": "230ad9ff8fee0f2b7878d9b8d8cda18b73f9be62f1c801f7575b3e4003f3a676",
+      "example/cpp/experiments/_runs/joint_capture_b1_20260907_0001/controller.log": "507b733bbed0036bbc3644dc73bb4720c4415f3d00826567ed5e47402a2cfe52",
+      "example/cpp/experiments/_runs/joint_capture_b1_20260907_0001/data.csv": "b3497115d799a7e5680280b1c948821ed8f7bd6a65f7a759974aaf0a26c6bacd",
+      "example/cpp/experiments/_runs/joint_capture_b1_20260907_0001/run_manifest.json": "095e8c6c04e17806c8702b6569c6ce589df66dbc3e4661347fed40ce0c18b8f1",
+      "unitree_robots/go2/b1_v3_running_step_5cm.xml": "46f6118585b9d151229e6e0edda6993c39f9f3159eda353102dc579aaaac24a0"
+    },
+    "manifest_source": {
+      "analyzers": {
+        "analyze_contact_dynamics.py": "ba17187dd7d979e2dbdfd288c96f7193e496b7cf51c2b96cbcc1461a2f7bcd37",
+        "analyze_contact_ground_truth.py": "a5426a8f6af8dbb15202c48eb6411afd936456a2a34d5d5ba678ebe7b771886f"
+      },
+      "artifacts": {
+        "controller_sha256": "e87dc7b5273c1130ee71544b0e0e74f63d5fa0ad9c30e366e7908abdae08be3d",
+        "event_script_sha256": "",
+        "phase2_acceptance_contract_sha256": "6d5895644fd0f471b6b09a4a920b0663855bf7a0a2b90c226220d3ef77b1c514",
+        "phase2_analyzer_sha256": "",
+        "phase2_b0_analyzer_sha256": "63c4467c6ffbc9e09e98f86af2842fc5a59584eb8d7b8dbc1845b46746e848bb",
+        "phase2_b123_analyzer_sha256": "178009daf9600b8711cac03a51b50f05031ba98f45dfbbdc23f6f1706f4fd873",
+        "phase2_contract_sha256": "",
+        "phase2_fixed_3mps_analyzer_sha256": "39bc8b24774766c3800c053effe4804287ab2cb59e94ec9ff250edd0ab540f53",
+        "phase2_holdout_manifest_sha256": "2550526025594aa379441e1d7eb071c8809abeaf9234f6cf8a335f22288a5a40",
+        "scenario_sha256": "46f6118585b9d151229e6e0edda6993c39f9f3159eda353102dc579aaaac24a0",
+        "simulator_sha256": "5f22b3c7d2a67679017327d5143ed149f6510143d7f389a16dcad1942d2637c2"
+      },
+      "effective_argv": [
+        "--wbc-full",
+        "--gait-pattern",
+        "running-trot",
+        "--kernel",
+        "raibert-trot",
+        "--period",
+        "0.14",
+        "--duty",
+        "0.44",
+        "--step-length",
+        "0.50",
+        "--foot-lift",
+        "0.20",
+        "--tau-limit",
+        "45",
+        "--raibert-velocity-gain",
+        "0.010",
+        "--raibert-max-adjustment",
+        "0.06",
+        "--preview-horizon",
+        "4",
+        "--support-anchor-feedback",
+        "--support-anchor-gain",
+        "0.35",
+        "--velocity-max-accel",
+        "0.80",
+        "--velocity-max-decel",
+        "1.20",
+        "--velocity-max-jerk",
+        "4.0",
+        "--velocity-command-script",
+        "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/configs/b1_v3_running_1mps.csv",
+        "--velocity-max-tracking-lead",
+        "0.20",
+        "--domain-id",
+        "231",
+        "--gait-phase-offset",
+        "0",
+        "--terrain-b1-execution"
+      ],
+      "profile": {
+        "path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/configs/b1_v3_running_1mps.csv",
+        "sha256": "62f2ff9701b2f2d6189cad97877d7891177a32b17ded255677434eb1d8f41ac6"
+      },
+      "repository": {
+        "git_branch": "feat/stage-c-joint-planner",
+        "git_commit": "0ff9dc8fb755df231d26b4816d086fd77ed5d1b8",
+        "git_dirty": "false"
+      },
+      "run": {
+        "controller_duration_s": "32",
+        "domain_id": "231",
+        "headless": "true",
+        "initial_x_m": "0.0",
+        "initial_y_m": "0.0",
+        "phase2_milestone": "B1",
+        "run_mode": "bounded",
+        "scene_file": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/b1_v3_running_step_5cm.xml",
+        "wall_timeout_s": "65"
+      },
+      "run_id": "joint_capture_b1_20260907_0001",
+      "schema_version": 1,
+      "seed": "11",
+      "semantic_env_snapshot": {
+        "TROT_CPU_AUTOPIN": "1",
+        "TROT_DYNAMICS_TOLERANCE_N": "20",
+        "TROT_HS_ACC_GAIN": "10",
+        "TROT_HS_ACC_LIMIT": "4",
+        "TROT_HS_HYBRID_CONTACT": "2",
+        "TROT_HS_PITCH_DAMP": "6",
+        "TROT_HS_PITCH_GAIN": "24",
+        "TROT_HS_ROLL_DAMP": "10",
+        "TROT_HS_ROLL_GAIN": "20",
+        "TROT_HS_SPEED_LEAD": "0.25",
+        "TROT_HS_STABILITY_GOV": "1",
+        "TROT_HS_START_DUTY": "0.50",
+        "TROT_HS_START_PERIOD": "0.20",
+        "TROT_HS_STEP_CAP": "0.52",
+        "TROT_HS_SWING_REACH": "0.90",
+        "TROT_RESEARCH_CONTACT_POINT_MODEL": "0",
+        "TROT_RESEARCH_JOINT_SHADOW": "1",
+        "TROT_RESEARCH_MAP_INTERVALS_V2": "1",
+        "TROT_RESEARCH_RUNNING_LIFT_FLOOR_M": "0",
+        "TROT_RESEARCH_RUNNING_PERIOD_S": "0.14",
+        "TROT_RESEARCH_STATE_CLOCK": "1",
+        "TROT_SEED": "11",
+        "TROT_SIM_BRIDGE_CPU": "2",
+        "TROT_SIM_LIDAR_CPU": "5",
+        "TROT_SIM_PHYSICS_CPU": "2",
+        "TROT_TERRAIN_CPU": "",
+        "TROT_WALLCLOCK_TELEMETRY_PATH": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/joint_capture_b1_20260907_0001/wallclock_runtime_telemetry.csv",
+        "TROT_WRITER_CPU": "3"
+      },
+      "statuses": {
+        "analysis_status": "0",
+        "completion_status": "1",
+        "controller_status": "0",
+        "dynamics_status": "0",
+        "ground_truth_status": "0",
+        "phase1_quantitative_status": "1",
+        "quality_status": "0",
+        "safety_status": "1",
+        "terrain_analysis_status": "1"
+      },
+      "terrain_timing": {
+        "duty_factor": null,
+        "has_stage_c_timing": false,
+        "period_s": null,
+        "timing_provenance": "none",
+        "window_end_s": null,
+        "window_start_s": null
+      },
+      "timestamps": {
+        "finished_at": "2026-09-07T22:19:59+08:00",
+        "started_at": "2026-09-07T22:19:28+08:00"
+      }
+    },
+    "recorded_run_binding": true,
+    "repository_clean_and_committed": true,
+    "scene_hash_match": true
+  },
+  "repository_root": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example",
+  "scene_bounds": {
+    "center_x": 5.25,
+    "center_y": 0.0,
+    "center_z": 0.025,
+    "front": 5.0,
+    "height_m": 0.05,
+    "left": -0.75,
+    "rear": 5.5,
+    "right": 0.75,
+    "top": 0.05
+  },
+  "scene_height_m": 0.05,
+  "schema": "b1-dynamic-traversal-v4",
+  "status": "NOT_CERTIFIED",
+  "superseded_legacy_gates": [
+    "registered_v3_scene",
+    "stable_running_approach",
+    "nominal_running_through_interaction"
+  ]
+}

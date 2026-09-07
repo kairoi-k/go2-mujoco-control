@@ -4,7 +4,7 @@
 #include "stage_c/model_observation.h"
 #include "stage_c/terrain_candidates.h"
 #include "stage_c/prepare_joint_problem.h"
-#include "stage_c/anytime_joint_search.h"
+#include "stage_c/centroidal_joint_proposal.h"
 #include "terrain_planner.h"
 #include "joint_shadow_snapshot.h"
 #include <chrono>
@@ -16,11 +16,17 @@ namespace go2_trot {
 class JointPlanningShadow {
 public:
  bool Load(const std::string &path){return robot_.Load(path);}
+ // Current capture only. Rejected captures clear this result; retaining an
+ // accepted command across captures belongs to the single execution owner.
+ const go2_terrain::stage_c::CentroidalJointProposal &last_proposal() const { return last_proposal_; }
+ const go2_control::RigidBodyState &last_source_state() const { return last_source_state_; }
  void Capture(const go2_control::RigidBodyState &state,
               const go2_terrain::TerrainPlannerInput &legacy,std::uint64_t id,
-              go2_control::GaitPattern pattern) {
+              go2_control::GaitPattern pattern,
+              const go2_terrain::stage_c::WorldTerrainSnapshot *terrain_history=nullptr) {
   using namespace go2_terrain;using namespace stage_c;
   const auto begin=std::chrono::steady_clock::now();
+  last_proposal_={};last_source_state_=state;
   const TimeNs now=TimeNs::FromSeconds(legacy.state_stamp_s);
   if(now.value<0 || !legacy.contact_schedule.measured_valid) {
    std::cout<<"JointShadow id="<<id<<" detail=invalid_state_or_measured_contact command_authority=0\n";return;}
@@ -32,6 +38,7 @@ public:
   JointPlannerFailure failure=JointPlannerFailure::kObservationUnavailable;
   std::string detail="clock_rejected";std::size_t events=0,combinations=0;
   bool feasible=false;double residual=0,max_anchor_gap=0;
+  int history_initial_queries=0;std::size_t history_candidates=0,history_selected=0;std::string terrain_query_error="none";
   int qp_iterations=0,scp_iterations=0;std::string solver_detail="not_called";
   auto report=[&](){std::ostringstream line;line.precision(17);line<<"JointShadow id="<<id<<" state="<<legacy.state_stamp_s
    <<" phase="<<legacy.gait_phase<<" period="<<legacy.gait_period_s
@@ -40,6 +47,8 @@ public:
    <<" anchor_source=force_conditioned_geometry_estimate command_authority=0"
    <<" events="<<events<<" combinations="<<combinations<<" feasible="<<feasible
    <<" failure="<<JointPlannerFailureName(failure)<<" detail="<<detail
+   <<" history_candidates="<<history_candidates<<" history_selected="<<history_selected
+   <<" history_initial_queries="<<history_initial_queries<<" terrain_query_error="<<terrain_query_error
    <<" residual="<<residual<<" anchor_gap_m="<<max_anchor_gap
    <<" qp_iterations="<<qp_iterations<<" scp_iterations="<<scp_iterations<<" solver_detail="<<solver_detail
    <<" elapsed_us="<<std::chrono::duration<double,std::micro>(std::chrono::steady_clock::now()-begin).count()<<"\n";std::cout<<line.str();};
@@ -53,8 +62,12 @@ public:
   if(!clock.accepted){report();return;}
   const auto *terrain=legacy.terrain;
   if(!terrain || !terrain->valid() || !terrain->registered){detail="map_unavailable";report();return;}
+  if(terrain_history && (!terrain_history->ok() || terrain_history->metadata.aggregate_epoch!=terrain->epoch ||
+      std::abs(terrain_history->metadata.state_time_s-legacy.state_stamp_s)>1e-9)) {
+   failure=JointPlannerFailure::kInvalidInput;detail="history_state_epoch_conflict";report();return;
+  }
   if(!snapshot_dumped_ && legacy.gait_period_s<=.140000001) {
-   std::cout<<"JointSnapshot "<<JointShadowSnapshotJson(state,legacy,id,static_cast<int>(pattern))<<"\n";
+   std::cout<<"JointSnapshot "<<JointShadowSnapshotJson(state,legacy,id,static_cast<int>(pattern),terrain_history)<<"\n";
    snapshot_dumped_=true;
   }
   go2_control::RigidBodyPlanningKinematics model;
@@ -73,10 +86,24 @@ public:
    const auto c=model.dynamics.foot_pos_world[l];
    const double radius=model.dynamics.foot_geometry[l].collision_radius_m;
    TerrainPatch patch;WorldTerrainQueryDiagnostic query;
-   if(!SampleWorldTerrainPatch(*terrain,c.x(),c.y(),radius,candidate_config.maximum_cell_age_s,patch,&query) ||
-      !patch.valid || !patch.all_known) {
+   bool patch_ok=false;
+   if(terrain_history){
+    const auto observed=SampleWorldTerrainSnapshot(*terrain_history,c.x(),c.y(),radius,candidate_config.maximum_cell_age_s);
+    patch_ok=observed.ok();patch=observed.patch;query=observed.diagnostic;
+    terrain_query_error=WorldTerrainSnapshotErrorName(observed.error);
+    if(patch_ok){history_initial_queries+=observed.history_used;
+     std::ostringstream line;line.precision(17);line<<"JointTerrainHistory id="<<id<<" stage=initial leg="<<l
+      <<" selected_sequence="<<observed.selected_source_sequence<<" source_time="<<observed.selected_source_time_s
+      <<" history_used="<<observed.history_used<<" stationary="<<observed.stationary_terrain_assumption<<"\n";std::cout<<line.str();}
+   }else patch_ok=SampleWorldTerrainPatch(*terrain,c.x(),c.y(),radius,candidate_config.maximum_cell_age_s,patch,&query);
+   if(!patch_ok || !patch.valid || !patch.all_known) {
     report_query("initial",l,0,0,query);
-    failure=JointPlannerFailure::kCoverageIncomplete;detail="initial_patch_unknown";report();return;
+    failure=terrain_query_error=="conflicting_history"?JointPlannerFailure::kInitialConditionConflict:JointPlannerFailure::kCoverageIncomplete;
+    detail=terrain_query_error=="conflicting_history"?"initial_history_conflict":"initial_patch_unknown";report();return;
+   }
+   if(!terrain_candidate_detail::SingleSupportPatch(patch,radius,candidate_config)) {
+    failure=JointPlannerFailure::kInitialConditionConflict;
+    detail="initial_surface_not_single_patch";report();return;
    }
    auto &s=initial_surfaces[l];
    if(!terrain_candidate_detail::MakeBasis(patch.normal,s.basis_world)){detail="initial_normal_invalid";report();return;}
@@ -114,7 +141,8 @@ public:
    reference.nominal_foot_center_offset_world[l]={offset.x(),offset.y(),offset.z()};
    reference.foot_radius_m[l]=model.dynamics.foot_geometry[l].collision_radius_m;
   }
-  auto candidates=GenerateTerrainCandidates(*terrain,preview.events,now,terrain->epoch,reference,end,candidate_config);
+  auto candidates=GenerateTerrainCandidates(*terrain,preview.events,now,terrain->epoch,reference,end,candidate_config,terrain_history);
+  history_candidates=candidates.history_used_candidates;
   for(const auto &q:candidates.rejected_query_diagnostics)
    report_query("candidate",static_cast<int>(q.leg),q.event_index,q.candidate_index,q.query);
   if(!candidates.valid){failure=candidates.failure;detail="candidate_coverage";report();return;}
@@ -125,17 +153,26 @@ public:
    ref.segment<3>(3)<<reference.com_velocity_world.x,reference.com_velocity_world.y,0;refs.push_back(ref);}
   auto prepared=PrepareJointProblem(input.input,preview,candidates,initial_surfaces,model,physical,bounds,refs);
   if(!prepared.ok){failure=prepared.failure;detail=prepared.detail;report();return;}
-  DeterministicBestFirstPlanner planner;
-  const auto result=planner.Plan(prepared.problem.request,[&](const std::vector<std::size_t>&choice){
-   auto p=prepared.problem;p.combination=choice;const auto solved=SolveCentroidalSubproblem(p);
-   auto evaluation=AsJointEvaluation(p,solved);
-   qp_iterations+=solved.qp_iterations;scp_iterations+=solved.scp_iterations;solver_detail=solved.detail;
-   if(evaluation.feasible)residual=std::max({residual,solved.certificate.residual.position_m,solved.certificate.residual.velocity_mps,solved.certificate.residual.momentum_nms});
-   return evaluation;});
+  last_proposal_=SearchCentroidalJointProposal(prepared.problem);
+  const auto &result=last_proposal_.search;
+  qp_iterations=static_cast<int>(last_proposal_.total_qp_iterations);
+  scp_iterations=static_cast<int>(last_proposal_.total_scp_iterations);
+  residual=last_proposal_.max_successful_residual;
+  solver_detail=last_proposal_.last_solver_detail;
   feasible=result.feasible;failure=result.failure;combinations=result.diagnostics.combinations_considered;
+  if(feasible)for(std::size_t e=0;e<result.plan.candidate_indices.size();++e) {
+   const auto &match=candidates.sets[e].matched_surfaces[result.plan.candidate_indices[e]];
+   history_selected+=match.history_used;
+   const auto &event=preview.events.events[e];const auto &p=match.surface_world;
+   std::ostringstream line;line.precision(17);line<<"JointSelectedFoot id="<<id<<" event="<<e<<" leg="<<static_cast<int>(event.id.leg)
+    <<" touchdown="<<event.touchdown_time.seconds()<<" x="<<p.value.x<<" y="<<p.value.y<<" z="<<p.value.z
+    <<" source_time="<<p.source_time.seconds()<<" selected_sequence="<<match.source_sequence<<" history_used="<<match.history_used<<"\n";std::cout<<line.str();
+  }
   detail=feasible?"reduced_proposal_only":"joint_search_rejected";report();
  }
 private:
+ go2_terrain::stage_c::CentroidalJointProposal last_proposal_{};
+ go2_control::RigidBodyState last_source_state_{};
  bool snapshot_dumped_=false;
  go2_control::Go2RigidBody robot_;
  go2_terrain::stage_c::PhaseClock clock_;

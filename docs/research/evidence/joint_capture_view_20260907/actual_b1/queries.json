@@ -1,0 +1,95 @@
+{
+  "schema": "joint-query-accounting-v1",
+  "runtime_sha": "0ff9dc8fb755df231d26b4816d086fd77ed5d1b8",
+  "scope": "query coverage only; no optimizer or physical acceptance",
+  "controller_log_sha256": "507b733bbed0036bbc3644dc73bb4720c4415f3d00826567ed5e47402a2cfe52",
+  "query_count": 5,
+  "reason_counts": {
+    "unknown_cells": 5
+  },
+  "stage_reason_counts": {
+    "initial:unknown_cells": 4,
+    "candidate:unknown_cells": 1
+  },
+  "snapshot_id": 358,
+  "snapshot_time": 20.554000000000002,
+  "map_sequence": 289,
+  "capture_source": {
+    "id": "358",
+    "sequence": "289",
+    "width": "32",
+    "height": "10",
+    "mask": "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK?KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK"
+  },
+  "capture_source_known": 319,
+  "map_known": 319,
+  "map_total": 320,
+  "row_masks_low_to_high_y": [
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKK?KKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK"
+  ],
+  "snapshot_query_checks": [
+    {
+      "query": {
+        "id": "358",
+        "stage": "initial",
+        "leg": "3",
+        "event": "0",
+        "candidate": "0",
+        "reason": "unknown_cells",
+        "world_x": "1.7767813703459672",
+        "world_y": "0.15349563062399027",
+        "local_x": "-0.21316332245575695",
+        "local_y": "0.14480146751478679",
+        "radius": "0.021999999999999999",
+        "known": "3",
+        "total": "4",
+        "outside": "0",
+        "age_max": "0.042000000000491866",
+        "age_limit": "0.20000000000000001"
+      },
+      "cells": [
+        {
+          "ix": 4,
+          "iy": 6,
+          "inside": true,
+          "known": true,
+          "age": 0.042000000000491866
+        },
+        {
+          "ix": 5,
+          "iy": 6,
+          "inside": true,
+          "known": true,
+          "age": 0.042000000000491866
+        },
+        {
+          "ix": 4,
+          "iy": 7,
+          "inside": true,
+          "known": false,
+          "age": 0.042000000000491866
+        },
+        {
+          "ix": 5,
+          "iy": 7,
+          "inside": true,
+          "known": true,
+          "age": 0.042000000000491866
+        }
+      ],
+      "independent_known": 3,
+      "independent_total": 4,
+      "independent_outside": 0,
+      "reported_counts_match": true
+    }
+  ]
+}

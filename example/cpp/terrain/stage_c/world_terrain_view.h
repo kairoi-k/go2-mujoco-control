@@ -19,6 +19,7 @@ enum class WorldTerrainQueryFailure : std::uint8_t
     kUnknownCells,
     kStaleCells,
     kNonfinitePatch,
+    kConflictingHistory,
 };
 inline const char *WorldTerrainQueryFailureName(
     WorldTerrainQueryFailure failure)
@@ -32,6 +33,8 @@ inline const char *WorldTerrainQueryFailureName(
     case WorldTerrainQueryFailure::kUnknownCells: return "unknown_cells";
     case WorldTerrainQueryFailure::kStaleCells: return "stale_cells";
     case WorldTerrainQueryFailure::kNonfinitePatch: return "nonfinite_patch";
+    case WorldTerrainQueryFailure::kConflictingHistory:
+        return "conflicting_history";
     default: return "unknown";
     }
 }

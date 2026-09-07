@@ -10,11 +10,11 @@ if repo['git_commit']!=a.runtime_sha or str(repo['git_dirty']).lower()!='false':
 log=a.run/'controller.log';records=[json.loads(s[len('JointSnapshot '):]) for s in log.read_text().splitlines() if s.startswith('JointSnapshot ')]
 if len(records)!=1:raise ValueError('expected exactly one recorded snapshot')
 r=records[0];m=r['terrain']
-if r['schema']!='joint-shadow-snapshot-v1' or m['frame'] not in ('world','base_link'):raise ValueError('unsupported schema/frame')
+if r['schema'] not in ('joint-shadow-snapshot-v1','joint-shadow-snapshot-v2') or m['frame'] not in ('world','base_link'):raise ValueError('unsupported schema/frame')
 if len(m['cells'])!=m['width']*m['height']:raise ValueError('cell shape')
 expected=['known','height','has_bounds','min','max','age','slope','roughness','variance','nx','ny','nz']
 if m['cell_fields']!=expected:raise ValueError('cell semantics')
-values=['joint-shadow-snapshot-v1',r['id'],r['pattern'],r['time'],r['phase'],r['period'],r['duty'],r['command_vx'],r['base_yaw']]
+values=[r['schema'],r['id'],r['pattern'],r['time'],r['phase'],r['period'],r['duty'],r['command_vx'],r['base_yaw']]
 for name,n in [('position',3),('quaternion_wxyz',4),('linear_velocity_world',3),('angular_velocity_body',3),('q',12),('dq',12)]:
  if len(r[name])!=n or not all(isinstance(x,(int,float)) and math.isfinite(x) for x in r[name]):raise ValueError('unknown actual '+name)
  values+=r[name]
@@ -23,11 +23,24 @@ if type(r['measured_valid']) is not bool or type(r['touchdown_reference_valid'])
 if len(r['touchdown_reference_feet_base'])!=4 or any(len(f)!=3 for f in r['touchdown_reference_feet_base']):raise ValueError('foot reference shape')
 values +=[r['measured_valid']]+r['measured_contact']+[r['touchdown_reference_valid']]
 for f in r['touchdown_reference_feet_base']:values+=f
-values +=[m['frame'],m['source'],m['epoch'],m['registered'],m['map_sequence'],m['state_stamp'],m['map_stamp'],m['age'],m['width'],m['height'],m['resolution']]
-values +=m['origin']+m['registration_position']+[m['registration_yaw']]+m['capture_position']+[m['capture_yaw']]
-for c in m['cells']:
- if len(c)!=12:raise ValueError('cell shape')
- values+=c
+def model_values(m):
+ if m['frame'] not in ('world','base_link') or m['cell_fields']!=expected:raise ValueError('model semantics')
+ if not 0<m['width']*m['height']<=1000000 or len(m['cells'])!=m['width']*m['height']:raise ValueError('model shape')
+ result=[m['frame'],m['source'],m['epoch'],m['registered'],m['map_sequence'],m['state_stamp'],m['map_stamp'],m['age'],m['width'],m['height'],m['resolution']]
+ for name,n in [('origin',2),('registration_position',3),('capture_position',3)]:
+  if len(m[name])!=n:raise ValueError('model vector shape')
+ result+=m['origin']+m['registration_position']+[m['registration_yaw']]+m['capture_position']+[m['capture_yaw']]
+ for c in m['cells']:
+  if len(c)!=12:raise ValueError('cell shape')
+  result+=c
+ return result
+values+=model_values(m)
+if r['schema']=='joint-shadow-snapshot-v2':
+ h=r['terrain_history']
+ if type(h['stationary']) is not bool or not 1<=len(h['captures'])<=8:raise ValueError('history shape/assumption')
+ if h['captures'][0]!=m:raise ValueError('latest model history mismatch')
+ values +=[h['aggregate_epoch'],h['state_time_s'],h['stationary'],h['height_conflict_tolerance_m'],h['minimum_normal_dot'],len(h['captures'])]
+ for capture in h['captures']:values+=model_values(capture)
 # NaN is preserved only as missing map/optional-reference data, never imputed.
 def token(v):
  if v is None:return 'nan'

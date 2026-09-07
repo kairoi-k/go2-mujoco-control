@@ -97,6 +97,95 @@ TerrainCandidateReference ConstantReference()
     reference.com_velocity_world = {0.10, 0.0, 0.0};
     return reference;
 }
+
+CaptureTerrainViewResult CaptureFixture(
+    std::uint64_t sequence, double map_stamp_s, double state_stamp_s,
+    double capture_z, double capture_yaw, double world_height,
+    std::size_t unknown_index = 40 * 40)
+{
+    TerrainMapEnvelope source;
+    source.sequence = sequence;
+    source.map_stamp_s = map_stamp_s;
+    source.frame_id = "base_link";
+    source.resolution_m = 0.10;
+    source.width = 40;
+    source.height = 40;
+    source.origin_m = {-1.0, -1.0};
+    source.capture_position_world = {0.0, 0.0, capture_z};
+    source.capture_yaw_rad = capture_yaw;
+    const std::size_t count = 40 * 40;
+    source.heights_m.assign(count, world_height - capture_z);
+    source.observation_stamp_s.assign(count, map_stamp_s);
+    if (unknown_index < count)
+    {
+        source.heights_m[unknown_index] = kTerrainMapUnknown;
+        source.observation_stamp_s[unknown_index] = kTerrainMapUnknown;
+    }
+    return BuildCaptureHeadingTerrainView(
+        source, state_stamp_s, 7, TerrainSource::kTestFixture, 0.20);
+}
+void TestSnapshotSelectionAndConflict()
+{
+    const auto old_capture = CaptureFixture(101, 0.95, 1.0, 0.30, 0.35, -0.25);
+    const auto latest_capture = CaptureFixture(
+        102, 0.99, 1.0, 0.55, 0.0, -0.25, 10 * 40 + 15);
+    Check(old_capture.ok() && latest_capture.ok(),
+          "capture snapshot fixtures were not valid");
+    WorldTerrainSnapshotOptions options;
+    options.stationary_terrain_assumption = true;
+    const auto snapshot = BuildWorldTerrainSnapshot(
+        7, 1.0,
+        std::vector<CaptureTerrainViewResult>{old_capture, latest_capture},
+        options);
+    Check(snapshot.ok() && snapshot.snapshot.latest_model() != nullptr &&
+              snapshot.snapshot.latest_model()->map_sequence == 102,
+          "candidate snapshot was not ordered or valid");
+    const auto selected = GenerateTerrainCandidates(
+        FlatTerrain(), Events(), T(1.0), 7, PerEventReference(), T(2.0),
+        TerrainCandidateConfig{}, &snapshot.snapshot);
+    Check(selected.valid && selected.history_used_candidates > 0,
+          "candidate generation did not use complete history for latest hole");
+    Check(selected.sets[0].matched_surfaces[0].history_used &&
+              selected.sets[0].matched_surfaces[0].source_sequence == 101 &&
+              selected.sets[0].matched_surfaces[0].surface_world.source_time ==
+                  T(0.95),
+          "historical candidate source provenance was fabricated");
+    const auto raised_capture = CaptureFixture(
+        102, 0.99, 1.0, 0.55, 0.0, -0.245, 10 * 40 + 15);
+    const auto raised_snapshot = BuildWorldTerrainSnapshot(
+        7, 1.0,
+        std::vector<CaptureTerrainViewResult>{old_capture, raised_capture},
+        options);
+    Check(raised_snapshot.ok(), "raised candidate snapshot was not valid");
+    const auto conflict = GenerateTerrainCandidates(
+        FlatTerrain(), Events(), T(1.0), 7, PerEventReference(), T(2.0),
+        TerrainCandidateConfig{}, &raised_snapshot.snapshot);
+    Check(!conflict.valid && conflict.history_conflict &&
+              conflict.failure == JointPlannerFailure::kInvalidInput &&
+              conflict.history_conflict_height_gap_m >= 0.0049 &&
+              conflict.history_conflict_newer_sequence == 102 &&
+              conflict.history_conflict_older_sequence == 101,
+          "history conflict was hidden or misclassified");
+    Check(!conflict.rejected_query_diagnostics.empty() &&
+              conflict.rejected_query_diagnostics.front().query.failure ==
+                  WorldTerrainQueryFailure::kConflictingHistory,
+          "history conflict diagnostic was not distinct from coverage");
+    const auto legacy = GenerateTerrainCandidates(
+        FlatTerrain(), Events(), T(1.0), 7, PerEventReference(), T(2.0));
+    Check(legacy.valid && !legacy.history_conflict &&
+              legacy.history_used_candidates == 0 &&
+              legacy.sets[0].matched_surfaces[0].surface_world.source_time ==
+                  T(0.95),
+          "null snapshot changed legacy candidate behavior");
+    auto wrong_epoch_terrain = FlatTerrain();
+    wrong_epoch_terrain.epoch = 8;
+    const auto epoch_mismatch = GenerateTerrainCandidates(
+        wrong_epoch_terrain, Events(), T(1.0), 8, PerEventReference(), T(2.0),
+        TerrainCandidateConfig{}, &snapshot.snapshot);
+    Check(!epoch_mismatch.valid &&
+              epoch_mismatch.failure == JointPlannerFailure::kObservationUnavailable,
+          "snapshot and terrain epochs were not cross-validated");
+}
 TerrainCandidateGenerationResult Generate(
     const TerrainModel &terrain, const TouchdownEventTable &events,
     const TerrainCandidateReference &reference,
@@ -283,6 +372,13 @@ void TestContactContinuationPolicy()
 }
 void TestExplicitTerrainGates()
 {
+    TerrainPatch support;support.valid=true;support.all_known=true;
+    support.min_height_m=support.max_height_m=support.center_height_m=0;
+    support.slope_rad=0;support.roughness_m=0;support.map_edge_margin_m=.1;
+    Check(terrain_candidate_detail::SingleSupportPatch(support,.022,TerrainCandidateConfig{}),"flat initial support surface rejected");
+    support.max_height_m=.05;
+    Check(!terrain_candidate_detail::SingleSupportPatch(support,.022,TerrainCandidateConfig{}),"riser interval cannot become one initial support normal");
+
     auto sloped = FlatTerrain();
     for (TerrainCell &cell : sloped.cells)
         cell.slope_rad = 0.60;
@@ -352,6 +448,7 @@ int main()
     try
     {
         TestAlternativesAndProvenance();
+        TestSnapshotSelectionAndConflict();
         TestExplicitVelocityReference();
         TestCoverageAndMetadataRejection();
         TestContactContinuationPolicy();

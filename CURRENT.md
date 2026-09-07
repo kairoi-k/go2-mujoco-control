@@ -34,12 +34,23 @@ Actual f9623e1 state-clock flat shadow now yields 6/12 reduced proposals;
 remaining captures reject unknown initial/candidate patches. The horizon-tail
 contract is fixed for the opt-in new route. Source318/320 becomes271/320 after
 current-heading registration; independent replay isolates low-Y edge cropping
-and interior source holes. Direct capture-heading world queries are next.
+and interior source holes. Direct capture-heading queries preserve source coverage in the next pair.
+That flat run completes; its 5cm run fails physically. Remaining map holes
+and scheduled-versus-measured initial contact mismatch are under review.
+First failure in the new5cm run: FL non-top23.512s, nonfoot23.706s, hard
+posture state23.874s/cmd21.868s. Historical23.216s is STATE time, not command.
 31 isolated identical-state replays match semantic outputs; capture pipeline
 p50/p95/max 1.547/1.862/1.954 ms. A live 60.6 ms outlier remains explicit.
-Next: preserve source coverage, then complete adoption,
-coherent event commitment/execution and geometry/actuator validation using real
-MuJoCo feedback. Sample-level model success alone keeps `execution_ready=false`.
+Next: complete the [joint feedback execution route](docs/research/JOINT_FEEDBACK_EXECUTION_V1.md).
+The new input path retains bounded immutable capture history with explicit
+stationary-terrain/freshness/conflict semantics and v2 exact-state replay.
+Whole-combination search now retains its actual selected problem/result for
+an execution consumer, rather than only scalar diagnostics. No command
+adoption exists yet. The next slice is one atomic commitment/reference owner,
+coherent WBC feedback and final actuator validation, followed by flat/5cm.
+Strict stationary-foot reconstruction remains a conditional fixture: actual
+compliant running q/dq must not be projected to make it pass. Sample-level
+model success alone keeps `execution_ready=false`.
 See `docs/research/evidence/joint_articulated_20260907/` for model evidence.
 The next source adds the existing WBC QP's optional articulated COM/momentum
 objective and a non-projecting feedback sample preview. Material-point speed
@@ -51,8 +62,10 @@ combination path; historical bound-event defaults and commitments remain strict.
 ## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
 Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
-`f9623e1486d03830101aa80d132fc8f3c04489bb`: horizon/query state-clock
-flat diagnostic, six reduced proposals; see joint_map_coverage_20260907.
+`0ff9dc8fb755df231d26b4816d086fd77ed5d1b8`: capture-heading shadow pair.
+Flat completes (9/16 proposals); 5cm FAILS with nonfoot collision/posture stop.
+See joint_capture_view_20260907; joint command authority remains off.
+Earlier f9623e1 is the horizon/query flat diagnostic with six proposals.
 Earlier a180e605 wall/state pair has zero solver calls.
 Earlier `e1e68de1cee4edb93d1094a39a52c8e4bb5347ec` is the contact-point pair. The earlier `43c5f5a91e5c075a69170bc8af7d5582d1031474` two flat
 diagnostics retain their separate window/provenance; the first overlaps archival

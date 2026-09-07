@@ -1,0 +1,40 @@
+{
+  "schema": "joint-query-accounting-v1",
+  "runtime_sha": "0ff9dc8fb755df231d26b4816d086fd77ed5d1b8",
+  "scope": "query coverage only; no optimizer or physical acceptance",
+  "controller_log_sha256": "05cd1de2998459884dd481176747cbe5d150d7acae92cce9b06a7ee231a5078c",
+  "query_count": 19,
+  "reason_counts": {
+    "unknown_cells": 19
+  },
+  "stage_reason_counts": {
+    "initial:unknown_cells": 2,
+    "candidate:unknown_cells": 17
+  },
+  "snapshot_id": 359,
+  "snapshot_time": 20.548000000000002,
+  "map_sequence": 243,
+  "capture_source": {
+    "id": "359",
+    "sequence": "243",
+    "width": "32",
+    "height": "10",
+    "mask": "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK?KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK"
+  },
+  "capture_source_known": 319,
+  "map_known": 319,
+  "map_total": 320,
+  "row_masks_low_to_high_y": [
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKK?KKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK"
+  ],
+  "snapshot_query_checks": []
+}

@@ -243,6 +243,39 @@ public:
         return model_->jnt_dofadr[joint_id_[motor]];
     }
 
+    // Exact direct-torque actuator boundary used by the current simulator
+    // bridge (ctrl[motor] = tau + joint PD). Unsupported transmissions,
+    // actuator dynamics or extra force clamps fail closed, not guessed.
+    bool MotorTorqueEnvelope(int motor, double &lower_nm, double &upper_nm) const
+    {
+        lower_nm = upper_nm = std::numeric_limits<double>::quiet_NaN();
+        if (!loaded_ || motor < 0 || motor >= static_cast<int>(go2::kJointCount) ||
+            model_->nu != static_cast<int>(go2::kJointCount) ||
+            (model_->opt.disableflags & (mjDSBL_CLAMPCTRL | mjDSBL_ACTUATION)) ||
+            model_->actuator_plugin[motor] >= 0 ||
+            model_->jnt_actgravcomp[joint_id_[motor]] ||
+            (model_->actuator_group[motor] >= 0 && model_->actuator_group[motor] < 31 &&
+             (model_->opt.disableactuator & (1u << model_->actuator_group[motor]))) ||
+            model_->actuator_trntype[motor] != mjTRN_JOINT ||
+            model_->actuator_trnid[2 * motor] != joint_id_[motor] ||
+            model_->actuator_dyntype[motor] != mjDYN_NONE ||
+            model_->actuator_gaintype[motor] != mjGAIN_FIXED ||
+            model_->actuator_biastype[motor] != mjBIAS_NONE ||
+            model_->actuator_gainprm[mjNGAIN * motor] != 1.0 ||
+            !model_->actuator_ctrllimited[motor] ||
+            model_->actuator_forcelimited[motor] ||
+            model_->jnt_actfrclimited[joint_id_[motor]])
+            return false;
+        for (int axis = 0; axis < 6; ++axis)
+            if (model_->actuator_gear[6 * motor + axis] != (axis == 0 ? 1.0 : 0.0))
+                return false;
+        const double lower = model_->actuator_ctrlrange[2 * motor];
+        const double upper = model_->actuator_ctrlrange[2 * motor + 1];
+        if (!std::isfinite(lower) || !std::isfinite(upper) || lower >= upper)
+            return false;
+        lower_nm = lower; upper_nm = upper;
+        return true;
+    }
     bool Evaluate(const RigidBodyState &state, RigidBodyDynamics &out)
     {
         out = RigidBodyDynamics{};

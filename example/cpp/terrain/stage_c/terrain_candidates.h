@@ -2,6 +2,7 @@
 #include "centroidal_subproblem.h"
 #include "terrain_model.h"
 #include "world_terrain_view.h"
+#include "world_terrain_snapshot.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -67,6 +68,10 @@ struct TerrainCandidateSurfaceMatch
     ContactSurface contact_surface{};
     TerrainPatch patch{};
     double collision_radius_m = 0.0;
+    // Filled by the generator; legacy manually assembled matches may leave
+    // these unset and retain the existing validity contract.
+    std::uint64_t source_sequence = 0;
+    bool history_used = false;
     bool valid() const
     {
         const Eigen::Vector3d normal = contact_surface.basis_world.col(2);
@@ -139,6 +144,12 @@ struct TerrainCandidateGenerationResult
     // and local coordinates used by the world terrain view. This is diagnostic
     // evidence only; it does not turn an unknown query into a candidate.
     std::vector<TerrainCandidateQueryDiagnostic> rejected_query_diagnostics;
+    std::size_t history_used_candidates = 0;
+    bool history_conflict = false;
+    double history_conflict_height_gap_m = kTerrainMapUnknown;
+    double history_conflict_normal_dot = kTerrainMapUnknown;
+    std::uint64_t history_conflict_newer_sequence = 0;
+    std::uint64_t history_conflict_older_sequence = 0;
     JointPlannerFailure failure = JointPlannerFailure::kInvalidInput;
     bool valid = false;
 };
@@ -270,6 +281,19 @@ inline bool ValidTerrainMetadata(
         return false;
     return true;
 }
+// A single support surface must not average across a riser/discontinuity.
+// Shared by future candidates and force-conditioned initial support patches.
+inline bool SingleSupportPatch(const TerrainPatch &patch,double radius,
+                               const TerrainCandidateConfig &config)
+{
+    const double span=patch.max_height_m-patch.min_height_m;
+    return patch.valid && patch.all_known && std::isfinite(span) && span>=0 &&
+        span<=config.maximum_surface_height_span_m &&
+        std::isfinite(patch.slope_rad) && patch.slope_rad<=config.maximum_slope_rad &&
+        std::isfinite(patch.roughness_m) && patch.roughness_m<=config.maximum_roughness_m &&
+        std::isfinite(patch.map_edge_margin_m) &&
+        patch.map_edge_margin_m>=radius+config.minimum_edge_margin_m;
+}
 inline bool MakeBasis(const std::array<double, 3> &normal_array,
                       Eigen::Matrix3d &basis)
 {
@@ -306,7 +330,8 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
     const TerrainModel &terrain, const TouchdownEventTable &events,
     TimeNs source_state_time, std::uint64_t map_epoch,
     const TerrainCandidateReference &reference, TimeNs prediction_valid_until,
-    const TerrainCandidateConfig &config = {})
+    const TerrainCandidateConfig &config = {},
+    const WorldTerrainSnapshot *terrain_snapshot = nullptr)
 {
     using namespace terrain_candidate_detail;
     TerrainCandidateGenerationResult result;
@@ -320,8 +345,22 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
         result.failure = JointPlannerFailure::kObservationUnavailable;
         return result;
     }
+    if (terrain_snapshot != nullptr &&
+        (!terrain_snapshot->ok() ||
+         terrain_snapshot->metadata.aggregate_epoch != map_epoch ||
+         !std::isfinite(terrain_snapshot->metadata.state_time_s) ||
+         std::abs(terrain_snapshot->metadata.state_time_s -
+                  source_state_time.seconds()) > kTerrainMapTimeToleranceS ||
+         terrain.epoch != terrain_snapshot->metadata.aggregate_epoch ||
+         std::abs(terrain.state_stamp_s -
+                  terrain_snapshot->metadata.state_time_s) >
+             kTerrainMapTimeToleranceS))
+    {
+        result.failure = JointPlannerFailure::kObservationUnavailable;
+        return result;
+    }
     const TimeNs map_source_time = MapSourceTime(terrain);
-    if (map_source_time.value < 0)
+    if (terrain_snapshot == nullptr && map_source_time.value < 0)
     {
         result.failure = JointPlannerFailure::kObservationUnavailable;
         return result;
@@ -367,11 +406,14 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
     result.sets.reserve(events.events.size());
     bool saw_coverage_rejection = false;
     bool saw_empty_set = false;
+    bool all_empty_sets_history_conflict = true;
     for (std::size_t event_index = 0; event_index < events.events.size(); ++event_index)
     {
         const TouchdownEvent &event = events.events[event_index];
         TerrainCandidateSet output_set;
         output_set.event_set.event_id = event.id;
+        bool event_had_history_conflict = false;
+        bool event_had_other_rejection = false;
         const std::size_t leg = static_cast<std::size_t>(event.id.leg);
         go2::Vec3 com = per_event_com
             ? reference.com_world_at_touchdown[event_index]
@@ -401,17 +443,68 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
             const double y = nominal.y + config.xy_offsets_m[candidate_index][1];
             TerrainPatch patch;
             WorldTerrainQueryDiagnostic query_diagnostic;
-            if (!SampleWorldTerrainPatch(
+            TimeNs selected_source_time = map_source_time;
+            std::uint64_t selected_source_sequence = terrain.map_sequence;
+            bool selected_history_used = false;
+            bool query_ok = false;
+            bool candidate_history_conflict = false;
+            if (terrain_snapshot != nullptr)
+            {
+                const auto snapshot_query = SampleWorldTerrainSnapshot(
+                    *terrain_snapshot, x, y, radius,
+                    config.maximum_cell_age_s);
+                query_diagnostic = snapshot_query.diagnostic;
+                if (snapshot_query.ok())
+                {
+                    patch = snapshot_query.patch;
+                    selected_source_time = snapshot_query.selected_source_time;
+                    selected_source_sequence =
+                        snapshot_query.selected_source_sequence;
+                    selected_history_used = snapshot_query.history_used;
+                    query_ok = true;
+                    if (selected_source_time.value < 0 ||
+                        !std::isfinite(selected_source_time.seconds()) ||
+                        selected_source_sequence == 0)
+                        query_ok = false;
+                }
+                else if (snapshot_query.error ==
+                         WorldTerrainSnapshotError::kConflictingHistory)
+                {
+                    query_diagnostic.failure =
+                        WorldTerrainQueryFailure::kConflictingHistory;
+                    result.history_conflict = true;
+                    if (std::isfinite(snapshot_query.conflict_height_gap_m))
+                        result.history_conflict_height_gap_m =
+                            snapshot_query.conflict_height_gap_m;
+                    if (std::isfinite(snapshot_query.conflict_normal_dot))
+                        result.history_conflict_normal_dot =
+                            snapshot_query.conflict_normal_dot;
+                    result.history_conflict_newer_sequence =
+                        snapshot_query.conflict_newer_sequence;
+                    result.history_conflict_older_sequence =
+                        snapshot_query.conflict_older_sequence;
+                    candidate_history_conflict = true;
+                    event_had_history_conflict = true;
+                }
+            }
+            else
+            {
+                query_ok = SampleWorldTerrainPatch(
                     terrain, x, y, radius, config.maximum_cell_age_s, patch,
-                    &query_diagnostic) ||
-                !patch.valid || !patch.all_known)
+                    &query_diagnostic);
+            }
+            if (!query_ok || !patch.valid || !patch.all_known)
             {
                 if (query_diagnostic.failure !=
                     WorldTerrainQueryFailure::kNone)
                     result.rejected_query_diagnostics.push_back({
                         event_index, event.id.leg, candidate_index,
                         query_diagnostic});
-                saw_coverage_rejection = true;
+                if (!candidate_history_conflict)
+                {
+                    saw_coverage_rejection = true;
+                    event_had_other_rejection = true;
+                }
                 continue;
             }
             const double height_span = patch.max_height_m - patch.min_height_m;
@@ -425,30 +518,35 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
             if (!finite_patch_observation)
             {
                 saw_coverage_rejection = true;
+                event_had_other_rejection = true;
                 continue;
             }
-            if (height_span > config.maximum_surface_height_span_m ||
-                patch.slope_rad > config.maximum_slope_rad ||
-                patch.roughness_m > config.maximum_roughness_m ||
-                patch.map_edge_margin_m < radius + config.minimum_edge_margin_m)
+            if (!SingleSupportPatch(patch, radius, config))
+            {
+                event_had_other_rejection = true;
                 continue;
+            }
             Eigen::Matrix3d basis;
             if (!MakeBasis(patch.normal, basis))
+            {
+                event_had_other_rejection = true;
                 continue;
+            }
             const Eigen::Vector3d normal = basis.col(2);
             const Eigen::Vector3d surface(x, y, patch.center_height_m);
             const Eigen::Vector3d sphere_center = surface + radius * normal;
             if (!surface.allFinite() || !sphere_center.allFinite())
             {
                 saw_coverage_rejection = true;
+                event_had_other_rejection = true;
                 continue;
             }
             const TimedPoint surface_point{
                 {surface.x(), surface.y(), surface.z()}, Frame::kWorld,
-                map_source_time, true, PointRole::kSurfaceContactPoint};
+                selected_source_time, true, PointRole::kSurfaceContactPoint};
             const TimedPoint sphere_point{
                 {sphere_center.x(), sphere_center.y(), sphere_center.z()},
-                Frame::kWorld, map_source_time, true,
+                Frame::kWorld, selected_source_time, true,
                 PointRole::kFootCollisionCenter};
             ContactSurface contact_surface;
             contact_surface.basis_world = basis;
@@ -475,21 +573,32 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
             if (!candidate.valid())
             {
                 saw_coverage_rejection = true;
+                event_had_other_rejection = true;
                 continue;
             }
             output_set.event_set.candidates.push_back(candidate);
             output_set.matched_surfaces.push_back({
-                surface_point, sphere_point, contact_surface, patch, radius});
+                surface_point, sphere_point, contact_surface, patch, radius,
+                selected_source_sequence, selected_history_used});
+            if (selected_history_used)
+                ++result.history_used_candidates;
         }
         if (output_set.event_set.candidates.empty())
+        {
             saw_empty_set = true;
+            if (!(event_had_history_conflict && !event_had_other_rejection))
+                all_empty_sets_history_conflict = false;
+        }
         result.sets.push_back(std::move(output_set));
     }
     if (saw_empty_set)
     {
-        result.failure = saw_coverage_rejection
-            ? JointPlannerFailure::kCoverageIncomplete
-            : JointPlannerFailure::kNoFeasibleCandidateInSet;
+        if (result.history_conflict && all_empty_sets_history_conflict)
+            result.failure = JointPlannerFailure::kInvalidInput;
+        else
+            result.failure = saw_coverage_rejection
+                ? JointPlannerFailure::kCoverageIncomplete
+                : JointPlannerFailure::kNoFeasibleCandidateInSet;
         return result;
     }
     result.valid = std::all_of(
@@ -498,6 +607,17 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
     result.failure = result.valid ? JointPlannerFailure::kNone
                                   : JointPlannerFailure::kNumericalFailure;
     return result;
+}
+inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
+    const TerrainModel &terrain, const TouchdownEventTable &events,
+    TimeNs source_state_time, std::uint64_t map_epoch,
+    const TerrainCandidateReference &reference, TimeNs prediction_valid_until,
+    const WorldTerrainSnapshot *terrain_snapshot,
+    const TerrainCandidateConfig &config = {})
+{
+    return GenerateTerrainCandidates(
+        terrain, events, source_state_time, map_epoch, reference,
+        prediction_valid_until, config, terrain_snapshot);
 }
 } // namespace stage_c
 } // namespace go2_terrain

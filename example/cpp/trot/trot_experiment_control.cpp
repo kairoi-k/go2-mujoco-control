@@ -1,12 +1,14 @@
 #include "trot_experiment.h"
 #include "trot_rigid_body_observation.h"
 #include "joint_planning_shadow.h"
+#include "motor_command_certificate.h"
 #include "stage_c/capture_terrain_view.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <deque>
 #include <fstream>
 #include <limits>
 #include <iomanip>
@@ -338,6 +340,7 @@ void TrotExperiment::TerrainPlannerWorker()
     if (joint_shadow_enabled)
         std::cout << "JointShadow model_loaded=" << joint_shadow_loaded << " command_authority=0\n";
     double joint_shadow_last_s = -1.0;
+    std::deque<go2_terrain::TerrainMapEnvelope> joint_capture_history;
     std::uint64_t consumed_generation = 0;
     for (;;)
     {
@@ -396,6 +399,18 @@ void TrotExperiment::TerrainPlannerWorker()
                       << " state=" << work.input.state_stamp_s
                       << " capture=" << work.map_envelope.map_stamp_s << "\n";
         work.input.terrain = model.get();
+        if (joint_shadow_loaded && work.have_map)
+        {
+            if (!joint_capture_history.empty() &&
+                (work.map_envelope.sequence < joint_capture_history.back().sequence ||
+                 work.map_envelope.map_stamp_s < joint_capture_history.back().map_stamp_s))
+                joint_capture_history.clear();
+            if (joint_capture_history.empty() ||
+                work.map_envelope.sequence != joint_capture_history.back().sequence)
+                joint_capture_history.push_back(work.map_envelope);
+            while (joint_capture_history.size() > 4)
+                joint_capture_history.pop_front();
+        }
         if (joint_shadow_loaded && work.rigid_body_state_valid &&
             work.input.state_stamp_s >= 20.0 && work.input.state_stamp_s <= 28.0 &&
             work.input.state_stamp_s - joint_shadow_last_s >= 0.5)
@@ -413,14 +428,33 @@ void TrotExperiment::TerrainPlannerWorker()
             const auto capture_view = go2_terrain::stage_c::BuildCaptureHeadingTerrainView(
                 work.map_envelope, work.input.state_stamp_s, work.map_epoch,
                 go2_terrain::TerrainSource::kLidar);
+            go2_terrain::stage_c::WorldTerrainSnapshotBuildResult history;
+            if (capture_view.ok())
+            {
+                std::vector<go2_terrain::stage_c::CaptureTerrainViewResult> views;
+                for (auto it=joint_capture_history.rbegin();it!=joint_capture_history.rend();++it)
+                {
+                    auto view=it->sequence==work.map_envelope.sequence ? capture_view :
+                        go2_terrain::stage_c::BuildCaptureHeadingTerrainView(*it,
+                            work.input.state_stamp_s,work.map_epoch,go2_terrain::TerrainSource::kLidar);
+                    if(view.ok())views.push_back(std::move(view));
+                }
+                go2_terrain::stage_c::WorldTerrainSnapshotOptions options;
+                options.max_captures=4;options.stationary_terrain_assumption=true;
+                history=go2_terrain::stage_c::BuildWorldTerrainSnapshot(work.map_epoch,
+                    work.input.state_stamp_s,std::move(views),options);
+            }
             std::cout << "JointTerrainView id=" << work.plan_id
-                      << " representation=capture_heading error="
+                      << " representation=capture_history error="
                       << go2_terrain::stage_c::CaptureTerrainViewErrorName(capture_view.error)
+                      << " snapshot_error=" << go2_terrain::stage_c::WorldTerrainSnapshotErrorName(history.error)
                       << " source_known=" << capture_view.source_known_cells
-                      << " view_known=" << capture_view.view_known_cells << "\n";
+                      << " view_known=" << capture_view.view_known_cells
+                      << " captures=" << history.snapshot.captures.size() << "\n";
             auto shadow_input = work.input;
-            shadow_input.terrain = capture_view.ok() ? &capture_view.model : nullptr;
-            joint_shadow.Capture(work.rigid_body_state, shadow_input, work.plan_id, params_.gait_pattern);
+            shadow_input.terrain = history.ok() ? history.snapshot.latest_model() : nullptr;
+            joint_shadow.Capture(work.rigid_body_state, shadow_input, work.plan_id, params_.gait_pattern,
+                history.ok() ? &history.snapshot : nullptr);
             joint_shadow_last_s = work.input.state_stamp_s;
         }
         auto result = terrain_planner_.Build(work.input, work.plan_id);
@@ -678,6 +712,30 @@ bool TrotExperiment::LowCmdWrite(
     PublishTerrainControlSnapshot(
         state_snapshot, high_state_snapshot, have_high_state);
 
+    // Sample the FINAL serialized command against the same current motor
+    // state. Diagnostic only; this does not modify authority or saturation.
+    if (Full2EnvDouble("TROT_RESEARCH_JOINT_SHADOW", 0.0) > 0.5 &&
+        rigid_body_ && state_snapshot.tick() % 20 == 0)
+    {
+        std::array<go2_trot::MotorCommandSample,12> commands;
+        go2_control::RigidBodyState motors;
+        for (int i=0;i<12;++i) {
+            const auto &c=low_cmd_.motor_cmd()[i];
+            commands[i]={c.q(),c.dq(),c.kp(),c.kd(),c.tau()};
+            motors.q[i]=state_snapshot.motor_state()[i].q();
+            motors.dq[i]=state_snapshot.motor_state()[i].dq();
+        }
+        const auto cert=go2_trot::VerifyMotorCommandComposition(*rigid_body_,commands,motors);
+        std::ostringstream line;line.precision(17);
+        line<<"JointMotorEnvelope state="<<state_snapshot.tick()*1e-3
+            <<" source_tick="<<state_snapshot.tick()<<" input_valid="<<cert.input_valid
+            <<" within="<<cert.within_model_envelope
+            <<" max_saturation_nm="<<cert.maximum_saturation_nm
+            <<" scope=current_state_composition command_modified=0";
+        for(int i=0;i<12;++i)line<<" requested"<<i<<"="<<cert.requested_torque_nm[i]
+            <<" predicted_applied"<<i<<"="<<cert.predicted_applied_torque_nm[i];
+        line<<"\n";std::cout<<line.str();
+    }
     // SECTION: publish-lowcmd
     PublishLowCmdWithCrc();
     // Order-107: after the LowCmd is published in this cycle, increment the
