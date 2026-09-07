@@ -1,0 +1,73 @@
+{
+  "runtime_manifest_repository": {
+    "git_branch": "feat/stage-c-joint-planner",
+    "git_commit": "6d0f75123d736f91c4ab114d37f8de178cfca54d",
+    "git_dirty": "false"
+  },
+  "b1_claim": false,
+  "first_applied_state_s": 21.026,
+  "first_stop": {
+    "state": "21.332",
+    "applied": "0",
+    "stop_requested": "1",
+    "count": "154",
+    "reason": "reference_expired_or_unavailable"
+  },
+  "sampled_applied_log_rows": 17,
+  "logged_applied_count_lower_bound": 148,
+  "accepted_versions": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "first_post_adoption_proposal_failure": {
+    "id": "873",
+    "state": "21.154",
+    "phase": "0.60899096818191367",
+    "period": "0.14000000000000001",
+    "clock": "0",
+    "epoch": "1",
+    "phase_residual_ns": "0",
+    "anchor_source": "force_conditioned_geometry_estimate",
+    "command_authority": "0",
+    "events": "8",
+    "combinations": "0",
+    "feasible": "0",
+    "failure": "observation_unavailable",
+    "detail": "initial_contact_anchor_unavailable",
+    "history_candidates": "0",
+    "history_selected": "0",
+    "history_initial_queries": "0",
+    "terrain_query_error": "none",
+    "residual": "0",
+    "anchor_gap_m": "0",
+    "qp_iterations": "0",
+    "scp_iterations": "0",
+    "solver_detail": "not_called",
+    "elapsed_us": "115.839"
+  },
+  "csv_active_window_rows": 154,
+  "csv_zero_extra_pd_rows": 154,
+  "latency_sampled_us": {
+    "p50": 291.771,
+    "p95": 325.18679999999995,
+    "max": 335.614
+  },
+  "sampled_maxima": {
+    "com_error_m": 0.00792756,
+    "foot_error_m": 0.102835,
+    "force_residual_N": 7.10543e-13,
+    "moment_residual_Nm": 1.72973e-12,
+    "joint_residual_Nm": 3.55271e-15
+  },
+  "raw_hashes": {
+    "controller.log": "52b9238be80cac8c61200707da0735c4302e403a8ab535656760a2992ac4dc2b",
+    "data.csv": "d2945daed3193b1f240e82982f9190a81bada02928b227a40faae6e223f20427",
+    "contact_ground_truth.csv": "7c8ffc87a9f29ec037ed920791d53dc1b341837326ea08091d1155e60100cccd",
+    "run_manifest.json": "22817c412a291013d666c6f624bbddfd3e205ce0bdc08191f58ace0fd144f8b4",
+    "run_metadata.txt": "676fc8999d77316705d1ffde39f6e57ef765cab99eb3d6a1d89a74426629d929",
+    "environment.txt": "3afa51cad9a8c8ac84ac454059c5e105a14fa7a81721917c06ce3acb8903b27a"
+  }
+}

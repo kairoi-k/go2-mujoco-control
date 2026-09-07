@@ -84,3 +84,7 @@ condition rejection. This advances diagnosis, not closed-loop acceptance.
 Actual coherent-body canary [attempt_0008](attempt_0008/README.md) fails posture
 with four versions. Exact first-QP replay passes; initial legacy-command
 handover reference differs substantially from actual foot velocities.
+
+[attempt_0009](attempt_0009/README.md): proposal-based first acquisition avoids
+legacy settling, but actual execution expires after154 commands. Contact anchor
+failures and delayed-proposal commitment conflicts both need resolution.

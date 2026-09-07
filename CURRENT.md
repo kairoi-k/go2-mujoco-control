@@ -28,7 +28,18 @@ prepared swing-curve leases. Body/force validity is never extended by a curve
 lease. An initial <=20ms stance-reference bridge currently propagates its
 acceleration into WBC; contact-motion compatibility is unresolved. Planned,
 measured, applied and collision-truth contact remain different quantities.
-## Latest actual runtime: coherent-body canary0008 FAILED
+## Latest actual runtime: proposal-initialized canary0009 FAILED
+Clean6d0f75123d736f91c4ab114d37f8de178cfca54d. First21.026, five versions,
+stop21.332/count154 for reference_expired_or_unavailable. No posture stop or
+executor QP failure; max IMU roll15.47/pitch11.09deg over active window.
+Sampled foot102.835mm/COM7.928mm. Evidence attempt_0009 in flat packet.
+Source contact-anchor failures coexist with valid50ms proposals rejected as
+commitment conflicts. Active-only exported commitments can become stale when
+new swings activate during computation; reconstruct this race deterministically
+before implementing a bounded computation-aware prefix/deadline protocol.
+Do not extend stale force validity. Initial proposal reference is not measured
+zero stance motion or a complete articulated trajectory certificate.
+## Previous actual runtime: coherent-body canary0008 FAILED
 Clean source9c1ed03c9099809bcb22123fc7599c87e2759752, actual coherent_body=1.
 First21.004, four versions, last sampled21.278/count137; posture roll-22.0233deg,
 pitch9.9677deg triggers stop. No executor QP failure; exact first-QP replay
