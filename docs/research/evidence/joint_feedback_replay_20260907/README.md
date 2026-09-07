@@ -48,3 +48,8 @@ The robot model is the retained same-MJCF model; terrain references remain
 observation-derived and actual force application uses the current sphere
 material point. Contact forces/couples are observations, not nominal forces.
 The original solver iteration cap and reduced feasibility semantics remain.
+
+First exact b984105 attempt has zero physical steps: the tool rejected an
+interior replay endpoint. This is a replay precondition defect, not physical
+infeasibility. The next revision restricts only the foot schedule prefix and
+keeps the original dynamics grid/result; independent off-grid prefix test added.

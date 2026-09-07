@@ -921,10 +921,9 @@ inline bool ValidateProposalForReplay(
     }
     const auto horizon = TimeNs{p.grid.front().value +
         TimeNs::FromSeconds(duration_s).value};
-    if (horizon <= p.grid.front() || horizon > p.grid.back() ||
-        std::find(p.grid.begin(), p.grid.end(), horizon) == p.grid.end())
+    if (horizon <= p.grid.front() || horizon > p.grid.back())
     {
-        failure = "replay_end_not_on_source_grid";
+        failure = "replay_end_outside_source_coverage";
         return false;
     }
     for (std::size_t k = 1; k < p.grid.size(); ++k)
@@ -973,9 +972,9 @@ inline bool CopyReplaySchedule(
         return false;
     }
     copy.required_end = end;
-    copy.grid.erase(std::remove_if(copy.grid.begin(), copy.grid.end(),
-        [&](TimeNs t) { return t > end; }), copy.grid.end());
-    return copy.grid.size() >= 2 && copy.grid.back() == end;
+    // Only the foot-reference schedule is restricted. The solved dynamics
+    // grid and states remain immutable; the sampler supports interior times.
+    return true;
 }
 inline bool BuildFootReplayRequest(
     const CentroidalProblem &problem, go2_control::Go2RigidBody &robot,

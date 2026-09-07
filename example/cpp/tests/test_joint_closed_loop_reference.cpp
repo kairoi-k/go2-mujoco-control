@@ -29,6 +29,9 @@ int main(){try {
     p.required_start=t0;p.required_end=t2;
     for(auto &surface:p.initial_surfaces){surface.frame=Frame::kWorld;surface.coverage=MapCoverageState::kKnown;surface.map_epoch=7;surface.valid_until=t2;surface.friction_mu=.8;surface.max_normal_n=180;}
 
+ CentroidalProblem prefix;std::string prefix_failure;
+ Check(CopyReplaySchedule(p,t0,TimeNs::FromSeconds(1.031),prefix,prefix_failure),"off-grid reference horizon");
+ Check(prefix.grid==p.grid && prefix.schedule.back().end==TimeNs::FromSeconds(1.031),"original dynamics grid preserved");
  auto result=SolveCentroidalSubproblem(p);
  Check(result.certificate.feasible,"nominal fixture");
  ClosedLoopResearchConfig config; Eigen::Matrix<double,6,1> desired,weights;

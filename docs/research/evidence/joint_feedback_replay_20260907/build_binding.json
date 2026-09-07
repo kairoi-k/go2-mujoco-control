@@ -1,9 +1,9 @@
 {
-  "example/cpp/build/replay_joint_shadow_snapshot": "53734d9d9861f20d82457457ea35ac73ce04a93118f850e7f265acf6162f88c7",
-  "example/cpp/build/test_joint_closed_loop_reference": "1e608af08da49c7ef56b0536bfe788bc40c9467e69a0eb07e5c6b8bf44e2dc0b",
+  "example/cpp/build/replay_joint_shadow_snapshot": "b18d57d3fe2db45ff20bf7eda3f35865fcfb0406e2bb1f6d82a2199b40dc8055",
+  "example/cpp/build/test_joint_closed_loop_reference": "532b815583550c7a02c5c7afdceebd95aa47ad59c199f8c801a4617337d91bfd",
   "example/cpp/build/test_stage_c_centroidal_wbc": "d191c77184d6d88e1b83f602dc5de02d83ac7993f2c8a482c6a91b4767b1ba63",
-  "example/cpp/terrain/stage_c/joint_closed_loop_replay.h": "0017998bd8ccd7f31f8f2f541d92cd4899b716b7d9b5e69de265dabc9b88c94b",
+  "example/cpp/terrain/stage_c/joint_closed_loop_replay.h": "d0e4a7176f2595f942cf5c8be6978116d8b41c94bf045b284fb94e8a418967f7",
   "example/cpp/wbc/inverse_dynamics_wbc.h": "0629ac0e6b1d8c4657af00ea1617a82ea64479d19c7d865be1cb9145e33b7ddf",
   "example/cpp/tools/replay_joint_shadow_snapshot.cpp": "0b562810fc9b1adc62714e5a7738b4d956e366facc01a516632df46cd57fb6d1",
-  "example/cpp/tests/test_joint_closed_loop_reference.cpp": "528bbc11a08ca59c49658f23d881e6f15bb066ca8203be9d765177912241a4eb"
+  "example/cpp/tests/test_joint_closed_loop_reference.cpp": "bc71aa56d88a0f5bbc93f15a66e893e855ecfe003c7376a6c40ec0250d331eff"
 }
