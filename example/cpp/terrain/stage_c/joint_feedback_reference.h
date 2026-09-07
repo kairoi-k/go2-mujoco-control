@@ -14,6 +14,7 @@
 #include "foot_trajectory.h"
 #include "body_acceleration.h"
 #include "body_momentum_feedback.h"
+#include "articulated_certificate.h"
 #include "go2_rigid_body.h"
 #include "inverse_dynamics_wbc.h"
 namespace go2_terrain { namespace stage_c { namespace joint_feedback_reference {
@@ -440,6 +441,42 @@ inline Eigen::Vector3d ClampComponentwise(
         clipped = clipped || old != out[axis];
     }
     return out;
+}
+// Necessary initial nominal-reference check; no feedback correction, no future
+// model-state prediction, and no claim that passing certifies a whole swing.
+inline ArticulatedTargetCheck CheckInitialNominalTarget(
+ go2_control::Go2RigidBody &robot,const go2_control::RigidBodyState &state,
+ const CentroidalProblem &problem,const CentroidalResult &result) {
+ ArticulatedTargetCheck out;
+ if(problem.grid.size()<2)return out;
+ const TimeNs start=problem.grid.front();
+ const TimeNs end{std::min(problem.grid.back().value,start.value+200000000)};
+ FootTrajectoryRequest feet;std::array<Eigen::Vector3d,4> velocity;std::string failure;
+ ClosedLoopResearchConfig config;
+ if(!BuildFootReplayRequest(problem,robot,state,end,config,feet,velocity,failure))return out;
+ const auto sample=SampleFootTrajectoryAt(feet,start);
+ const auto centroidal=SampleCentroidalTrajectory(problem,result,start);
+ const auto *interval=FindSchedule(problem,start);
+ if(!sample.valid||sample.samples.size()!=1||!centroidal.force_valid||!interval)return out;
+ go2_control::RigidBodyPlanningKinematics actual;
+ if(!robot.EvaluatePlanningKinematics(state,actual)||!actual.valid)return out;
+ BodyAccelerationTarget target;target.com_acceleration_valid=true;
+ target.angular_momentum_derivative_valid=true;
+ target.com_acceleration_world=Eigen::Vector3d(0,0,-problem.model.gravity_mps2);
+ target.foot_acceleration_valid=sample.samples[0].leg_valid;
+ std::array<Eigen::Vector3d,4> points=actual.dynamics.foot_pos_world;
+ std::array<ContactSurface,4> surfaces{};
+ for(int leg=0;leg<4;++leg) {
+  target.foot_acceleration_world[leg]=Vec(sample.samples[0].acceleration_world[leg]);
+  if(!centroidal.force.contact[leg])continue;
+  Eigen::Vector3d surface_point;
+  if(!ResolveScheduleSurface(problem,*interval,leg,centroidal.force.end,surface_point,surfaces[leg]))return out;
+  points[leg]-=actual.dynamics.foot_geometry[leg].collision_radius_m*surfaces[leg].basis_world.col(2);
+  const Eigen::Vector3d force=Vec(centroidal.force.force_world[leg]);
+  target.com_acceleration_world+=force/problem.model.mass_kg;
+  target.angular_momentum_derivative_world+=(points[leg]-actual.dynamics.com_world).cross(force);
+ }
+ return VerifyArticulatedAccelerationTarget(robot,state,target,centroidal.force,points,surfaces,config.torque_limit_nm,30.0);
 }
 inline bool BuildWbcReplayInput(
     const CentroidalProblem &problem,

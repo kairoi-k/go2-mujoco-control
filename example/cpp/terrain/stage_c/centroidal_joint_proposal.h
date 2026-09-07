@@ -2,6 +2,7 @@
 #include "anytime_joint_search.h"
 #include "centroidal_subproblem.h"
 #include <algorithm>
+#include <functional>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -10,6 +11,13 @@
 #include <string>
 namespace go2_terrain {
 namespace stage_c {
+struct CandidateReferenceVerdict {
+ bool checked=false;
+ bool feasible=false;
+ JointPlannerFailure failure=JointPlannerFailure::kObservationUnavailable;
+};
+using CandidateReferenceValidator=std::function<CandidateReferenceVerdict(
+ const CentroidalProblem &,const CentroidalResult &)>;
 // A diagnostic whole-combination result. The selected problem owns its request,
 // candidate surfaces, schedule, grid and bounds; the selected result owns its
 // states and forces. This bundle has no execution or command authority.
@@ -18,6 +26,10 @@ struct CentroidalJointProposal {
     CentroidalProblem selected_problem{};
     CentroidalResult selected_result{};
     bool selected_valid = false;
+    bool reference_validation_required=false;
+    bool selected_reference_checked=false;
+    std::size_t reference_checks=0;
+    std::size_t reference_rejections=0;
     std::size_t total_qp_iterations = 0;
     std::size_t total_scp_iterations = 0;
     // These fields follow the existing shadow telemetry: residual is the
@@ -32,8 +44,10 @@ struct CentroidalJointProposal {
 // trajectory verification gates the retained bundle; it never reruns a solve.
 inline CentroidalJointProposal SearchCentroidalJointProposal(
     const CentroidalProblem &problem,
-    ExhaustivePlannerConfig planner_config = {}) {
+    ExhaustivePlannerConfig planner_config = {},
+    CandidateReferenceValidator reference_validator = {}) {
     CentroidalJointProposal out;
+    out.reference_validation_required=static_cast<bool>(reference_validator);
     double selected_cost = std::numeric_limits<double>::infinity();
     std::vector<std::size_t> selected_indices;
     DeterministicBestFirstPlanner planner(planner_config);
@@ -75,6 +89,19 @@ inline CentroidalJointProposal SearchCentroidalJointProposal(
             evaluation.failure = JointPlannerFailure::kNumericalFailure;
             return evaluation;
         }
+        // Check every feasible combination before ranking, including one that
+        // would otherwise lose on reduced cost. Unchecked is not acceptance.
+        if(reference_validator) {
+            ++out.reference_checks;
+            const auto verdict=reference_validator(candidate_problem,candidate_result);
+            if(!verdict.checked || !verdict.feasible || verdict.failure!=JointPlannerFailure::kNone) {
+                ++out.reference_rejections;
+                evaluation.feasible=false;
+                evaluation.failure=!verdict.checked ? (verdict.failure==JointPlannerFailure::kNone ? JointPlannerFailure::kObservationUnavailable : verdict.failure) :
+                    (verdict.failure==JointPlannerFailure::kNone ? JointPlannerFailure::kCandidateConstraintViolation : verdict.failure);
+                return evaluation;
+            }
+        }
         const bool better = !out.selected_valid ||
             evaluation.cost < selected_cost ||
             (evaluation.cost == selected_cost && indices < selected_indices);
@@ -93,6 +120,7 @@ inline CentroidalJointProposal SearchCentroidalJointProposal(
         out.selected_problem = std::move(candidate_problem);
         out.selected_result = std::move(candidate_result);
         out.selected_valid = true;
+        out.selected_reference_checked=out.reference_validation_required;
         selected_cost = evaluation.cost;
         selected_indices = indices;
         return evaluation;
@@ -101,6 +129,7 @@ inline CentroidalJointProposal SearchCentroidalJointProposal(
     if (!out.search.feasible) {
         // No valid proposal is exposed when the search preserves a failure.
         out.selected_valid = false;
+        out.selected_reference_checked=false;
         out.selected_problem = CentroidalProblem{};
         out.selected_result = CentroidalResult{};
         return out;
@@ -115,6 +144,7 @@ inline CentroidalJointProposal SearchCentroidalJointProposal(
         out.search.witness = {out.search.failure, 0, -1,
                               "selected_proposal_transport_mismatch"};
         out.selected_valid = false;
+        out.selected_reference_checked=false;
         out.selected_problem = CentroidalProblem{};
         out.selected_result = CentroidalResult{};
         out.max_successful_residuals = DynamicsResidual{};

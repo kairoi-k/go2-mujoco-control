@@ -162,6 +162,17 @@ int main()
               "selected proposal aliases mutable input");
         auto tied = Fixture();
         tied.candidate_surfaces[0][0] = tied.candidate_surfaces[0][1];
+        const auto gated=SearchCentroidalJointProposal(tied,{},
+            [](const CentroidalProblem &p,const CentroidalResult &){
+                return CandidateReferenceVerdict{true,p.combination[0]==1,
+                    p.combination[0]==1 ? JointPlannerFailure::kNone : JointPlannerFailure::kCandidateConstraintViolation};});
+        Check(gated.selected_valid && gated.selected_reference_checked &&
+              gated.selected_problem.combination[0]==1 && gated.reference_rejections==1,
+              "reference validator must gate reduced-cost winner before selection");
+        const auto unknown=SearchCentroidalJointProposal(tied,{},
+            [](const CentroidalProblem &,const CentroidalResult &){return CandidateReferenceVerdict{};});
+        Check(!unknown.selected_valid && !unknown.selected_reference_checked && unknown.reference_checks>0,
+              "unchecked reference must never expose a selected bundle");
         const auto tie = SearchCentroidalJointProposal(tied);
         Check(tie.selected_valid && tie.selected_problem.combination == std::vector<std::size_t>{0},
               "equal-cost result must retain lexicographically first winner");

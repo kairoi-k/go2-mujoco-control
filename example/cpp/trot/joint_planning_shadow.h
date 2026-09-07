@@ -312,7 +312,22 @@ public:
   if(!prepared.ok){failure=prepared.failure;detail=prepared.detail;report();return;}
   if (has_accepted_commitments)
     prepared.problem.request.accepted_commitments = *accepted_commitments;
-  last_proposal_=SearchCentroidalJointProposal(prepared.problem);
+  CandidateReferenceValidator validator;
+  const char *initial_check=std::getenv("TROT_RESEARCH_JOINT_INITIAL_DYNAMICS");
+  if(initial_check && std::string(initial_check)=="1")
+   validator=[&](const CentroidalProblem &p,const CentroidalResult &r){
+    const auto check=joint_feedback_reference::CheckInitialNominalTarget(robot_,state,p,r);
+    std::ostringstream line;line.precision(17);
+    line<<"JointInitialTarget id="<<id<<" indices=";
+    for(auto index:p.combination)line<<index<<',';
+    line<<" checked="<<check.physical.dynamics.checked<<" feasible="<<check.feasible
+        <<" failure="<<JointPlannerFailureName(check.failure)
+        <<" torque_peak_nm="<<check.physical.torque.cwiseAbs().maxCoeff()<<"\n";
+    std::cout<<line.str();
+    return CandidateReferenceVerdict{check.lift.valid && check.physical.dynamics.checked,
+                                    check.feasible,check.failure};
+   };
+  last_proposal_=SearchCentroidalJointProposal(prepared.problem,{},validator);
   const auto &result=last_proposal_.search;
   qp_iterations=static_cast<int>(last_proposal_.total_qp_iterations);
   scp_iterations=static_cast<int>(last_proposal_.total_scp_iterations);
