@@ -1008,6 +1008,7 @@ inline bool BuildFootReplayRequest(
     request.end = end;
     request.swing_clearance_m = config.swing_clearance_m;
     request.allow_surface_contact_tail_beyond_horizon = true;
+    request.add_clearance_to_inflight_continuation = false;
     const auto *source_interval = FindSchedule(problem, request.start);
     if (source_interval == nullptr)
     {
@@ -1454,6 +1455,7 @@ inline bool WriteReplayMetadata(
         << "# original_warmstart_replayed=0\n"
         << "# torque_mode=direct_torque_only_kp0_kd0\n"
         << "# qp_solver=primal_active_set_verified_feasible_seed\n"
+        << "# inflight_continuation=measured_p_v_no_additional_bump\n"
         << "# contact_merge_mode=0_scheduled_only\n"
         << "# map_source=proposal_only_scene_geometry_not_used_to_fill_map\n"
         << "# gt_contact_scope=external_contacts_only_robot_self_contacts_omitted\n"

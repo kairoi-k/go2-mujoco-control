@@ -36,6 +36,9 @@ struct FootTrajectoryRequest
     std::array<bool, go2::kLegCount> initial_velocity_valid{};
     std::array<FootSwingContinuation, go2::kLegCount> continuation{};
     double swing_clearance_m = 0.0;
+    // A measured-state continuation may already be descending after apex.
+    // Disable a new extra bump without altering its p/v or touchdown time.
+    bool add_clearance_to_inflight_continuation = true;
     // A feedback prefix only needs stance surface coverage through its end.
     // Future swing targets still require coverage through touchdown. Default
     // preserves the historical full contact-lifetime contract.
@@ -80,6 +83,7 @@ struct PreparedTrajectory
     TimeNs start{};
     TimeNs end{};
     double clearance_m = 0.0;
+    bool add_clearance_to_inflight_continuation = true;
     std::array<Eigen::Vector3d, go2::kLegCount> initial_center;
     std::array<Eigen::Vector3d, go2::kLegCount> initial_velocity;
     std::array<std::vector<std::size_t>, go2::kLegCount> events_by_leg{};
@@ -348,6 +352,7 @@ inline JointPlannerFailure Prepare(
     prepared.start = request.start;
     prepared.end = request.end;
     prepared.clearance_m = request.swing_clearance_m;
+    prepared.add_clearance_to_inflight_continuation = request.add_clearance_to_inflight_continuation;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         prepared.initial_center[leg].setZero();
@@ -616,7 +621,7 @@ inline FootTrajectorySample SamplePrepared(
                 break;
             if (time < event.touchdown)
             {
-                EvaluateSwing(event, time, prepared.clearance_m, position,
+                EvaluateSwing(event, time, event.starts_in_flight && !prepared.add_clearance_to_inflight_continuation ? 0.0 : prepared.clearance_m, position,
                               velocity, acceleration);
                 done = true;
                 break;

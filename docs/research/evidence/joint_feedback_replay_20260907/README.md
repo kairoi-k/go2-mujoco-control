@@ -101,3 +101,18 @@ A separate reference risk is already identified: the source is mid-swing
 with29.398932ms remaining; restarting a full30mm bump demands initial foot
 accelerations959/1079m/s2. Keep this unchanged for the numerical comparison,
 then investigate committed-curve continuation rather than hiding torque limits.
+
+Seventh exact5e75b5e completes100 actual2ms torque-only MuJoCo steps. All
+100 WBC solves converge and pass independent physical and final motor gates.
+QP p50/p95/max86.069/116.202/179.612us; force/moment/joint residual maxima
+2.84e-13/7.11e-14/7.11e-15; motor saturation0. The numerical defect is resolved
+on this prefix, not globally certified. Tracking is poor: max COM error48.95mm,
+max foot error54.80mm, base height falls366.69->312.97mm,23 nominal/geom mask
+disagreements, no nonfoot contact. Completion is not tracking acceptance.
+
+Next isolate the already-identified mid-swing bump restart: preserve measured
+initial p/v and the absolute touchdown, but add no fresh clearance bump to an
+already-inflight continuation. Future full swings retain30mm clearance. This
+is still a measured-state counterfactual; production adoption must preserve
+the actual commanded committed curve, unavailable in this old snapshot.
+Body/stance task weighting remains unchanged for this comparison.

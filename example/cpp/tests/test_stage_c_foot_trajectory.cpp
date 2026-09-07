@@ -167,6 +167,17 @@ int main()
                     {{2, 0, -1, -1}});
         auto request = Request(problem);
         request.initial_velocity_world[1] = {0.05, 0.0, 0.0};
+        { auto continued=request;continued.add_clearance_to_inflight_continuation=false;
+        const auto original_start=SampleFootTrajectoryAt(request,T(1.0));
+        const auto continued_start=SampleFootTrajectoryAt(continued,T(1.0));
+        Check(original_start.valid && continued_start.valid,"inflight continuation inputs");
+        Check((EigenValue(original_start.samples[0].center_world[1])-EigenValue(continued_start.samples[0].center_world[1])).norm()<1e-12,"continuation preserves initial position");
+        Check(std::abs(original_start.samples[0].velocity_world[1].x-continued_start.samples[0].velocity_world[1].x)<1e-12,"continuation preserves initial velocity");
+        Check(std::abs(original_start.samples[0].acceleration_world[1].z-continued_start.samples[0].acceleration_world[1].z-32*.03/(.08*.08))<1e-8,"no restarted clearance acceleration");
+        const auto continued_td=SampleFootTrajectoryAt(continued,T(1.08));
+        const auto original_td=SampleFootTrajectoryAt(request,T(1.08));
+        Check(continued_td.valid && (EigenValue(continued_td.samples[0].center_world[1])-EigenValue(original_td.samples[0].center_world[1])).norm()<1e-12,"absolute touchdown unchanged");
+        }
         auto prefix_problem=problem;
         prefix_problem.schedule.back().end=T(1.40);
         for(auto &surfaces:prefix_problem.candidate_surfaces)

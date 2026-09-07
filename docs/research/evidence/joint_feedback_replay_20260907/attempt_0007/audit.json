@@ -1,0 +1,39 @@
+{
+  "runtime_sha": "5e75b5e12f1430c7d1eaf994a750f4d5e4ea1223",
+  "snapshot_runtime_sha": "f9623e1486d03830101aa80d132fc8f3c04489bb",
+  "b1_claim": false,
+  "rows": 101,
+  "applied_rows": 100,
+  "returncode": 0,
+  "input_files_changed": [],
+  "clock_residual_s": 1.9845236565174673e-15,
+  "requested_applied_residual_nm": 0.0,
+  "max_foot_error_m": 0.05480231182554835,
+  "first_failure": null,
+  "first_nonfoot_contact": null,
+  "nominal_geom_disagreement_rows": 23,
+  "solver_unconverged_rows": 0,
+  "maxima": {
+    "com_error_m": 0.04894969997518766,
+    "com_velocity_error_mps": 0.6239416660402488,
+    "momentum_error_nms": 0.26589322448920516,
+    "max_tau_nm": 35.000000000413955,
+    "max_motor_saturation_nm": 0.0,
+    "certificate_force_residual_n": 2.8421709430404007e-13,
+    "certificate_moment_residual_nm": 7.105427357601002e-14,
+    "certificate_joint_residual_nm": 7.105427357601002e-15,
+    "gt_contact_couple_norm_nm": 5.976823048717775
+  },
+  "raw_hashes": {
+    "stdout.txt": "af57124960f8786010d24190be87b992f3ad2a794b78a1172254e6d06f2514bf",
+    "manifest.json": "7248f21e628e9940714ecd49a6f4af563103f9412f27afac898f9a1202d56788",
+    "feedback.csv": "2b14d1f658f4b77f6af66ba7d3dca09981516e5f763dce0d551215616729936c"
+  },
+  "analyzer_sha256": "d11826e1a8dbb8a9a31de9494619fd8b40b743099fcaf80243ec592401ba528f",
+  "qp_latency_us": {
+    "count": 100,
+    "p50": 86.06899999999999,
+    "p95": 116.2015,
+    "max": 179.612
+  }
+}
