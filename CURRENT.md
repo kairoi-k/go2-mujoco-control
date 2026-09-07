@@ -107,7 +107,14 @@ replay input audit found the old planner snapshot is not the control state and
 the old tracking log lacks exact QP/task maps. The next diagnostic captures
 the actual first secondary solve and per-leg J/bias/target without re-solving;
 its equality rows preserve the exact primary optimum. Offline qdd-regularizer
-ablation is a conditional same-state task comparison, not closed-loop evidence. Sampled foot error in the
+ablation is a conditional same-state task comparison, not closed-loop evidence.
+Actual0a853346 flat0006 again fails posture with no QP failure. First applied
+secondary QP at21.020 is captured. Independent same-state ablation refutes
+qdd regularization as the main swing error cause; frozen primary body/support
+tasks leave a numerical swing residual floor89.632m/s2 (stable rank cutoffs).
+Relaxing orientation locking reduces swing error but induces large body angular
+acceleration, so neither diagnostic variant is enabled. Body/leg reference
+coordination and physical contact realization are required. See attempt0006. Sampled foot error in the
 failed run reaches118.023mm and remains an execution concern. Variable-period calendar transitions remain an unresolved requirement. The clock caller
 now passes commitment activity rather than silently resetting the epoch.
 Default remains off. See joint_execution_flat_20260908.
@@ -126,7 +133,9 @@ combination path; historical bound-event defaults and commitments remain strict.
 ## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
 Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
-`4b09ccd217130c77b492040554c891d29746c7f5`: actual tracking diagnostic0005;
+`0a853346bff0005bc9175bd9d3f33eb01fa49e79`: actual first-QP capture flat0006,
+posture failure without QP failure; exact fixed-state task audit retained.
+Prior `4b09ccd217130c77b492040554c891d29746c7f5`: actual tracking diagnostic0005;
 191commands/13versions, secondary numerical failure21.402 after growing foot
 error (sampled maximum414.984mm).
 Prior `4bff757c1a465fc620edd2f32d220d22819b824b`: QR repaired actual joint flat;

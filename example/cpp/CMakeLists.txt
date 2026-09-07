@@ -411,3 +411,7 @@ target_link_libraries(test_stage_c_committed_candidates stage_c_centroidal unitr
 go2_add_ctest(test_stage_c_committed_candidates)
 
 add_test(NAME test_dense_qp_active_set_runtime_primary COMMAND test_dense_qp_active_set "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/research/evidence/joint_execution_flat_20260908/attempt_0003/qp.txt")
+
+add_executable(replay_joint_execution_qp tools/replay_joint_execution_qp.cpp)
+target_link_libraries(replay_joint_execution_qp Eigen3::Eigen)
+add_test(NAME test_joint_execution_qp_replay COMMAND replay_joint_execution_qp "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/research/evidence/joint_execution_flat_20260908/attempt_0006/first_qp.txt")

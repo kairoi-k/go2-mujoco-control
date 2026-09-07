@@ -1,0 +1,10 @@
+Internal ctest changing into directory: /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/build
+Test project /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/build
+    Start 51: test_joint_closed_loop_reference
+1/2 Test #51: test_joint_closed_loop_reference ...   Passed    0.64 sec
+    Start 72: test_joint_execution_qp_replay
+2/2 Test #72: test_joint_execution_qp_replay .....   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =   0.65 sec

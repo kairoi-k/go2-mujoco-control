@@ -1,0 +1,112 @@
+{
+  "b1_claim": false,
+  "scope": "conditional numerical task coupling; not exact symbolic proof or physical rollout",
+  "matrix_sha256": "840e79fae275203b8d2d5fb50e555a89dcdefafe9fd3da6392418234704996c6",
+  "variants_verified": true,
+  "rank_sensitivity": [
+    {
+      "cutoff": 1e-08,
+      "singular_values": [
+        0.37102763600186933,
+        0.3558262796408203,
+        0.33073295088542853,
+        0.12028786481387323,
+        0.11143129351755363,
+        9.87673444259415e-16
+      ],
+      "swing_residual_norm": 89.63208073658278,
+      "equality_residual": 1.3642420526593924e-12,
+      "inequality_signed_max": -14.648298978675129
+    },
+    {
+      "cutoff": 1e-10,
+      "singular_values": [
+        0.37102763600186933,
+        0.3558262796408203,
+        0.33073295088542853,
+        0.12028786481387323,
+        0.11143129351755363,
+        9.87673444259415e-16
+      ],
+      "swing_residual_norm": 89.63208073658278,
+      "equality_residual": 1.3642420526593924e-12,
+      "inequality_signed_max": -14.648298978675129
+    },
+    {
+      "cutoff": 1e-12,
+      "singular_values": [
+        0.37102763600186933,
+        0.3558262796408203,
+        0.33073295088542853,
+        0.12028786481387323,
+        0.11143129351755363,
+        9.87673444259415e-16
+      ],
+      "swing_residual_norm": 89.63208073658278,
+      "equality_residual": 1.3642420526593924e-12,
+      "inequality_signed_max": -14.648298978675129
+    }
+  ],
+  "results": {
+    "baseline": {
+      "angular_acceleration": [
+        -0.43843484083081086,
+        0.7680389065396639,
+        -0.11500837970507997
+      ],
+      "max_abs_qdd": 1029.5180345450751,
+      "foot_task_errors": [
+        49.833193628715904,
+        5.0846115143074993e-05,
+        0.00019225193675652042,
+        81.88605423221323
+      ],
+      "oracle_success": true,
+      "residual": {
+        "equality_inf": 1.3642420526593924e-12,
+        "inequality_max": 0.0,
+        "objective": -3226877.459268945
+      }
+    },
+    "ablation": {
+      "angular_acceleration": [
+        -0.4384348408308096,
+        0.7680389065396637,
+        -0.1150083797050812
+      ],
+      "max_abs_qdd": 1246.02299757921,
+      "foot_task_errors": [
+        50.01335515665357,
+        5.084611513191504e-05,
+        0.00019225193675055898,
+        74.38132954547804
+      ],
+      "oracle_success": true,
+      "residual": {
+        "equality_inf": 1.3926637620897964e-12,
+        "inequality_max": 0.0,
+        "objective": -3824118.5416809865
+      }
+    },
+    "orientation_soft": {
+      "angular_acceleration": [
+        11.371781262087296,
+        49.007082285526536,
+        -9.42196460265265
+      ],
+      "max_abs_qdd": 935.7088471188116,
+      "foot_task_errors": [
+        28.362931440010026,
+        5.0846115254584685e-05,
+        0.0001922519367178471,
+        42.61297481228701
+      ],
+      "oracle_success": true,
+      "residual": {
+        "equality_inf": 7.132058832404198e-12,
+        "inequality_max": 0.0,
+        "objective": -3583071.6002951525
+      }
+    }
+  }
+}

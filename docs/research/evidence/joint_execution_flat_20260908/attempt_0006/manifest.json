@@ -1,0 +1,20 @@
+{
+  "runtime_sha": "0a853346bff0005bc9175bd9d3f33eb01fa49e79",
+  "raw_run": "example/cpp/experiments/_runs/joint_execution_flat_20260908_0006",
+  "files": {
+    "first_qp.txt": "840e79fae275203b8d2d5fb50e555a89dcdefafe9fd3da6392418234704996c6",
+    "tracking_excerpt.txt": "b918876032994c7c3a3be20f09c0aa1cae5ebae2144c169cd95064e838e77630",
+    "README.md": "9b07254b57c57173bb21aeede6663a37aa0ca39076b913d9c7dbb319410e2910",
+    "orientation_soft_oracle.json": "9f7e4393185d746e05fcde7805ada4b93aef18d8b36afde26a52ec4747b8a65b",
+    "ablation_qp.txt": "6f1f7677bde7d514ccac2a403223a0c6ad6ec93b8ebb6ad5ebcacbd578f17896",
+    "baseline_oracle.json": "2c3e311f49eb44a1007b10dd81396b826d074bc2f6cf46477ad4e496dba02c39",
+    "orientation_soft_qp.txt": "35401febace874c877ea2ca7e631ae8286412a061d639502fe2f47b31cd91b54",
+    "focused_tests.txt": "565c3e3d62d2476ad8806ca77ecc257e4dadddf6a47c0ceeefb19793371434fe",
+    "ablation_oracle.json": "9cd62ee38620ed388f252057ac268c4a3054adf495374cf6c659dd6bd675d0ae",
+    "execution_audit.json": "fea2de744f67d85b5d510e2b6e70f7155756fa493d43e873e8e4880acebd1c94",
+    "production_replay.json": "628723b6c9dfbcab83a08b2b98cd2e227dfdf57434a2c2643e40932bb25418fb",
+    "task_compatibility.json": "54473a457f4cef9557b31a288eec42718e0d8b0faef6436b5b2a44c089063a2e"
+  },
+  "compatibility_script_sha256": "0cf8db9d607ecbe4dde6eb1b05fc9d443a8f9c361f9bc49960f3c8c5a14d839c",
+  "replay_tool_source_sha256": "330f53c0c2930b41fb52c22b1b18ed81eac0251e7ee569bdf3b764d5c41f8810"
+}
