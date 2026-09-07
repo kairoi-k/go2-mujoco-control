@@ -29,3 +29,23 @@ profile-analyzer KeyError and all first failures. The simulator and full runtime
 source/binary hashes belong to the new run manifest; historical manifests stay
 unchanged. Current double-precision WBC certificate and final serialized motor
 composition remain distinct quantities.
+
+## Actual attempt 0001: runtime f5b2ef98364bbc01f934de575c850696236e1342
+Joint execution adopts at STATE20.004, retains three accepted versions, and raw
+CSV has 121 rows with every motor kp/kd zero in [20.004,20.246). Logged feedback
+p50/p95/max 212.247/244.446/257.497 us are sampled, not full-loop deadlines.
+Sampled COM/foot maximum errors are 8.114/78.542 mm. At20.068 the legacy kernel
+changes period .16 to .14; PhaseClock changes epoch1 to2, then commitment
+binding rejects every following proposal. At20.246 the old body bundle expires
+and requests the existing stop owner. This is a FAILED flat diagnostic. A
+small COM error and feasible per-tick QP do not establish locomotion success.
+The old profile KeyError is separately retained. Full raw CSVs remain in _runs;
+curated active-window rows and complete controller output have local hashes.
+
+## Next fixed-schedule isolation (registered before execution)
+Run joint_execution_flat_20260908_0002 with TROT_RESEARCH_JOINT_START_S=21 and
+otherwise identical flags. This isolates continued joint feedback after the
+legacy period has settled; it is NOT a repair or acceptance of variable-period
+execution. Capture now correctly passes active commitments into PhaseClock,
+so an incompatible timing request cannot silently mutate the accepted epoch.
+A durable event-calendar transition design remains an open architecture item.

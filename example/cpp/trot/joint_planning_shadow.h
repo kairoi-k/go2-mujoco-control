@@ -165,7 +165,8 @@ public:
   observation.phase=legacy.gait_phase;observation.period_s=legacy.gait_period_s;
   observation.duty_factor=legacy.duty_factor;
   observation.leg_offsets=CaptureGaitOffsets(pattern);
-  const auto clock=clock_.Capture(observation,false);
+  const auto clock=clock_.Capture(observation,
+      accepted_commitments != nullptr && !accepted_commitments->events.empty());
   JointPlannerFailure failure=JointPlannerFailure::kObservationUnavailable;
   std::string detail="clock_rejected";std::size_t events=0,combinations=0;
   bool feasible=false;double residual=0,max_anchor_gap=0;

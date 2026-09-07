@@ -1,0 +1,70 @@
+{
+  "runtime_manifest_repository": {
+    "git_branch": "feat/stage-c-joint-planner",
+    "git_commit": "f5b2ef98364bbc01f934de575c850696236e1342",
+    "git_dirty": "false"
+  },
+  "b1_claim": false,
+  "first_applied_state_s": 20.004,
+  "first_stop": {
+    "state": "20.246",
+    "applied": "0",
+    "stop_requested": "1",
+    "reason": "reference_expired_or_unavailable"
+  },
+  "sampled_applied_log_rows": 14,
+  "logged_applied_count_lower_bound": 115,
+  "accepted_versions": [
+    1,
+    2,
+    3
+  ],
+  "first_post_adoption_proposal_failure": {
+    "id": "830",
+    "state": "20.068000000000001",
+    "phase": "0.0015645873732879068",
+    "period": "0.14000000000000001",
+    "clock": "0",
+    "epoch": "2",
+    "phase_residual_ns": "0",
+    "anchor_source": "force_conditioned_geometry_estimate",
+    "command_authority": "0",
+    "events": "8",
+    "combinations": "0",
+    "feasible": "0",
+    "failure": "commitment_conflict",
+    "detail": "accepted_commitment_event_mismatch",
+    "history_candidates": "0",
+    "history_selected": "0",
+    "history_initial_queries": "0",
+    "terrain_query_error": "none",
+    "residual": "0",
+    "anchor_gap_m": "0",
+    "qp_iterations": "0",
+    "scp_iterations": "0",
+    "solver_detail": "not_called",
+    "elapsed_us": "1222.703"
+  },
+  "csv_active_window_rows": 121,
+  "csv_zero_extra_pd_rows": 121,
+  "latency_sampled_us": {
+    "p50": 212.2465,
+    "p95": 244.4463,
+    "max": 257.497
+  },
+  "sampled_maxima": {
+    "com_error_m": 0.00811363,
+    "foot_error_m": 0.0785416,
+    "force_residual_N": 1.10845e-12,
+    "moment_residual_Nm": 4.4964e-13,
+    "joint_residual_Nm": 1.77636e-15
+  },
+  "raw_hashes": {
+    "controller.log": "9c35cf6ca812510aa2f25e63f26be6f0cbe9be19f68688513aa7044fa59023cb",
+    "data.csv": "05f78c65d034429ed3c1fb640e06de2da3de37bacffccda3c9cc4dfb72c375e5",
+    "contact_ground_truth.csv": "46516a291dc1818b68ef8f5f25cc1f60115c6639bdd534d28a52136a35bfb07b",
+    "run_manifest.json": "01ded24e62669842bbfa5666e2830e830f9c24c0699097b57cfe2f87fd2e303b",
+    "run_metadata.txt": "236ce0f154efa5fbace7cc4ef3662e5176674f4d5b16fdb6a0a0ee0b9cd811ab",
+    "environment.txt": "968e3eb06b687b47265372b68dcfb55718932fa65f6f7de8302c01234e8a6e00"
+  }
+}

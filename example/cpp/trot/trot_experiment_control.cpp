@@ -111,6 +111,19 @@ bool TrotExperiment::ResearchJointExecutionEnabled() const
     static const bool enabled = Full2EnvDouble("TROT_RESEARCH_JOINT_EXECUTION", 0.0) > 0.5;
     return enabled;
 }
+namespace {
+double JointExecutionStartS()
+{
+    static const double value = [] {
+        double parsed=20.0;std::string error;
+        if (!go2_trot::ParseStrictFiniteEnvironmentDouble(
+                "TROT_RESEARCH_JOINT_START_S",20.0,parsed,&error) || parsed<0.0)
+            throw std::invalid_argument("invalid joint execution diagnostic start time");
+        return parsed;
+    }();
+    return value;
+}
+}
 bool TrotExperiment::ApplyJointExecutionTorque(
     const unitree_go::msg::dds_::LowState_ &state,
     const unitree_go::msg::dds_::SportModeState_ &high_state,
@@ -119,13 +132,13 @@ bool TrotExperiment::ApplyJointExecutionTorque(
     const std::array<double, go2_trot::kMotorCount> &dq_command)
 {
     using namespace go2_terrain::stage_c;
-    if (!ResearchJointExecutionEnabled() || state.tick()*1e-3 < 20.0 ||
+    if (!ResearchJointExecutionEnabled() || state.tick()*1e-3 < JointExecutionStartS() ||
         task_.stop_requested_ || task_.sequence_finished_)
         return false;
     const TimeNs now = TimeNs::FromSeconds(state.tick()*1e-3);
     auto request_stop = [&](const std::string &reason) {
         std::cout << "JointExecution state=" << now.seconds()
-            << " applied=0 stop_requested=1 reason=" << reason << "\n";
+            << " applied=0 stop_requested=1 count=" << joint_execution_tick_count_ << " reason=" << reason << "\n";
         task_.stop_requested_ = true;
         task_.task_completion_requested_ = false;
         if (task_.stop_start_time_s_ == 0.0) {
@@ -549,7 +562,7 @@ void TrotExperiment::TerrainPlannerWorker()
                 joint_capture_history.pop_front();
         }
         if (joint_shadow_loaded && work.rigid_body_state_valid &&
-            work.input.state_stamp_s >= 20.0 &&
+            work.input.state_stamp_s >= (ResearchJointExecutionEnabled() ? JointExecutionStartS() : 20.0) &&
             (ResearchJointExecutionEnabled() || work.input.state_stamp_s <= 28.0) &&
             work.input.state_stamp_s - joint_shadow_last_s >= (ResearchJointExecutionEnabled() ? 0.019 : 0.5))
         {

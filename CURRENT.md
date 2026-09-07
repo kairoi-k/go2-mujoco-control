@@ -72,8 +72,15 @@ Initial command velocity comes from consecutive commanded world-center positions
 an explicit <=20ms Hermite soft stance-reference bridge preserves C1 and settles
 before liftoff. Prepared swing leases outlive old body horizons, without extending
 body/force validity. Seven focused targets pass; full controller rebuilt.
-The first actual flat canary is registered in joint_execution_flat_20260908,
-not yet a result. Default remains off and no new traversal claim is made.
+The first actual flat canary f5b2ef98364bbc01f934de575c850696236e1342 is a
+FAILED diagnostic: joint execution actually adopts3versions, with121 raw zero-PD
+rows in STATE20.004--20.246. The .16->.14 legacy period change at20.068 resets
+the planning epoch and invalidates commitments, starving new plans; expiry then
+requests stop. Sampled COM/foot maxima8.114/78.542mm; no traversal result.
+Next: fixed-schedule isolation starting21s, while retaining variable-period
+calendar transitions as an unresolved architecture requirement. The clock caller
+now passes commitment activity rather than silently resetting the epoch.
+Default remains off. See joint_execution_flat_20260908.
 Then run isolated flat and 5cm, followed by 10cm only after credible 5cm evidence.
 Strict stationary-foot reconstruction remains a conditional fixture: actual
 compliant running q/dq must not be projected to make it pass. Sample-level
@@ -89,7 +96,9 @@ combination path; historical bound-event defaults and commitments remain strict.
 ## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
 Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
-`cc696232eab2d184b5c98fa89674f8d029895dad`: bounded-history flat diagnostic.
+`f5b2ef98364bbc01f934de575c850696236e1342`: first actual joint actuation flat,
+failed on period-transition commitment conflict and reference expiry.
+Prior `cc696232eab2d184b5c98fa89674f8d029895dad`: bounded-history flat diagnostic.
 Normal completion,15/16 reduced proposals,35/42 cycle diagnostic; no joint
 actuation. Pipeline p50/p95/max1.072/50.146/50.718ms includes two2400-QP-iteration
 captures. Raw CSV independently confirms six sampled final-command saturations
