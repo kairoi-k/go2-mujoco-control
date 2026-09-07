@@ -44,9 +44,17 @@ int main(){try {
      foot_sample.samples.front(),contact.mask,t0,0.0);
  Check(tick.ok && tick.tau_valid && tick.id_certificate_valid && tick.motor_envelope_valid,
        tick.failure.c_str());
+ go2_control::IdWbcQpSnapshot captured;
  const auto repeated=joint_feedback_controller::FeedbackTick(proposal,robot,initial,
-     foot_sample.samples.front(),contact.mask,t0,0.0);
- Check((tick.tau-repeated.tau).norm()==0,"feedback tick deterministic");
+     foot_sample.samples.front(),contact.mask,t0,0.0,{}, {}, &captured);
+ Check((tick.tau-repeated.tau).norm()==0,"diagnostic capture changes torque");
+ Check(captured.stage=="remaining_tasks_secondary" && captured.iterate.size()>=18,
+       "capture missing actual secondary solve");
+ Check((captured.iterate.head<18>()-repeated.wbc.qdd).norm()==0,
+       "captured solution differs from applied acceleration");
+ Check((captured.Aeq*captured.iterate-captured.beq).lpNorm<Eigen::Infinity>()<5e-7 &&
+       (captured.Aineq*captured.iterate-captured.bineq).maxCoeff()<5e-7,
+       "captured constraints do not certify applied solution");
  const auto expired=joint_feedback_controller::FeedbackTick(proposal,robot,initial,
      foot_sample.samples.front(),contact.mask,t2,0.0);
  Check(!expired.ok && !expired.tau_valid && !expired.tau.allFinite(),

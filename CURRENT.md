@@ -103,7 +103,11 @@ is required before gain changes. See attempt0005 tracking_audit and review.
 Foot-only collision truth independently confirms FL contact21.054 and RR21.066
 before planned support. At21.022 model/actual support forces differ; this is
 state-aligned evidence, not a same-tick actuator response. Exact fixed-state
-replay input sufficiency is the next gate before changing task hierarchy. Sampled foot error in the
+replay input audit found the old planner snapshot is not the control state and
+the old tracking log lacks exact QP/task maps. The next diagnostic captures
+the actual first secondary solve and per-leg J/bias/target without re-solving;
+its equality rows preserve the exact primary optimum. Offline qdd-regularizer
+ablation is a conditional same-state task comparison, not closed-loop evidence. Sampled foot error in the
 failed run reaches118.023mm and remains an execution concern. Variable-period calendar transitions remain an unresolved requirement. The clock caller
 now passes commitment activity rather than silently resetting the epoch.
 Default remains off. See joint_execution_flat_20260908.

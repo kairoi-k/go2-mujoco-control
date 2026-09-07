@@ -218,10 +218,13 @@ bool TrotExperiment::ApplyJointExecutionTorque(
     std::array<bool,go2::kLegCount> measured;
     for (std::size_t leg=0;leg<go2::kLegCount;++leg)
         measured[leg] = state.foot_force()[leg] >= kContactForceThreshold;
+    go2_control::IdWbcQpSnapshot first_qp;
+    const bool capture_first_qp=!joint_execution_started_;
     const auto begin=std::chrono::steady_clock::now();
     const auto tick = joint_feedback_controller::FeedbackTick(
         *adoption.accepted->proposal->selected, *rigid_body_, actual,
-        reference.center_reference, measured, now, joint_execution_yaw_);
+        reference.center_reference, measured, now, joint_execution_yaw_, {}, {},
+        capture_first_qp ? &first_qp : nullptr);
     const double elapsed_us=std::chrono::duration<double,std::micro>(
         std::chrono::steady_clock::now()-begin).count();
     if (!tick.ok || !tick.tau_valid) {
@@ -260,6 +263,38 @@ bool TrotExperiment::ApplyJointExecutionTorque(
         auto &command=low_cmd_.motor_cmd()[motor];
         command.q()=actual.q[motor];command.dq()=0.0;
         command.kp()=0.0;command.kd()=0.0;command.tau()=tick.tau[motor];
+    }
+    if (capture_first_qp) {
+        // Capture the matrices used by this solve, not a reconstructed solve.
+        // The secondary equality rows retain the actual primary optimum.
+        std::ostringstream dump;dump.precision(17);
+        dump << "JointExecutionFirstQp state=" << now.seconds()
+            << " stage=" << first_qp.stage << " w_posture=" << tick.params.w_posture
+            << " solution_applied=1\n";
+        const auto matrix=[&](const std::string &name,const Eigen::MatrixXd &m) {
+            dump << "JointExecutionFirstQpMatrix name=" << name
+                << " rows=" << m.rows() << " cols=" << m.cols() << " values=";
+            for(Eigen::Index r=0;r<m.rows();++r)for(Eigen::Index c=0;c<m.cols();++c) {
+                if(r || c)dump << ',';
+                dump << m(r,c);
+            }
+            dump << "\n";
+        };
+        matrix("H",first_qp.H);matrix("g",first_qp.g);
+        matrix("Aineq",first_qp.Aineq);matrix("bineq",first_qp.bineq);
+        matrix("Aeq",first_qp.Aeq);matrix("beq",first_qp.beq);
+        matrix("seed",first_qp.seed);matrix("iterate",first_qp.iterate);
+        Eigen::VectorXd contact(4),posture(1);posture[0]=tick.params.w_posture;
+        matrix("w_posture",posture);
+        for(int leg=0;leg<4;++leg) {
+            contact[leg]=tick.wbc_input.contact[leg];
+            matrix("J"+std::to_string(leg),tick.wbc_input.dynamics.foot_jac_world[leg]);
+            matrix("bias"+std::to_string(leg),
+                tick.wbc_input.dynamics.foot_jac_dot_world[leg]*tick.wbc_input.dynamics.qvel);
+            matrix("task"+std::to_string(leg),tick.wbc_input.swing_acc_world[leg]);
+        }
+        matrix("contact",contact);
+        std::cout << dump.str();
     }
     joint_execution_started_=true;
     ++joint_execution_tick_count_;

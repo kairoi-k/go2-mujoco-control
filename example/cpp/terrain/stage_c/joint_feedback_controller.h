@@ -85,7 +85,8 @@ inline JointFeedbackTickResult FeedbackTick(
     const MeasuredContactMask &measured_contact,
     TimeNs time, double initial_yaw,
     const JointFeedbackReferenceConfig &config = {},
-    const go2_control::IdWbcPhysicalCertificateThresholds &thresholds = {}) {
+    const go2_control::IdWbcPhysicalCertificateThresholds &thresholds = {},
+    go2_control::IdWbcQpSnapshot *qp_snapshot = nullptr) {
   JointFeedbackTickResult out;
   out.time = time;
   auto fail = [&](const char *why) {
@@ -152,7 +153,7 @@ inline JointFeedbackTickResult FeedbackTick(
   out.orientation_acc_body = orientation_acc;
   go2_control::IdWbcOutput wbc;
   const bool call_ok =
-      go2_control::SolveInverseDynamicsWbc(params, input, wbc);
+      go2_control::SolveInverseDynamicsWbc(params, input, wbc, qp_snapshot);
   out.wbc = wbc;
   out.qp_iterations = wbc.iterations;
   out.solver_returned = call_ok && wbc.ok;
