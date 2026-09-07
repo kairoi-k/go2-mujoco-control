@@ -1,78 +1,62 @@
 # Go2 current research checkpoint
-
-Updated: 2026-09-07. This file is the live route and handoff entrypoint.
-
-## Current instruction and scope
-
-The user authorized moving the external architecture audit's analytic witnesses
-into production regression tests, then a bounded single-variable correction
-and controlled closed-loop evaluation. Current hypothesis: swing physical
-acceleration must include Jdot*qvel, as stance acceleration already does.
-Preserve the frozen baseline, thresholds, observation path and gait settings.
-This is not authorization to claim B1 acceptance from a unit-test correction.
-The previous closed checkpoint is f5b5155fc4750b358c39516c70a4e76014cf98b9.
-
-## Exact source and result
-
+Updated: 2026-09-07. This is the live route/status/handoff entrypoint.
+## Current scope and conclusion
+The user authorized moving the supplied architecture audit's analytic witnesses
+into real implementation tests, then a bounded correction and closed-loop
+comparison. The first single-variable experiment (F02 swing acceleration bias)
+is complete. Do not describe a math fix as solving B1 or silently tune gains
+against this result. The user retains research-route autonomy; preserve old
+baselines and version any subsequent acceptance change.
+B1 remains NOT_CERTIFIED. The corrected model is a mathematical correctness
+baseline, not a validated locomotion release. No fresh full B0 or holdout
+campaign was run. The next evidence-driven work is the executable future
+liftoff/touchdown and geometry/frame contract, alongside a full WBC constraint
+validator. F03 friction basis, F04 inequality acceptance, final PD torque,
+privileged sensing and shared observation/action architecture remain open.
+## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
-Branch: `feat/stage-c-joint-planner`. Latest executed runtime source:
-`eeb5d757620712759604d8c51b2b9075d05625dc` (clean and pushed before experiments).
-The containing documentation/evidence checkpoint has the same runtime sources
-and binaries, independently checked against the 135-source build binding.
-
-B1 is not accepted. The latest interval-V2 step run physically clears the
-5 cm platform with sustained support from every foot, no nonfoot collision,
-and no runtime safety termination. Interaction velocity p05/median is
-0.673269/0.850097 m/s. However, all four legs have non-top step contacts and
-only 1/7 complete interaction cycles meets the V3 running topology criterion.
-The profile/state clocks also depart by 28.318033 ms, above the preserved
-20 ms V3 gate. The flat control completes with 46/49 good steady cycles.
-Videos are measured-state visualization, not an acceptance certificate.
-
-At the first FL/FR impacts, the preceding 0.2 s contains no usable or applied
-terrain plan: every row reports no-safe-foothold. The immediate engineering
-blocker is supplying an executable terrain touchdown/swing plan before impact.
-This does not yet identify the sole cause of the resulting physical impacts.
-See the evidence packet for rejection attribution and separately untested
-future-body, start-state, foot-radius and clock hypotheses.
-
-Latest verification: 44/44 controller CTest, 3/3 simulator CTest, and 48/48
-focused Python analyzer tests. MuJoCo works in this worktree. No fresh B0
-acceptance campaign or B1 holdout was run, and no candidate is declared.
-
-## Evidence and recovery
-
-[The bounded closeout packet](docs/research/evidence/b1_checkpoint_20260907/README.md)
-contains the three eeb5d75 experiments, raw hashes, reproducible analysis,
-source audit, validation and interruption inventory. The full previous CURRENT
-is preserved verbatim as
-[historical context](docs/research/evidence/b1_checkpoint_20260907/CURRENT_at_eeb5d75.md);
-its obsolete branch names, missing-MuJoCo statements, next steps and autonomous
-continuation instructions are not the current route.
-
-Earlier implementation/evidence remains in
-[the iteration packet](docs/research/evidence/b1_iteration_20260907/README.md).
-The offline Stage C continuous core is retained and tested, but its reduced
-centroidal certificate is not a body-geometry or closed-loop B1 certificate.
-
+Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
+`7a8ffc6b9269490d7e46c3adfbd2e13ed8609dc6`. Later containing checkpoint changes
+only documentation and evidence/replay tooling. HEAD itself is given by Git.
+WBC swing cost now uses physical `J qdd + Jdot qvel - a_des`, matching stance.
+The caller does not pre-subtract bias. MuJoCo position finite differences and
+an equivalent production QP fail on the old code and pass after correction.
+44/44 controller tests and 3/3 simulator tests pass. No gait, gains, planner,
+friction, acceptance thresholds or analyzer changes were made in this experiment.
+32 s flat control: 43/49 good running cycles, normal completion/safety.
+Same-source 5 cm step: full exit, four top-support witnesses, no nonfoot
+collision, normal completion/safety, but all four feet have non-top contact.
+Only 2/7 interaction cycles meet V3 running topology. Interaction speed
+p05/median 0.559852/0.718292 m/s fails the existing median gate. Clock drift is
+3.915 ms in step, 16.009 ms flat; this is not a clock-fix claim.
+At first FR/FL impacts (23.216/23.262 s), all 100/101 rows in the preceding
+inclusive 0.2 s have no-safe-foothold, no usable/applied plan and no in-flight
+target. The immediate terrain planning/execution blocker therefore persists.
+This does not prove the sole cause of impacts. The correction did not establish
+an empirical speed/running improvement over the retained reference.
+## Evidence and historical baseline
+[The F02 packet](docs/research/evidence/wbc_swing_bias_20260907/README.md)
+contains red/green tests, source/binary bindings, raw hashes, unchanged analyzer
+results, independent review observations and a deterministic replay command.
+Legacy profile analyzer KeyError and dependent Phase-2 failure remain recorded;
+wrapper exit status does not establish physical acceptance. The full inequality
+residual is not logged, so QP non-convergence cannot be judged from equality
+residual and torque limits alone. MuJoCo works via pinned localhost SSH.
+[The prior bounded checkpoint](docs/research/evidence/b1_checkpoint_20260907/README.md)
+preserves clean f5b5155 / runtime eeb5d75: flat 46/49 good cycles, step 1/7,
+speed p05/median 0.673269/0.850097, all-leg non-top contacts and 28.318 ms drift.
+That is a historical reference, not a contemporary randomized control. The
+video in OneDrive still depicts that older runtime, not the new correction.
 ## Authority and provenance
-
 1. Current explicit user instructions and this live CURRENT.
-2. AGENTS.md and the identified historical acceptance baselines.
-3. `docs/research/PHASE2_ACCEPTANCE.md` and
-   `docs/research/PHASE2_HOLDOUT_MANIFEST.json` for their frozen campaign.
-4. Versioned research protocols and corresponding raw evidence/analyzers.
-
-Current development diagnostics use `docs/research/B1_DYNAMIC_TRAVERSAL_V3.md`
-and `docs/research/B1_REGISTERED_INTERVALS_V2.md`; they do not silently replace
-the old frozen campaign. Geometric 15 mm support diagnostics remain distinct
-from dynamics feasibility. Preserve the T13 aerial/old-contract conflict.
-
-Use native Linux for build/simulation. The task's pinned localhost SSH path
-works; the Windows WSL launcher hang is a separate environment issue.
-For a future timed simulation hold `/tmp/go2_mujoco_experiment.lock`, use one
-clean exact source and one unique raw directory. Do not overwrite, remove,
-rename or commit `_runs`, stashes, other worktrees or unfinished isolated work.
-Source hashes and analyzer outcomes, not wrapper exit status or videos,
-establish what was actually tested. The packet specifies the bounded proposed
-next experiment; it has not been launched by this closeout.
+2. AGENTS.md and identified historical acceptance baselines.
+3. Frozen `docs/research/PHASE2_ACCEPTANCE.md` and
+   `docs/research/PHASE2_HOLDOUT_MANIFEST.json` for their campaign.
+4. Versioned protocols, including `B1_DYNAMIC_TRAVERSAL_V3.md` and
+   `B1_REGISTERED_INTERVALS_V2.md`, and their bound evidence/analyzers.
+Keep the 15 mm geometric diagnostic separate from dynamic feasibility; retain
+T13 aerial/old-contract conflict. Planned/applied contact is not measured truth.
+Use native Linux and hold `/tmp/go2_mujoco_experiment.lock` for timed simulation.
+Use one clean exact source and new raw name. Never overwrite, delete, rename
+or commit `_runs`, stashes, archived snapshots or other worktrees. Raw hashes,
+source/binary bindings and target results establish what was actually tested.

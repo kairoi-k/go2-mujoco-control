@@ -1,0 +1,4 @@
+grep: /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/wbc_bias_step_7a8ffc6_20260907_0001/simulator.log: No such file or directory
+Phase 1 quantitative analysis failed; see /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/wbc_bias_step_7a8ffc6_20260907_0001/phase1_quantitative.log
+Phase 2 terrain analysis failed; see /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/wbc_bias_step_7a8ffc6_20260907_0001/phase2_terrain_analysis.log
+/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/wbc_bias_step_7a8ffc6_20260907_0001/run_manifest.json

@@ -1,0 +1,17 @@
+{
+  "schema": "wbc-swing-bias-packet-v1",
+  "runtime_sha": "7a8ffc6b9269490d7e46c3adfbd2e13ed8609dc6",
+  "candidate": false,
+  "files": {
+    "README.md": "a52a0e420264b59fd02feededf946eb2ef3f8ce170c26971dcef0cabd5d8dbf7",
+    "ctest.log": "9504064c6ee8e31680c03a6bbd06e841a7da578dc07b7e53b067b7c9fb8e16d9",
+    "flat_wrapper.txt": "1b7c734800af586c6f8c36a4db945c11eb5fddd4fe97cb828e32b85dec677880",
+    "green.log": "d562c591f070c5cf09b840834b16efe293aebf96ac79db4afa63d1eed94c26d9",
+    "pre_run_binding.json": "afd8c27cfcacce9e0794f4363b401066ac173f3144e423b5e2e59bcf31bba63f",
+    "red.log": "0532e04b4a31c2f40a244b20007cd8b38f3228c15145b404bc5c8f76d304d866",
+    "reproduce.py": "c518a066ff4aa5c1ffc68e62b2c3cd1922a9c210674ccd8b2236a3bfe9c011a0",
+    "results.json": "0457c6d4894104120572b36578e68b0f34001ac56605ef3c2a275001de938568",
+    "simulator_ctest.log": "102ab10fa47c020cbb987d95ea92855a3a7385a43f4b163e180592c3d388b619",
+    "step_wrapper.txt": "87bbab64d44500dec6ffde0fe3585b5fc58c4ce55f70def82359218e26d47999"
+  }
+}
