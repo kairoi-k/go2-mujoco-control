@@ -1,0 +1,12 @@
+{
+  "runtime_sha": "b63f38f094d63ebdd69cdaf064099cc4b19961da",
+  "b1_claim": false,
+  "files": {
+    "README.md": "ab0ed88353bb29c9da0d71267fb8ce6925cba3ecf2b797c951e8ccd18da78686",
+    "environment.txt": "2e5e8dd62d954315f89a52ce729c9c10f514cc84c7790245dddb735f4363f60e",
+    "execution_audit.json": "bfb1ffb6c8bdbb733d3bd4ca16fb7653a4993d86922b68ec2bf169f4405d19ad",
+    "execution_excerpt.txt": "68038209a9864e46f5070b63cece222c8329e957258a2816dc172022dad61c1d",
+    "run_manifest.json": "a698cb606b29544e9fb205bf168ff5e40ed87e8aafede9ede3782d726bb4b6bf",
+    "run_metadata.txt": "5be464d5a7ce693bd0d204743918da9deb19baa8096fcfd5ed820db4dcf047b2"
+  }
+}

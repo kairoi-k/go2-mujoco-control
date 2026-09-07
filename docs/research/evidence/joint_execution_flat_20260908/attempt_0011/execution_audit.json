@@ -1,0 +1,71 @@
+{
+  "runtime_manifest_repository": {
+    "git_branch": "feat/stage-c-joint-planner",
+    "git_commit": "b63f38f094d63ebdd69cdaf064099cc4b19961da",
+    "git_dirty": "false"
+  },
+  "b1_claim": false,
+  "first_applied_state_s": 21.016,
+  "first_stop": {
+    "state": "21.254",
+    "applied": "0",
+    "stop_requested": "1",
+    "count": "119",
+    "reason": "reference_expired_or_unavailable"
+  },
+  "sampled_applied_log_rows": 13,
+  "logged_applied_count_lower_bound": 118,
+  "accepted_versions": [
+    1,
+    2,
+    3
+  ],
+  "first_post_adoption_proposal_failure": {
+    "id": "876",
+    "state": "21.086000000000002",
+    "phase": "0.56622766122723078",
+    "period": "0.14000000000000001",
+    "clock": "3",
+    "epoch": "1",
+    "phase_residual_ns": "-10000000",
+    "anchor_source": "force_conditioned_geometry_estimate",
+    "command_authority": "0",
+    "events": "0",
+    "combinations": "0",
+    "feasible": "0",
+    "failure": "observation_unavailable",
+    "detail": "clock_rejected",
+    "history_candidates": "0",
+    "history_selected": "0",
+    "history_initial_queries": "0",
+    "terrain_query_error": "none",
+    "residual": "0",
+    "anchor_gap_m": "0",
+    "qp_iterations": "0",
+    "scp_iterations": "0",
+    "solver_detail": "not_called",
+    "elapsed_us": "10.220000000000001"
+  },
+  "csv_active_window_rows": 119,
+  "csv_zero_extra_pd_rows": 119,
+  "latency_sampled_us": {
+    "p50": 285.569,
+    "p95": 418.9552,
+    "max": 432.817
+  },
+  "sampled_maxima": {
+    "com_error_m": 0.00981005,
+    "foot_error_m": 0.0668523,
+    "force_residual_N": 8.81073e-13,
+    "moment_residual_Nm": 1.54241e-12,
+    "joint_residual_Nm": 1.77636e-15
+  },
+  "raw_hashes": {
+    "controller.log": "f1fd614a0b3198ff6e9167d459f24f6db4a90778af79fd05f754afc517d9fc49",
+    "data.csv": "244881e884b3c1534684aaf82487f1a59a4fc1a1d46b9d0db1474bf37770ee20",
+    "contact_ground_truth.csv": "426f80c02baf2cb1ddc4291c471b36f366161ff773a3863fa2674367927af6d3",
+    "run_manifest.json": "a698cb606b29544e9fb205bf168ff5e40ed87e8aafede9ede3782d726bb4b6bf",
+    "run_metadata.txt": "5be464d5a7ce693bd0d204743918da9deb19baa8096fcfd5ed820db4dcf047b2",
+    "environment.txt": "2e5e8dd62d954315f89a52ce729c9c10f514cc84c7790245dddb735f4363f60e"
+  }
+}

@@ -41,6 +41,14 @@ and closed-loop reference focused tests pass. Two fixed-source 100-step MuJoCo r
 5.19->4.31deg and4.50->3.70deg, foot errors rise less than1mm. Independent
 saved-command plant replay agrees below3.3e-14 on recorded states. Evidence
 `coherent_attitude_20260908`; no sustained flat or B1 claim.
+## Latest actual runtime0011: clock rejection and reference expiry
+Clean b63f38f094d63ebdd69cdaf064099cc4b19961da, coherent attitude feedback1.
+Three accepted versions, first21.016, expiry21.254 after119 commands. First
+clock_rejected source21.086 has -10ms phase residual; later proposals rejected.
+No sustained posture verdict is possible. Sampled foot66.8523mm/COM9.81005mm;
+tick p50/p95/max285.569/418.9552/432.817us. Evidence flat attempt_0011.
+Next reconstruct producer phase/state-time divergence without relaxing clock
+checks or extending stale force validity. B1 remains NOT_CERTIFIED.
 ## Latest actual runtime: bounded-admission canary0010 FAILED
 Clean97b6d02158a797f1bb02e9817495152964a3a322, admission budget80ms with0009 settings.
 15 versions, first21.012, last sampled21.658/count325; then posture
