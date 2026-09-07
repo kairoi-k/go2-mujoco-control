@@ -87,7 +87,10 @@ nullspace projection passes both actual-matrix regressions without relaxing
 constraints. Actual repaired4bff757 flat runs through STATE21.418 with10accepted versions
 and no WBC failure, then hard posture failure (first roll-27.7917deg). Foot
 error grows to461.764mm; closed-loop tracking is now the primary investigation.
-See attempt0004; no traversal acceptance. Sampled foot error in the
+See attempt0004; no traversal acceptance. The next diagnostic source adds
+sampled JointExecutionTracking rows from the actual executor: per-leg p/v/a
+references, actual p/v, requested/solved acceleration, force and separate
+planned/measured masks. Legacy WBC CSV task fields are not executor witnesses. Sampled foot error in the
 failed run reaches118.023mm and remains an execution concern. Variable-period calendar transitions remain an unresolved requirement. The clock caller
 now passes commitment activity rather than silently resetting the epoch.
 Default remains off. See joint_execution_flat_20260908.

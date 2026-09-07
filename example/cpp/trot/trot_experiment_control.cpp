@@ -280,6 +280,36 @@ bool TrotExperiment::ApplyJointExecutionTorque(
             << " moment_residual_Nm=" << tick.id_certificate.max_dynamics_moment_residual_Nm
             << " joint_residual_Nm=" << tick.id_certificate.max_joint_dynamics_residual_Nm
             << " priority_residual=" << tick.wbc.priority_preservation_residual << "\n";
+        // These are the actual joint executor's tasks, not the legacy WBC
+        // telemetry computed earlier in LowCmdWrite. Sampled diagnostics only.
+        std::ostringstream tracking; tracking.precision(17);
+        const auto vector=[&](const char *name,const Eigen::Vector3d &v) {
+            tracking << " " << name << "=" << v.x() << "," << v.y() << "," << v.z();
+        };
+        for (std::size_t leg=0;leg<go2::kLegCount;++leg) {
+            const auto &dyn=tick.wbc_input.dynamics;
+            const auto &feet=reference.center_reference;
+            const Eigen::Vector3d velocity=dyn.foot_jac_world[leg]*dyn.qvel;
+            const Eigen::Vector3d acceleration=dyn.foot_jac_world[leg]*tick.wbc.qdd+
+                dyn.foot_jac_dot_world[leg]*dyn.qvel;
+            tracking << "JointExecutionTracking state=" << now.seconds()
+                << " version=" << reference.execution_version << " leg=" << leg
+                << " planned_contact=" << tick.wbc_input.contact[leg]
+                << " measured_contact=" << measured[leg];
+            vector("ref_p",joint_feedback_reference::Vec(feet.center_world[leg].value));
+            vector("ref_v",joint_feedback_reference::Vec(feet.velocity_world[leg]));
+            vector("ref_a",joint_feedback_reference::Vec(feet.acceleration_world[leg]));
+            vector("actual_p",dyn.foot_pos_world[leg]);vector("actual_v",velocity);
+            vector("task_a",tick.wbc_input.swing_acc_world[leg]);
+            vector("solved_a",acceleration);
+            vector("solved_force",tick.wbc.force.segment<3>(3*static_cast<int>(leg)));
+            tracking << "\n";
+        }
+        tracking << "JointExecutionTrackingSummary state=" << now.seconds()
+            << " max_abs_qdd=" << tick.wbc.qdd.cwiseAbs().maxCoeff()
+            << " clipped_feet=" << tick.feedback_clipped_count
+            << " orientation_clipped=" << tick.orientation_clipped << "\n";
+        std::cout << tracking.str();
     }
     return true;
 }
