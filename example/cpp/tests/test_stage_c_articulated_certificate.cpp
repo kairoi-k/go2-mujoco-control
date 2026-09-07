@@ -130,6 +130,27 @@ void RunFixtures()
     RigidBodyPlanningKinematics standing_model;
     Check(robot.EvaluatePlanningKinematics(standing_state, standing_model),
           "standing model evaluation");
+    {
+    using namespace go2_terrain::stage_c;
+    BodyAccelerationTarget ballistic;
+    ballistic.com_acceleration_valid=true;
+    ballistic.angular_momentum_derivative_valid=true;
+    ballistic.com_acceleration_world=Eigen::Vector3d(0,0,-9.81);
+    ballistic.foot_acceleration_valid.fill(true);
+    ballistic.foot_acceleration_world.fill(ballistic.com_acceleration_world);
+    ContactForceInterval aerial{};aerial.start=TimeNs{0};aerial.end=TimeNs{2000000};
+    std::array<Eigen::Vector3d,4> centers=standing_model.dynamics.foot_pos_world;
+    std::array<ContactSurface,4> no_surfaces{};
+    const auto freefall=VerifyArticulatedAccelerationTarget(robot,standing_state,ballistic,aerial,centers,no_surfaces,35.,30.);
+    Check(freefall.feasible,"zero-contact ballistic target physically feasible");
+    auto impossible=ballistic;impossible.foot_acceleration_world[1].x()=10000.;
+    const auto rejected=VerifyArticulatedAccelerationTarget(robot,standing_state,impossible,aerial,centers,no_surfaces,35.,30.);
+    Check(rejected.lift.valid && !rejected.feasible && rejected.physical.dynamics.max_tau_violation_Nm>0,
+          "kinematic lift cannot certify excessive aerial limb acceleration");
+    impossible.foot_acceleration_valid[0]=false;
+    Check(!VerifyArticulatedAccelerationTarget(robot,standing_state,impossible,aerial,centers,no_surfaces,35.,30.).feasible,
+          "unknown acceleration fails closed");
+    }
     const auto standing_points = SitePoints(standing_model);
     const auto surfaces = KnownFlatSurfaces();
     const auto standing_force = StandingForce(standing_model, standing_points);

@@ -192,14 +192,15 @@ LiftAudit BuildLiftAudit(
   config.momentum_kp*(planned_state.tail<3>()-actual.angular_momentum_world);
  out.runtime_momentum_target=desired.tail<3>();
  out.diagnostic_momentum_target=target.angular_momentum_derivative_world;
- const auto lift=LiftBodyAcceleration(robot,reconstruction,target);
+ const auto checked=VerifyArticulatedAccelerationTarget(robot,initial,target,planned_force,points,surfaces,35.0,30.0);
+ const auto &lift=checked.lift;
  out.failure=JointPlannerFailureName(lift.failure);out.map_rank=lift.map_rank;out.map_rcond=lift.map_rcond;
  out.residual_inf_mps2=lift.residual_inf;out.qacc_valid=lift.valid;
  if(!lift.valid) return out;
  out.angular_acc_body=lift.qacc.segment<3>(3);out.joint_acc_norm_radps2=lift.qacc.tail<12>().norm();
  out.sample_certificate_available=true;out.sample.time=time;out.sample.state=initial;
  out.sample.qacc=lift.qacc;out.sample.force=planned_force;out.sample.force_interval_valid=true;
- out.sample.model_certificate=VerifyArticulatedSample(robot,initial,lift.qacc,planned_force,points,surfaces,35.0,30.0);
+ out.sample.model_certificate=checked.physical;
  out.sample.torque=out.sample.model_certificate.torque;
  return out;
 }

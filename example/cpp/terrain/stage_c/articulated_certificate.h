@@ -94,4 +94,29 @@ inline ArticulatedSampleCertificate VerifyArticulatedSample(
         out.failure=JointPlannerFailure::kInvalidInput;
     return out;
 }
+// Necessary check of a specified instantaneous reference at unchanged q/dq.
+// Passing is not a horizon, collision, contact-realization or execution certificate.
+struct ArticulatedTargetCheck {
+ BodyAccelerationLift lift{};
+ ArticulatedSampleCertificate physical{};
+ JointPlannerFailure failure=JointPlannerFailure::kObservationUnavailable;
+ bool feasible=false;
+};
+inline ArticulatedTargetCheck VerifyArticulatedAccelerationTarget(
+ go2_control::Go2RigidBody &robot,const go2_control::RigidBodyState &state,
+ const BodyAccelerationTarget &target,const ContactForceInterval &force,
+ const std::array<Eigen::Vector3d,4> &points,const std::array<ContactSurface,4> &surfaces,
+ double torque_limit_nm,double joint_velocity_limit_radps) {
+ ArticulatedTargetCheck out;
+ BodyReconstruction seed;seed.state=state;
+ if(!robot.EvaluatePlanningKinematics(state,seed.model)||!seed.model.valid)return out;
+ seed.kinematics_valid=true;
+ out.lift=LiftBodyAcceleration(robot,seed,target);
+ out.failure=out.lift.failure;
+ if(!out.lift.valid)return out;
+ out.physical=VerifyArticulatedSample(robot,state,out.lift.qacc,force,points,surfaces,
+     torque_limit_nm,joint_velocity_limit_radps);
+ out.feasible=out.physical.sample_feasible;out.failure=out.physical.failure;
+ return out;
+}
 }} // namespace
