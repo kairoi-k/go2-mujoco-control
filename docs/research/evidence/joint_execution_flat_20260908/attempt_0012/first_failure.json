@@ -1,0 +1,7 @@
+{
+  "first_posture": "Trot hard posture limit: roll=28.8021 deg, pitch=7.15897 deg",
+  "last_applied": "JointExecution state=21.204 applied=1 execution_version=4 proposal=886 count=91 adoption=1 qp_iterations=36 elapsed_us=564.988 certificate=1 motor_envelope=1 com_error_m=0.0166688 foot_error_m=0.589122 force_residual_N=9.43601e-11 moment_residual_Nm=1.48184e-11 joint_residual_Nm=1.42109e-14 priority_residual=5.57211e-11",
+  "prestop_shadow_count": 8,
+  "prestop_clock_rejections": 0,
+  "near_takeover_gaps": []
+}

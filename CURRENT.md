@@ -41,6 +41,16 @@ and closed-loop reference focused tests pass. Two fixed-source 100-step MuJoCo r
 5.19->4.31deg and4.50->3.70deg, foot errors rise less than1mm. Independent
 saved-command plant replay agrees below3.3e-14 on recorded states. Evidence
 `coherent_attitude_20260908`; no sustained flat or B1 claim.
+## Latest actual runtime0012: physical posture failure
+Clean0f6ec6526f4fcde77f2b737b5a65d9855ed5365b, absolute-state clock1 plus0011.
+Four versions, first21.024,last21.204/count91; posture28.8021roll/7.15897pitch.
+Sampled foot589.122mm/COM16.6688mm. No pre-stop clock rejection or executor QP
+failure. Short attitude feedback improvement did not transfer to sustained
+execution. Near-takeover has no>8ms gap, so gap fix not exercised in this run.
+Evidence flat attempt_0012. Stop local correction/gain sweeps: inspect actual
+body/foot reference compatibility and acceleration/singularity at first
+tracking divergence, then represent body attitude in the planning horizon.
+No new B1 or10cm result. Historical baseline remains preserved.
 ## Latest actual runtime0011: clock rejection and reference expiry
 Clean b63f38f094d63ebdd69cdaf064099cc4b19961da, coherent attitude feedback1.
 Three accepted versions, first21.016, expiry21.254 after119 commands. First
