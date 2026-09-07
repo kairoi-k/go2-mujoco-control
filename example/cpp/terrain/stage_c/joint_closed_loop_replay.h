@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -670,6 +671,8 @@ struct ReplayRow
     bool actual_state_finite = false;
     bool reference_state_valid = false;
     bool foot_reference_valid = false;
+    double solve_us = std::numeric_limits<double>::quiet_NaN();
+    int qp_iterations = 0;
     bool solver_returned = false;
     bool solver_converged = false;
     bool independent_certificate_valid = false;
@@ -750,7 +753,7 @@ inline void WriteReplayHeader(std::ostream &out)
            "model_sensor_contact_mask,mujoco_geom_contact_mask,wbc_contact_mask,"
            "ncon,nonfoot_contact_count,nonfoot_contact_force_n,"
            "actual_state_finite,reference_state_valid,foot_reference_valid,"
-           "solver_returned,solver_converged,independent_certificate_valid,"
+           "solve_us,qp_iterations,solver_returned,solver_converged,independent_certificate_valid,"
            "motor_envelope_valid,foot_feedback_clipped_count,orientation_feedback_clipped,"
            "cold_start,original_warmstart_replayed,"
            "base_px,base_py,base_pz,base_qw,base_qx,base_qy,base_qz,"
@@ -797,6 +800,7 @@ inline void WriteReplayRow(std::ostream &out, const ReplayRow &r)
     CsvBool(out, r.actual_state_finite); out << ',';
     CsvBool(out, r.reference_state_valid); out << ',';
     CsvBool(out, r.foot_reference_valid); out << ',';
+    out<<CsvDouble(r.solve_us)<<','<<r.qp_iterations<<',';
     CsvBool(out, r.solver_returned); out << ',';
     CsvBool(out, r.solver_converged); out << ',';
     CsvBool(out, r.independent_certificate_valid); out << ',';
@@ -1208,6 +1212,7 @@ inline bool BuildWbcReplayInput(
     feedback_clipped_count = 0;
     params = go2_control::IdWbcParams{};
     params.tau_limit_nm = config.torque_limit_nm;
+    params.use_primal_active_set = true;
     params.w_force_track = config.force_track_weight;
     params.min_normal_n = 0.0;
     params.max_normal_n = std::numeric_limits<double>::infinity();
@@ -1448,6 +1453,7 @@ inline bool WriteReplayMetadata(
         << "# cold_start=1\n"
         << "# original_warmstart_replayed=0\n"
         << "# torque_mode=direct_torque_only_kp0_kd0\n"
+        << "# qp_solver=primal_active_set_verified_feasible_seed\n"
         << "# contact_merge_mode=0_scheduled_only\n"
         << "# map_source=proposal_only_scene_geometry_not_used_to_fill_map\n"
         << "# gt_contact_scope=external_contacts_only_robot_self_contacts_omitted\n"
@@ -1659,8 +1665,11 @@ inline JointClosedLoopReplayResult RunJointClosedLoopReplay(
         }
         go2_control::IdWbcOutput wbc;
         go2_control::IdWbcQpSnapshot qp_snapshot;
+        const auto solve_start=std::chrono::steady_clock::now();
         const bool solver_returned =
             go2_control::SolveInverseDynamicsWbc(params, input, wbc, &qp_snapshot) && wbc.ok;
+        row.solve_us=std::chrono::duration<double,std::micro>(std::chrono::steady_clock::now()-solve_start).count();
+        row.qp_iterations=wbc.iterations;
         go2_control::IdWbcPhysicalCertificate certificate;
         if (wbc.solution_finite)
             certificate = go2_control::VerifyIdWbcPhysicalCertificate(params, input, wbc);

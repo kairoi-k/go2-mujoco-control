@@ -14,6 +14,7 @@
 #include <Eigen/Dense>
 
 #include "dense_qp.h"
+#include "dense_qp_active_set.h"
 #include "go2_forward_kinematics.h"
 #include "terrain_control_interface.h"
 #include "go2_rigid_body.h"
@@ -46,6 +47,7 @@ struct IdWbcParams
     double w_force_track = 0.0;
     double w_tau = 1.0e-4;
     bool hard_stance_no_slip = false;
+    bool use_primal_active_set = false;
 };
 
 using IdWbcFootJacobian = Eigen::Matrix<double, 3, kGo2Nv>;
@@ -491,8 +493,14 @@ inline bool SolveInverseDynamicsWbc(
     settings.abs_tol = 1e-5;
     settings.rel_tol = 1e-4;
     settings.feasibility_tol = 1e-4;
-    bool qp_ok =
-        SolveDenseQpEq(H, g, Aineq, bineq, Aeq, beq, x, iters, settings);
+    bool qp_ok=false;
+    if(params.use_primal_active_set) {
+        Eigen::VectorXd seed=Eigen::VectorXd::Zero(n);
+        seed.head(nqdd)=M.ldlt().solve(-h);
+        qp_ok=SolveDenseQpPrimalActiveSet(H,g,Aineq,bineq,Aeq,beq,seed,x,iters);
+    } else {
+        qp_ok=SolveDenseQpEq(H, g, Aineq, bineq, Aeq, beq, x, iters, settings);
+    }
     output.primary_iterations = iters;
     const Eigen::VectorXd primary_x = x;
     const auto torque_violation = [&](const Eigen::VectorXd &candidate) {
@@ -503,7 +511,7 @@ inline bool SolveInverseDynamicsWbc(
         return (tau.cwiseAbs().array() - params.tau_limit_nm)
             .max(0.0).maxCoeff();
     };
-    if (primary_x.size() == n && primary_x.allFinite() &&
+    if (!params.use_primal_active_set && primary_x.size() == n && primary_x.allFinite() &&
         torque_violation(primary_x) > 5.0e-2)
     {
         DenseQpSettings recovery_settings = settings;
@@ -530,7 +538,7 @@ inline bool SolveInverseDynamicsWbc(
         return false;
 
     output.solution_finite = true;
-    output.ok = true;
+    output.ok = !params.use_primal_active_set || qp_ok;
     output.qdd = x.head<nqdd>();
     output.force.setZero();
     if (nf > 0)

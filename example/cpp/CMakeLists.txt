@@ -401,3 +401,7 @@ endif()
 add_executable(test_stage_c_world_terrain_snapshot tests/test_stage_c_world_terrain_snapshot.cpp)
 target_link_libraries(test_stage_c_world_terrain_snapshot unitree_sdk2 Eigen3::Eigen)
 go2_add_ctest(test_stage_c_world_terrain_snapshot)
+
+add_executable(test_dense_qp_active_set tests/test_dense_qp_active_set.cpp)
+target_link_libraries(test_dense_qp_active_set Eigen3::Eigen)
+add_test(NAME test_dense_qp_active_set COMMAND test_dense_qp_active_set "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/research/evidence/joint_feedback_replay_20260907/attempt_0006/qp.txt")

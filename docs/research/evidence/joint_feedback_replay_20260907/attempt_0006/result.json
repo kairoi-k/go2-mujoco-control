@@ -1,0 +1,10 @@
+{
+  "returncode": 2,
+  "input_files_changed": [],
+  "output_hashes": {
+    "feedback.csv.qp.txt": "c158219e7686a2709cc391de9c46d19dbdd52f11e69412733618428380c28c57",
+    "stdout.txt": "a338ca353d275e76d521973a99a60b5b54911be4b714fd99a56624989c372445",
+    "manifest.json": "7ee54e4c5ea8b2a58331f75e6f49325677c13036427297d1b7ef6977cbfbc533",
+    "feedback.csv": "3d034ec14262cd2d133c939f1a52be9dfbdb4aa96b4b3101748f50a6be9975c1"
+  }
+}

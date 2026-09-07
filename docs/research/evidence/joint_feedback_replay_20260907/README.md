@@ -84,3 +84,20 @@ its35Nm QP bound, qp_converged=false, while dynamics residual is~1e-13.
 This is now a numerical QP investigation. Preserve the physical certificate
 and limits; export original matrices and compare with independent SciPy
 feasibility/optimization before selecting a numerical fix. No step applied.
+
+Sixth exacte18bf52 exports the identical rejected QP. Independent SciPy1.15.3
+HiGHS finds a feasible witness (equality2.96e-12, inequality9.09e-13).
+After nullspace/Cholesky/global coordinate scaling, independent SLSQP succeeds
+in2 iterations, original objective-97581902.95771791, equality4.06e-12,
+inequality9.78e-11. Original ADMM iterate has inequality0.0697428688Nm.
+A separate full-M freefall witness has equality8.88e-16 and inequality0;
+it proves feasibility only, not useful tracking. The opt-in replacement uses
+that verified seed and a deterministic primal active set for the same SPD QP.
+No friction/force/torque/certificate threshold is relaxed. Positive normal
+floors or hard stance constraints require a verified feasible seed and must
+fail closed when the freefall seed violates them. Historical solver stays default.
+
+A separate reference risk is already identified: the source is mid-swing
+with29.398932ms remaining; restarting a full30mm bump demands initial foot
+accelerations959/1079m/s2. Keep this unchanged for the numerical comparison,
+then investigate committed-curve continuation rather than hiding torque limits.
