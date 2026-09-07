@@ -399,6 +399,16 @@ void TrotExperiment::TerrainPlannerWorker()
             work.input.state_stamp_s >= 18.0 && work.input.state_stamp_s <= 24.0 &&
             work.input.state_stamp_s - joint_shadow_last_s >= 0.5)
         {
+            // Capture-side coverage separates sensor unknowns from registration
+            // edge cropping. This is observation telemetry, never a fill policy.
+            std::ostringstream source_line;source_line.precision(17);
+            source_line << "JointTerrainSource id=" << work.plan_id
+                        << " sequence=" << work.map_envelope.sequence
+                        << " width=" << work.map_envelope.width
+                        << " height=" << work.map_envelope.height << " mask=";
+            for (double height : work.map_envelope.heights_m)
+                source_line << (std::isfinite(height) ? 'K' : '?');
+            source_line << "\n";std::cout << source_line.str();
             joint_shadow.Capture(work.rigid_body_state, work.input, work.plan_id, params_.gait_pattern);
             joint_shadow_last_s = work.input.state_stamp_s;
         }

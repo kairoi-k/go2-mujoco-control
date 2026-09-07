@@ -34,3 +34,24 @@ reuses the established source/binary/raw audit core and adds structured
 JointShadow coverage, failure and pipeline latency statistics. Solver-attempt
 latency is reported separately from captures rejected before optimization.
 Runtime truth and exact SHA will be appended after the registered live probe.
+
+## Actual same-source clock probes
+Runtime `a180e605199999264b3b5e7d4ec1a54f9bbc5107`; clean source/binaries
+verified against retained pre-run binding (875 source entries).
+Raw runs: `joint_shadow_flat_wall_20260907_0001` and
+`joint_shadow_flat_state_20260907_0001` under the standard `_runs` directory.
+Both completed normally; the harness legacy analyzer/profile mismatch is not
+physical acceptance. Both have 12 complete shadow captures, zero optimizer
+calls and zero reduced proposals. Wall: initial patch unknown 4, candidate
+coverage 5, clock rejected 3. State clock: initial patch unknown 7, candidate
+coverage 5, all phase residuals exactly zero. Thus clock inconsistency is
+resolved in this observed state-clock control, while map coverage independently
+blocks joint optimization. Pipeline p50/p95/max microseconds: wall
+89.0535/112.95945/118.955; state 98.5005/121.0002/125.607. These are pre-solver
+rejection timings, NOT solver benchmarks. Gait cycle diagnostics in command
+18--24 s: 33/42 and 35/42 good; no causal gait improvement claim.
+Shadow captures use STATE 18--24 s, about 2 s ahead of command time, and include
+the period ramp. The first steady 0.14 s capture is near state 20.15 s.
+This window does not cover the historical step impact at command 23.216 s.
+Before a terrain probe, explicitly extend its state-time window. Curated actual
+results are in `actual_wall/` and `actual_state/`; each retains raw hashes.

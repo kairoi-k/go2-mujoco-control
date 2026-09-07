@@ -10,6 +10,45 @@ namespace go2_terrain
 {
 namespace stage_c
 {
+enum class WorldTerrainQueryFailure : std::uint8_t
+{
+    kNone = 0,
+    kMetadata,
+    kInvalidQuery,
+    kOutside,
+    kUnknownCells,
+    kStaleCells,
+    kNonfinitePatch,
+};
+inline const char *WorldTerrainQueryFailureName(
+    WorldTerrainQueryFailure failure)
+{
+    switch (failure)
+    {
+    case WorldTerrainQueryFailure::kNone: return "none";
+    case WorldTerrainQueryFailure::kMetadata: return "metadata";
+    case WorldTerrainQueryFailure::kInvalidQuery: return "invalid_query";
+    case WorldTerrainQueryFailure::kOutside: return "outside";
+    case WorldTerrainQueryFailure::kUnknownCells: return "unknown_cells";
+    case WorldTerrainQueryFailure::kStaleCells: return "stale_cells";
+    case WorldTerrainQueryFailure::kNonfinitePatch: return "nonfinite_patch";
+    default: return "unknown";
+    }
+}
+struct WorldTerrainQueryDiagnostic
+{
+    WorldTerrainQueryFailure failure = WorldTerrainQueryFailure::kNone;
+    double world_x = std::numeric_limits<double>::quiet_NaN();
+    double world_y = std::numeric_limits<double>::quiet_NaN();
+    double local_x = std::numeric_limits<double>::quiet_NaN();
+    double local_y = std::numeric_limits<double>::quiet_NaN();
+    double radius_m = std::numeric_limits<double>::quiet_NaN();
+    double max_cell_age_s = std::numeric_limits<double>::quiet_NaN();
+    std::size_t patch_known = 0;
+    std::size_t patch_total = 0;
+    std::size_t patch_outside = 0;
+    double cell_age_max_s = std::numeric_limits<double>::quiet_NaN();
+};
 namespace world_terrain_view_detail
 {
 inline bool KnownSource(TerrainSource source)
@@ -75,37 +114,66 @@ inline bool WorldToLocalXY(
     return std::isfinite(local_x) && std::isfinite(local_y) &&
         std::isfinite(z_offset);
 }
-inline bool FreshPatchCellsLocal(
-    const TerrainModel &model, double local_x, double local_y,
-    double radius_m, double max_cell_age_s)
+enum class PatchCellQueryFailure : std::uint8_t
 {
+    kNone = 0,
+    kUnknownCells,
+    kStaleCells,
+    kInvalidQuery,
+};
+inline PatchCellQueryFailure ScanFreshPatchCellsLocal(
+    const TerrainModel &model, double local_x, double local_y,
+    double radius_m, double max_cell_age_s, double &cell_age_max_s)
+{
+    cell_age_max_s = std::numeric_limits<double>::quiet_NaN();
     if (!std::isfinite(radius_m) || radius_m < 0.0 ||
         !std::isfinite(max_cell_age_s) || max_cell_age_s < 0.0)
-        return false;
+        return PatchCellQueryFailure::kInvalidQuery;
     const double half_resolution = 0.5 * model.resolution_m;
     const double r = std::max(radius_m, half_resolution);
     if (!std::isfinite(r) || !std::isfinite(local_x - r) ||
         !std::isfinite(local_x + r) || !std::isfinite(local_y - r) ||
         !std::isfinite(local_y + r))
-        return false;
+        return PatchCellQueryFailure::kInvalidQuery;
     std::size_t x0 = 0, y0 = 0, x1 = 0, y1 = 0;
     if (!model.CellIndex(local_x - r, local_y - r, x0, y0) ||
         !model.CellIndex(local_x + r, local_y + r, x1, y1) ||
         x1 < x0 || y1 < y0)
-        return false;
+        return PatchCellQueryFailure::kInvalidQuery;
+    PatchCellQueryFailure first_failure = PatchCellQueryFailure::kNone;
     for (std::size_t iy = y0; iy <= y1; ++iy)
     {
         for (std::size_t ix = x0; ix <= x1; ++ix)
         {
             const TerrainCell *cell = model.CellAt(ix, iy);
-            if (cell == nullptr || !cell->known ||
-                !std::isfinite(cell->age_s) ||
+            if (cell == nullptr || !cell->known)
+            {
+                if (first_failure == PatchCellQueryFailure::kNone)
+                    first_failure = PatchCellQueryFailure::kUnknownCells;
+                continue;
+            }
+            if (std::isfinite(cell->age_s))
+                cell_age_max_s = std::isfinite(cell_age_max_s)
+                    ? std::max(cell_age_max_s, cell->age_s) : cell->age_s;
+            if (!std::isfinite(cell->age_s) ||
                 cell->age_s < -kTerrainMapTimeToleranceS ||
                 cell->age_s > max_cell_age_s + kTerrainMapTimeToleranceS)
-                return false;
+            {
+                if (first_failure == PatchCellQueryFailure::kNone)
+                    first_failure = PatchCellQueryFailure::kStaleCells;
+            }
         }
     }
-    return true;
+    return first_failure;
+}
+inline bool FreshPatchCellsLocal(
+    const TerrainModel &model, double local_x, double local_y,
+    double radius_m, double max_cell_age_s)
+{
+    double cell_age_max_s = std::numeric_limits<double>::quiet_NaN();
+    return ScanFreshPatchCellsLocal(model, local_x, local_y, radius_m,
+                                    max_cell_age_s, cell_age_max_s) ==
+        PatchCellQueryFailure::kNone;
 }
 inline bool FinitePatch(const TerrainPatch &patch)
 {
@@ -176,28 +244,77 @@ inline bool WorldTerrainMetadataValid(const TerrainModel &model)
 // registration z and normals are rotated by the registration yaw.
 inline bool SampleWorldTerrainPatch(
     const TerrainModel &model, double world_x, double world_y,
-    double radius_m, double max_cell_age_s, TerrainPatch &patch)
+    double radius_m, double max_cell_age_s, TerrainPatch &patch,
+    WorldTerrainQueryDiagnostic *diagnostic = nullptr)
 {
     using namespace world_terrain_view_detail;
     patch = TerrainPatch{};
-    if (!WorldTerrainMetadataValid(model) ||
-        !std::isfinite(world_x) || !std::isfinite(world_y) ||
+    if (diagnostic != nullptr)
+    {
+        *diagnostic = WorldTerrainQueryDiagnostic{};
+        diagnostic->world_x = world_x;
+        diagnostic->world_y = world_y;
+        diagnostic->radius_m = radius_m;
+        diagnostic->max_cell_age_s = max_cell_age_s;
+    }
+    const auto fail = [diagnostic](WorldTerrainQueryFailure failure) {
+        if (diagnostic != nullptr)
+            diagnostic->failure = failure;
+        return false;
+    };
+    if (!WorldTerrainMetadataValid(model))
+        return fail(WorldTerrainQueryFailure::kMetadata);
+    if (!std::isfinite(world_x) || !std::isfinite(world_y) ||
         !std::isfinite(radius_m) || radius_m < 0.0 ||
         !std::isfinite(max_cell_age_s) || max_cell_age_s < 0.0)
-        return false;
+        return fail(WorldTerrainQueryFailure::kInvalidQuery);
     double local_x = 0.0, local_y = 0.0, z_offset = 0.0;
     if (!WorldToLocalXY(model, world_x, world_y,
                         local_x, local_y, z_offset))
-        return false;
+        return fail(WorldTerrainQueryFailure::kInvalidQuery);
+    if (diagnostic != nullptr)
+    {
+        diagnostic->local_x = local_x;
+        diagnostic->local_y = local_y;
+    }
     const double r = std::max(radius_m, 0.5 * model.resolution_m);
     if (!std::isfinite(r) || !model.CoversPatch(local_x, local_y, r))
-        return false;
+        return fail(WorldTerrainQueryFailure::kOutside);
     TerrainPatch local_patch;
-    if (!model.SamplePatch(local_x, local_y, radius_m, local_patch) ||
-        !FinitePatch(local_patch) ||
-        !FreshPatchCellsLocal(model, local_x, local_y,
-                              radius_m, max_cell_age_s))
-        return false;
+    const bool sampled = model.SamplePatch(local_x, local_y, radius_m, local_patch);
+    if (diagnostic != nullptr)
+    {
+        diagnostic->patch_known = local_patch.known_cells;
+        diagnostic->patch_total = local_patch.total_cells;
+        diagnostic->patch_outside = local_patch.outside_cells;
+    }
+    double cell_age_max_s = std::numeric_limits<double>::quiet_NaN();
+    const auto freshness = ScanFreshPatchCellsLocal(
+        model, local_x, local_y, radius_m, max_cell_age_s, cell_age_max_s);
+    if (diagnostic != nullptr)
+        diagnostic->cell_age_max_s = cell_age_max_s;
+    if (!sampled)
+    {
+        if (local_patch.outside_cells != 0)
+            return fail(WorldTerrainQueryFailure::kOutside);
+        if (local_patch.total_cells >
+            local_patch.known_cells + local_patch.outside_cells ||
+            freshness == PatchCellQueryFailure::kUnknownCells)
+            return fail(WorldTerrainQueryFailure::kUnknownCells);
+        return fail(WorldTerrainQueryFailure::kNonfinitePatch);
+    }
+    if (local_patch.outside_cells != 0)
+        return fail(WorldTerrainQueryFailure::kOutside);
+    if (local_patch.total_cells >
+        local_patch.known_cells + local_patch.outside_cells ||
+        freshness == PatchCellQueryFailure::kUnknownCells)
+        return fail(WorldTerrainQueryFailure::kUnknownCells);
+    if (!FinitePatch(local_patch))
+        return fail(WorldTerrainQueryFailure::kNonfinitePatch);
+    if (freshness == PatchCellQueryFailure::kStaleCells)
+        return fail(WorldTerrainQueryFailure::kStaleCells);
+    if (freshness != PatchCellQueryFailure::kNone)
+        return fail(WorldTerrainQueryFailure::kInvalidQuery);
     TerrainPatch world_patch = local_patch;
     if (!AddHeight(local_patch.center_height_m, z_offset,
                    world_patch.center_height_m) ||
@@ -207,8 +324,10 @@ inline bool SampleWorldTerrainPatch(
                    world_patch.max_height_m) ||
         !RotateNormal(model, local_patch.normal, world_patch.normal) ||
         !FinitePatch(world_patch))
-        return false;
+        return fail(WorldTerrainQueryFailure::kNonfinitePatch);
     patch = world_patch;
+    if (diagnostic != nullptr)
+        diagnostic->failure = WorldTerrainQueryFailure::kNone;
     return true;
 }
 } // namespace stage_c

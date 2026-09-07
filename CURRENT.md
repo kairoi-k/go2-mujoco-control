@@ -30,7 +30,13 @@ Same-source e1e68de flat off/on probes completed: 40/42 versus 33/42 good
 cycles in the identical 18--24 s window; 210 versus 372 sample certificate
 failures. The point model remains opt-in. Historical 49-cycle counts used a
 17--24 s window, not a different period. See the joint_point_pair_20260907 packet.
-Next: validate the opt-in event-indexed joint runtime shadow, then complete adoption,
+Actual a180e605 flat shadow probes produced no solver calls: sensor-map coverage
+blocked all state-clock captures (initial queries or candidate coverage); phase/state residuals were exactly zero with
+the existing state clock, versus three rejected wall-clock captures.
+Source audit found candidate generation also rejects a true stance ending beyond
+the prediction window before querying terrain. Preserve event lifetime while
+versioning in-horizon coverage; do not mislabel that as sensor map failure.
+Next: diagnose exact map queries with replayable actual snapshots, then complete adoption,
 coherent event commitment/execution and geometry/actuator validation using real
 MuJoCo feedback. Sample-level model success alone keeps `execution_ready=false`.
 See `docs/research/evidence/joint_articulated_20260907/` for model evidence.
@@ -44,8 +50,9 @@ combination path; historical bound-event defaults and commitments remain strict.
 ## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
 Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
-`e1e68de1cee4edb93d1094a39a52c8e4bb5347ec`: the same-source contact-point
-flat pair. The earlier `43c5f5a91e5c075a69170bc8af7d5582d1031474` two flat
+`a180e605199999264b3b5e7d4ec1a54f9bbc5107`: wall/state clock joint-shadow
+flat pair, zero solver calls; see joint_runtime_shadow_20260907 actual packets.
+Earlier `e1e68de1cee4edb93d1094a39a52c8e4bb5347ec` is the contact-point pair. The earlier `43c5f5a91e5c075a69170bc8af7d5582d1031474` two flat
 diagnostics retain their separate window/provenance; the first overlaps archival
 load, the second was registered as isolated.
 The previous observer-only runtime71d242a had 47/49 good running cycles.

@@ -1,3 +1,4 @@
+#include "stage_c/event_schedule.h"
 #include "stage_c/terrain_candidates.h"
 #include <Eigen/Dense>
 #include <array>
@@ -176,12 +177,28 @@ void TestCoverageAndMetadataRejection()
     auto unknown = FlatTerrain();
     for (TerrainCell &cell : unknown.cells)
         cell.known = false;
-    auto result = Generate(unknown, Events(), PerEventReference());
+    const auto events = Events();
+    auto result = Generate(unknown, events, PerEventReference());
     Check(!result.valid && result.failure == JointPlannerFailure::kCoverageIncomplete,
           "unknown terrain was accepted");
     Check(result.sets.size() == 2 && result.sets[0].event_set.candidates.empty() &&
               result.sets[1].event_set.candidates.empty(),
           "coverage loss was silently omitted");
+    Check(result.rejected_query_diagnostics.size() == 10,
+          "unknown query diagnostics did not retain each event candidate");
+    for (std::size_t i = 0; i < result.rejected_query_diagnostics.size(); ++i)
+    {
+        const auto &diagnostic = result.rejected_query_diagnostics[i];
+        Check(diagnostic.event_index == i / 5 &&
+                  diagnostic.leg == events.events[i / 5].id.leg &&
+                  diagnostic.candidate_index == i % 5 &&
+                  diagnostic.query.failure ==
+                      WorldTerrainQueryFailure::kUnknownCells &&
+                  diagnostic.query.patch_total > diagnostic.query.patch_known &&
+                  std::isfinite(diagnostic.query.world_x) &&
+                  std::isfinite(diagnostic.query.local_x),
+              "unknown query diagnostic lost event, leg, coordinates or reason");
+    }
     auto nonfinite_height = FlatTerrain();
     for (TerrainCell &cell : nonfinite_height.cells)
         cell.height_m = std::numeric_limits<double>::quiet_NaN();
@@ -206,12 +223,63 @@ void TestCoverageAndMetadataRejection()
     stale_cell.cells.front().known=false;stale_cell.cells.front().age_s=std::numeric_limits<double>::infinity();
     Check(Generate(stale_cell,Events(),PerEventReference()).valid,"unknown outside queried footprint is not local unknown");
     for(auto &cell:stale_cell.cells)cell.age_s=.21;
-    Check(!Generate(stale_cell,Events(),PerEventReference()).valid,"stale cells in candidate footprints rejected");
+    const auto stale_result = Generate(stale_cell,Events(),PerEventReference());
+    Check(!stale_result.valid,"stale cells in candidate footprints rejected");
+    Check(!stale_result.rejected_query_diagnostics.empty() &&
+              stale_result.rejected_query_diagnostics.front().query.failure ==
+                  WorldTerrainQueryFailure::kStaleCells,
+          "stale candidate query reason was lost");
     auto wrong_epoch = FlatTerrain();
     wrong_epoch.epoch = 8;
     result = Generate(wrong_epoch, Events(), PerEventReference());
     Check(!result.valid && result.failure == JointPlannerFailure::kObservationUnavailable,
           "map epoch conflict was accepted");
+}
+void TestContactContinuationPolicy()
+{
+    FixedSchedulePreviewRequest request;
+    request.start = T(1.0);
+    request.end = T(1.30);
+    request.phase_zero_time = T(0.0);
+    request.period = T(0.24);
+    request.max_interval = T(0.04);
+    request.schedule_epoch = 7;
+    request.duty = 0.80;
+    request.leg_offsets.fill(0.0);
+    const auto preview = BuildFixedSchedulePreview(request);
+    Check(preview.complete && !preview.events.events.empty(),
+          "tail stance schedule preview failed");
+    const TimeNs horizon = T(1.30);
+    bool has_tail_stance = false;
+    for (const auto &event : preview.events.events)
+        has_tail_stance |= event.contact_interval_end > horizon;
+    Check(has_tail_stance, "tail stance was not represented with its real end");
+    const auto reference = ConstantReference();
+    const auto default_result = GenerateTerrainCandidates(
+        FlatTerrain(), preview.events, T(1.0), 7, reference, horizon);
+    Check(!default_result.valid &&
+              default_result.failure == JointPlannerFailure::kCoverageIncomplete,
+          "default candidate policy accepted a continuation beyond horizon");
+    auto continuation_config = TerrainCandidateConfig{};
+    continuation_config.allow_contact_continuation_beyond_horizon = true;
+    const auto generated = GenerateTerrainCandidates(
+        FlatTerrain(), preview.events, T(1.0), 7, reference, horizon,
+        continuation_config);
+    Check(generated.valid && generated.failure == JointPlannerFailure::kNone &&
+              generated.sets.size() == preview.events.events.size(),
+          "explicit contact continuation was rejected");
+    for (const auto &set : generated.sets)
+        for (const auto &match : set.matched_surfaces)
+            Check(match.contact_surface.valid_until == horizon,
+                  "continuation surface validity escaped the horizon");
+    auto outside_td = preview.events;
+    outside_td.events.back().touchdown_time = T(1.31);
+    const auto outside_result = GenerateTerrainCandidates(
+        FlatTerrain(), outside_td, T(1.0), 7, reference, horizon,
+        continuation_config);
+    Check(!outside_result.valid &&
+              outside_result.failure == JointPlannerFailure::kCoverageIncomplete,
+          "touchdown beyond horizon was accepted by continuation policy");
 }
 void TestExplicitTerrainGates()
 {
@@ -286,6 +354,7 @@ int main()
         TestAlternativesAndProvenance();
         TestExplicitVelocityReference();
         TestCoverageAndMetadataRejection();
+        TestContactContinuationPolicy();
         TestExplicitTerrainGates();
         TestFailClosedInputs();
         std::cout << "terrain candidates: per-event/world-velocity references, unset targets, "

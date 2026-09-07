@@ -124,23 +124,54 @@ int main()
     auto unknown = registered;
     unknown.cells[20 * unknown.width + 20].known = false;
     TerrainPatch rejected_patch;
+    WorldTerrainQueryDiagnostic query;
     ok &= Check(!SampleWorldTerrainPatch(
                     unknown, registered.registration_position_world[0],
                     registered.registration_position_world[1], 0.025, 0.20,
-                    rejected_patch),
-                "unknown patch was accepted");
+                    rejected_patch, &query) &&
+                    query.failure == WorldTerrainQueryFailure::kUnknownCells &&
+                    query.patch_total > query.patch_known &&
+                    std::abs(query.local_x) < 1.0e-12 &&
+                    std::abs(query.local_y) < 1.0e-12,
+                "unknown patch reason or local coordinates were lost");
     auto stale = registered;
     stale.cells[20 * stale.width + 20].age_s = 0.50;
     ok &= Check(!SampleWorldTerrainPatch(
                     stale, registered.registration_position_world[0],
                     registered.registration_position_world[1], 0.025, 0.20,
-                    rejected_patch),
-                "stale patch was accepted");
+                    rejected_patch, &query) &&
+                    query.failure == WorldTerrainQueryFailure::kStaleCells &&
+                    query.cell_age_max_s >= 0.01,
+                "stale patch reason was lost");
+    auto first_stale = registered;
+    first_stale.cells[19 * first_stale.width + 19].age_s = 0.50;
+    ok &= Check(!SampleWorldTerrainPatch(
+                    first_stale, registered.registration_position_world[0],
+                    registered.registration_position_world[1], 0.025, 0.20,
+                    rejected_patch, &query) &&
+                    query.failure == WorldTerrainQueryFailure::kStaleCells &&
+                    query.cell_age_max_s >= 0.50,
+                "first stale cell was omitted from age maximum");
     const auto outside_xy = LocalToWorldXY(registered, 1.0, 0.0);
     ok &= Check(!SampleWorldTerrainPatch(
                     registered, outside_xy[0], outside_xy[1], 0.025, 0.20,
-                    rejected_patch),
-                "out-of-grid patch was accepted");
+                    rejected_patch, &query) &&
+                    query.failure == WorldTerrainQueryFailure::kOutside,
+                "out-of-grid patch reason was lost");
+    ok &= Check(!SampleWorldTerrainPatch(
+                    registered, std::numeric_limits<double>::quiet_NaN(), 0.0,
+                    0.025, 0.20, rejected_patch, &query) &&
+                    query.failure == WorldTerrainQueryFailure::kInvalidQuery,
+                "invalid query reason was lost");
+    auto nonfinite = registered;
+    for (TerrainCell &cell : nonfinite.cells)
+        cell.height_m = std::numeric_limits<double>::quiet_NaN();
+    ok &= Check(!SampleWorldTerrainPatch(
+                    nonfinite, registered.registration_position_world[0],
+                    registered.registration_position_world[1], 0.025, 0.20,
+                    rejected_patch, &query) &&
+                    query.failure == WorldTerrainQueryFailure::kNonfinitePatch,
+                "nonfinite patch reason was lost");
     auto unregistered = registered;
     unregistered.registered = false;
     ok &= Check(!WorldTerrainMetadataValid(unregistered),

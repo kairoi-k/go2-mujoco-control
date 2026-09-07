@@ -44,6 +44,10 @@ struct TerrainCandidateConfig
     // Explicit opt-in to querying a registered heading-relative production
     // grid through the world view. No relabelling or resampling is performed.
     bool allow_registered_heading_frame = false;
+    // A schedule event may remain in stance beyond the bounded planning
+    // horizon. Opt-in preserves that physical event end while all generated
+    // surface evidence remains valid only through prediction_valid_until.
+    bool allow_contact_continuation_beyond_horizon = false;
     double minimum_edge_margin_m = 0.0;
     double maximum_slope_rad = 0.50;
     double maximum_surface_height_span_m = 0.02;
@@ -101,6 +105,13 @@ struct TerrainCandidateSurfaceMatch
             contact_surface.max_normal_n > 0.0;
     }
 };
+struct TerrainCandidateQueryDiagnostic
+{
+    std::size_t event_index = 0;
+    go2::Leg leg = go2::Leg::FR;
+    std::size_t candidate_index = 0;
+    WorldTerrainQueryDiagnostic query{};
+};
 struct TerrainCandidateSet
 {
     // This is the existing combination-evaluation transport. matched_surfaces
@@ -124,6 +135,10 @@ struct TerrainCandidateSet
 struct TerrainCandidateGenerationResult
 {
     std::vector<TerrainCandidateSet> sets;
+    // Query failures retain event/leg/candidate identity and the exact world
+    // and local coordinates used by the world terrain view. This is diagnostic
+    // evidence only; it does not turn an unknown query into a candidate.
+    std::vector<TerrainCandidateQueryDiagnostic> rejected_query_diagnostics;
     JointPlannerFailure failure = JointPlannerFailure::kInvalidInput;
     bool valid = false;
 };
@@ -338,8 +353,10 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
             }
     const bool horizon_ok = std::all_of(
         events.events.begin(), events.events.end(),
-        [prediction_valid_until](const TouchdownEvent &event) {
-            return event.touchdown_time <= prediction_valid_until &&
+        [prediction_valid_until, &config](const TouchdownEvent &event) {
+            if (event.touchdown_time > prediction_valid_until)
+                return false;
+            return config.allow_contact_continuation_beyond_horizon ||
                 event.contact_interval_end <= prediction_valid_until;
         });
     if (!horizon_ok)
@@ -383,9 +400,17 @@ inline TerrainCandidateGenerationResult GenerateTerrainCandidates(
             const double x = nominal.x + config.xy_offsets_m[candidate_index][0];
             const double y = nominal.y + config.xy_offsets_m[candidate_index][1];
             TerrainPatch patch;
-            if (!SampleWorldTerrainPatch(terrain,x,y,radius,config.maximum_cell_age_s,patch) ||
+            WorldTerrainQueryDiagnostic query_diagnostic;
+            if (!SampleWorldTerrainPatch(
+                    terrain, x, y, radius, config.maximum_cell_age_s, patch,
+                    &query_diagnostic) ||
                 !patch.valid || !patch.all_known)
             {
+                if (query_diagnostic.failure !=
+                    WorldTerrainQueryFailure::kNone)
+                    result.rejected_query_diagnostics.push_back({
+                        event_index, event.id.leg, candidate_index,
+                        query_diagnostic});
                 saw_coverage_rejection = true;
                 continue;
             }

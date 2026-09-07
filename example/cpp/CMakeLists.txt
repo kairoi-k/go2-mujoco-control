@@ -376,3 +376,19 @@ if(EXISTS "${_go2_mujoco_lib}")
   target_compile_definitions(replay_stage_c_feedback PRIVATE GO2_MODEL_PATH="${_go2_model_path}")
   set_target_properties(replay_stage_c_feedback PROPERTIES BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
 endif()
+
+if(EXISTS "${_go2_mujoco_lib}")
+  add_executable(replay_joint_shadow_snapshot tools/replay_joint_shadow_snapshot.cpp)
+  target_include_directories(replay_joint_shadow_snapshot PRIVATE "${_go2_mujoco_inc}")
+  target_link_libraries(replay_joint_shadow_snapshot "${_go2_mujoco_lib}" Eigen3::Eigen unitree_sdk2 stage_c_centroidal)
+  target_compile_definitions(replay_joint_shadow_snapshot PRIVATE GO2_MODEL_PATH="${_go2_model_path}")
+  set_target_properties(replay_joint_shadow_snapshot PROPERTIES BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
+  add_executable(joint_shadow_snapshot_fixture tests/joint_shadow_snapshot_fixture.cpp)
+  target_include_directories(joint_shadow_snapshot_fixture PRIVATE "${_go2_mujoco_inc}")
+  target_link_libraries(joint_shadow_snapshot_fixture Eigen3::Eigen unitree_sdk2)
+  find_package(Python3 COMPONENTS Interpreter REQUIRED)
+  add_test(NAME test_joint_shadow_snapshot_roundtrip COMMAND ${Python3_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_joint_shadow_snapshot_roundtrip.py"
+    $<TARGET_FILE:joint_shadow_snapshot_fixture> $<TARGET_FILE:replay_joint_shadow_snapshot>
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/scripts/extract_joint_shadow_snapshot.py")
+endif()

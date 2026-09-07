@@ -146,6 +146,64 @@ TerrainCandidateGenerationResult Candidates()
     result.valid = true;
     return result;
 }
+FixedSchedulePreview TailPreview()
+{
+    FixedSchedulePreviewRequest request;
+    request.start = T(1.0);
+    request.end = T(1.30);
+    request.phase_zero_time = T(0.0);
+    request.period = T(0.24);
+    request.max_interval = T(0.04);
+    request.schedule_epoch = 7;
+    request.duty = 0.80;
+    request.leg_offsets.fill(0.0);
+    return BuildFixedSchedulePreview(request);
+}
+TerrainModel TailTerrain()
+{
+    TerrainModel terrain;
+    terrain.frame_id = "world";
+    terrain.state_stamp_s = 1.0;
+    terrain.map_stamp_s = 0.95;
+    terrain.age_s = 0.05;
+    terrain.epoch = 7;
+    terrain.resolution_m = 0.1;
+    terrain.origin_m = {-1.0, -1.0};
+    terrain.width = 40;
+    terrain.height = 40;
+    terrain.source = TerrainSource::kTestFixture;
+    terrain.registered = true;
+    terrain.cells.assign(terrain.width * terrain.height, TerrainCell{});
+    for (auto &cell : terrain.cells)
+    {
+        cell.height_m = -0.25;
+        cell.height_min_m = -0.25;
+        cell.height_max_m = -0.25;
+        cell.has_height_bounds = true;
+        cell.age_s = 0.05;
+        cell.slope_rad = 0.0;
+        cell.roughness_m = 0.0;
+        cell.variance_m2 = 0.0;
+        cell.normal = {0.0, 0.0, 1.0};
+        cell.known = true;
+    }
+    return terrain;
+}
+TerrainCandidateReference TailReference()
+{
+    TerrainCandidateReference reference;
+    reference.com_world_valid = true;
+    reference.com_world = {0.40, 0.0, 0.50};
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        reference.nominal_foot_center_offset_world[leg] =
+            {leg == 0 ? 0.10 : -0.10, 0.0, -0.30};
+        reference.nominal_offset_valid[leg] = true;
+        reference.foot_radius_m[leg] = 0.022;
+        reference.foot_radius_valid[leg] = true;
+    }
+    return reference;
+}
 RigidBodyPlanningKinematics ActualModel()
 {
     RigidBodyPlanningKinematics model;
@@ -183,6 +241,38 @@ bool SameSchedule(const std::vector<FixedScheduleInterval> &left,
             left[i].event_index != right[i].event_index)
             return false;
     return true;
+}
+void TestContactContinuationAssembly()
+{
+    const auto preview = TailPreview();
+    Check(preview.complete && !preview.events.events.empty(),
+          "tail stance schedule preview failed");
+    const TimeNs horizon = T(1.30);
+    bool has_tail_stance = false;
+    for (const auto &event : preview.events.events)
+        has_tail_stance |= event.contact_interval_end > horizon;
+    Check(has_tail_stance, "tail stance was not represented with its real end");
+    auto input = Input();
+    input.identity.schedule_epoch = 7;
+    input.budget.prediction_end = horizon;
+    input.command.duty_factor = 0.80;
+    auto continuation_config = TerrainCandidateConfig{};
+    continuation_config.allow_contact_continuation_beyond_horizon = true;
+    const auto generated = GenerateTerrainCandidates(
+        TailTerrain(), preview.events, T(1.0), 7, TailReference(), horizon,
+        continuation_config);
+    Check(generated.valid && generated.sets.size() == preview.events.events.size(),
+          "tail continuation candidate generation failed");
+    std::array<ContactSurface, go2::kLegCount> initial{};
+    for (auto &surface : initial)
+        surface = Surface(horizon);
+    const auto prepared = PrepareJointProblem(
+        input, preview, generated, initial, ActualModel(), Model(),
+        std::vector<StateBox>(preview.grid.size()));
+    Check(prepared.ok && prepared.problem.required_end == horizon &&
+              prepared.problem.request.events.events[0].contact_interval_end >
+                  horizon,
+          "tail continuation did not assemble through PrepareJointProblem");
 }
 } // namespace
 int main()
@@ -288,6 +378,7 @@ int main()
         Check(!timing_failure.ok &&
                   timing_failure.failure == JointPlannerFailure::kCoverageIncomplete,
               "inconsistent absolute preview timing was accepted");
+        TestContactContinuationAssembly();
         std::cout << "Stage C joint problem preparation checks passed\n";
         return 0;
     }
