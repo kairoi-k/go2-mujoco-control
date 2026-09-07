@@ -1,0 +1,32 @@
+{
+  "runtime_sha": "ac423a69d202f91fadee8ecb8aad68bbbbc4c04d",
+  "snapshot_runtime_sha": "f9623e1486d03830101aa80d132fc8f3c04489bb",
+  "b1_claim": false,
+  "rows": 0,
+  "applied_rows": 0,
+  "returncode": 2,
+  "input_files_changed": [],
+  "clock_residual_s": null,
+  "requested_applied_residual_nm": null,
+  "max_foot_error_m": null,
+  "first_failure": null,
+  "first_nonfoot_contact": null,
+  "nominal_geom_disagreement_rows": 0,
+  "solver_unconverged_rows": 0,
+  "maxima": {
+    "com_error_m": null,
+    "com_velocity_error_mps": null,
+    "momentum_error_nms": null,
+    "max_tau_nm": null,
+    "max_motor_saturation_nm": null,
+    "certificate_force_residual_n": null,
+    "certificate_moment_residual_nm": null,
+    "certificate_joint_residual_nm": null,
+    "gt_contact_couple_norm_nm": null
+  },
+  "raw_hashes": {
+    "stdout.txt": "ea4adae0ed50e4091dacf5ea13b1bb1a32f6a0201e0d09663191fef13935cfe9",
+    "manifest.json": "5e7a9fcdfa304a49d0a2abea442f532da7cf10bf90375ada5b6739a7e165da22"
+  },
+  "analyzer_sha256": "b0855eaf9a3c041cd801f14eb5fdd91446d2b149eae46e6bfb95570dbe21c3a7"
+}

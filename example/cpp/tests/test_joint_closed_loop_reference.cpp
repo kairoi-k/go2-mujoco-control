@@ -48,6 +48,14 @@ int main(){try {
  Check(!BuildCentroidalReference(p,result,t2,m,config,changed,unused,force,reference,failure),"endpoint has no force");
  ModelOwner plant;char error[1024]={};plant.model=mj_loadXML(GO2_MODEL_PATH,nullptr,error,sizeof(error));
  Check(plant.model!=nullptr,"plant model");plant.data=mj_makeData(plant.model);
+ ModelOwner scene;const auto scene_path=std::filesystem::path(GO2_MODEL_PATH).parent_path()/"phase2_flat.xml";
+ scene.model=mj_loadXML(scene_path.c_str(),nullptr,error,sizeof(error));Check(scene.model!=nullptr,"scene");
+ Check(ValidateRobotModels(*scene.model,*plant.model,failure),"same robot with unnamed free joint");
+ scene.model->opt.gravity[2]+=.1;
+ Check(!ValidateRobotModels(*scene.model,*plant.model,failure),"gravity mismatch rejected");
+ scene.model->opt.gravity[2]-=.1;
+ scene.model->actuator_gear[0]=2;
+ Check(!ValidateRobotModels(*scene.model,*plant.model,failure),"gear mismatch rejected");
  initial.linear_vel_world<<.3,-.2,.1;initial.angular_vel_body<<.1,.2,-.3;initial.dq.setConstant(.12);
  Check(WriteStateToPlant(*plant.model,*plant.data,initial,failure),"state load");
  const auto recovered=StateFromPlant(*plant.model,*plant.data);

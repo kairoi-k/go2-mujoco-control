@@ -193,7 +193,16 @@ inline bool ValidateRobotModels(
         if (!IsDescendantOf(controller, controller.jnt_bodyid[c], controller_base))
             continue;
         const char *name = mj_id2name(&controller, mjOBJ_JOINT, c);
-        const int s = name == nullptr ? -1 : mj_name2id(&scene, mjOBJ_JOINT, name);
+        int s = name == nullptr ? -1 : mj_name2id(&scene, mjOBJ_JOINT, name);
+        // The canonical MJCF free joint is intentionally unnamed. Match it
+        // by its unique base body and type, retaining exact qpos/dof checks.
+        if (name == nullptr && controller.jnt_type[c] == mjJNT_FREE &&
+            controller.jnt_bodyid[c] == controller_base)
+            for (int j=0;j<scene.njnt;++j)
+                if (scene.jnt_type[j]==mjJNT_FREE && scene.jnt_bodyid[j]==scene_base) {
+                    if (s>=0) { failure="ambiguous_base_free_joint"; return false; }
+                    s=j;
+                }
         if (s < 0 || scene.jnt_bodyid[s] < 0 ||
             mj_id2name(&scene, mjOBJ_BODY, scene.jnt_bodyid[s]) == nullptr ||
             std::string(mj_id2name(&scene, mjOBJ_BODY, scene.jnt_bodyid[s])) !=

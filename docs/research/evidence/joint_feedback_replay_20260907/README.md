@@ -53,3 +53,8 @@ First exact b984105 attempt has zero physical steps: the tool rejected an
 interior replay endpoint. This is a replay precondition defect, not physical
 infeasibility. The next revision restricts only the foot schedule prefix and
 keeps the original dynamics grid/result; independent off-grid prefix test added.
+
+Second exact ac423a6 attempt also has zero physical steps: identical robot
+models were rejected because the canonical free joint is unnamed. Match its
+unique base body/type with unchanged qpos/dof layout checks; the actual scene
+identity and deliberately changed gravity/gear now have focused tests.
