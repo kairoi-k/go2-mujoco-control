@@ -1,0 +1,11 @@
+{
+  "source_sha": "b49e9e879dc732efa2de010e5b4011accaea4efb",
+  "binary_sha256": "cf1aaf4d20470215acc260ae98eeb516e8b901a74248027a932ea961037de917",
+  "input_sha256": "64001f076d4d98c601eb66a02f8aece49883c2241087c43bd894dcaff94e5e58",
+  "files": {
+    "README.md": "0809696515e3d3d6bc9bebb5f5e6e8a30287fb9148c63d1c613d7fe668816bf4",
+    "enumeration.json": "3ba8de2ac1911ee3dc10add5aa9d197ad05bcbc5d94faad55bae400507615320",
+    "focused_tests.txt": "d146fcd63d68965bb6283573544fd4ee76065f05a2cf50f3a6c7142b73fcae70",
+    "selected_audit.json": "3258be51e68dd01118200ec2d25c6d78034ccf6f08c38871b30cdcdcbcd33199"
+  }
+}

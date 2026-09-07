@@ -66,13 +66,18 @@ lift passes a conditional sample certificate, with31.4344Nm peak torque; it
 uses actual lever arms and no foot PD, not the actual feedback task. Both
 momentum targets agree at this source sample. No new closed-loop run occurred.
 ## Next research action
-Stop unbounded weight/priority sweeps. Audit the real-source complete articulated
-path and coherent COM/L/foot acceleration lift without state projection. Preserve
-runtime-window versus full-grid coverage results separately. Use those results
-to implement body/leg references and contact transitions that are mutually
-realizable, then validate in a bounded actual flat run before any new5cm run.
-A fixed-state QP improvement, model sample certificate or video is not acceptance.
-No new10cm challenge until credible5cm evidence exists.
+Conditional terminal binding at b49e9e8 now resolves the full-grid foot coverage
+with observed next-event candidates under an explicit longer stationary-terrain
+prediction assumption. All25 terminal combinations (fixed core selection)
+then fail initial_condition_conflict in full-body reconstruction. Evidence:
+`joint_execution_flat_20260908/terminal_binding_audit`. Original diagnostic
+output remains unchanged; four focused tests pass. No new closed-loop run.
+The next implementation must represent the actual moving initial support state
+and coordinate body/leg acceleration with contact realization. Do not reset
+initial q/dq, silently treat moving supports as stationary, or resume weight
+sweeps. Validate coherent initial contact transitions/articulated references
+offline before a bounded actual flat run, then5cm and independently10cm.
+A model sample certificate is not trajectory or closed-loop acceptance.
 ## Reproduction and runtime switches
 `example/cpp/scripts/run_b1_research_probe.sh` requires clean exact source,
 unique raw name and holds the experiment lock. Recent runs use phase2_flat.xml,

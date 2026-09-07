@@ -76,3 +76,7 @@ next action; historical registrations above are retained.
   the later control tick or a new closed-loop experiment.
 - attempt_0007: shared orientation/swing-priority candidate fails posture; not
   promoted. Runtime default remains the previous hierarchy.
+
+Terminal-binding follow-up: [terminal_binding_audit](terminal_binding_audit/README.md)
+retains25 conditional terminal choices, full coverage and subsequent initial
+condition rejection. This advances diagnosis, not closed-loop acceptance.

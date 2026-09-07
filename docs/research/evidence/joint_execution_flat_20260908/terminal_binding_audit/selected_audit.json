@@ -1,0 +1,156 @@
+{
+  "command": [
+    "example/cpp/build/replay_joint_shadow_snapshot",
+    "docs/research/evidence/joint_execution_flat_20260908/attempt_0006/articulated_source.txt",
+    "--articulated-tail-audit",
+    "21.5",
+    "0,0"
+  ],
+  "exit_code": 2,
+  "rows": [
+    {
+      "terminal_binding": true,
+      "conditional_choices_only": true,
+      "stationary_prediction_end_s": 21.5,
+      "event_count": 2,
+      "candidate_counts": [
+        5,
+        5
+      ],
+      "choices": [
+        0,
+        0
+      ],
+      "failure": "none"
+    },
+    {
+      "articulated_audit": true,
+      "scope": "same selected proposal and foot request; no mj_step; diagnostic only",
+      "source_time_s": 21.018,
+      "proposal_valid": true,
+      "proposal_failure": "ok",
+      "proposal_id": 868,
+      "foot_request_start_s": 21.018,
+      "foot_request_end_s": 21.218,
+      "candidate_indices": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "runtime_foot_request_coverage": {
+        "attempted": true,
+        "valid": true,
+        "failure": "none",
+        "start_s": 21.018,
+        "end_s": 21.218
+      },
+      "full_grid_foot_request_coverage": {
+        "attempted": true,
+        "valid": true,
+        "failure": "none",
+        "start_s": 21.018,
+        "end_s": 21.298000000000002
+      },
+      "result": {
+        "failure": "initial_condition_conflict",
+        "centroidal_detail": "original_continuous_centroidal_certificate",
+        "model_samples_verified": false,
+        "execution_ready": false,
+        "sample_count": 0,
+        "centroidal_certificate": {
+          "feasible": true,
+          "input_checked": true,
+          "coverage_checked": true,
+          "original_dynamics_checked": true,
+          "position_residual_m": 0,
+          "velocity_residual_mps": 5.4047478298402396e-17,
+          "momentum_residual_nms": 1.9680437834956876e-15
+        },
+        "body_reconstruction": {
+          "kinematics_valid": false,
+          "failure": "initial_condition_conflict",
+          "knot_count": 0,
+          "max_position_residual_m": 0,
+          "max_velocity_residual_mps": 0,
+          "max_momentum_residual_nms": 0,
+          "initial_state_retained": null
+        },
+        "sample_certificate": null,
+        "lift_diagnostic": {
+          "attempted": true,
+          "actual_state_lift_only": true,
+          "source_state_unmodified": true,
+          "failure": "none",
+          "actual_kinematics_valid": true,
+          "target_semantics": "actual lever arms replace runtime planned moment; nominal foot acceleration without feedback; not runtime task replay",
+          "runtime_momentum_target_nm": [
+            -0.9612845776100336,
+            -0.9113480353103611,
+            -0.7220493302204378
+          ],
+          "diagnostic_momentum_target_nm": [
+            -0.9612845776100336,
+            -0.9113480353103611,
+            -0.7220493302204378
+          ],
+          "qacc_valid": true,
+          "map_rank": 18,
+          "map_rcond": 0.001491799928218214,
+          "residual_inf_mps2": 8.526512829121202e-14,
+          "angular_acc_body_radps2": [
+            -17.419322910692244,
+            111.71018588801084,
+            -3.459585454875331
+          ],
+          "joint_acc_norm_radps2": 2234.932530683804,
+          "initial_state_retained": {
+            "position_delta_world_m": [
+              0,
+              0,
+              0
+            ],
+            "linear_velocity_delta_world_mps": [
+              0,
+              0,
+              0
+            ]
+          },
+          "articulated_sample_certificate": {
+            "index": 0,
+            "time_s": 21.018,
+            "force_interval_valid": true,
+            "qacc_norm_mixed_units": 2237.8525251350025,
+            "torque_max_nm": 31.434433077100902,
+            "sample_feasible": true,
+            "failure": "none",
+            "dynamics_certificate": {
+              "checked": true,
+              "input_valid": true,
+              "valid": true,
+              "feasible": true,
+              "failure_bitmask": 0,
+              "force_application_jacobian_used": true,
+              "dynamics_residual_norm": 5.768756501992516e-10,
+              "max_dynamics_force_residual_N": 3.270912429798045e-10,
+              "max_dynamics_moment_residual_Nm": 4.65398386495508e-10,
+              "max_joint_dynamics_residual_Nm": 1.7763568394002505e-15,
+              "max_normal_violation_N": 0,
+              "max_friction_violation_N": 0,
+              "max_swing_force_violation_N": 0,
+              "max_tau_violation_Nm": 0,
+              "hard_stance_acc_residual_mps2": 0
+            },
+            "max_surface_force_violation_N": 0,
+            "max_joint_position_violation_rad": 0,
+            "max_joint_velocity_violation_radps": 0
+          }
+        }
+      }
+    }
+  ]
+}

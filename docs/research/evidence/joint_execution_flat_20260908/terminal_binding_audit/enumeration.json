@@ -1,0 +1,264 @@
+{
+  "source_sha": "b49e9e879dc732efa2de010e5b4011accaea4efb",
+  "stationary_prediction_end_s": 21.5,
+  "core_combination_unchanged": true,
+  "results": [
+    {
+      "choices": [
+        0,
+        0
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        0,
+        1
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        0,
+        2
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        0,
+        3
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        0,
+        4
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        1,
+        0
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        1,
+        1
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        1,
+        2
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        1,
+        3
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        1,
+        4
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        2,
+        0
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        2,
+        1
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        2,
+        2
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        2,
+        3
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        2,
+        4
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        3,
+        0
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        3,
+        1
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        3,
+        2
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        3,
+        3
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        3,
+        4
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        4,
+        0
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        4,
+        1
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        4,
+        2
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        4,
+        3
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    },
+    {
+      "choices": [
+        4,
+        4
+      ],
+      "exit_code": 2,
+      "coverage": true,
+      "failure": "initial_condition_conflict"
+    }
+  ],
+  "negative_checks": [
+    {
+      "terminal_binding": true,
+      "conditional_choices_only": true,
+      "stationary_prediction_end_s": 21.35,
+      "event_count": 2,
+      "candidate_counts": [
+        5,
+        5
+      ],
+      "choices": [
+        0,
+        0
+      ],
+      "failure": "coverage_incomplete"
+    },
+    {
+      "terminal_binding": true,
+      "conditional_choices_only": true,
+      "stationary_prediction_end_s": 21.5,
+      "event_count": 2,
+      "candidate_counts": [
+        5,
+        5
+      ],
+      "choices": [
+        5,
+        0
+      ],
+      "failure": "invalid_input"
+    }
+  ]
+}

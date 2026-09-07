@@ -1,0 +1,14 @@
+Internal ctest changing into directory: /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/build
+Test project /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/build
+    Start 11: test_inverse_dynamics_wbc
+1/4 Test #11: test_inverse_dynamics_wbc ..........   Passed    0.40 sec
+    Start 51: test_joint_closed_loop_reference
+2/4 Test #51: test_joint_closed_loop_reference ...   Passed    0.61 sec
+    Start 60: test_stage_c_foot_trajectory
+3/4 Test #60: test_stage_c_foot_trajectory .......   Passed    0.00 sec
+    Start 72: test_joint_execution_qp_replay
+4/4 Test #72: test_joint_execution_qp_replay .....   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Total Test time (real) =   1.02 sec
