@@ -1,3 +1,4 @@
+#include "stage_c/terminal_swing_binding.h"
 #include "../trot/joint_planning_shadow.h"
 #include "stage_c/joint_closed_loop_replay.h"
 #include "stage_c/joint_trajectory.h"
@@ -300,9 +301,10 @@ void PrintAudit(const go2_control::RigidBodyState &initial, double source_time_s
 }  // namespace articulated_audit_detail
 int main(int argc,char**argv){try {
  const bool roundtrip=argc==3 && std::string(argv[2])=="--roundtrip";
+ const bool terminal_audit=argc==5 && std::string(argv[2])=="--articulated-tail-audit";
  const bool articulated_audit=argc==3 && std::string(argv[2])=="--articulated-audit";
  const bool closed_loop=argc==5 && std::string(argv[2])=="--closed-loop";
- if(argc!=2 && !roundtrip && !articulated_audit && !closed_loop)throw std::runtime_error("usage: replay_joint_shadow_snapshot EXTRACTED_SNAPSHOT [--roundtrip | --articulated-audit | --closed-loop SCENE NEW_OUTPUT_CSV]");
+ if(argc!=2 && !roundtrip && !articulated_audit && !closed_loop && !terminal_audit)throw std::runtime_error("usage: replay_joint_shadow_snapshot EXTRACTED_SNAPSHOT [--roundtrip | --articulated-audit | --articulated-tail-audit PREDICTION_END_S CHOICES_CSV | --closed-loop SCENE NEW_OUTPUT_CSV]");
  Reader r(argv[1]);const auto schema=r.word();const bool has_history=schema=="joint-shadow-snapshot-v2";
  if(schema!="joint-shadow-snapshot-v1" && !has_history)throw std::runtime_error("unsupported snapshot");
  const auto id=r.integer();const auto pattern=r.integer();if(pattern>static_cast<unsigned>(go2_control::GaitPattern::kRunningTrot))throw std::runtime_error("invalid pattern");
@@ -336,7 +338,8 @@ int main(int argc,char**argv){try {
  if(roundtrip){std::cout<<go2_trot::JointShadowSnapshotJson(state,input,id,static_cast<int>(pattern),has_history?&history:nullptr)<<"\n";return 0;}
  go2_trot::JointPlanningShadow shadow;if(!shadow.Load(GO2_MODEL_PATH))throw std::runtime_error("model load");
  shadow.Capture(state,input,id,static_cast<go2_control::GaitPattern>(pattern),has_history?&history:nullptr);
- if(articulated_audit){
+ if(articulated_audit || terminal_audit){
+  using namespace go2_terrain::stage_c;
   std::string proposal_failure;
   const auto proposal=shadow.BuildExecutionProposal(proposal_failure);
   if(!proposal){articulated_audit_detail::PrintAudit(state,input.state_stamp_s,proposal,proposal_failure,nullptr);return 2;}
@@ -344,6 +347,56 @@ int main(int argc,char**argv){try {
   const auto runtime_coverage=articulated_audit_detail::CheckFootCoverage(proposal->foot_request);
   auto full_grid_request=proposal->foot_request;
   if(!selected_problem.grid.empty()) full_grid_request.end=selected_problem.grid.back();
+  if(terminal_audit) {
+   std::size_t parsed=0;const std::string until_text=argv[3];
+   const double until_s=std::stod(until_text,&parsed);
+   if(parsed!=until_text.size() || !std::isfinite(until_s) ||
+      until_s<full_grid_request.end.seconds() || until_s>input.state_stamp_s+2.0)
+    throw std::runtime_error("invalid explicit stationary terrain prediction end");
+   std::vector<std::size_t> choices;std::istringstream csv(argv[4]);std::string part;
+   while(std::getline(csv,part,',')) {
+    if(part.empty() || part.find_first_not_of("0123456789")!=std::string::npos)
+     throw std::runtime_error("invalid explicit candidate index");
+    choices.push_back(std::stoull(part));
+   }
+   PhaseClock audit_clock;PhaseClockObservation observation;
+   observation.observation_time=TimeNs::FromSeconds(input.state_stamp_s);
+   observation.phase=input.gait_phase;observation.period_s=input.gait_period_s;
+   observation.duty_factor=input.duty_factor;
+   observation.leg_offsets=CaptureGaitOffsets(static_cast<go2_control::GaitPattern>(pattern));
+   if(!audit_clock.Capture(observation).accepted)throw std::runtime_error("tail phase unavailable");
+   const auto phase=audit_clock.snapshot();
+   if(phase.epoch!=selected_problem.request.input.identity.schedule_epoch)
+    throw std::runtime_error("tail phase epoch mismatch");
+   FixedSchedulePreviewRequest timing{full_grid_request.start,
+    TimeNs{full_grid_request.end.value+TimeNs::FromSeconds(phase.period_s).value},
+    phase.origin_time,TimeNs::FromSeconds(phase.period_s),TimeNs{20000000},
+    phase.epoch,phase.duty_factor,phase.leg_offsets};
+   const auto extended=BuildFixedSchedulePreview(timing);
+   if(!extended.complete)throw std::runtime_error("tail preview incomplete");
+   TouchdownEventTable tails;
+   for(const auto &event:extended.events.events)
+    if(event.touchdown_time>=full_grid_request.end && event.liftoff_time<full_grid_request.end)
+     tails.events.push_back(event);
+   go2_control::Go2RigidBody tail_robot;
+   go2_control::RigidBodyPlanningKinematics model;
+   if(!tail_robot.Load(GO2_MODEL_PATH) || !tail_robot.EvaluatePlanningKinematics(state,model))
+    throw std::runtime_error("tail actual model unavailable");
+   const auto reference=go2_trot::BuildJointTerrainCandidateReference(state,input,model);
+   TerrainCandidateConfig config;config.allow_registered_heading_frame=true;
+   config.allow_contact_continuation_beyond_horizon=true;
+   const auto candidates=GenerateTerrainCandidates(m,tails,full_grid_request.start,m.epoch,
+    reference,TimeNs::FromSeconds(until_s),config,has_history?&history:nullptr);
+   const auto binding=BindTerminalSwingCandidates(full_grid_request,tails,candidates,choices);
+   std::cout<<"{\"terminal_binding\":true,\"conditional_choices_only\":true,"
+    <<"\"stationary_prediction_end_s\":"<<std::setprecision(17)<<until_s
+    <<",\"event_count\":"<<tails.events.size()<<",\"candidate_counts\":[";
+   for(std::size_t e=0;e<candidates.sets.size();++e){if(e)std::cout<<',';std::cout<<candidates.sets[e].event_set.candidates.size();}
+   std::cout<<"],\"choices\":[";
+   for(std::size_t e=0;e<choices.size();++e){if(e)std::cout<<',';std::cout<<choices[e];}
+   std::cout<<"],\"failure\":\""<<JointPlannerFailureName(binding)<<"\"}\n";
+   if(binding!=JointPlannerFailure::kNone)return 2;
+  }
   const auto full_coverage=articulated_audit_detail::CheckFootCoverage(full_grid_request);
   go2_control::Go2RigidBody articulated_robot;
   if(!articulated_robot.Load(GO2_MODEL_PATH))

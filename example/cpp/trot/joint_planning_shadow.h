@@ -16,6 +16,28 @@
 #include <memory>
 #include <sstream>
 namespace go2_trot {
+// Shared actual-model candidate reference for runtime capture and offline audit.
+// This preserves the production site-to-collision-center offset convention.
+inline go2_terrain::stage_c::TerrainCandidateReference BuildJointTerrainCandidateReference(
+    const go2_control::RigidBodyState &state,
+    const go2_terrain::TerrainPlannerInput &legacy,
+    const go2_control::RigidBodyPlanningKinematics &model) {
+  using namespace go2_terrain::stage_c;
+  TerrainCandidateReference reference;reference.com_world_valid=true;
+  reference.com_world={model.dynamics.com_world.x(),model.dynamics.com_world.y(),model.dynamics.com_world.z()};
+  reference.com_velocity_world_valid=true;
+  reference.com_velocity_world={legacy.commanded_vx_mps*std::cos(legacy.base_yaw_rad),legacy.commanded_vx_mps*std::sin(legacy.base_yaw_rad),0};
+  reference.nominal_offset_valid.fill(true);reference.foot_radius_valid.fill(true);
+  for(int l=0;l<4;++l){
+   Eigen::Vector3d offset=model.dynamics.foot_pos_world[l]-model.dynamics.com_world;
+   if(legacy.touchdown_target_feet_valid){const auto &p=legacy.touchdown_target_feet_base[l];
+    offset=state.position_world+state.quat_world_from_body.normalized()*Eigen::Vector3d(p.x,p.y,p.z)+
+     model.dynamics.foot_pos_world[l]-model.dynamics.foot_site_world[l]-model.dynamics.com_world;}
+   reference.nominal_foot_center_offset_world[l]={offset.x(),offset.y(),offset.z()};
+   reference.foot_radius_m[l]=model.dynamics.foot_geometry[l].collision_radius_m;
+  }
+  return reference;
+}
 inline bool SameCommittedTimedPoint(
     const go2_terrain::stage_c::TimedPoint &left,
     const go2_terrain::stage_c::TimedPoint &right)
@@ -270,19 +292,7 @@ public:
   PlanningIdentity identity{static_cast<std::uint64_t>(std::llround(legacy.state_stamp_s*1000)),now,terrain->epoch,phase.epoch,id};
   const auto input=CaptureModelPlanningObservation(robot_,state,identity,measured,anchors,map,command,budget,model,SupportAnchorProvenance::kForceConditionedGeometryEstimate);
   if(!input.ok){failure=input.failure;detail="observation_rejected";report();return;}
-  TerrainCandidateReference reference;reference.com_world_valid=true;
-  reference.com_world={model.dynamics.com_world.x(),model.dynamics.com_world.y(),model.dynamics.com_world.z()};
-  reference.com_velocity_world_valid=true;
-  reference.com_velocity_world={legacy.commanded_vx_mps*std::cos(legacy.base_yaw_rad),legacy.commanded_vx_mps*std::sin(legacy.base_yaw_rad),0};
-  reference.nominal_offset_valid.fill(true);reference.foot_radius_valid.fill(true);
-  for(int l=0;l<4;++l){
-   Eigen::Vector3d offset=model.dynamics.foot_pos_world[l]-model.dynamics.com_world;
-   if(legacy.touchdown_target_feet_valid){const auto &p=legacy.touchdown_target_feet_base[l];
-    offset=state.position_world+state.quat_world_from_body.normalized()*Eigen::Vector3d(p.x,p.y,p.z)+
-     model.dynamics.foot_pos_world[l]-model.dynamics.foot_site_world[l]-model.dynamics.com_world;}
-   reference.nominal_foot_center_offset_world[l]={offset.x(),offset.y(),offset.z()};
-   reference.foot_radius_m[l]=model.dynamics.foot_geometry[l].collision_radius_m;
-  }
+  const auto reference=BuildJointTerrainCandidateReference(state,legacy,model);
   auto candidates=GenerateTerrainCandidates(*terrain,bound_preview.events,now,terrain->epoch,reference,end,candidate_config,terrain_history);
   history_candidates=candidates.history_used_candidates;
   for(const auto &q:candidates.rejected_query_diagnostics)

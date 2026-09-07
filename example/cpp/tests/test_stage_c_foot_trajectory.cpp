@@ -1,3 +1,4 @@
+#include "stage_c/terminal_swing_binding.h"
 #include "stage_c/foot_trajectory.h"
 #include <Eigen/Geometry>
 #include <cmath>
@@ -335,6 +336,42 @@ int main()
                     1.0e-12, "terminal continuation target was not sampled");
         Check(Norm(continued_end.samples.front().velocity_world[0]) == 0.0,
               "terminal continuation touchdown velocity was not zero");
+        // Explicit observed candidate binding cannot change core events or
+        // silently select a target. Failures leave the request untouched.
+        TouchdownEventTable tails; tails.events.push_back(continuation.event);
+        TerrainCandidateGenerationResult generated; generated.valid=true;
+        TerrainCandidateSet tail_set; tail_set.event_set.event_id=continuation.event.id;
+        tail_set.event_set.candidates.push_back(continuation.candidate);
+        TerrainCandidateSurfaceMatch match;
+        match.surface_world=continuation.candidate.target_world;
+        match.sphere_center_world=match.surface_world;
+        match.sphere_center_world.role=PointRole::kFootCollisionCenter;
+        match.sphere_center_world.value.z+=0.022;
+        match.collision_radius_m=0.022;match.contact_surface=continuation.surface;
+        match.patch.valid=true;match.patch.all_known=true;
+        tail_set.matched_surfaces.push_back(match);generated.sets.push_back(tail_set);
+        auto to_bind=request;to_bind.problem=&continued_problem;
+        const auto core_count=continued_problem.request.events.events.size();
+        Check(BindTerminalSwingCandidates(to_bind,tails,generated,{0})==JointPlannerFailure::kNone,
+              "observed terminal binding failed");
+        Check(continued_problem.request.events.events.size()==core_count,
+              "terminal binding mutated core events");
+        auto invalid_bind=request;invalid_bind.problem=&continued_problem;
+        Check(BindTerminalSwingCandidates(invalid_bind,tails,generated,{1})==JointPlannerFailure::kInvalidInput &&
+              !invalid_bind.continuation[0].valid,"invalid selection changed request");
+        auto unknown=generated;unknown.valid=false;
+        unknown.failure=JointPlannerFailure::kCoverageIncomplete;
+        Check(BindTerminalSwingCandidates(invalid_bind,tails,unknown,{0})==JointPlannerFailure::kCoverageIncomplete,
+              "unknown terrain failure was relabeled");
+        auto conflicting_target=tails;conflicting_target.events[0].target_world.value.x+=0.1;
+        Check(BindTerminalSwingCandidates(invalid_bind,conflicting_target,generated,{0})==JointPlannerFailure::kInitialConditionConflict,
+              "conflicting terminal target was overwritten");
+        auto expired=generated;expired.sets[0].matched_surfaces[0].contact_surface.valid_until=T(1.49);
+        Check(BindTerminalSwingCandidates(invalid_bind,tails,expired,{0})==JointPlannerFailure::kCoverageIncomplete &&
+              !invalid_bind.continuation[0].valid,"expired terminal evidence accepted");
+        auto conflict=generated;conflict.sets[0].matched_surfaces[0].contact_surface.map_epoch++;
+        Check(BindTerminalSwingCandidates(invalid_bind,tails,conflict,{0})==JointPlannerFailure::kInvalidInput,
+              "cross-map terminal evidence accepted");
         auto malformed_continuation = continued_request;
         malformed_continuation.continuation[0].event.liftoff_time = T(1.46);
         const auto malformed =
