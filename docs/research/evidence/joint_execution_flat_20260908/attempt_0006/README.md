@@ -72,3 +72,15 @@ which does not establish agreement later. No state projection or mj_step occurs.
 The tool builds and --roundtrip exits0. A requested three-test CTest regression
 could not run because its executables are absent in this build directory;
 no new regression pass is claimed. Runtime controller code is unchanged.
+
+Follow-up at source d8f606b6eea30b037378a5be34e5284e17b43489: built the
+three missing executables, then all three focused CTests passed (1.07s).
+See articulated_focused_recheck.txt. This supersedes the earlier Not Run
+result for these checks, without adding closed-loop acceptance evidence.
+
+Coverage source review: BuildFootReplayRequest leaves continuations empty.
+Prepare invokes ValidateSchedule before its final per-leg contact-tail check.
+Thus terminal swing coverage must be resolved before interpreting the later
+contact-tail guard. The correct extension needs observed candidate/surface
+coverage for a next touchdown; merely extending request.end cannot supply it.
+No missing target may be invented or surface validity extended by assertion.

@@ -2,10 +2,11 @@
   "runtime_sha": "0a853346bff0005bc9175bd9d3f33eb01fa49e79",
   "raw_run": "example/cpp/experiments/_runs/joint_execution_flat_20260908_0006",
   "files": {
-    "README.md": "baac2dd4136205e536743bea8d11e29436306111116c172ae50a62b08bf7504f",
+    "README.md": "8f8217386ddcc768e3565856f79e4f10f5c2f2ec0527b6c9ae02799c67f9ea8c",
     "ablation_oracle.json": "9cd62ee38620ed388f252057ac268c4a3054adf495374cf6c659dd6bd675d0ae",
     "ablation_qp.txt": "6f1f7677bde7d514ccac2a403223a0c6ad6ec93b8ebb6ad5ebcacbd578f17896",
     "articulated_audit.json": "3af160ec97c093e4bcb23f300b72846f02989587d7b231a8e1b965c187b5152b",
+    "articulated_focused_recheck.txt": "8c5241fe41f5ed3fac8daff174832dce89994a347fc9e744aaf1a345ba35699f",
     "articulated_source.meta.json": "751e5d670e4b054507835a02d0d42c222552dc675c92ee7feb96f70d15876a54",
     "articulated_source.txt": "64001f076d4d98c601eb66a02f8aece49883c2241087c43bd894dcaff94e5e58",
     "baseline_oracle.json": "2c3e311f49eb44a1007b10dd81396b826d074bc2f6cf46477ad4e496dba02c39",
