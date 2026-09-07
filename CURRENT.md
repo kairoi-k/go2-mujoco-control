@@ -37,7 +37,10 @@ preserved; only the feedback increment is capped using existing gains/limits.
 This is instantaneous feedback, NOT horizon body attitude planning or resolution
 of moving initial support/contact realization. Production runtime is unchanged.
 The mapper has an independent finite-difference kinematics test; body acceleration
-and closed-loop reference focused tests pass. Real replay remains pending.
+and closed-loop reference focused tests pass. Two fixed-source 100-step MuJoCo replays completed: pitch peaks improve
+5.19->4.31deg and4.50->3.70deg, foot errors rise less than1mm. Independent
+saved-command plant replay agrees below3.3e-14 on recorded states. Evidence
+`coherent_attitude_20260908`; no sustained flat or B1 claim.
 ## Latest actual runtime: bounded-admission canary0010 FAILED
 Clean97b6d02158a797f1bb02e9817495152964a3a322, admission budget80ms with0009 settings.
 15 versions, first21.012, last sampled21.658/count325; then posture
