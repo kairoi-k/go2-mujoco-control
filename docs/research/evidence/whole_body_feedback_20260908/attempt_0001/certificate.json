@@ -1,0 +1,422 @@
+{
+  "schema": "whole-body-shooting-certificate-v1",
+  "scope": "checked saved-state simulation diagnostic; not B1 or closed-loop acceptance",
+  "diagnostic_success": false,
+  "checks": {
+    "state_reproduction": true,
+    "time_reproduction": true,
+    "force_reproduction": true,
+    "torque_reproduction": true,
+    "dynamics_balance": false,
+    "friction_cone": true,
+    "unilateral": true,
+    "torque_bound": true,
+    "normal_force_bound": true,
+    "joint_speed_bound": true,
+    "joint_position_bound": true,
+    "attitude_bound": true,
+    "base_height_bound": true,
+    "no_nonfoot_contact_force": true,
+    "full_period": true,
+    "terminal_body_position": true,
+    "terminal_orientation": true,
+    "terminal_base_velocity": true,
+    "terminal_body_omega": true,
+    "terminal_joint_position": true,
+    "terminal_joint_velocity": true
+  },
+  "maxima": {
+    "state_error": 0.0,
+    "time_error": 3.880229471064922e-13,
+    "force_error": 0.0,
+    "row_torque_error": 0.0,
+    "applied_torque_error": 0.0,
+    "dynamics_residual": 3.718277525877056e-07,
+    "normal_force_n": 171.98926306079093,
+    "friction_cone_violation_n": 0.0,
+    "unilateral_violation_n": 0.0,
+    "torque_nm": 28.325052568159414,
+    "joint_speed_radps": 11.930130374838726,
+    "joint_position_violation_rad": 0.0,
+    "roll_rad": 0.005890968120874714,
+    "pitch_rad": 0.0025114130357868965,
+    "nonfoot_force_n": 0.0
+  },
+  "minimum_base_height_m": 0.3675148806436832,
+  "foot_center_height_min_m": [
+    0.01686759366789259,
+    0.019173539110173166,
+    0.017702125400236968,
+    0.015786135028159037
+  ],
+  "foot_center_height_max_m": [
+    0.05069644003232915,
+    0.05325488414950369,
+    0.05465544145326104,
+    0.049552738640431526
+  ],
+  "terminal_errors": {
+    "body_position_m": 0.0008795194115791343,
+    "orientation_rad": 0.0018540036683497337,
+    "base_velocity_mps": 0.013686639372150096,
+    "body_omega_radps": 0.017348750936300096,
+    "joint_position_rad": 0.01164473121268661,
+    "joint_velocity_radps": 0.28112379773412965
+  },
+  "steps": 350,
+  "periods_covered": 5.0,
+  "nonfoot_contact_samples": 0,
+  "contact_mask_mismatch_samples": 91,
+  "actual_contact_samples_per_leg": [
+    204,
+    175,
+    170,
+    206
+  ],
+  "contact_force_presence_threshold_n": 1e-06,
+  "contact_episodes": [
+    {
+      "first_time": 21.022,
+      "last_time": 21.023999999999997,
+      "samples": 2,
+      "actual_mask": 9,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.025999999999996,
+      "last_time": 21.025999999999996,
+      "samples": 1,
+      "actual_mask": 0,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.027999999999995,
+      "last_time": 21.029999999999994,
+      "samples": 2,
+      "actual_mask": 0,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.031999999999993,
+      "last_time": 21.031999999999993,
+      "samples": 1,
+      "actual_mask": 2,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.033999999999992,
+      "last_time": 21.081999999999965,
+      "samples": 25,
+      "actual_mask": 6,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.083999999999964,
+      "last_time": 21.083999999999964,
+      "samples": 1,
+      "actual_mask": 14,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.085999999999963,
+      "last_time": 21.087999999999962,
+      "samples": 2,
+      "actual_mask": 15,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.08999999999996,
+      "last_time": 21.08999999999996,
+      "samples": 1,
+      "actual_mask": 15,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.09199999999996,
+      "last_time": 21.099999999999955,
+      "samples": 5,
+      "actual_mask": 15,
+      "planned_mask": 9
+    },
+    {
+      "first_time": 21.101999999999954,
+      "last_time": 21.151999999999926,
+      "samples": 26,
+      "actual_mask": 9,
+      "planned_mask": 9
+    },
+    {
+      "first_time": 21.153999999999925,
+      "last_time": 21.16399999999992,
+      "samples": 6,
+      "actual_mask": 9,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.16599999999992,
+      "last_time": 21.16599999999992,
+      "samples": 1,
+      "actual_mask": 8,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.167999999999918,
+      "last_time": 21.169999999999916,
+      "samples": 2,
+      "actual_mask": 0,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.171999999999915,
+      "last_time": 21.171999999999915,
+      "samples": 1,
+      "actual_mask": 2,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.173999999999914,
+      "last_time": 21.221999999999888,
+      "samples": 25,
+      "actual_mask": 6,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.223999999999887,
+      "last_time": 21.227999999999884,
+      "samples": 3,
+      "actual_mask": 15,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.229999999999883,
+      "last_time": 21.229999999999883,
+      "samples": 1,
+      "actual_mask": 15,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.231999999999882,
+      "last_time": 21.239999999999878,
+      "samples": 5,
+      "actual_mask": 15,
+      "planned_mask": 9
+    },
+    {
+      "first_time": 21.241999999999877,
+      "last_time": 21.29199999999985,
+      "samples": 26,
+      "actual_mask": 9,
+      "planned_mask": 9
+    },
+    {
+      "first_time": 21.293999999999848,
+      "last_time": 21.303999999999842,
+      "samples": 6,
+      "actual_mask": 9,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.30599999999984,
+      "last_time": 21.30599999999984,
+      "samples": 1,
+      "actual_mask": 0,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.30799999999984,
+      "last_time": 21.30999999999984,
+      "samples": 2,
+      "actual_mask": 0,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.311999999999838,
+      "last_time": 21.311999999999838,
+      "samples": 1,
+      "actual_mask": 2,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.313999999999837,
+      "last_time": 21.36199999999981,
+      "samples": 25,
+      "actual_mask": 6,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.36399999999981,
+      "last_time": 21.367999999999807,
+      "samples": 3,
+      "actual_mask": 15,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.369999999999806,
+      "last_time": 21.369999999999806,
+      "samples": 1,
+      "actual_mask": 15,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.371999999999804,
+      "last_time": 21.3799999999998,
+      "samples": 5,
+      "actual_mask": 15,
+      "planned_mask": 9
+    },
+    {
+      "first_time": 21.3819999999998,
+      "last_time": 21.43199999999977,
+      "samples": 26,
+      "actual_mask": 9,
+      "planned_mask": 9
+    },
+    {
+      "first_time": 21.43399999999977,
+      "last_time": 21.443999999999765,
+      "samples": 6,
+      "actual_mask": 9,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.445999999999763,
+      "last_time": 21.445999999999763,
+      "samples": 1,
+      "actual_mask": 0,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.447999999999762,
+      "last_time": 21.44999999999976,
+      "samples": 2,
+      "actual_mask": 0,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.45199999999976,
+      "last_time": 21.45199999999976,
+      "samples": 1,
+      "actual_mask": 2,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.45399999999976,
+      "last_time": 21.501999999999732,
+      "samples": 25,
+      "actual_mask": 6,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.50399999999973,
+      "last_time": 21.50799999999973,
+      "samples": 3,
+      "actual_mask": 15,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.509999999999728,
+      "last_time": 21.509999999999728,
+      "samples": 1,
+      "actual_mask": 15,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.511999999999727,
+      "last_time": 21.519999999999722,
+      "samples": 5,
+      "actual_mask": 15,
+      "planned_mask": 9
+    },
+    {
+      "first_time": 21.52199999999972,
+      "last_time": 21.571999999999694,
+      "samples": 26,
+      "actual_mask": 9,
+      "planned_mask": 9
+    },
+    {
+      "first_time": 21.573999999999693,
+      "last_time": 21.583999999999687,
+      "samples": 6,
+      "actual_mask": 9,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.585999999999686,
+      "last_time": 21.585999999999686,
+      "samples": 1,
+      "actual_mask": 0,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.587999999999685,
+      "last_time": 21.589999999999684,
+      "samples": 2,
+      "actual_mask": 0,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.591999999999683,
+      "last_time": 21.591999999999683,
+      "samples": 1,
+      "actual_mask": 2,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.59399999999968,
+      "last_time": 21.641999999999655,
+      "samples": 25,
+      "actual_mask": 6,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.643999999999654,
+      "last_time": 21.64799999999965,
+      "samples": 3,
+      "actual_mask": 15,
+      "planned_mask": 6
+    },
+    {
+      "first_time": 21.64999999999965,
+      "last_time": 21.64999999999965,
+      "samples": 1,
+      "actual_mask": 15,
+      "planned_mask": 0
+    },
+    {
+      "first_time": 21.65199999999965,
+      "last_time": 21.659999999999645,
+      "samples": 5,
+      "actual_mask": 15,
+      "planned_mask": 9
+    },
+    {
+      "first_time": 21.661999999999644,
+      "last_time": 21.711999999999616,
+      "samples": 26,
+      "actual_mask": 9,
+      "planned_mask": 9
+    },
+    {
+      "first_time": 21.713999999999615,
+      "last_time": 21.71999999999961,
+      "samples": 4,
+      "actual_mask": 9,
+      "planned_mask": 0
+    }
+  ],
+  "source_sha": "6a996ce28cfb5efd8201c040f8ca8d40d6349c4b",
+  "mujoco_version": "3.3.6",
+  "xml_dependencies_checked": 2,
+  "input_hash_count": 27,
+  "result_sha256": "b360945df465c3f2cb58a567acb0fff74d9893f8169b064c54c701a91a8219a6",
+  "numerical_tolerances": {
+    "state": 1e-09,
+    "time": 1e-12,
+    "force": 1e-07,
+    "dynamics": 1e-07,
+    "friction": 1e-06
+  },
+  "external_cartesian_force_handling": "mj_applyFT at body COM, world force/torque",
+  "contact_provenance": "poststep collision-force truth; planned mask is reported separately"
+}

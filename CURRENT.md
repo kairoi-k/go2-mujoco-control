@@ -3,13 +3,20 @@ Updated: 2026-09-08. This is the only live route/status/handoff entrypoint.
 
 **Resume base:** [SESSION_HANDOFF_20260908.md](docs/research/SESSION_HANDOFF_20260908.md),0349725.
 The resumed results below supersede its UNRUN170N objective status.
-B1 remains NOT_CERTIFIED; feedback has not yet been physically validated.
+B1 remains NOT_CERTIFIED; initialized nominal feedback now repeats on flat, while a small lateral perturbation violates180N.
 
 ## Resumed whole-body work at0349725
 Attempt0002 executed the registered170N objective from clean0349725: hard force170.120N passes180N, exact independent state/force/torque replay, terminalbody0.883mm. V1 still FAILS absolute dynamics2.287774e-7>1e-7; relative1.467443e-9 does not override it. Chained derivative relative error481.61 caused automatic full-rollout finite difference fallback; solve99.67s. Evidence whole_body_cycle_20260908/attempt_0002. The next separately registered WHOLE_BODY_FEEDBACK_DIAGNOSTIC_V1 probe investigates five-cycle actual feedback, without claiming V1 or B1 certification.
 
 ## Contact-boundary derivative correction
-Native1e-6 finite differences cross FL contact inclusion at step32 on both nominal cycles. Independent same-axis mj_step agrees; warmstart propagation is not the principal cause. checked_transition_fd selects locally converged, topology-consistent derivatives and rejects unresolved points. Whole-chain0004 selected0002 audit:3directions x3scales, relative1.01e-5..2.92e-5, no first divergence.69steps1e-7;step32 requires1e-9. Physical models/options unchanged. Feedback now requires this checker; finite-radius stability remains untested. Evidence whole_body_derivative_audit_20260908.
+Native1e-6 finite differences cross FR contact inclusion at step32 on both nominal cycles. Independent same-axis mj_step agrees; warmstart propagation is not the principal cause. checked_transition_fd selects locally converged, topology-consistent derivatives and rejects unresolved points. Whole-chain0004 selected0002 audit:3directions x3scales, relative1.01e-5..2.92e-5, no first divergence.69steps1e-7;step32 requires1e-9. Physical models/options unchanged. Feedback now requires this checker; finite-radius stability remains untested. Evidence whole_body_derivative_audit_20260908.
+
+## Actual initialized periodic feedback: nominal pass, perturbation force failure
+Clean6a996ce:5cycles and20cycles physically replay exactly;20cycle nominal has19/19fully covered running-contact cycles,171.989N peak,28.3254Nm and no saturation. These remain initialized privileged flat diagnostics, not live controller or B1. Frozen V1 still rejects dynamics residual and20cycle floating-clock accumulation.
+Registered+vy0.05m/s trial0003 converges but single RR sample21.036 reaches188.7149N>180; roll trial halted. Exact same-state counterfactual shows removing current correction increases195.916N. Perturbed foot0.337mm higher misses previous-step1mm margin contact/deceleration. Need constraint-aware feedback feasibility; no gain sweep or V1 relaxation. Evidence whole_body_feedback_20260908, including independent3150command algebra audit with0error.
+
+## Registered constrained feedback challenger
+The failed RR predecessor admits a strictly180N-feasible one-step control: maximum motor change0.9691Nm, independent fresh pre/post replay. New opt-in offline --constrained minimizes torque deviation under exact full-model pre/post force limits, preserves input state/model, and stops without a verified candidate. SLSQP feasible evaluated witnesses are not optimality claims. WHOLE_BODY_CONSTRAINED_FEEDBACK_V1 registers matched20cycle nominal,vy0.05 thenroll0.02 sequential probes; no full constrained replay yet.
 
 ## Objective and acceptance
 Continue toward a long-term extensible locomotion architecture with genuine

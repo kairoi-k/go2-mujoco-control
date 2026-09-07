@@ -1,0 +1,13 @@
+# Whole-body constrained feedback V1: initialized research probe
+Registered2026-09-08 after the single-step failure cause and feasibility oracle, before any full replay with this law. Historical V1 physics/clock failures and unconstrained feedback0003 force failure stay unchanged. No live runtime, terrain planning or B1 claim.
+
+## Problem and formulation
+The+vy0.05m/s perturbation misses one RR contact-deceleration step because its foot is0.337mm higher. Ordinary TVLQR partly reduces the impact force but cannot enforce180N. A same-complete-state explicit nonlinear constrained oracle finds a35Nm-bounded control with maximum change0.9691Nm and strictly feasible pre/post forces. This witnesses one-step control feasibility, not closed-loop safety or optimality.
+
+Replace the unconstrained torque decision in this OFFLINE model-based feedback backend by min0.5||tau-tau_TVLQR||^2 under12actuator-order bounds+/-35Nm and each foot normal force<=180N BOTH at the current full-model forward evaluation and after one unchanged2ms step. Use untouched complete integration state and original contact solver/model. No separate runtime recovery owner, contact policy, gait retiming, velocity reset or gain change. If desired control is feasible it is unchanged. Otherwise solve explicit nonlinear SLSQP constraints with centered torque differences, retain best actually evaluated strictly feasible candidate and independently re-evaluate it on fresh copies. A tiny residual over180 remains failure; no numerical epsilon added to the hard limit. Unknown/no verified candidate stops the diagnostic, not a global infeasibility claim.
+
+## Fixed campaign
+Use nominal cycle0002 and checked local derivatives as before, effort weight0.01,20periods each. First nominal matched replay, then+initialvy0.05m/s, then+initialroll0.02rad only if earlier cases satisfy physical/terminal checks. Stop at first useful failure. Preserve unchanged V1 numerical verdicts separately. Report per-tick full-model pre/post forces, optimizer calls/status/time, correction norm, control-law identity, original physical/terminal checks, and each fully covered running-contact cycle. Independent saved-control plant replay is required.
+
+## Boundary
+The one-step constraint solve has no multi-step viability proof or realtime guarantee; measure actual cost. It still uses privileged initialized model/scene and a prior-cycle seeded trajectory. A physical diagnostic success cannot bypass observed terrain construction, model/observation identity, atomic owner semantics, shadow/admission checks and actual live flat/5cm/10cm campaigns. Further failures demand horizon/robustness work rather than gain or threshold sweeps.

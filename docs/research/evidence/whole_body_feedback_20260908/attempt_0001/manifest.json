@@ -1,0 +1,25 @@
+{
+  "source_sha": "6a996ce28cfb5efd8201c040f8ca8d40d6349c4b",
+  "raw_directory": "example/cpp/experiments/_runs/whole_body_feedback_20260908_0001",
+  "periods": 5,
+  "initial_vy": 0,
+  "initial_roll": 0,
+  "environment": {
+    "OPENBLAS_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1"
+  },
+  "sha256": {
+    "certificate.json": "050a35f11b100a9d29052cf0b5e80e6fc9848871cd689f6efdf6afd3f1048433",
+    "contact_diagnostic.json.gz": "9cd7f2bea6c4e24d92d4ae81959077c0bf4e1b1360b6b5955ea060d05facda1e",
+    "contact_summary.json": "b24546fa6df2df233e44b4cc719e986f830129f564f3ca7ab607470bdedfa1fd",
+    "curated_certificate.json": "f6e2874debf171bf248cba06a8c2686351346ba5859a692b11d808cf129208b6",
+    "raw_result.json.gz": "8755fe58cc0ae0fc121dc8d3a2bf0e3a17255d0eef53341ec73399f0c8a92cbf",
+    "result.json": "70b570e156f2a2c5af0bec7c075b482c88c23c0d3b82cd4eedd24fb6144cc6eb",
+    "runtime_sources/periodic_whole_body_feedback.py": "a4e0df5948c6b52ade5aa6f9e3dc62b7a5ea19ba2ca46245ad576463a73c61fe",
+    "runtime_sources/verify_whole_body_shooting.py": "c6c4c1b0a1821363a9211e2f0f5addfa9c8396c5238ae67c636ce5afd0dd40f4",
+    "runtime_sources/whole_body_shooting_derivatives.py": "8ebef78d5e00d81dfd6cffb7a029de436fe8da0eda06986a652599c5257074a7",
+    "source_sha.txt": "dfb87da2c5d6b194cbf84739a2908f8354208976a578d4ff328a79c5b902a638",
+    "source_status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

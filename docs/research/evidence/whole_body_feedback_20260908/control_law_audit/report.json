@@ -1,0 +1,72 @@
+{
+  "schema": "saved-feedback-control-law-algebra-v1",
+  "scope": "algebra on saved states and gains; no plant replay, derivative or B1 certificate",
+  "mujoco_version": "3.3.6",
+  "script_sha256": "b89c48682d39d69eaf7b512e12d02895ab508a6bc578c566695e8ea4563448b6",
+  "results": [
+    {
+      "input_result": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_feedback_20260908_0001/result.json",
+      "input_result_sha256": "b360945df465c3f2cb58a567acb0fff74d9893f8169b064c54c701a91a8219a6",
+      "nominal": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/whole_body_cycle_20260908/attempt_0002/result.json",
+      "nominal_sha256": "ba7362e1c0578704660cc47229cb6a3cfe6b0f66e2ea9d961bb6ec08cd2710d6",
+      "scene": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/phase2_flat.xml",
+      "scene_sha256": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e",
+      "source_sha": "6a996ce28cfb5efd8201c040f8ca8d40d6349c4b",
+      "samples": 350,
+      "max_control_reconstruction_error_nm": 0.0,
+      "saturated_samples_reconstructed": 0,
+      "saturated_samples_recorded": 0,
+      "max_tracking_norm_difference": 0.0,
+      "nominal_terminal_q_difference": 0.0,
+      "nominal_terminal_v_difference": 0.0,
+      "nominal_terminal_error_difference": 0.0,
+      "nominal_wrap_error_difference": 0.0,
+      "wrap_q_max": 0.010196742694156269,
+      "wrap_v_max": 0.14248893408297736
+    },
+    {
+      "input_result": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_feedback_20260908_0002/result.json",
+      "input_result_sha256": "6b4424321720734e9a6b6f93a8159193fe635cacfac1cb5bc2c9e7e2115c9869",
+      "nominal": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/whole_body_cycle_20260908/attempt_0002/result.json",
+      "nominal_sha256": "ba7362e1c0578704660cc47229cb6a3cfe6b0f66e2ea9d961bb6ec08cd2710d6",
+      "scene": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/phase2_flat.xml",
+      "scene_sha256": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e",
+      "source_sha": "6a996ce28cfb5efd8201c040f8ca8d40d6349c4b",
+      "samples": 1400,
+      "max_control_reconstruction_error_nm": 0.0,
+      "saturated_samples_reconstructed": 0,
+      "saturated_samples_recorded": 0,
+      "max_tracking_norm_difference": 0.0,
+      "nominal_terminal_q_difference": 0.0,
+      "nominal_terminal_v_difference": 0.0,
+      "nominal_terminal_error_difference": 0.0,
+      "nominal_wrap_error_difference": 0.0,
+      "wrap_q_max": 0.010196742694156269,
+      "wrap_v_max": 0.14248893408297736
+    },
+    {
+      "input_result": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_feedback_20260908_0003/result.json",
+      "input_result_sha256": "b38683997a00e827737742d5e2d590eb38b7cf7a0dc75283beb602d12cf842c8",
+      "nominal": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/whole_body_cycle_20260908/attempt_0002/result.json",
+      "nominal_sha256": "ba7362e1c0578704660cc47229cb6a3cfe6b0f66e2ea9d961bb6ec08cd2710d6",
+      "scene": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/phase2_flat.xml",
+      "scene_sha256": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e",
+      "source_sha": "6a996ce28cfb5efd8201c040f8ca8d40d6349c4b",
+      "samples": 1400,
+      "max_control_reconstruction_error_nm": 0.0,
+      "saturated_samples_reconstructed": 0,
+      "saturated_samples_recorded": 0,
+      "max_tracking_norm_difference": 0.0,
+      "nominal_terminal_q_difference": 0.0,
+      "nominal_terminal_v_difference": 0.0,
+      "nominal_terminal_error_difference": 0.0,
+      "nominal_wrap_error_difference": 0.0,
+      "wrap_q_max": 0.010196742694156269,
+      "wrap_v_max": 0.14248893408297736
+    }
+  ],
+  "limitations": [
+    "local qpos tangent and qvel coordinates omit solver warmstart-state propagation",
+    "nonzero periodic wrap defect and absent frame transport prevent Floquet stability claim"
+  ]
+}
