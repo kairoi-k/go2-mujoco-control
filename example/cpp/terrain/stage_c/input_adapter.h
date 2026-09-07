@@ -51,33 +51,50 @@ inline InputAdapterResult NormalizePlanningInput(
     result.input.budget = raw.budget;
     result.input.initial_support_margin_m = raw.initial_support_margin_m;
     result.input.initial_support_margin_valid = raw.initial_support_margin_valid;
-
-    if (!result.input.identity.valid() || !result.input.body.valid ||
-        !result.input.body.base_position_world.valid ||
-        result.input.body.base_position_world.frame != Frame::kWorld ||
-        !result.input.measured_contact.valid ||
-        result.input.measured_contact.provenance !=
-            ContactProvenance::kMeasured || !result.input.map.metadata_valid)
+    const TimeNs state_time = result.input.identity.source_state_time;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        if (result.input.measured_contact.mask[leg] &&
+            (!result.input.feet[leg].measured_support_anchor_valid ||
+             !TimedPointValidAt(
+                 result.input.feet[leg].measured_support_anchor_world,
+                 PointRole::kSurfaceContactPoint, Frame::kWorld, state_time)))
+            ++result.missing_anchor_count;
+    if (result.missing_anchor_count != 0 || !result.input.basic_valid())
     {
         result.failure = JointPlannerFailure::kObservationUnavailable;
         return result;
     }
-
+    const auto optional_point_valid_at = [state_time](
+        const TimedPoint &point, PointRole role, Frame frame) {
+        return !point.valid || TimedPointValidAt(point, role, frame, state_time);
+    };
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
-        auto &foot = result.input.feet[leg];
+        const auto &foot = result.input.feet[leg];
+        if (!optional_point_valid_at(foot.foot_site_world,
+                                     PointRole::kFootSite, Frame::kWorld) ||
+            !optional_point_valid_at(foot.foot_collision_center_world,
+                                     PointRole::kFootCollisionCenter,
+                                     Frame::kWorld) ||
+            !optional_point_valid_at(foot.contact_patch_world,
+                                     PointRole::kSurfaceContactPoint,
+                                     Frame::kWorld) ||
+            !optional_point_valid_at(foot.contact_patch_base,
+                                     PointRole::kSurfaceContactPoint,
+                                     Frame::kBase))
+        {
+            result.failure = JointPlannerFailure::kObservationUnavailable;
+            return result;
+        }
         if (!result.input.measured_contact.mask[leg])
             continue;
-        if (!foot.measured_support_anchor_valid ||
-            !foot.measured_support_anchor_world.valid ||
-            foot.measured_support_anchor_world.frame != Frame::kWorld)
-        {
-            ++result.missing_anchor_count;
-            continue;
-        }
+        // A measured support anchor is already a terrain point. A foot site
+        // or collision center is a different point role and must be converted
+        // by a geometry/terrain producer before it reaches this seam.
         // Keep this as a measured field. It must never become a planned or
         // applied contact just because a future event is being evaluated.
-        foot.contact_patch_world = foot.measured_support_anchor_world;
+        result.input.feet[leg].contact_patch_world =
+            foot.measured_support_anchor_world;
     }
     if (result.missing_anchor_count != 0)
     {
@@ -95,7 +112,12 @@ inline bool SameVec3(const go2::Vec3 &a, const go2::Vec3 &b,
         std::abs(a.y - b.y) <= tolerance &&
         std::abs(a.z - b.z) <= tolerance;
 }
-
+inline bool SameTimedPoint(const TimedPoint &a, const TimedPoint &b)
+{
+    return a.valid == b.valid && a.frame == b.frame && a.role == b.role &&
+        a.source_time == b.source_time &&
+        (!a.valid || SameVec3(a.value, b.value));
+}
 // This compares planner-semantic fields and intentionally ignores capture
 // mode. It is a small replay seam, not a claim that the legacy producer has
 // already been wired through this adapter.
@@ -107,23 +129,36 @@ inline bool EquivalentPlannerInput(const TerrainPlanningInput &a,
         a.identity.map_epoch != b.identity.map_epoch ||
         a.identity.schedule_epoch != b.identity.schedule_epoch ||
         a.measured_contact.mask != b.measured_contact.mask ||
+        a.measured_contact.provenance != b.measured_contact.provenance ||
+        a.measured_contact.source_time != b.measured_contact.source_time ||
         a.measured_contact.valid != b.measured_contact.valid ||
         a.map.coverage != b.map.coverage ||
         a.map.known_cells != b.map.known_cells ||
         a.map.total_cells != b.map.total_cells ||
-        a.map.outside_cells != b.map.outside_cells)
+        a.map.outside_cells != b.map.outside_cells ||
+        a.body.valid != b.body.valid ||
+        a.body.model_com_valid != b.body.model_com_valid)
         return false;
-    if (!SameVec3(a.body.base_position_world.value,
-                  b.body.base_position_world.value) ||
-        !SameVec3(a.body.model_com_world.value,
-                  b.body.model_com_world.value))
+    if (!SameTimedPoint(a.body.base_position_world,
+                        b.body.base_position_world) ||
+        !SameTimedPoint(a.body.model_com_world,
+                        b.body.model_com_world))
         return false;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
-        if (a.feet[leg].measured_support_anchor_valid !=
-                b.feet[leg].measured_support_anchor_valid ||
-            !SameVec3(a.feet[leg].measured_support_anchor_world.value,
-                      b.feet[leg].measured_support_anchor_world.value))
+        const auto &left = a.feet[leg];
+        const auto &right = b.feet[leg];
+        if (!SameTimedPoint(left.foot_site_world, right.foot_site_world) ||
+            !SameTimedPoint(left.foot_collision_center_world,
+                            right.foot_collision_center_world) ||
+            !SameTimedPoint(left.contact_patch_world,
+                            right.contact_patch_world) ||
+            !SameTimedPoint(left.contact_patch_base,
+                            right.contact_patch_base) ||
+            left.measured_support_anchor_valid !=
+                right.measured_support_anchor_valid ||
+            !SameTimedPoint(left.measured_support_anchor_world,
+                            right.measured_support_anchor_world))
             return false;
     }
     return true;

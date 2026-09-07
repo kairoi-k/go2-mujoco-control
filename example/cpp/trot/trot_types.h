@@ -374,6 +374,7 @@ struct WbcShadowDiagnostics
     WbcPhysicalCertificateDiagnostics id_cert_selected{};
     bool id_cert_selected_reused = false;
     double id_certificate_elapsed_us = 0.0;
+    bool id_force_application_jacobian_used = false;
     int feedforward_gate_code =
         static_cast<int>(go2_control::WbcFeedforwardGateCode::kDisabled);
     bool feedforward_ready = false;

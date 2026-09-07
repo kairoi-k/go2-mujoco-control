@@ -1,0 +1,2 @@
+joint_latency_us samples=31 p50=2093.12 p95=2133.39 max=2147.16
+joint model samples=9 force_N=7.23261e-11 moment_Nm=1.51559e-07 tau_Nm=3.29416

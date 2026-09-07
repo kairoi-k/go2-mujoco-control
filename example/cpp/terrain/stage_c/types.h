@@ -53,15 +53,56 @@ enum class Frame : std::uint8_t
     kBase,
     kHeadingMap,
 };
-
+// A point's field name is not enough to identify its physical meaning. In
+// particular, a MuJoCo contact site and the collision-geometry center can be
+// separated by both a local offset and a body rotation. Keep the role on the
+// shared point value so producers and future consumers use one contract.
+enum class PointRole : std::uint8_t
+{
+    kUnknown = 0,
+    kBodyOrigin,
+    kCenterOfMass,
+    kFootSite,
+    kFootCollisionCenter,
+    kSurfaceContactPoint,
+};
+inline const char *PointRoleName(PointRole role)
+{
+    switch (role)
+    {
+    case PointRole::kBodyOrigin: return "body_origin";
+    case PointRole::kCenterOfMass: return "center_of_mass";
+    case PointRole::kFootSite: return "foot_site";
+    case PointRole::kFootCollisionCenter: return "foot_collision_center";
+    case PointRole::kSurfaceContactPoint: return "surface_contact_point";
+    default: return "unknown";
+    }
+}
 struct TimedPoint
 {
     go2::Vec3 value{};
     Frame frame = Frame::kUnknown;
     TimeNs source_time{};
     bool valid = false;
+    PointRole role = PointRole::kUnknown;
 };
-
+inline bool FinitePointValue(const go2::Vec3 &value)
+{
+    return std::isfinite(value.x) && std::isfinite(value.y) &&
+        std::isfinite(value.z);
+}
+inline bool TimedPointValidForRole(
+    const TimedPoint &point, PointRole role, Frame frame)
+{
+    return point.valid && point.role == role && point.frame == frame &&
+        point.source_time.value >= 0 && FinitePointValue(point.value);
+}
+inline bool TimedPointValidAt(
+    const TimedPoint &point, PointRole role, Frame frame, TimeNs source_time)
+{
+    return TimedPointValidForRole(point, role, frame) &&
+        point.source_time == source_time;
+}
 enum class CaptureMode : std::uint8_t
 {
     kShadow = 0,
@@ -164,6 +205,7 @@ struct BodyObservation
 struct FootObservation
 {
     TimedPoint foot_site_world{};
+    TimedPoint foot_collision_center_world{};
     TimedPoint contact_patch_world{};
     TimedPoint contact_patch_base{};
     TimedPoint measured_support_anchor_world{};
@@ -221,13 +263,31 @@ struct TerrainPlanningInput
     double initial_support_margin_m = std::numeric_limits<double>::quiet_NaN();
     bool initial_support_margin_valid = false;
 
+    bool measured_support_valid() const
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            if (measured_contact.mask[leg] &&
+                (!feet[leg].measured_support_anchor_valid ||
+                 !TimedPointValidAt(
+                     feet[leg].measured_support_anchor_world,
+                     PointRole::kSurfaceContactPoint, Frame::kWorld,
+                     identity.source_state_time)))
+                return false;
+        return true;
+    }
     bool basic_valid() const
     {
-        return identity.valid() && body.valid && body.base_position_world.valid &&
-            body.base_position_world.frame == Frame::kWorld &&
+        return identity.valid() && body.valid &&
+            TimedPointValidAt(body.base_position_world,
+                              PointRole::kBodyOrigin, Frame::kWorld,
+                              identity.source_state_time) &&
+            (!body.model_com_valid ||
+             TimedPointValidAt(body.model_com_world, PointRole::kCenterOfMass,
+                               Frame::kWorld, identity.source_state_time)) &&
             measured_contact.valid &&
             measured_contact.provenance == ContactProvenance::kMeasured &&
-            map.metadata_valid;
+            measured_contact.source_time == identity.source_state_time &&
+            measured_support_valid() && map.metadata_valid;
     }
 };
 
@@ -259,6 +319,10 @@ struct TouchdownEvent
     TouchdownEventId id{};
     TimeNs touchdown_time{};
     TimeNs contact_interval_end{};
+    // A legacy event may omit liftoff. New absolute-time schedule builders set
+    // this explicitly; the invalid sentinel remains fail-closed to consumers.
+    TimeNs liftoff_time{std::numeric_limits<std::int64_t>::min()};
+    bool liftoff_valid = false;
     TimedPoint target_world{};
     std::uint64_t source_plan_id = 0;
     bool committed = false;
@@ -282,8 +346,12 @@ struct TouchdownEventTable
                 !std::isfinite(event.target_world.value.z) ||
                 event.touchdown_time.value < 0 ||
                 event.contact_interval_end < event.touchdown_time ||
-                !event.target_world.valid ||
-                event.target_world.frame != Frame::kWorld)
+                (event.liftoff_valid &&
+                 (event.liftoff_time.value < 0 ||
+                  event.liftoff_time >= event.touchdown_time)) ||
+                !TimedPointValidForRole(event.target_world,
+                                        PointRole::kSurfaceContactPoint,
+                                        Frame::kWorld))
                 return false;
             if (i > 0 && events[i - 1].touchdown_time > event.touchdown_time)
                 return false;
@@ -318,6 +386,11 @@ struct TouchdownEventTable
             if (it == proposal.events.end() || !it->committed ||
                 it->touchdown_time != old_event.touchdown_time ||
                 it->contact_interval_end != old_event.contact_interval_end ||
+                it->liftoff_valid != old_event.liftoff_valid ||
+                (it->liftoff_valid &&
+                 it->liftoff_time != old_event.liftoff_time) ||
+                it->target_world.role != old_event.target_world.role ||
+                it->target_world.source_time != old_event.target_world.source_time ||
                 it->target_world.value.x != old_event.target_world.value.x ||
                 it->target_world.value.y != old_event.target_world.value.y ||
                 it->target_world.value.z != old_event.target_world.value.z)
@@ -336,6 +409,14 @@ struct StageCCandidate
     double reachability_margin_m = 0.0;
     MapCoverageState coverage = MapCoverageState::kMetadataUnavailable;
     bool geometry_hard_feasible = false;
+    bool valid() const
+    {
+        return TimedPointValidForRole(target_world,
+                                      PointRole::kSurfaceContactPoint,
+                                      Frame::kWorld) &&
+            std::isfinite(foothold_cost) && std::isfinite(edge_margin_m) &&
+            std::isfinite(reachability_margin_m);
+    }
 };
 
 struct EventCandidateSet
@@ -349,7 +430,7 @@ struct EventCandidateSet
         return std::any_of(
             candidates.begin(), candidates.end(),
             [](const StageCCandidate &candidate) {
-                return candidate.geometry_hard_feasible;
+                return candidate.geometry_hard_feasible && candidate.valid();
             });
     }
 };
@@ -385,12 +466,17 @@ enum class JointPlannerFailure : std::uint8_t
     kCommitmentConflict,
     kDeadlineExceeded,
     kDynamicsInfeasible,
+    // A finite proposed articulated trajectory violates an explicit limit.
+    // This does not prove that every alternative trajectory is infeasible.
+    kCandidateConstraintViolation,
 };
 
 inline const char *JointPlannerFailureName(JointPlannerFailure failure)
 {
     switch (failure)
     {
+    case JointPlannerFailure::kCandidateConstraintViolation:
+        return "candidate_constraint_violation";
     case JointPlannerFailure::kDynamicsInfeasible:
         return "dynamics_infeasible";
     case JointPlannerFailure::kObservationUnavailable:

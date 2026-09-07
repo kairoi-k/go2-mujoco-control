@@ -12,8 +12,8 @@ struct Prepared {
     std::vector<double> dt;
     Eigen::Vector3d gravity = Eigen::Vector3d::Zero();
 };
-inline bool Point(const TimedPoint &p) {
-    return p.valid && p.frame == Frame::kWorld && V(p.value).allFinite();
+inline bool Point(const TimedPoint &p, PointRole role=PointRole::kSurfaceContactPoint) {
+    return TimedPointValidForRole(p,role,Frame::kWorld);
 }
 inline bool SamePoint(const TimedPoint &a,const TimedPoint &b) {
     return Point(a) && Point(b) && (V(a.value)-V(b.value)).norm()==0.0;
@@ -24,7 +24,8 @@ inline JointPlannerFailure Prepare(const CentroidalProblem &p, Prepared &q,
     auto fail=[&](F f,const char *s) { why=s; return f; };
     const auto &r=p.request; const auto &in=r.input;
     if(!in.basic_valid() || !in.body.model_com_valid ||
-       !Point(in.body.model_com_world) || !Point(in.body.base_position_world) ||
+       !Point(in.body.model_com_world,PointRole::kCenterOfMass) ||
+       !Point(in.body.base_position_world,PointRole::kBodyOrigin) ||
        !V(in.body.com_velocity_world).allFinite() ||
        !p.initial_momentum_valid || !p.initial_momentum_world.allFinite())
         return fail(F::kObservationUnavailable,"missing_finite_world_COM_or_momentum");
@@ -46,6 +47,11 @@ inline JointPlannerFailure Prepare(const CentroidalProblem &p, Prepared &q,
        p.force_trust_n<=0 || p.max_scp_iterations<0 || p.max_scp_iterations>32 ||
        p.max_qp_iterations<0 || p.max_qp_iterations>10000)
         return fail(F::kInvalidInput,"state_time_schedule_model_or_shape_conflict");
+    if(!p.references.empty()) {
+        if(p.references.size()!=p.grid.size()) return fail(F::kInvalidInput,"reference_grid_shape_conflict");
+        for(const auto &reference:p.references)
+            if(!reference.allFinite()) return fail(F::kInvalidInput,"nonfinite_reference");
+    }
     const auto weights=go2_control::SrbdQ(p.model).diagonal().eval();
     if(!std::isfinite(p.w_momentum) || p.w_momentum<0 || !weights.allFinite() || weights.minCoeff()<0 ||
        !std::isfinite(p.model.w_force) || p.model.w_force<=0 ||
@@ -76,7 +82,9 @@ inline JointPlannerFailure Prepare(const CentroidalProblem &p, Prepared &q,
         return fail(F::kInitialConditionConflict,"fixed_initial_state_outside_bounds");
     const auto &ev=r.events.events;
     if((!ev.empty() && !r.events.valid()) || ev.size()!=r.candidate_sets.size() ||
-       ev.size()!=p.combination.size() || ev.size()!=p.event_surfaces.size())
+       ev.size()!=p.combination.size() ||
+       (p.candidate_surfaces.empty() ? ev.size()!=p.event_surfaces.size() :
+         (ev.size()!=p.candidate_surfaces.size() || !p.event_surfaces.empty())))
         return fail(F::kInvalidInput,"invalid_event_combination");
     if(!r.accepted_commitments.events.empty() &&
        !r.accepted_commitments.committed_prefix_compatible(r.events))
@@ -88,8 +96,12 @@ inline JointPlannerFailure Prepare(const CentroidalProblem &p, Prepared &q,
            static_cast<unsigned>(ev[e].id.leg)>=4 ||
            p.combination[e]>=set.candidates.size())
             return fail(F::kInvalidInput,"event_identity_or_candidate_index_conflict");
+        if(!p.candidate_surfaces.empty() &&
+           p.candidate_surfaces[e].size()!=set.candidates.size())
+            return fail(F::kInvalidInput,"candidate_surface_shape_conflict");
         const auto &c=set.candidates[p.combination[e]];
-        if(!Point(c.target_world) || !std::isfinite(c.foothold_cost))
+        if(!Point(c.target_world) || c.target_world.source_time>in.identity.source_state_time ||
+           !std::isfinite(c.foothold_cost))
             return fail(F::kInvalidInput,"nonfinite_or_nonworld_candidate");
         if(c.coverage!=MapCoverageState::kKnown)
             return fail(F::kCoverageIncomplete,"unknown_candidate_patch");
@@ -169,7 +181,9 @@ inline JointPlannerFailure Prepare(const CentroidalProblem &p, Prepared &q,
         for(int l=0;l<4;++l) if(s.contact[l]) {
             int e=s.event_index[l];
             feet[l]=e<0?V(in.feet[l].measured_support_anchor_world.value):targets[e];
-            surfaces[l]=e<0?p.initial_surfaces[l]:p.event_surfaces[e];
+            surfaces[l]=e<0?p.initial_surfaces[l]:
+                (p.candidate_surfaces.empty()?p.event_surfaces[e]:
+                 p.candidate_surfaces[e][p.combination[e]]);
             if(!surface_ok(surfaces[l],p.grid[k+1]))
                 return fail(F::kCoverageIncomplete,"unknown_expired_or_invalid_surface_frame");
         }

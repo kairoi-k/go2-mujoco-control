@@ -63,6 +63,7 @@ struct IdWbcPhysicalCertificate
     bool valid = false;
     bool feasible = false;
     std::uint32_t failure_bitmask = 0u;
+    bool force_application_jacobian_used = false;
 
     bool dynamics_checked = false;
     bool normal_checked = false;
@@ -219,9 +220,20 @@ inline IdWbcPhysicalCertificate VerifyIdWbcPhysicalCertificate(
             Failure::kInvalidConfiguration);
         input_valid = false;
     }
-    if (!id_wbc_certificate_detail::FiniteDynamics(input.dynamics))
+    const bool finite_dynamics =
+        id_wbc_certificate_detail::FiniteDynamics(input.dynamics);
+    if (!finite_dynamics)
     {
         failures |= IdWbcPhysicalCertificateFailureBit(Failure::kInvalidDynamics);
+        input_valid = false;
+    }
+    IdWbcFootJacobianArray selected_force_foot_jacobians;
+    for (auto &jacobian : selected_force_foot_jacobians)
+        jacobian.setZero();
+    if (finite_dynamics &&
+        !SelectIdWbcForceJacobians(input, selected_force_foot_jacobians))
+    {
+        failures |= IdWbcPhysicalCertificateFailureBit(Failure::kInputConflict);
         input_valid = false;
     }
     if (!ValidateIdWbcTerrainReference(input))
@@ -280,6 +292,8 @@ inline IdWbcPhysicalCertificate VerifyIdWbcPhysicalCertificate(
         return result;
     }
     result.input_valid = true;
+    result.force_application_jacobian_used =
+        input.have_force_application_jacobian;
     result.max_normal_violation_N = 0.0;
     result.max_friction_violation_N = 0.0;
     result.max_swing_force_violation_N = 0.0;
@@ -300,7 +314,7 @@ inline IdWbcPhysicalCertificate VerifyIdWbcPhysicalCertificate(
     result.dynamics_residual = dyn.mass_matrix * proposed_qdd + dyn.bias;
     result.dynamics_residual.tail<go2::kJointCount>() -= proposed_tau;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-        result.dynamics_residual -= dyn.foot_jac_world[leg].transpose() *
+        result.dynamics_residual -= selected_force_foot_jacobians[leg].transpose() *
             proposed_force.segment<3>(3 * static_cast<int>(leg));
     result.dynamics_residual_norm = result.dynamics_residual.norm();
     result.max_dynamics_force_residual_N =

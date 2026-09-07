@@ -1,0 +1,401 @@
+#include "stage_c/foot_trajectory.h"
+#include <Eigen/Geometry>
+#include <cmath>
+#include <iostream>
+#include <limits>
+#include <stdexcept>
+#include <vector>
+using namespace go2_terrain::stage_c;
+namespace
+{
+void Check(bool ok, const char *message)
+{
+    if (!ok)
+        throw std::runtime_error(message);
+}
+TimeNs T(double seconds)
+{
+    return TimeNs::FromSeconds(seconds);
+}
+TimedPoint Point(
+    double x, double y, double z, PointRole role,
+    TimeNs source_time = T(1.0))
+{
+    return {{x, y, z}, Frame::kWorld, source_time, true, role};
+}
+ContactSurface Surface(const Eigen::Matrix3d &basis = Eigen::Matrix3d::Identity())
+{
+    ContactSurface surface;
+    surface.basis_world = basis;
+    surface.frame = Frame::kWorld;
+    surface.coverage = MapCoverageState::kKnown;
+    surface.map_epoch = 7;
+    surface.valid_until = T(2.0);
+    surface.friction_mu = 0.8;
+    surface.max_normal_n = 180.0;
+    return surface;
+}
+CentroidalProblem Fixture()
+{
+    CentroidalProblem problem;
+    auto &input = problem.request.input;
+    input.identity = {11, T(1.0), 7, 3, 0};
+    input.body.valid = true;
+    input.body.model_com_valid = true;
+    input.body.base_position_world =
+        Point(0.0, 0.0, 0.42, PointRole::kBodyOrigin);
+    input.body.model_com_world =
+        Point(0.0, 0.0, 0.40, PointRole::kCenterOfMass);
+    input.body.mass_kg = 10.0;
+    input.measured_contact.mask.fill(true);
+    input.measured_contact.provenance = ContactProvenance::kMeasured;
+    input.measured_contact.source_time = T(1.0);
+    input.measured_contact.valid = true;
+    input.map.metadata_valid = true;
+    input.map.epoch = 7;
+    input.map.width = input.map.height = input.map.total_cells =
+        input.map.known_cells = 8;
+    problem.schedule_epoch = 3;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        input.feet[leg].foot_collision_center_world =
+            Point(-0.25 + 0.16 * static_cast<double>(leg),
+                  -0.12 + 0.08 * static_cast<double>(leg), 0.22,
+                  PointRole::kFootCollisionCenter);
+        input.feet[leg].measured_support_anchor_world =
+            Point(-0.25 + 0.16 * static_cast<double>(leg),
+                  -0.12 + 0.08 * static_cast<double>(leg), 0.0,
+                  PointRole::kSurfaceContactPoint);
+        input.feet[leg].measured_support_anchor_valid = true;
+    }
+    return problem;
+}
+FootTrajectoryRequest Request(CentroidalProblem &problem)
+{
+    FootTrajectoryRequest request;
+    request.problem = &problem;
+    request.start = T(1.0);
+    request.end = T(1.5);
+    request.swing_clearance_m = 0.03;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        request.collision_radius_m[leg] = 0.022;
+        request.collision_radius_valid[leg] = true;
+        request.initial_velocity_world[leg] = {0.0, 0.0, 0.0};
+        request.initial_velocity_valid[leg] = true;
+    }
+    return request;
+}
+void AddInterval(
+    CentroidalProblem &problem, double start, double end,
+    const std::array<bool, 4> &contact,
+    const std::array<int, 4> &event_index)
+{
+    problem.schedule.push_back({T(start), T(end), contact, event_index});
+}
+void AddEvent(
+    CentroidalProblem &problem, std::size_t leg, std::uint32_t sequence,
+    double liftoff, double touchdown, double contact_end,
+    const TimedPoint &target, const ContactSurface &surface)
+{
+    TouchdownEvent event;
+    event.id = {3, static_cast<go2::Leg>(leg), sequence};
+    event.liftoff_time = T(liftoff);
+    event.liftoff_valid = true;
+    event.touchdown_time = T(touchdown);
+    event.contact_interval_end = T(contact_end);
+    event.target_world = target;
+    problem.request.events.events.push_back(event);
+    StageCCandidate candidate;
+    candidate.candidate_id = sequence;
+    candidate.target_world = target;
+    candidate.coverage = MapCoverageState::kKnown;
+    candidate.geometry_hard_feasible = true;
+    problem.request.candidate_sets.push_back(
+        {event.id, {candidate}, true});
+    problem.request.input.feet[leg].contact_patch_world = target;
+    problem.combination.push_back(0);
+    problem.candidate_surfaces.push_back({surface});
+}
+Eigen::Vector3d EigenValue(const TimedPoint &point)
+{
+    return {point.value.x, point.value.y, point.value.z};
+}
+double Norm(const go2::Vec3 &value)
+{
+    return std::sqrt(value.x * value.x + value.y * value.y +
+                     value.z * value.z);
+}
+void CheckCenter(
+    const FootTrajectorySample &sample, std::size_t leg,
+    const Eigen::Vector3d &expected, double tolerance, const char *message)
+{
+    Check(sample.valid && sample.leg_valid[leg], message);
+    Check((EigenValue(sample.center_world[leg]) - expected).norm() <= tolerance,
+          message);
+}
+} // namespace
+int main()
+{
+    try
+    {
+        auto problem = Fixture();
+        const Eigen::Matrix3d tilted =
+            Eigen::AngleAxisd(0.22, Eigen::Vector3d::UnitY()).toRotationMatrix();
+        const TimedPoint first_target =
+            Point(0.02, -0.12, 0.0, PointRole::kSurfaceContactPoint);
+        const TimedPoint in_flight_target =
+            Point(0.08, 0.20, 0.0, PointRole::kSurfaceContactPoint);
+        const TimedPoint second_target =
+            Point(0.24, -0.12, 0.0, PointRole::kSurfaceContactPoint);
+        AddEvent(problem, 1, 1, 0.90, 1.08, 1.50, in_flight_target,
+                 Surface());
+        AddEvent(problem, 0, 1, 1.05, 1.15, 1.30, first_target, Surface());
+        AddEvent(problem, 0, 2, 1.30, 1.35, 1.50, second_target,
+                 Surface(tilted));
+        AddInterval(problem, 1.00, 1.05, {{true, false, true, true}},
+                    {{-1, -1, -1, -1}});
+        AddInterval(problem, 1.05, 1.08, {{false, false, true, true}},
+                    {{-1, -1, -1, -1}});
+        AddInterval(problem, 1.08, 1.15, {{false, true, true, true}},
+                    {{-1, 0, -1, -1}});
+        AddInterval(problem, 1.15, 1.30, {{true, true, true, true}},
+                    {{1, 0, -1, -1}});
+        AddInterval(problem, 1.30, 1.35, {{false, true, true, true}},
+                    {{-1, 0, -1, -1}});
+        AddInterval(problem, 1.35, 1.50, {{true, true, true, true}},
+                    {{2, 0, -1, -1}});
+        auto request = Request(problem);
+        request.initial_velocity_world[1] = {0.05, 0.0, 0.0};
+        const std::vector<TimeNs> times{
+            T(1.0), T(1.05), T(1.08), T(1.10), T(1.15), T(1.20),
+            T(1.25), T(1.30), T(1.35), T(1.40), T(1.49)};
+        const auto result = SampleFootTrajectory(request, times);
+        Check(result.valid && result.failure == JointPlannerFailure::kNone,
+              "valid multi-touchdown trajectory rejected");
+        const Eigen::Vector3d normal = tilted.col(2);
+        CheckCenter(result.samples.front(), 1,
+                    EigenValue(problem.request.input.feet[1].foot_collision_center_world),
+                    1.0e-12, "initial in-flight position changed");
+        Check(std::abs(result.samples.front().velocity_world[1].x - 0.05) <
+                  1.0e-12,
+              "initial in-flight velocity was projected away");
+        CheckCenter(result.samples[2], 1,
+                    EigenValue(in_flight_target) + Eigen::Vector3d(0.0, 0.0, 0.022),
+                    1.0e-12, "in-flight touchdown center omitted radius");
+        Check(Norm(result.samples[2].velocity_world[1]) == 0.0 &&
+                  EigenValue(TimedPoint{result.samples[2].acceleration_world[1],
+                                        Frame::kWorld, T(1.0), true,
+                                        PointRole::kFootCollisionCenter})
+                      .allFinite(),
+              "touchdown endpoint velocity or acceleration is invalid");
+        CheckCenter(result.samples[4], 0,
+                    EigenValue(first_target) + Eigen::Vector3d(0.0, 0.0, 0.022),
+                    1.0e-12, "first touchdown center omitted radius");
+        CheckCenter(result.samples[6], 0,
+                    EigenValue(first_target) + Eigen::Vector3d(0.0, 0.0, 0.022),
+                    1.0e-12, "stance was retimed between touchdowns");
+        Check(Norm(result.samples[6].velocity_world[0]) == 0.0 &&
+                  Norm(result.samples[6].acceleration_world[0]) == 0.0,
+              "stance velocity was not zero");
+        Check(Norm(result.samples[7].velocity_world[0]) == 0.0,
+              "next liftoff did not preserve C1 velocity");
+        CheckCenter(result.samples[8], 0,
+                    EigenValue(second_target) + 0.022 * normal,
+                    1.0e-12, "tilted surface normal was not applied");
+        Check(result.samples[3].center_world[0].source_time == T(1.0),
+              "generated point provenance was retimestamped to the future");
+        // At u=0.5 the zero-slope Hermite position is the midpoint and the
+        // clearance bump is exactly one clearance radius. Its analytic x
+        // velocity is 1.5 * delta_x / dt and its x acceleration is zero.
+        Check(std::abs(result.samples[3].center_world[0].value.x + 0.115) <
+                  1.0e-12 &&
+                  std::abs(result.samples[3].center_world[0].value.z - 0.151) <
+                  1.0e-12,
+              "Hermite midpoint or normal clearance is incorrect");
+        Check(std::abs(result.samples[3].velocity_world[0].x - 4.05) <
+                  1.0e-10 &&
+                  std::abs(result.samples[3].acceleration_world[0].x) <
+                  1.0e-10,
+              "analytic swing derivative or acceleration is incorrect");
+        Check(Norm(result.samples[3].velocity_world[0]) > 1.0e-6,
+              "swing derivative was missing");
+        Check(EigenValue(TimedPoint{result.samples[3].acceleration_world[0],
+                                    Frame::kWorld, T(1.0), true,
+                                    PointRole::kFootCollisionCenter})
+                  .allFinite(),
+              "swing acceleration was not finite");
+        // The C1 contract fixes velocity at both endpoints; analytic
+        // acceleration may jump when the swing begins or ends.
+        Check(Norm(result.samples[1].velocity_world[0]) == 0.0,
+              "liftoff endpoint velocity was not stance-compatible");
+        Check(Norm(result.samples[4].velocity_world[0]) == 0.0,
+              "touchdown endpoint velocity was not stance-compatible");
+        const auto terminal = SampleFootTrajectoryEndState(request);
+        Check(terminal.valid && terminal.samples.size() == 1 &&
+                  terminal.samples.front().time == T(1.5),
+              "closed terminal state was not exposed separately");
+        CheckCenter(terminal.samples.front(), 0,
+                    EigenValue(second_target) + 0.022 * normal, 1.0e-12,
+                    "terminal state lost final stance target");
+        Check(Norm(terminal.samples.front().velocity_world[0]) == 0.0 &&
+                  Norm(terminal.samples.front().acceleration_world[0]) == 0.0,
+              "terminal stance derivatives were not zero");
+        auto uncovered_tail = problem;
+        uncovered_tail.request.events.events[2].contact_interval_end = T(1.45);
+        auto uncovered_request = request;
+        uncovered_request.problem = &uncovered_tail;
+        const auto uncovered = SampleFootTrajectory(uncovered_request, times);
+        Check(!uncovered.valid &&
+                  uncovered.failure == JointPlannerFailure::kCoverageIncomplete,
+              "uncovered post-contact swing was fabricated");
+        // An explicit terminal continuation supplies the next target without
+        // extending the core event table or its dynamics/commitments.
+        auto continued_problem = problem;
+        continued_problem.request.events.events[2].contact_interval_end =
+            T(1.45);
+        continued_problem.schedule.clear();
+        AddInterval(continued_problem, 1.00, 1.05, {{true, false, true, true}},
+                    {{-1, -1, -1, -1}});
+        AddInterval(continued_problem, 1.05, 1.08, {{false, false, true, true}},
+                    {{-1, -1, -1, -1}});
+        AddInterval(continued_problem, 1.08, 1.15, {{false, true, true, true}},
+                    {{-1, 0, -1, -1}});
+        AddInterval(continued_problem, 1.15, 1.30, {{true, true, true, true}},
+                    {{1, 0, -1, -1}});
+        AddInterval(continued_problem, 1.30, 1.35, {{false, true, true, true}},
+                    {{-1, 0, -1, -1}});
+        AddInterval(continued_problem, 1.35, 1.45, {{true, true, true, true}},
+                    {{2, 0, -1, -1}});
+        AddInterval(continued_problem, 1.45, 1.50, {{false, true, true, true}},
+                    {{-1, 0, -1, -1}});
+        FootSwingContinuation continuation;
+        continuation.valid = true;
+        continuation.event.id = {3, go2::Leg::FR, 3};
+        continuation.event.liftoff_time = T(1.45);
+        continuation.event.liftoff_valid = true;
+        continuation.event.touchdown_time = T(1.50);
+        continuation.event.contact_interval_end = T(1.65);
+        continuation.event.target_world =
+            Point(0.40, -0.12, 0.0, PointRole::kSurfaceContactPoint);
+        continuation.candidate.candidate_id = 3;
+        continuation.candidate.target_world =
+            continuation.event.target_world;
+        continuation.candidate.coverage = MapCoverageState::kKnown;
+        continuation.candidate.geometry_hard_feasible = true;
+        continuation.surface = Surface();
+        auto continued_request = request;
+        continued_request.problem = &continued_problem;
+        continued_request.continuation[0] = continuation;
+        const auto continued =
+            SampleFootTrajectory(continued_request, times);
+        Check(continued.valid, "explicit terminal continuation was rejected");
+        Check(continued.samples.back().center_world[0].source_time == T(1.0),
+              "terminal continuation retimestamped provenance");
+        const auto continued_end =
+            SampleFootTrajectoryEndState(continued_request);
+        Check(continued_end.valid, "terminal continuation end state rejected");
+        CheckCenter(continued_end.samples.front(), 0,
+                    EigenValue(continuation.event.target_world) +
+                        Eigen::Vector3d(0.0, 0.0, 0.022),
+                    1.0e-12, "terminal continuation target was not sampled");
+        Check(Norm(continued_end.samples.front().velocity_world[0]) == 0.0,
+              "terminal continuation touchdown velocity was not zero");
+        auto malformed_continuation = continued_request;
+        malformed_continuation.continuation[0].event.liftoff_time = T(1.46);
+        const auto malformed =
+            SampleFootTrajectory(malformed_continuation, times);
+        Check(!malformed.valid,
+              "gapped terminal continuation was accepted");
+        auto missing_liftoff = problem;
+        missing_liftoff.request.events.events[1].liftoff_valid = false;
+        Check(!SampleFootTrajectory(request, times).samples.empty(),
+              "baseline trajectory unexpectedly empty");
+        auto missing_request = request;
+        missing_request.problem = &missing_liftoff;
+        Check(!SampleFootTrajectory(missing_request, times).valid,
+              "missing liftoff metadata was accepted");
+        auto unknown_target = problem;
+        unknown_target.request.candidate_sets[1].candidates[0].target_world.valid = false;
+        auto unknown_request = request;
+        unknown_request.problem = &unknown_target;
+        Check(!SampleFootTrajectory(unknown_request, times).valid,
+              "unknown selected target was accepted");
+        auto unknown_surface = problem;
+        unknown_surface.candidate_surfaces[1][0].coverage =
+            MapCoverageState::kUnknownInside;
+        auto unknown_surface_request = request;
+        unknown_surface_request.problem = &unknown_surface;
+        const auto unknown_surface_result =
+            SampleFootTrajectory(unknown_surface_request, times);
+        Check(!unknown_surface_result.valid &&
+                  unknown_surface_result.failure ==
+                      JointPlannerFailure::kCoverageIncomplete,
+              "unknown surface coverage was accepted");
+        auto future_target = problem;
+        future_target.request.candidate_sets[1].candidates[0].target_world.source_time =
+            T(1.01);
+        auto future_target_request = request;
+        future_target_request.problem = &future_target;
+        Check(!SampleFootTrajectory(future_target_request, times).valid,
+              "future target provenance was accepted");
+        auto no_events = Fixture();
+        AddInterval(no_events, 1.00, 1.50, {{true, true, true, true}},
+                    {{-1, -1, -1, -1}});
+        auto no_events_request = Request(no_events);
+        const auto allstance = SampleFootTrajectory(no_events_request, times);
+        Check(allstance.valid, "explicit all-stance schedule was rejected");
+        no_events.schedule[0].contact[0] = false;
+        no_events_request.problem = &no_events;
+        const auto initial_aerial =
+            SampleFootTrajectory(no_events_request, times);
+        Check(!initial_aerial.valid &&
+                  initial_aerial.failure ==
+                      JointPlannerFailure::kCoverageIncomplete,
+              "initial aerial interval without event was fabricated");
+        auto bad_radius = request;
+        bad_radius.collision_radius_valid[0] = false;
+        Check(!SampleFootTrajectory(bad_radius, times).valid,
+              "missing collision radius was accepted");
+        auto slipping_stance = request;
+        slipping_stance.initial_velocity_world[2] = {0.01, 0.0, 0.0};
+        const auto slipping_result = SampleFootTrajectory(slipping_stance, times);
+        Check(!slipping_result.valid &&
+                  slipping_result.failure ==
+                      JointPlannerFailure::kInitialConditionConflict,
+              "initial measured stance slip was silently projected");
+        auto bad_endpoint = SampleFootTrajectoryAt(request, T(1.5));
+        Check(!bad_endpoint.valid &&
+                  bad_endpoint.failure == JointPlannerFailure::kInvalidInput,
+              "closed horizon endpoint was accepted");
+        auto mixed_surfaces = problem;
+        mixed_surfaces.event_surfaces.assign(mixed_surfaces.request.events.events.size(),
+                                             Surface());
+        auto mixed_request = request;
+        mixed_request.problem = &mixed_surfaces;
+        Check(!SampleFootTrajectory(mixed_request, times).valid,
+              "legacy and candidate surfaces were combined");
+        auto committed = problem;
+        committed.request.events.events[1].committed = true;
+        committed.request.accepted_commitments.events = {
+            committed.request.events.events[1]};
+        auto committed_request = request;
+        committed_request.problem = &committed;
+        const auto committed_result = SampleFootTrajectory(committed_request, times);
+        Check(committed_result.valid, "unchanged committed absolute prefix rejected");
+        auto retimed = committed;
+        retimed.request.events.events[1].liftoff_time = T(1.06);
+        auto retimed_request = committed_request;
+        retimed_request.problem = &retimed;
+        Check(!SampleFootTrajectory(retimed_request, times).valid,
+              "committed liftoff was locally retimed");
+        std::cout << "Stage C foot trajectory role/time, radius-normal, C1 swing, "
+                     "multi-touchdown and fail-closed checks passed\n";
+        return 0;
+    }
+    catch (const std::exception &error)
+    {
+        std::cerr << "FAIL: " << error.what() << "\n";
+        return 1;
+    }
+}

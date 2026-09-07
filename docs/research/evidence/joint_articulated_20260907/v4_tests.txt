@@ -1,0 +1,8 @@
+........usage: python3 -m unittest [-h] --scene SCENE --height {0.05,0.1} --out OUT
+                           run_dir
+python3 -m unittest: error: the following arguments are required: --height
+..
+----------------------------------------------------------------------
+Ran 10 tests in 4.369s
+
+OK

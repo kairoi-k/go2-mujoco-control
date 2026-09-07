@@ -1,38 +1,36 @@
 # Go2 current research checkpoint
 Updated: 2026-09-07. This is the live route/status/handoff entrypoint.
 ## Current scope and conclusion
-The user authorized the shared-contract architecture migration and delegated
-implementation choices to the lead agent. The active route is
-[Locomotion architecture V1](docs/research/LOCOMOTION_ARCHITECTURE_V1.md):
-independent proposal/actuator validation, shared geometry/frame/time semantics,
-event-indexed body/foothold/force planning, and replaceable control backends.
-First slice is implemented: independent current-model WBC certificates and
-raw/selected proposal telemetry. Clean runtime 71d242a flat diagnostic found
-4201/16403 legacy-accepted proposals infeasible, dominated by swing forces.
-Active forces are now the only force optimization variables. Two clean43c5f5a
-flat runs have zero swing violations; remaining normal/friction failures are
-160/16403 and 227/16402. Running topology is 40/49 and 37/49, so this is
-a correctness checkpoint, not an empirical locomotion improvement.
-Contact-lineage audit confirms qp_contact can differ from measured/terrain
-planned masks; no fallback/cache reuse occurred in either run. Certificates
-validate the declared model, not actual plant support. The shared model geometry
-seam now exposes distinct site/geom observations with explicit validity;
-future-event planning and its observation/execution integration are next;
-remaining inequalities and final actuator validation are still open. See
-`docs/research/evidence/wbc_certificate_20260907/README.md` and
-`docs/research/evidence/wbc_active_forces_20260907/README.md`.
-Luna implements bounded subtasks; the lead owns scientific decisions and review.
-The geometry observation seam passes45/45 controller tests, including real
-MuJoCo/FK and missing-site/non-sphere cases. See
-`docs/research/evidence/foot_geometry_20260907/README.md`. It has no new
-closed-loop performance claim; remaining work starts from this clean checkpoint.
-
-B1 remains NOT_CERTIFIED. The corrected model is a mathematical correctness
-baseline, not a validated locomotion release. No fresh full B0 or holdout
-campaign was run. The next evidence-driven work is the executable future
-liftoff/touchdown and geometry/frame contract, alongside a full WBC constraint
-validator. F03 friction basis, F04 inequality acceptance, final PD torque,
-privileged sensing and shared observation/action architecture remain open.
+The user authorized the long-term architecture route, with real 5 cm B1
+validation first and an independent 10 cm challenge next. Continue autonomous
+research; a foundation checkpoint is not task completion. B1 remains
+NOT_CERTIFIED; no new traversal result belongs to the work below.
+The [joint articulated route](docs/research/STAGE_C_ARTICULATED_ROUTE.md) now
+connects fixed absolute touchdown combinations, candidate-specific surfaces,
+centroidal COM/velocity/angular-momentum/force optimization, actual-MJCF body and
+joint reconstruction, acceleration lifting and independent full-model sample
+certificates. Body position is not a fixed offset from COM. Initial joint
+velocity cannot be silently reset. The solver accepts terrain-dependent COM
+objective profiles; historical default references and frozen diagnostics remain.
+Foot references have explicit liftoff/touchdown/stance lifetimes and a separate
+terminal continuation when the next touchdown exceeds the dynamics horizon.
+Missing contact, surface, timing and provenance coverage fails closed.
+A shared production state conversion is used by WBC and the planner snapshot.
+The actual sphere surface force Jacobian is separate from the geom-center motion
+Jacobian. `TROT_RESEARCH_CONTACT_POINT_MODEL=1` enables a controlled WBC probe;
+default off retains the old path. Applied mode is recorded in CSV. Force
+redistribution uses that same selected Jacobian. Cartesian virtual-task torque
+and final PD actuator composition remain separate from a dynamics certificate.
+This flag is NOT evidence that the joint planner has taken execution authority.
+The 5/10 cm V4 analyzer versions height/period assumptions while retaining
+physical traversal gates and historical V3 output. The older baselines and
+T13 frozen aerial conflict remain available unchanged. A single passing run
+still cannot replace the registered campaign and coverage review.
+Next: freeze/test/source-bind the implementation, run isolated same-source
+flat contact-point off/on probes, then complete joint planning runtime adoption,
+coherent event commitment/execution and geometry/actuator validation using real
+MuJoCo feedback. Sample-level model success alone keeps `execution_ready=false`.
+See `docs/research/evidence/joint_articulated_20260907/` for model evidence.
 ## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
 Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:

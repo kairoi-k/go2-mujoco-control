@@ -31,9 +31,11 @@ go2_terrain::stage_c::RawPlanningObservation FixtureObservation()
     raw.identity = {11, TimeNs::FromSeconds(1.0), 7, 3, 0};
     raw.body.valid = true;
     raw.body.base_position_world = {
-        {0.0, 0.0, 0.42}, Frame::kWorld, TimeNs::FromSeconds(1.0), true};
+        {0.0, 0.0, 0.42}, Frame::kWorld, TimeNs::FromSeconds(1.0), true,
+        PointRole::kBodyOrigin};
     raw.body.model_com_world = {
-        {0.0, 0.0, 0.20}, Frame::kWorld, TimeNs::FromSeconds(1.0), true};
+        {0.0, 0.0, 0.20}, Frame::kWorld, TimeNs::FromSeconds(1.0), true,
+        PointRole::kCenterOfMass};
     raw.body.model_com_valid = true;
     raw.body.mass_kg = 12.0;
     raw.measured_contact.mask = {true, false, false, true};
@@ -62,15 +64,22 @@ go2_terrain::stage_c::RawPlanningObservation FixtureObservation()
     {
         raw.feet[leg].foot_site_world = {
             {0.1 * static_cast<double>(leg), 0.0, 0.0}, Frame::kWorld,
-            TimeNs::FromSeconds(1.0), true};
+            TimeNs::FromSeconds(1.0), true, PointRole::kFootSite};
+        raw.feet[leg].foot_collision_center_world = {
+            {0.1 * static_cast<double>(leg), 0.0, -0.02}, Frame::kWorld,
+            TimeNs::FromSeconds(1.0), true,
+            PointRole::kFootCollisionCenter};
         raw.feet[leg].contact_patch_base = {
             {0.1 * static_cast<double>(leg), 0.0, -0.02}, Frame::kBase,
-            TimeNs::FromSeconds(1.0), true};
+            TimeNs::FromSeconds(1.0), true,
+            PointRole::kSurfaceContactPoint};
     }
     raw.feet[0].measured_support_anchor_world = {
-        {0.22, -0.10, -0.25}, Frame::kWorld, TimeNs::FromSeconds(1.0), true};
+        {0.22, -0.10, -0.25}, Frame::kWorld, TimeNs::FromSeconds(1.0), true,
+        PointRole::kSurfaceContactPoint};
     raw.feet[3].measured_support_anchor_world = {
-        {-0.22, 0.10, -0.25}, Frame::kWorld, TimeNs::FromSeconds(1.0), true};
+        {-0.22, 0.10, -0.25}, Frame::kWorld, TimeNs::FromSeconds(1.0), true,
+        PointRole::kSurfaceContactPoint};
     raw.feet[0].measured_support_anchor_valid = true;
     raw.feet[3].measured_support_anchor_valid = true;
     return raw;
@@ -86,7 +95,9 @@ go2_terrain::stage_c::TouchdownEvent Event(
     event.id = {3, leg, sequence};
     event.touchdown_time = time;
     event.contact_interval_end = TimeNs::FromSeconds(time_s + 0.12);
-    event.target_world = {{x, 0.0, -0.22}, Frame::kWorld, time, true};
+    event.target_world = {{x, 0.0, -0.22}, Frame::kWorld,
+                          TimeNs::FromSeconds(1.0), true,
+                          PointRole::kSurfaceContactPoint};
     event.source_plan_id = 4;
     event.committed = committed;
     return event;
@@ -100,10 +111,12 @@ go2_terrain::stage_c::EventCandidateSet CandidateSet(
     result.event_id = event.id;
     result.candidates = {
         {1, {{event.target_world.value.x, -0.04, event.target_world.value.z},
-             Frame::kWorld, event.touchdown_time, true}, 1.0, 0.05, 0.02,
+             Frame::kWorld, TimeNs::FromSeconds(1.0), true,
+             PointRole::kSurfaceContactPoint}, 1.0, 0.05, 0.02,
          MapCoverageState::kKnown, true},
         {2, {{event.target_world.value.x, 0.04, event.target_world.value.z},
-             Frame::kWorld, event.touchdown_time, true}, 2.0, 0.05, 0.02,
+             Frame::kWorld, TimeNs::FromSeconds(1.0), true,
+             PointRole::kSurfaceContactPoint}, 2.0, 0.05, 0.02,
          MapCoverageState::kKnown, true}};
     return result;
 }
@@ -132,6 +145,26 @@ int main()
     passed &= Check(!shadow.input.planned_contact.valid &&
                         !shadow.input.applied_contact.valid,
                     "T01 measured contacts were promoted to another provenance");
+    auto site_as_anchor = shadow_raw;
+    site_as_anchor.feet[0].measured_support_anchor_world.role =
+        PointRole::kFootSite;
+    const auto rejected_site_anchor = NormalizePlanningInput(site_as_anchor);
+    passed &= Check(!rejected_site_anchor.ok,
+                    "T01 measured foot site was accepted as a surface point");
+    auto stale_anchor = shadow_raw;
+    stale_anchor.feet[0].measured_support_anchor_world.source_time =
+        TimeNs::FromSeconds(0.9);
+    const auto rejected_stale_anchor = NormalizePlanningInput(stale_anchor);
+    passed &= Check(!rejected_stale_anchor.ok,
+                    "T01 stale measured anchor was accepted");
+    auto unknown_body = shadow_raw;
+    unknown_body.body.base_position_world.role = PointRole::kUnknown;
+    passed &= Check(!NormalizePlanningInput(unknown_body).ok,
+                    "T01 unknown body origin was accepted");
+    auto unknown_com = shadow_raw;
+    unknown_com.body.model_com_world.role = PointRole::kUnknown;
+    passed &= Check(!NormalizePlanningInput(unknown_com).ok,
+                    "T01 unknown center of mass was accepted");
     auto missing_anchor_raw = shadow_raw;
     missing_anchor_raw.feet[0].measured_support_anchor_valid = false;
     const auto missing_anchor = NormalizePlanningInput(missing_anchor_raw);
@@ -189,6 +222,10 @@ int main()
               });
     passed &= Check(events.valid(),
                     "T05 repeated same-leg touchdown table was rejected");
+    auto unknown_target = events;
+    unknown_target.events[0].target_world.role = PointRole::kUnknown;
+    passed &= Check(!unknown_target.valid(),
+                    "T05 unknown touchdown target role was accepted");
     passed &= Check(events.events[0].id.leg == go2::Leg::FR &&
                         events.events[1].id.leg == go2::Leg::FL &&
                         events.events[2].id.sequence == 2 &&
@@ -266,6 +303,16 @@ int main()
     proposal.events[0].target_world.value.x = 0.24;
     passed &= Check(!committed.committed_prefix_compatible(proposal),
                     "T15 committed touchdown was silently retimed");
+    auto committed_liftoff = committed;
+    committed_liftoff.events[0].liftoff_valid = true;
+    committed_liftoff.events[0].liftoff_time = TimeNs::FromSeconds(0.10);
+    auto liftoff_proposal = committed_liftoff;
+    liftoff_proposal.events[1].touchdown_time = TimeNs::FromSeconds(0.36);
+    passed &= Check(committed_liftoff.committed_prefix_compatible(liftoff_proposal),
+                    "T15 valid committed liftoff was not preserved");
+    liftoff_proposal.events[0].liftoff_time = TimeNs::FromSeconds(0.11);
+    passed &= Check(!committed_liftoff.committed_prefix_compatible(liftoff_proposal),
+                    "T15 committed liftoff was silently changed");
 
     // C0-02: real deterministic multi-event exhaustive search and oracle.
     auto normalized = NormalizePlanningInput(shadow_raw);

@@ -249,6 +249,8 @@ private:
 private:
     struct TerrainPlannerWork
     {
+        go2_control::RigidBodyState rigid_body_state{};
+        bool rigid_body_state_valid = false;
         bool have_map = false;
         bool have_base_pose = false;
         go2_terrain::TerrainMapEnvelope map_envelope{};
@@ -259,6 +261,8 @@ private:
 
     struct TerrainControlSnapshot
     {
+        go2_control::RigidBodyState rigid_body_state{};
+        bool rigid_body_state_valid = false;
         bool valid = false;
         double state_stamp_s = 0.0;
         double base_yaw_rad = 0.0;

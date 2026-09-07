@@ -1,4 +1,5 @@
 #include "trot_experiment.h"
+#include "trot_rigid_body_observation.h"
 
 #include <algorithm>
 #include <chrono>
@@ -129,6 +130,13 @@ void TrotExperiment::PublishTerrainControlSnapshot(
         snapshot.model_com_state_stamp_s = terrain_model_com_state_stamp_s_;
         snapshot.model_com_valid = true;
     }
+    if(have_high_state) {
+        snapshot.rigid_body_state = go2_trot::MakeRigidBodyState(
+            state_snapshot, high_state_snapshot, Eigen::Vector3d(
+                high_state_snapshot.velocity()[0], high_state_snapshot.velocity()[1],
+                high_state_snapshot.velocity()[2]));
+        snapshot.rigid_body_state_valid = true;
+    }
     snapshot.gait_phase = current_phase_;
     snapshot.gait_period_s = gait_period_s;
     snapshot.duty_factor = duty_factor;
@@ -225,6 +233,8 @@ void TrotExperiment::UpdateTerrainRuntime()
         return;
 
     TerrainPlannerWork work;
+    work.rigid_body_state = control.rigid_body_state;
+    work.rigid_body_state_valid = control.rigid_body_state_valid;
     work.map_epoch = ++terrain_map_epoch_;
     work.plan_id = ++terrain_plan_id_;
     auto &input = work.input;

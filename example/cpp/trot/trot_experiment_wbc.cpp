@@ -1,4 +1,5 @@
 #include "trot_experiment.h"
+#include "trot_rigid_body_observation.h"
 #include "trot_true_dynamics.h"
 #include "full2_campaign_env.h"
 #include "terrain_nominal_com_height.h"
@@ -33,29 +34,6 @@ using namespace go2_trot;
 namespace
 {
 
-go2_control::RigidBodyState MakeRigidBodyState(
-    const unitree_go::msg::dds_::LowState_ &low,
-    const unitree_go::msg::dds_::SportModeState_ &high,
-    const Eigen::Vector3d &linear_vel_world)
-{
-    const WorldPose pose = ComputeWorldPose(low, high);
-    go2_control::RigidBodyState state;
-    state.position_world = Eigen::Vector3d(pose.base.x, pose.base.y, pose.base.z);
-    state.quat_world_from_body = Eigen::Quaterniond(
-        pose.quaternion[0], pose.quaternion[1],
-        pose.quaternion[2], pose.quaternion[3]);
-    state.linear_vel_world = linear_vel_world;
-    state.angular_vel_body = Eigen::Vector3d(
-        low.imu_state().gyroscope()[0],
-        low.imu_state().gyroscope()[1],
-        low.imu_state().gyroscope()[2]);
-    for (int i = 0; i < kMotorCount; ++i)
-    {
-        state.q[i] = low.motor_state()[i].q();
-        state.dq[i] = low.motor_state()[i].dq();
-    }
-    return state;
-}
 
 Eigen::Vector3d ClampVec3(const Eigen::Vector3d &v, double lim)
 {
@@ -119,11 +97,10 @@ void TrotExperiment::UpdateWbcFull(
         high_state_snapshot.velocity()[0],
         high_state_snapshot.velocity()[1],
         high_state_snapshot.velocity()[2]);
+    const auto rigid_state=MakeRigidBodyState(
+        state_snapshot,high_state_snapshot,linear_vel_world);
     go2_control::RigidBodyDynamics dyn;
-    if (!rigid_body_->Evaluate(
-            MakeRigidBodyState(
-                state_snapshot, high_state_snapshot, linear_vel_world),
-            dyn))
+    if (!rigid_body_->Evaluate(rigid_state,dyn))
     {
         return;
     }
@@ -1094,6 +1071,33 @@ void TrotExperiment::UpdateWbcFull(
             wbc_in.force_ref = last_srbd_.first_force;
         }
     }
+    // Versioned experiment: use the actual sphere surface application point
+    // in the same WBC model. This changes no foot-center motion task. Unknown
+    // terrain normals retain the existing declared flat-normal assumption;
+    // its assumption mask remains visible in the independent certificate.
+    static const bool use_contact_points=
+        Full2EnvDouble("TROT_RESEARCH_CONTACT_POINT_MODEL",0.0)>0.5;
+    if(use_contact_points) {
+        std::array<Eigen::Vector3d,go2::kLegCount> points;
+        for(std::size_t leg=0;leg<go2::kLegCount;++leg) {
+            if(!dyn.foot_geometry_valid[leg]) return;
+            Eigen::Vector3d normal=Eigen::Vector3d::UnitZ();
+            if(wbc_in.contact_normal_valid[leg]) {
+                normal=wbc_in.contact_normal[leg];
+                if(!normal.allFinite() || normal.stableNorm()<1e-9) return;
+                normal/=normal.stableNorm();if(normal.z()<0)normal=-normal;
+            }
+            points[leg]=dyn.foot_pos_world[leg]-
+                dyn.foot_geometry[leg].collision_radius_m*normal;
+        }
+        if(!rigid_body_->EvaluateContactJacobians(rigid_state,points,
+                wbc_in.force_application_jac_world)) return;
+        wbc_in.have_force_application_jacobian=true;
+    }
+    wbc_shadow_diagnostics_.id_force_application_jacobian_used=
+        wbc_in.have_force_application_jacobian;
+    go2_control::IdWbcFootJacobianArray force_jacobians;
+    if(!go2_control::SelectIdWbcForceJacobians(wbc_in,force_jacobians)) return;
     bool solved =
         go2_control::SolveInverseDynamicsWbc(id_params, wbc_in, wbc_out) &&
         wbc_out.ok;
@@ -1221,7 +1225,7 @@ void TrotExperiment::UpdateWbcFull(
                     Eigen::Vector3d delta = Eigen::Vector3d::Zero();
                     delta.z() = scale * front_share;
                     wbc_out.tau -=
-                        dyn.foot_jac_world[leg].rightCols<12>().transpose() * delta;
+                        force_jacobians[leg].rightCols<12>().transpose() * delta;
                     wbc_out.force.segment<3>(3 * leg) += delta;
                 }
                 for (int i = 0; i < n_rear; ++i)
@@ -1230,7 +1234,7 @@ void TrotExperiment::UpdateWbcFull(
                     Eigen::Vector3d delta = Eigen::Vector3d::Zero();
                     delta.z() = scale * rear_share;
                     wbc_out.tau -=
-                        dyn.foot_jac_world[leg].rightCols<12>().transpose() * delta;
+                        force_jacobians[leg].rightCols<12>().transpose() * delta;
                     wbc_out.force.segment<3>(3 * leg) += delta;
                 }
             }
@@ -1274,7 +1278,7 @@ void TrotExperiment::UpdateWbcFull(
                     // overlay therefore enters with the same minus sign;
                     // adding J^T*f would command a backward push.
                     wbc_out.tau -=
-                        dyn.foot_jac_world[leg].rightCols<12>().transpose() * f;
+                        force_jacobians[leg].rightCols<12>().transpose() * f;
                     wbc_out.force.segment<3>(3 * static_cast<int>(leg)) += f;
                 }
             }

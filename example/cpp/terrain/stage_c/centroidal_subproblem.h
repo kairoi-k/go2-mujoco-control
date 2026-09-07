@@ -41,7 +41,11 @@ struct CentroidalProblem {
     std::uint64_t schedule_epoch = 0;
     std::vector<FixedScheduleInterval> schedule;
     std::array<ContactSurface, 4> initial_surfaces{};
+    // Legacy: one surface per event. New producers bind each candidate to
+    // its own patch instead, preventing a chosen point from borrowing a
+    // different candidate's normal or friction. Both layouts at once conflict.
     std::vector<ContactSurface> event_surfaces;
+    std::vector<std::vector<ContactSurface>> candidate_surfaces;
     std::vector<TimeNs> grid; // strict absolute state nodes, event-aligned
     TimeNs required_start{}, required_end{};
     Eigen::Vector3d initial_momentum_world = Eigen::Vector3d::Zero();
@@ -51,6 +55,10 @@ struct CentroidalProblem {
     go2_control::SrbdMpcParams model{};
     // Bounds apply at nodes and linearly between nodes; finite, mandatory.
     std::vector<StateBox> bounds;
+    // Optional objective reference on the exact absolute state grid. This
+    // allows terrain-aware COM profiles; bounds and original dynamics remain hard.
+    // Empty preserves the existing constant-height commanded-velocity objective.
+    std::vector<CentroidalState> references;
     // Already accepted prefix on this exact grid, including its original times.
     std::vector<TimeNs> committed_state_times;
     std::vector<CentroidalState> committed_states;

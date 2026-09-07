@@ -56,8 +56,10 @@ struct RigidBodyState
     Eigen::Quaterniond quat_world_from_body = Eigen::Quaterniond::Identity();
     Eigen::Vector3d linear_vel_world = Eigen::Vector3d::Zero();
     Eigen::Vector3d angular_vel_body = Eigen::Vector3d::Zero();
-    Eigen::Matrix<double, go2::kJointCount, 1> q = {};
-    Eigen::Matrix<double, go2::kJointCount, 1> dq = {};
+    Eigen::Matrix<double, go2::kJointCount, 1> q =
+        Eigen::Matrix<double, go2::kJointCount, 1>::Zero();
+    Eigen::Matrix<double, go2::kJointCount, 1> dq =
+        Eigen::Matrix<double, go2::kJointCount, 1>::Zero();
 };
 
 // Immutable geometry metadata read from the loaded MJCF. The local positions
@@ -109,6 +111,23 @@ struct RigidBodyDynamics
         Eigen::Matrix<double, kGo2Nv, 1>::Zero();
 };
 
+// Planning-only evaluation shares the same MuJoCo model and generalized
+// velocity convention as WBC; it is not evaluated in the fast loop by default.
+struct RigidBodyPlanningKinematics
+{
+    RigidBodyDynamics dynamics{};
+    Eigen::Matrix<double,3,kGo2Nv> com_jacobian_world =
+        Eigen::Matrix<double,3,kGo2Nv>::Zero();
+    Eigen::Matrix<double,3,kGo2Nv> angular_momentum_matrix_world =
+        Eigen::Matrix<double,3,kGo2Nv>::Zero();
+    Eigen::Vector3d angular_momentum_world = Eigen::Vector3d::Zero();
+    Eigen::Vector3d com_velocity_world = Eigen::Vector3d::Zero();
+    Eigen::Matrix<double,go2::kJointCount,1> joint_lower =
+        Eigen::Matrix<double,go2::kJointCount,1>::Zero();
+    Eigen::Matrix<double,go2::kJointCount,1> joint_upper =
+        Eigen::Matrix<double,go2::kJointCount,1>::Zero();
+    bool valid = false;
+};
 class Go2RigidBody
 {
 public:
@@ -301,6 +320,104 @@ public:
         return out.valid;
     }
 
+    // Planning-only contact-point translational Jacobians. Each application
+    // point is expressed in world coordinates and is evaluated against the
+    // named foot geom's parent body. This does not alter the existing geom
+    // center Jacobians used by Evaluate() or the WBC control path.
+    bool EvaluateContactJacobians(
+        const RigidBodyState &state,
+        const std::array<Eigen::Vector3d, go2::kLegCount> &application_points_world,
+        std::array<Eigen::Matrix<double, 3, kGo2Nv>, go2::kLegCount> &out)
+    {
+        for (auto &jacobian : out)
+            jacobian.setZero();
+        if (!loaded_)
+            return false;
+        for (const auto &point : application_points_world)
+            if (!point.allFinite())
+                return false;
+        if (!SetState(state))
+            return false;
+        mj_forward(model_, data_);
+        std::array<Eigen::Matrix<double, 3, kGo2Nv>, go2::kLegCount> computed;
+        for (auto &jacobian : computed)
+            jacobian.setZero();
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            const int geom = foot_geom_[leg];
+            if (geom < 0 || geom >= model_->ngeom)
+                return false;
+            const int body = model_->geom_bodyid[geom];
+            if (body < 0 || body >= model_->nbody)
+                return false;
+            const Eigen::Vector3d &point = application_points_world[leg];
+            const mjtNum point_mj[3] = {point.x(), point.y(), point.z()};
+            mjtNum jacp[3 * kGo2Nv] = {};
+            mj_jac(model_, data_, jacp, nullptr, point_mj, body);
+            for (int row = 0; row < 3; ++row)
+                for (int col = 0; col < kGo2Nv; ++col)
+                    computed[leg](row, col) = jacp[row * kGo2Nv + col];
+            if (!computed[leg].allFinite())
+                return false;
+        }
+        out = computed;
+        return true;
+    }
+    bool EvaluatePlanningKinematics(const RigidBodyState &state,
+                                   RigidBodyPlanningKinematics &out)
+    {
+        out = RigidBodyPlanningKinematics{};
+        if (!Evaluate(state,out.dynamics)) return false;
+        mjtNum jac[3*kGo2Nv], momentum[3*kGo2Nv];
+        mj_jacSubtreeCom(model_,data_,jac,base_body_);
+        mj_angmomMat(model_,data_,momentum,base_body_);
+        using Matrix = Eigen::Matrix<double,3,kGo2Nv,Eigen::RowMajor>;
+        out.com_jacobian_world = Eigen::Map<Matrix>(jac);
+        out.angular_momentum_matrix_world = Eigen::Map<Matrix>(momentum);
+        mj_subtreeVel(model_,data_);
+        out.angular_momentum_world = Eigen::Vector3d(
+            data_->subtree_angmom[3*base_body_],
+            data_->subtree_angmom[3*base_body_+1],
+            data_->subtree_angmom[3*base_body_+2]);
+        out.com_velocity_world = Eigen::Vector3d(
+            data_->subtree_linvel[3*base_body_],
+            data_->subtree_linvel[3*base_body_+1],
+            data_->subtree_linvel[3*base_body_+2]);
+        for (int j=0;j<static_cast<int>(go2::kJointCount);++j) {
+            const int id=joint_id_[j];
+            if (!model_->jnt_limited[id]) return false;
+            out.joint_lower[j]=model_->jnt_range[2*id];
+            out.joint_upper[j]=model_->jnt_range[2*id+1];
+        }
+        out.valid=out.com_jacobian_world.allFinite() &&
+            out.angular_momentum_matrix_world.allFinite() &&
+            out.angular_momentum_world.allFinite() && out.com_velocity_world.allFinite() &&
+            out.joint_lower.allFinite() && out.joint_upper.allFinite() &&
+            (out.joint_lower.array()<=out.joint_upper.array()).all();
+        return out.valid;
+    }
+    bool IntegrateConfiguration(const RigidBodyState &state,
+        const Eigen::Matrix<double,kGo2Nv,1> &velocity, double dt,
+        RigidBodyState &out)
+    {
+        if (!loaded_ || !velocity.allFinite() || !std::isfinite(dt) ||
+            !SetState(state)) return false;
+        mj_integratePos(model_,data_->qpos,velocity.data(),dt);
+        out=state;
+        out.position_world=Eigen::Vector3d(data_->qpos[0],data_->qpos[1],data_->qpos[2]);
+        out.quat_world_from_body=Eigen::Quaterniond(
+            data_->qpos[3],data_->qpos[4],data_->qpos[5],data_->qpos[6]);
+        const double norm=out.quat_world_from_body.coeffs().stableNorm();
+        if(!std::isfinite(norm) || !(norm>1e-12)) return false;
+        out.quat_world_from_body.coeffs()/=norm;
+        out.linear_vel_world=velocity.head<3>(); out.angular_vel_body=velocity.segment<3>(3);
+        for(int j=0;j<static_cast<int>(go2::kJointCount);++j) {
+            out.q[j]=data_->qpos[model_->jnt_qposadr[joint_id_[j]]];
+            out.dq[j]=velocity[model_->jnt_dofadr[joint_id_[j]]];
+        }
+        return out.position_world.allFinite() && out.quat_world_from_body.coeffs().allFinite() &&
+            out.q.allFinite();
+    }
     // M qacc + h should match mj_inverse(qacc).
     double InverseDynamicsResidual(
         const RigidBodyDynamics &dyn,
@@ -334,9 +451,11 @@ private:
         {
             return false;
         }
-        Eigen::Quaterniond quat = state.quat_world_from_body.normalized();
-        if (quat.norm() < 0.5)
-            return false;
+        if (!state.quat_world_from_body.coeffs().allFinite()) return false;
+        const double quaternion_norm=state.quat_world_from_body.coeffs().stableNorm();
+        if (!(quaternion_norm>1e-12) || !std::isfinite(quaternion_norm)) return false;
+        Eigen::Quaterniond quat=state.quat_world_from_body;
+        quat.coeffs()/=quaternion_norm;
         data_->qpos[0] = state.position_world.x();
         data_->qpos[1] = state.position_world.y();
         data_->qpos[2] = state.position_world.z();

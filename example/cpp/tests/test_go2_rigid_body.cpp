@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "go2_rigid_body.h"
+#include "stage_c/input_adapter.h"
 
 #ifndef GO2_MODEL_PATH
 #define GO2_MODEL_PATH "unitree_robots/go2/go2.xml"
@@ -271,6 +272,68 @@ int main()
             "MJCF foot geom center is unexpectedly far from analytical FK");
     }
 
+    // Producer seam: use the actual MuJoCo geom/site observations and
+    // metadata to construct role-tagged Stage-C points. The flat plane here
+    // is test geometry only; production terrain supplies its own normal.
+    {
+        using namespace go2_terrain::stage_c;
+        const TimeNs sample_time = TimeNs::FromSeconds(1.0);
+        RawPlanningObservation raw;
+        raw.identity = {1, sample_time, 1, 1, 0};
+        raw.body.valid = true;
+        raw.body.base_position_world = {
+            {StandState().position_world.x(), StandState().position_world.y(),
+             StandState().position_world.z()},
+            Frame::kWorld, sample_time, true, PointRole::kBodyOrigin};
+        raw.body.model_com_world = {
+            {dyn.com_world.x(), dyn.com_world.y(), dyn.com_world.z()},
+            Frame::kWorld, sample_time, true, PointRole::kCenterOfMass};
+        raw.body.model_com_valid = true;
+        raw.body.mass_kg = dyn.mass_kg;
+        raw.measured_contact.mask.fill(true);
+        raw.measured_contact.provenance = ContactProvenance::kMeasured;
+        raw.measured_contact.source_time = sample_time;
+        raw.measured_contact.valid = true;
+        raw.map.metadata_valid = true;
+        raw.map.epoch = 1;
+        raw.map.width = raw.map.height = raw.map.total_cells =
+            raw.map.known_cells = 1;
+        raw.map.source = go2_terrain::TerrainSource::kTestFixture;
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            const auto &metadata = geometry[leg];
+            const auto &site = dyn.foot_site_world[leg];
+            const auto &center = dyn.foot_pos_world[leg];
+            raw.feet[leg].foot_site_world = {
+                {site.x(), site.y(), site.z()}, Frame::kWorld, sample_time,
+                true, PointRole::kFootSite};
+            raw.feet[leg].foot_collision_center_world = {
+                {center.x(), center.y(), center.z()}, Frame::kWorld, sample_time,
+                true, PointRole::kFootCollisionCenter};
+            raw.feet[leg].measured_support_anchor_world = {
+                {center.x(), center.y(), center.z() - metadata.collision_radius_m},
+                Frame::kWorld, sample_time, true,
+                PointRole::kSurfaceContactPoint};
+            raw.feet[leg].measured_support_anchor_valid = true;
+        }
+        const auto normalized = NormalizePlanningInput(raw);
+        passed &= Check(normalized.ok, "actual metadata Stage-C producer seam");
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            passed &= Check(
+                normalized.input.feet[leg].foot_site_world.role ==
+                    PointRole::kFootSite,
+                "producer foot site role changed");
+            passed &= Check(
+                normalized.input.feet[leg].foot_collision_center_world.role ==
+                    PointRole::kFootCollisionCenter,
+                "producer geom center role changed");
+            passed &= Check(
+                normalized.input.feet[leg].contact_patch_world.role ==
+                    PointRole::kSurfaceContactPoint,
+                "producer surface role changed");
+        }
+    }
     const auto tilted_state = TiltedState();
     go2_control::RigidBodyDynamics tilted_dyn;
     passed &= Check(model.Evaluate(tilted_state, tilted_dyn),

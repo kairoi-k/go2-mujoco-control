@@ -48,6 +48,10 @@ struct IdWbcParams
     bool hard_stance_no_slip = false;
 };
 
+using IdWbcFootJacobian = Eigen::Matrix<double, 3, kGo2Nv>;
+using IdWbcFootJacobianArray =
+    std::array<IdWbcFootJacobian, go2::kLegCount>;
+
 struct IdWbcInput
 {
     RigidBodyDynamics dynamics{};
@@ -75,6 +79,16 @@ struct IdWbcInput
     std::array<Eigen::Vector3d, go2::kLegCount> swing_acc_world{};
     std::array<Eigen::Vector3d, go2::kLegCount> stance_acc_world{};
     bool have_stance_acc = false;
+    // Optional force-application Jacobians. Motion tasks continue to use
+    // dynamics.foot_jac_world (the named geom center). When enabled, these
+    // Jacobians are used only for J^T*f and the corresponding joint torque
+    // map; callers must provide every leg and keep all entries finite.
+    bool have_force_application_jacobian = false;
+    IdWbcFootJacobianArray force_application_jac_world{
+        IdWbcFootJacobian::Constant(std::numeric_limits<double>::quiet_NaN()),
+        IdWbcFootJacobian::Constant(std::numeric_limits<double>::quiet_NaN()),
+        IdWbcFootJacobian::Constant(std::numeric_limits<double>::quiet_NaN()),
+        IdWbcFootJacobian::Constant(std::numeric_limits<double>::quiet_NaN())};
     bool have_force_ref = false;
     Eigen::Matrix<double, 12, 1> force_ref =
         Eigen::Matrix<double, 12, 1>::Zero();
@@ -132,12 +146,41 @@ struct IdWbcOutput
 };
 
 inline Eigen::Matrix<double, 12, kGo2Nv> StackFootJacobian(
+    const IdWbcFootJacobianArray &foot_jacobians)
+{
+    Eigen::Matrix<double, 12, kGo2Nv> J =
+        Eigen::Matrix<double, 12, kGo2Nv>::Zero();
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        J.block<3, kGo2Nv>(static_cast<int>(3 * leg), 0) =
+            foot_jacobians[leg];
+    return J;
+}
+
+inline Eigen::Matrix<double, 12, kGo2Nv> StackFootJacobian(
     const RigidBodyDynamics &dyn)
 {
-    Eigen::Matrix<double, 12, kGo2Nv> J = Eigen::Matrix<double, 12, kGo2Nv>::Zero();
+    return StackFootJacobian(dyn.foot_jac_world);
+}
+
+// Select one force Jacobian convention for all dynamics terms. The default
+// preserves the established geom-center path; an explicit request is
+// fail-closed so a missing/invalid point Jacobian cannot silently fall back.
+inline bool SelectIdWbcForceJacobians(
+    const IdWbcInput &input, IdWbcFootJacobianArray &selected)
+{
+    selected = input.dynamics.foot_jac_world;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
-        J.block<3, kGo2Nv>(static_cast<int>(3 * leg), 0) = dyn.foot_jac_world[leg];
-    return J;
+        if (!selected[leg].allFinite())
+            return false;
+    if (!input.have_force_application_jacobian)
+        return true;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+    {
+        if (!input.force_application_jac_world[leg].allFinite())
+            return false;
+        selected[leg] = input.force_application_jac_world[leg];
+    }
+    return true;
 }
 inline bool ValidateIdWbcTerrainReference(const IdWbcInput &input)
 {
@@ -176,7 +219,12 @@ inline bool SolveInverseDynamicsWbc(
     const auto &M = input.dynamics.mass_matrix;
     const auto &h = input.dynamics.bias;
     const auto J = StackFootJacobian(input.dynamics);
-    if (!M.allFinite() || !h.allFinite() || !J.allFinite())
+    IdWbcFootJacobianArray selected_force_foot_jacobians;
+    if (!SelectIdWbcForceJacobians(input, selected_force_foot_jacobians))
+        return false;
+    const auto J_force = StackFootJacobian(selected_force_foot_jacobians);
+    if (!M.allFinite() || !h.allFinite() || !J.allFinite() ||
+        !J_force.allFinite())
         return false;
 
     constexpr int nqdd = kGo2Nv;
@@ -276,7 +324,7 @@ inline bool SolveInverseDynamicsWbc(
     // tau = Mj qdd + hj - Jj^T f,  w_tau ||tau||^2
     const auto Mj = M.bottomRows<12>();
     const auto hj = h.tail<12>();
-    const auto Jj_t = J.rightCols<12>().transpose();  // 12 x 12
+    const auto Jj_t = J_force.rightCols<12>().transpose();  // 12 x 12
     Eigen::MatrixXd tau_map = Eigen::MatrixXd::Zero(12, n);
     tau_map.block<12, 18>(0, 0) = Mj;
     if (nf > 0)
@@ -298,7 +346,8 @@ inline bool SolveInverseDynamicsWbc(
     Eigen::VectorXd beq = Eigen::VectorXd::Zero(6 + n_hard);
     Aeq.block(0, 0, 6, nqdd) = M.topRows<6>();
     if (nf > 0)
-        Aeq.block(0, nqdd, 6, nf) = -J.leftCols<6>().transpose() * force_map;
+        Aeq.block(0, nqdd, 6, nf) =
+            -J_force.leftCols<6>().transpose() * force_map;
     beq.head<6>() = -h.head<6>();
     if (n_hard > 0)
     {
@@ -442,7 +491,8 @@ inline bool SolveInverseDynamicsWbc(
         return false;
     }
     output.rne_residual =
-        (M * output.qdd + h - J.transpose() * output.force).head<6>().norm();
+        (M * output.qdd + h - J_force.transpose() * output.force)
+            .head<6>().norm();
 
     // Keep the objective decomposition alongside the solution.  These are
     // diagnostic terms only; the solver objective remains exactly the same.

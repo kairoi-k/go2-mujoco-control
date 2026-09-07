@@ -190,6 +190,7 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_full_cert_selected_torque_violation_nm"
          << ",wbc_full_cert_selected_stance_acc_residual_mps2"
          << ",wbc_full_cert_selected_reused,wbc_full_certificate_elapsed_us"
+         << ",wbc_full_force_application_jacobian_used"
          << ",wbc_full_velocity_target_x_mps,wbc_full_requested_acc_x_mps2"
          << ",wbc_full_srbd_acc_x_mps2,wbc_full_id_qdd_x_mps2"
          << ",wbc_full_id_contact_force_x_n";
@@ -1092,6 +1093,7 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.id_cert_selected.stance_acc_residual_mps2
          << "," << (wbc_shadow_diagnostics_.id_cert_selected_reused ? 1 : 0)
          << "," << wbc_shadow_diagnostics_.id_certificate_elapsed_us
+         << "," << (wbc_shadow_diagnostics_.id_force_application_jacobian_used ? 1 : 0)
          << "," << wbc_shadow_diagnostics_.full_velocity_target_x_mps
          << "," << wbc_shadow_diagnostics_.full_requested_acc_x_mps2
          << "," << wbc_shadow_diagnostics_.full_srbd_acc_x_mps2

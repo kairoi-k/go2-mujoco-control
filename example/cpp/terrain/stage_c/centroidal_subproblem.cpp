@@ -183,6 +183,7 @@ CentroidalResult SolveCentroidalSubproblem(const CentroidalProblem &p) {
         ref[3]=p.request.input.command.applied_vx_mps;
         ref[4]=p.request.input.command.applied_vy_mps;
         ref[5]=0; ref.tail<3>().setZero();
+        if(!p.references.empty()) ref=p.references[k+1];
         reference.segment<9>(9*k)=ref;
         // Momentum regularization has units (kg*m^2/s)^-2; no posture claim.
         weights.segment<9>(9*k)<<p.model.w_pos_xy,p.model.w_pos_xy,p.model.w_pos_z,

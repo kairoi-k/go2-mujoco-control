@@ -13,7 +13,10 @@ void Check(bool ok,const char *name) {
     ++checks; if(!ok) throw std::runtime_error(name);
 }
 TimeNs T(double s) { return TimeNs::FromSeconds(s); }
-TimedPoint Point(double x,double y,double z) { return {{x,y,z},Frame::kWorld,T(1),true}; }
+TimedPoint Point(double x,double y, double z,
+                 PointRole role=PointRole::kSurfaceContactPoint) {
+    return {{x,y,z},Frame::kWorld,T(1),true,role};
+}
 ContactSurface Surface() {
     ContactSurface s; s.frame=Frame::kWorld; s.coverage=MapCoverageState::kKnown;
     s.map_epoch=7; s.valid_until=T(2); s.friction_mu=0.8; s.max_normal_n=180;
@@ -23,7 +26,8 @@ CentroidalProblem Fixture(int n=1) {
     CentroidalProblem p; auto &i=p.request.input;
     i.identity={11,T(1),7,3,0};
     i.body.valid=i.body.model_com_valid=true;
-    i.body.base_position_world=Point(0,0,0.42); i.body.model_com_world=Point(0,0,0.4);
+    i.body.base_position_world=Point(0,0,0.42,PointRole::kBodyOrigin);
+    i.body.model_com_world=Point(0,0,0.4,PointRole::kCenterOfMass);
     i.body.mass_kg=p.model.mass_kg=10;
     i.measured_contact.mask={{true,false,false,true}};
     i.measured_contact.valid=true; i.measured_contact.provenance=ContactProvenance::kMeasured;
@@ -31,6 +35,10 @@ CentroidalProblem Fixture(int n=1) {
     i.map.metadata_valid=true; i.map.epoch=7; i.map.width=i.map.height=8;
     i.map.total_cells=i.map.known_cells=64; i.map.coverage=MapCoverageState::kKnown;
     i.command.valid=true; i.command.command_epoch=4; i.command.period_s=.24; i.command.duty_factor=.4;
+    i.feet[0].foot_site_world=Point(.2,-.1,.02,PointRole::kFootSite);
+    i.feet[3].foot_site_world=Point(-.2,.1,.02,PointRole::kFootSite);
+    i.feet[0].foot_collision_center_world=Point(.2,-.1,0,PointRole::kFootCollisionCenter);
+    i.feet[3].foot_collision_center_world=Point(-.2,.1,0,PointRole::kFootCollisionCenter);
     i.feet[0].measured_support_anchor_world=Point(.2,-.1,0);
     i.feet[3].measured_support_anchor_world=Point(-.2,.1,0);
     i.feet[0].measured_support_anchor_valid=i.feet[3].measured_support_anchor_valid=true;
@@ -117,6 +125,17 @@ int main(int argc,char **argv) {
     for(std::size_t k=0;k<result.forces.size();++k)
         Check(result.forces[k].force_world[0].z==again.forces[k].force_world[0].z,"deterministic forces");
 
+    auto profile=Fixture(3);
+    auto flat_profile=SolveCentroidalSubproblem(profile);
+    Check(flat_profile.certificate.feasible,"default reference profile");
+    profile.references.assign(profile.grid.size(),flat_profile.states.front());
+    for(auto &reference:profile.references) reference.z()+=.1;
+    auto raised_profile=SolveCentroidalSubproblem(profile);
+    Check(raised_profile.certificate.feasible && raised_profile.states.back().z()>flat_profile.states.back().z(),"terrain COM objective changes actual dynamics rollout");
+    profile.references.pop_back();
+    Check(SolveCentroidalSubproblem(profile).failure==JointPlannerFailure::kInvalidInput,"reference absolute grid mismatch");
+    profile.references=flat_profile.states;profile.references.back()[2]=std::numeric_limits<double>::quiet_NaN();
+    Check(SolveCentroidalSubproblem(profile).failure==JointPlannerFailure::kInvalidInput,"nonfinite terrain reference rejected");
     auto friction=Fixture(); PinRest(friction);
     friction.bounds[1].lower[3]=friction.bounds[1].upper[3]=.2;
     friction.bounds[1].lower.tail<3>().setConstant(-10); friction.bounds[1].upper.tail<3>().setConstant(10);
@@ -179,6 +198,30 @@ int main(int argc,char **argv) {
     Check(SolveCentroidalSubproblem(committed).failure==JointPlannerFailure::kCommitmentConflict,"commitment time conflict");
 
     auto choices=Choices(); auto good=SolveCentroidalSubproblem(choices); Check(good.certificate.feasible,"good foothold dynamic");
+    auto bound_by_candidate=Choices();
+    bound_by_candidate.schedule[0].contact[3]=false;
+    const auto same_target=Point(0.0,0.0,0.0);
+    bound_by_candidate.request.candidate_sets[0].candidates[0].target_world =
+        same_target;
+    bound_by_candidate.request.candidate_sets[0].candidates[1].target_world =
+        same_target;
+    bound_by_candidate.request.events.events[0].target_world = same_target;
+    bound_by_candidate.event_surfaces.clear();
+    bound_by_candidate.candidate_surfaces = {{Surface(),Surface()}};
+    bound_by_candidate.candidate_surfaces[0][0].max_normal_n=1.0;
+    bound_by_candidate.candidate_surfaces[0][1].max_normal_n=180.0;
+    bound_by_candidate.combination[0]=0;
+    Check(SolveCentroidalSubproblem(bound_by_candidate).failure==
+              JointPlannerFailure::kDynamicsInfeasible,
+          "candidate-bound low force surface was not infeasible");
+    bound_by_candidate.combination[0]=1;
+    Check(SolveCentroidalSubproblem(bound_by_candidate).certificate.feasible,
+          "candidate-bound high force surface was not feasible");
+    auto mixed_surface_layout=Choices();
+    mixed_surface_layout.candidate_surfaces = {{Surface(),Surface()}};
+    Check(SolveCentroidalSubproblem(mixed_surface_layout).failure==
+              JointPlannerFailure::kInvalidInput,
+          "legacy and candidate surface layouts were combined");
     for(const auto &candidate:choices.request.candidate_sets[0].candidates) {
         std::array<go2::Vec3,4> feet{};
         feet[0]=candidate.target_world.value; feet[3]=choices.request.input.feet[3].measured_support_anchor_world.value;
