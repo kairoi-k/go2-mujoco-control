@@ -1,0 +1,7 @@
+physical and compensated swing QPs disagree
+swing diagnostic omits physical bias
+swing_bias aerial=0 fd_error=2.13037e-08 qdd_delta=9.11707 cost_delta=160.639 rne=1.23228e-08
+physical and compensated swing QPs disagree
+swing diagnostic omits physical bias
+swing_bias aerial=1 fd_error=2.13037e-08 qdd_delta=22.5286 cost_delta=1223.64 rne=6.83739e-06
+eq=7.16662e-10 rne=7.16663e-10 fz=149.172 two_eq=1.67472e-08

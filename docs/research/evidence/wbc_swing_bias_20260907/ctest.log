@@ -1,0 +1,94 @@
+Internal ctest changing into directory: /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/build
+Test project /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/build
+      Start  1: test_go2_forward_kinematics
+ 1/44 Test  #1: test_go2_forward_kinematics ...................   Passed    0.41 sec
+      Start  2: test_cartesian_world_trot
+ 2/44 Test  #2: test_cartesian_world_trot .....................   Passed    0.00 sec
+      Start  3: test_velocity_command
+ 3/44 Test  #3: test_velocity_command .........................   Passed    0.00 sec
+      Start  4: test_velocity_running_research
+ 4/44 Test  #4: test_velocity_running_research ................   Passed    0.00 sec
+      Start  5: test_lean_route_guard
+ 5/44 Test  #5: test_lean_route_guard .........................   Passed    0.00 sec
+      Start  6: test_contact_fusion_fault_harness
+ 6/44 Test  #6: test_contact_fusion_fault_harness .............   Passed    0.00 sec
+      Start  7: test_lockstep_writer_gate
+ 7/44 Test  #7: test_lockstep_writer_gate .....................   Passed    0.51 sec
+      Start  8: test_lockstep_motion_clock
+ 8/44 Test  #8: test_lockstep_motion_clock ....................   Passed    0.01 sec
+      Start  9: test_lockstep_motion_clock_integration
+ 9/44 Test  #9: test_lockstep_motion_clock_integration ........   Passed    0.01 sec
+      Start 10: test_go2_rigid_body
+10/44 Test #10: test_go2_rigid_body ...........................   Passed    0.41 sec
+      Start 11: test_inverse_dynamics_wbc
+11/44 Test #11: test_inverse_dynamics_wbc .....................   Passed    0.41 sec
+      Start 12: test_srbd_mpc
+12/44 Test #12: test_srbd_mpc .................................   Passed    0.00 sec
+      Start 13: test_terrain_interfaces
+13/44 Test #13: test_terrain_interfaces .......................   Passed    0.01 sec
+      Start 14: test_terrain_execution_consistency
+14/44 Test #14: test_terrain_execution_consistency ............   Passed    0.00 sec
+      Start 15: test_stage_c_foundations
+15/44 Test #15: test_stage_c_foundations ......................   Passed    0.00 sec
+      Start 16: test_go2_inverse_kinematics
+16/44 Test #16: test_go2_inverse_kinematics ...................   Passed    0.00 sec
+      Start 17: test_raibert_footstep_planner
+17/44 Test #17: test_raibert_footstep_planner .................   Passed    0.00 sec
+      Start 18: test_raibert_trot_kernel
+18/44 Test #18: test_raibert_trot_kernel ......................   Passed    0.00 sec
+      Start 19: test_motion_frame_utils
+19/44 Test #19: test_motion_frame_utils .......................   Passed    0.00 sec
+      Start 20: test_trot_task
+20/44 Test #20: test_trot_task ................................   Passed    0.00 sec
+      Start 21: test_velocity_filter
+21/44 Test #21: test_velocity_filter ..........................   Passed    0.00 sec
+      Start 22: test_terrain_swing_lift
+22/44 Test #22: test_terrain_swing_lift .......................   Passed    0.00 sec
+      Start 23: test_terrain_swing_contract
+23/44 Test #23: test_terrain_swing_contract ...................   Passed    0.00 sec
+      Start 24: test_terrain_swing_world_audit
+24/44 Test #24: test_terrain_swing_world_audit ................   Passed    0.00 sec
+      Start 25: test_terrain_commitment_lifecycle
+25/44 Test #25: test_terrain_commitment_lifecycle .............   Passed    0.00 sec
+      Start 26: test_contact_state_filter
+26/44 Test #26: test_contact_state_filter .....................   Passed    0.00 sec
+      Start 27: test_contact_wrench_allocator
+27/44 Test #27: test_contact_wrench_allocator .................   Passed    0.00 sec
+      Start 28: test_go2_leg_jacobian
+28/44 Test #28: test_go2_leg_jacobian .........................   Passed    0.00 sec
+      Start 29: test_contact_wrench_constraints
+29/44 Test #29: test_contact_wrench_constraints ...............   Passed    0.00 sec
+      Start 30: test_contact_torque_mapping
+30/44 Test #30: test_contact_torque_mapping ...................   Passed    0.00 sec
+      Start 31: test_projected_contact_wrench_allocator
+31/44 Test #31: test_projected_contact_wrench_allocator .......   Passed    0.00 sec
+      Start 32: test_contact_wrench_lexicographic_allocator
+32/44 Test #32: test_contact_wrench_lexicographic_allocator ...   Passed    0.00 sec
+      Start 33: test_dynamic_acceleration_target
+33/44 Test #33: test_dynamic_acceleration_target ..............   Passed    0.00 sec
+      Start 34: test_motion_event_response
+34/44 Test #34: test_motion_event_response ....................   Passed    0.00 sec
+      Start 35: test_wbc_runtime_gate
+35/44 Test #35: test_wbc_runtime_gate .........................   Passed    0.00 sec
+      Start 36: test_centroidal_wbc
+36/44 Test #36: test_centroidal_wbc ...........................   Passed    0.00 sec
+      Start 37: test_preview_footstep_horizon
+37/44 Test #37: test_preview_footstep_horizon .................   Passed    0.00 sec
+      Start 38: test_dense_qp
+38/44 Test #38: test_dense_qp .................................   Passed    0.00 sec
+      Start 39: test_contact_wrench_qp
+39/44 Test #39: test_contact_wrench_qp ........................   Passed    0.00 sec
+      Start 40: test_stage_c_centroidal
+40/44 Test #40: test_stage_c_centroidal .......................   Passed    0.00 sec
+      Start 41: test_terrain_nominal_com_height
+41/44 Test #41: test_terrain_nominal_com_height ...............   Passed    0.00 sec
+      Start 42: test_terrain_map_envelope
+42/44 Test #42: test_terrain_map_envelope .....................   Passed    0.03 sec
+      Start 43: test_terrain_map_transport
+43/44 Test #43: test_terrain_map_transport ....................   Passed    0.01 sec
+      Start 44: test_terrain_map_intervals_v2
+44/44 Test #44: test_terrain_map_intervals_v2 .................   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 44
+
+Total Test time (real) =   1.88 sec
