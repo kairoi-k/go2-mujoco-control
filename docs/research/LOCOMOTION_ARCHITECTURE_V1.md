@@ -20,7 +20,7 @@ justify staged replacement of shared semantics rather than more gain tuning.
 They do not establish the winning control algorithm or a unique failure cause.
 ## Design rules and migration sequence
 Define a contract only with a real producer, consumer, independent test and
-migration path. Extend the existing Stage-C and TerrainExecutionState types
+migration path. Extend the existing Stage-C types and TerrainExecutionSnapshot/Commitment
 where their semantics fit. Do not create a second map, robot model, contact
 ledger or controller-local recovery authority. Keep the existing runnable
 backend as a named historical reference. Never promote an untested new route

@@ -2,7 +2,8 @@
 
 // Hierarchical inverse-dynamics WBC:
 //   M qdd + h = S^T tau + J^T f
-// Floating-base rows are equalities. Friction / swing-zero / torque limits
+// Floating-base rows are equalities. Only support-leg forces are optimized;
+// swing forces are identically zero. Friction / normal / torque limits
 // are inequalities. Motion tasks are weighted: CoM/orientation from MPC,
 // then swing, then posture. Output is joint tau* and qdd*.
 
@@ -179,8 +180,22 @@ inline bool SolveInverseDynamicsWbc(
         return false;
 
     constexpr int nqdd = kGo2Nv;
-    constexpr int nf = 12;
-    constexpr int n = nqdd + nf;
+    // Contact mode defines the force variables. An unconverged iterate cannot
+    // borrow force from a swing leg because that variable does not exist.
+    std::array<int, go2::kLegCount> force_offset;
+    force_offset.fill(-1);
+    int nf = 0;
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        if (input.contact[leg])
+        {
+            force_offset[leg] = nf;
+            nf += 3;
+        }
+    Eigen::MatrixXd force_map = Eigen::MatrixXd::Zero(12, nf);
+    for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        if (input.contact[leg])
+            force_map.block<3, 3>(3 * static_cast<int>(leg), force_offset[leg]).setIdentity();
+    const int n = nqdd + nf;
     Eigen::MatrixXd H = Eigen::MatrixXd::Zero(n, n);
     Eigen::VectorXd g = Eigen::VectorXd::Zero(n);
 
@@ -197,7 +212,7 @@ inline bool SolveInverseDynamicsWbc(
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         const auto Jl = input.dynamics.foot_jac_world[leg];
-        const int col_f = nqdd + static_cast<int>(3 * leg);
+        const int col_f = nqdd + force_offset[leg];
         if (input.contact[leg])
         {
             if (!params.hard_stance_no_slip)
@@ -238,6 +253,8 @@ inline bool SolveInverseDynamicsWbc(
                 2.0 * Jl.transpose() * Wswing *
                 (jdot_qvel - input.swing_acc_world[leg]);
         }
+        if (!input.contact[leg])
+            continue;
         H(col_f, col_f) += 2.0 * params.w_force;
         H(col_f + 1, col_f + 1) += 2.0 * params.w_force;
         H(col_f + 2, col_f + 2) += 2.0 * params.w_force;
@@ -262,7 +279,8 @@ inline bool SolveInverseDynamicsWbc(
     const auto Jj_t = J.rightCols<12>().transpose();  // 12 x 12
     Eigen::MatrixXd tau_map = Eigen::MatrixXd::Zero(12, n);
     tau_map.block<12, 18>(0, 0) = Mj;
-    tau_map.block<12, 12>(0, 18) = -Jj_t;
+    if (nf > 0)
+        tau_map.block(0, nqdd, 12, nf) = -Jj_t * force_map;
     H += 2.0 * params.w_tau * tau_map.transpose() * tau_map;
     g += 2.0 * params.w_tau * tau_map.transpose() * hj;
     H.diagonal().array() += 1.0e-8;
@@ -279,7 +297,8 @@ inline bool SolveInverseDynamicsWbc(
     Eigen::MatrixXd Aeq = Eigen::MatrixXd::Zero(6 + n_hard, n);
     Eigen::VectorXd beq = Eigen::VectorXd::Zero(6 + n_hard);
     Aeq.block(0, 0, 6, nqdd) = M.topRows<6>();
-    Aeq.block(0, nqdd, 6, nf) = -J.leftCols<6>().transpose();
+    if (nf > 0)
+        Aeq.block(0, nqdd, 6, nf) = -J.leftCols<6>().transpose() * force_map;
     beq.head<6>() = -h.head<6>();
     if (n_hard > 0)
     {
@@ -301,26 +320,15 @@ inline bool SolveInverseDynamicsWbc(
     }
 
     const double mu = params.friction_mu / std::sqrt(2.0);
-    const int mineq = 6 * 4 + 24;
+    const int mineq = 2 * nf + 24;
     Eigen::MatrixXd Aineq = Eigen::MatrixXd::Zero(mineq, n);
     Eigen::VectorXd bineq = Eigen::VectorXd::Zero(mineq);
     int row = 0;
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
-        const int c = nqdd + static_cast<int>(3 * leg);
         if (!input.contact[leg])
-        {
-            for (int axis = 0; axis < 3; ++axis)
-            {
-                Aineq(row, c + axis) = 1.0;
-                bineq[row] = 0.05;
-                ++row;
-                Aineq(row, c + axis) = -1.0;
-                bineq[row] = 0.05;
-                ++row;
-            }
             continue;
-        }
+        const int c = nqdd + force_offset[leg];
         Eigen::Vector3d normal = Eigen::Vector3d::UnitZ();
         if (input.contact_normal_valid[leg] &&
             input.contact_normal[leg].allFinite() &&
@@ -385,7 +393,7 @@ inline bool SolveInverseDynamicsWbc(
         if (candidate.size() != n || !candidate.allFinite())
             return std::numeric_limits<double>::infinity();
         const Eigen::Matrix<double, 12, 1> tau =
-            Mj * candidate.head<nqdd>() + hj - Jj_t * candidate.tail<nf>();
+            tau_map * candidate + hj;
         return (tau.cwiseAbs().array() - params.tau_limit_nm)
             .max(0.0).maxCoeff();
     };
@@ -417,7 +425,9 @@ inline bool SolveInverseDynamicsWbc(
     output.solution_finite = true;
     output.ok = true;
     output.qdd = x.head<nqdd>();
-    output.force = x.tail<nf>();
+    output.force.setZero();
+    if (nf > 0)
+        output.force.noalias() = force_map * x.tail(nf);
     output.tau = Mj * output.qdd + hj - Jj_t * output.force;
     output.eq_residual = (Aeq * x - beq).norm();
     output.max_tau_violation_nm =

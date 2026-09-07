@@ -1,0 +1,3 @@
+swing_bias aerial=0 fd_error=2.13037e-08 qdd_delta=6.59269e-08 cost_delta=1.03463e-08 rne=6.1008e-09
+swing_bias aerial=1 fd_error=2.13037e-08 qdd_delta=1.2748e-07 cost_delta=9.96777e-07 rne=7.58858e-06
+inverse dynamics wbc checks passed. eq=7.16662e-10 rne=7.16663e-10

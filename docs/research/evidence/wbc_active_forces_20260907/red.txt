@@ -1,0 +1,59 @@
+In file included from example/cpp/wbc/inverse_dynamics_wbc.h:17,
+                 from example/cpp/tests/test_inverse_dynamics_wbc.cpp:5:
+example/cpp/terrain/terrain_control_interface.h: In function ‘bool go2_terrain::StretchTerrainFrontStanceSchedule(go2_terrain::TerrainContactSchedule&, const std::array<bool, 4>&, const std::array<bool, 4>&, std::array<double, 4>&, const std::array<bool, 4>&, double, double, double, std::size_t, double, double)’:
+example/cpp/terrain/terrain_control_interface.h:125:45: warning: unused parameter ‘transition_required’ [-Wunused-parameter]
+  125 |     const std::array<bool, go2::kLegCount> &transition_required,
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+In file included from example/cpp/tests/test_inverse_dynamics_wbc.cpp:7:
+example/cpp/wbc/srbd_mpc.h: In function ‘bool go2_control::SolveSrbdMpc(const go2_control::SrbdMpcParams&, const go2_control::SrbdMpcInput&, go2_control::SrbdMpcOutput&)’:
+example/cpp/wbc/srbd_mpc.h:258:20: warning: variable ‘B’ set but not used [-Wunused-but-set-variable]
+  258 |         const auto B = SrbdBd(params, feet, input.contact[k]);
+      |                    ^
+In file included from /usr/include/eigen3/Eigen/Core:341,
+                 from /usr/include/eigen3/Eigen/Dense:1,
+                 from example/cpp/kinematics/go2_rigid_body.h:13,
+                 from example/cpp/tests/test_inverse_dynamics_wbc.cpp:4:
+/usr/include/eigen3/Eigen/src/Core/products/TriangularMatrixVector.h: In function ‘static void Eigen::internal::trmv_selector<Mode, 1>::run(const Lhs&, const Rhs&, Dest&, const typename Dest::Scalar&) [with Lhs = Eigen::Transpose<const Eigen::Block<const Eigen::Block<Eigen::Matrix<double, -1, -1>, -1, -1, false>, -1, -1, false> >; Rhs = Eigen::Transpose<const Eigen::CwiseBinaryOp<Eigen::internal::scalar_product_op<double, double>, const Eigen::CwiseNullaryOp<Eigen::internal::scalar_constant_op<double>, const Eigen::Matrix<double, 1, -1> >, const Eigen::Transpose<const Eigen::Block<const Eigen::Block<const Eigen::Block<Eigen::Matrix<double, -1, -1>, -1, -1, false>, -1, 1, true>, -1, 1, false> > > >; Dest = Eigen::Transpose<Eigen::Block<Eigen::Block<Eigen::Matrix<double, -1, -1, 1, -1, -1>, 1, -1, true>, 1, -1, false> >; int Mode = 6]’:
+/usr/include/eigen3/Eigen/src/Core/products/TriangularMatrixVector.h:332:12: warning: ‘result’ may be used uninitialized [-Wmaybe-uninitialized]
+  327 |     internal::triangular_matrix_vector_product
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  328 |       <Index,Mode,
+      |       ~~~~~~~~~~~~
+  329 |        LhsScalar, LhsBlasTraits::NeedToConjugate,
+      |        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  330 |        RhsScalar, RhsBlasTraits::NeedToConjugate,
+      |        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  331 |        RowMajor>
+      |        ~~~~~~~~~
+  332 |       ::run(actualLhs.rows(),actualLhs.cols(),
+      |       ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  333 |             actualLhs.data(),actualLhs.outerStride(),
+      |             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  334 |             actualRhsPtr,1,
+      |             ~~~~~~~~~~~~~~~
+  335 |             dest.data(),dest.innerStride(),
+      |             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  336 |             actualAlpha);
+      |             ~~~~~~~~~~~~
+/usr/include/eigen3/Eigen/src/Core/products/TriangularMatrixVector.h:105:24: note: by argument 5 of type ‘const double*’ to ‘static void Eigen::internal::triangular_matrix_vector_product<Index, Mode, LhsScalar, ConjLhs, RhsScalar, ConjRhs, 1, Version>::run(Index, Index, const LhsScalar*, Index, const RhsScalar*, Index, Eigen::internal::triangular_matrix_vector_product<Index, Mode, LhsScalar, ConjLhs, RhsScalar, ConjRhs, 1, Version>::ResScalar*, Index, const ResScalar&) [with Index = long int; int Mode = 6; LhsScalar = double; bool ConjLhs = false; RhsScalar = double; bool ConjRhs = false; int Version = 0]’ declared here
+  105 | EIGEN_DONT_INLINE void triangular_matrix_vector_product<Index,Mode,LhsScalar,ConjLhs,RhsScalar,ConjRhs,RowMajor,Version>
+      |                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+inactive force must be exact zero
+inactive force must be exact zero
+inactive force must be exact zero
+inactive force must be exact zero
+active-force fixture failed: aerial qvel0
+inactive force must be exact zero
+inactive force must be exact zero
+active-force fixture failed: mixed qvel0
+inactive force must be exact zero
+inactive force must be exact zero
+inactive force must be exact zero
+inactive force must be exact zero
+active-force fixture failed: aerial moving
+inactive force must be exact zero
+inactive force must be exact zero
+active-force fixture failed: mixed moving
+swing_bias aerial=0 fd_error=2.13037e-08 qdd_delta=6.59281e-08 cost_delta=1.03709e-08 rne=6.0288e-09
+swing_bias aerial=1 fd_error=2.13037e-08 qdd_delta=1.26547e-07 cost_delta=7.43444e-07 rne=6.82749e-06
+eq=7.16662e-10 rne=7.16663e-10 fz=149.172 two_eq=1.67472e-08

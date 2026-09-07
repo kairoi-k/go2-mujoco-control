@@ -204,6 +204,78 @@ int main()
     passed &= Check(model.Evaluate(shifted, plus), "plus dynamics");
     shifted.q = moving_state.q - dt * moving_state.dq;
     passed &= Check(model.Evaluate(shifted, minus), "minus dynamics");
+
+    // Inactive contact forces are structurally absent from the intended
+    // WBC formulation.  These MuJoCo-backed fixtures keep the plant
+    // residual and active-contact checks while requiring exact zero on
+    // aerial/mixed inactive legs, including a nonzero inactive force_ref.
+    const auto check_active_force_mask =
+        [&](const char *label,
+            const go2_control::RigidBodyDynamics &fixture_dyn,
+            const std::array<bool, 4> &contact_mask) {
+            go2_control::IdWbcInput masked;
+            masked.dynamics = fixture_dyn;
+            masked.desired_linear_acc_world = Eigen::Vector3d::Zero();
+            masked.desired_angular_acc_body = Eigen::Vector3d::Zero();
+            masked.contact = contact_mask;
+            masked.contact_normal.fill(Eigen::Vector3d::Zero());
+            masked.contact_normal_valid.fill(false);
+            masked.swing_acc_world.fill(Eigen::Vector3d::Zero());
+            masked.stance_acc_world.fill(Eigen::Vector3d::Zero());
+            masked.have_force_ref = true;
+            masked.force_ref.setZero();
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                if (!contact_mask[leg])
+                    masked.force_ref.segment<3>(3 * static_cast<int>(leg)) =
+                        Eigen::Vector3d(4.0, -3.0, 2.0);
+            go2_control::IdWbcParams masked_params = {};
+            masked_params.w_force_track = 1.0;
+            go2_control::IdWbcOutput masked_out;
+            bool fixture_passed = go2_control::SolveInverseDynamicsWbc(
+                masked_params, masked, masked_out) && masked_out.ok;
+            fixture_passed &= Check(masked_out.solution_finite,
+                                    "masked solution finite");
+            fixture_passed &= Check(masked_out.rne_residual < 5.0e-2,
+                                    "masked rigid-body residual");
+            fixture_passed &= Check(masked_out.eq_residual < 5.0e-2,
+                                    "masked floating-base residual");
+            fixture_passed &= Check(
+                masked_out.max_tau_violation_nm <= 5.1e-2,
+                "masked torque limit");
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                if (contact_mask[leg])
+                {
+                    fixture_passed &= Check(
+                        masked_out.normal_force[leg] >=
+                            masked_params.min_normal_n - 1.0e-1 &&
+                            masked_out.normal_force[leg] <=
+                            masked_params.max_normal_n + 1.0e-1,
+                        "masked active normal limit");
+                }
+                else
+                {
+                    fixture_passed &= Check(
+                        masked_out.force
+                                .segment<3>(3 * static_cast<int>(leg))
+                                .cwiseAbs()
+                                .maxCoeff() <= 1.0e-12,
+                        "inactive force must be exact zero");
+                }
+            }
+            if (!fixture_passed)
+                std::cerr << "active-force fixture failed: " << label << "\n";
+            return fixture_passed;
+        };
+    passed &= check_active_force_mask(
+        "aerial qvel0", dyn, {false, false, false, false});
+    passed &= check_active_force_mask(
+        "mixed qvel0", dyn, {true, false, false, true});
+    passed &= check_active_force_mask(
+        "aerial moving", moving, {false, false, false, false});
+    passed &= check_active_force_mask(
+        "mixed moving", moving, {true, false, false, true});
+
     std::array<Eigen::Vector3d, 4> bias_acc;
     double fd_error = 0.0;
     for (int leg = 0; leg < 4; ++leg)
