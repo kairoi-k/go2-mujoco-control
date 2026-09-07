@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/scripts/analyze_phase1_velocity.py", line 319, in <module>
+    main()
+  File "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/scripts/analyze_phase1_velocity.py", line 306, in main
+    limits, checks = quantitative_acceptance(result, scenario)
+  File "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/scripts/analyze_phase1_velocity.py", line 214, in quantitative_acceptance
+    limits = dict(QUANTITATIVE_LIMITS[scenario])
+KeyError: 'b1_v3_running_1mps'

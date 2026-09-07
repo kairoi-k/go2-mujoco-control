@@ -1,0 +1,1 @@
+no phase2_step box found in /home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/phase2_flat.xml

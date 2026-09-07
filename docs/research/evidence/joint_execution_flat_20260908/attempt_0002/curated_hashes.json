@@ -1,0 +1,13 @@
+{
+  "active_window_contact_ground_truth.csv": "bd8eb075ef470d27d34a01aac49e0461bc66330e59ab2e256a8f36338fd9769b",
+  "active_window_data.csv": "ed81acedc8bd52039d15b394a3dbd9e173128b993589b266fdade44678d2fee3",
+  "audit.json": "1866f76a0d76cf85db21106e1f02dc05ed2ef3207b345ccf2f5ae60df0d42a14",
+  "contact_ground_truth_analysis.txt": "414e5e9ef3fa0e9cb1bdc5fde9ff734fac9a7cf41fc40151db0ba0d0e8f6a4b3",
+  "contact_ground_truth_dynamics_analysis.txt": "0d99aae87daeba11fb39dcfc1ed6e5f22cf82762c6a5896cc444325f88e5e945",
+  "controller_execution_excerpt.txt": "5eca3824176017c66c205082b8df2947a829cdcf5336104ef4932d7f548d90c8",
+  "environment.txt": "ab4f0f55e34fc8107c62a54b20b193a30a86460018bf467b4aee24ee3fbca7f6",
+  "phase1_quantitative.txt": "62d6cd0dfe26f3c81e35b550b3180d622cf9d08ba945b56c5286b498ef32165a",
+  "phase2_terrain_analysis.txt": "e745dcf19b59eec459e6c65300508b024c7c4396a765161d70d7438a3b14dd80",
+  "run_manifest.json": "eb89e2806c916e3a0e752a303d67fa140a5fa0974d4772f5e66fc9daffee2abc",
+  "run_metadata.txt": "dbc320900f99709592cbf5c77c0a5bb7fcc3b30dca54b7040cc9d48fe9b05d18"
+}

@@ -77,8 +77,11 @@ FAILED diagnostic: joint execution actually adopts3versions, with121 raw zero-PD
 rows in STATE20.004--20.246. The .16->.14 legacy period change at20.068 resets
 the planning epoch and invalidates commitments, starving new plans; expiry then
 requests stop. Sampled COM/foot maxima8.114/78.542mm; no traversal result.
-Next: fixed-schedule isolation starting21s, while retaining variable-period
-calendar transitions as an unresolved architecture requirement. The clock caller
+The fixed-start21s isolation (actual8f3e04afa97507ff4151838c4edf608923d2702e)
+also FAILS:46actual zero-PD commands/3versions, then wbc_solver_failed at21.112,
+with period.14/epoch1 unchanged. Earlier21.062 anchor observation rejection is
+separate. Next is failure-only exact primary/secondary QP capture under the same
+protocol. Variable-period calendar transitions remain an unresolved requirement. The clock caller
 now passes commitment activity rather than silently resetting the epoch.
 Default remains off. See joint_execution_flat_20260908.
 Then run isolated flat and 5cm, followed by 10cm only after credible 5cm evidence.
@@ -96,7 +99,9 @@ combination path; historical bound-event defaults and commitments remain strict.
 ## Exact source and actual experiments
 Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
 Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
-`f5b2ef98364bbc01f934de575c850696236e1342`: first actual joint actuation flat,
+`8f3e04afa97507ff4151838c4edf608923d2702e`: fixed-period actual joint flat,
+failed atSTATE21.112 on WBC numerical solve after46applied commands.
+Prior `f5b2ef98364bbc01f934de575c850696236e1342`: first actual joint actuation flat,
 failed on period-transition commitment conflict and reference expiry.
 Prior `cc696232eab2d184b5c98fa89674f8d029895dad`: bounded-history flat diagnostic.
 Normal completion,15/16 reduced proposals,35/42 cycle diagnostic; no joint

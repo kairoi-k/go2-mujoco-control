@@ -227,7 +227,8 @@ inline bool ValidateIdWbcTerrainReference(const IdWbcInput &input)
 
 struct IdWbcQpSnapshot {
     Eigen::MatrixXd H,Aineq,Aeq;
-    Eigen::VectorXd g,bineq,beq,iterate;
+    Eigen::VectorXd g,bineq,beq,iterate,seed;
+    std::string stage, failure;
 };
 inline bool SolveInverseDynamicsWbc(
     const IdWbcParams &params,
@@ -524,13 +525,21 @@ inline bool SolveInverseDynamicsWbc(
             Hp.diagonal().array()+=1e-6;
             const Eigen::VectorXd gp=-2.0*priority_map.transpose()*priority_target;
             Eigen::VectorXd primary;int first_iters=0;
-            qp_ok=SolveDenseQpPrimalActiveSet(Hp,gp,Aineq,bineq,Aeq,beq,seed,primary,first_iters);
+            DenseQpActiveSetDiagnostics primary_diagnostic;
+            if(snapshot){snapshot->stage="body_stance_primary";snapshot->H=Hp;snapshot->g=gp;snapshot->seed=seed;}
+            qp_ok=SolveDenseQpPrimalActiveSet(Hp,gp,Aineq,bineq,Aeq,beq,seed,primary,first_iters,
+                snapshot ? &primary_diagnostic : nullptr);
+            if(snapshot) snapshot->failure=primary_diagnostic.failure;
             if(qp_ok) {
                 Eigen::MatrixXd E(Aeq.rows()+priority_map.rows(),n);
                 Eigen::VectorXd d(beq.size()+priority_map.rows());
                 E<<Aeq,priority_map;d<<beq,priority_map*primary;
-                qp_ok=SolveDenseQpPrimalActiveSet(H,g,Aineq,bineq,E,d,primary,x,iters);
-                if(snapshot){snapshot->Aeq=E;snapshot->beq=d;}
+                DenseQpActiveSetDiagnostics secondary_diagnostic;
+                if(snapshot){snapshot->stage="remaining_tasks_secondary";snapshot->H=H;snapshot->g=g;
+                    snapshot->Aeq=E;snapshot->beq=d;snapshot->seed=primary;}
+                qp_ok=SolveDenseQpPrimalActiveSet(H,g,Aineq,bineq,E,d,primary,x,iters,
+                    snapshot ? &secondary_diagnostic : nullptr);
+                if(snapshot) snapshot->failure=secondary_diagnostic.failure;
                 if(qp_ok) {
                     output.priority_preservation_residual=(priority_map*(x-primary)).lpNorm<Eigen::Infinity>();
                     output.body_stance_priority_used=true;

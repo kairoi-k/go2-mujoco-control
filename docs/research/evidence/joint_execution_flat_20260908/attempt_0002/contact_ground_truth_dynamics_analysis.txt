@@ -1,0 +1,17 @@
+rows=11993
+balance_samples=11992
+time_span_s=23.984
+median_dt_s=0.002
+total_mass_min_kg=15.206408
+total_mass_max_kg=15.206408
+gravity_world_mps2=0,0,-9.81
+gravity_drift_mps2=0
+p95_force_balance_residual_N=1.03122549
+rms_force_balance_residual_N=0.565578896
+max_force_balance_component_residual_N=6.45398587
+max_force_balance_residual_norm_N=7.57837945
+max_residual_time_s=20.406
+max_residual_components_N=3.97094854,-0.0973096826,6.45398587
+force_balance_tolerance_N=20
+force_balance_validation=PASS
+validation=PASS

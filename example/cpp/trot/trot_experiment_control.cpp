@@ -224,7 +224,38 @@ bool TrotExperiment::ApplyJointExecutionTorque(
         reference.center_reference, measured, now, joint_execution_yaw_);
     const double elapsed_us=std::chrono::duration<double,std::micro>(
         std::chrono::steady_clock::now()-begin).count();
-    if (!tick.ok || !tick.tau_valid) return request_stop(tick.failure);
+    if (!tick.ok || !tick.tau_valid) {
+        if (tick.failure=="wbc_solver_failed") {
+            // Deterministic failure-only reconstruction: no matrix copies on
+            // successful ticks and no replacement of the rejected command.
+            go2_control::IdWbcQpSnapshot qp;
+            go2_control::IdWbcOutput repeated;
+            const bool repeated_ok=go2_control::SolveInverseDynamicsWbc(
+                tick.params,tick.wbc_input,repeated,&qp);
+            int planned_mask=0,measured_mask=0;
+            for(int leg=0;leg<4;++leg){if(tick.wbc_input.contact[leg])planned_mask|=1<<leg;
+                if(tick.wbc_input.measured_contact[leg])measured_mask|=1<<leg;}
+            std::ostringstream dump;dump.precision(17);
+            dump << "JointExecutionQpFailure state=" << now.seconds()
+                << " stage=" << qp.stage << " detail=" << qp.failure
+                << " repeated_ok=" << repeated_ok << " planned_mask=" << planned_mask
+                << " measured_mask=" << measured_mask << "\n";
+            const auto matrix=[&](const char *name,const Eigen::MatrixXd &m) {
+                dump << "JointExecutionQpMatrix name=" << name
+                    << " rows=" << m.rows() << " cols=" << m.cols() << " values=";
+                for(Eigen::Index row=0;row<m.rows();++row)
+                    for(Eigen::Index col=0;col<m.cols();++col) {
+                        if(row || col)dump << ',';
+                        dump << m(row,col);
+                    }
+                dump << "\n";
+            };
+            matrix("H",qp.H);matrix("g",qp.g);matrix("Aineq",qp.Aineq);matrix("bineq",qp.bineq);
+            matrix("Aeq",qp.Aeq);matrix("beq",qp.beq);matrix("seed",qp.seed);matrix("iterate",qp.iterate);
+            std::cout << dump.str();
+        }
+        return request_stop(tick.failure);
+    }
     for (int motor=0;motor<12;++motor) {
         auto &command=low_cmd_.motor_cmd()[motor];
         command.q()=actual.q[motor];command.dq()=0.0;

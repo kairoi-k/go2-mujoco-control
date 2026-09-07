@@ -49,3 +49,18 @@ legacy period has settled; it is NOT a repair or acceptance of variable-period
 execution. Capture now correctly passes active commitments into PhaseClock,
 so an incompatible timing request cannot silently mutate the accepted epoch.
 A durable event-calendar transition design remains an open architecture item.
+
+## Actual attempt 0002: runtime 8f3e04afa97507ff4151838c4edf608923d2702e
+Fixed-period execution adopts at21.018 and applies46 commands, with46 raw CSV
+zero-PD witnesses, across3accepted versions. The period remains .14/epoch1.
+At21.112 WBC fails and requests stop; the first preceding planner rejection was
+initial_contact_anchor_unavailable at21.062. Sampled COM/foot errors reach
+1.926/63.569mm; sampled feedback latency p50/p95/max199.878/243.146/251.526us.
+This is another FAILED flat diagnostic. It separates the numerical/feedback
+problem from the earlier period transition; neither is considered solved.
+
+Next registered diagnostic: joint_execution_flat_20260908_0003, identical fixed
+start21s protocol. On a failed WBC call only, reconstruct the same deterministic
+QP with original stage matrices, seed, and active-set failure detail. Do not
+replace the rejected command with this second solve. This capture distinguishes
+primary from secondary HQP failures without adding successful-tick matrix copies.
