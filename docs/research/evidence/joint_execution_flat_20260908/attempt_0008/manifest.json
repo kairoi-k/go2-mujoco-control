@@ -1,0 +1,13 @@
+{
+  "runtime_sha": "9c1ed03c9099809bcb22123fc7599c87e2759752",
+  "raw_run": "example/cpp/experiments/_runs/joint_execution_flat_20260908_0008",
+  "files": {
+    "README.md": "f549f2f0f1f83fa3bcdc85c28c2c24d4c87142d9a8948d6f80f0db1a32c451e7",
+    "execution_audit.json": "b6e42297017056f589dc51c893bc3891fe52b77ddca5e8e88e1b07cda18de58a",
+    "first_qp.txt": "1d100451deb50a06aaba05148f3ba178085ec0436b316020fbbf2e9fa26c38a4",
+    "focused_tests.txt": "2aae9a872ede2fc70f405628abc38c8ae2a7f33e608930ffedef6aaf8d42c284",
+    "qp_replay.txt": "12c68d6b69b35f0f63c85cea56a2dcd35396a6491f5550e083941b78c12d346a",
+    "tracking_audit.json": "aef9e55a8654bd9ef6931029c1ea354ab14c80dac490624b8ab68b0c7c9e32a6",
+    "tracking_excerpt.txt": "af41ba60abc72448b5a4d6a439f251375a797e93cf62d823bf789395de9d0f8e"
+  }
+}

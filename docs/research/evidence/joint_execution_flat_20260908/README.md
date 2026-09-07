@@ -80,3 +80,7 @@ next action; historical registrations above are retained.
 Terminal-binding follow-up: [terminal_binding_audit](terminal_binding_audit/README.md)
 retains25 conditional terminal choices, full coverage and subsequent initial
 condition rejection. This advances diagnosis, not closed-loop acceptance.
+
+Actual coherent-body canary [attempt_0008](attempt_0008/README.md) fails posture
+with four versions. Exact first-QP replay passes; initial legacy-command
+handover reference differs substantially from actual foot velocities.

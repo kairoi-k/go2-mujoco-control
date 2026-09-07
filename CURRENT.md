@@ -28,9 +28,20 @@ prepared swing-curve leases. Body/force validity is never extended by a curve
 lease. An initial <=20ms stance-reference bridge currently propagates its
 acceleration into WBC; contact-motion compatibility is unresolved. Planned,
 measured, applied and collision-truth contact remain different quantities.
-## Latest actual runtime and causal evidence
+## Latest actual runtime: coherent-body canary0008 FAILED
+Clean source9c1ed03c9099809bcb22123fc7599c87e2759752, actual coherent_body=1.
+First21.004, four versions, last sampled21.278/count137; posture roll-22.0233deg,
+pitch9.9677deg triggers stop. No executor QP failure; exact first-QP replay
+matches. Foot139.332mm, COM11.6249mm; sampled latency287.864/334.1151/344.2us.
+Evidence joint_execution_flat_20260908/attempt_0008. Short replay improvement
+has NOT transferred to sustained actual execution; this candidate is not promoted.
+Initial legacy command handover requests stance ax52.08/47.62m/s2, with opposite
+sign commanded versus actual stance vx. This transition is absent from the short
+state-initialized replay. Next compare matched first-takeover initialization,
+retaining actual q/dq and later accepted commitments; no gain sweep.
+## Previous actual runtime and causal evidence
 Worktree `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`, branch
-`feat/stage-c-joint-planner`. Git determines current source HEAD. Latest full
+`feat/stage-c-joint-planner`. Git determines current source HEAD. Previous full
 executed clean runtime is `9c5c836fe98370812f0f1bc94b9c2ec718d638e6`.
 Its opt-in shared orientation/swing priority flat run (attempt0007) FAILS:
 STATE21.024 first adoption, last sampled command21.168/count73, then posture
