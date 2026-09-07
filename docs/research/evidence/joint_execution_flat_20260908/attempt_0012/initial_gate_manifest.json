@@ -1,0 +1,6 @@
+{
+  "runtime_sha": "9b59786f8c05e5a35026bf78b276e48fb0b6c3c8",
+  "mode": "TROT_RESEARCH_JOINT_INITIAL_DYNAMICS=1",
+  "source_snapshot_sha256": "b86474ca4e4e2bafa02d8db75e91499030865ab4fa67c46d7d664b8a94ad5a16",
+  "claim": "two visited combinations rejected; remaining combinations unknown; no closed-loop run"
+}

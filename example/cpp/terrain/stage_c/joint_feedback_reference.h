@@ -448,7 +448,7 @@ inline ArticulatedTargetCheck CheckInitialNominalTarget(
  go2_control::Go2RigidBody &robot,const go2_control::RigidBodyState &state,
  const CentroidalProblem &problem,const CentroidalResult &result) {
  ArticulatedTargetCheck out;
- if(problem.grid.size()<2)return out;
+ if(problem.grid.size()<2){out.failure=JointPlannerFailure::kCoverageIncomplete;return out;}
  const TimeNs start=problem.grid.front();
  const TimeNs end{std::min(problem.grid.back().value,start.value+200000000)};
  FootTrajectoryRequest feet;std::array<Eigen::Vector3d,4> velocity;std::string failure;
@@ -457,7 +457,9 @@ inline ArticulatedTargetCheck CheckInitialNominalTarget(
  const auto sample=SampleFootTrajectoryAt(feet,start);
  const auto centroidal=SampleCentroidalTrajectory(problem,result,start);
  const auto *interval=FindSchedule(problem,start);
- if(!sample.valid||sample.samples.size()!=1||!centroidal.force_valid||!interval)return out;
+ if(!sample.valid){out.failure=sample.failure;return out;}
+ if(sample.samples.size()!=1){out.failure=JointPlannerFailure::kNumericalFailure;return out;}
+ if(!centroidal.force_valid||!interval){out.failure=JointPlannerFailure::kCoverageIncomplete;return out;}
  go2_control::RigidBodyPlanningKinematics actual;
  if(!robot.EvaluatePlanningKinematics(state,actual)||!actual.valid)return out;
  BodyAccelerationTarget target;target.com_acceleration_valid=true;

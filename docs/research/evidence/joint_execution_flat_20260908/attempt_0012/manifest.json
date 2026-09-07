@@ -7,6 +7,8 @@
     "execution_audit.json": "e9e1edd1cb5ffba1af547df5b23b8a47098788025bc390c7e474cf4c670a58df",
     "execution_excerpt.txt": "5b4c60c40547f0012de8ad9b4496172fc8d9d54ed8e8e2466a0bb5e98708d18f",
     "first_failure.json": "98f6079e3c6bc24e4b0f47a528bbf8e84a07e4ec30ea9d4d9c3c462945998084",
+    "initial_gate_manifest.json": "9dcc2bc7f2c3e5a5d1a788a3b871c7b00a4689b528953e1d89cc47ca564a11f1",
+    "initial_gate_replay.txt": "64f99da0dd81b04a60a1e981b270d6621b908ce5b5c0e7ecaf854f929575f6e0",
     "initial_source.txt": "b86474ca4e4e2bafa02d8db75e91499030865ab4fa67c46d7d664b8a94ad5a16",
     "initial_source.txt.meta.json": "ea34d265d5b74247ec18253d5cada5cf2aacb003d6210b6e62d0dada2fee50db",
     "initial_target_certificate.json": "9ac3b54f59d6a3b1acde6898ad1a85fe4b956d5e01054d056cc399c83df6fe28",

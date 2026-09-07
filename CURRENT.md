@@ -267,3 +267,16 @@ unknown-input focused fixtures pass. Evidence initial_target_certificate.json.
 This checker is used in replay audit, not yet runtime selection. Next integrate
 actual-state target verification into combination evaluation and jointly alter
 body/limb references; rejection alone cannot create a successful B1 candidate.
+
+## Initial articulated candidate gate (opt-in)
+TROT_RESEARCH_JOINT_INITIAL_DYNAMICS=1 validates each centroidal-feasible
+combination before ranking, using actual q/dq, nominal swing acceleration,
+actual force application points and existing35Nm physical certificate.
+Default retains historical centroidal-only selection. Explicit checked flags
+and rejection counts distinguish these modes; passing is not full trajectory
+or contact realization. Unknown/failed checks cannot expose a checked winner.
+0012 recorded-source exact replay rejects the first two combinations at312.044
+and506.433Nm. Overall budget_exhausted correctly means unsearched combinations
+remain unknown, not global infeasibility. No new MuJoCo closed-loop run.
+Next generate/optimize physically realizable remaining-swing footholds jointly
+with body motion; a rejection gate alone cannot achieve the objective.
