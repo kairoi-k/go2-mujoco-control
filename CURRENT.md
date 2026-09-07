@@ -311,3 +311,12 @@ builds. Evidence transition_probe_result and actual_source_contact in oracle
 packet. This is not a planned-trajectory rollout or new B1 run. Next inspect
 initial in-flight clearance by phase and model liftoff/landing force transition;
 do not promote contact-free torque or impose a velocity reset.
+
+## Phase-preserving in-flight clearance implemented
+Opt-in preserve_inflight_clearance_phase retains actual p/v and original event
+times, with exact quartic Hermite remainder scaled by remaining-phase^4.
+Early/apex/late tilted-normal p/v/a equivalence tests and independent scalar
+identity pass. Read-only --articulated-phase-audit is available; no controller
+runtime switch wired.0012 initial torque310.601Nm still fails35Nm. Evidence
+phase_preserving_clearance_20260908. Include this corrected shape in subsequent
+joint body/landing-target/velocity optimization; it does not itself fix B1.

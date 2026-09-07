@@ -1,0 +1,12 @@
+{
+  "runtime_sha": "f64d4fb644842312fde98a6f957503bb2a81268c",
+  "b1_claim": false,
+  "binary_sha256": "1c2492055f8d06c03a6486889f6d5b0fcafa6da90355a548e775bbcf78aa7ed4",
+  "source_sha256": "b86474ca4e4e2bafa02d8db75e91499030865ab4fa67c46d7d664b8a94ad5a16",
+  "files": {
+    "README.md": "8adcfda5b4563ea8e4dce923da27dc3579b0b8e6b25fbf42c374f6af55f670ed",
+    "check_remainder.py": "e5a147d5deca64a7554632dddd6f764dba0a78c203134faedcd976c69038aeaf",
+    "initial_audit.json": "ed5ca628e2b219d2dfc41626c417caa352b5eba8ae8ab28aa90ef216ababc0e6",
+    "remainder_result.json": "80a705509aa0d53b5cfb269ee47e19315ca2683ba1b60f43804d14afb5874948"
+  }
+}
