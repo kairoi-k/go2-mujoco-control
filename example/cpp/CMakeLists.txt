@@ -339,7 +339,7 @@ if(EXISTS "${_go2_mujoco_lib}")
 endif()
 
 if(EXISTS "${_go2_mujoco_lib}")
-  foreach(test_name IN ITEMS test_motor_command_certificate test_stage_c_prepare_joint_problem test_stage_c_feedback_step test_stage_c_centroidal_wbc test_stage_c_model_observation test_stage_c_joint_trajectory test_id_wbc_force_application test_stage_c_articulated_certificate)
+  foreach(test_name IN ITEMS test_joint_closed_loop_reference test_motor_command_certificate test_stage_c_prepare_joint_problem test_stage_c_feedback_step test_stage_c_centroidal_wbc test_stage_c_model_observation test_stage_c_joint_trajectory test_id_wbc_force_application test_stage_c_articulated_certificate)
     add_executable(${test_name} tests/${test_name}.cpp)
     target_include_directories(${test_name} PRIVATE "${_go2_mujoco_inc}")
     target_link_libraries(${test_name} "${_go2_mujoco_lib}" Eigen3::Eigen unitree_sdk2 stage_c_centroidal)

@@ -63,6 +63,10 @@ struct IdWbcInput
     // weights with the appropriate physical units. Dynamics constraints stay
     // unchanged. The legacy base objective is used only when this is absent.
     bool have_centroidal_motion_task = false;
+    // Independent body angular-acceleration feedback in the same QP. COM/L
+    // tracking does not by itself regulate absolute body attitude. This flag
+    // is valid only with the centroidal task and leaves legacy defaults alone.
+    bool have_centroidal_orientation_task = false;
     Eigen::Matrix<double, 6, kGo2Nv> centroidal_motion_map =
         Eigen::Matrix<double, 6, kGo2Nv>::Constant(std::numeric_limits<double>::quiet_NaN());
     Eigen::Matrix<double, 6, 1> centroidal_motion_bias =
@@ -128,6 +132,7 @@ struct IdWbcOutput
     // last accepted command.  This makes a rare invalid tick diagnosable
     // without changing plant authority or relaxing a safety constraint.
     bool centroidal_motion_task_used = false;
+    bool centroidal_orientation_task_used = false;
     bool qp_converged = false;
     bool qp_recovery_used = false;
     bool solution_finite = false;
@@ -263,6 +268,8 @@ inline bool SolveInverseDynamicsWbc(
     Eigen::MatrixXd H = Eigen::MatrixXd::Zero(n, n);
     Eigen::VectorXd g = Eigen::VectorXd::Zero(n);
 
+    if (input.have_centroidal_orientation_task && !input.have_centroidal_motion_task)
+        return false;
     Eigen::Matrix<double, 6, 1> a_des;
     a_des << input.desired_linear_acc_world, input.desired_angular_acc_body;
     Eigen::Matrix<double, 6, 6> Wb = Eigen::Matrix<double, 6, 6>::Zero();
@@ -285,6 +292,15 @@ inline bool SolveInverseDynamicsWbc(
         g.head<nqdd>() += 2.0 * map.transpose() * weights *
             (input.centroidal_motion_bias - input.desired_centroidal_derivative);
         output.centroidal_motion_task_used = true;
+        if (input.have_centroidal_orientation_task)
+        {
+            if (!input.desired_angular_acc_body.allFinite() ||
+                !std::isfinite(params.w_base_ang) || params.w_base_ang <= 0.0)
+                return false;
+            H.block<3,3>(3,3).diagonal().array() += 2.0 * params.w_base_ang;
+            g.segment<3>(3) -= 2.0 * params.w_base_ang * input.desired_angular_acc_body;
+            output.centroidal_orientation_task_used = true;
+        }
     }
     else
     {
@@ -548,7 +564,8 @@ inline bool SolveInverseDynamicsWbc(
         output.cost_terms.centroidal_motion =
             (input.centroidal_motion_weights.array() * error.array().square()).sum();
         output.cost_terms.base_linear = 0.0;
-        output.cost_terms.base_angular = 0.0;
+        if (!input.have_centroidal_orientation_task)
+            output.cost_terms.base_angular = 0.0;
     }
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {

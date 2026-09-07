@@ -34,7 +34,7 @@ for line in (args.run/'controller.log').read_text().splitlines():
   pd=v('kp')*(v('q_target')-v('q_state'))+v('kd')*(v('dq_target')-v('dq_state'))
   requested=v('tau_ff')+pd;applied=min(limits[i][1],max(limits[i][0],requested));error=max(abs(requested-float(d[f'requested{i}'])),abs(applied-float(d[f'predicted_applied{i}'])))
   max_error=max(max_error,error);assert error<1e-5,(tick,name,error)
-  witness=dict(motor=name,pd_nm=pd,tau_ff_nm=v('tau_ff'),requested_nm=requested,predicted_applied_nm=applied,saturation_nm=abs(requested-applied))
+  witness=dict(motor=name,position_pd_nm=v('kp')*(v('q_target')-v('q_state')),velocity_pd_nm=v('kd')*(v('dq_target')-v('dq_state')),q_target=v('q_target'),q_state=v('q_state'),dq_target=v('dq_target'),dq_state=v('dq_state'),kp=v('kp'),kd=v('kd'),pd_nm=pd,tau_ff_nm=v('tau_ff'),requested_nm=requested,predicted_applied_nm=applied,saturation_nm=abs(requested-applied))
   if worst is None or witness['saturation_nm']>worst['saturation_nm']:worst=witness
  records.append(dict(state_time_s=tick*.001,command_time_s=float(row['cmd_time_s']),requested_speed_mps=float(row['velocity_command_requested_mps']),**worst))
 summary={'schema':'raw-motor-envelope-audit-v1','runtime_sha':args.runtime_sha,'scope':'current consumed-state composition with declared MJCF limits, not later measured actuator force','input_sha256':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in [args.run/'run_manifest.json',args.run/'data.csv',args.run/'controller.log',args.model,Path(__file__)]},'maximum_csv_vs_runtime_residual_nm':max_error,'windows':{}}

@@ -37,3 +37,5 @@ Reproduce the independent actuator audit with:
 `python3 docs/research/evidence/joint_terrain_history_20260907/analyze_motor_envelope.py example/cpp/experiments/_runs/joint_history_flat_20260907_0001 --runtime-sha cc696232eab2d184b5c98fa89674f8d029895dad --model unitree_robots/go2/go2.xml --out /tmp/FRESH_MOTOR_AUDIT.json`.
 Next: a separately bound short-horizon MuJoCo feedback-backend diagnostic,
 then unified reference adoption. Do not repeat the unchanged failed5cm legacy run.
+
+Worst saturation decomposition: joint position PD is approximately-30.52Nm and velocity PD approximately-82.00Nm. RL calf desired/actual speed is-10/+12.0917rad/s at that consumed state; actual command fields are retained in the independent raw audit. Effective gait period/duty/lift at that state are0.14s/0.44/0.051851852m. This motivates reference acceleration and final actuator checks, without attributing all gait quality failures to this one transient.

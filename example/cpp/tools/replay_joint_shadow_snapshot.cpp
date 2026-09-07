@@ -1,4 +1,5 @@
 #include "../trot/joint_planning_shadow.h"
+#include "stage_c/joint_closed_loop_replay.h"
 #include <fstream>
 #include <stdexcept>
 struct Reader {
@@ -20,7 +21,8 @@ go2_terrain::TerrainModel ReadTerrainModel(Reader &r) {
 }
 int main(int argc,char**argv){try {
  const bool roundtrip=argc==3 && std::string(argv[2])=="--roundtrip";
- if(argc!=2 && !roundtrip)throw std::runtime_error("usage: replay_joint_shadow_snapshot EXTRACTED_SNAPSHOT [--roundtrip]");
+ const bool closed_loop=argc==5 && std::string(argv[2])=="--closed-loop";
+ if(argc!=2 && !roundtrip && !closed_loop)throw std::runtime_error("usage: replay_joint_shadow_snapshot EXTRACTED_SNAPSHOT [--roundtrip | --closed-loop SCENE NEW_OUTPUT_CSV]");
  Reader r(argv[1]);const auto schema=r.word();const bool has_history=schema=="joint-shadow-snapshot-v2";
  if(schema!="joint-shadow-snapshot-v1" && !has_history)throw std::runtime_error("unsupported snapshot");
  const auto id=r.integer();const auto pattern=r.integer();if(pattern>static_cast<unsigned>(go2_control::GaitPattern::kRunningTrot))throw std::runtime_error("invalid pattern");
@@ -53,5 +55,13 @@ int main(int argc,char**argv){try {
  if(!state.position_world.allFinite() || !state.linear_vel_world.allFinite() || !state.angular_vel_body.allFinite() || !state.q.allFinite() || !state.dq.allFinite() || !state.quat_world_from_body.coeffs().allFinite() || state.quat_world_from_body.norm()<1e-12)throw std::runtime_error("invalid actual state");
  if(roundtrip){std::cout<<go2_trot::JointShadowSnapshotJson(state,input,id,static_cast<int>(pattern),has_history?&history:nullptr)<<"\n";return 0;}
  go2_trot::JointPlanningShadow shadow;if(!shadow.Load(GO2_MODEL_PATH))throw std::runtime_error("model load");
- shadow.Capture(state,input,id,static_cast<go2_control::GaitPattern>(pattern),has_history?&history:nullptr);return 0;
+ shadow.Capture(state,input,id,static_cast<go2_control::GaitPattern>(pattern),has_history?&history:nullptr);
+ if(closed_loop){
+  const auto replay=go2_terrain::stage_c::joint_closed_loop_detail::RunJointClosedLoopReplay(
+   shadow.last_source_state(),shadow.last_proposal(),argv[3],argv[4]);
+  std::cout<<"closed_loop completed="<<replay.completed<<" model_match="<<replay.model_match
+   <<" rows="<<replay.rows<<" failure="<<replay.failure<<"\n";
+  return replay.completed?0:2;
+ }
+ return 0;
 }catch(const std::exception&e){std::cerr<<e.what()<<"\n";return 1;}}

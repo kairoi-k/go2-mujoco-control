@@ -25,6 +25,23 @@ int main(){try {
     Check(!SolveInverseDynamicsWbc(params,bad,out),"unknown task rejected");
     bad=input;bad.centroidal_motion_weights[0]=-1;
     Check(!SolveInverseDynamicsWbc(params,bad,out),"negative weights rejected");
+    // Analytic free-body/joint coupling: qdd_body=-0.5*qdd_joint.
+    // Centroidal cost 4*(x-2)^2 plus attitude cost (x-4)^2 has x=2.4.
+    auto coupled=input;auto coupled_params=params;coupled_params.w_base_ang=4;
+    coupled.dynamics.mass_matrix(3,6)=coupled.dynamics.mass_matrix(6,3)=.5;
+    coupled.have_centroidal_orientation_task=true;
+    coupled.desired_angular_acc_body<<-2,0,0;
+    Check(SolveInverseDynamicsWbc(coupled_params,coupled,out),"coupled attitude solve");
+    Check(out.centroidal_orientation_task_used && std::abs(out.qdd[6]-2.4)<1e-5 &&
+          std::abs(out.qdd[3]+1.2)<1e-5,"independent coupled optimum");
+    Check(std::abs(out.cost_terms.base_angular-2.56)<1e-5 &&
+          std::abs(out.cost_terms.centroidal_motion-.64)<1e-5,"attitude cost accounting");
+    auto invalid_attitude=coupled;invalid_attitude.desired_angular_acc_body.x()=NAN;
+    Check(!SolveInverseDynamicsWbc(coupled_params,invalid_attitude,out),"unknown attitude rejected");
+    invalid_attitude=coupled;invalid_attitude.have_centroidal_motion_task=false;
+    Check(!SolveInverseDynamicsWbc(coupled_params,invalid_attitude,out),"orphan attitude flag rejected");
+    coupled_params.w_base_ang=0;
+    Check(!SolveInverseDynamicsWbc(coupled_params,coupled,out),"absent attitude weight rejected");
     Go2RigidBody robot;Check(robot.Load(GO2_MODEL_PATH),"actual model");
     RigidBodyState state;state.position_world.z()=.4;
     state.q<<0,.8,-1.6,0,.8,-1.6,0,.8,-1.6,0,.8,-1.6;
