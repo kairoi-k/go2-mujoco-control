@@ -79,6 +79,11 @@ struct FootTrajectoryRequest
     // Optional command-only handover seed. When enabled, Prepare reads only
     // this boundary for initial center/p/v and leaves measured input untouched.
     CommandedReferenceBoundary commanded_initial{};
+    // Opt-in soft-reference settling for a commanded stance velocity. This
+    // changes only the generated WBC reference prefix; it never changes
+    // measured input, contact schedule, touchdown targets or plant state.
+    bool enable_commanded_stance_settling = false;
+    double commanded_stance_settling_duration_s = 0.0;
 };
 struct FootTrajectorySample
 {
@@ -126,6 +131,8 @@ struct PreparedTrajectory
     bool add_clearance_to_inflight_continuation = true;
     std::array<Eigen::Vector3d, go2::kLegCount> initial_center;
     std::array<Eigen::Vector3d, go2::kLegCount> initial_velocity;
+    std::array<bool, go2::kLegCount> commanded_stance_settling{};
+    std::array<TimeNs, go2::kLegCount> commanded_stance_settling_end{};
     std::array<std::vector<std::size_t>, go2::kLegCount> events_by_leg{};
     std::vector<PreparedEvent> events;
 
@@ -416,6 +423,12 @@ inline JointPlannerFailure Prepare(
         problem.schedule_epoch != input.identity.schedule_epoch ||
         problem.schedule_epoch == 0)
         return JointPlannerFailure::kObservationUnavailable;
+    if (request.enable_commanded_stance_settling &&
+        (!has_commanded_boundary ||
+         !std::isfinite(request.commanded_stance_settling_duration_s) ||
+         request.commanded_stance_settling_duration_s <= 0.0 ||
+         request.commanded_stance_settling_duration_s > 0.020))
+        return JointPlannerFailure::kInitialConditionConflict;
     if (has_commanded_boundary &&
         !request.commanded_initial.valid_for(request.start))
         return JointPlannerFailure::kObservationUnavailable;
@@ -598,18 +611,63 @@ inline JointPlannerFailure Prepare(
         ValidateSchedule(problem, prepared, request.start, request.end);
     if (schedule_failure != JointPlannerFailure::kNone)
         return schedule_failure;
+    TimeNs commanded_stance_settling_duration{};
+    if (request.enable_commanded_stance_settling)
+    {
+        commanded_stance_settling_duration =
+            TimeNs::FromSeconds(request.commanded_stance_settling_duration_s);
+        if (commanded_stance_settling_duration.value <= 0)
+            return JointPlannerFailure::kInitialConditionConflict;
+    }
     for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
     {
         bool in_flight_at_start = false;
+        bool swing_at_start = false;
+        TimeNs next_stance_boundary = request.end;
         for (const auto prepared_index : prepared.events_by_leg[leg])
         {
             auto &event = prepared.events[prepared_index];
             if (event.liftoff < request.start &&
                 request.start < event.touchdown)
                 in_flight_at_start = true;
+            if (event.liftoff <= request.start &&
+                request.start < event.touchdown)
+                swing_at_start = true;
+            if (event.liftoff > request.start &&
+                event.liftoff < next_stance_boundary)
+                next_stance_boundary = event.liftoff;
+            if (event.touchdown <= request.start &&
+                request.start < event.contact_end &&
+                event.contact_end < next_stance_boundary)
+                next_stance_boundary = event.contact_end;
+        }
+        const bool initial_stance = !swing_at_start;
+        bool settling = false;
+        const bool needs_settling =
+            prepared.initial_velocity[leg].norm() > 1.0e-12;
+        if (request.enable_commanded_stance_settling && initial_stance &&
+            needs_settling)
+        {
+            const TimeNs settling_limit =
+                next_stance_boundary < request.end ? next_stance_boundary
+                                                    : request.end;
+            if (settling_limit <= request.start)
+                return JointPlannerFailure::kInitialConditionConflict;
+            const std::int64_t available_ns =
+                settling_limit.value - request.start.value;
+            const std::int64_t duration_ns = std::min(
+                commanded_stance_settling_duration.value, available_ns);
+            if (duration_ns <= 0 ||
+                request.start.value >
+                    std::numeric_limits<std::int64_t>::max() - duration_ns)
+                return JointPlannerFailure::kInitialConditionConflict;
+            const TimeNs settling_end{request.start.value + duration_ns};
+            prepared.commanded_stance_settling[leg] = true;
+            prepared.commanded_stance_settling_end[leg] = settling_end;
+            settling = true;
         }
         if (prepared.initial_velocity[leg].norm() > 1.0e-12 &&
-            !in_flight_at_start)
+            !in_flight_at_start && !settling)
             return JointPlannerFailure::kInitialConditionConflict;
         const PreparedEvent *completed_at_start = nullptr;
         if (has_commanded_boundary && !in_flight_at_start)
@@ -622,11 +680,14 @@ inline JointPlannerFailure Prepare(
             }
             // SamplePrepared selects the completed touchdown state at the
             // handover boundary. Reject a mismatched commanded p/v instead
-            // of silently truncating or restarting a swing.
+            // of silently truncating or restarting a swing. Settling may only
+            // bridge from a previously completed touchdown; it cannot hide a
+            // position mismatch at an exact touchdown boundary.
             if (completed_at_start != nullptr &&
                 ((prepared.initial_center[leg] - completed_at_start->p1).norm() >
                      1.0e-10 ||
-                 prepared.initial_velocity[leg].norm() > 1.0e-12))
+                 (prepared.initial_velocity[leg].norm() > 1.0e-12 &&
+                  !settling)))
                 return JointPlannerFailure::kInitialConditionConflict;
         }
         const PreparedEvent *previous = nullptr;
@@ -709,6 +770,24 @@ inline void EvaluateSwing(
     velocity += clearance_m * bump_d * event.normal / dt;
     acceleration += clearance_m * bump_dd * event.normal / (dt * dt);
 }
+inline void EvaluateCommandedStanceSettling(
+    const Eigen::Vector3d &position_start,
+    const Eigen::Vector3d &velocity_start, TimeNs start, TimeNs end,
+    TimeNs time, Eigen::Vector3d &position, Eigen::Vector3d &velocity,
+    Eigen::Vector3d &acceleration)
+{
+    const double dt = static_cast<double>(end.value - start.value) * 1.0e-9;
+    const double elapsed = static_cast<double>(time.value - start.value) * 1.0e-9;
+    const double u = std::clamp(elapsed / dt, 0.0, 1.0);
+    const double u2 = u * u;
+    const double u3 = u2 * u;
+    const double h10 = u3 - 2.0 * u2 + u;
+    const double h10_d = 3.0 * u2 - 4.0 * u + 1.0;
+    const double h10_dd = 6.0 * u - 4.0;
+    position = position_start + h10 * dt * velocity_start;
+    velocity = h10_d * velocity_start;
+    acceleration = (h10_dd / dt) * velocity_start;
+}
 inline FootTrajectorySample SamplePrepared(
     const PreparedTrajectory &prepared, TimeNs time)
 {
@@ -742,6 +821,13 @@ inline FootTrajectorySample SamplePrepared(
             }
         }
         (void)done;
+        if (prepared.commanded_stance_settling[leg] &&
+            time >= prepared.start &&
+            time <= prepared.commanded_stance_settling_end[leg])
+            EvaluateCommandedStanceSettling(
+                prepared.initial_center[leg], prepared.initial_velocity[leg],
+                prepared.start, prepared.commanded_stance_settling_end[leg],
+                time, position, velocity, acceleration);
         // time is the applicability stamp; source_time remains the
         // initial-reference provenance of this generated reference.
         sample.center_world[leg] = {

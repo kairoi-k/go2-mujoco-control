@@ -109,8 +109,9 @@ std::shared_ptr<JointExecutionProposal> ValidProposal(
         problem.schedule.push_back({
             swing_start, touchdown, {false, true, true, true},
             {-1, -1, -1, -1}});
-        problem.schedule.push_back({
-            touchdown, end, {true, true, true, true}, {0, -1, -1, -1}});
+        if (touchdown < end)
+            problem.schedule.push_back({
+                touchdown, end, {true, true, true, true}, {0, -1, -1, -1}});
     }
     selected->selected_valid = true;
     selected->search.feasible = true;
@@ -204,13 +205,18 @@ void TestCommandedHandoverNeverRewritesMeasuredInput()
     }
     owner.Publish(first);
     auto result = owner.Adopt(T(1.10), 101, &seed);
-    Check(result.status == OwnerStatus::kCommandHandoverConflict,
-          "nonzero stance boundary was silently reset");
-    Check(!owner.Accepted(), "failed handover changed accepted state");
-    for (auto &v : seed.velocity_world) v = {0.0, 0.0, 0.0};
-    result = owner.Adopt(T(1.10), 101, &seed);
     Check(result.status == OwnerStatus::kAdopted,
-          "continuous commanded boundary could not be adopted");
+          "bounded commanded stance settling rejected nonzero boundary");
+    const auto at_handover = owner.SampleAt(T(1.10));
+    const auto after_handover = owner.SampleAt(T(1.11));
+    Check(at_handover.valid && at_handover.bundle_valid &&
+              after_handover.valid && at_handover.curve_valid[0] &&
+              after_handover.curve_valid[0] &&
+              std::abs(at_handover.center_reference.velocity_world[0].x -
+                       seed.velocity_world[0].x) < 1.0e-12 &&
+              std::abs(after_handover.center_reference.velocity_world[0].x) <
+                  std::abs(seed.velocity_world[0].x),
+          "commanded stance settling was not continuous or bounded");
     Check(result.accepted->proposal->selected.get() == first->selected.get(),
           "handover replaced physical optimization input");
     Check(first->selected->selected_problem.request.input.feet[0]
@@ -218,6 +224,14 @@ void TestCommandedHandoverNeverRewritesMeasuredInput()
           "handover rewrote measured source timestamp");
     Check(owner.Adopt(T(1.11), 102).status == OwnerStatus::kRetained,
           "bound copy caused repeated adoption or requested another seed");
+    auto bad = ValidProposal(2, 1.0, 1.5);
+    bad->first_handover_from_commanded = true;
+    owner.Publish(bad);
+    auto invalid_seed = seed;
+    invalid_seed.source_time = T(1.09);
+    Check(owner.Adopt(T(1.10), 102, &invalid_seed).status ==
+              OwnerStatus::kMissingCommandedSeed,
+          "handover accepted a seed with a conflicting source time");
 
 }
 void TestInflightLeaseRefreshAndReplan()
@@ -268,6 +282,43 @@ void TestInflightLeaseRefreshAndReplan()
     Check(stance.valid && stance.curve_valid[0],
           "old curve lease was dropped before contact end");
 }
+void TestLeaseSurvivesExpiredFootHorizon()
+{
+    AtomicJointExecutionOwner owner;
+    auto first = ValidProposal(
+        1, 1.0, 1.30, true, 1.05, 1.25, 1.35, true);
+    // Restrict only the old reference/body lease; keep its original physical
+    // schedule valid and immutable, including the future touchdown.
+    first->foot_request.end = T(1.20);
+    first->valid_until = T(1.20);
+    owner.Publish(first);
+    Check(owner.Adopt(T(1.06), 101).status == OwnerStatus::kAdopted,
+          "short foot-horizon proposal rejected");
+
+    auto expected_request = first->foot_request;
+    expected_request.end = T(1.30);
+    const auto expected = SampleFootTrajectoryAt(expected_request, T(1.22));
+    Check(expected.valid && expected.samples.size() == 1,
+          "independent old swing extension was not prepared");
+
+    auto second = ValidProposal(
+        2, 1.02, 1.30, true, 1.05, 1.25, 1.35, true);
+    owner.Publish(second);
+    const auto adopted = owner.Adopt(T(1.22), 103);
+    Check(adopted.status == OwnerStatus::kAdopted &&
+              adopted.accepted && adopted.accepted->execution_version == 2,
+          "valid replacement body bundle rejected after old expiry");
+    const auto sample = owner.SampleAt(T(1.22));
+    Check(sample.valid && sample.bundle_valid && sample.curve_valid[0],
+          "old in-flight curve did not coexist with new body bundle");
+    Check(std::abs(sample.center_reference.center_world[0].value.x -
+                   expected.samples.front().center_world[0].value.x) < 1.0e-12 &&
+              std::abs(sample.center_reference.center_world[0].value.z -
+                   expected.samples.front().center_world[0].value.z) < 1.0e-12 &&
+              sample.center_reference.center_world[0].source_time == T(1.0),
+          "old swing polynomial was restarted or provenance changed");
+}
+
 void TestLeaseDoesNotExtendWholeBundle()
 {
     AtomicJointExecutionOwner owner;
@@ -311,6 +362,7 @@ int main()
         TestStaleDoesNotDropAccepted();
         TestCommandedHandoverNeverRewritesMeasuredInput();
         TestInflightLeaseRefreshAndReplan();
+        TestLeaseSurvivesExpiredFootHorizon();
         TestLeaseDoesNotExtendWholeBundle();
         TestCommittedEventComparisonIsStrict();
     }
@@ -319,6 +371,6 @@ int main()
         std::cerr << error.what() << "\n";
         return 1;
     }
-    std::cout << "atomic joint execution owner draft checks passed\n";
+    std::cout << "atomic joint execution owner checks passed\n";
     return 0;
 }

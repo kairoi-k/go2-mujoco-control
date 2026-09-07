@@ -2,6 +2,7 @@
 #include "trot_rigid_body_observation.h"
 #include "joint_planning_shadow.h"
 #include "motor_command_certificate.h"
+#include "stage_c/joint_feedback_controller.h"
 #include "stage_c/capture_terrain_view.h"
 
 #include <algorithm>
@@ -105,6 +106,139 @@ void TrotExperiment::PinCurrentThreadToEnv(const char *env_name)
 #endif
 }
 
+bool TrotExperiment::ResearchJointExecutionEnabled() const
+{
+    static const bool enabled = Full2EnvDouble("TROT_RESEARCH_JOINT_EXECUTION", 0.0) > 0.5;
+    return enabled;
+}
+bool TrotExperiment::ApplyJointExecutionTorque(
+    const unitree_go::msg::dds_::LowState_ &state,
+    const unitree_go::msg::dds_::SportModeState_ &high_state,
+    bool have_high_state,
+    const std::array<double, go2_trot::kMotorCount> &q_command,
+    const std::array<double, go2_trot::kMotorCount> &dq_command)
+{
+    using namespace go2_terrain::stage_c;
+    if (!ResearchJointExecutionEnabled() || state.tick()*1e-3 < 20.0 ||
+        task_.stop_requested_ || task_.sequence_finished_)
+        return false;
+    const TimeNs now = TimeNs::FromSeconds(state.tick()*1e-3);
+    auto request_stop = [&](const std::string &reason) {
+        std::cout << "JointExecution state=" << now.seconds()
+            << " applied=0 stop_requested=1 reason=" << reason << "\n";
+        task_.stop_requested_ = true;
+        task_.task_completion_requested_ = false;
+        if (task_.stop_start_time_s_ == 0.0) {
+            task_.stop_start_time_s_ = running_time_;
+            task_.stop_origin_joint_targets_ = q_command;
+            task_.have_stop_origin_joint_targets_ = true;
+        }
+        task_.motion_stage_ = 3;
+        return false;
+    };
+    if (!have_high_state || !rigid_body_) {
+        if (joint_execution_started_) return request_stop("actual_state_or_model_missing");
+        return false;
+    }
+    const auto actual = go2_trot::MakeRigidBodyState(state, high_state,
+        Eigen::Vector3d(high_state.velocity()[0], high_state.velocity()[1], high_state.velocity()[2]));
+    joint_execution::CommandedFootSeed seed;
+    seed.command_epoch = joint_execution_tick_count_ + 1;
+    seed.source_time = now;
+    const auto old_reference = joint_execution_owner_.SampleAt(now);
+    if (old_reference.valid) {
+        for (std::size_t leg=0;leg<go2::kLegCount;++leg) {
+            seed.center_world[leg] = old_reference.center_reference.center_world[leg];
+            seed.center_world[leg].source_time = now;
+            seed.velocity_world[leg] = old_reference.center_reference.velocity_world[leg];
+            seed.valid[leg] = old_reference.center_reference.leg_valid[leg];
+        }
+    } else if (!joint_execution_started_) {
+        // The old servo's q/dq command defines this reference; actual state
+        // remains a separate object and is restored by FeedbackTick.
+        auto command_state = actual;
+        for (int motor=0;motor<12;++motor) {
+            command_state.q[motor] = q_command[motor];
+            command_state.dq[motor] = dq_command[motor];
+        }
+        go2_control::RigidBodyPlanningKinematics commanded;
+        if (rigid_body_->EvaluatePlanningKinematics(command_state, commanded)) {
+            for (std::size_t leg=0;leg<go2::kLegCount;++leg) {
+                const auto p=commanded.dynamics.foot_pos_world[leg];
+                const double dt=(now.value-joint_previous_command_time_.value)*1e-9;
+                Eigen::Vector3d v=Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+                if (joint_previous_command_valid_ && dt>0.0 && dt<=0.010)
+                    v=(p-joint_previous_command_center_[leg])/dt;
+                joint_previous_command_center_[leg]=p;
+                seed.center_world[leg]={{p.x(),p.y(),p.z()},Frame::kWorld,now,true,PointRole::kFootCollisionCenter};
+                seed.velocity_world[leg]={v.x(),v.y(),v.z()};
+                seed.valid[leg]=p.allFinite() && v.allFinite();
+            }
+            joint_previous_command_time_=now;
+            joint_previous_command_valid_=true;
+        } else joint_previous_command_valid_=false;
+    }
+    const auto adoption = joint_execution_owner_.Adopt(now,state.tick(),&seed);
+    const auto reference = joint_execution_owner_.SampleAt(now);
+    if (!reference.valid || !adoption.accepted) {
+        if (joint_execution_started_) return request_stop("reference_expired_or_unavailable");
+        if (state.tick() >= joint_execution_last_report_tick_ + 100) {
+            joint_execution_last_report_tick_ = state.tick();
+            std::cout << "JointExecution state=" << now.seconds()
+                << " applied=0 adoption=" << static_cast<int>(adoption.status)
+                << " reason=awaiting_first_continuous_reference\n";
+        }
+        return false;
+    }
+    if (!joint_execution_started_) {
+        joint_execution_yaw_ = joint_feedback_reference::Rpy(actual.quat_world_from_body).z();
+        std::ostringstream handover;handover.precision(17);
+        handover << "JointExecutionHandover state=" << now.seconds()
+            << " source=" << adoption.accepted->proposal->identity.source_state_time.seconds()
+            << " proposal=" << adoption.accepted->proposal->proposal_id;
+        for (std::size_t leg=0;leg<go2::kLegCount;++leg)
+            handover << " seed_vx" << leg << "=" << seed.velocity_world[leg].x
+                << " seed_vy" << leg << "=" << seed.velocity_world[leg].y
+                << " seed_vz" << leg << "=" << seed.velocity_world[leg].z;
+        handover << "\n";std::cout << handover.str();
+    }
+    std::array<bool,go2::kLegCount> measured;
+    for (std::size_t leg=0;leg<go2::kLegCount;++leg)
+        measured[leg] = state.foot_force()[leg] >= kContactForceThreshold;
+    const auto begin=std::chrono::steady_clock::now();
+    const auto tick = joint_feedback_controller::FeedbackTick(
+        *adoption.accepted->proposal->selected, *rigid_body_, actual,
+        reference.center_reference, measured, now, joint_execution_yaw_);
+    const double elapsed_us=std::chrono::duration<double,std::micro>(
+        std::chrono::steady_clock::now()-begin).count();
+    if (!tick.ok || !tick.tau_valid) return request_stop(tick.failure);
+    for (int motor=0;motor<12;++motor) {
+        auto &command=low_cmd_.motor_cmd()[motor];
+        command.q()=actual.q[motor];command.dq()=0.0;
+        command.kp()=0.0;command.kd()=0.0;command.tau()=tick.tau[motor];
+    }
+    joint_execution_started_=true;
+    ++joint_execution_tick_count_;
+    if (state.tick() >= joint_execution_last_report_tick_+20 ||
+        adoption.status == joint_execution::OwnerStatus::kAdopted) {
+        joint_execution_last_report_tick_=state.tick();
+        std::cout << "JointExecution state=" << now.seconds()
+            << " applied=1 execution_version=" << reference.execution_version
+            << " proposal=" << adoption.accepted->proposal->proposal_id
+            << " count=" << joint_execution_tick_count_
+            << " adoption=" << static_cast<int>(adoption.status)
+            << " qp_iterations=" << tick.qp_iterations << " elapsed_us=" << elapsed_us
+            << " certificate=" << tick.id_certificate_valid
+            << " motor_envelope=" << tick.motor_envelope_valid
+            << " com_error_m=" << tick.com_error_m
+            << " foot_error_m=" << tick.max_foot_error_m
+            << " force_residual_N=" << tick.id_certificate.max_dynamics_force_residual_N
+            << " moment_residual_Nm=" << tick.id_certificate.max_dynamics_moment_residual_Nm
+            << " joint_residual_Nm=" << tick.id_certificate.max_joint_dynamics_residual_Nm
+            << " priority_residual=" << tick.wbc.priority_preservation_residual << "\n";
+    }
+    return true;
+}
 void TrotExperiment::PublishTerrainControlSnapshot(
     const unitree_go::msg::dds_::LowState_ &state_snapshot,
     const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
@@ -112,7 +246,7 @@ void TrotExperiment::PublishTerrainControlSnapshot(
 {
     if (!params_.terrain_enabled ||
         !std::isfinite(running_time_) ||
-        running_time_ - terrain_last_control_snapshot_s_ < 0.050)
+        running_time_ - terrain_last_control_snapshot_s_ < (ResearchJointExecutionEnabled() ? 0.020 : 0.050))
         return;
 
     TerrainControlSnapshot snapshot;
@@ -141,6 +275,8 @@ void TrotExperiment::PublishTerrainControlSnapshot(
                 high_state_snapshot.velocity()[2]));
         snapshot.rigid_body_state_valid = true;
     }
+    snapshot.joint_commitments = joint_execution_owner_.CommittedEvents(
+        go2_terrain::stage_c::TimeNs::FromSeconds(snapshot.state_stamp_s));
     snapshot.gait_phase = current_phase_;
     snapshot.gait_period_s = gait_period_s;
     snapshot.duty_factor = duty_factor;
@@ -233,10 +369,11 @@ void TrotExperiment::UpdateTerrainRuntime()
         control = terrain_control_snapshot_;
     }
     if (!control.valid || !std::isfinite(control.state_stamp_s) ||
-        control.state_stamp_s - terrain_last_update_s_ < 0.050)
+        control.state_stamp_s - terrain_last_update_s_ < (ResearchJointExecutionEnabled() ? 0.020 : 0.050))
         return;
 
     TerrainPlannerWork work;
+    work.joint_commitments = control.joint_commitments;
     work.rigid_body_state = control.rigid_body_state;
     work.rigid_body_state_valid = control.rigid_body_state_valid;
     work.map_epoch = ++terrain_map_epoch_;
@@ -330,7 +467,7 @@ void TrotExperiment::TerrainPlannerWorker()
         });
         return;
     }
-    const bool joint_shadow_enabled = Full2EnvDouble("TROT_RESEARCH_JOINT_SHADOW", 0.0) > 0.5;
+    const bool joint_shadow_enabled = Full2EnvDouble("TROT_RESEARCH_JOINT_SHADOW", 0.0) > 0.5 || ResearchJointExecutionEnabled();
     go2_trot::JointPlanningShadow joint_shadow;
     bool joint_shadow_loaded = false;
 #ifdef GO2_MODEL_PATH
@@ -412,8 +549,9 @@ void TrotExperiment::TerrainPlannerWorker()
                 joint_capture_history.pop_front();
         }
         if (joint_shadow_loaded && work.rigid_body_state_valid &&
-            work.input.state_stamp_s >= 20.0 && work.input.state_stamp_s <= 28.0 &&
-            work.input.state_stamp_s - joint_shadow_last_s >= 0.5)
+            work.input.state_stamp_s >= 20.0 &&
+            (ResearchJointExecutionEnabled() || work.input.state_stamp_s <= 28.0) &&
+            work.input.state_stamp_s - joint_shadow_last_s >= (ResearchJointExecutionEnabled() ? 0.019 : 0.5))
         {
             // Capture-side coverage separates sensor unknowns from registration
             // edge cropping. This is observation telemetry, never a fill policy.
@@ -454,10 +592,21 @@ void TrotExperiment::TerrainPlannerWorker()
             auto shadow_input = work.input;
             shadow_input.terrain = history.ok() ? history.snapshot.latest_model() : nullptr;
             joint_shadow.Capture(work.rigid_body_state, shadow_input, work.plan_id, params_.gait_pattern,
-                history.ok() ? &history.snapshot : nullptr);
+                history.ok() ? &history.snapshot : nullptr,
+                work.joint_commitments.events.empty() ? nullptr : &work.joint_commitments);
+            if (ResearchJointExecutionEnabled())
+            {
+                std::string execution_failure;
+                auto proposal = joint_shadow.BuildExecutionProposal(execution_failure);
+                if (proposal) joint_execution_owner_.Publish(std::move(proposal));
+                else std::cout << "JointExecutionProposal id=" << work.plan_id
+                    << " valid=0 reason=" << execution_failure << "\n";
+            }
             joint_shadow_last_s = work.input.state_stamp_s;
         }
-        auto result = terrain_planner_.Build(work.input, work.plan_id);
+        auto result = ResearchJointExecutionEnabled()
+            ? go2_terrain::TerrainPlannerResult{}
+            : terrain_planner_.Build(work.input, work.plan_id);
         result.plan.terrain_snapshot = model;
         if (result.publishable)
             terrain_plan_store_.Publish(result.plan);
@@ -701,10 +850,12 @@ bool TrotExperiment::LowCmdWrite(
 
     // WBC 主控模式:求解成功且扭矩有效时,扭矩直接作为主命令,
     // 位置伺服降为柔顺约束(kp/kd 小值);否则回退位置控制。
-    WriteMotorCommands(
-        wbc_primary_active, gait_elapsed_s,
-        joint_targets, joint_velocities,
-        wbc_torque_ff, apply_wbc_torque_ff);
+    if (!ApplyJointExecutionTorque(state_snapshot, high_state_snapshot,
+            have_state && have_high_state, joint_targets, joint_velocities))
+        WriteMotorCommands(
+            wbc_primary_active, gait_elapsed_s,
+            joint_targets, joint_velocities,
+            wbc_torque_ff, apply_wbc_torque_ff);
     UpdateGaitWorldDiagnostics(
         state_snapshot, have_state,
         high_state_snapshot, have_high_state,

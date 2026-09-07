@@ -63,11 +63,17 @@ including command-only C1 handover, selected-combination commitments, curve
 leases, expiry, independent ID-WBC and final motor-envelope gates. Capture accepts
 commitments before solve, preserving exact targets under current-map verification.
 Six rebuilt focused targets pass; see the adoption files in the feedback packet.
-There is still no LowCmdWrite activation. Next is the actual controller transport:
-worker publishes the immutable selected bundle; control snapshot returns owner
-commitments; LowCmdWrite supplies exact commanded geom-center p/v for handover,
-consumes the shared tick and writes torque-only commands under the existing stop
-owner. Gait's legacy foot-site references require model-consistent center conversion.
+The opt-in `TROT_RESEARCH_JOINT_EXECUTION=1` runtime transport is now implemented:
+worker publishes immutable selected bundles; control snapshots return commitments;
+LowCmdWrite adopts a command-only geom-center reference and writes certified WBC
+motor-order torque with zero extra PD. Old per-leg terrain transactions/planner
+execution are bypassed in this mode. The existing stop owner handles failures.
+Initial command velocity comes from consecutive commanded world-center positions;
+an explicit <=20ms Hermite soft stance-reference bridge preserves C1 and settles
+before liftoff. Prepared swing leases outlive old body horizons, without extending
+body/force validity. Seven focused targets pass; full controller rebuilt.
+The first actual flat canary is registered in joint_execution_flat_20260908,
+not yet a result. Default remains off and no new traversal claim is made.
 Then run isolated flat and 5cm, followed by 10cm only after credible 5cm evidence.
 Strict stationary-foot reconstruction remains a conditional fixture: actual
 compliant running q/dq must not be projected to make it pass. Sample-level

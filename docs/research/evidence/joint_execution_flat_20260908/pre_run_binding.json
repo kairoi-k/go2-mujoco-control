@@ -1,0 +1,22 @@
+{
+  "binding": "code and binary hashes before the new clean runtime commit; exact runtime SHA is supplied by run_manifest.json",
+  "files": {
+    "example/cpp/trot/trot_experiment.h": "48451320c9c39f7cc6f9bd82c5c6009fa8b413b245c74c97c6f3be4f9a9cdc04",
+    "example/cpp/trot/trot_experiment_control.cpp": "d3d844c338ca1c5101e8e4de68698f4a21f2de3aaeeca2280ad4e9ce7f02d97e",
+    "example/cpp/trot/trot_experiment_gait.cpp": "064605844923799ed12e241df39b1f220f4d056e0c456e33d531f0d5286eafcc",
+    "example/cpp/trot/joint_planning_shadow.h": "8ac412b8ca1c90c789e2e422a9fee18bb5efe237fe1318658e9beb9bb354e1ee",
+    "example/cpp/terrain/stage_c/joint_execution_owner.h": "88ca9f4dd036a3ccfe13082a3a64fdab148763f0b8be2eb6658a4f18a657fe97",
+    "example/cpp/terrain/stage_c/joint_feedback_controller.h": "2e939cb310eb2740f48f66326508bae9649f92624d9372ed57e387941ecc0a1a",
+    "example/cpp/terrain/stage_c/joint_feedback_reference.h": "b5965c7164dd1ec4bd3af84c1181b19552f5a37fa771975df78fc6d8390aec56",
+    "example/cpp/terrain/stage_c/foot_trajectory.h": "c72382a3b456af289b3daa0bbee610ddaa8841fc7cd9143815822f07e144b10f",
+    "example/cpp/build/real_trot_go2": "8fbef5d85cf42453e0a7e655d681fb706d31ce6a3b3b219b04d09c900d263e39",
+    "example/cpp/build/replay_joint_shadow_snapshot": "bb6d7850461970f289c2282af4d452cff938082c5823b03a76dc90dd5708d6fe",
+    "simulate/build/unitree_mujoco": "5f22b3c7d2a67679017327d5143ed149f6510143d7f389a16dcad1942d2637c2",
+    "unitree_robots/go2/phase2_flat.xml": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e",
+    "unitree_robots/go2/go2.xml": "01acff1a72a10cd38ab3c95142bfc63db197c5fba39a11b45b15b6fc4899ba10",
+    "example/cpp/configs/b1_v3_running_1mps.csv": "62f2ff9701b2f2d6189cad97877d7891177a32b17ded255677434eb1d8f41ac6",
+    "example/cpp/build/test_joint_execution_owner": "cbe1fdac0cc8577641cfdbbeaa10c334a17c0a764c9c8fae7602e7eeddaed4fa",
+    "example/cpp/build/test_stage_c_foot_trajectory": "da8e0253403dfaae35093e3684f53413228ff57f771b561a1eb3105709e962a3",
+    "example/cpp/build/test_joint_closed_loop_reference": "26319c00c90d2b2fdc68c74b6282b24a434508566066fe797e253ec027cde76a"
+  }
+}

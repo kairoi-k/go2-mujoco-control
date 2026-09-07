@@ -28,6 +28,8 @@ struct JointFeedbackTickResult {
   TimeNs time{};
   std::string failure = "not_run";
   int qp_iterations = 0;
+  double com_error_m = std::numeric_limits<double>::quiet_NaN();
+  double max_foot_error_m = std::numeric_limits<double>::quiet_NaN();
   std::size_t feedback_clipped_count = 0;
   bool orientation_clipped = false;
   Eigen::Vector3d orientation_acc_body =
@@ -122,6 +124,11 @@ inline JointFeedbackTickResult FeedbackTick(
           planned_force, planned_state, failure)) {
     return fail(failure.empty() ? "centroidal_reference_failed" : failure.c_str());
   }
+  out.com_error_m = (planned_state.head<3>()-actual.dynamics.com_world).norm();
+  out.max_foot_error_m = 0.0;
+  for (std::size_t leg=0; leg<go2::kLegCount; ++leg)
+    out.max_foot_error_m = std::max(out.max_foot_error_m,
+        (joint_feedback_reference::Vec(feet.center_world[leg].value)-actual.dynamics.foot_pos_world[leg]).norm());
   const auto *nominal = joint_feedback_reference::FindSchedule(problem, time);
   if (nominal == nullptr) return fail("schedule_interval_missing");
   go2_control::IdWbcParams params;

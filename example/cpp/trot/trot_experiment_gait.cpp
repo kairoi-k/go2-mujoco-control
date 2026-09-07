@@ -1489,14 +1489,14 @@ bool TrotExperiment::BuildGaitTargets(
     const auto terrain_now_lookup = terrain_tick_plan_
         ? go2_terrain::TerrainPlanKnotAtTime(*terrain_tick_plan_, terrain_now_s)
         : go2_terrain::TerrainPlanTimeLookup{};
-    const bool terrain_plan_usable = params_.terrain_actuation &&
+    const bool terrain_plan_usable = !ResearchJointExecutionEnabled() && params_.terrain_actuation &&
         terrain_tick_plan_ && have_high_state &&
         terrain_tick_plan_->usable_at(terrain_now_s) &&
         terrain_now_lookup.valid;
     const std::size_t terrain_k0 = terrain_plan_usable
         ? terrain_now_lookup.knot : 0;
     terrain_execution_applied_mask_ = 0;
-    if (params_.terrain_actuation && have_high_state)
+    if (!ResearchJointExecutionEnabled() && params_.terrain_actuation && have_high_state)
     {
         int required_mask = 0;
         int committed_mask = 0;

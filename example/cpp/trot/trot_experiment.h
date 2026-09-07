@@ -41,6 +41,7 @@
 #include "terrain_execution_consistency.h"
 #include "terrain_motion_plan.h"
 #include "terrain_planner.h"
+#include "stage_c/joint_execution_owner.h"
 
 using unitree::robot::ChannelPublisherPtr;
 using unitree::robot::ChannelSubscriberPtr;
@@ -215,6 +216,13 @@ private:
         const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
         bool have_high_state,
         double motion_dt);
+    bool ResearchJointExecutionEnabled() const;
+    bool ApplyJointExecutionTorque(
+        const unitree_go::msg::dds_::LowState_ &state,
+        const unitree_go::msg::dds_::SportModeState_ &high_state,
+        bool have_high_state,
+        const std::array<double, go2_trot::kMotorCount> &q_command,
+        const std::array<double, go2_trot::kMotorCount> &dq_command);
     void UpdateTerrainRuntime();
     void TerrainPlannerWorker();
     void PublishTerrainControlSnapshot(
@@ -249,6 +257,7 @@ private:
 private:
     struct TerrainPlannerWork
     {
+        go2_terrain::stage_c::TouchdownEventTable joint_commitments{};
         go2_control::RigidBodyState rigid_body_state{};
         bool rigid_body_state_valid = false;
         bool have_map = false;
@@ -261,6 +270,7 @@ private:
 
     struct TerrainControlSnapshot
     {
+        go2_terrain::stage_c::TouchdownEventTable joint_commitments{};
         go2_control::RigidBodyState rigid_body_state{};
         bool rigid_body_state_valid = false;
         bool valid = false;
@@ -635,6 +645,14 @@ private:
     double telemetry_lidar_stamp_s_ = -1.0;
     std::uint64_t telemetry_lidar_arrival_count_ = 0;
 
+    go2_terrain::stage_c::joint_execution::AtomicJointExecutionOwner joint_execution_owner_{};
+    bool joint_execution_started_ = false;
+    std::uint64_t joint_execution_tick_count_ = 0;
+    std::uint64_t joint_execution_last_report_tick_ = 0;
+    double joint_execution_yaw_ = 0.0;
+    std::array<Eigen::Vector3d, go2::kLegCount> joint_previous_command_center_{};
+    go2_terrain::stage_c::TimeNs joint_previous_command_time_{};
+    bool joint_previous_command_valid_ = false;
     std::mutex terrain_diagnostics_mutex_;
     std::mutex terrain_control_mutex_;
     TerrainControlSnapshot terrain_control_snapshot_{};

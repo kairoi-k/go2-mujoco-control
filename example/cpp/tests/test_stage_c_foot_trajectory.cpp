@@ -126,6 +126,12 @@ double Norm(const go2::Vec3 &value)
     return std::sqrt(value.x * value.x + value.y * value.y +
                      value.z * value.z);
 }
+double Difference(const go2::Vec3 &a, const go2::Vec3 &b)
+{
+    return std::sqrt((a.x - b.x) * (a.x - b.x) +
+                     (a.y - b.y) * (a.y - b.y) +
+                     (a.z - b.z) * (a.z - b.z));
+}
 void CheckCenter(
     const FootTrajectorySample &sample, std::size_t leg,
     const Eigen::Vector3d &expected, double tolerance, const char *message)
@@ -498,6 +504,104 @@ int main()
                   std::abs(command_no_bump_start.samples.front().velocity_world[1].x -
                            commanded_start.samples.front().velocity_world[1].x) < 1.0e-12,
               "command boundary restarted the in-flight swing");
+        // A nonzero commanded stance velocity remains a hard conflict unless
+        // the explicit soft-reference settling opt-in is enabled.
+        auto settling_disabled = commanded_request;
+        settling_disabled.commanded_initial.velocity_world[2] =
+            {0.12, 0.0, 0.0};
+        const auto disabled_stance =
+            SampleFootTrajectoryAt(settling_disabled, T(1.0));
+        Check(!disabled_stance.valid &&
+                  disabled_stance.failure ==
+                      JointPlannerFailure::kInitialConditionConflict,
+              "commanded stance velocity was silently reset");
+        auto settling_request = settling_disabled;
+        settling_request.enable_commanded_stance_settling = true;
+        settling_request.commanded_stance_settling_duration_s = 0.020;
+        const auto settled = SampleFootTrajectory(
+            settling_request,
+            std::vector<TimeNs>{T(1.0), T(1.006666667), T(1.01), T(1.02), T(1.10)});
+        Check(settled.valid, "commanded stance settling was rejected");
+        const Eigen::Vector3d settle_p0 = EigenValue(
+            settling_request.commanded_initial.center_world[2]);
+        const Eigen::Vector3d settle_v0{0.12, 0.0, 0.0};
+        Check((EigenValue(settled.samples[0].center_world[2]) - settle_p0).norm() <
+                  1.0e-12 &&
+                  Difference(settled.samples[0].velocity_world[2],
+                             {0.12, 0.0, 0.0}) < 1.0e-12,
+              "settling did not preserve commanded C1 start");
+        const double settling_dt = T(1.02).seconds() - T(1.0).seconds();
+        const double settling_elapsed =
+            T(1.006666667).seconds() - T(1.0).seconds();
+        const double settling_u = settling_elapsed / settling_dt;
+        const double settling_h10 = settling_u * settling_u * settling_u -
+            2.0 * settling_u * settling_u + settling_u;
+        const Eigen::Vector3d expected_settle_mid =
+            settle_p0 + settling_h10 * settling_dt * settle_v0;
+        Check((EigenValue(settled.samples[1].center_world[2]) -
+               expected_settle_mid).norm() < 1.0e-11,
+              "settling Hermite position is incorrect");
+        Check((EigenValue(settled.samples[1].center_world[2]) - settle_p0).norm() <=
+                  (4.0 / 27.0) * settling_dt * settle_v0.norm() + 1.0e-11,
+              "settling excursion exceeded 4/27 oracle");
+        Check((EigenValue(settled.samples[3].center_world[2]) - settle_p0).norm() <
+                  1.0e-12 &&
+                  Norm(settled.samples[3].velocity_world[2]) < 1.0e-12,
+              "settling did not reach the C1 zero-velocity endpoint");
+        const auto original_future =
+            SampleFootTrajectoryAt(commanded_request, T(1.10));
+        const auto settled_future =
+            SampleFootTrajectoryAt(settling_request, T(1.10));
+        Check(original_future.valid && settled_future.valid &&
+                  Difference(original_future.samples.front().center_world[0].value,
+                             settled_future.samples.front().center_world[0].value) <
+                      1.0e-12 &&
+                  Difference(original_future.samples.front().velocity_world[0],
+                             settled_future.samples.front().velocity_world[0]) <
+                      1.0e-12 &&
+                  Difference(original_future.samples.front().acceleration_world[0],
+                             settled_future.samples.front().acceleration_world[0]) <
+                      1.0e-12,
+              "settling changed a future swing curve");
+        auto zero_duration = settling_request;
+        zero_duration.commanded_stance_settling_duration_s = 0.0;
+        const auto zero_duration_result =
+            SampleFootTrajectoryAt(zero_duration, T(1.0));
+        Check(!zero_duration_result.valid &&
+                  zero_duration_result.failure ==
+                      JointPlannerFailure::kInitialConditionConflict,
+              "zero settling duration was accepted");
+        auto overlong_duration = settling_request;
+        overlong_duration.commanded_stance_settling_duration_s = 0.021;
+        const auto overlong_result =
+            SampleFootTrajectoryAt(overlong_duration, T(1.0));
+        Check(!overlong_result.valid &&
+                  overlong_result.failure ==
+                      JointPlannerFailure::kInitialConditionConflict,
+              "overlong settling duration was accepted");
+        // The actual bridge is clipped to the remaining stance interval. It
+        // must reach zero velocity exactly at the next liftoff boundary.
+        auto clipped_settling = settling_disabled;
+        clipped_settling.start = T(1.04);
+        clipped_settling.commanded_initial.source_time = T(1.04);
+        clipped_settling.commanded_initial.valid_until = T(1.20);
+        clipped_settling.commanded_initial.velocity_world[0] =
+            {0.01, 0.0, 0.0};
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            clipped_settling.commanded_initial.center_world[leg].source_time =
+                T(1.04);
+        clipped_settling.enable_commanded_stance_settling = true;
+        clipped_settling.commanded_stance_settling_duration_s = 0.020;
+        const auto clipped_start =
+            SampleFootTrajectoryAt(clipped_settling, T(1.04));
+        const auto clipped_liftoff =
+            SampleFootTrajectoryAt(clipped_settling, T(1.05));
+        Check(clipped_start.valid && clipped_liftoff.valid &&
+                  Difference(clipped_start.samples.front().velocity_world[0],
+                             {0.01, 0.0, 0.0}) < 1.0e-12 &&
+                  Norm(clipped_liftoff.samples.front().velocity_world[0]) <
+                      1.0e-12,
+              "settling crossed the next liftoff boundary");
         auto late_problem = commanded_problem;
         auto late_request = commanded_request;
         late_request.problem = &late_problem;

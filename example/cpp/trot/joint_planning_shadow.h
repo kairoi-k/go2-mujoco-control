@@ -5,10 +5,15 @@
 #include "stage_c/terrain_candidates.h"
 #include "stage_c/prepare_joint_problem.h"
 #include "stage_c/centroidal_joint_proposal.h"
+#include "stage_c/joint_execution_owner.h"
+#include "stage_c/joint_feedback_reference.h"
 #include "terrain_planner.h"
 #include "joint_shadow_snapshot.h"
 #include <chrono>
+#include <cstdint>
 #include <iostream>
+#include <limits>
+#include <memory>
 #include <sstream>
 namespace go2_trot {
 inline bool SameCommittedTimedPoint(
@@ -77,6 +82,74 @@ public:
  // accepted command across captures belongs to the single execution owner.
  const go2_terrain::stage_c::CentroidalJointProposal &last_proposal() const { return last_proposal_; }
  const go2_control::RigidBodyState &last_source_state() const { return last_source_state_; }
+
+ // Materialize the last selected proposal for the execution owner. This is a
+ // pure handover artifact: it neither starts execution nor writes a motor.
+ std::shared_ptr<const go2_terrain::stage_c::joint_execution::JointExecutionProposal>
+ BuildExecutionProposal(
+     std::string &failure,
+     const go2_terrain::stage_c::joint_feedback_reference::ClosedLoopResearchConfig &config = {}) {
+  using Proposal = go2_terrain::stage_c::joint_execution::JointExecutionProposal;
+  using namespace go2_terrain::stage_c;
+  using namespace go2_terrain::stage_c::joint_feedback_reference;
+  failure.clear();
+  const auto reject = [&failure](const char *reason) -> std::shared_ptr<const Proposal> {
+   failure = reason;
+   return {};
+  };
+  if (!ValidClosedLoopConfig(config)) return reject("invalid closed-loop config");
+  if (!last_proposal_.selected_valid || !last_proposal_.search.feasible)
+   return reject("no valid selected centroidal proposal");
+
+  const auto &problem = last_proposal_.selected_problem;
+  const auto &identity = problem.request.input.identity;
+  if (!identity.valid() || identity.source_plan_id == 0)
+   return reject("selected proposal identity is invalid");
+  if (!last_proposal_.selected_result.certificate.feasible)
+   return reject("selected proposal certificate is infeasible");
+  if (problem.grid.size() < 2)
+   return reject("selected proposal has insufficient grid coverage");
+  const TimeNs source = identity.source_state_time;
+  if (source.value < 0 || problem.grid.front() != source)
+   return reject("selected grid does not start at source state time");
+  constexpr std::int64_t kHorizonNs = 200000000;
+  if (source.value > std::numeric_limits<std::int64_t>::max() - kHorizonNs)
+   return reject("source time overflows execution horizon");
+  const TimeNs requested_end{source.value + kHorizonNs};
+  const TimeNs coverage_end = problem.grid.back() < requested_end
+                                  ? problem.grid.back()
+                                  : requested_end;
+  if (coverage_end <= source || coverage_end > problem.grid.back())
+   return reject("selected proposal has no usable execution coverage");
+
+  // The request stores a pointer into this exact owned copy. Do not copy the
+  // problem separately and do not fill unbound event targets here.
+  auto selected = std::make_shared<const CentroidalJointProposal>(last_proposal_);
+  FootTrajectoryRequest foot_request{};
+  std::array<Eigen::Vector3d, go2::kLegCount> actual_velocity{};
+  if (!BuildFootReplayRequest(selected->selected_problem, robot_, last_source_state_,
+                              coverage_end, config, foot_request, actual_velocity, failure))
+   return {};
+  if (foot_request.problem != &selected->selected_problem ||
+      foot_request.start != source || foot_request.end != coverage_end)
+   return reject("foot request ownership or horizon mismatch");
+  // Preparation validates event/candidate references while leaving any event
+  // target for the execution owner to resolve.
+  const auto source_sample = SampleFootTrajectoryAt(foot_request, source);
+  if (!source_sample.valid) return reject("selected foot events are not prepared");
+
+  auto proposal = std::make_shared<Proposal>();
+  proposal->proposal_id = identity.source_plan_id;
+  proposal->identity = identity;
+  proposal->valid_until = coverage_end;
+  proposal->selected = std::move(selected);
+  proposal->foot_request = foot_request;
+  proposal->first_handover_from_commanded = true;
+  if (proposal->foot_request.problem != &proposal->selected->selected_problem)
+   return reject("final foot request lost selected ownership");
+  failure = "ok";
+  return std::shared_ptr<const Proposal>(std::move(proposal));
+ }
  void Capture(const go2_control::RigidBodyState &state,
               const go2_terrain::TerrainPlannerInput &legacy,std::uint64_t id,
               go2_control::GaitPattern pattern,

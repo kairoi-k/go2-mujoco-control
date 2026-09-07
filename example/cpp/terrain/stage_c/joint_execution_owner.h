@@ -86,11 +86,105 @@ struct ActiveCurveLease
 {
     bool valid = false;
     TouchdownEvent event{};
-    // Retaining the complete immutable old proposal retains the exact old
-    // FootTrajectoryRequest and deterministic curve. This is a reference
-    // lease, not a measured-contact or contact-transition state machine.
+    // The old body horizon may expire while this swing is still airborne.
+    // Cache the already validated polynomial inputs so curve sampling does
+    // not revalidate the expired body/force bundle or silently restart it.
     std::shared_ptr<const JointExecutionProposal> source{};
+    foot_trajectory_detail::PreparedEvent prepared_event{};
+    TimeNs reference_source_time{};
+    double clearance_m = 0.0;
+    bool add_clearance_to_inflight_continuation = true;
+    bool curve_prepared = false;
 };
+inline bool PrepareActiveCurveLease(
+    const std::shared_ptr<const JointExecutionProposal> &source,
+    const TouchdownEvent &resolved, ActiveCurveLease &lease)
+{
+    if (!source || !source->selected || !source->selected->selected_valid ||
+        !source->selected->search.feasible ||
+        !source->selected->selected_result.certificate.feasible ||
+        source->foot_request.problem !=
+            &source->selected->selected_problem ||
+        source->foot_request.end <= resolved.liftoff_time)
+        return false;
+    const auto &problem = source->selected->selected_problem;
+    std::size_t event_index = problem.request.events.events.size();
+    for (std::size_t i = 0; i < problem.request.events.events.size(); ++i)
+        if (problem.request.events.events[i].id == resolved.id)
+        {
+            event_index = i;
+            break;
+        }
+    if (event_index == problem.request.events.events.size())
+        return false;
+    foot_trajectory_detail::PreparedTrajectory prepared;
+    if (foot_trajectory_detail::Prepare(source->foot_request, prepared) !=
+        JointPlannerFailure::kNone)
+        return false;
+    const auto it = std::find_if(
+        prepared.events.begin(), prepared.events.end(),
+        [event_index](const foot_trajectory_detail::PreparedEvent &candidate) {
+            return !candidate.continuation &&
+                candidate.event_index == event_index;
+        });
+    if (it == prepared.events.end() ||
+        static_cast<std::size_t>(resolved.id.leg) >= go2::kLegCount ||
+        it->leg != static_cast<std::size_t>(resolved.id.leg) ||
+        it->liftoff != resolved.liftoff_time ||
+        it->touchdown != resolved.touchdown_time ||
+        it->contact_end != resolved.contact_interval_end)
+        return false;
+    ActiveCurveLease cached{};
+    cached.valid = true;
+    cached.event = resolved;
+    cached.source = source;
+    cached.prepared_event = *it;
+    cached.reference_source_time = prepared.initial_reference_source_time;
+    cached.clearance_m = prepared.clearance_m;
+    cached.add_clearance_to_inflight_continuation =
+        prepared.add_clearance_to_inflight_continuation;
+    cached.curve_prepared = true;
+    lease = std::move(cached);
+    return true;
+}
+inline bool SampleActiveCurveLease(
+    const ActiveCurveLease &lease, TimeNs now, FootTrajectorySample &sample)
+{
+    if (!lease.valid || !lease.curve_prepared ||
+        static_cast<std::size_t>(lease.event.id.leg) >= go2::kLegCount ||
+        now < lease.event.liftoff_time ||
+        now < lease.prepared_event.interpolation_start ||
+        now >= lease.event.contact_interval_end)
+        return false;
+    const std::size_t leg = static_cast<std::size_t>(lease.event.id.leg);
+    Eigen::Vector3d position = lease.prepared_event.p1;
+    Eigen::Vector3d velocity = Eigen::Vector3d::Zero();
+    Eigen::Vector3d acceleration = Eigen::Vector3d::Zero();
+    if (now < lease.event.touchdown_time)
+    {
+        const double clearance = lease.prepared_event.starts_in_flight &&
+                !lease.add_clearance_to_inflight_continuation
+            ? 0.0 : lease.clearance_m;
+        foot_trajectory_detail::EvaluateSwing(
+            lease.prepared_event, now, clearance, position, velocity,
+            acceleration);
+    }
+    if (!position.allFinite() || !velocity.allFinite() ||
+        !acceleration.allFinite())
+        return false;
+    sample = FootTrajectorySample{};
+    sample.time = now;
+    sample.center_world[leg] = {
+        foot_trajectory_detail::ToVec3(position), Frame::kWorld,
+        lease.reference_source_time, true, PointRole::kFootCollisionCenter};
+    sample.velocity_world[leg] =
+        foot_trajectory_detail::ToVec3(velocity);
+    sample.acceleration_world[leg] =
+        foot_trajectory_detail::ToVec3(acceleration);
+    sample.leg_valid[leg] = true;
+    sample.valid = true;
+    return true;
+}
 struct AcceptedJointReference
 {
     std::uint64_t execution_version = 0;
@@ -247,6 +341,11 @@ public:
             boundary.velocity_world = handover_seed->velocity_world;
             boundary.valid = handover_seed->valid;
             bound->foot_request.add_clearance_to_inflight_continuation = false;
+            // A commanded boundary may carry nonzero stance velocity. Opt into
+            // the bounded C1 settling prefix explicitly; this changes only the
+            // generated reference and never rewrites measured input.
+            bound->foot_request.enable_commanded_stance_settling = true;
+            bound->foot_request.commanded_stance_settling_duration_s = 0.020;
             const auto sample = SampleFootTrajectoryAt(bound->foot_request, now);
             if (!sample.valid || sample.samples.size() != 1)
             {
@@ -299,9 +398,15 @@ public:
                 pending->selected->selected_problem, leg, now);
             if (event != nullptr)
             {
-                next->in_flight[leg].valid = ResolveSelectedEvent(
-                    pending->selected->selected_problem, *event, next->in_flight[leg].event);
-                next->in_flight[leg].source = pending;
+                TouchdownEvent resolved;
+                if (!ResolveSelectedEvent(
+                        pending->selected->selected_problem, *event, resolved) ||
+                    !PrepareActiveCurveLease(pending, resolved,
+                                             next->in_flight[leg]))
+                {
+                    out.status = OwnerStatus::kSampleUnavailable;
+                    return out;
+                }
             }
         }
         next_version_ = next->execution_version;
@@ -346,14 +451,15 @@ public:
     {
         SampledJointReference out;
         if (!accepted_ || !accepted_->valid || !accepted_->proposal ||
-            now.value < accepted_->proposal->foot_request.start.value ||
-            now.value >= accepted_->proposal->foot_request.end.value)
+            now.value < accepted_->proposal->foot_request.start.value)
             return out;
         // Lease lifetime does not extend the current body/centroidal/force
         // validity. Expose no full reference after expiry; a separate
         // curve-only query below may retain a committed in-flight swing.
         if (now >= accepted_->proposal->valid_until)
             return SampleCurveOnlyAt(now);
+        if (now >= accepted_->proposal->foot_request.end)
+            return out;
         auto current = SampleFootTrajectoryAt(
             accepted_->proposal->foot_request, now);
         if (!current.valid || current.samples.size() != 1)
@@ -368,28 +474,20 @@ public:
             const auto &lease = accepted_->in_flight[leg];
             if (!lease.valid || now >= lease.event.contact_interval_end)
                 continue;
-            if (!lease.source || now.value <
-                    lease.source->foot_request.start.value ||
-                now.value >= lease.source->foot_request.end.value)
+            FootTrajectorySample old_sample;
+            if (!SampleActiveCurveLease(lease, now, old_sample) ||
+                !old_sample.leg_valid[leg])
             {
                 out = SampledJointReference{};
                 return out;
             }
-            const auto old = SampleFootTrajectoryAt(
-                lease.source->foot_request, now);
-            if (!old.valid || old.samples.size() != 1)
-            {
-                out = SampledJointReference{};
-                return out;
-            }
-            const auto &sample = old.samples.front();
-            out.center_reference.center_world[leg] = sample.center_world[leg];
+            out.center_reference.center_world[leg] = old_sample.center_world[leg];
             out.center_reference.velocity_world[leg] =
-                sample.velocity_world[leg];
+                old_sample.velocity_world[leg];
             out.center_reference.acceleration_world[leg] =
-                sample.acceleration_world[leg];
-            out.center_reference.leg_valid[leg] = sample.leg_valid[leg];
-            out.curve_valid[leg] = sample.leg_valid[leg];
+                old_sample.acceleration_world[leg];
+            out.center_reference.leg_valid[leg] = old_sample.leg_valid[leg];
+            out.curve_valid[leg] = old_sample.leg_valid[leg];
         }
         out.valid = out.bundle_valid && out.center_reference.valid;
         return out;
@@ -401,30 +499,25 @@ public:
     SampledJointReference SampleCurveOnlyAt(TimeNs now) const
     {
         SampledJointReference out;
-        if (!accepted_ || !accepted_->valid)
+        if (!accepted_ || !accepted_->valid || !accepted_->proposal ||
+            now < accepted_->proposal->foot_request.start)
             return out;
         out.execution_version = accepted_->execution_version;
         out.center_reference.time = now;
         for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
         {
             const auto &lease = accepted_->in_flight[leg];
-            if (!lease.valid || now >= lease.event.contact_interval_end ||
-                !lease.source || now.value <
-                    lease.source->foot_request.start.value ||
-                now.value >= lease.source->foot_request.end.value)
+            FootTrajectorySample old_sample;
+            if (!SampleActiveCurveLease(lease, now, old_sample) ||
+                !old_sample.leg_valid[leg])
                 continue;
-            const auto old = SampleFootTrajectoryAt(
-                lease.source->foot_request, now);
-            if (!old.valid || old.samples.size() != 1)
-                continue;
-            const auto &sample = old.samples.front();
-            out.center_reference.center_world[leg] = sample.center_world[leg];
+            out.center_reference.center_world[leg] = old_sample.center_world[leg];
             out.center_reference.velocity_world[leg] =
-                sample.velocity_world[leg];
+                old_sample.velocity_world[leg];
             out.center_reference.acceleration_world[leg] =
-                sample.acceleration_world[leg];
-            out.center_reference.leg_valid[leg] = sample.leg_valid[leg];
-            out.curve_valid[leg] = sample.leg_valid[leg];
+                old_sample.acceleration_world[leg];
+            out.center_reference.leg_valid[leg] = old_sample.leg_valid[leg];
+            out.curve_valid[leg] = old_sample.leg_valid[leg];
         }
         for (const bool valid : out.curve_valid)
             out.center_reference.valid =
@@ -445,12 +538,23 @@ private:
             if (lease.valid && now >= lease.event.contact_interval_end)
                 lease = ActiveCurveLease{};
             if (lease.valid)
-                continue;
+            {
+                if (!lease.curve_prepared &&
+                    !PrepareActiveCurveLease(
+                        lease.source, lease.event, lease))
+                    lease = ActiveCurveLease{};
+                if (lease.valid)
+                    continue;
+            }
             const auto *event = FindActiveEvent(problem, leg, now);
             if (event != nullptr)
             {
-                lease.valid = ResolveSelectedEvent(problem, *event, lease.event);
-                lease.source = accepted_->proposal;
+                TouchdownEvent resolved;
+                if (ResolveSelectedEvent(problem, *event, resolved) &&
+                    PrepareActiveCurveLease(
+                        accepted_->proposal, resolved, lease))
+                    continue;
+                lease = ActiveCurveLease{};
             }
         }
     }
@@ -524,12 +628,10 @@ private:
             if ((now < lease.event.touchdown_time &&
                  (candidate == nullptr || !candidate->committed ||
                   !SameCommittedEventCore(lease.event, *candidate))) ||
-                !lease.source || now < lease.source->foot_request.start ||
-                now >= lease.source->foot_request.end)
+                !lease.curve_prepared)
                 return false;
-            const auto old_sample = SampleFootTrajectoryAt(
-                lease.source->foot_request, now);
-            if (!old_sample.valid || old_sample.samples.size() != 1)
+            FootTrajectorySample old_sample;
+            if (!SampleActiveCurveLease(lease, now, old_sample))
                 return false;
         }
         return true;

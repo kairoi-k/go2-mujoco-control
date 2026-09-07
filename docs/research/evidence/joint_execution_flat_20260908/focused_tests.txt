@@ -1,0 +1,20 @@
+Internal ctest changing into directory: /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/build
+Test project /home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/build
+    Start 50: test_joint_execution_owner
+1/7 Test #50: test_joint_execution_owner .............   Passed    0.00 sec
+    Start 51: test_joint_closed_loop_reference
+2/7 Test #51: test_joint_closed_loop_reference .......   Passed    0.55 sec
+    Start 52: test_motor_command_certificate
+3/7 Test #52: test_motor_command_certificate .........   Passed    0.52 sec
+    Start 60: test_stage_c_foot_trajectory
+4/7 Test #60: test_stage_c_foot_trajectory ...........   Passed    0.00 sec
+    Start 61: test_stage_c_terrain_candidates
+5/7 Test #61: test_stage_c_terrain_candidates ........   Passed    0.00 sec
+    Start 67: test_joint_shadow_snapshot_roundtrip
+6/7 Test #67: test_joint_shadow_snapshot_roundtrip ...   Passed    0.42 sec
+    Start 70: test_stage_c_committed_candidates
+7/7 Test #70: test_stage_c_committed_candidates ......   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 7
+
+Total Test time (real) =   1.51 sec
