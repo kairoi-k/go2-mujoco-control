@@ -1,218 +1,114 @@
 # Go2 current research checkpoint
-Updated: 2026-09-07. This is the live route/status/handoff entrypoint.
-## Current scope and conclusion
-The user authorized the long-term architecture route, with real 5 cm B1
-validation first and an independent 10 cm challenge next. Continue autonomous
-research; a foundation checkpoint is not task completion. B1 remains
-NOT_CERTIFIED; no new traversal result belongs to the work below.
-The [joint articulated route](docs/research/STAGE_C_ARTICULATED_ROUTE.md) now
-connects fixed absolute touchdown combinations, candidate-specific surfaces,
-centroidal COM/velocity/angular-momentum/force optimization, actual-MJCF body and
-joint reconstruction, acceleration lifting and independent full-model sample
-certificates. Body position is not a fixed offset from COM. Initial joint
-velocity cannot be silently reset. The solver accepts terrain-dependent COM
-objective profiles; historical default references and frozen diagnostics remain.
-Foot references have explicit liftoff/touchdown/stance lifetimes and a separate
-terminal continuation when the next touchdown exceeds the dynamics horizon.
-Missing contact, surface, timing and provenance coverage fails closed.
-A shared production state conversion is used by WBC and the planner snapshot.
-The actual sphere surface force Jacobian is separate from the geom-center motion
-Jacobian. `TROT_RESEARCH_CONTACT_POINT_MODEL=1` enables a controlled WBC probe;
-default off retains the old path. Applied mode is recorded in CSV. Force
-redistribution uses that same selected Jacobian. Cartesian virtual-task torque
-and final PD actuator composition remain separate from a dynamics certificate.
-This flag is NOT evidence that the joint planner has taken execution authority.
-The 5/10 cm V4 analyzer versions height/period assumptions while retaining
-physical traversal gates and historical V3 output. The older baselines and
-T13 frozen aerial conflict remain available unchanged. A single passing run
-still cannot replace the registered campaign and coverage review.
-Same-source e1e68de flat off/on probes completed: 40/42 versus 33/42 good
-cycles in the identical 18--24 s window; 210 versus 372 sample certificate
-failures. The point model remains opt-in. Historical 49-cycle counts used a
-17--24 s window, not a different period. See the joint_point_pair_20260907 packet.
-Actual f9623e1 state-clock flat shadow now yields 6/12 reduced proposals;
-remaining captures reject unknown initial/candidate patches. The horizon-tail
-contract is fixed for the opt-in new route. Source318/320 becomes271/320 after
-current-heading registration; independent replay isolates low-Y edge cropping
-and interior source holes. Direct capture-heading queries preserve source coverage in the next pair.
-That flat run completes; its 5cm run fails physically. Remaining map holes
-and scheduled-versus-measured initial contact mismatch are under review.
-First failure in the new5cm run: FL non-top23.512s, nonfoot23.706s, hard
-posture state23.874s/cmd21.868s. Historical23.216s is STATE time, not command.
-31 isolated identical-state replays match semantic outputs; capture pipeline
-p50/p95/max 1.547/1.862/1.954 ms. A live 60.6 ms outlier remains explicit.
-The short replay backend now initializes an actual retained state in MuJoCo,
-tracks joint COM/momentum/feet through WBC with explicit attitude feedback and
-zero extra motor PD. The numerical failure was independently shown feasible and resolved through
-an opt-in verified-seed primal active-set solver. Exact short runtime
-fb837929e16e312e95611bf33ff3b1fe8e02d851 completes 100 MuJoCo steps with
-body/support priority, no new inflight clearance bump, and no extra motor PD.
-Maximum COM/foot errors are 16.382/29.753 mm; no nonfoot contact or actuator
-saturation. Independent physical sample residuals are below 7e-13; independent
-Python MuJoCo replay reproduces logged states and actuator torques exactly.
-QP p50/p95/max are 73.315/113.525/206.282 us. This privileged-state, 0.2-second
-cold-start counterfactual is not full runtime adoption or B1 acceptance.
-The separately retained negative anchor input still rejects before stepping.
-See joint_feedback_replay_20260907 attempts 0009 and negative_0001.
-Next: complete the [joint feedback execution route](docs/research/JOINT_FEEDBACK_EXECUTION_V1.md).
-The new input path retains bounded immutable capture history with explicit
-stationary-terrain/freshness/conflict semantics and v2 exact-state replay.
-Whole-combination search now retains its actual selected problem/result for
-an execution consumer, rather than only scalar diagnostics. The atomic reference owner and shared FeedbackTick now have focused tests,
-including command-only C1 handover, selected-combination commitments, curve
-leases, expiry, independent ID-WBC and final motor-envelope gates. Capture accepts
-commitments before solve, preserving exact targets under current-map verification.
-Six rebuilt focused targets pass; see the adoption files in the feedback packet.
-The opt-in `TROT_RESEARCH_JOINT_EXECUTION=1` runtime transport is now implemented:
-worker publishes immutable selected bundles; control snapshots return commitments;
-LowCmdWrite adopts a command-only geom-center reference and writes certified WBC
-motor-order torque with zero extra PD. Old per-leg terrain transactions/planner
-execution are bypassed in this mode. The existing stop owner handles failures.
-Initial command velocity comes from consecutive commanded world-center positions;
-an explicit <=20ms Hermite soft stance-reference bridge preserves C1 and settles
-before liftoff. Prepared swing leases outlive old body horizons, without extending
-body/force validity. Seven focused targets pass; full controller rebuilt.
-The first actual flat canary f5b2ef98364bbc01f934de575c850696236e1342 is a
-FAILED diagnostic: joint execution actually adopts3versions, with121 raw zero-PD
-rows in STATE20.004--20.246. The .16->.14 legacy period change at20.068 resets
-the planning epoch and invalidates commitments, starving new plans; expiry then
-requests stop. Sampled COM/foot maxima8.114/78.542mm; no traversal result.
-The fixed-start21s isolation (actual8f3e04afa97507ff4151838c4edf608923d2702e)
-also FAILS:46actual zero-PD commands/3versions, then wbc_solver_failed at21.112,
-with period.14/epoch1 unchanged. Earlier21.062 anchor observation rejection is
-separate. Actual f586950 repeats this failure at STATE21.110 after53 commands.
-Independent exact-matrix HiGHS/KKT analysis proves the QP feasible; active-row
-numerical drift in the saddle-point search direction caused rejection. QR
-nullspace projection passes both actual-matrix regressions without relaxing
-constraints. Actual repaired4bff757 flat runs through STATE21.418 with10accepted versions
-and no WBC failure, then hard posture failure (first roll-27.7917deg). Foot
-error grows to461.764mm; closed-loop tracking is now the primary investigation.
-See attempt0004; no traversal acceptance. The next diagnostic source adds
-sampled JointExecutionTracking rows from the actual executor: per-leg p/v/a
-references, actual p/v, requested/solved acceleration, force and separate
-planned/measured masks. Legacy WBC CSV task fields are not executor witnesses.
-Actual4b09ccd diagnostic0005 exposes swing task acceleration errors41.76/70.42
-m/s2 at first sampled adoption21.022; measured contact precedes planned touchdown
-at21.060. Terminal secondary numerical failure21.402 comes after tracking loss,
-with planned/measured masks6/1. Exact matrix and per-leg tracking retained.
-Offline task audit finds initial stance bridge prescribes23--27m/s2 downward
-acceleration while the WBC assumes positive support force. Current physical
-certificate omits contact acceleration/compliance compatibility. Secondary swing
-tracking competes with momentum and qdd regularization; fixed-state isolation
-is required before gain changes. See attempt0005 tracking_audit and review.
-Foot-only collision truth independently confirms FL contact21.054 and RR21.066
-before planned support. At21.022 model/actual support forces differ; this is
-state-aligned evidence, not a same-tick actuator response. Exact fixed-state
-replay input audit found the old planner snapshot is not the control state and
-the old tracking log lacks exact QP/task maps. The next diagnostic captures
-the actual first secondary solve and per-leg J/bias/target without re-solving;
-its equality rows preserve the exact primary optimum. Offline qdd-regularizer
-ablation is a conditional same-state task comparison, not closed-loop evidence.
-Actual0a853346 flat0006 again fails posture with no QP failure. First applied
-secondary QP at21.020 is captured. Independent same-state ablation refutes
-qdd regularization as the main swing error cause; frozen primary body/support
-tasks leave a numerical swing residual floor89.632m/s2 (stable rank cutoffs).
-Relaxing orientation locking reduces swing error but induces large body angular
-acceleration, so neither diagnostic variant is enabled. Body/leg reference
-coordination and physical contact realization are required. See attempt0006.
-Next controlled hypothesis: opt-in TROT_RESEARCH_JOINT_SOFT_ORIENTATION=1
-keeps COM/support priority and all force/torque constraints, moves orientation
-tracking to the existing secondary cost with swing/momentum. Default old
-hierarchy remains. No gait/terrain/acceptance changes; same fixed-start flat
-canary actual9c5c836 (attempt0007) FAILS: first adoption21.024, last sampled
-command21.168/count73, then posture roll22.8689deg,pitch12.02deg; no WBC failure.
-The first QP confirms primary_orientation=0; exact replay passes15-row layout.
-This candidate is not promoted and the old hierarchy stays default.
-Next investigate articulated-plan execution admission and physical contact
-realization; no further unbounded priority/weight sweep. This is not yet a full
-horizon articulated planning solution. Sampled foot error in the
-failed run reaches118.023mm and remains an execution concern. Variable-period calendar transitions remain an unresolved requirement. The clock caller
-now passes commitment activity rather than silently resetting the epoch.
-Default remains off. See joint_execution_flat_20260908.
-Then run isolated flat and 5cm, followed by 10cm only after credible 5cm evidence.
-Strict stationary-foot reconstruction remains a conditional fixture: actual
-compliant running q/dq must not be projected to make it pass. Sample-level
-model success alone keeps `execution_ready=false`.
-See `docs/research/evidence/joint_articulated_20260907/` for model evidence.
-The next source adds the existing WBC QP's optional articulated COM/momentum
-objective and a non-projecting feedback sample preview. Material-point speed
-and normal gap remain explicit diagnostics; contact evolution/execution remain
-unverified. The [joint shadow protocol](docs/research/JOINT_RUNTIME_SHADOW_V1.md)
-binds actual worker snapshots to multi-event candidate combinations. It has no
-command authority. Unbound future event targets are now accepted by the new
-combination path; historical bound-event defaults and commitments remain strict.
-## Exact source and actual experiments
-Active worktree: `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`.
-Branch: `feat/stage-c-joint-planner`. Latest executed clean runtime source:
-`9c5c836fe98370812f0f1bc94b9c2ec718d638e6`: shared-priority flat0007 fails
-posture after last sampled command21.168, no WBC failure.
-Prior `0a853346bff0005bc9175bd9d3f33eb01fa49e79`: actual first-QP capture flat0006,
-posture failure without QP failure; exact fixed-state task audit retained.
-Prior `4b09ccd217130c77b492040554c891d29746c7f5`: actual tracking diagnostic0005;
-191commands/13versions, secondary numerical failure21.402 after growing foot
-error (sampled maximum414.984mm).
-Prior `4bff757c1a465fc620edd2f32d220d22819b824b`: QR repaired actual joint flat;
-10versions, last sampled command STATE21.418 count208, then hard posture
-failure. No WBC failure log; sampled foot tracking error461.764mm.
-Prior `f5b2ef98364bbc01f934de575c850696236e1342`: first actual joint actuation flat,
-failed on period-transition commitment conflict and reference expiry.
-Prior `cc696232eab2d184b5c98fa89674f8d029895dad`: bounded-history flat diagnostic.
-Normal completion,15/16 reduced proposals,35/42 cycle diagnostic; no joint
-actuation. Pipeline p50/p95/max1.072/50.146/50.718ms includes two2400-QP-iteration
-captures. Raw CSV independently confirms six sampled final-command saturations
-in STATE20--28, max67.513Nm beyond model limit, dominated by joint PD. See
-joint_terrain_history_20260907. Recorded v2 first snapshot reproduces its
-initial-contact-anchor rejection; use the separately attributed retained f962
-feasible snapshot for the next short-horizon feedback experiment.
-Earlier `0ff9dc8fb755df231d26b4816d086fd77ed5d1b8`: capture-heading shadow pair.
-Flat completes (9/16 proposals); 5cm FAILS with nonfoot collision/posture stop.
-See joint_capture_view_20260907; joint command authority remains off.
-Earlier f9623e1 is the horizon/query flat diagnostic with six proposals.
-Earlier a180e605 wall/state pair has zero solver calls.
-Earlier `e1e68de1cee4edb93d1094a39a52c8e4bb5347ec` is the contact-point pair. The earlier `43c5f5a91e5c075a69170bc8af7d5582d1031474` two flat
-diagnostics retain their separate window/provenance; the first overlaps archival
-load, the second was registered as isolated.
-The previous observer-only runtime71d242a had 47/49 good running cycles.
-The following step results belong to prior runtime
-`7a8ffc6b9269490d7e46c3adfbd2e13ed8609dc6`. HEAD itself is given by Git.
-WBC swing cost now uses physical `J qdd + Jdot qvel - a_des`, matching stance.
-The caller does not pre-subtract bias. MuJoCo position finite differences and
-an equivalent production QP fail on the old code and pass after correction.
-44/44 controller tests and 3/3 simulator tests pass. No gait, gains, planner,
-friction, acceptance thresholds or analyzer changes were made in this experiment.
-32 s flat control: 43/49 good running cycles, normal completion/safety.
-Same-source 5 cm step: full exit, four top-support witnesses, no nonfoot
-collision, normal completion/safety, but all four feet have non-top contact.
-Only 2/7 interaction cycles meet V3 running topology. Interaction speed
-p05/median 0.559852/0.718292 m/s fails the existing median gate. Clock drift is
-3.915 ms in step, 16.009 ms flat; this is not a clock-fix claim.
-At first FR/FL impacts (23.216/23.262 s), all 100/101 rows in the preceding
-inclusive 0.2 s have no-safe-foothold, no usable/applied plan and no in-flight
-target. The immediate terrain planning/execution blocker therefore persists.
-This does not prove the sole cause of impacts. The correction did not establish
-an empirical speed/running improvement over the retained reference.
-## Evidence and historical baseline
-[The F02 packet](docs/research/evidence/wbc_swing_bias_20260907/README.md)
-contains red/green tests, source/binary bindings, raw hashes, unchanged analyzer
-results, independent review observations and a deterministic replay command.
-Legacy profile analyzer KeyError and dependent Phase-2 failure remain recorded;
-wrapper exit status does not establish physical acceptance. Independent physical constraint residuals are now logged; legacy solver
-acceptance still does not guarantee physical feasibility. MuJoCo works via pinned localhost SSH.
-[The prior bounded checkpoint](docs/research/evidence/b1_checkpoint_20260907/README.md)
-preserves clean f5b5155 / runtime eeb5d75: flat 46/49 good cycles, step 1/7,
-speed p05/median 0.673269/0.850097, all-leg non-top contacts and 28.318 ms drift.
-That is a historical reference, not a contemporary randomized control. The
-video in OneDrive still depicts that older runtime, not the new correction.
-## Authority and provenance
-1. Current explicit user instructions and this live CURRENT.
-2. AGENTS.md and identified historical acceptance baselines.
-3. Frozen `docs/research/PHASE2_ACCEPTANCE.md` and
-   `docs/research/PHASE2_HOLDOUT_MANIFEST.json` for their campaign.
-4. Versioned protocols, including `B1_DYNAMIC_TRAVERSAL_V3.md` and
-   `B1_REGISTERED_INTERVALS_V2.md`, and their bound evidence/analyzers.
-Keep the 15 mm geometric diagnostic separate from dynamic feasibility; retain
-T13 aerial/old-contract conflict. Planned/applied contact is not measured truth.
-Use native Linux and hold `/tmp/go2_mujoco_experiment.lock` for timed simulation.
-Use one clean exact source and new raw name. Never overwrite, delete, rename
-or commit `_runs`, stashes, archived snapshots or other worktrees. Raw hashes,
-source/binary bindings and target results establish what was actually tested.
+Updated: 2026-09-08. This is the only live route/status/handoff entrypoint.
+## Objective and acceptance
+Continue toward a long-term extensible locomotion architecture with genuine
+joint body/foothold/contact-force planning and coherent execution. Establish
+reproducible real MuJoCo 5 cm dynamic running-trot B1 evidence first, then an
+independent 10 cm challenge. The user permits architecture/acceptance redesign;
+version and retain historical baselines. A module checkpoint is not completion.
+**B1 remains NOT_CERTIFIED. The new joint execution path is not stable on flat.**
+## Current implementation and verified boundary
+The Stage-C event-indexed search jointly selects touchdown combinations and
+optimizes centroidal COM/velocity/angular momentum/contact forces. It shares
+production model/state/frame semantics and preserves accepted touchdown targets.
+The worker publishes immutable selected bundles to one atomic execution owner.
+An actual feedback tick tracks COM/momentum/feet with the existing ID-WBC and
+writes model-mapped torque with zero additional motor PD. This path has actually
+actuated MuJoCo; it is not merely shadow plumbing. Historical per-leg planner
+execution is bypassed in this opt-in mode; Phase-1 remains velocity authority.
+Candidate admission currently checks the selected CENTROIDAL certificate.
+`SolveJointTrajectoryCandidate` is NOT part of runtime candidate admission.
+Per-tick full-model inverse-dynamics/torque certificates do not certify planned
+whole-body trajectories, contact realization, tracking, or traversal. The
+existing articulated reconstruction remains a conditional diagnostic: it cannot
+silently change initial measured q/dq to impose stationary stance feet.
+`execution_ready=false` in that diagnostic is not a release certificate.
+The command-reference owner preserves C1 p/v, selected event commitments and
+prepared swing-curve leases. Body/force validity is never extended by a curve
+lease. An initial <=20ms stance-reference bridge currently propagates its
+acceleration into WBC; contact-motion compatibility is unresolved. Planned,
+measured, applied and collision-truth contact remain different quantities.
+## Latest actual runtime and causal evidence
+Worktree `/home/che/dev/go2-workspace/feat-stage-c-joint-planner`, branch
+`feat/stage-c-joint-planner`. Git determines current source HEAD. Latest full
+executed clean runtime is `9c5c836fe98370812f0f1bc94b9c2ec718d638e6`.
+Its opt-in shared orientation/swing priority flat run (attempt0007) FAILS:
+STATE21.024 first adoption, last sampled command21.168/count73, then posture
+roll22.8689deg/pitch12.02deg; no QP failure. This candidate is not promoted.
+The old hierarchy remains default; neither mode is an accepted running backend.
+The durable packet is [joint_execution_flat_20260908](docs/research/evidence/joint_execution_flat_20260908/README.md):
+- 0001/f5b2ef9: actual actuation, .16->.14 period change invalidates commitments;
+  expiry stops execution. Passing commitment activity now prevents silent epoch
+  reset, but a variable-period committed event calendar is still missing.
+- 0002/8f3e04a and0003/f586950: fixed-start21s isolates WBC numerical failure.
+  Independent exact-QP HiGHS/KKT proves feasibility. QR working-set projection
+  removes active-row drift without relaxing original constraints.
+- 0004/4bff757:10versions, last sampled21.418/count208, then posture failure;
+  sampled foot error461.764mm. No WBC numerical failure.
+- 0005/4b09ccd: actual task logs expose swing acceleration compromise before
+  tracking loss. Foot-only collision truth confirms FL21.054/RR21.066 contacts
+  before planned support. Secondary numerical failure21.402 is later.
+- 0006/0a853346: first ACTUAL secondary QP captured at21.020. Production replay
+  reproduces its iterate exactly; independent SciPy agrees. Removing qdd
+  regularization leaves large swing errors. Numerical rank analysis finds a
+  stable89.632m/s2 combined swing residual floor under frozen primary tasks.
+  Releasing orientation locks improves foot tasks but changes body acceleration;
+  instantaneous angular acceleration alone is not a stability verdict.
+Actual source21.018 from0006 has measured-support collision-center speeds
+FL0.28009/RR0.41783m/s in an independent unchanged-state MuJoCo Jacobian audit.
+The nominal stationary-foot reconstruction cannot represent this source as-is.
+Do not confuse this kinematic observation with proof of physical infeasibility.
+Execution-window foot coverage (.2s) and complete planner-grid coverage must also
+be distinguished when calling the full articulated diagnostic.
+The curated articulated audit confirms full-grid coverage failure before body
+reconstruction (0 samples). A separate unchanged-state nominal acceleration
+lift passes a conditional sample certificate, with31.4344Nm peak torque; it
+uses actual lever arms and no foot PD, not the actual feedback task. Both
+momentum targets agree at this source sample. No new closed-loop run occurred.
+## Next research action
+Stop unbounded weight/priority sweeps. Audit the real-source complete articulated
+path and coherent COM/L/foot acceleration lift without state projection. Preserve
+runtime-window versus full-grid coverage results separately. Use those results
+to implement body/leg references and contact transitions that are mutually
+realizable, then validate in a bounded actual flat run before any new5cm run.
+A fixed-state QP improvement, model sample certificate or video is not acceptance.
+No new10cm challenge until credible5cm evidence exists.
+## Reproduction and runtime switches
+`example/cpp/scripts/run_b1_research_probe.sh` requires clean exact source,
+unique raw name and holds the experiment lock. Recent runs use phase2_flat.xml,
+32s, b1_v3_running_1mps.csv, seed11 and the preserved fixed-start protocol in
+raw environment/metadata/manifests. Record all overrides; do not infer them.
+`TROT_RESEARCH_JOINT_EXECUTION=1` enables the diagnostic actuator path; default off.
+`TROT_RESEARCH_JOINT_START_S=21` is timing isolation, not a variable-period fix.
+`TROT_RESEARCH_JOINT_SOFT_ORIENTATION=1` enables the FAILED0007 hypothesis;
+default0 preserves the prior primary orientation hierarchy.
+New `JointExecutionTracking` fields belong to actual executor tasks. Legacy WBC
+CSV task fields computed earlier are not executor witnesses. `first_stop=null`
+in analyze_execution.py only means no executor stop log; an upstream posture
+stop can bypass it. Inspect raw safety output and final commands.
+Native WSL via the pinned localhost SSH helper works; MuJoCo3.3.6 is available.
+Historical missing-MuJoCo and old WSL launch blockers are not current blockers.
+Pause competing builds/agents for timed runs. Preserve all raw input hashes,
+source/binary bindings and target analyzer output, including legacy profile
+KeyError/dependent analyzer failures. Wrapper exit status is not acceptance.
+## Historical evidence and authority
+The [articulated route](docs/research/STAGE_C_ARTICULATED_ROUTE.md),
+[architecture decision](docs/research/LOCOMOTION_ARCHITECTURE_V1.md), and
+[feedback route](docs/research/JOINT_FEEDBACK_EXECUTION_V1.md) are research context,
+not proof that their end states have been delivered.
+`joint_feedback_replay_20260907/attempt_0009` retains the exact100-step privileged
+short replay:16.382/29.753mm COM/foot error and exact independent plant replay.
+It does not prove full-runtime adoption stability. Earlier old-planner5cm runs
+remain failures or incomplete acceptance; the OneDrive video depicts an older
+runtime. Details remain in joint_capture_view_20260907, wbc_swing_bias_20260907,
+joint_terrain_history_20260907 and b1_checkpoint_20260907 evidence packets.
+Authority order: current explicit user instructions and CURRENT; AGENTS.md;
+frozen PHASE2_ACCEPTANCE.md and PHASE2_HOLDOUT_MANIFEST.json for their campaign;
+versioned protocols including B1_DYNAMIC_TRAVERSAL_V3.md and
+B1_REGISTERED_INTERVALS_V2.md with bound analyzers/evidence.
+Retain T13 frozen aerial conflict and15mm GEOMETRIC diagnostic separately from
+dynamic feasibility. Unknown is not safe. Keep normal running-trot diagonal
+support and one shared immutable terrain snapshot; no local recovery authority
+or quasi-static/crawl fallback. User-authorized new contracts must be versioned.
+Never commit, delete, overwrite or rename `example/cpp/experiments/_runs/`,
+stashes, archived branches or other worktrees. Curated evidence has manifests.

@@ -1,0 +1,127 @@
+{
+  "b1_claim": false,
+  "source_time": 21.018,
+  "mujoco_version": "3.3.6",
+  "results": [
+    {
+      "leg": "FR",
+      "measured_contact": false,
+      "center_velocity_world": [
+        1.5093875697272356,
+        -0.09477632838224437,
+        1.0158716621517758
+      ],
+      "speed_mps": 1.8218750292025305
+    },
+    {
+      "leg": "FL",
+      "measured_contact": true,
+      "center_velocity_world": [
+        0.211080430562815,
+        -0.12238865064094805,
+        -0.13753855160469125
+      ],
+      "speed_mps": 0.2800906695158047
+    },
+    {
+      "leg": "RR",
+      "measured_contact": true,
+      "center_velocity_world": [
+        0.2016799727463643,
+        0.14026195902518715,
+        -0.33799017388693187
+      ],
+      "speed_mps": 0.41783440045151377
+    },
+    {
+      "leg": "RL",
+      "measured_contact": false,
+      "center_velocity_world": [
+        1.5132480389243628,
+        -0.03414785414943476,
+        0.8787618832552478
+      ],
+      "speed_mps": 1.7502308849731085
+    }
+  ],
+  "source_log_sha256": "ef4a79c8ff05dfe76792493803826c4079c5bf0f13733029abc31e24ff90675e",
+  "scene_sha256": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e",
+  "snapshot": {
+    "time": 21.018,
+    "position": [
+      2.396797272875704,
+      -0.0028500160270580623,
+      0.3688479019475619
+    ],
+    "quaternion_wxyz": [
+      0.9999604821205139,
+      -0.0022910265251994133,
+      -0.0006333055789582431,
+      -0.008563952520489693
+    ],
+    "linear_velocity_world": [
+      0.7994957566261292,
+      -0.028297211974859238,
+      -0.15428179502487183
+    ],
+    "angular_velocity_body": [
+      0.18029408156871796,
+      -0.3321271538734436,
+      0.0937507301568985
+    ],
+    "q": [
+      0.009691118262708187,
+      0.8332170248031616,
+      -1.3784911632537842,
+      -0.01600380428135395,
+      0.6439437866210938,
+      -1.243058681488037,
+      0.010666676796972752,
+      0.6431125998497009,
+      -1.2340705394744873,
+      0.0032261554151773453,
+      0.8327985405921936,
+      -1.3660980463027954
+    ],
+    "dq": [
+      -0.37104079127311707,
+      3.1354150772094727,
+      -8.81305980682373,
+      -0.5275468230247498,
+      1.820596694946289,
+      0.32391098141670227,
+      0.3280482292175293,
+      1.753454327583313,
+      0.6680172085762024,
+      -0.09445378929376602,
+      3.0725018978118896,
+      -8.820067405700684
+    ],
+    "measured_contact": [
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "model_xml_sha256": {
+    "b1_running_step_10cm.xml": "7b4826b5d8fb93cd4a1b697fc1e13762dc8c60435130ce83e8220f1555590020",
+    "b1_v3_running_step_5cm.xml": "46f6118585b9d151229e6e0edda6993c39f9f3159eda353102dc579aaaac24a0",
+    "go2.xml": "01acff1a72a10cd38ab3c95142bfc63db197c5fba39a11b45b15b6fc4899ba10",
+    "phase2_flat.xml": "7573636c293f03cb918a86eb11c08968031c2378ba82b4a99267eb3b3e68fc3e",
+    "phase2_repeated_steps.xml": "07635f42395b5a5637da74829cd1a93d7ce257cd9d2b7056dc9a515e33fbd90a",
+    "phase2_step_10cm.xml": "a7cca7c2d614b5ccf92ee5de686022a7999c11b2269d4c10fa0ed285a6080bc2",
+    "phase2_step_5cm.xml": "ab2106afe65c86827aae02158e3b35b5ebb61e2b14d3665ddbd7c971e7573b0e",
+    "phase2_step_5cm_holdout_a.xml": "c33dda444d497d49029ea6b103c4dc77545ea85bc321a993d2e3f2934c448f8e",
+    "phase2_step_5cm_holdout_b.xml": "337848d16756b1e16c775d9e6059689ab81a2c7e5f6197458aa429196c0b668b",
+    "phase2_step_5cm_holdout_c.xml": "68f3d9cfd7446c4d1d92cbd727d0cce7468eec89c26533251c43898e0b8117de",
+    "scene.xml": "6c1fda780e7883665d1c84113b9275b6d448f586a8b1c110e438a37417cbccd0",
+    "scene_fast.xml": "7a5aedba1511bdc7d0b0f3f4fdd865c4fea6b02d84c6fec44273e4fa315a9bc9",
+    "scene_leg_lift_demo.xml": "12286418247d0e240ae131b5ae5c60f3a7a481d4754aefe4517476e937aa05b8",
+    "scene_low_friction_patch.xml": "80c64a12b6326575307ae29e017e07b76bbb2efada0580a7bfe4570dfbbe8073",
+    "scene_reactive_obstacle.xml": "f17025535b15d1507c41f2099269ebda7a1e460c21e1306621195da3be55c487",
+    "scene_terrain.xml": "1c63b540d69e7ee4eefe7e13c1cf4981de51a7f22d8c21812bdb6a88635a7eea",
+    "scene_terrain_fast.xml": "5b0b5a6f91cb18b71920cb4839096f5f011aea2041cb9b3d44f79390a8e40442"
+  },
+  "scope": "actual source model velocity; no mj_step; measured contacts do not imply stationary collision centers"
+}

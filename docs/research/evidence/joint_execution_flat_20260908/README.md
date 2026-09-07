@@ -64,3 +64,15 @@ start21s protocol. On a failed WBC call only, reconstruct the same deterministic
 QP with original stage matrices, seed, and active-set failure detail. Do not
 replace the rejected command with this second solve. This capture distinguishes
 primary from secondary HQP failures without adding successful-tick matrix copies.
+
+## Subsequent diagnostic index
+All remain FAILED flat diagnostics, not B1 acceptance. CURRENT.md owns the live
+next action; historical registrations above are retained.
+- attempt_0003: exact primary-QP numerical failure, independent KKT and QR repair.
+- attempt_0004: repaired solver reaches physical tracking/posture failure.
+- attempt_0005: actual per-leg tasks and collision-truth early contact audit.
+- attempt_0006: exact first-QP task compatibility, production/independent replay,
+  and actual-source initial contact-motion audit. Its source-state audit is not
+  the later control tick or a new closed-loop experiment.
+- attempt_0007: shared orientation/swing-priority candidate fails posture; not
+  promoted. Runtime default remains the previous hierarchy.

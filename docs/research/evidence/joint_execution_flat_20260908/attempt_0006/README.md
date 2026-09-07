@@ -39,3 +39,36 @@ natural periodic running can require substantial alternating acceleration.
 Any relaxed-orientation candidate must therefore be judged on body excursion,
 contact evolution and closed-loop behavior, not an invented acceleration gate.
 No variant was activated by this offline study.
+
+## Initial contact-motion audit
+Independent Python MuJoCo evaluation of the exact retained source snapshot
+STATE21.018 gives measured-support collision-center speeds FL0.28009067 and
+RR0.41783440m/s. `audit_initial_motion.py` binds named actuator order and actual
+sphere geom Jacobians, retains q/qvel unchanged, and calls no mj_step.
+Its full vector results and source/model hashes are in initial_motion.json.
+Measured contact cannot be equated with a stationary geom center.
+Source admission audit confirms BuildExecutionProposal and execution-owner
+ValidateProposal currently require the selected centroidal certificate, not
+SolveJointTrajectoryCandidate. Runtime adds independent per-tick inverse
+dynamics/torque checks, but these do not retroactively certify the planned
+articulated trajectory. The existing body reconstruction fixes all four foot
+velocities and rejects any change to source q/dq. A nominal zero-velocity stance
+therefore cannot represent this moving measured support state without modeling
+the transition. Do not reset state or silently loosen that initial-state check.
+
+## Unmodified-state articulated diagnostic
+Build `replay_joint_shadow_snapshot`, then run it on `articulated_source.txt`
+with `--articulated-audit`. Exit 2 is the expected unverified trajectory result.
+Runtime foot window21.018--21.218 is covered; extending to the complete
+centroidal grid21.298 fails coverage_incomplete, before body reconstruction
+(0 samples). Nested default body failure is not evidence of a numerical solve.
+The separate source-state acceleration lift has rank18 and residual8.53e-14;
+its conditional sample certificate has peak torque31.4344Nm, force residual
+3.27e-10N and moment residual4.65e-10Nm. This does not certify physical contact
+or a trajectory. It uses nominal foot acceleration without controller PD,
+and recomputes the moment using actual application points. Both momentum
+targets are recorded: they happen to agree exactly at this initial sample,
+which does not establish agreement later. No state projection or mj_step occurs.
+The tool builds and --roundtrip exits0. A requested three-test CTest regression
+could not run because its executables are absent in this build directory;
+no new regression pass is claimed. Runtime controller code is unchanged.
