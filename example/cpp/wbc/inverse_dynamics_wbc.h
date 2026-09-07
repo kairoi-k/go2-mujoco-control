@@ -49,6 +49,9 @@ struct IdWbcParams
     bool hard_stance_no_slip = false;
     bool use_primal_active_set = false;
     bool prioritize_body_and_stance = false;
+    // Opt-in hierarchy experiment: keep the orientation cost, but allow it
+    // to trade with swing motion instead of freezing it at the primary level.
+    bool primary_include_orientation = true;
 };
 
 using IdWbcFootJacobian = Eigen::Matrix<double, 3, kGo2Nv>;
@@ -324,7 +327,8 @@ inline bool SolveInverseDynamicsWbc(
             g.segment<3>(3) -= 2.0 * params.w_base_ang * input.desired_angular_acc_body;
             Eigen::Matrix<double,3,nqdd> orientation_map=Eigen::Matrix<double,3,nqdd>::Zero();
             orientation_map.block<3,3>(0,3).setIdentity();
-            add_priority(orientation_map,input.desired_angular_acc_body,Eigen::Vector3d::Constant(params.w_base_ang));
+            if(params.primary_include_orientation)
+                add_priority(orientation_map,input.desired_angular_acc_body,Eigen::Vector3d::Constant(params.w_base_ang));
             output.centroidal_orientation_task_used = true;
         }
     }

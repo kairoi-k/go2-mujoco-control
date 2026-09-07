@@ -128,6 +128,7 @@ struct ClosedLoopResearchConfig
 {
     // These are research replay settings, recorded in the sidecar metadata by
     // the caller. They are not B1 thresholds and do not change the planner.
+    bool primary_include_orientation = true;
     double swing_clearance_m = 0.03;
     double com_kp_xy = 18.0;
     double com_kp_z = 24.0;
@@ -489,6 +490,7 @@ inline bool BuildWbcReplayInput(
     params.tau_limit_nm = config.torque_limit_nm;
     params.use_primal_active_set = true;
     params.prioritize_body_and_stance = true;
+    params.primary_include_orientation = config.primary_include_orientation;
     params.w_force_track = config.force_track_weight;
     params.min_normal_n = 0.0;
     params.max_normal_n = std::numeric_limits<double>::infinity();

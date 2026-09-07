@@ -55,6 +55,20 @@ int main(){try {
  Check((captured.Aeq*captured.iterate-captured.beq).lpNorm<Eigen::Infinity>()<5e-7 &&
        (captured.Aineq*captured.iterate-captured.bineq).maxCoeff()<5e-7,
        "captured constraints do not certify applied solution");
+ joint_feedback_reference::ClosedLoopResearchConfig coupled_config;
+ coupled_config.primary_include_orientation=false;
+ go2_control::IdWbcQpSnapshot coupled_qp;
+ const auto coupled=joint_feedback_controller::FeedbackTick(proposal,robot,initial,
+     foot_sample.samples.front(),contact.mask,t0,0.0,coupled_config,{},&coupled_qp);
+ Check(coupled.ok && coupled.id_certificate_valid && coupled.motor_envelope_valid,
+       "coupled orientation fixture failed physical equations");
+ Check(coupled_qp.Aeq.rows()==captured.Aeq.rows()-3,
+       "orientation must leave primary while COM/support stay");
+ Check((coupled_qp.H-captured.H).norm()==0 && (coupled_qp.g-captured.g).norm()==0,
+       "orientation objective or other secondary tasks changed");
+ Check((coupled_qp.Aineq-captured.Aineq).norm()==0 &&
+       (coupled_qp.bineq-captured.bineq).norm()==0,
+       "physical force/torque constraints changed");
  const auto expired=joint_feedback_controller::FeedbackTick(proposal,robot,initial,
      foot_sample.samples.front(),contact.mask,t2,0.0);
  Check(!expired.ok && !expired.tau_valid && !expired.tau.allFinite(),

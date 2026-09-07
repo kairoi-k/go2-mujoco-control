@@ -1,6 +1,6 @@
 // Offline replay of a serialized inverse-dynamics WBC QP.
 // This tool never reads a plant, writes a motor command, or runs simulation.
-// Currently scoped to a two-contact 24-variable, 18-equality, 36-inequality
+// Currently scoped to a two-contact 24-variable, 15/18-equality, 36-inequality
 // captured secondary HQP; other layouts reject explicitly.
 // Input is a strict whitespace fixture containing named matrices:
 // H g Aineq bineq Aeq beq seed iterate w_posture contact J0..J3
@@ -248,9 +248,11 @@ int main(int argc, char **argv) {
     const auto require = [&](const std::string &n, int r, int c) {
         return Shape(f, n, r, c, error);
     };
+    const int neq=f.at("Aeq").rows;
+    if (neq!=15 && neq!=18) { Fail("unsupported_primary_layout"); return 2; }
     if (!require("H",24,24) || !require("g",24,1) ||
         !require("Aineq",36,24) || !require("bineq",36,1) ||
-        !require("Aeq",18,24) || !require("beq",18,1) ||
+        !require("Aeq",neq,24) || !require("beq",neq,1) ||
         !require("seed",24,1) || !require("iterate",24,1) ||
         !require("w_posture",1,1) || !require("contact",4,1)) {
         Fail(error); return 2;
@@ -280,7 +282,7 @@ int main(int argc, char **argv) {
     if (!Hab.allFinite()) { Fail("ablation_H_nonfinite"); return 2; }
     const RunResult ablation = Solve(Hab,g,Ai,bi,Ae,be,seed);
     std::cout << "{\"ok\":true,\"input\":" << Quote(argv[1])
-              << ",\"dimensions\":{\"variables\":24,\"equalities\":18,\"inequalities\":36}"
+              << ",\"dimensions\":{\"variables\":24,\"equalities\":" << neq << ",\"inequalities\":36}"
               << ",\"w_posture\":" << Number(w_posture)
               << ",\"contact_mask\":"; PrintVec(contact);
     std::cout << ",\"ablation\":{\"changed\":\"H[6:18,6:18] diagonal minus 2*w_posture\",\"equalities_reused\":true,\"other_problem_data_reused\":true}"

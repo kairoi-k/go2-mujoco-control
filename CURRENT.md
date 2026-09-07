@@ -114,7 +114,13 @@ qdd regularization as the main swing error cause; frozen primary body/support
 tasks leave a numerical swing residual floor89.632m/s2 (stable rank cutoffs).
 Relaxing orientation locking reduces swing error but induces large body angular
 acceleration, so neither diagnostic variant is enabled. Body/leg reference
-coordination and physical contact realization are required. See attempt0006. Sampled foot error in the
+coordination and physical contact realization are required. See attempt0006.
+Next controlled hypothesis: opt-in TROT_RESEARCH_JOINT_SOFT_ORIENTATION=1
+keeps COM/support priority and all force/torque constraints, moves orientation
+tracking to the existing secondary cost with swing/momentum. Default old
+hierarchy remains. No gait/terrain/acceptance changes; same fixed-start flat
+canary evaluates actual body excursion and contact evolution, not just task
+residual. This is not yet a full horizon articulated planning solution. Sampled foot error in the
 failed run reaches118.023mm and remains an execution concern. Variable-period calendar transitions remain an unresolved requirement. The clock caller
 now passes commitment activity rather than silently resetting the epoch.
 Default remains off. See joint_execution_flat_20260908.

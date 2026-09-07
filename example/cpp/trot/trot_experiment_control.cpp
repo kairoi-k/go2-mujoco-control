@@ -218,12 +218,18 @@ bool TrotExperiment::ApplyJointExecutionTorque(
     std::array<bool,go2::kLegCount> measured;
     for (std::size_t leg=0;leg<go2::kLegCount;++leg)
         measured[leg] = state.foot_force()[leg] >= kContactForceThreshold;
+    static const auto execution_config=[] {
+        joint_feedback_reference::ClosedLoopResearchConfig config;
+        config.primary_include_orientation=
+            Full2EnvDouble("TROT_RESEARCH_JOINT_SOFT_ORIENTATION",0.0)<=0.5;
+        return config;
+    }();
     go2_control::IdWbcQpSnapshot first_qp;
     const bool capture_first_qp=!joint_execution_started_;
     const auto begin=std::chrono::steady_clock::now();
     const auto tick = joint_feedback_controller::FeedbackTick(
         *adoption.accepted->proposal->selected, *rigid_body_, actual,
-        reference.center_reference, measured, now, joint_execution_yaw_, {}, {},
+        reference.center_reference, measured, now, joint_execution_yaw_, execution_config, {},
         capture_first_qp ? &first_qp : nullptr);
     const double elapsed_us=std::chrono::duration<double,std::micro>(
         std::chrono::steady_clock::now()-begin).count();
@@ -269,7 +275,9 @@ bool TrotExperiment::ApplyJointExecutionTorque(
         // The secondary equality rows retain the actual primary optimum.
         std::ostringstream dump;dump.precision(17);
         dump << "JointExecutionFirstQp state=" << now.seconds()
-            << " stage=" << first_qp.stage << " w_posture=" << tick.params.w_posture
+            << " stage=" << first_qp.stage
+            << " primary_orientation=" << tick.params.primary_include_orientation
+            << " w_posture=" << tick.params.w_posture
             << " solution_applied=1\n";
         const auto matrix=[&](const std::string &name,const Eigen::MatrixXd &m) {
             dump << "JointExecutionFirstQpMatrix name=" << name
