@@ -8,6 +8,19 @@ Resumed from323e51be8aca3775390636990ea2ed635d81b989. Latest diagnostic source
 is d33c47e2b0dec2d2fed770edc9a93387b0c88f5c; checkpoint HEAD is its descendant.
 Read docs/research/COUPLED_HORIZON_RESEARCH_V1.md and its evidence README first,
 then docs/research/SESSION_HANDOFF_20260908.md for the retained earlier lineage.
+## Full-cycle whole-body route, latest20260908
+Read WHOLE_BODY_MPC_ORACLE_V1.md. Source99d256d actual initial-pair audit finds
+25/25centroidal-feasible pairs fail initial articulated torque, best58.366Nm>35.
+Changing only discrete choices under the same stitched swing cannot solve this
+recorded initialization. Bootstrap target inheritance root cause is unproven.
+Source89040b1 implements1..200step full MuJoCo whole-body joint torque evaluator
+with fixedprefix and body/foot/momentum cost. Four1/70step native/Python checks
+on5cm scene agree: constraints0difference, cost<=3.47e-18;10failclosed checks pass.
+This is evaluator equivalence at originalx2.577, not obstacle encounter or B1.
+Next execute synchronous known-scene full-cycle rolling optimization on5cm.
+Known terrain and recorded initialization remain explicit privileges; measured
+running contact, observed terrain, production authority and realtime remain open.
+Evidence: docs/research/evidence/whole_body_mpc_oracle_20260908/README.md.
 ## Active boundary after user route correction
 Source46824af native evaluation matches the Python physics oracle. One same
 32ms solve improved17.2769s to2.7669s, still nowhere near12ms publication.

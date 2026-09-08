@@ -1,0 +1,298 @@
+{
+  "schema": "go2-bootstrap-target-audit-v1",
+  "scope": "read-only static MJCF forward at recorded source pose; no mj_step/dynamics rollout",
+  "mj_step_called": false,
+  "mj_forward_calls": 1,
+  "source": {
+    "proposal_id": 881,
+    "source_time_s": 21.02,
+    "phase": 0.4861940836935581,
+    "period_s": 0.14,
+    "duty": 0.44,
+    "command_vx_mps": 0.8514999999999997,
+    "base_yaw_rad": -0.013551021926105022,
+    "body_position_world": [
+      2.5771273887308688,
+      -0.005823030102762571,
+      0.3728210566350136
+    ],
+    "body_quaternion_wxyz_raw": [
+      0.9999727010726929,
+      -0.0029456077609211206,
+      0.00013437826419249177,
+      -0.0067750923335552216
+    ],
+    "body_quaternion_norm": 0.9999999997146722,
+    "body_quaternion_wxyz_used": [
+      0.9999727013580129,
+      -0.002945607761761584,
+      0.00013437826423083363,
+      -0.006775092335488344
+    ],
+    "touchdown_reference_feet_base": [
+      [
+        0.21667582317643924,
+        -0.13867528025475184,
+        -0.3499994163471274
+      ],
+      [
+        0.21646138615160526,
+        0.14101534920910966,
+        -0.3499994163471274
+      ],
+      [
+        -0.17033861384839472,
+        -0.13898466103570525,
+        -0.3499994163471274
+      ],
+      [
+        -0.17012417682356074,
+        0.14132472999006307,
+        -0.3499994163471274
+      ]
+    ],
+    "measured_contact": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "model": {
+    "path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/go2.xml",
+    "mujoco_version": "3.3.6",
+    "nq": 19,
+    "nv": 18,
+    "nu": 12
+  },
+  "candidate_formula": "p1_xy = (body_pos + body_quat*legacy_target_base) + (geom_center_world - foot_site_world) + command_v_world*(touchdown-source_time) + xy_offsets[index]",
+  "legs": {
+    "1": {
+      "event_index": 0,
+      "touchdown_s": 21.027532828000002,
+      "delta_t_s": 0.007532828000002212,
+      "legacy_target_base": [
+        0.21646138615160526,
+        0.14101534920910966,
+        -0.3499994163471274
+      ],
+      "legacy_target_world": [
+        2.7953714835517465,
+        0.13018251483955784,
+        0.021947206553065424
+      ],
+      "source_geom_center_world_mj_forward": [
+        2.769656122971376,
+        0.1294917668146147,
+        0.031152166630653094
+      ],
+      "source_foot_site_world_mj_forward": [
+        2.7712518577428025,
+        0.12948461013638088,
+        0.03235781140471297
+      ],
+      "geom_minus_site_world": [
+        -0.0015957347714263825,
+        7.156678233810609e-06,
+        -0.0012056447740598775
+      ],
+      "geom_minus_site_norm_m": 0.002000000000000111,
+      "source_p0_from_raw_swing_audit": [
+        2.769656122971376,
+        0.12949176681461472,
+        0.031152166630652928
+      ],
+      "raw_p0_vs_mj_forward_geom_error_m": 1.6883057536160649e-16,
+      "command_velocity_world": [
+        0.8514218206407275,
+        -0.011538342031179634,
+        0.0
+      ],
+      "com_forward_delta": [
+        0.0064136141303353334,
+        -8.691634592607234e-05,
+        0.0
+      ],
+      "candidate_xy_offset_inferred": [
+        4.440892098500626e-16,
+        2.7755575615628914e-17
+      ],
+      "candidate_xy_offset_expected_index0": [
+        0.0,
+        0.0
+      ],
+      "event_p1_collision_center_raw": [
+        2.800189362910656,
+        0.1301027551718656,
+        0.02200000865195726
+      ],
+      "event_displacement_p1_minus_p0": [
+        0.0305332399392797,
+        0.0006109883572508745,
+        -0.009152157978695667
+      ],
+      "decomposition_xy": {
+        "legacy_world_minus_source_geom": [
+          0.025715360580370383,
+          0.0006907480249431219
+        ],
+        "geom_minus_site": [
+          -0.0015957347714263825,
+          7.156678233810609e-06
+        ],
+        "com_forward": [
+          0.0064136141303353334,
+          -8.691634592607234e-05
+        ],
+        "candidate_xy_offset": [
+          4.440892098500626e-16,
+          2.7755575615628914e-17
+        ],
+        "sum": [
+          0.03053323993927978,
+          0.000610988357250888
+        ],
+        "observed_p1_minus_p0": [
+          0.0305332399392797,
+          0.0006109883572508745
+        ]
+      },
+      "geometry_metadata": {
+        "geom_name": "FL",
+        "site_name": "FL_foot_contact",
+        "geom_id": 19,
+        "site_id": 1,
+        "geom_body_id": 4,
+        "site_body_id": 4,
+        "geom_pos_local": [
+          -0.002,
+          0.0,
+          -0.213
+        ],
+        "site_pos_local": [
+          0.0,
+          0.0,
+          -0.213
+        ],
+        "same_parent_body": true
+      },
+      "z_note": "candidate z is terrain surface height plus radius*normal; it is not the legacy target z plus the xy decomposition"
+    },
+    "2": {
+      "event_index": 1,
+      "touchdown_s": 21.027532828000002,
+      "delta_t_s": 0.007532828000002212,
+      "legacy_target_base": [
+        -0.17033861384839472,
+        -0.13898466103570525,
+        -0.3499994163471274
+      ],
+      "legacy_target_world": [
+        2.4048132806005826,
+        -0.1445455568911356,
+        0.02368572540220143
+      ],
+      "source_geom_center_world_mj_forward": [
+        2.3784289425020244,
+        -0.14786561408240073,
+        0.0328637675140146
+      ],
+      "source_foot_site_world_mj_forward": [
+        2.3800306982855703,
+        -0.14787774481851376,
+        0.03406136145818664
+      ],
+      "geom_minus_site_world": [
+        -0.0016017557835459328,
+        1.2130736113030727e-05,
+        -0.001197593944172043
+      ],
+      "geom_minus_site_norm_m": 0.00199999999999976,
+      "source_p0_from_raw_swing_audit": [
+        2.3784289425020244,
+        -0.1478656140824008,
+        0.032863767514014514
+      ],
+      "raw_p0_vs_mj_forward_geom_error_m": 1.0007415106216802e-16,
+      "command_velocity_world": [
+        0.8514218206407275,
+        -0.011538342031179634,
+        0.0
+      ],
+      "com_forward_delta": [
+        0.0064136141303353334,
+        -8.691634592607234e-05,
+        0.0
+      ],
+      "candidate_xy_offset_inferred": [
+        0.0,
+        2.7755575615628914e-17
+      ],
+      "candidate_xy_offset_expected_index0": [
+        0.0,
+        0.0
+      ],
+      "event_p1_collision_center_raw": [
+        2.409625138947372,
+        -0.14462034250094863,
+        0.02200000865195726
+      ],
+      "event_displacement_p1_minus_p0": [
+        0.031196196445347546,
+        0.003245271581452158,
+        -0.010863758862057253
+      ],
+      "decomposition_xy": {
+        "legacy_world_minus_source_geom": [
+          0.026384338098558224,
+          0.0033200571912651855
+        ],
+        "geom_minus_site": [
+          -0.0016017557835459328,
+          1.2130736113030727e-05
+        ],
+        "com_forward": [
+          0.0064136141303353334,
+          -8.691634592607234e-05
+        ],
+        "candidate_xy_offset": [
+          0.0,
+          2.7755575615628914e-17
+        ],
+        "sum": [
+          0.031196196445347626,
+          0.0032452715814521717
+        ],
+        "observed_p1_minus_p0": [
+          0.031196196445347546,
+          0.003245271581452158
+        ]
+      },
+      "geometry_metadata": {
+        "geom_name": "RR",
+        "site_name": "RR_foot_contact",
+        "geom_id": 55,
+        "site_id": 4,
+        "geom_body_id": 16,
+        "site_body_id": 16,
+        "geom_pos_local": [
+          -0.002,
+          0.0,
+          -0.213
+        ],
+        "site_pos_local": [
+          0.0,
+          0.0,
+          -0.213
+        ],
+        "same_parent_body": true
+      },
+      "z_note": "candidate z is terrain surface height plus radius*normal; it is not the legacy target z plus the xy decomposition"
+    }
+  },
+  "raw_input_sha256": {
+    "initial_gate_replay.txt": "64f99da0dd81b04a60a1e981b270d6621b908ce5b5c0e7ecaf854f929575f6e0",
+    "swing_boundary_audit.txt": "a176fdb89a74a0c87525b76c694844e0f9a33258de7c3bb97172af4f9bd4a736",
+    "go2.xml": "01acff1a72a10cd38ab3c95142bfc63db197c5fba39a11b45b15b6fc4899ba10"
+  }
+}

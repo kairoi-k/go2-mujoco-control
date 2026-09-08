@@ -1,0 +1,28 @@
+{
+  "native_audit.json": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0001/audit.json",
+    "sha256": "cf381f60433e17e565c9d1ebda4f6dc49eb972fe4245b77514364cd6d55b1ae6"
+  },
+  "initial_pair_summary.json": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/initial_pair_20260908_0001/summary.json",
+    "sha256": "5133bbfc37870a24d7fdf2edf67d6ce19ad16f754c72c2aa4ed47929d31e683f"
+  },
+  "bootstrap_target_audit.json": {
+    "original_path": "/tmp/go2-bootstrap-target-audit-20260908/bootstrap_target_audit.json",
+    "sha256": "db72c4c4db1650de0a8e7992ca3055506b5720b881392b6217921b4a96d868d0"
+  },
+  "bootstrap_target_audit.py": {
+    "original_path": "/tmp/go2-bootstrap-target-audit-20260908/audit.py",
+    "sha256": "4118d394eee5764d50b9cbe0d236e089328da4086fb1005ae413d25f1cea9ce2"
+  },
+  "initial_pair_stdout.txt.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/initial_pair_20260908_0001/stdout.txt",
+    "original_sha256": "300c5289753a9f9187f11dfa3fbd95c59d7e042a91f1d1202a96ae99c24cda87",
+    "sha256": "3077d964e8ee71562f320cda62aaf9224db19ea3e4bd91d13f9817c678f9b013"
+  },
+  "libwm.so.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0001/libwm.so",
+    "original_sha256": "7a64058443b059cb0fc1e903dd59ae544559c688d30728be90be382d7c1a0a62",
+    "sha256": "31dd3278add682450d01476c59c5060dcef9cae60c21af7fd95aef6c9ea4dbb0"
+  }
+}

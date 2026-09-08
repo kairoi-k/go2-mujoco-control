@@ -1,0 +1,119 @@
+{
+  "schema": "whole-body-mpc-native-audit-v1",
+  "scope": "known 5cm scene at privileged recorded initial state, no traversal or B1 claim",
+  "source_sha": "89040b13185794177d9353f3f4d709425537ecfc",
+  "hashes": {
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/whole_body_native_20260908/trajectory_packet_0002/manifest.json": "6a111f2f78c9426215bb7c6ab13ebb7e34d215f6780368194403b688879c3216",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/whole_body_native_20260908/trajectory_packet_0002/trajectory.packet": "d22f01fb3faeb1503da8978114045533df2c2ff41e4715affedcc3fbc0ce6567",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0001/libwm.so": "7a64058443b059cb0fc1e903dd59ae544559c688d30728be90be382d7c1a0a62",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/audit_whole_body_mpc_native.py": "62d5aad5e6287fed16a3593066c3684f26f44c7aa85185a1edf43769f55b6003",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/probe_coupled_mujoco_horizon.py": "55e80daff31ab1fe7d72f555389037fb4971c86c93a6204212aa22e89a94df62",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/whole_body_horizon_probe.py": "fcaf930b2d42d6ce928de302f0414733be3ca1e54f7fdd33478839d7dc69b959",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/whole_body_mpc_native.cpp": "d3dd420a010a9e4acbb0eb1bd475253c1ae6048b20459cbfb64d2957ac24475c",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/whole_body_mpc_native.py": "6115cf89cfe242042edebb02e0206a6717cd764973224440984d4e65c268bd71",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_0.obj": "8cdc53719002a5ee737d867904e534a6d6fa930b616bdcc1b3131e577d4e46c0",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_1.obj": "39d2f4724ff64dd5a0640c308fd98902a2946660a8d033ec8dbf368fd5af0dd6",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_2.obj": "29cae463f95d678e4ede863c36c9b19b0d356b8340412add10670d70bdcc3095",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_3.obj": "f51ba43bf300e68957a0c1aa83eaf3e4926f4ac7e64a0d6c33ae5d21fcbcf5f6",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/base_4.obj": "49ddec0129546e5dd2075d5beacf7f207baa2860aeff7626818e64d2efbf3821",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/calf_0.obj": "4a818cd563c5b7e2a271504442d05fd777d38cbaa028d4a10ad29c9f87bb355e",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/calf_1.obj": "51950c3a153ae3208592df86ea11c9d6756f8f645ebca5caf6910c61aeb03817",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/calf_mirror_0.obj": "6dc0406207a1c08a5953fd5962aca1a270fd06593d30d100205e05c1b32d4af2",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/calf_mirror_1.obj": "f84f5af90b914633165beb3a5493ee499169144c5797dcf04c6eb5842f74b31a",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/foot.obj": "df9e78a7c0110d02557439010f2a5f11f0ec4fd907b32704145dbd6aa7affc0b",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/hip_0.obj": "cc29932ab4d251ce3f72389ec4c1f757e44eee138b87e772b648c2bc76b506cd",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/hip_1.obj": "3fd5bd9b2ef6abe622c0739d3c67eaa1679b19b47132951972c4892a779ea7cf",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/thigh_0.obj": "bb3edfe6a7b04f4f4dff1ce7b05d426ddce941e276cc6372fb542055893c71ec",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/thigh_1.obj": "3a631822f9f7d2114b1b79dcdff5abf95103630abb7d91d1f3b8b18117132ed2",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/thigh_mirror_0.obj": "07abaedce761f1dd48647384ac14ba1959276bc78d5a2a62051e8f1c6093933b",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/assets/thigh_mirror_1.obj": "db984a3e983eabbc9b38183427cca9ab0bb3bdb049f9eab030e06edda36579d6",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/b1_v3_running_step_5cm.xml": "46f6118585b9d151229e6e0edda6993c39f9f3159eda353102dc579aaaac24a0",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/go2.xml": "01acff1a72a10cd38ab3c95142bfc63db197c5fba39a11b45b15b6fc4899ba10"
+  },
+  "mujoco": "3.3.6",
+  "cases": [
+    {
+      "steps": 1,
+      "perturbation": 0.0,
+      "cost": 0.031097178315326823,
+      "cost_delta": 0.0,
+      "constraint_delta": 0.0,
+      "strict_feasible": true,
+      "min_constraint": 0.0,
+      "native_ms": 0.3255549818277359
+    },
+    {
+      "steps": 1,
+      "perturbation": 0.001,
+      "cost": 0.031097178315326823,
+      "cost_delta": 0.0,
+      "constraint_delta": 0.0,
+      "strict_feasible": true,
+      "min_constraint": 0.0,
+      "native_ms": 0.13900300837121904
+    },
+    {
+      "steps": 70,
+      "perturbation": 0.0,
+      "cost": 0.028112014372040174,
+      "cost_delta": 0.0,
+      "constraint_delta": 0.0,
+      "strict_feasible": true,
+      "min_constraint": 0.0,
+      "native_ms": 8.564660995034501
+    },
+    {
+      "steps": 70,
+      "perturbation": 0.001,
+      "cost": 0.03112842543529827,
+      "cost_delta": 3.469446951953614e-18,
+      "constraint_delta": 0.0,
+      "strict_feasible": true,
+      "min_constraint": 0.0,
+      "native_ms": 8.370511990506202
+    }
+  ],
+  "fail_closed": [
+    {
+      "name": "prefix_1",
+      "pass": true
+    },
+    {
+      "name": "shape_1",
+      "pass": true
+    },
+    {
+      "name": "nonfinite_1",
+      "pass": true
+    },
+    {
+      "name": "closed_1",
+      "pass": true
+    },
+    {
+      "name": "prefix_70",
+      "pass": true
+    },
+    {
+      "name": "shape_70",
+      "pass": true
+    },
+    {
+      "name": "nonfinite_70",
+      "pass": true
+    },
+    {
+      "name": "closed_70",
+      "pass": true
+    },
+    {
+      "name": "unknown_terrain",
+      "pass": true
+    },
+    {
+      "name": "zero_quaternion",
+      "pass": true
+    }
+  ],
+  "pass": true
+}
