@@ -46,3 +46,12 @@ Result0002: independently verified sampled feasible witness after17.2769s;
 angular rates nearly saturate0.3rad/s. Not a stability/quality or runtime claim.
 See evidence/coupled_horizon_20260908/README.md. Next objective must price
 rotational momentum and test continuation, rather than optimize vy in isolation.
+## Matched continuation audit preregistration
+At source after4c658c2, replay the baseline and0002 coupled head from identical
+full integration state. Then both receive the same existing70-step periodic
+nominal feedback tau-K*error (35Nm clipping), for140 further2ms steps, preserving
+absolute phase and commanded forward translation. No state reset/retiming or
+online force projection. Record first hard constraint violation and all states;
+stop only on numerical failure or baseheight below.20m. This tests membership in
+this particular policy's recovery region, not global viability or the old native
+force-projected controller. A failure must not become a B1 impossibility claim.
