@@ -28,6 +28,15 @@ class ConstrainedTest(unittest.TestCase):
  def test_fast_path(self):
   m=model(1);d=mujoco.MjData(m)
   tau,report=helper.constrained_tracking(m,d,[0.],[1]);np.testing.assert_array_equal(tau,[0.]);self.assertEqual(report['status'],'box_optimum_feasible')
+ def test_scratch_matches_copy_at_contact_boundary(self):
+  m=model(1);d=mujoco.MjData(m)
+  for height in (-.001,-1e-8,0.,1e-8):
+   d.qpos[0]=height;d.qvel[0]=-.02;d.qacc_warmstart[0]=.123;d.time=.37;d.ctrl[0]=1.2
+   for desired in (-35.,0.,35.):
+    expected=forces(m,d,[desired])
+    tau,report=helper.constrained_tracking(m,d,[desired],[1])
+    np.testing.assert_array_equal(tau,[desired])
+    np.testing.assert_array_equal(np.r_[report['pre_force_n'],report['post_force_n']],expected)
  def test_irreducible_force_rejected(self):
   m=model(100);d=mujoco.MjData(m);d.qpos[0]=-.001
   self.assertGreater(min(forces(m,d,[35.])),180.)

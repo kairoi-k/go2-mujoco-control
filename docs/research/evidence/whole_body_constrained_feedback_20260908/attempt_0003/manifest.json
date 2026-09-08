@@ -1,0 +1,26 @@
+{
+  "source_sha": "714bf3f4470589677e13cd92ce684d54124ffaf1",
+  "raw_directory": "example/cpp/experiments/_runs/whole_body_constrained_feedback_20260908_0003",
+  "periods": 20,
+  "initial_vy": 0,
+  "initial_roll": 0.02,
+  "command": "python3 example/cpp/tools/research/periodic_whole_body_feedback.py docs/research/evidence/whole_body_cycle_20260908/attempt_0002/result.json --periods 20 --r-weight 0.01 --constrained --initial-roll 0.02 --out example/cpp/experiments/_runs/whole_body_constrained_feedback_20260908_0003/result.json",
+  "environment": {
+    "OPENBLAS_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1"
+  },
+  "sha256": {
+    "certificate.json": "6b62d688b13b7f518d07e1f4e7aa8cbcc8dae996f562f49599eb348d4a916be9",
+    "contact_diagnostic.json.gz": "9f0f127a5a80b42db0413f5e06786e4898f14719bddab8385e2c598d9b756df5",
+    "contact_summary.json": "610898890e2f7cb183753f4eb4374333f6138f3adf66a2293b680ede38292b00",
+    "raw_result.json.gz": "04dff74f9489a71e0d9a9bdf22aa426f183a791dcc49ef2ec151f8abf92a0dc5",
+    "result.json": "1168d5808c5742bc5f8b127bb9b6475a6ab8048d14497bfe0593e6bdd5ac8226",
+    "runtime_sources/constrained_whole_body_feedback.py": "4cde9642545649f428c0a50447f701923c56d297dbf7e73b2fd11006009645a0",
+    "runtime_sources/periodic_whole_body_feedback.py": "916705fd3ec50e450902a6b02c4305dad0aeb241a54f0965ddf8321317e0ac5b",
+    "runtime_sources/verify_whole_body_shooting.py": "c6c4c1b0a1821363a9211e2f0f5addfa9c8396c5238ae67c636ce5afd0dd40f4",
+    "runtime_sources/whole_body_shooting_derivatives.py": "8ebef78d5e00d81dfd6cffb7a029de436fe8da0eda06986a652599c5257074a7",
+    "source_sha.txt": "c8ce5f4da7b919674b50eb099c96cae3530922506ec32bb8f60872c54848af1c",
+    "source_status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

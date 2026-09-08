@@ -1,4 +1,5 @@
 """Offline one-step constrained torque tracking; no runtime recovery authority."""
+import copy
 import time
 import mujoco
 import numpy as np
@@ -11,14 +12,12 @@ def constrained_tracking(model, data, desired, foot_geom_ids=None, max_iteration
  """Minimize Euclidean torque correction under fixed 35Nm/180N limits.
  Forces are independently evaluated before integration and after one unchanged
  model step. Failure is a diagnostic, never proof of physical infeasibility.
- Scratch data restores complete integration state for every evaluation;
- no model options or input state changes. Plugin models are unsupported.
+ Model/data are copied for every evaluation; no solver options or state reset.
  """
  started=time.perf_counter();calls=0;derivative_calls=0;best=None
  desired=np.asarray(desired,dtype=float)
  if desired.shape!=(model.nu,) or not np.all(np.isfinite(desired)):
   raise ValueError('finite desired torque of model.nu entries required')
- if model.nplugin:raise ValueError('plugin models unsupported by integration-state scratch restoration')
  saved_state=np.empty(mujoco.mj_stateSize(model,mujoco.mjtState.mjSTATE_INTEGRATION))
  mujoco.mj_getState(model,data,saved_state,mujoco.mjtState.mjSTATE_INTEGRATION)
  if not np.all(np.isfinite(saved_state)):raise ValueError('finite complete integration state required')
@@ -27,7 +26,6 @@ def constrained_tracking(model, data, desired, foot_geom_ids=None, max_iteration
  gids=list(foot_geom_ids) if foot_geom_ids is not None else [mujoco.mj_name2id(model,mujoco.mjtObj.mjOBJ_GEOM,n) for n in ('FR','FL','RR','RL')]
  if not gids or len(set(gids))!=len(gids) or min(gids)<0 or max(gids)>=model.ngeom:
   raise ValueError('unique existing foot geometry ids required')
- pre=mujoco.MjData(model);post=mujoco.MjData(model)
  def diagnostic(status,**extra):
   return dict(status=status,scope='offline constrained tracking; not infeasibility or B1 proof',torque_limit_nm=35.,normal_force_limit_n=180.,foot_geom_ids=gids,calls=calls,derivative_calls=derivative_calls,elapsed_s=time.perf_counter()-started,**extra)
  def check_budget():
@@ -42,10 +40,9 @@ def constrained_tracking(model, data, desired, foot_geom_ids=None, max_iteration
  def evaluate(tau,origin="constraint_evaluation"):
   nonlocal calls,best
   check_budget();calls+=1
-  mujoco.mj_setState(model,pre,saved_state,mujoco.mjtState.mjSTATE_INTEGRATION);pre.ctrl[:]=tau
-  mujoco.mj_forward(model,pre)
-  mujoco.mj_setState(model,post,saved_state,mujoco.mjtState.mjSTATE_INTEGRATION);post.ctrl[:]=tau
-  mujoco.mj_step(model,post);mujoco.mj_forward(model,post)
+  initial=copy.copy(data);initial.ctrl[:]=tau
+  pre=copy.copy(initial);mujoco.mj_forward(model,pre)
+  post=copy.copy(initial);mujoco.mj_step(model,post);mujoco.mj_forward(model,post)
   values=np.r_[summed(pre),summed(post)]
   if not np.all(np.isfinite(values)):raise ConstrainedFeedbackFailure(diagnostic('nonfinite_force'))
   if np.all(abs(tau)<=35.) and np.all(values<=180.):

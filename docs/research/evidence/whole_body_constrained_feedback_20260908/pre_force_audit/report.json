@@ -1,0 +1,41 @@
+{
+  "schema": "independent-pre-post-force-audit-v1",
+  "script_sha256": "672f1155f083d9a0c231a9309d48ba96681a5523a4ef8999d9b5298a9531eafa",
+  "mujoco_version": "3.3.6",
+  "scope": "independent full-state saved-control pre/post force replay; not live/B1",
+  "reports": [
+    {
+      "attempt": 1,
+      "steps": 1400,
+      "metadata_force_error_n": 0.0,
+      "state_error": 0.0,
+      "pre_force_max_n": 170.53949123567912,
+      "post_force_max_n": 171.98926306079093,
+      "strict180n_violation_steps": [],
+      "result_sha256": "0a8b468b556e98236fee6be21e0261b3fadd7fedf2c80a5b213fe0640b35d89c",
+      "source_sha": "714bf3f4470589677e13cd92ce684d54124ffaf1"
+    },
+    {
+      "attempt": 2,
+      "steps": 1400,
+      "metadata_force_error_n": 0.0,
+      "state_error": 0.0,
+      "pre_force_max_n": 171.5171464426738,
+      "post_force_max_n": 179.999994498747,
+      "strict180n_violation_steps": [],
+      "result_sha256": "d7d3cea3900c5b222dd3e26d98c675f2a0266d646cadb21e58585814aec968ce",
+      "source_sha": "714bf3f4470589677e13cd92ce684d54124ffaf1"
+    },
+    {
+      "attempt": 3,
+      "steps": 1400,
+      "metadata_force_error_n": 0.0,
+      "state_error": 0.0,
+      "pre_force_max_n": 173.29095007552183,
+      "post_force_max_n": 173.22929578409796,
+      "strict180n_violation_steps": [],
+      "result_sha256": "e0ae50c68c2711db508f0cd9123f0d2a555de6da4f46e1202fd08641c4de5dd9",
+      "source_sha": "714bf3f4470589677e13cd92ce684d54124ffaf1"
+    }
+  ]
+}

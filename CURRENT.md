@@ -18,6 +18,10 @@ Registered+vy0.05m/s trial0003 converges but single RR sample21.036 reaches188.7
 ## Registered constrained feedback challenger
 The failed RR predecessor admits a strictly180N-feasible one-step control: maximum motor change0.9691Nm, independent fresh pre/post replay. New opt-in offline --constrained minimizes torque deviation under exact full-model pre/post force limits, preserves input state/model, and stops without a verified candidate. SLSQP feasible evaluated witnesses are not optimality claims. WHOLE_BODY_CONSTRAINED_FEEDBACK_V1 registers matched20cycle nominal,vy0.05 thenroll0.02 sequential probes; no full constrained replay yet.
 
+## Latest: constrained initialized feedback physically repeats, realtime unresolved
+Clean714bf3 constrained20period nominal,vy0.05m/s androll0.02rad all complete1400steps with19/19fully covered running-contact cycles and unchanged physical/terminal limits. Independent pre/post force and saved-state checks reproduce exactly across4200steps. vy needs one correction:179.9999945N; nominal171.989N,roll173.229N. Original V1 numerical failures remain.
+Scratch-state restoration now preserves identical controls/forces in5paired failed-predecessor checks, reducing median solve134.075->18.108ms and fastpath1.752->0.730ms. Four helper tests pass. Still exceeds2ms when optimization triggers; no realtime/live-flat/5cm/10cm claim. New helper full replay remains to be checked. Evidence whole_body_constrained_feedback_20260908.
+
 ## Objective and acceptance
 Continue toward a long-term extensible locomotion architecture with genuine
 joint body/foothold/contact-force planning and coherent execution. Establish
