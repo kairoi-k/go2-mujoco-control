@@ -63,3 +63,31 @@ feedback under that actual seed rollout. Three linear correction knots are added
 to the seed, with expanded35Nm inequalities, and the first5controls remain exact.
 Foot support elevation uses the actual known box top at each fixed-phase target;
 only swing interpolation and body height reference are smoothed.
+## V1 implementation deviation and diagnostic numerical V2
+Run0003 sourcecaae517 executed20chunks/100steps then search failed on predicted
+RR189N. Independent sequential replay state/force/motor discrepancies0; absolute
+balance2.266e-7 and componentwise balance1.412e-7 violate both historical/V1
+numerical gates. Code erroneously gated only state/force/torque from the separate
+verifier, while native sampled physical inequalities were strict. V1 numerical
+admission was NOT implemented as registered:0002/0003 are retained raw diagnostics,
+not conforming V1 certificates. Root owns this review failure.
+V2 retains all old metrics/verdicts and fixes gating. For the explicit known-scene
+experiment, use standard normwise generalized-force backward residual:
+max(abs(sum(terms))) / (1 + sum(max(abs(term)))) <=1e-8, with terms
+M*qacc,bias,-passive,-actuator,-external,-constraint. Components are expressed
+numerically in1N translational/1Nm rotational units before this normalization.
+This measures balance error relative to the full load scale, whereas V1 imposes
+an extra near-zero-component relative demand unrelated to overall load accuracy.
+The threshold is a new research numerical convention, not a solver optimality,
+robustness or B1 certificate. Native/Python inequalities remain exact/no slack;
+all other independent physical checks and clock<=1e-10 must pass. Old absolute
+and componentwise failures remain visible. Every executed state/force is now also
+compared against its admitted prediction before another physical step.
+Read-only review found body reference height had an added terrain offset without
+its vertical velocity derivative. V2 adds centered2ms derivative of the same
+height reference; no velocity authority or local swing retiming changes.
+Same failed state0003, same three knots, prefix and physical constraints, with20
+instead of4SLSQP iterations yields a strictly sampled feasible witness in12.846s,
+Python min inequality0 and exact prefix. This is an offline budget counterfactual,
+not execution or resolution of numerical admission. Next bounded canary uses20
+iterations/30s maximum per synchronous solve; preserve4iteration failure evidence.

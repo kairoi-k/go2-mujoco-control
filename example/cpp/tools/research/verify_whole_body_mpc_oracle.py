@@ -13,7 +13,7 @@ def verify_rows(model,initial,rows):
     gids=[mujoco.mj_name2id(model,mujoco.mjtObj.mjOBJ_GEOM,n) for n in ('FR','FL','RR','RL')]
     root=int(model.jnt_bodyid[0]);robot={b for b in range(model.nbody) if model.body_rootid[b]==root}
     mass=np.empty((model.nv,model.nv));state=np.empty(mujoco.mj_stateSize(model,spec))
-    maxima={n:0. for n in ('state_delta','force_delta_n','clock_delta_s','dynamics_absolute','dynamics_scaled','friction_violation_n','unilateral_violation_n','nonfoot_force_n','normal_force_n','torque_nm','motor_force_delta_nm','roll_rad','pitch_rad','joint_speed_radps','joint_position_violation_rad')}
+    maxima={n:0. for n in ('state_delta','force_delta_n','clock_delta_s','dynamics_absolute','dynamics_scaled','dynamics_normwise','friction_violation_n','unilateral_violation_n','nonfoot_force_n','normal_force_n','torque_nm','motor_force_delta_nm','roll_rad','pitch_rad','joint_speed_radps','joint_position_violation_rad')}
     minheight=float('inf');masks={};force_history=[]
     joints=model.actuator_trnid[:,0];qa=model.jnt_qposadr[joints];va=model.jnt_dofadr[joints]
     for k,row in enumerate(rows):
@@ -32,7 +32,7 @@ def verify_rows(model,initial,rows):
             terms=[mass@observed.qacc,observed.qfrc_bias,-observed.qfrc_passive,-observed.qfrc_actuator,-external,-observed.qfrc_constraint]
             residual=sum(terms);scale=1+sum(abs(t) for t in terms)
             roll,pitch=_rotation_metrics(observed.qpos[3:7]);q=observed.qpos[qa]
-            values={'dynamics_absolute':max(abs(residual)),'dynamics_scaled':max(abs(residual)/scale),'friction_violation_n':friction,'unilateral_violation_n':unilateral,'nonfoot_force_n':nonfoot,'normal_force_n':max(f),'motor_force_delta_nm':max(abs(observed.actuator_force-u)),'roll_rad':roll,'pitch_rad':pitch,'joint_speed_radps':max(abs(observed.qvel[va])),'joint_position_violation_rad':max(0.,max(model.jnt_range[joints,0]-q),max(q-model.jnt_range[joints,1]))}
+            values={'dynamics_absolute':max(abs(residual)),'dynamics_scaled':max(abs(residual)/scale),'dynamics_normwise':max(abs(residual))/(1+sum(max(abs(t)) for t in terms)),'friction_violation_n':friction,'unilateral_violation_n':unilateral,'nonfoot_force_n':nonfoot,'normal_force_n':max(f),'motor_force_delta_nm':max(abs(observed.actuator_force-u)),'roll_rad':roll,'pitch_rad':pitch,'joint_speed_radps':max(abs(observed.qvel[va])),'joint_position_violation_rad':max(0.,max(model.jnt_range[joints,0]-q),max(q-model.jnt_range[joints,1]))}
             if not np.isfinite(list(values.values())).all():raise ValueError('nonfinite physical metrics')
             for name,v in values.items():maxima[name]=max(maxima[name],float(v))
             minheight=min(minheight,float(observed.qpos[2]))

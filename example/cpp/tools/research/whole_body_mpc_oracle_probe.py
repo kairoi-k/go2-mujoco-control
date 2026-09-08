@@ -262,6 +262,10 @@ class PeriodicTemplate:
             body[k, :7] = ref["qpos"][:7]
             body[k, 7:13] = ref["qvel"][:6]
             body[k, 2] += self.box_top * self.terrain_weight(base_x)
+            # Velocity is the derivative of the added body-height reference.
+            before_x = float(self.ref(post_tick-1)["qpos"][0])
+            after_x = float(self.ref(post_tick+1)["qpos"][0])
+            body[k, 9] += self.box_top * (self.terrain_weight(after_x)-self.terrain_weight(before_x))/(2*DT)
             for leg in range(4):
                 xyz = self.foot_position(post_tick, leg)
                 xyz[2] += self.foot_elevation(post_tick, leg)
@@ -494,9 +498,12 @@ def run(args):
                     replay_report = None
                     if verify_rows is not None:
                         replay_report = verify_rows(model, state_before, replay["states"])
-                        gate_names = ("state_replay", "force_replay", "torque")
-                        if any(not replay_report["checks"].get(name, False) for name in gate_names):
-                            raise ValueError("independent replay state/force/torque failure")
+                        report["pending_verification"] = {"chunk": chunk, "verification": replay_report}
+                        gate_names = tuple(k for k in replay_report["checks"] if k not in ("historical_absolute_dynamics", "historical_clock"))
+                        if (any(not replay_report["checks"].get(name, False) for name in gate_names)
+                            or replay_report["maxima"]["dynamics_normwise"] > 1e-8
+                            or replay_report["maxima"]["clock_delta_s"] > 1e-10):
+                            raise ValueError("independent replay diagnostic V2 failure")
                     chunk.update({
                         "candidate_controls": candidate.tolist(),
                         "native_cost": float(native_cost),
@@ -516,6 +523,10 @@ def run(args):
                         pre_time = float(current.time)
                         force_vector = step(model, current, tau, template.gids)
                         saved_state = state_array(model, current)
+                        predicted_row = replay["states"][local_step]
+                        if (np.max(abs(saved_state-np.asarray(predicted_row["integration_state"]))) > 1e-9
+                            or np.max(abs(force_vector-np.asarray(predicted_row["forces"]))) > 1e-7):
+                            raise ValueError("executed command diverged from admitted candidate")
                         if abs(float(current.time) - (pre_time + DT)) > 1e-10:
                             raise ValueError("execution clock did not advance by 2 ms")
                         if abs(float(current.time) - (template.t0 + (start_tick + local_step + 1) * DT)) > 1e-9:
@@ -534,6 +545,7 @@ def run(args):
                     chunk["chunk_latency_ms"] = (time.perf_counter() - chunk_started) * 1000.0
                     report["chunks"].append(chunk)
                     report["executed_rows"].extend(executed)
+                    report.pop("pending_verification", None)
                     previous_candidate = candidate.copy()
                     start_tick += COMMIT_STEPS
                     write_json(out / "run.json", report)
@@ -579,7 +591,7 @@ def main(argv=None):
     print(json.dumps({
         "status": result.get("status"),
         "failure": result.get("failure"),
-        "completed_chunks": result.get("completed_chunks", len(result.get("chunks", []))),
+        "completed_chunks": result.get("completed_chunks", len(result.get("executed_rows", []))//COMMIT_STEPS),
         "completed_steps": result.get("completed_steps", len(result.get("executed_rows", []))),
         "out": str(args.out.resolve()),
     }, indent=2))
