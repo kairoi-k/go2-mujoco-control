@@ -141,5 +141,93 @@
       "archive_sha256": "020c401cbe508b8525c83f38fa76b4c60596920e3f4602dcb28cfdbf80af52f7",
       "byte_check": "gzip -cd archived_path equals original_path"
     }
-  ]
+  ],
+  "raw/0005/audit.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0005/audit.json",
+    "original_sha256": "bf489ab40387dea61f34c3163ba341706e8a5039e700f61372b23302ac05ac83",
+    "sha256": "27cf7e1a532196427675e338de8bc71a37219e9a5a5c90a125d690138d72fca3",
+    "original_bytes": 722,
+    "archive_bytes": 398,
+    "gzip_roundtrip_equal": true
+  },
+  "raw/0005/libwm.so.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0005/libwm.so",
+    "original_sha256": "05ff114984daca6d4d7a40b8a114ffadb8ff9633b8492f7343b8567e738caa1c",
+    "sha256": "97e3bdf2a7610d09d35ba8538496cab70ab322f42888410e71d2a9ea29859e54",
+    "original_bytes": 40216,
+    "archive_bytes": 13919,
+    "gzip_roundtrip_equal": true
+  },
+  "raw/0006/input.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0006/input.json",
+    "original_sha256": "f0eff3d09413c8efe3db914c46292ab554100b2d4dd58a442bd955f6ae90cd18",
+    "sha256": "7570991ac27f189e22dd3d8490d459521bb8aabad41c67af9ae27b6fc0609974",
+    "original_bytes": 976660,
+    "archive_bytes": 332921,
+    "gzip_roundtrip_equal": true
+  },
+  "raw/0006/run.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0006/run.json",
+    "original_sha256": "072adc49d70dc9343bc771791a0fbec1b5c1f0857e2f264d4f11d66e470ba81a",
+    "sha256": "7d019d576cf375f385408938b51642bc8817647a0a206e7bfaa68c9b8bf4d875",
+    "original_bytes": 9150309,
+    "archive_bytes": 1556620,
+    "gzip_roundtrip_equal": true
+  },
+  "raw/0006/audit.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0006/audit.json",
+    "original_sha256": "e3e793264c7e897642de1a03100b4ecab25cb8138dca404609efafccf9f8f236",
+    "sha256": "0c4eff192c94bd3455cfe247e6cf6b81ad644664f5eead5972fddeac54b98874",
+    "original_bytes": 5883,
+    "archive_bytes": 1976,
+    "gzip_roundtrip_equal": true
+  },
+  "raw/0006/transport_counterfactual.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0006/transport_counterfactual.json",
+    "original_sha256": "986775c1825d332b358f9dc1cab5e96e8cc890ef0b6cac32d36a3d167b37ffd4",
+    "sha256": "2fabdbb91f608dc8efff52b57d6c39328a0b28ac38ea43c75e2cc2a9eeae3ec4",
+    "original_bytes": 49346,
+    "archive_bytes": 18126,
+    "gzip_roundtrip_equal": true
+  },
+  "raw/0007/input.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0007/input.json",
+    "original_sha256": "f0eff3d09413c8efe3db914c46292ab554100b2d4dd58a442bd955f6ae90cd18",
+    "sha256": "7570991ac27f189e22dd3d8490d459521bb8aabad41c67af9ae27b6fc0609974",
+    "original_bytes": 976660,
+    "archive_bytes": 332921,
+    "gzip_roundtrip_equal": true
+  },
+  "raw/0007/run.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0007/run.json",
+    "original_sha256": "05c5780e4d28576bc2fe6d983e97674b03ca264cafe18b7b0d867d610922a5cd",
+    "sha256": "157a060a3f5b0ad633aadcaa17eeb043f7b0406ddc8819eeedd1383ac04294a2",
+    "original_bytes": 1425963,
+    "archive_bytes": 238481,
+    "gzip_roundtrip_equal": true
+  },
+  "raw/0007/stop_snapshot.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0007/stop_snapshot.json",
+    "original_sha256": "05c5780e4d28576bc2fe6d983e97674b03ca264cafe18b7b0d867d610922a5cd",
+    "sha256": "157a060a3f5b0ad633aadcaa17eeb043f7b0406ddc8819eeedd1383ac04294a2",
+    "original_bytes": 1425963,
+    "archive_bytes": 238481,
+    "gzip_roundtrip_equal": true
+  },
+  "raw/0007/user_stop_request.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0007/user_stop_request.json",
+    "original_sha256": "0476533e1ef1f87c71fd754cec24b9a98a5c18364f010d4a5ccf56efa516a004",
+    "sha256": "6bfc451d89510b471af7c0867419d40e222ad38f361aa74dadd046e7cf0ec0a4",
+    "original_bytes": 538,
+    "archive_bytes": 333,
+    "gzip_roundtrip_equal": true
+  },
+  "raw/0007/shutdown_receipt.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0007/shutdown_receipt.json",
+    "original_sha256": "fb311a490ed5914cd0086fc63a8405312d2d5a435b5a5344693967b893df782f",
+    "sha256": "e4f0b12d4a1de23bfea34f26b4a999e091735595e6688648c30cfdf012add670",
+    "original_bytes": 244,
+    "archive_bytes": 168,
+    "gzip_roundtrip_equal": true
+  }
 }
