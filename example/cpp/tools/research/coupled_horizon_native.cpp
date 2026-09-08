@@ -49,8 +49,10 @@ bool AllFinite(const T* values, int count) {
   return true;
 }
 void RequireNoCallbacks() {
+  // Python installs its profiling timer after model creation. Retain that timer;
+  // reject callbacks that supply forces, controls, sensor values or actuation.
   if (mjcb_passive || mjcb_control || mjcb_contactfilter || mjcb_sensor ||
-      mjcb_time || mjcb_act_dyn || mjcb_act_gain || mjcb_act_bias) {
+      mjcb_act_dyn || mjcb_act_gain || mjcb_act_bias) {
     throw InputError("MuJoCo callback active");
   }
 }
