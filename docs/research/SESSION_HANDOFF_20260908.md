@@ -1,3 +1,87 @@
+# Final user-requested handoff,2026-09-08
+## Resume contract
+User asked to prepare handoff because quota conditions will change. Work stopped;
+no autonomous continuation or scheduled task was created. All children completed
+or stopped. Final docs/evidence commit descends from db10b55; git is authoritative.
+Read CURRENT.md first, then this section. No unfinished source edits are intended.
+Branch feat/stage-c-joint-planner, native path and pinned SSH helper are in CURRENT.
+User-facing replies always <=300 Chinese characters, natural paragraphs, no lists.
+User explicitly authorized delegation and prefers Astra high for critical work;
+old low workers may do bounded parsing/testing/evidence tasks. Root owns acceptance.
+## What was accomplished after0349725
+6356-era single-cycle code and actual-controller failures were already historical.
+This resumed task fixed checked local contact derivatives, created constrained
+feedback, optimized integration-state scratch storage, and added native force
+tracking plus strict research packet contracts. Local commits b33eae0,6a996ce,
+3d0f6b5,714bf3f,4023ff8,79a7fb0 lead to54d750e and db10b55.
+Latest real dynamics diagnostic is clean54d750e rolling0002; latest actual
+observed-node kinematics/model-build attempt is clean db10b55 node0001.
+All details, metrics and real acceptance boundaries are in CURRENT.5cm B1 still
+NOT_CERTIFIED;10cm not started; no new live controller run since0f6ec65/flat0012.
+## Decisive next-action evidence
+Full20cycle fixed12ms commitment +20ms tail succeeds as a synchronous initialized
+flat diagnostic:233candidates all on time, max11.2341ms, force<=180N, torque28.356Nm,
+19/19running-contact complete cycles, independent replay errors0. V1 time/dynamics
+numeric failures are deliberately retained. This does not resolve live worker
+scheduling, stability tube, a nonprivileged reference source or terrain crossing.
+Observed model descriptor/compilation and CMake tests exist, all research-only.
+CompileMujoco rejects scene world geoms and adds only cells from the supplied
+immutable observed descriptor; fixtures preserve robot inertial/passive/actuator/
+collision parameters. It accepts a trusted robot XML path; caller must verify
+recursive hashes. Root did so against packet0002's canonical model closure before
+the actual snapshot probe. No source authenticity is implied by RobotOnly.
+The actual v2 reader preserves full history and all q/v, not just46leading tokens.
+Native node probe uses mj_kinematics only, no forward/step. It failed descriptor
+Build because rbound squares are too broad, not because all true geoms lack maps.
+Astra high's independent primitive projection audit verified18canonical robot
+closure hashes and zero center discrepancy. FR/RR thighs are boxes with halfsizes
+[.1065,.01225,.017]. Capture295 exact XY halfextents are[.0813783,.0130198] and
+[.0781805,.0130981]; minimum map margins70.2063/69.3753mm. Old spherical radius
+.10854175m gave false-negative overcoverage of25.3157/26.0683mm. All23current-node
+geom rectangles have at least one fresh complete capture; no missing cells were
+filled. The audit did NOT recheck cross-history conflicts or existing API admission.
+Projection0001 failed JSON serialization and remains raw;0002 is the completed audit.
+Low worker independently explained invalid_query on the giant whole-body query:
+map maxY.2750000134110451, nextafter downward remains in bounds but cell quotient
+rounds to10.0==height. First reject world_terrain_snapshot.h:461, label at464;
+terrain_model.h:184 returns false. This is an error-label/rounding issue, not a
+route to accept the truly outside broad square. No production query code changed.
+Next implement projected-region coverage without changing the original meaning
+of unknown, freshness, outside or conflict. Use complete capture evidence and
+avoid overlapping duplicate terrain solids when combining separately supported
+regions. Then independently validate the reconstructed model's contact behavior
+and coverage of the required trajectory. Scalar cell tops, inferred vertical
+walls and prism thickness are not observed continuous surfaces. Internal prism
+seams/multiple contacts have not been tested; record this as an open model question.
+Full-body continuous sweep, online observed models, nonprivileged producer and
+single atomic owner remain required before live flat/5cm/10cm. Do not activate
+the initialized privileged packet or force its research flags into execution.
+## Exact evidence and tests
+All new artifacts are curated under docs/research/evidence/whole_body_native_20260908:
+force_threads_0003;force_contract_0004;horizon_0001;trajectory_packet_0002;
+rolling_0002 including analysis_v1_0001;observed_node_0001;
+observed_projection_0002;observed_query_boundary_0001.
+Top MANIFEST hashes stored files; each curation.json records raw files/hashes.
+No _runs deletion/overwrite/rename.20cycle full run stored losslessly in xz;
+large analyses use gzip. Decompress to a new location, never over raw evidence.
+Copied original analysis metadata may retain canonical raw paths; originals
+remain present locally. Do not claim a relocated artifact replay without checking
+and explicitly mapping those paths. Binary hashes are retained where ELF omitted.
+Commands from canonical repo (focus only on changed targets when resuming):
+cmake -S example/cpp -B example/cpp/build
+cmake --build example/cpp/build --target test_whole_body_force_tracking test_whole_body_trajectory test_stage_c_observed_collision_model test_joint_observed_node_input inspect_joint_observed_collision_node -j2
+ctest --test-dir example/cpp/build -R '^(test_whole_body_force_tracking|test_whole_body_trajectory|test_stage_c_observed_collision_model|test_joint_observed_node_input)$' --output-on-failure
+Focused tests were already run successfully; no reason to repeat until code changes.
+The force test intentionally injects hugeQVEL to reject automatic numerical reset;
+its MuJoCo warning is expected and raw log preserved. Root MUJOCO_LOG.TXT is ignored
+as generated diagnostic output, not deleted. No production control source changed.
+## Worker and external state
+native_high(Astra high),packet_high(Astra high),runtime_seam(old low) have stopped.
+Older handles may remain unavailable; completed/interrupted does not mean a slot
+was destroyed. Do not restart completed audits merely to consume available slots.
+No simulator/build/physics lock owner remains from this task. No push/PR/remote
+change was requested or performed. Existing stashes/other worktrees untouched.
+# Earlier session checkpoints (historical, not current instructions)
 # Native rolling horizon continuation,2026-09-08
 Read CURRENT.md first. Latest executed initialized flat source54d750e:
 fixed12ms commitment/20ms tail,20cycles,233candidates no late, physical limits

@@ -1,0 +1,59 @@
+{
+  "snapshot_id": 881,
+  "observation_time": 21.02,
+  "epoch": 881,
+  "capture_count": 2,
+  "max_cell_age_s": 0.2,
+  "full_body_query": {
+    "world_x": 2.5680183108180037,
+    "world_y": -0.0054816310990986605,
+    "radius_m": 0.3997930300872752,
+    "construction": "rotation-independent enclosing radius of every collidable geom center plus rbound; square patch may conservatively include free space between robot geoms",
+    "coverage": {
+      "valid": false,
+      "source_error": "query_invalid",
+      "latest_failure": "invalid_query",
+      "selected_sequence": 0,
+      "history_used": false,
+      "known_cells": 0,
+      "total_cells": 0,
+      "outside_cells": 1
+    }
+  },
+  "descriptor_built": false,
+  "build_failure": "query_invalid",
+  "compiled": false,
+  "geom_count": 23,
+  "geom_coverage_failures": [
+    {
+      "geom": 25,
+      "name": "",
+      "body": "FR_thigh",
+      "coverage": {
+        "valid": false,
+        "source_error": "outside",
+        "latest_failure": "outside",
+        "selected_sequence": 0,
+        "history_used": false,
+        "known_cells": 24,
+        "total_cells": 24,
+        "outside_cells": 1
+      }
+    },
+    {
+      "geom": 49,
+      "name": "",
+      "body": "RR_thigh",
+      "coverage": {
+        "valid": false,
+        "source_error": "outside",
+        "latest_failure": "outside",
+        "selected_sequence": 0,
+        "history_used": false,
+        "known_cells": 20,
+        "total_cells": 20,
+        "outside_cells": 1
+      }
+    }
+  ]
+}

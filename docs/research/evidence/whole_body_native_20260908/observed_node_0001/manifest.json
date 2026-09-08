@@ -1,0 +1,23 @@
+{
+  "source_sha": "db10b5502110801fd3466b685f4dd3172c6d39d5",
+  "clean_before_after": true,
+  "scope": "recorded lidar snapshot current-node kinematics/coverage only, no new physics trajectory or live B1",
+  "bound_sources": {
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/joint_execution_flat_20260908/attempt_0012/initial_source.txt": "b86474ca4e4e2bafa02d8db75e91499030865ab4fa67c46d7d664b8a94ad5a16",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/go2.xml": "01acff1a72a10cd38ab3c95142bfc63db197c5fba39a11b45b15b6fc4899ba10",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/build/inspect_joint_observed_collision_node": "cbb1749c7a1f9490756f2e7ea78b6120ec24d2b56af9a9b45507d248dbb48395",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/inspect_joint_observed_collision_node.cpp": "05941079421dfa69bebe24db4e4a8e8f63b2e9aa5de7aa9a539b94d05d8c5f2a",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/joint_observed_node_input.h": "2da9c727ed39dc108e21fe956e2f50a9d884ff991a65b6b45959858d173ad62f",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/terrain/stage_c/observed_collision_mujoco.h": "b65d76e33d00e7e07056829c8fd602e7b65f8e3900af0c84c5b3e9b2b34fa8f9",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/terrain/stage_c/observed_collision_model.h": "6d90ae49612f9ac42af14a2f43fe9372222736a701427e75237d4e5eb3c78abf",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/terrain/stage_c/world_terrain_snapshot.h": "ee6791179e58ff404385b8702da6e11003d874228623dca6ae25bab59ae87c0c"
+  },
+  "verified_packet_model_closure": 28,
+  "files": {
+    "result.json": "a88e5b221fc67db18661442254b49bf1d37dcfe5d35ae15e2450d94badc2552c",
+    "summary.json": "0b9134363c53ae6ea13095f507b2e2023d199cddc87de8409f9fbec7ed4df82b",
+    "command.json": "284957197bff481eae57f33ca60f51f2c104b6c14aa5798f875a8ebf1d564531",
+    "source_status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

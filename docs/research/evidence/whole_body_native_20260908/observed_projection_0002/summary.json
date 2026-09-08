@@ -1,0 +1,297 @@
+{
+  "scope": "exact analytic primitive projection extents at one recorded node; capture-cell rectangular enclosure audit only, not existing API admission/continuous swept coverage/surface certificate",
+  "source_sha": "db10b5502110801fd3466b685f4dd3172c6d39d5",
+  "input_tokens": 11653,
+  "geometry_count": 23,
+  "canonical_model_closure_hashes_verified": 18,
+  "robot_center_reproduction_delta_m": 0.0,
+  "max_cell_age_s_unchanged": 0.2,
+  "height_conflict_tolerance_unchanged": 0.001,
+  "minimum_normal_dot_unchanged": 0.9998,
+  "no_forward_or_step": true,
+  "history_conflict_recertified": false,
+  "all_geoms_have_one_fresh_complete_rectangular_capture": true,
+  "target_geoms": [
+    {
+      "geom_id": 25,
+      "body": "FR_thigh",
+      "type": "mjGEOM_BOX",
+      "size": [
+        0.1065,
+        0.01225,
+        0.017
+      ],
+      "center_world_m": [
+        2.7002676320837358,
+        -0.1500956629845324,
+        0.2920457842819711
+      ],
+      "rotation_world": [
+        [
+          -0.6414842756751183,
+          0.013548585156025948,
+          0.7670165317004829
+        ],
+        [
+          0.0031144501353240284,
+          0.9998817836458946,
+          -0.015057188763450007
+        ],
+        [
+          -0.767129861406739,
+          -0.007270115086674926,
+          -0.641450638135705
+        ]
+      ],
+      "rbound_m": 0.10854175463848002,
+      "world_halfextent_xy_m": [
+        0.08152332656646963,
+        0.01283621299805287
+      ],
+      "formula": "box sum(abs(R_ij)*halfsize_j)",
+      "captures": [
+        {
+          "sequence": 295,
+          "frame": "capture-heading registered base_link",
+          "registration_world": [
+            2.560184094220554,
+            -0.006161451465569769,
+            0.37072009713386034
+          ],
+          "registration_yaw_rad": -0.015301619392695953,
+          "map_lower_xy_m": [
+            -0.44999998807907104,
+            -0.22499999403953552
+          ],
+          "map_upper_xy_m_exclusive": [
+            1.1500000357627869,
+            0.2750000134110451
+          ],
+          "geom_center_capture_m": [
+            0.1422694792118751,
+            -0.1417739401675526,
+            -0.07867431285188925
+          ],
+          "exact_halfextent_xy_m": [
+            0.0813782885391237,
+            0.013019771652713678
+          ],
+          "exact_min_xy_m": [
+            0.06089119067275141,
+            -0.15479371182026627
+          ],
+          "exact_max_xy_m": [
+            0.22364776775099882,
+            -0.12875416851483892
+          ],
+          "signed_boundary_margins_xmin_ymin_xmax_ymax_m": [
+            0.5108911787518224,
+            0.07020628221926925,
+            0.926352268011788,
+            0.40375418192588397
+          ],
+          "minimum_signed_margin_m": 0.07020628221926925,
+          "required_extension_m": 0.0,
+          "old_rbound_square_minimum_margin_m": -0.025315700766497085,
+          "fresh_complete": true,
+          "inside_map": true,
+          "cell_count": 4,
+          "unknown_count": 0,
+          "stale_count": 0,
+          "nonfinite_count": 0
+        },
+        {
+          "sequence": 294,
+          "frame": "capture-heading registered base_link",
+          "registration_world": [
+            2.473374946357793,
+            -0.006583806777760094,
+            0.37028765422349486
+          ],
+          "registration_yaw_rad": -0.011811089981725092,
+          "map_lower_xy_m": [
+            -0.44999998807907104,
+            -0.22499999403953552
+          ],
+          "map_upper_xy_m_exclusive": [
+            1.1500000357627869,
+            0.2750000134110451
+          ],
+          "geom_center_capture_m": [
+            0.2285718519729813,
+            -0.14082205861826533,
+            -0.07824186994152377
+          ],
+          "exact_halfextent_xy_m": [
+            0.08137991567812933,
+            0.012826833939339425
+          ],
+          "exact_min_xy_m": [
+            0.14719193629485197,
+            -0.15364889255760475
+          ],
+          "exact_max_xy_m": [
+            0.30995176765111065,
+            -0.1279952246789259
+          ],
+          "signed_boundary_margins_xmin_ymin_xmax_ymax_m": [
+            0.597191924373923,
+            0.07135110148193077,
+            0.8400482681116762,
+            0.40299523808997095
+          ],
+          "minimum_signed_margin_m": 0.07135110148193077,
+          "required_extension_m": 0.0,
+          "old_rbound_square_minimum_margin_m": -0.024363819217209814,
+          "fresh_complete": true,
+          "inside_map": true,
+          "cell_count": 5,
+          "unknown_count": 0,
+          "stale_count": 0,
+          "nonfinite_count": 0
+        }
+      ]
+    },
+    {
+      "geom_id": 49,
+      "body": "RR_thigh",
+      "type": "mjGEOM_BOX",
+      "size": [
+        0.1065,
+        0.01225,
+        0.017
+      ],
+      "center_world_m": [
+        2.3171671518804717,
+        -0.14498587662823048,
+        0.28927368812566223
+      ],
+      "rotation_world": [
+        [
+          -0.6070807713291557,
+          0.013548345122492226,
+          0.7945246248083431
+        ],
+        [
+          0.0018739382726599679,
+          0.9998762725865527,
+          -0.015618190476849508
+        ],
+        [
+          -0.7946379209663648,
+          -0.007992613018452322,
+          -0.6070310475580221
+        ]
+      ],
+      "rbound_m": 0.10854175463848002,
+      "world_halfextent_xy_m": [
+        0.07832698799604744,
+        0.01271356800333
+      ],
+      "formula": "box sum(abs(R_ij)*halfsize_j)",
+      "captures": [
+        {
+          "sequence": 295,
+          "frame": "capture-heading registered base_link",
+          "registration_world": [
+            2.560184094220554,
+            -0.006161451465569769,
+            0.37072009713386034
+          ],
+          "registration_yaw_rad": -0.015301619392695953,
+          "map_lower_xy_m": [
+            -0.44999998807907104,
+            -0.22499999403953552
+          ],
+          "map_upper_xy_m_exclusive": [
+            1.1500000357627869,
+            0.2750000134110451
+          ],
+          "geom_center_capture_m": [
+            -0.2408643373331792,
+            -0.14252658098444143,
+            -0.0814464090081981
+          ],
+          "exact_halfextent_xy_m": [
+            0.07818045344238361,
+            0.01309812119601962
+          ],
+          "exact_min_xy_m": [
+            -0.3190447907755628,
+            -0.15562470218046104
+          ],
+          "exact_max_xy_m": [
+            -0.16268388389079558,
+            -0.12942845978842182
+          ],
+          "signed_boundary_margins_xmin_ymin_xmax_ymax_m": [
+            0.13095519730350824,
+            0.06937529185907448,
+            1.3126839196535824,
+            0.4044284731994669
+          ],
+          "minimum_signed_margin_m": 0.06937529185907448,
+          "required_extension_m": 0.0,
+          "old_rbound_square_minimum_margin_m": -0.026068341583385946,
+          "fresh_complete": true,
+          "inside_map": true,
+          "cell_count": 4,
+          "unknown_count": 0,
+          "stale_count": 0,
+          "nonfinite_count": 0
+        },
+        {
+          "sequence": 294,
+          "frame": "capture-heading registered base_link",
+          "registration_world": [
+            2.473374946357793,
+            -0.006583806777760094,
+            0.37028765422349486
+          ],
+          "registration_yaw_rad": -0.011811089981725092,
+          "map_lower_xy_m": [
+            -0.44999998807907104,
+            -0.22499999403953552
+          ],
+          "map_upper_xy_m_exclusive": [
+            1.1500000357627869,
+            0.2750000134110451
+          ],
+          "geom_center_capture_m": [
+            -0.15456225767196713,
+            -0.14023735771080412,
+            -0.08101396609783262
+          ],
+          "exact_halfextent_xy_m": [
+            0.07818235311000032,
+            0.012919610368835802
+          ],
+          "exact_min_xy_m": [
+            -0.23274461078196745,
+            -0.1531569680796399
+          ],
+          "exact_max_xy_m": [
+            -0.0763799045619668,
+            -0.12731774734196832
+          ],
+          "signed_boundary_margins_xmin_ymin_xmax_ymax_m": [
+            0.2172553772971036,
+            0.07184302595989561,
+            1.2263799403247537,
+            0.4023177607530134
+          ],
+          "minimum_signed_margin_m": 0.07184302595989561,
+          "required_extension_m": 0.0,
+          "old_rbound_square_minimum_margin_m": -0.023779118309748604,
+          "fresh_complete": true,
+          "inside_map": true,
+          "cell_count": 4,
+          "unknown_count": 0,
+          "stale_count": 0,
+          "nonfinite_count": 0
+        }
+      ]
+    }
+  ],
+  "geometry_failures": []
+}

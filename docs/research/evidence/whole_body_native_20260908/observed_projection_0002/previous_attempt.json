@@ -1,0 +1,10 @@
+{
+  "raw_directory": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/observed_collision_projection_20260908_0001",
+  "status": "serialization_failed; superseded by0002; raw preserved",
+  "files": {
+    "result.json": "58230126978ae0ad48017b1e80d2447e9cb61d26649cd4b122bc706e7d9ec5a2",
+    "analyze.py": "8e4629a08979cf8d8405a565ffe1fe7a7362abedec94aa58156c4afaceec3715",
+    "stdout.json": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr.txt": "bbad67e46e1d960076eccdb59506bc1ffac231023367775ce1bccc6f8a2b4deb"
+  }
+}

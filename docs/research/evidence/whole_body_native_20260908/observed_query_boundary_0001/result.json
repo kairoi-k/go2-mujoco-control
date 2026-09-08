@@ -1,0 +1,171 @@
+{
+  "scope": "read-only binary64 arithmetic replay of actual source metadata; no physics, no threshold or production change",
+  "query": {
+    "world_x": 2.5680183108180037,
+    "world_y": -0.0054816310990986605,
+    "radius_m": 0.3997930300872752,
+    "construction": "rotation-independent enclosing radius of every collidable geom center plus rbound; square patch may conservatively include free space between robot geoms",
+    "coverage": {
+      "valid": false,
+      "source_error": "query_invalid",
+      "latest_failure": "invalid_query",
+      "selected_sequence": 0,
+      "history_used": false,
+      "known_cells": 0,
+      "total_cells": 0,
+      "outside_cells": 1
+    }
+  },
+  "captures": [
+    {
+      "sequence": 295,
+      "model": {
+        "frame": "base_link",
+        "sequence": 295,
+        "registered": 1,
+        "width": 32,
+        "height": 10,
+        "resolution": 0.05000000074505806,
+        "origin": [
+          -0.44999998807907104,
+          -0.22499999403953552
+        ],
+        "registration": [
+          2.560184094220554,
+          -0.006161451465569769,
+          0.37072009713386034
+        ],
+        "yaw": -0.015301619392695953
+      },
+      "local": [
+        0.007822897518772387,
+        0.000799612304313376
+      ],
+      "covers_patch": false,
+      "axes": [
+        {
+          "axis": 0,
+          "map_min": -0.44999998807907104,
+          "map_max": 1.1500000357627869,
+          "query_min": -0.39197013256850277,
+          "query_max": 0.4076159276060476,
+          "overlap_min": -0.39197013256850277,
+          "overlap_max": 0.4076159276060476,
+          "nextafter_below_map_max": true,
+          "inbounds_overlap_max": true,
+          "cell_quotient": 17.152318058112918,
+          "cell_index": 17,
+          "dimension": 32,
+          "index_valid": true,
+          "hex": {
+            "map_max": "0x1.2666670000000p+0",
+            "overlap_max": "0x1.a16611d99632cp-2",
+            "overlap_minus_origin": "0x1.b7196eeccb196p-1",
+            "resolution": "0x1.99999a0000000p-5"
+          }
+        },
+        {
+          "axis": 1,
+          "map_min": -0.22499999403953552,
+          "map_max": 0.2750000134110451,
+          "query_min": -0.3989934177829618,
+          "query_max": 0.40059264239158854,
+          "overlap_min": -0.22499999403953552,
+          "overlap_max": 0.275000013411045,
+          "nextafter_below_map_max": true,
+          "inbounds_overlap_max": true,
+          "cell_quotient": 10.0,
+          "cell_index": 10,
+          "dimension": 10,
+          "index_valid": false,
+          "hex": {
+            "map_max": "0x1.19999a8000000p-2",
+            "overlap_max": "0x1.19999a7ffffffp-2",
+            "overlap_minus_origin": "0x1.0000004000000p-1",
+            "resolution": "0x1.99999a0000000p-5"
+          }
+        }
+      ],
+      "first_reject": "world_terrain_snapshot.h:461 upper-overlap CellIndex false; terrain_model.h:184 ix<width && iy<height false"
+    },
+    {
+      "sequence": 294,
+      "model": {
+        "frame": "base_link",
+        "sequence": 294,
+        "registered": 1,
+        "width": 32,
+        "height": 10,
+        "resolution": 0.05000000074505806,
+        "origin": [
+          -0.44999998807907104,
+          -0.22499999403953552
+        ],
+        "registration": [
+          2.473374946357793,
+          -0.006583806777760094,
+          0.37028765422349486
+        ],
+        "yaw": -0.011811089981725092
+      },
+      "local": [
+        0.09462374548145153,
+        0.002219914105623869
+      ],
+      "covers_patch": false,
+      "axes": [
+        {
+          "axis": 0,
+          "map_min": -0.44999998807907104,
+          "map_max": 1.1500000357627869,
+          "query_min": -0.30516928460582365,
+          "query_max": 0.4944167755687267,
+          "overlap_min": -0.30516928460582365,
+          "overlap_max": 0.4944167755687267,
+          "nextafter_below_map_max": true,
+          "inbounds_overlap_max": true,
+          "cell_quotient": 18.888334991497832,
+          "cell_index": 18,
+          "dimension": 32,
+          "index_valid": true,
+          "hex": {
+            "map_max": "0x1.2666670000000p+0",
+            "overlap_max": "0x1.fa486426a553fp-2",
+            "overlap_minus_origin": "0x1.e38a981352aa0p-1",
+            "resolution": "0x1.99999a0000000p-5"
+          }
+        },
+        {
+          "axis": 1,
+          "map_min": -0.22499999403953552,
+          "map_max": 0.2750000134110451,
+          "query_min": -0.3975731159816513,
+          "query_max": 0.40201294419289907,
+          "overlap_min": -0.22499999403953552,
+          "overlap_max": 0.275000013411045,
+          "nextafter_below_map_max": true,
+          "inbounds_overlap_max": true,
+          "cell_quotient": 10.0,
+          "cell_index": 10,
+          "dimension": 10,
+          "index_valid": false,
+          "hex": {
+            "map_max": "0x1.19999a8000000p-2",
+            "overlap_max": "0x1.19999a7ffffffp-2",
+            "overlap_minus_origin": "0x1.0000004000000p-1",
+            "resolution": "0x1.99999a0000000p-5"
+          }
+        }
+      ],
+      "first_reject": "world_terrain_snapshot.h:461 upper-overlap CellIndex false; terrain_model.h:184 ix<width && iy<height false"
+    }
+  ],
+  "first_invalid_label_site": "world_terrain_snapshot.h:464 sets kInvalidQuery after overlap CellIndex failure",
+  "sources": {
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/joint_execution_flat_20260908/attempt_0012/initial_source.txt": "b86474ca4e4e2bafa02d8db75e91499030865ab4fa67c46d7d664b8a94ad5a16",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/observed_collision_node_20260908_0001/result.json": "a88e5b221fc67db18661442254b49bf1d37dcfe5d35ae15e2450d94badc2552c",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/terrain/stage_c/world_terrain_snapshot.h": "ee6791179e58ff404385b8702da6e11003d874228623dca6ae25bab59ae87c0c",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/terrain/terrain_model.h": "1c4588707d23795f609d3af4cb6b98b9dea64700ac309d73af1307802f92fdfa",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/observed_query_boundary_20260908_0001/reproduce.py": "4ee55e93f828698d5f4996e5f23339bd1f648fbdacb2be84d4b9631a84b2ef10"
+  }
+}

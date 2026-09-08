@@ -1,0 +1,42 @@
+{
+  "raw_directory": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/observed_collision_projection_20260908_0002",
+  "scope": "recorded observation geometry/coverage diagnosis only, no dynamics or B1 acceptance",
+  "raw_files": {
+    "result.json": {
+      "sha256": "f5a464c8be0011ea88e7dcf1a2018b3b7a78c6025f2f0a04441479679d803671",
+      "bytes": 169530,
+      "curated": "result.json.gz",
+      "gzip": true
+    },
+    "analyze.py": {
+      "sha256": "057a1f1d0e1a81d3431ed6e3ea58ce5f62dd12938312f316263fa3e6e39b0ba7",
+      "bytes": 9022,
+      "curated": "analyze.py",
+      "gzip": false
+    },
+    "stdout.json": {
+      "sha256": "255052818e8242db13632345d3133afbaf992619a29641422add694063f2cd11",
+      "bytes": 8730,
+      "curated": "stdout.json",
+      "gzip": false
+    },
+    "summary.json": {
+      "sha256": "61c8b2ed010f5190432b0bd504f6cd1654161d082551a1de6fafc1d9460e42eb",
+      "bytes": 8729,
+      "curated": "summary.json",
+      "gzip": false
+    },
+    "manifest.json": {
+      "sha256": "b797d1f81f8b08f2d2149f776a70cf512826edb781567482b9a88652b9989d6e",
+      "bytes": 1358,
+      "curated": "manifest.json",
+      "gzip": false
+    },
+    "stderr.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "curated": "stderr.txt",
+      "gzip": false
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "source_sha": "db10b5502110801fd3466b685f4dd3172c6d39d5",
+  "scope": "exact analytic primitive projection extents at one recorded node; capture-cell rectangular enclosure audit only, not existing API admission/continuous swept coverage/surface certificate",
+  "input_hashes": {
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/joint_execution_flat_20260908/attempt_0012/initial_source.txt": "b86474ca4e4e2bafa02d8db75e91499030865ab4fa67c46d7d664b8a94ad5a16",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/unitree_robots/go2/go2.xml": "01acff1a72a10cd38ab3c95142bfc63db197c5fba39a11b45b15b6fc4899ba10",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/observed_collision_node_20260908_0001/result.json": "a88e5b221fc67db18661442254b49bf1d37dcfe5d35ae15e2450d94badc2552c",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/observed_collision_node_20260908_0001/manifest.json": "375ed0297e0cad55a8751e46d0b063c8bcb1872409acf940a5644a74dfbfce8c"
+  },
+  "files": {
+    "result.json": "f5a464c8be0011ea88e7dcf1a2018b3b7a78c6025f2f0a04441479679d803671",
+    "analyze.py": "057a1f1d0e1a81d3431ed6e3ea58ce5f62dd12938312f316263fa3e6e39b0ba7",
+    "summary.json": "61c8b2ed010f5190432b0bd504f6cd1654161d082551a1de6fafc1d9460e42eb"
+  }
+}

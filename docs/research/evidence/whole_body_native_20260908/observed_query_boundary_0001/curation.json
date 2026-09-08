@@ -1,0 +1,18 @@
+{
+  "raw_directory": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/observed_query_boundary_20260908_0001",
+  "scope": "recorded observation geometry/coverage diagnosis only, no dynamics or B1 acceptance",
+  "raw_files": {
+    "result.json": {
+      "sha256": "5431dc6997ced8e549a829094561eec5e40e69e873411b9bc4779588fac08338",
+      "bytes": 6354,
+      "curated": "result.json",
+      "gzip": false
+    },
+    "reproduce.py": {
+      "sha256": "4ee55e93f828698d5f4996e5f23339bd1f648fbdacb2be84d4b9631a84b2ef10",
+      "bytes": 2635,
+      "curated": "reproduce.py",
+      "gzip": false
+    }
+  }
+}
