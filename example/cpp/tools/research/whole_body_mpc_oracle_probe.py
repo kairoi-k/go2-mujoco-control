@@ -36,7 +36,7 @@ from verify_whole_body_mpc_oracle import verify_rows
 DT = 0.002
 HORIZON_STEPS = 70
 COMMIT_STEPS = 5
-KNOT_STEPS = np.array([0, 35, 69], dtype=int)
+KNOT_STEPS = np.array([5, 35, 64, 69], dtype=int)
 LEGS = ("FR", "FL", "RR", "RL")
 TERRAIN_TRANSITION_M = 0.08
 TORQUE_LIMIT = 35.0
@@ -272,24 +272,24 @@ class PeriodicTemplate:
         if not np.isfinite(np.r_[body.ravel(), feet.ravel(), times]).all():
             raise ValueError("nonfinite terrain reference")
         return body, feet, times
-    def nominal_baseline(self, current, start_tick, committed_prefix=None):
-        """Generate K feedback at each pre-step state after the exact prefix."""
-        predicted = data_from_state(self.model, state_array(self.model, current))
-        controls = np.empty((HORIZON_STEPS, 12), dtype=float)
-        prefix = None if committed_prefix is None else np.asarray(committed_prefix, dtype=float)
-        if prefix is not None and prefix.shape != (COMMIT_STEPS, 12):
-            raise ValueError("committed prefix shape")
+    def nominal_baseline(self,current,start_tick,previous_candidate=None):
+        """Transport the accepted tail exactly, then predict only its new suffix."""
+        predicted=data_from_state(self.model,state_array(self.model,current))
+        controls=np.empty((HORIZON_STEPS,12))
+        if previous_candidate is not None:
+            previous_candidate=np.asarray(previous_candidate,dtype=float)
+            if previous_candidate.shape!=(HORIZON_STEPS,12):raise ValueError('previous horizon coverage')
         for k in range(HORIZON_STEPS):
-            ref = self.ref(int(start_tick) + k)
-            tau = prefix[k].copy() if prefix is not None and k < COMMIT_STEPS else np.asarray(nominal_feedback(self.model, ref, predicted), dtype=float)
-            if tau.shape != (12,) or not np.isfinite(tau).all() or np.max(np.abs(tau)) > TORQUE_LIMIT:
-                raise ValueError("nominal feedback torque invalid")
-            controls[k] = tau
-            step(self.model, predicted, tau, self.gids)
+            tau=(previous_candidate[k+COMMIT_STEPS].copy()
+                 if previous_candidate is not None and k<HORIZON_STEPS-COMMIT_STEPS
+                 else np.asarray(nominal_feedback(self.model,self.ref(start_tick+k),predicted),dtype=float))
+            if tau.shape!=(12,) or not np.isfinite(tau).all() or np.max(abs(tau))>TORQUE_LIMIT:raise ValueError('invalid seed torque')
+            controls[k]=tau;step(self.model,predicted,tau,self.gids)
+        if previous_candidate is not None and not np.array_equal(controls[:-COMMIT_STEPS],previous_candidate[COMMIT_STEPS:]):raise ValueError('accepted tail was not transported')
         return controls
 
 def expand_knots(knots, baseline):
-    knots = np.asarray(knots, dtype=float).reshape(3, 12)
+    knots = np.asarray(knots, dtype=float).reshape(len(KNOT_STEPS), 12)
     if not np.isfinite(knots).all():
         raise ValueError("nonfinite knot vector")
     full = np.empty_like(baseline)
@@ -346,7 +346,7 @@ def run(args):
     out.parent.mkdir(parents=True, exist_ok=True)
     out.mkdir()
     report = {
-        "schema": "whole-body-mpc-oracle-probe-v3",
+        "schema": "whole-body-mpc-oracle-probe-v4",
         "scope": "privileged known-scene full-state research oracle; not runtime authority or B1 acceptance",
         "status": "started",
         "config": {
@@ -357,6 +357,7 @@ def run(args):
             "commit_steps": COMMIT_STEPS,
             "timestep_s": DT,
             "knot_steps": KNOT_STEPS.tolist(),
+            "seed_policy": "exact previous65steps plus5new nominal-feedback steps",
             "max_chunks": args.max_chunks,
             "solver_wall_budget_s": args.solver_wall_budget_s,
             "solver_max_iterations": args.solver_max_iterations,
@@ -409,12 +410,7 @@ def run(args):
             for chunk_index in range(args.max_chunks):
                 chunk_started = time.perf_counter()
                 state_before = state_array(model, current)
-                previous_prefix = None
-                if previous_candidate is not None:
-                    if previous_candidate.shape != (HORIZON_STEPS, 12):
-                        raise ValueError("previous candidate shape")
-                    previous_prefix = previous_candidate[COMMIT_STEPS : 2 * COMMIT_STEPS]
-                baseline = template.nominal_baseline(current, start_tick, previous_prefix)
+                baseline = template.nominal_baseline(current,start_tick,previous_candidate)
                 if not np.isfinite(baseline).all() or np.max(np.abs(baseline)) > TORQUE_LIMIT:
                     raise ValueError("baseline torque constraint")
                 body_refs, foot_refs, ref_times = template.references(start_tick)
@@ -445,7 +441,7 @@ def run(args):
                         evaluation_latencies.append((time.perf_counter() - t_eval) * 1000.0)
                         evaluation_min_g.append(float(np.min(g)))
                         return cost, np.r_[g, (TORQUE_LIMIT-candidate_controls).ravel()/TORQUE_LIMIT, (TORQUE_LIMIT+candidate_controls).ravel()/TORQUE_LIMIT]
-                    initial_knots = np.zeros((3,12))
+                    initial_knots = np.zeros((len(KNOT_STEPS),12))
                     solver = solve(
                         evaluate_knots,
                         initial_knots,
@@ -472,7 +468,7 @@ def run(args):
                     }
                     candidate = solver.get("controls")
                     if candidate is None:
-                        chunk["failure"] = "no_feasible_three_knot_witness"
+                        chunk["failure"] = "no_feasible_correction_mesh_witness"
                         report["chunks"].append(chunk)
                         report["status"] = "failed"
                         report["failure"] = chunk["failure"]

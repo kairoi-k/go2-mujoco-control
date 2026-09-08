@@ -117,3 +117,19 @@ Before canary, seven geometry oracle tests plus native/Python flat fixture and
 retained0004 side-wall witness must pass: legacy accepts the latter physical
 bounds, top-support mode rejects it with identical cost and independently matching
 constraint values. Then one bounded near5cm canary,20iterations/30s per solve.
+## V4 accepted-tail transport
+V3 run0006 stops after65steps, before actual step collision. New support gate
+correctly rejects future wall force, but seed also reintroduces RR198.3N in the
+previously covered region. Inspection finds another implementation/description
+difference: only the committed5steps were preserved and all later controls were
+regenerated under flat nominal feedback. Described65step seed transport was absent.
+No published prefix or executed-state inconsistency was found; this is lost warm
+start/trajectory coherence, not a false previous physical certificate. The shifted
+accepted controls differ from the seed by up to2.294Nm at failedchunk13.
+V4 explicitly transports all65remaining accepted controls, simulates them from
+fresh state, and appends only5nominal-feedback steps. Only5commands are committed;
+the other65remain jointly optimizable. Nodes[5,35,64,69] add a new-suffix correction
+segment, so changing the newly appended5steps need not perturb the entire previous
+half-horizon. Four knots/48variables; same physical bounds, support affordance and
+fixed phase. First test this on saved0006 failed state and independently verify
+that the transported65step region remains feasible, then solve that horizon.
