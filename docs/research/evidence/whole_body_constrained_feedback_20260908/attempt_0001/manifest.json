@@ -14,6 +14,7 @@
     "certificate.json": "a7b7118cfe2d47a1e7af0898c9190945e7af2e0289712374ddc6cae5ed2de0bb",
     "contact_diagnostic.json.gz": "467aaa4983be6b09d26fd03a728c4638f691f637bb10825ebc0b352e2cbd6059",
     "contact_summary.json": "7df4961f3048d9e9cb83d538dd651a269696429be2104245f80bae1a8c0cf718",
+    "curated_certificate.json": "a8d8644e2c80d7e7930c52caffd2c5ebb27469783ba2b69c20909849303f536e",
     "raw_result.json.gz": "c6be619c124e4ad15fee924cc165e7661959677477d1d182fc267b74f5372c9b",
     "result.json": "929a5000e06a55b6051b8a009129a96e076fc33c44a3ac084b9bb5679cc7c499",
     "runtime_sources/constrained_whole_body_feedback.py": "4cde9642545649f428c0a50447f701923c56d297dbf7e73b2fd11006009645a0",

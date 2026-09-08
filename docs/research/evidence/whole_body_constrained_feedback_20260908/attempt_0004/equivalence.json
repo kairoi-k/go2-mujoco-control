@@ -1,0 +1,12 @@
+{
+  "prior_raw_sha256": "d7d3cea3900c5b222dd3e26d98c675f2a0266d646cadb21e58585814aec968ce",
+  "new_raw_sha256": "f2aba0dbb7096e6b4f4019093cdfaf421ca943957ff119dcc980643b2bfd2c5e",
+  "all_controls_exactly_equal": true,
+  "all_state_time_force_torque_rows_exactly_equal": true,
+  "latency_us": {
+    "p50": 789.307,
+    "p95": 1041.3900999999998,
+    "max": 17863.507
+  },
+  "scope": "one full20cycle matched replay; not realtime bound"
+}

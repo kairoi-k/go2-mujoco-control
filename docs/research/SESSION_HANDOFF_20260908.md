@@ -1,3 +1,18 @@
+# Resumed checkpoint after0349725,2026-09-08
+Read CURRENT.md first: it now supersedes the original UNRUN draft status below.
+Latest full initialized feedback source4023ff87732236b629a59c80f886bb2f22126248.
+20cycles plus fixedvy/roll perturbations pass physical checks with one-step hard
+force-constrained feedback. Exact independent pre/post replay and optimized full
+trajectory equivalence are archived. Thirty focused tests pass. Constraint tick
+still17.864ms>2ms; no production integration, new live flat,5cm B1 or10cm run.
+Original V1 numerical failures remain, including floating-clock accumulation;
+no acceptance thresholds or physical model options changed. B1 NOT_CERTIFIED.
+Next is deadline-aware horizon/owner/observed-terrain integration per CURRENT,
+not gain sweeps or calling privileged initialized results a terrain release.
+All new raw directories use20260908 under _runs and are preserved. Code/evidence
+committed locally, no push. Git determines final docs HEAD. Session workers are
+finished and simulations/builds are not left running at this checkpoint.
+# Original0349725 handoff (historical evidence follows)
 # Session handoff: full-body B1 research, 2026-09-08
 ## Resume here
 User requests handoff and a new session because spawned-agent handles cannot

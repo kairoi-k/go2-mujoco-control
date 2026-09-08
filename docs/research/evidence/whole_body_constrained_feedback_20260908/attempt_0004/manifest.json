@@ -1,0 +1,25 @@
+{
+  "source_sha": "4023ff87732236b629a59c80f886bb2f22126248",
+  "raw_directory": "example/cpp/experiments/_runs/whole_body_constrained_feedback_20260908_0004",
+  "command": "python3 example/cpp/tools/research/periodic_whole_body_feedback.py docs/research/evidence/whole_body_cycle_20260908/attempt_0002/result.json --periods 20 --r-weight 0.01 --constrained --initial-vy 0.05 --out example/cpp/experiments/_runs/whole_body_constrained_feedback_20260908_0004/result.json",
+  "environment": {
+    "OPENBLAS_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1"
+  },
+  "sha256": {
+    "certificate.json": "3608eff34ebddd3d7c3c4a6653853c454cf9abbab312bc8dec4d1d3667e92b01",
+    "contact_diagnostic.json.gz": "aa6324c4b8420aa1c90ee4442e7f57d6006465f3df0fb62c80d25f8501be2028",
+    "contact_summary.json": "9bd0ecfcb4ce02a70c09024b561ceb6069be78047e0e8e33a777685108bb4ce0",
+    "curated_certificate.json": "599afe52c13d4102ff667f91780973532e80fb880b6dda48202a4af087bee273",
+    "equivalence.json": "de4c168f59829fb711e0c1833f311ed469bc54f51837873cfccbd67dbfa25c49",
+    "raw_result.json.gz": "428b793406de330bc9f4ebcc8319b8b387cbb63e929bf073e49ce05539e00a0c",
+    "result.json": "2c0eb3617d036bc8bdb58b6b03db9391cc4d884d1ea98e826847af81e2e60fa2",
+    "runtime_sources/constrained_whole_body_feedback.py": "df5fa9c286a13ab44f5b7b22fb3492828ba493997b57837bfca5097eea2de841",
+    "runtime_sources/periodic_whole_body_feedback.py": "916705fd3ec50e450902a6b02c4305dad0aeb241a54f0965ddf8321317e0ac5b",
+    "runtime_sources/verify_whole_body_shooting.py": "c6c4c1b0a1821363a9211e2f0f5addfa9c8396c5238ae67c636ce5afd0dd40f4",
+    "runtime_sources/whole_body_shooting_derivatives.py": "8ebef78d5e00d81dfd6cffb7a029de436fe8da0eda06986a652599c5257074a7",
+    "source_sha.txt": "9ec5b332d7a8b8b76567c80d730df8d22e19416d5b02491c297793a83800aefa",
+    "source_status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}
