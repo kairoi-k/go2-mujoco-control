@@ -1,0 +1,7 @@
+{
+  "packet_directory": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_trajectory_packet_20260908_0002",
+  "manifest_sha256": "6a111f2f78c9426215bb7c6ab13ebb7e34d215f6780368194403b688879c3216",
+  "packet_sha256": "d22f01fb3faeb1503da8978114045533df2c2ff41e4715affedcc3fbc0ce6567",
+  "input_sha256": "abbf79184bec6154d28ff6d3873fae1de99c397e2f40fc5acd6805cc5e56fc9f",
+  "scope": "initialized privileged flat research; no production or observed-terrain authority"
+}

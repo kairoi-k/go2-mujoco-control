@@ -1,0 +1,3 @@
+WARNING: Nan, Inf or huge value in QVEL at DOF 0. The simulation is unstable. Time = 21.0340.
+
+{"checks_passed":21,"fixed_force_max":180,"scope":"offline numerical and model contract only"}

@@ -1,0 +1,8 @@
+{
+  "schema": "whole-body-research-export-receipt-v1",
+  "manifest_sha256": "6a111f2f78c9426215bb7c6ab13ebb7e34d215f6780368194403b688879c3216",
+  "packet_sha256": "d22f01fb3faeb1503da8978114045533df2c2ff41e4715affedcc3fbc0ce6567",
+  "packet_bytes": 689934,
+  "samples": 70,
+  "production_ready": false
+}

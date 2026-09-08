@@ -1,0 +1,25 @@
+{
+  "scope": "dirty-source contract/numerical fix only; no runtime deadline, horizon viability or B1 acceptance",
+  "head": "79a7fb08de689ed7bbdd13656de4bc037eaa4db6",
+  "checks_passed": 21,
+  "same_control_and_forces_as_before": true,
+  "independent_replay_max_force_delta": 0.0,
+  "all_strict_feasible": true,
+  "median_ms": 16.566481,
+  "files": {
+    "benchmark": "d136d4545c83698ab879f96e0c012be7508bb4717377c9d53d81bd4e28c2671f",
+    "tests.txt": "9bf7a4e87b66f3e8c48956fd93b86385c5679bc739c755c484959f67ff9a4a3e",
+    "result.json": "a1cc53b42585230807eb41e4980aee2301f798ecb086d16adc7f928ac82ae623",
+    "benchmark_build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "verify.py": "fc37b4d3eab52e3766bc962e1cae1e8ba3d0d4b26f6ebee251995bfbe8959da2",
+    "runtime_header.h": "0f2d1cf3d8814b640e04eebb4f3dad38aa163d71e819a2efe4fb20c99b142aa5",
+    "verification.json": "cbb0cef1f7de89655e050c4653df0d3d8a67a68c036dc224ce96659bc6bca81b",
+    "test_force_tracking": "8b1b0db682c18f24892a92e5658d3826d8f9adf0d0d34fbb232ffd77661dfef7",
+    "input.txt": "ff30c3dc34e55b5736fdf40d3df71b320f11e1d0b8550b7ad4a0198c71d9bec6",
+    "test_build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "verification_stdout.json": "4e42cb7c9df56fbc6e3decb27576d6df66fdcb8ef3ca1a89a22dd52e1c9a1577",
+    "build_command.txt": "d612e9b15bf12fc3323812380fb65a34601988c01fbab5d4c1d8dfa3caf6dbe5",
+    "runtime_benchmark.cpp": "018507da683f98471cc33387e08eed76f67abe840ab11eea6f8691c53b85ff92",
+    "runtime_test.cpp": "b246a73f6b317c5e0143cf7def40d2e50c5ba7e30d5c9344e9c57b75a2f358d8"
+  }
+}

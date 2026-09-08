@@ -1,0 +1,1 @@
+g++ -std=c++17 -O3 -DNDEBUG -fopenmp -I/usr/include/eigen3 -I$MUJOCO/include SOURCE -L$MUJOCO -l:libmujoco.so.3.3.6 -Wl,-rpath,$MUJOCO -o OUTPUT

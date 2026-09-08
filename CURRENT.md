@@ -10,6 +10,15 @@ model/state replays, NOT the live controller, observed-terrain planning or B1.
 The actual integrated centroidal/WBC path last ran at0f6ec6526f4fcde77f2b737b5a65d9855ed5365b
 (attempt0012), stopping at21.204s for roll28.80deg. No newer live controller run.
 Full-body diagnostics have not replaced that production path or its acceptance.
+## Native horizon continuation (not live acceptance)
+This continuation added native constrained torque kernel, strict research
+trajectory packet/parser and observed cell-prism descriptors. Fixed-state4thread
+median5.674ms is faster but exceeds2ms.20ms delayed-candidate probe has one
+successful adaptive10ms adoption; it does not prove the6ms committed prefix.
+Next preregistered experiment is fixed12ms committed prefix +20ms optimized tail,
+20cyclevy replay with late discard and first useful failure stop. See
+WHOLE_BODY_NATIVE_HORIZON_V1.md. Tests and dirty-source evidence cannot replace
+clean-source actual-controller acceptance. No production owner edits.
 ## Latest executed evidence
 - Clean0349725 single-cycle170N-objective solve0002: force170.120N<180N,
   torque28.153Nm, terminalbody0.883mm; exact saved-state replay. Original V1

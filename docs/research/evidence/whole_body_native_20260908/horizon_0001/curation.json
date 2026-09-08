@@ -1,0 +1,75 @@
+{
+  "raw_directory": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_horizon_probe_20260908_0001",
+  "preserves_raw_bytes": true,
+  "scope": "initialized privileged research; dirty-source hashes bind exact snapshots; no live B1 acceptance",
+  "raw_files": {
+    "runtime_test.py": {
+      "sha256": "7d61b013f15605c6594aeec2918a58cfdc04f665ca56a2245efd837dd377857a",
+      "bytes": 1340
+    },
+    "input_manifest.json": {
+      "sha256": "5a344da767c386871ea6142af68e4f84e99901c1b6dffd9695aabe84f424cfb9",
+      "bytes": 513
+    },
+    "probe": {
+      "sha256": "b53efc56ca39398c3c4243bb14a9289174f0da22916f9436c7ddd0d386f9b38a",
+      "bytes": 65576
+    },
+    "runtime_adaptive_probe.py": {
+      "sha256": "d4b05e61f7c62a812239db61f89723c06b951a6e6b75be717d70b06494770736",
+      "bytes": 3193
+    },
+    "adaptive_replay.json": {
+      "sha256": "b62cd85e949b26c071949562b81877fa29213a9154d17a810a7a34ccf9c6aea8",
+      "bytes": 18770
+    },
+    "adaptive_stdout.txt": {
+      "sha256": "94b264ae2794886257c9a299ca9a9228387b56eecca77992cfa4e0a23fe3a0c8",
+      "bytes": 759
+    },
+    "runtime_probe.py": {
+      "sha256": "fcaf930b2d42d6ce928de302f0414733be3ca1e54f7fdd33478839d7dc69b959",
+      "bytes": 8912
+    },
+    "runtime_probe.cpp": {
+      "sha256": "122e499c3a162a49f981288c52117b06205db88cd7ff741b6493757d491b4a9a",
+      "bytes": 5094
+    },
+    "input.txt": {
+      "sha256": "abbf79184bec6154d28ff6d3873fae1de99c397e2f40fc5acd6805cc5e56fc9f",
+      "bytes": 98580
+    },
+    "build.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "summary.json": {
+      "sha256": "58ca89f298281bfddde9fdf9740978fef29477c8cb1c333b2976c4d77816720f",
+      "bytes": 9312
+    },
+    "manifest.json": {
+      "sha256": "dd5e4417325c523c97a3f51493d810c55ca634b4a30c40f57d760cf045f20119",
+      "bytes": 1873
+    },
+    "build_command.txt": {
+      "sha256": "e470532c2eecbb079c1c7c09f41cee39183c3b7c219c28a1493e9e0206a4a4c1",
+      "bytes": 397
+    },
+    "replay_report.json": {
+      "sha256": "c6d7583a852aa6d69bcc8ae346e31744121b467e1a9548728bde3e4438444aaa",
+      "bytes": 268753
+    },
+    "plans.json": {
+      "sha256": "9d600b02cb58d1c7d062ca92820c5f077896c9e2f1f84552ed65e840877703f3",
+      "bytes": 361220
+    },
+    "runtime_force_header.h": {
+      "sha256": "0f2d1cf3d8814b640e04eebb4f3dad38aa163d71e819a2efe4fb20c99b142aa5",
+      "bytes": 11431
+    },
+    "replay_stdout.json": {
+      "sha256": "af4b96c0b8d6fa1e8dd0bc999d65a46593e8b46451d0db1e55e770bd890042e1",
+      "bytes": 9313
+    }
+  }
+}

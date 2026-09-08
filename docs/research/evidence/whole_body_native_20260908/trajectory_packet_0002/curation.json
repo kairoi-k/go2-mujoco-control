@@ -1,0 +1,19 @@
+{
+  "raw_directory": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_trajectory_packet_20260908_0002",
+  "preserves_raw_bytes": true,
+  "scope": "initialized privileged research; dirty-source hashes bind exact snapshots; no live B1 acceptance",
+  "raw_files": {
+    "receipt.json": {
+      "sha256": "21e3c9ba037f5d4745660b5462e69143851466b091642c19c6edc7bc97294d08",
+      "bytes": 304
+    },
+    "trajectory.packet": {
+      "sha256": "d22f01fb3faeb1503da8978114045533df2c2ff41e4715affedcc3fbc0ce6567",
+      "bytes": 689934
+    },
+    "manifest.json": {
+      "sha256": "6a111f2f78c9426215bb7c6ab13ebb7e34d215f6780368194403b688879c3216",
+      "bytes": 25407
+    }
+  }
+}

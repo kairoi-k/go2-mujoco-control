@@ -1,0 +1,109 @@
+{
+  "scope": "fixed source computational comparison, not deadline or horizon viability certification",
+  "openmp_wait_policy": "PASSIVE",
+  "reference": "../native_force_tracking_20260908_0001/verification.json",
+  "results": {
+    "threads_1.json": {
+      "min_ms": 16.610561,
+      "median_ms": 17.034491,
+      "max_ms": 17.167631,
+      "evaluations": [
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "all_feasible": true,
+      "max_control_delta_to_independent_verified_serial": 0.0,
+      "max_force_delta_to_independent_verified_serial": 0
+    },
+    "threads_4.json": {
+      "min_ms": 5.589286,
+      "median_ms": 5.674176,
+      "max_ms": 6.513409,
+      "evaluations": [
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "all_feasible": true,
+      "max_control_delta_to_independent_verified_serial": 0.0,
+      "max_force_delta_to_independent_verified_serial": 0
+    },
+    "threads_8.json": {
+      "min_ms": 5.734189,
+      "median_ms": 6.171484,
+      "max_ms": 7.591012,
+      "evaluations": [
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "all_feasible": true,
+      "max_control_delta_to_independent_verified_serial": 0.0,
+      "max_force_delta_to_independent_verified_serial": 0
+    },
+    "fast_1.json": {
+      "min_ms": 0.156626,
+      "median_ms": 0.158329,
+      "max_ms": 0.2063,
+      "evaluations": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "all_feasible": true,
+      "max_control_delta_to_independent_verified_serial": 0.0,
+      "max_force_delta_to_independent_verified_serial": 0
+    },
+    "fast_4.json": {
+      "min_ms": 0.157608,
+      "median_ms": 0.161094,
+      "max_ms": 0.179679,
+      "evaluations": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "all_feasible": true,
+      "max_control_delta_to_independent_verified_serial": 0.0,
+      "max_force_delta_to_independent_verified_serial": 0
+    },
+    "fast_8.json": {
+      "min_ms": 0.157467,
+      "median_ms": 0.157787,
+      "max_ms": 0.159651,
+      "evaluations": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "all_feasible": true,
+      "max_control_delta_to_independent_verified_serial": 0.0,
+      "max_force_delta_to_independent_verified_serial": 0
+    }
+  },
+  "hashes": {
+    "benchmark": "090a069505592b74a56f87446158727414e17ecbd3548c19af085957caf6ad47",
+    "summarize.py": "75556c6655eb7b82e7fbe399d658a2f207de436d624a04d1ca29f0ce170e191f",
+    "threads_8.json": "d5c60129dec599a15184e0999c85ac8671d373bb6294f3bbb06574455f6a6c6f",
+    "fast_8.json": "ff98acf364dbc22a2822aefe997f88238b7a15e84c223377569546f70f2ae667",
+    "threads_4.json": "7b0f83544701c444dda866575bc47a0682ad674286a667c44c6998908a01cb39",
+    "runtime_header.h": "a25a54a49733266a7c2ed3f5dfd8b9b26c39df39cbf11d479e292a3e153659d2",
+    "fast_1.json": "cc15c3836c61144113980f8fe3af0318702ee64aa90f76be3cec68392d73e56e",
+    "threads_1.json": "7dc97d978a90ff8f1b9deb936d4618e4068d3adaa0965d3261a9e6f9f0792753",
+    "fast_4.json": "af23879e210d1ea4697146dc43b62e1917a7e92449e0a7d15782e62201a163fa",
+    "runtime_benchmark.cpp": "9af5264710824a8037833b27186b07328b7dfeb05bd19ab2a231d23b3185278e"
+  }
+}

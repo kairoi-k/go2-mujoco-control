@@ -1,0 +1,30 @@
+{
+  "scope": "dirty-source offline 20ms candidate and delay replay; no live actuation/B1 or feedback tube/deadline certificate",
+  "head": "79a7fb08de689ed7bbdd13656de4bc037eaa4db6",
+  "environment": {
+    "mujoco": "3.3.6",
+    "OPENBLAS_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "OMP_WAIT_POLICY": "PASSIVE",
+    "kernel_derivative_threads": 4
+  },
+  "hashes": {
+    "runtime_test.py": "7d61b013f15605c6594aeec2918a58cfdc04f665ca56a2245efd837dd377857a",
+    "input_manifest.json": "5a344da767c386871ea6142af68e4f84e99901c1b6dffd9695aabe84f424cfb9",
+    "probe": "b53efc56ca39398c3c4243bb14a9289174f0da22916f9436c7ddd0d386f9b38a",
+    "runtime_adaptive_probe.py": "d4b05e61f7c62a812239db61f89723c06b951a6e6b75be717d70b06494770736",
+    "adaptive_replay.json": "b62cd85e949b26c071949562b81877fa29213a9154d17a810a7a34ccf9c6aea8",
+    "adaptive_stdout.txt": "94b264ae2794886257c9a299ca9a9228387b56eecca77992cfa4e0a23fe3a0c8",
+    "runtime_probe.py": "fcaf930b2d42d6ce928de302f0414733be3ca1e54f7fdd33478839d7dc69b959",
+    "runtime_probe.cpp": "122e499c3a162a49f981288c52117b06205db88cd7ff741b6493757d491b4a9a",
+    "input.txt": "abbf79184bec6154d28ff6d3873fae1de99c397e2f40fc5acd6805cc5e56fc9f",
+    "build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "summary.json": "58ca89f298281bfddde9fdf9740978fef29477c8cb1c333b2976c4d77816720f",
+    "build_command.txt": "e470532c2eecbb079c1c7c09f41cee39183c3b7c219c28a1493e9e0206a4a4c1",
+    "replay_report.json": "c6d7583a852aa6d69bcc8ae346e31744121b467e1a9548728bde3e4438444aaa",
+    "plans.json": "9d600b02cb58d1c7d062ca92820c5f077896c9e2f1f84552ed65e840877703f3",
+    "runtime_force_header.h": "0f2d1cf3d8814b640e04eebb4f3dad38aa163d71e819a2efe4fb20c99b142aa5",
+    "replay_stdout.json": "af4b96c0b8d6fa1e8dd0bc999d65a46593e8b46451d0db1e55e770bd890042e1"
+  }
+}

@@ -1,0 +1,293 @@
+{
+  "candidate_replays": [
+    {
+      "plan": "nominal",
+      "complete": true,
+      "steps": 10,
+      "force_replay_delta_n": 0.0,
+      "integration_replay_delta": 0.0
+    },
+    {
+      "plan": "actual_vy",
+      "complete": true,
+      "steps": 10,
+      "force_replay_delta_n": 0.0,
+      "integration_replay_delta": 0.0
+    },
+    {
+      "plan": "actual_vy_prefix6ms",
+      "complete": true,
+      "steps": 10,
+      "force_replay_delta_n": 0.0,
+      "integration_replay_delta": 0.0
+    }
+  ],
+  "plans": [
+    {
+      "name": "nominal",
+      "complete": true,
+      "failure": "",
+      "producer_wall_ms_including_output": 3.269187,
+      "max_force_n": 170.1202880074066
+    },
+    {
+      "name": "actual_vy",
+      "complete": true,
+      "failure": "",
+      "producer_wall_ms_including_output": 11.229606,
+      "max_force_n": 179.99999999999952
+    },
+    {
+      "name": "actual_vy_prefix6ms",
+      "complete": true,
+      "failure": "",
+      "producer_wall_ms_including_output": 9.910006,
+      "max_force_n": 179.99999999999952
+    }
+  ],
+  "delay_replays": [
+    {
+      "plan": "nominal",
+      "injected_delay_ms": 0,
+      "actual_initial_vy_delta": 0.05,
+      "temporal_admitted": true,
+      "temporal_reason": "temporal_coverage_only",
+      "zero_delay_offline_oracle": true,
+      "measured_producer_ready_by_injected_delay": false,
+      "measured_deadline_and_coverage_both_pass": false,
+      "state_admission_certified": false,
+      "max_force_n": 188.71489191634953,
+      "force_violating_steps": [
+        7
+      ],
+      "candidate_force_violating_steps": [
+        7
+      ],
+      "adoption_error": {
+        "position_tangent_max": 6.776263578034401e-21,
+        "velocity_max": 0.05,
+        "base_position_norm_m": 0.0,
+        "base_velocity_norm_mps": 0.05
+      }
+    },
+    {
+      "plan": "nominal",
+      "injected_delay_ms": 2,
+      "actual_initial_vy_delta": 0.05,
+      "temporal_admitted": true,
+      "temporal_reason": "temporal_coverage_only",
+      "zero_delay_offline_oracle": false,
+      "measured_producer_ready_by_injected_delay": false,
+      "measured_deadline_and_coverage_both_pass": false,
+      "state_admission_certified": false,
+      "max_force_n": 188.71489191634953,
+      "force_violating_steps": [
+        7
+      ],
+      "candidate_force_violating_steps": [
+        7
+      ],
+      "adoption_error": {
+        "position_tangent_max": 0.00017330985225488815,
+        "velocity_max": 0.08665492612744413,
+        "base_position_norm_m": 9.85315130308583e-05,
+        "base_velocity_norm_mps": 0.04926575651542927
+      }
+    },
+    {
+      "plan": "nominal",
+      "injected_delay_ms": 6,
+      "actual_initial_vy_delta": 0.05,
+      "temporal_admitted": true,
+      "temporal_reason": "temporal_coverage_only",
+      "zero_delay_offline_oracle": false,
+      "measured_producer_ready_by_injected_delay": true,
+      "measured_deadline_and_coverage_both_pass": true,
+      "state_admission_certified": false,
+      "max_force_n": 188.71489191634953,
+      "force_violating_steps": [
+        7
+      ],
+      "candidate_force_violating_steps": [
+        7
+      ],
+      "adoption_error": {
+        "position_tangent_max": 0.0009038331070683114,
+        "velocity_max": 0.20970305368064712,
+        "base_position_norm_m": 0.00029181615865794347,
+        "base_velocity_norm_mps": 0.04801584540257137
+      }
+    },
+    {
+      "plan": "nominal",
+      "injected_delay_ms": 20,
+      "actual_initial_vy_delta": 0.05,
+      "temporal_admitted": false,
+      "temporal_reason": "expired",
+      "zero_delay_offline_oracle": false,
+      "measured_producer_ready_by_injected_delay": true,
+      "measured_deadline_and_coverage_both_pass": false,
+      "state_admission_certified": false,
+      "max_force_n": 188.71489191634953,
+      "force_violating_steps": [
+        7
+      ],
+      "candidate_force_violating_steps": [],
+      "adoption_error": null
+    },
+    {
+      "plan": "actual_vy",
+      "injected_delay_ms": 0,
+      "actual_initial_vy_delta": 0.05,
+      "temporal_admitted": true,
+      "temporal_reason": "temporal_coverage_only",
+      "zero_delay_offline_oracle": true,
+      "measured_producer_ready_by_injected_delay": false,
+      "measured_deadline_and_coverage_both_pass": false,
+      "state_admission_certified": false,
+      "max_force_n": 179.99999999999952,
+      "force_violating_steps": [],
+      "candidate_force_violating_steps": [],
+      "adoption_error": {
+        "position_tangent_max": 6.776263578034401e-21,
+        "velocity_max": 0.0,
+        "base_position_norm_m": 0.0,
+        "base_velocity_norm_mps": 0.0
+      }
+    },
+    {
+      "plan": "actual_vy",
+      "injected_delay_ms": 2,
+      "actual_initial_vy_delta": 0.05,
+      "temporal_admitted": true,
+      "temporal_reason": "temporal_coverage_only",
+      "zero_delay_offline_oracle": false,
+      "measured_producer_ready_by_injected_delay": false,
+      "measured_deadline_and_coverage_both_pass": false,
+      "state_admission_certified": false,
+      "max_force_n": 179.99999999999952,
+      "force_violating_steps": [],
+      "candidate_force_violating_steps": [],
+      "adoption_error": {
+        "position_tangent_max": 6.776263578034404e-21,
+        "velocity_max": 0.0,
+        "base_position_norm_m": 0.0,
+        "base_velocity_norm_mps": 0.0
+      }
+    },
+    {
+      "plan": "actual_vy",
+      "injected_delay_ms": 6,
+      "actual_initial_vy_delta": 0.05,
+      "temporal_admitted": true,
+      "temporal_reason": "temporal_coverage_only",
+      "zero_delay_offline_oracle": false,
+      "measured_producer_ready_by_injected_delay": false,
+      "measured_deadline_and_coverage_both_pass": false,
+      "state_admission_certified": false,
+      "max_force_n": 179.99999999999952,
+      "force_violating_steps": [],
+      "candidate_force_violating_steps": [],
+      "adoption_error": {
+        "position_tangent_max": 5.421010862427521e-20,
+        "velocity_max": 0.0,
+        "base_position_norm_m": 0.0,
+        "base_velocity_norm_mps": 0.0
+      }
+    },
+    {
+      "plan": "actual_vy",
+      "injected_delay_ms": 20,
+      "actual_initial_vy_delta": 0.05,
+      "temporal_admitted": false,
+      "temporal_reason": "expired",
+      "zero_delay_offline_oracle": false,
+      "measured_producer_ready_by_injected_delay": true,
+      "measured_deadline_and_coverage_both_pass": false,
+      "state_admission_certified": false,
+      "max_force_n": 188.71489191634953,
+      "force_violating_steps": [
+        7
+      ],
+      "candidate_force_violating_steps": [],
+      "adoption_error": null
+    },
+    {
+      "plan": "actual_vy_prefix6ms",
+      "injected_delay_ms": 0,
+      "actual_initial_vy_delta": 0.05,
+      "temporal_admitted": true,
+      "temporal_reason": "temporal_coverage_only",
+      "zero_delay_offline_oracle": true,
+      "measured_producer_ready_by_injected_delay": false,
+      "measured_deadline_and_coverage_both_pass": false,
+      "state_admission_certified": false,
+      "max_force_n": 179.99999999999952,
+      "force_violating_steps": [],
+      "candidate_force_violating_steps": [],
+      "adoption_error": {
+        "position_tangent_max": 6.776263578034401e-21,
+        "velocity_max": 0.0,
+        "base_position_norm_m": 0.0,
+        "base_velocity_norm_mps": 0.0
+      }
+    },
+    {
+      "plan": "actual_vy_prefix6ms",
+      "injected_delay_ms": 2,
+      "actual_initial_vy_delta": 0.05,
+      "temporal_admitted": true,
+      "temporal_reason": "temporal_coverage_only",
+      "zero_delay_offline_oracle": false,
+      "measured_producer_ready_by_injected_delay": false,
+      "measured_deadline_and_coverage_both_pass": false,
+      "state_admission_certified": false,
+      "max_force_n": 179.99999999999952,
+      "force_violating_steps": [],
+      "candidate_force_violating_steps": [],
+      "adoption_error": {
+        "position_tangent_max": 6.776263578034404e-21,
+        "velocity_max": 0.0,
+        "base_position_norm_m": 0.0,
+        "base_velocity_norm_mps": 0.0
+      }
+    },
+    {
+      "plan": "actual_vy_prefix6ms",
+      "injected_delay_ms": 6,
+      "actual_initial_vy_delta": 0.05,
+      "temporal_admitted": true,
+      "temporal_reason": "temporal_coverage_only",
+      "zero_delay_offline_oracle": false,
+      "measured_producer_ready_by_injected_delay": false,
+      "measured_deadline_and_coverage_both_pass": false,
+      "state_admission_certified": false,
+      "max_force_n": 179.99999999999952,
+      "force_violating_steps": [],
+      "candidate_force_violating_steps": [],
+      "adoption_error": {
+        "position_tangent_max": 5.421010862427521e-20,
+        "velocity_max": 0.0,
+        "base_position_norm_m": 0.0,
+        "base_velocity_norm_mps": 0.0
+      }
+    },
+    {
+      "plan": "actual_vy_prefix6ms",
+      "injected_delay_ms": 20,
+      "actual_initial_vy_delta": 0.05,
+      "temporal_admitted": false,
+      "temporal_reason": "expired",
+      "zero_delay_offline_oracle": false,
+      "measured_producer_ready_by_injected_delay": true,
+      "measured_deadline_and_coverage_both_pass": false,
+      "state_admission_certified": false,
+      "max_force_n": 188.71489191634953,
+      "force_violating_steps": [
+        7
+      ],
+      "candidate_force_violating_steps": [],
+      "adoption_error": null
+    }
+  ]
+}

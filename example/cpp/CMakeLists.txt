@@ -419,3 +419,27 @@ add_test(NAME test_dense_qp_active_set_runtime_primary COMMAND test_dense_qp_act
 add_executable(replay_joint_execution_qp tools/replay_joint_execution_qp.cpp)
 target_link_libraries(replay_joint_execution_qp Eigen3::Eigen)
 add_test(NAME test_joint_execution_qp_replay COMMAND replay_joint_execution_qp "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/research/evidence/joint_execution_flat_20260908/attempt_0006/first_qp.txt")
+
+# Whole-body research remains isolated from the live execution owner.
+add_executable(test_stage_c_observed_collision_model tests/test_stage_c_observed_collision_model.cpp)
+target_link_libraries(test_stage_c_observed_collision_model unitree_sdk2)
+go2_add_ctest(test_stage_c_observed_collision_model)
+if(EXISTS "${_go2_mujoco_lib}")
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    find_package(OpenMP REQUIRED)
+    add_executable(test_whole_body_trajectory tests/test_whole_body_trajectory.cpp)
+    add_executable(test_whole_body_force_tracking tests/test_whole_body_force_tracking.cpp)
+    foreach(_target test_whole_body_trajectory test_whole_body_force_tracking)
+        target_include_directories(${_target} PRIVATE "${_go2_mujoco_inc}")
+        target_link_libraries(${_target} "${_go2_mujoco_lib}" Eigen3::Eigen OpenMP::OpenMP_CXX)
+        set_target_properties(${_target} PROPERTIES BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
+    endforeach()
+    add_test(NAME test_whole_body_trajectory COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/research/check_whole_body_packet.py"
+        $<TARGET_FILE:test_whole_body_trajectory>
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/research/evidence/whole_body_native_20260908/trajectory_packet_0002")
+    add_test(NAME test_whole_body_force_tracking COMMAND test_whole_body_force_tracking
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/research/evidence/whole_body_native_20260908/force_contract_0004/input.txt"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../unitree_robots/go2/phase2_flat.xml")
+    set_tests_properties(test_whole_body_force_tracking PROPERTIES RUN_SERIAL TRUE)
+endif()

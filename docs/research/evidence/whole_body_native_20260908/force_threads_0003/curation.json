@@ -1,0 +1,51 @@
+{
+  "raw_directory": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/native_force_tracking_20260908_0003",
+  "preserves_raw_bytes": true,
+  "scope": "initialized privileged research; dirty-source hashes bind exact snapshots; no live B1 acceptance",
+  "raw_files": {
+    "benchmark": {
+      "sha256": "090a069505592b74a56f87446158727414e17ecbd3548c19af085957caf6ad47",
+      "bytes": 51048
+    },
+    "summarize.py": {
+      "sha256": "75556c6655eb7b82e7fbe399d658a2f207de436d624a04d1ca29f0ce170e191f",
+      "bytes": 1352
+    },
+    "threads_8.json": {
+      "sha256": "d5c60129dec599a15184e0999c85ac8671d373bb6294f3bbb06574455f6a6c6f",
+      "bytes": 2205
+    },
+    "fast_8.json": {
+      "sha256": "ff98acf364dbc22a2822aefe997f88238b7a15e84c223377569546f70f2ae667",
+      "bytes": 2144
+    },
+    "threads_4.json": {
+      "sha256": "7b0f83544701c444dda866575bc47a0682ad674286a667c44c6998908a01cb39",
+      "bytes": 2205
+    },
+    "runtime_header.h": {
+      "sha256": "a25a54a49733266a7c2ed3f5dfd8b9b26c39df39cbf11d479e292a3e153659d2",
+      "bytes": 8310
+    },
+    "fast_1.json": {
+      "sha256": "cc15c3836c61144113980f8fe3af0318702ee64aa90f76be3cec68392d73e56e",
+      "bytes": 2122
+    },
+    "threads_1.json": {
+      "sha256": "7dc97d978a90ff8f1b9deb936d4618e4068d3adaa0965d3261a9e6f9f0792753",
+      "bytes": 2178
+    },
+    "fast_4.json": {
+      "sha256": "af23879e210d1ea4697146dc43b62e1917a7e92449e0a7d15782e62201a163fa",
+      "bytes": 2133
+    },
+    "summary.json": {
+      "sha256": "58d8d7ba80b768b0cd97aa92098fa3fcc674f48db25af824102b639f37a42281",
+      "bytes": 3247
+    },
+    "runtime_benchmark.cpp": {
+      "sha256": "9af5264710824a8037833b27186b07328b7dfeb05bd19ab2a231d23b3185278e",
+      "bytes": 2545
+    }
+  }
+}

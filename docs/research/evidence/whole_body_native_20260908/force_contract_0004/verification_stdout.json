@@ -1,0 +1,56 @@
+{
+  "checks": [
+    {
+      "force_reproduction_max_n": 0.0,
+      "physical_force_max_n": 180.0,
+      "torque_max_nm": 10.994341233536918,
+      "strict_feasible": true,
+      "python_solution_control_max_delta_nm": 0.00010004697879484326,
+      "native_cost": 0.5782099384916,
+      "python_cost": 0.5782106736446639
+    },
+    {
+      "force_reproduction_max_n": 0.0,
+      "physical_force_max_n": 180.0,
+      "torque_max_nm": 10.994341233536918,
+      "strict_feasible": true,
+      "python_solution_control_max_delta_nm": 0.00010004697879484326,
+      "native_cost": 0.5782099384916,
+      "python_cost": 0.5782106736446639
+    },
+    {
+      "force_reproduction_max_n": 0.0,
+      "physical_force_max_n": 180.0,
+      "torque_max_nm": 10.994341233536918,
+      "strict_feasible": true,
+      "python_solution_control_max_delta_nm": 0.00010004697879484326,
+      "native_cost": 0.5782099384916,
+      "python_cost": 0.5782106736446639
+    },
+    {
+      "force_reproduction_max_n": 0.0,
+      "physical_force_max_n": 180.0,
+      "torque_max_nm": 10.994341233536918,
+      "strict_feasible": true,
+      "python_solution_control_max_delta_nm": 0.00010004697879484326,
+      "native_cost": 0.5782099384916,
+      "python_cost": 0.5782106736446639
+    },
+    {
+      "force_reproduction_max_n": 0.0,
+      "physical_force_max_n": 180.0,
+      "torque_max_nm": 10.994341233536918,
+      "strict_feasible": true,
+      "python_solution_control_max_delta_nm": 0.00010004697879484326,
+      "native_cost": 0.5782099384916,
+      "python_cost": 0.5782106736446639
+    }
+  ],
+  "median_ms": 16.566481,
+  "inputs": {
+    "input.txt": "ff30c3dc34e55b5736fdf40d3df71b320f11e1d0b8550b7ad4a0198c71d9bec6",
+    "result.json": "a1cc53b42585230807eb41e4980aee2301f798ecb086d16adc7f928ac82ae623",
+    "verify.py": "fc37b4d3eab52e3766bc962e1cae1e8ba3d0d4b26f6ebee251995bfbe8959da2"
+  },
+  "scope": "one-state native diagnostic; no horizon safety or realtime acceptance"
+}
