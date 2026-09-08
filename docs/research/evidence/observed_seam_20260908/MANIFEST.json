@@ -1,0 +1,8 @@
+{
+  "schema": "observed-seam-curation-v1",
+  "files": {
+    "README.md": "0839a0b4392ca8c265c3355daca23dab7995bfcef74f82efca204a300680d6e1",
+    "review_seam_323e51.json": "c244f6011bede884108091a1500b4519b2728f352c52e83a4487042ac775a764",
+    "review_seam_323e51.py": "deb8e2bd80633e0a26aabd85f6d154511f95b424af2f756dddc93e9efcecce06"
+  }
+}

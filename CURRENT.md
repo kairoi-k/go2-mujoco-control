@@ -25,7 +25,10 @@ The generic deadline check now also rejects a final evaluation finishing late;
 9 focused analytic/fail-closed tests pass. Timed results above remain bound to
 their pre-fix source; no new latency distribution or B1 run is claimed.
 Review also reproduced spurious forces at adjacent same-height cell-box seams.
-See the checkpoint evidence for the bounded representation correction and tests.
+Correction3d3a5f8 merges compatible same-height rectangles and rejects remaining
+coplanar joins without filling unknown holes or flattening5/10cm edges. Isolated
+MuJoCo sphere force/acceleration agreement is about7e-14; this does not certify
+arbitrary terrain surfaces or B1. See evidence/observed_seam_20260908/README.md.
 ## Latest decisive results
 The actual integrated controller remains source0f6ec6526f4fcde77f2b737b5a65d9855ed5365b,
 flat attempt0012 stopping21.204s for roll28.80deg. No newer live controller run.
