@@ -27,3 +27,8 @@ Run audit_whole_body_mpc_native.py with --library built.so --packet
  docs/research/evidence/whole_body_native_20260908/trajectory_packet_0002
  --scene unitree_robots/go2/b1_v3_running_step_5cm.xml --out new.json.
 Use OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1. Script owns lock.
+
+Sequential verifier source56e0b1e: one-step control replay has zero state/force/
+motor discrepancy, dynamics absolute1.56e-8. Deliberate saved-state and force
+tampering are both rejected. This is a verifier fixture, not traversal. Nine
+existing generic coupled-solver analytic/failclosed tests also pass.

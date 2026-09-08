@@ -17,6 +17,13 @@ Source89040b1 implements1..200step full MuJoCo whole-body joint torque evaluator
 with fixedprefix and body/foot/momentum cost. Four1/70step native/Python checks
 on5cm scene agree: constraints0difference, cost<=3.47e-18;10failclosed checks pass.
 This is evaluator equivalence at originalx2.577, not obstacle encounter or B1.
+Sequential verifier source56e0b1e detects saved-state/force tampering; real replay
+state/force/motor deltas0 in its one-step fixture. Nine coupled solver tests pass.
+Near-obstacle scene whole_body_oracle_step_5cm_near.xml only shifts plateau
+center5.25->3.25m; preregistered as separate known-scene canary, NOT frozen B1.
+Luna phase_clearance_impl is implementing whole_body_mpc_oracle_probe.py,
+last confirmed running; do not overlap its file. Root owns review/run.
+No rolling whole-body MPC or new5cm encounter has run at this checkpoint.
 Next execute synchronous known-scene full-cycle rolling optimization on5cm.
 Known terrain and recorded initialization remain explicit privileges; measured
 running contact, observed terrain, production authority and realtime remain open.

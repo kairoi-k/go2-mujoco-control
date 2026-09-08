@@ -24,5 +24,10 @@
     "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0001/libwm.so",
     "original_sha256": "7a64058443b059cb0fc1e903dd59ae544559c688d30728be90be382d7c1a0a62",
     "sha256": "31dd3278add682450d01476c59c5060dcef9cae60c21af7fd95aef6c9ea4dbb0"
+  },
+  "sequential_verifier_fixture.json": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0001/sequential_verifier_fixture.json",
+    "sha256": "8ce087074ac4d81b4ffa2e490dbfea80e85cbdcd3349dc02b6a4311616f631ee",
+    "source_sha": "56e0b1e2c8649283ef0a39a50beccbd9b366bdcf"
   }
 }
