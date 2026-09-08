@@ -2,7 +2,10 @@
   "schema": "observed-seam-curation-v1",
   "files": {
     "README.md": "0839a0b4392ca8c265c3355daca23dab7995bfcef74f82efca204a300680d6e1",
+    "build.txt": "ed6efe2a11cbee6318418095b873d5e3a9d936a8e30b1af7768501ce3cc5e11a",
     "review_seam_323e51.json": "c244f6011bede884108091a1500b4519b2728f352c52e83a4487042ac775a764",
-    "review_seam_323e51.py": "deb8e2bd80633e0a26aabd85f6d154511f95b424af2f756dddc93e9efcecce06"
+    "review_seam_323e51.py": "deb8e2bd80633e0a26aabd85f6d154511f95b424af2f756dddc93e9efcecce06",
+    "test.txt": "4715e87a0201d289b96d785b6efbabfd9795bfd85e211c38be7460b4dadd99db",
+    "verification_source.json": "4a032dc0b53cd590578ad8ba5438cb50472ceb0a097ec03afb1fc2d0cfd22f92"
   }
 }

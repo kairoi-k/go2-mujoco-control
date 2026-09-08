@@ -1,0 +1,4 @@
+Consolidate compiler generated dependencies of target test_stage_c_observed_collision_model
+[ 50%] Building CXX object CMakeFiles/test_stage_c_observed_collision_model.dir/tests/test_stage_c_observed_collision_model.cpp.o
+[100%] Linking CXX executable test_stage_c_observed_collision_model
+[100%] Built target test_stage_c_observed_collision_model

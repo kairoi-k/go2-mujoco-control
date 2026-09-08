@@ -1,0 +1,6 @@
+{
+  "source_sha": "de3bd3975cfa07b0fc5a8ca2283a99add3b9ea01",
+  "source_status_before_tests": "clean",
+  "mujoco": "3.3.6",
+  "test_exit_code": 0
+}
