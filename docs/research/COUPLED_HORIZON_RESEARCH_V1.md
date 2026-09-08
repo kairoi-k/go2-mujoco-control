@@ -55,3 +55,17 @@ online force projection. Record first hard constraint violation and all states;
 stop only on numerical failure or baseheight below.20m. This tests membership in
 this particular policy's recovery region, not global viability or the old native
 force-projected controller. A failure must not become a B1 impossibility claim.
+## Native evaluator equivalence preregistration
+Keep the full integration state and all existing16-step pre/post constraints.
+Replace only Python dispatch/copy overhead with worker-local native mjData reuse.
+No analytic approximation, altered warmstart propagation, changed solver options,
+extra clipping, or threshold changes. Python remains the independent recording
+and final feasibility oracle; native/Python disagreement rejects publication.
+Before a solver run compare baseline, coupled witness and8 deterministic perturbed
+control sequences (uncommitted entries only); check cost<=1e-12 and all1540
+constraints<=1e-9, same strict feasibility, repeated evaluation determinism, invalid
+prefix/nonfinite/shape/unknown-coverage/closed-handle rejection. Time30 evaluations
+per backend with thread counts1, report p50/p95/max as evaluator-only latency.
+Only after equivalence passes repeat the same2-knot30-iteration60s solve, recording
+its actual returned witness and independent Python replay. Do not extrapolate the
+evaluator speedup into an unsupported solver/runtime/B1 claim.

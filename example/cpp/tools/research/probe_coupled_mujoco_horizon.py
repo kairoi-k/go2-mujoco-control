@@ -66,7 +66,7 @@ class ActualModelHorizon:
 def main():
     p=argparse.ArgumentParser();p.add_argument('--rolling-result',required=True)
     p.add_argument('--scene',required=True);p.add_argument('--out',required=True)
-    p.add_argument('--control-knots',type=int,default=0)
+    p.add_argument('--native-library');p.add_argument('--control-knots',type=int,default=0)
     p.add_argument('--candidate',type=int,default=1);p.add_argument('--terminal-vy',type=float,default=.02)
     p.add_argument('--wall-budget-s',type=float,default=60);p.add_argument('--max-iterations',type=int,default=30)
     p.add_argument('--privileged-scene-oracle',action='store_true');a=p.parse_args()
@@ -79,6 +79,14 @@ def main():
         mujoco.mj_setState(model,initial,np.asarray(c['initial_integration_state']),mujoco.mjtState.mjSTATE_INTEGRATION)
         controls=np.array([s['tau'] for s in c['stages']]);pb=ActualModelHorizon(model,initial,controls,6,a.terminal_vy,a.privileged_scene_oracle)
         basecost,baseg,baserows=pb.evaluate(controls,True)
+        native=None;evaluator=pb.evaluate
+        if a.native_library:
+            from coupled_horizon_native import NativeHorizon
+            native=NativeHorizon(a.native_library,a.scene,np.asarray(c['initial_integration_state']),controls,a.terminal_vy,a.privileged_scene_oracle)
+            evaluator=native.evaluate
+            nc,ng=evaluator(controls)
+            if abs(nc-basecost)>1e-12 or ng.shape!=baseg.shape or np.max(abs(ng-baseg))>1e-9:
+                raise HorizonNumericalError('native initialization disagrees with Python oracle')
         options=dict(max_iterations=a.max_iterations,wall_budget_s=a.wall_budget_s,
                      constraint_tolerance=0.,finite_difference_step=1e-4)
         if a.control_knots:
@@ -88,7 +96,7 @@ def main():
             def expanded(parameters):
                 u=controls.copy();u[6:]+=weights@parameters;return u
             def parameter_evaluation(parameters):
-                u=expanded(parameters);cost,g=pb.evaluate(u)
+                u=expanded(parameters);cost,g=evaluator(u)
                 return cost,np.r_[g,(35-u).ravel()/35,(35+u).ravel()/35]
             result=solve(parameter_evaluation,np.zeros((a.control_knots,12)),-35,35,**options)
             if result['controls'] is not None:
@@ -96,14 +104,20 @@ def main():
             result['parameterization']='linear correction knots over existing initial control sequence'
             result['control_knots']=a.control_knots
         else:
-            result=solve(pb.evaluate,controls,-35,35,fixed_prefix_steps=6,**options)
+            result=solve(evaluator,controls,-35,35,fixed_prefix_steps=6,**options)
         rows=None
         if result['controls'] is not None:
             _,g,rows=pb.evaluate(result['controls'],True)
             result['fresh_constraint_violation']=float(np.max(np.maximum(-g,0)))
             result['controls']=result['controls'].tolist()
+            if result['fresh_constraint_violation']>0:
+                result['rejected_controls']=result['controls'];result['controls']=None;rows=None
+                result['status']='independent_python_constraints_rejected'
+        if native:native.close()
         files=dependencies(a.scene)|{source.resolve(),pathlib.Path(__file__).resolve(),pathlib.Path(__file__).with_name('coupled_horizon_shooting.py').resolve(),pathlib.Path(__file__).with_name('whole_body_cycle.py').resolve()}
-        report={'schema':'coupled-full-model-horizon-v1','scope':'privileged initialized fixedprefix horizon; no runtime/B1 authority','source_sha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'hashes':{str(f):hashlib.sha256(f.read_bytes()).hexdigest() for f in sorted(files)},'scene':str(pathlib.Path(a.scene).resolve()),'mujoco_version':mujoco.__version__,'candidate_version':a.candidate,'prefix_steps':6,'tail_steps':10,'terminal_vy_bound':a.terminal_vy,'initial_integration_state':c['initial_integration_state'],'baseline_controls':controls.tolist(),'baseline_cost':basecost,'baseline_constraint_violation':float(np.max(np.maximum(-baseg,0))),'baseline_terminal_velocity':baserows[-1]['qvel'][:6],'solver':result,'rows':rows}
+        if a.native_library:
+            files|={pathlib.Path(a.native_library).resolve(),pathlib.Path(__file__).with_name('coupled_horizon_native.py').resolve(),pathlib.Path(__file__).with_name('coupled_horizon_native.cpp').resolve()}
+        report={'evaluator':'native' if a.native_library else 'python','schema':'coupled-full-model-horizon-v1','scope':'privileged initialized fixedprefix horizon; no runtime/B1 authority','source_sha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'hashes':{str(f):hashlib.sha256(f.read_bytes()).hexdigest() for f in sorted(files)},'scene':str(pathlib.Path(a.scene).resolve()),'mujoco_version':mujoco.__version__,'candidate_version':a.candidate,'prefix_steps':6,'tail_steps':10,'terminal_vy_bound':a.terminal_vy,'initial_integration_state':c['initial_integration_state'],'baseline_controls':controls.tolist(),'baseline_cost':basecost,'baseline_constraint_violation':float(np.max(np.maximum(-baseg,0))),'baseline_terminal_velocity':baserows[-1]['qvel'][:6],'solver':result,'rows':rows}
         with open(a.out,'x') as f:json.dump(report,f,indent=2,allow_nan=False);f.write('\n')
         print(json.dumps({'out':a.out,'baseline_terminal_velocity':report['baseline_terminal_velocity'],'solver':{k:v for k,v in result.items() if k!='controls'},'terminal_velocity':rows[-1]['qvel'][:6] if rows else None},indent=2))
 if __name__=='__main__':main()
