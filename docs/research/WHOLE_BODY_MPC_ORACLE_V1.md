@@ -50,3 +50,16 @@ reducing repeated flat setup. It is a separate privileged diagnostic, NOT frozen
 B1 acceptance or evidence of a naturally reached steady approach. No robot state
 translation/reset. Bound first canary to100chunks (1s physics) and stop first
 useful failure. Eventual candidate must run original approach and observed terrain.
+## Diagnostic numerical consistency V1
+The rolling oracle records the unchanged historical absolute1e-7 dynamics and
+1e-12 clock verdicts separately. Admission into this privileged synchronous
+experiment requires independent replay/physical checks plus component-scaled
+force-balance residual<=1e-8, where each component denominator is1+sum absolute
+terms in M*qacc+bias-passive-actuator-external-constraint, and absolute clock
+error<=1e-10. This is a new diagnostic numerical rule, not a changed historical
+contract or B1 acceptance. All physical inequalities retain strict zero slack.
+The seed shifts the preceding accepted horizon by5steps and appends nominal
+feedback under that actual seed rollout. Three linear correction knots are added
+to the seed, with expanded35Nm inequalities, and the first5controls remain exact.
+Foot support elevation uses the actual known box top at each fixed-phase target;
+only swing interpolation and body height reference are smoothed.
