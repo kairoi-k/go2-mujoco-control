@@ -32,3 +32,12 @@ Latency is measured, not assumed realtime. No future nominal trajectory is
 created from real observed terrain in this slice; scene use is explicitly
 privileged and cannot supply runtime authority. No full-cycle/B1 conclusion from
 a32ms result. Terrain merging is a separate independently tested research change.
+
+## Parameterized continuation after0001 budget failure
+The full120variable case spent60s/5250evaluations and publishes no candidate.
+An explicitly reduced2knot correction (24variables) spans the same10free stages
+using linear interpolation, added to the original control initialization. All
+expanded motor torques retain35Nm hard constraints and all original state/contact/
+terminal inequalities. The6step prefix is bitwise unchanged. This is still one
+coupled optimization; it restricts the search space, not the accepted physics.
+No feasible controls outside this subspace are ruled out by solver failure.

@@ -66,6 +66,7 @@ class ActualModelHorizon:
 def main():
     p=argparse.ArgumentParser();p.add_argument('--rolling-result',required=True)
     p.add_argument('--scene',required=True);p.add_argument('--out',required=True)
+    p.add_argument('--control-knots',type=int,default=0)
     p.add_argument('--candidate',type=int,default=1);p.add_argument('--terminal-vy',type=float,default=.02)
     p.add_argument('--wall-budget-s',type=float,default=60);p.add_argument('--max-iterations',type=int,default=30)
     p.add_argument('--privileged-scene-oracle',action='store_true');a=p.parse_args()
@@ -78,9 +79,24 @@ def main():
         mujoco.mj_setState(model,initial,np.asarray(c['initial_integration_state']),mujoco.mjtState.mjSTATE_INTEGRATION)
         controls=np.array([s['tau'] for s in c['stages']]);pb=ActualModelHorizon(model,initial,controls,6,a.terminal_vy,a.privileged_scene_oracle)
         basecost,baseg,baserows=pb.evaluate(controls,True)
-        result=solve(pb.evaluate,controls,-35,35,fixed_prefix_steps=6,
-                     max_iterations=a.max_iterations,wall_budget_s=a.wall_budget_s,
+        options=dict(max_iterations=a.max_iterations,wall_budget_s=a.wall_budget_s,
                      constraint_tolerance=0.,finite_difference_step=1e-4)
+        if a.control_knots:
+            if not 1<=a.control_knots<=10:raise HorizonInputError('control knots must be1..10')
+            knots=np.linspace(0,1,a.control_knots);stages=np.linspace(0,1,10)
+            weights=np.array([np.interp(stages,knots,np.eye(a.control_knots)[j]) for j in range(a.control_knots)]).T
+            def expanded(parameters):
+                u=controls.copy();u[6:]+=weights@parameters;return u
+            def parameter_evaluation(parameters):
+                u=expanded(parameters);cost,g=pb.evaluate(u)
+                return cost,np.r_[g,(35-u).ravel()/35,(35+u).ravel()/35]
+            result=solve(parameter_evaluation,np.zeros((a.control_knots,12)),-35,35,**options)
+            if result['controls'] is not None:
+                parameters=result['controls'];result['parameters']=parameters.tolist();result['controls']=expanded(parameters)
+            result['parameterization']='linear correction knots over existing initial control sequence'
+            result['control_knots']=a.control_knots
+        else:
+            result=solve(pb.evaluate,controls,-35,35,fixed_prefix_steps=6,**options)
         rows=None
         if result['controls'] is not None:
             _,g,rows=pb.evaluate(result['controls'],True)
