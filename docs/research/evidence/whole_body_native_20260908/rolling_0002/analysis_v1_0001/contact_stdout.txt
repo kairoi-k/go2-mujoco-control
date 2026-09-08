@@ -1,0 +1,43 @@
+{
+  "body_advancement_m": 2.3837452595835904,
+  "contact_duration_summary": {
+    "1e6": {
+      "FR_RL_diagonal_s": 1.280000000000001,
+      "FL_RR_diagonal_s": 0.9980000000000008,
+      "all_four_s": 0.3540000000000002,
+      "no_foot_s": 0.11800000000000004,
+      "other_masks_s": 0.05000000000000003
+    },
+    "5": {
+      "FR_RL_diagonal_s": 1.360000000000001,
+      "FL_RR_diagonal_s": 0.9600000000000007,
+      "all_four_s": 0.27800000000000014,
+      "no_foot_s": 0.11800000000000004,
+      "other_masks_s": 0.08400000000000006
+    },
+    "10": {
+      "FR_RL_diagonal_s": 1.360000000000001,
+      "FL_RR_diagonal_s": 0.9200000000000007,
+      "all_four_s": 0.27800000000000014,
+      "no_foot_s": 0.11800000000000004,
+      "other_masks_s": 0.12400000000000008
+    }
+  },
+  "aerial_at_least_4ms": true,
+  "foot_clearance_max_m": [
+    0.02881902436030106,
+    0.0313525149035535,
+    0.03261722946043082,
+    0.027234225774057673
+  ],
+  "dynamics_residual_max": 3.9833971143821145e-07,
+  "dynamics_residual_relative_max": 2.3920546376837282e-09,
+  "solver_options": {
+    "solver": 2,
+    "tolerance": 1e-08,
+    "iterations": 100,
+    "ls_tolerance": 0.01,
+    "ls_iterations": 50,
+    "integrator": 0
+  }
+}

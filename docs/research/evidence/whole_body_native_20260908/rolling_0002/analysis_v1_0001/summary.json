@@ -1,0 +1,87 @@
+{
+  "source_sha": "54d750eb4b1730db9041abd384d126dbe1f7a028",
+  "scope": "actual initialized flat rolling run saved-control replay, not liveRT or B1",
+  "checks": {
+    "state_reproduction": true,
+    "time_reproduction": false,
+    "force_reproduction": true,
+    "torque_reproduction": true,
+    "dynamics_balance": false,
+    "friction_cone": true,
+    "unilateral": true,
+    "torque_bound": true,
+    "normal_force_bound": true,
+    "joint_speed_bound": true,
+    "joint_position_bound": true,
+    "attitude_bound": true,
+    "base_height_bound": true,
+    "no_nonfoot_contact_force": true,
+    "full_period": true,
+    "terminal_body_position": true,
+    "terminal_orientation": true,
+    "terminal_base_velocity": true,
+    "terminal_body_omega": true,
+    "terminal_joint_position": true,
+    "terminal_joint_velocity": true
+  },
+  "failure_checks": [
+    "time_reproduction",
+    "dynamics_balance"
+  ],
+  "maxima": {
+    "state_error": 0.0,
+    "time_error": 1.5520917884259688e-12,
+    "force_error": 0.0,
+    "row_torque_error": 0.0,
+    "applied_torque_error": 0.0,
+    "dynamics_residual": 3.9833971143821145e-07,
+    "normal_force_n": 179.99999999999952,
+    "friction_cone_violation_n": 0.0,
+    "unilateral_violation_n": 0.0,
+    "torque_nm": 28.35589694605476,
+    "joint_speed_radps": 11.929449672740006,
+    "joint_position_violation_rad": 0.0,
+    "roll_rad": 0.0058935198080266515,
+    "pitch_rad": 0.002999497667779801,
+    "nonfoot_force_n": 0.0
+  },
+  "minimum_base_height_m": 0.3675338441789308,
+  "terminal_errors_v1_perturbed_reference": {
+    "body_position_m": 0.000879452683721242,
+    "orientation_rad": 0.0018513120071537107,
+    "base_velocity_mps": 0.05980189429610136,
+    "body_omega_radps": 0.01727405868149698,
+    "joint_position_rad": 0.011594303020471264,
+    "joint_velocity_radps": 0.2815518156320953
+  },
+  "nominal_recovery": {
+    "scope": "terminal error against unperturbed nominal initial translated by command_vx*duration; separate from frozen V1 perturbed-initial reference",
+    "body_position_m": 0.000879452683721242,
+    "orientation_rad": 0.0018513120071537107,
+    "base_velocity_mps": 0.013711296635166376,
+    "body_omega_radps": 0.01727405868149698,
+    "joint_position_rad": 0.011594303020471264,
+    "joint_velocity_radps": 0.2815518156320953,
+    "initial_vy_delta": 0.05,
+    "terminal_vy_actual": 0.004828991109219452,
+    "terminal_vy_nominal": 0.013711660169064999
+  },
+  "nonfoot_contact_samples": 0,
+  "body_advancement_m": 2.3837452595835904,
+  "complete_phase_cycles": 19,
+  "running_contact_pass_cycles": 19,
+  "max_contiguous_diagonal_range_s": {
+    "FR_RL": [
+      0.06800000000000005,
+      0.06800000000000005
+    ],
+    "FL_RR": [
+      0.034000000000000016,
+      0.034000000000000016
+    ]
+  },
+  "aerial_range_s": [
+    0.004,
+    0.006
+  ]
+}

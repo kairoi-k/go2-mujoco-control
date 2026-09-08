@@ -11,14 +11,24 @@ The actual integrated centroidal/WBC path last ran at0f6ec6526f4fcde77f2b737b5a6
 (attempt0012), stopping at21.204s for roll28.80deg. No newer live controller run.
 Full-body diagnostics have not replaced that production path or its acceptance.
 ## Native horizon continuation (not live acceptance)
-This continuation added native constrained torque kernel, strict research
-trajectory packet/parser and observed cell-prism descriptors. Fixed-state4thread
-median5.674ms is faster but exceeds2ms.20ms delayed-candidate probe has one
-successful adaptive10ms adoption; it does not prove the6ms committed prefix.
-Next preregistered experiment is fixed12ms committed prefix +20ms optimized tail,
-20cyclevy replay with late discard and first useful failure stop. See
-WHOLE_BODY_NATIVE_HORIZON_V1.md. Tests and dirty-source evidence cannot replace
-clean-source actual-controller acceptance. No production owner edits.
+Latest executed clean54d750eb4b1730db9041abd384d126dbe1f7a028:
+fixed12ms committed prefix +20ms optimized tail, single20cyclevy replay0002.
+All1400steps and233candidates complete, no late/rejection; generation median3.169ms,
+max11.234ms. Actual and candidate independent full-state/force replay errors0;
+committed law algebra error<=4.44e-16. Force179.99999999999952N,torque28.35590Nm,
+minheight0.36753384m, nonfootcontacts0;19/19complete running-contact cycles.
+Frozen V1 retains FAIL time1.55209e-12 and dynamics3.98340e-7,19other checks pass.
+This is synchronous initialized privileged flat; no live realtime certificate,
+nonprivileged production seed, observed-model rollout or B1 acceptance.
+Source packets and original full40MB run are losslessly archived (xz compression)
+in whole_body_native_20260908/rolling_0002. Earlier20ms dirty-source probe stays
+separate. CMake tests cover native torque contract, byte-bound research packet,
+and observed collision descriptors;23focused Python tests pass.
+New worker-local observed model compiles robot-only XML plus cell-prisms and
+rejects imported scene floor. Tests retain inertial/actuator/collision parameters.
+Robot XML/mesh hashes remain a trusted caller responsibility. Next is real
+recorded snapshot full-body coverage and reconstruction, then live shadow/owner.
+See WHOLE_BODY_NATIVE_HORIZON_V1.md. No production owner edits.
 ## Latest executed evidence
 - Clean0349725 single-cycle170N-objective solve0002: force170.120N<180N,
   torque28.153Nm, terminalbody0.883mm; exact saved-state replay. Original V1

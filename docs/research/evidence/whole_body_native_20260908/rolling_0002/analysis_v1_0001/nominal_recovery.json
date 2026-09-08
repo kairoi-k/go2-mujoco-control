@@ -1,0 +1,12 @@
+{
+  "scope": "terminal error against unperturbed nominal initial translated by command_vx*duration; separate from frozen V1 perturbed-initial reference",
+  "body_position_m": 0.000879452683721242,
+  "orientation_rad": 0.0018513120071537107,
+  "base_velocity_mps": 0.013711296635166376,
+  "body_omega_radps": 0.01727405868149698,
+  "joint_position_rad": 0.011594303020471264,
+  "joint_velocity_radps": 0.2815518156320953,
+  "initial_vy_delta": 0.05,
+  "terminal_vy_actual": 0.004828991109219452,
+  "terminal_vy_nominal": 0.013711660169064999
+}

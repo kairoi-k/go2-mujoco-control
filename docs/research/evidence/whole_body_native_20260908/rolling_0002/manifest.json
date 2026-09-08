@@ -1,0 +1,46 @@
+{
+  "scope": "registered single initialized flat20cycle vy0.05 trial with fixed12ms commitment/20ms tail; not liveRT/deadline certificate or B1",
+  "source_sha": "54d750eb4b1730db9041abd384d126dbe1f7a028",
+  "clean_before_and_after": true,
+  "source_snapshot_matches_final": true,
+  "sources": {
+    "runtime_probe.cpp": "example/cpp/tools/research/whole_body_rolling_horizon_probe.cpp",
+    "runtime_probe.py": "example/cpp/tools/research/whole_body_rolling_horizon_probe.py",
+    "runtime_helper.py": "example/cpp/tools/research/whole_body_horizon_probe.py",
+    "runtime_force_header.h": "example/cpp/terrain/stage_c/whole_body_force_tracking.h",
+    "runtime_test.py": "example/cpp/tests/test_whole_body_rolling_horizon_probe.py"
+  },
+  "environment": {
+    "mujoco": "3.3.6",
+    "OPENBLAS_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "OMP_WAIT_POLICY": "PASSIVE",
+    "kernel_derivative_threads": 4
+  },
+  "files": {
+    "run_stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runtime_test.py": "a62ffa4665125fdd06475d2efa2f0c09da2800405a3a7b6bf742b49d201bf887",
+    "input_manifest.json": "909f9cb2694556be4578f6fa4ec1abe1c4c3aaecc5added067f0fd2196fda3a0",
+    "probe": "878b71281bef3a84e17f74ed1cad07f069c0cdf03868df12f15a71b676c3044e",
+    "runtime_helper.py": "fcaf930b2d42d6ce928de302f0414733be3ca1e54f7fdd33478839d7dc69b959",
+    "source_head.txt": "33a57d79913a219dbf96ebcc3c6f86c97ae55f29030919d43f3b82f437c514f8",
+    "verification_stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "source_cached_diff.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runtime_probe.py": "38573dafabf769b7521dcf9434548c38bb1d5c14c78c986a4cc9425541fb99ec",
+    "verification_stdout.txt": "be95969aa76acf886e2b0d1e9515c624f4932c9372b9b22ca7a7864542078404",
+    "verification.json": "abbac0558cdc7e075f05866fbdb32bd5815c1ea254d8f8aea29609c59210fa1e",
+    "run_command.txt": "4fd3d9de01c30fb8e35591b66bf4c638093ab164a6ccd1f74cc2fcb97b447037",
+    "runtime_probe.cpp": "1f62b656a768a1834e45433572e38748e9c217abfc0dc08b5ad7a58362318e1a",
+    "input.txt": "a6b92350b1c8055d234a54518497c15fc5dc232a51dd82a376af88caf9b06a27",
+    "build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "summary.json": "cf6e37cfa5e50a6966cf195e49ea84db4beee71c33d08402f20832d175d6a1b3",
+    "source_status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "source_diff.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run.json": "df09d98596c8d840b69a7c6ec6c31e56dda286abc40178c4af9feaed601858be",
+    "build_command.txt": "af4b54696d516c6137f9bf14e23f5ec42a3eb8cf2ab489d6658472dbc43902cb",
+    "final_status.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runtime_force_header.h": "0f2d1cf3d8814b640e04eebb4f3dad38aa163d71e819a2efe4fb20c99b142aa5",
+    "final_head.txt": "33a57d79913a219dbf96ebcc3c6f86c97ae55f29030919d43f3b82f437c514f8"
+  }
+}

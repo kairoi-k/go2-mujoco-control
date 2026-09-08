@@ -1,5 +1,8 @@
 #include "stage_c/observed_collision_model.h"
 #include <iostream>
+#ifdef GO2_OBSERVED_MODEL_XML
+#include "stage_c/observed_collision_mujoco.h"
+#endif
 #include <stdexcept>
 using namespace go2_terrain;
 using namespace go2_terrain::stage_c;
@@ -34,6 +37,46 @@ int main(){try{
         Check(result.ok(),result.failure.c_str());const auto& d=*result.descriptor;
         Check(!d.can_actuate&&!d.continuous_surface_certified&&!d.support_certified&&
               !d.continuous_sweep_certified&&!d.vertical_walls_observed,"research permissions changed");
+#ifdef GO2_OBSERVED_MODEL_XML
+        const auto compiled=oc::CompileMujoco(result.descriptor,GO2_OBSERVED_MODEL_XML);
+        const auto m=compiled->model();
+        char error[2048]{};
+        std::unique_ptr<mjModel,oc::ModelDeleter> robot(mj_loadXML(GO2_OBSERVED_MODEL_XML,nullptr,error,sizeof(error)));
+        Check(bool(robot),error);
+        Check(!compiled->can_actuate&&!compiled->continuous_surface_certified,"model authority changed");
+        Check(m->nbody==robot->nbody&&m->nq==robot->nq&&m->nv==robot->nv&&m->nu==robot->nu,"robot dimensions changed");
+        for(int i=0;i<m->nbody;++i){
+            Check(m->body_mass[i]==robot->body_mass[i],"robot mass changed");
+            for(int j=0;j<3;++j)Check(m->body_ipos[3*i+j]==robot->body_ipos[3*i+j],"robot inertial center changed");
+            for(int j=0;j<4;++j)Check(m->body_iquat[4*i+j]==robot->body_iquat[4*i+j],"robot inertia frame changed");
+            for(int j=0;j<3;++j)Check(m->body_inertia[3*i+j]==robot->body_inertia[3*i+j],"robot inertia changed");
+        }
+        for(int i=0;i<m->nv;++i)Check(m->dof_damping[i]==robot->dof_damping[i]&&m->dof_armature[i]==robot->dof_armature[i]&&m->dof_frictionloss[i]==robot->dof_frictionloss[i],"passive dynamics changed");
+        for(int i=0;i<m->nu*6;++i)Check(m->actuator_gear[i]==robot->actuator_gear[i],"actuator transmission changed");
+        for(int i=0;i<m->nu*2;++i)Check(m->actuator_ctrlrange[i]==robot->actuator_ctrlrange[i],"actuator range changed");
+        Check(m->opt.timestep==robot->opt.timestep&&m->opt.solver==robot->opt.solver&&m->opt.cone==robot->opt.cone&&m->opt.tolerance==robot->opt.tolerance,"solver options changed");
+        std::vector<int> robot_geoms;
+        for(int g=0;g<m->ngeom;++g)if(m->geom_bodyid[g])robot_geoms.push_back(g);
+        Check(robot_geoms.size()==static_cast<std::size_t>(robot->ngeom),"robot geometry lost");
+        for(int g=0;g<robot->ngeom;++g){const int h=robot_geoms[g];
+            Check(m->geom_type[h]==robot->geom_type[g]&&m->geom_contype[h]==robot->geom_contype[g]&&m->geom_conaffinity[h]==robot->geom_conaffinity[g]&&m->geom_condim[h]==robot->geom_condim[g]&&m->geom_priority[h]==robot->geom_priority[g]&&m->geom_margin[h]==robot->geom_margin[g],"robot collision contract changed");
+            for(int j=0;j<3;++j)Check(m->geom_size[3*h+j]==robot->geom_size[3*g+j]&&m->geom_friction[3*h+j]==robot->geom_friction[3*g+j]&&m->geom_pos[3*h+j]==robot->geom_pos[3*g+j],"robot collision geometry/friction changed");
+            for(int j=0;j<4;++j)Check(m->geom_quat[4*h+j]==robot->geom_quat[4*g+j],"robot geom frame changed");
+        }
+        Check(mj_name2id(m,mjOBJ_GEOM,"phase2_floor")==-1,"scene floor leaked");
+        for(const auto& cell:d.prisms()){
+            auto name="observed_cell_"+std::to_string(cell.ix)+"_"+std::to_string(cell.iy);
+            int geom=mj_name2id(m,mjOBJ_GEOM,name.c_str());
+            Check(geom>=0&&m->geom_bodyid[geom]==0&&m->geom_type[geom]==mjGEOM_BOX,"observed box missing");
+            Check(std::abs(m->geom_quat[4*geom]-std::cos(cell.yaw_rad*.5))<1e-15&&
+                  std::abs(m->geom_quat[4*geom+3]-std::sin(cell.yaw_rad*.5))<1e-15&&
+                  m->geom_quat[4*geom+1]==0&&m->geom_quat[4*geom+2]==0,"compiled cell yaw mismatch");
+            for(int j=0;j<3;++j)Check(m->geom_pos[3*geom+j]==cell.center_world[j]&&m->geom_size[3*geom+j]==cell.half_size[j],"compiled cell geometry mismatch");
+        }
+        bool rejected=false;
+        try{oc::CompileMujoco(result.descriptor,GO2_OBSERVED_SCENE_XML);}catch(const std::invalid_argument&){rejected=true;}
+        Check(rejected,"scene with ground-truth floor accepted");
+#endif
         bool low=false,high=false;
         for(const auto& prism:d.prisms()) {
             // Registration serializes grid origin/resolution through float fields

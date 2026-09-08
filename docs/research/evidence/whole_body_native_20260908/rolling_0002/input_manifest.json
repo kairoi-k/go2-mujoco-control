@@ -1,0 +1,13 @@
+{
+  "packet_dir": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_trajectory_packet_20260908_0002",
+  "manifest_sha256": "6a111f2f78c9426215bb7c6ab13ebb7e34d215f6780368194403b688879c3216",
+  "packet_sha256": "d22f01fb3faeb1503da8978114045533df2c2ff41e4715affedcc3fbc0ce6567",
+  "input_sha256": "a6b92350b1c8055d234a54518497c15fc5dc232a51dd82a376af88caf9b06a27",
+  "offline_periodic_reference_reuse_authorized": true,
+  "update_steps": 6,
+  "prefix_steps": 6,
+  "tail_steps": 10,
+  "periods": 20,
+  "initial_vy_delta": 0.05,
+  "late_policy": "discard; stop if remaining old coverage cannot supply full 12ms commitment"
+}

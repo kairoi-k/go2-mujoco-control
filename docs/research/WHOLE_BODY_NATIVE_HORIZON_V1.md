@@ -63,3 +63,33 @@ of a continuous full-body swept volume.5/10cm fixtures are geometry tests only.
 Live integration still needs robot-only collision model construction, complete
 body collision coverage, nonprivileged trajectory generation and one atomic
 execution owner. Initialized periodic references cannot supply those proofs.
+
+## Executed rolling0002 on clean54d750e
+The registered single run completed1400steps and233adopted candidates with no
+late results. Median/max generation3.168667/11.2341ms. Force and torque remained
+within180N/35Nm; exact independent actual-state/force and candidate-state/force
+replays match.19/19complete phase-zero cycles have both diagonals and aerial
+contact episodes. Frozen V1 retains only time1.55209e-12 and full-dynamics
+3.98340e-7 failures, not an unqualified V1 PASS. See rolling_0002/analysis_v1_0001.
+The original40MB run is losslessly xz-compressed; curation.json binds raw digest.
+observed_collision_mujoco.h now builds worker-local models from robot-only XML
+plus the descriptor, with no imported world geometry. Fixtures verify preserved
+inertia, passive dynamics, actuator and robot collision settings and cell poses.
+The caller must bind canonical XML and recursive asset hashes: structural
+RobotOnly validation is not cryptographic source verification. No trajectory
+has yet been evaluated against this reconstructed model.
+
+## Preregistered recorded observed-node probe
+Run inspect_joint_observed_collision_node once on the complete immutable v2
+initial_source.txt from joint_execution_flat_20260908/attempt_0012. Its frozen
+SHA256 is b86474ca4e4e2bafa02d8db75e91499030865ab4fa67c46d7d664b8a94ad5a16.
+Use canonical robot-only go2.xml with the packet0002 recursive XML/mesh hashes
+independently checked first; no scene floor may enter compilation. Max cell age
+is the existing kTerrainMapMaxAgeS=0.20s, explicit prism depth0.30m. Depth is a
+research reconstruction choice, not measured support thickness. Complete q/v and
+all captures are read; unavailable integration memory is not claimed recovered.
+Current-node mj_kinematics uses true collidable geom centers and model rbound.
+Report full-body enclosing-patch coverage and every geom/capture failure. Missing
+coverage prevents descriptor/model construction, never induces flat fill or a
+contact promotion. No mj_forward, mj_step, fullbody trajectory or B1 trial is
+part of this probe. Stop after this informative result; no age/coverage sweep.

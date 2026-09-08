@@ -1,3 +1,10 @@
+# Native rolling horizon continuation,2026-09-08
+Read CURRENT.md first. Latest executed initialized flat source54d750e:
+fixed12ms commitment/20ms tail,20cycles,233candidates no late, physical limits
+and19complete running-contact cycles pass. Frozen V1 numerical FAIL retained.
+No live controller/B1/10cm run. New observed collision builder is research only;
+real recorded snapshot coverage is the next diagnostic. Original evidence below
+is historical and not an instruction to stop active authorized work.
 # Resumed checkpoint after0349725,2026-09-08
 Read CURRENT.md first: it now supersedes the original UNRUN draft status below.
 Latest full initialized feedback source4023ff87732236b629a59c80f886bb2f22126248.

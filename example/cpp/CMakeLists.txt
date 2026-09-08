@@ -425,6 +425,12 @@ add_executable(test_stage_c_observed_collision_model tests/test_stage_c_observed
 target_link_libraries(test_stage_c_observed_collision_model unitree_sdk2)
 go2_add_ctest(test_stage_c_observed_collision_model)
 if(EXISTS "${_go2_mujoco_lib}")
+    target_include_directories(test_stage_c_observed_collision_model PRIVATE "${_go2_mujoco_inc}")
+    target_link_libraries(test_stage_c_observed_collision_model "${_go2_mujoco_lib}")
+    target_compile_definitions(test_stage_c_observed_collision_model PRIVATE
+        GO2_OBSERVED_MODEL_XML="${_go2_model_path}"
+        GO2_OBSERVED_SCENE_XML="${CMAKE_CURRENT_SOURCE_DIR}/../../unitree_robots/go2/phase2_flat.xml")
+    set_target_properties(test_stage_c_observed_collision_model PROPERTIES BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     find_package(OpenMP REQUIRED)
     add_executable(test_whole_body_trajectory tests/test_whole_body_trajectory.cpp)
@@ -442,4 +448,14 @@ if(EXISTS "${_go2_mujoco_lib}")
         "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/research/evidence/whole_body_native_20260908/force_contract_0004/input.txt"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../unitree_robots/go2/phase2_flat.xml")
     set_tests_properties(test_whole_body_force_tracking PROPERTIES RUN_SERIAL TRUE)
+endif()
+
+add_executable(test_joint_observed_node_input tests/test_joint_observed_node_input.cpp)
+target_link_libraries(test_joint_observed_node_input unitree_sdk2)
+go2_add_ctest(test_joint_observed_node_input)
+if(EXISTS "${_go2_mujoco_lib}")
+    add_executable(inspect_joint_observed_collision_node tools/research/inspect_joint_observed_collision_node.cpp)
+    target_include_directories(inspect_joint_observed_collision_node PRIVATE "${_go2_mujoco_inc}")
+    target_link_libraries(inspect_joint_observed_collision_node unitree_sdk2 "${_go2_mujoco_lib}")
+    set_target_properties(inspect_joint_observed_collision_node PROPERTIES BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../../simulate/mujoco/lib")
 endif()
