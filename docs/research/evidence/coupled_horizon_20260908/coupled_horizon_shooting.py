@@ -52,8 +52,6 @@ def solve(evaluate, controls, lower, upper, fixed_prefix_steps=0,
             return cache_value
         u = full(x)
         value, constraints = evaluate(u.copy())
-        if time.perf_counter()-started > wall_budget_s:
-            raise Budget()
         g = np.asarray(constraints, dtype=float)
         if (not np.isscalar(value) or not np.isfinite(value) or g.ndim != 1
                 or not np.all(np.isfinite(g))):

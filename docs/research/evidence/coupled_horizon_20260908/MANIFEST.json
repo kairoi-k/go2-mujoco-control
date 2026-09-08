@@ -1,0 +1,12 @@
+{
+  "schema": "coupled-horizon-curation-v1",
+  "files": {
+    "0001/result.json": "9bd44886de3fa4466473961c524555ad6ba5fba864ba48157fc50cb633afa673",
+    "0002/result.json": "f800ef75f0a9f9cf4f4fc616b5cfaeb7b7a14f72f68c7fb4b2063baff4cb25fa",
+    "0002/verification.json": "25bb1fb0abf7813b476f2f05b0d353488c319e496623f2e999446fe2dcd18ddd",
+    "README.md": "2d5ad85447d1c6987b5f4f8c05fd5be70cba169ce6deab628acbee33ebf401b1",
+    "coupled_horizon_shooting.py": "972cec297bfd833d9da080b2083c711c0c67b58da43d00e23dfac38e7307d7a3",
+    "probe_coupled_mujoco_horizon.py": "f9427f38252de17e1e9d11339c096bdbeb04d63ff56af044cd59f8e194748b3a",
+    "verify_coupled_mujoco_horizon.py": "b823cab6e3157e50e35d8e8d50f1ce6bfb09eb2f693c0b42f21e3492f4d206a3"
+  }
+}

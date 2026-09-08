@@ -1,5 +1,6 @@
 """Independent analytic/LP counterexample proving future-to-earlier coupling."""
 import pathlib,sys,unittest
+from unittest.mock import patch
 import numpy as np
 from scipy.optimize import linprog
 sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]/'tools/research'))
@@ -50,6 +51,18 @@ class CoupledHorizonTests(unittest.TestCase):
         def changing(u):calls[0]+=1;return float(np.sum(u*u)),np.ones(calls[0])
         result=solve(changing,np.zeros((2,1)),-1,1)
         self.assertEqual(result['status'],'numerical_failure')
+    def test_evaluation_finishing_after_deadline_is_rejected(self):
+        # The last fresh evaluation begins on time but finishes late.
+        clock=[0.]
+        calls=[0]
+        def evaluation(u):
+            calls[0]+=1
+            if calls[0]==2:clock[0]=2.
+            return 0.,np.ones(1)
+        with patch('coupled_horizon_shooting.time.perf_counter',side_effect=lambda:clock[0]):
+            result=solve(evaluation,np.zeros((1,1)),-1,1,fixed_prefix_steps=1,wall_budget_s=1.)
+        self.assertEqual(result['status'],'wall_budget_exhausted')
+        self.assertIsNone(result['controls'])
     def test_all_fixed_is_checked(self):
         result=solve(self.problem(1.5),np.array([[.9],[.3]]),-1,1,fixed_prefix_steps=2)
         self.assertEqual(result['status'],'feasible_evaluated_witness')

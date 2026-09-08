@@ -1,13 +1,31 @@
 # Go2 current research checkpoint
-Updated2026-09-08 at user-requested handoff. This is the live route entrypoint.
+Updated2026-09-08 after Astra/Luna bounded resumption. This is the live route entrypoint.
 ## Outcome and restart boundary
 **Genuine5cm dynamic running-trot B1 remains NOT_CERTIFIED;10cm not started.**
 Branch feat/stage-c-joint-planner; canonical native WSL worktree:
 /home/che/dev/go2-workspace/feat-stage-c-joint-planner.
-Resumed from0349725c90cf5e3a15addfc8715a32f21a3a98bd. Latest implementation source
-is db10b5502110801fd3466b685f4dd3172c6d39d5; final documentation/evidence commit is
-its descendant (use git rev-parse HEAD). No remote push was requested/performed.
-Read docs/research/SESSION_HANDOFF_20260908.md top section before new work.
+Resumed from323e51be8aca3775390636990ea2ed635d81b989. Latest diagnostic source
+is d33c47e2b0dec2d2fed770edc9a93387b0c88f5c; checkpoint HEAD is its descendant.
+Read docs/research/COUPLED_HORIZON_RESEARCH_V1.md and its evidence README first,
+then docs/research/SESSION_HANDOFF_20260908.md for the retained earlier lineage.
+## Current review and next decision
+Independent review found the existing rolling tail optimizes nearest torques
+sequentially, not one coupled future-cost problem. The new SLSQP research solver
+optimizes all free controls jointly under the same actual MuJoCo dynamics and an
+exact12ms prefix. Analytic/HiGHS oracle tests distinguish this from greedy control.
+The120-variable solve exhausted60s. A24-variable two-node correction found a
+sampled32ms feasible witness in17.2769s; independent state/force/motor residual0.
+Terminal vy improves0.0484903 to0.00662523m/s, but body roll/pitch rates approach
+0.3rad/s. This is NOT gait improvement, runtime readiness or terrain feasibility.
+Main B1 blocker is still a viable nonprivileged event-spanning whole-body producer
+and trustworthy observed collision/coverage plus atomic execution. Before runtime,
+price terminal momentum and independently test continuation; then improve solver
+sensitivities/runtime against a bounded deadline. Do not optimize vy in isolation.
+The generic deadline check now also rejects a final evaluation finishing late;
+9 focused analytic/fail-closed tests pass. Timed results above remain bound to
+their pre-fix source; no new latency distribution or B1 run is claimed.
+Review also reproduced spurious forces at adjacent same-height cell-box seams.
+See the checkpoint evidence for the bounded representation correction and tests.
 ## Latest decisive results
 The actual integrated controller remains source0f6ec6526f4fcde77f2b737b5a65d9855ed5365b,
 flat attempt0012 stopping21.204s for roll28.80deg. No newer live controller run.
@@ -35,7 +53,7 @@ A separate exact-arithmetic audit locates the full-query invalid_query label:
 nextafter(maxY,-inf) passes InBounds, but subtraction/division rounds cell index
 to10==height, failing world_terrain_snapshot.h:461. The original broad square
 really exceeds Y coverage; fixing only its error label cannot make it valid.
-## Next work, not performed during handoff
+## Retained sensor-coverage work
 First replace the overly broad research coverage query with shape-aware projected
 regions while retaining unknown/stale/outside/history-conflict rejection. Keep
 single-capture complete evidence per supported region; never fill holes, widen
@@ -43,7 +61,7 @@ sensor coverage or convert these analytic results directly into an admission.
 Then construct the observed worker-local collision model for the actual snapshot
 and validate force/contact behavior. Cell prisms reconstruct scalar tops with
 explicit0.30m depth and inferred sidewalls; internal seams/contact multiplicity
-and full-body swept coverage remain untested. Preserve robot XML/asset identity.
+and full-body swept coverage require validation. Preserve robot XML/asset identity.
 The eventual runtime still needs nonprivileged reference generation, command/
 observation/terrain identity, one versioned atomic execution owner, shadow and
 admission/command composition evidence. No forged centroidal selected or ID-WBC

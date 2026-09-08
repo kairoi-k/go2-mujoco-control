@@ -41,3 +41,8 @@ expanded motor torques retain35Nm hard constraints and all original state/contac
 terminal inequalities. The6step prefix is bitwise unchanged. This is still one
 coupled optimization; it restricts the search space, not the accepted physics.
 No feasible controls outside this subspace are ruled out by solver failure.
+
+Result0002: independently verified sampled feasible witness after17.2769s;
+angular rates nearly saturate0.3rad/s. Not a stability/quality or runtime claim.
+See evidence/coupled_horizon_20260908/README.md. Next objective must price
+rotational momentum and test continuation, rather than optimize vy in isolation.
