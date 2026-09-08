@@ -40,3 +40,13 @@ First implementation audit uses actual5cm scene at original packet initializatio
 closed/unknown/quaternion rejection. This proves only evaluator equivalence.
 Next experiment is rolling one-cycle optimization toward the5cm obstacle, recording
 first useful failure, immutable prefix, full input/control/state and latency.
+
+## Bounded near-obstacle canary
+After harness smoke, use whole_body_oracle_step_5cm_near.xml: exact original
+5cm scene except the plateau center translates from5.25to3.25m in X. Width,
+height, friction, robot and initialization unchanged. Original frozen XML remains
+untouched. This moves encounter from about2.6s to0.27s after initialization,
+reducing repeated flat setup. It is a separate privileged diagnostic, NOT frozen
+B1 acceptance or evidence of a naturally reached steady approach. No robot state
+translation/reset. Bound first canary to100chunks (1s physics) and stop first
+useful failure. Eventual candidate must run original approach and observed terrain.
