@@ -303,13 +303,14 @@ void PrintAudit(const go2_control::RigidBodyState &initial, double source_time_s
 int main(int argc,char**argv){try {
  const bool roundtrip=argc==3 && std::string(argv[2])=="--roundtrip";
  const bool terminal_audit=argc==5 && std::string(argv[2])=="--articulated-tail-audit";
+ const bool initial_pair_audit=argc==3 && std::string(argv[2])=="--initial-pair-audit";
  const bool swing_audit=argc==3 && std::string(argv[2])=="--swing-audit";
  const bool phase_audit=argc==3 && std::string(argv[2])=="--articulated-phase-audit";
  const bool articulated_audit=phase_audit || (argc==3 && std::string(argv[2])=="--articulated-audit");
  const bool attitude_loop=argc==5 && std::string(argv[2])=="--closed-loop-coherent-attitude";
  const bool coherent_loop=attitude_loop || (argc==5 && std::string(argv[2])=="--closed-loop-coherent");
  const bool closed_loop=argc==5 && (std::string(argv[2])=="--closed-loop" || coherent_loop);
- if(argc!=2 && !roundtrip && !articulated_audit && !swing_audit && !closed_loop && !terminal_audit)throw std::runtime_error("usage: replay_joint_shadow_snapshot EXTRACTED_SNAPSHOT [--roundtrip | --articulated-audit | --articulated-tail-audit PREDICTION_END_S CHOICES_CSV | --closed-loop SCENE NEW_OUTPUT_CSV]");
+ if(argc!=2 && !roundtrip && !articulated_audit && !swing_audit && !closed_loop && !terminal_audit && !initial_pair_audit)throw std::runtime_error("usage: replay_joint_shadow_snapshot EXTRACTED_SNAPSHOT [--roundtrip | --articulated-audit | --articulated-tail-audit PREDICTION_END_S CHOICES_CSV | --closed-loop SCENE NEW_OUTPUT_CSV]");
  Reader r(argv[1]);const auto schema=r.word();const bool has_history=schema=="joint-shadow-snapshot-v2";
  if(schema!="joint-shadow-snapshot-v1" && !has_history)throw std::runtime_error("unsupported snapshot");
  const auto id=r.integer();const auto pattern=r.integer();if(pattern>static_cast<unsigned>(go2_control::GaitPattern::kRunningTrot))throw std::runtime_error("invalid pattern");
@@ -343,6 +344,33 @@ int main(int argc,char**argv){try {
  if(roundtrip){std::cout<<go2_trot::JointShadowSnapshotJson(state,input,id,static_cast<int>(pattern),has_history?&history:nullptr)<<"\n";return 0;}
  go2_trot::JointPlanningShadow shadow;if(!shadow.Load(GO2_MODEL_PATH))throw std::runtime_error("model load");
  shadow.Capture(state,input,id,static_cast<go2_control::GaitPattern>(pattern),has_history?&history:nullptr);
+ if(initial_pair_audit) {
+  using namespace go2_terrain::stage_c;
+  const auto &proposal=shadow.last_proposal();
+  if(!proposal.selected_valid)throw std::runtime_error("initial pair requires source proposal");
+  const auto &original=proposal.selected_problem;
+  if(original.request.events.events.size()<2 || original.request.candidate_sets.size()<2)
+   throw std::runtime_error("missing paired events");
+  const auto &left=original.request.events.events[0];const auto &right=original.request.events.events[1];
+  if(left.touchdown_time!=right.touchdown_time || !left.liftoff_valid || !right.liftoff_valid ||
+     left.liftoff_time>=original.grid.front() || right.liftoff_time>=original.grid.front())
+   throw std::runtime_error("first events are not simultaneous in-flight touchdowns");
+  go2_control::Go2RigidBody audit_robot;if(!audit_robot.Load(GO2_MODEL_PATH))throw std::runtime_error("audit model load");
+  for(std::size_t a=0;a<original.request.candidate_sets[0].candidates.size();++a)
+   for(std::size_t b=0;b<original.request.candidate_sets[1].candidates.size();++b) {
+    auto problem=original;problem.combination[0]=a;problem.combination[1]=b;
+    const auto result=SolveCentroidalSubproblem(problem);
+    const auto evaluation=AsJointEvaluation(problem,result);
+    ArticulatedTargetCheck check;
+    if(evaluation.feasible)check=joint_feedback_reference::CheckInitialNominalTarget(audit_robot,state,problem,result);
+    std::cout<<"InitialPairAudit {\"choices\":["<<a<<','<<b<<"],\"centroidal_feasible\":"<<(evaluation.feasible?"true":"false")
+     <<",\"checked\":"<<(check.lift.valid&&check.physical.dynamics.checked?"true":"false")
+     <<",\"initial_feasible\":"<<(check.feasible?"true":"false")<<",\"torque_peak_nm\":";
+    const double peak=check.physical.torque.cwiseAbs().maxCoeff();if(std::isfinite(peak))std::cout<<std::setprecision(17)<<peak;else std::cout<<"null";
+    std::cout<<",\"failure\":\""<<JointPlannerFailureName(check.failure)<<"\"}\n";
+   }
+  return 0;
+ }
  if(swing_audit) {
   using namespace go2_terrain::stage_c;
   std::string failure;auto proposal=shadow.BuildExecutionProposal(failure);
