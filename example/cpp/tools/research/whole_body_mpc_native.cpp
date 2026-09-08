@@ -57,12 +57,13 @@ class Handle {
  public:
   Handle(const char* xml, const double* state, int state_n, int steps,
          int prefix, const double* baseline, const double* body_refs,
-         const double* foot_refs)
+         const double* foot_refs, bool top_support_only = false)
       : model_(nullptr, mj_deleteModel),
         initial_(nullptr, mj_deleteData),
         work_(nullptr, mj_deleteData),
         pre_(nullptr, mj_deleteData),
         post_(nullptr, mj_deleteData),
+        top_support_only_(top_support_only),
         steps_(steps),
         prefix_(prefix),
         state_size_(0),
@@ -90,6 +91,16 @@ class Handle {
     }
     if (std::abs(static_cast<double>(model_->opt.timestep) - .002) > 1e-15)
       throw InputError("unchanged2ms model required");
+    if (top_support_only_) {
+      for (int g=0; g<model_->ngeom; ++g) {
+        if (model_->geom_bodyid[g]!=0 || (!model_->geom_contype[g] && !model_->geom_conaffinity[g])) continue;
+        if (model_->geom_type[g]!=mjGEOM_PLANE && model_->geom_type[g]!=mjGEOM_BOX)
+          throw InputError("unknown world support geometry");
+        const mjtNum* q=model_->geom_quat+4*g;
+        if (std::abs(q[1])+std::abs(q[2])+std::abs(q[3])>1e-12)
+          throw InputError("only axis-aligned known top surfaces supported");
+      }
+    }
     state_size_ = mj_stateSize(model_.get(), mjSTATE_INTEGRATION);
     if (state_n != state_size_)
       throw InputError("integration state size mismatch");
@@ -248,6 +259,11 @@ class Handle {
         const int other_body = model_->geom_bodyid[other];
         allowed = model_->body_rootid[other_body] !=
                   model_->body_rootid[foot_body];
+        if (allowed && top_support_only_) {
+          if (other_body!=0) throw InputError("unknown moving support");
+          const double top=model_->geom_pos[3*other+2]+(model_->geom_type[other]==mjGEOM_BOX ? model_->geom_size[3*other+2] : 0.0);
+          allowed=std::abs(contact.frame[2])>=1.0-1e-6 && data->geom_xpos[3*foot+2]>=top-1e-9;
+        }
       }
       if (!allowed) {
         *nonfoot += std::sqrt(
@@ -339,6 +355,7 @@ class Handle {
   DataPtr work_;
   DataPtr pre_;
   DataPtr post_;
+  bool top_support_only_;
   int steps_;
   int prefix_;
   int state_size_;
@@ -358,6 +375,19 @@ void* wm_create(const char* xml, const double* state, int state_n, int steps,
   try {
     return new Handle(xml, state, state_n, steps, prefix, baseline, body_refs,
                       foot_refs);
+  } catch (const std::exception& exception) {
+    WriteError(error, cap, exception.what());
+  } catch (...) {
+    WriteError(error, cap, "unknown native evaluator failure");
+  }
+  return nullptr;
+}
+void* wm_create_top_support(const char* xml, const double* state, int state_n, int steps,
+                int prefix, const double* baseline, const double* body_refs,
+                const double* foot_refs, char* error, int cap) noexcept {
+  try {
+    return new Handle(xml, state, state_n, steps, prefix, baseline, body_refs,
+                      foot_refs, true);
   } catch (const std::exception& exception) {
     WriteError(error, cap, exception.what());
   } catch (...) {

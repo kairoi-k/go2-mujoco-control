@@ -91,3 +91,29 @@ instead of4SLSQP iterations yields a strictly sampled feasible witness in12.846s
 Python min inequality0 and exact prefix. This is an offline budget counterfactual,
 not execution or resolution of numerical admission. Next bounded canary uses20
 iterations/30s maximum per synchronous solve; preserve4iteration failure evidence.
+## V3 task support affordance and geometry-derived swing envelope
+Actual0004 contacts expose a structural defect: both front feet press on the
+vertical step wall;31step contact samples, zero top contacts. Force/joint bounds
+alone do not encode the intended support affordance. Do not call these contacts
+successful touchdowns. The next change addresses this counterexample directly.
+New optional wm_create_top_support ABI preserves legacy wm_create behavior.
+Known world planes/axis-aligned boxes only; reject unknown/rotated/moving support.
+Foot-terrain force is forbidden when the contact normal is not vertical to1e-6
+or foot center is below the surface top. This deliberately excludes side/corner/
+underside support for this flat-top traversal diagnostic; it is not a universal
+terrain dynamic-infeasibility theorem. Existing nonfoot/self constraint adds
+forbidden contact force with the same1e-6N near-zero contact tolerance. The default
+canary requests this explicit backend; a legacy-only binary fails closed.
+The soft swing reference uses continuous piecewise-linear nominal XY swept paths,
+expanded by the actual sphere radius in XY. Segment/rectangle intersections find
+first/last overlap with the known elevated box. A C1 surface-height envelope
+reaches the required top elevation before first overlap, holds it during overlap,
+and descends only after leaving. Initial/final footprint conflicts reject input.
+No fixed extra height bump, local phase change or geometric15mm-as-dynamics rule.
+Torques/body/actual feet remain one constrained full-body optimization; references
+are not directly commanded trajectories. This still does not certify measured
+running topology, observed terrain or realtime. Preserve all earlier diagnostics.
+Before canary, seven geometry oracle tests plus native/Python flat fixture and
+retained0004 side-wall witness must pass: legacy accepts the latter physical
+bounds, top-support mode rejects it with identical cost and independently matching
+constraint values. Then one bounded near5cm canary,20iterations/30s per solve.

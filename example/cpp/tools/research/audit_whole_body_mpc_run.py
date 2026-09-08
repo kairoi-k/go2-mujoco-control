@@ -27,7 +27,7 @@ def audit(path,out):
         for c in contacts:first_by_leg.setdefault(c['leg'],c)
         failed=None
         if r['chunks'] and 'candidate_controls' not in r['chunks'][-1]:
-            c=r['chunks'][-1];pb=WholeBodyMPC(r['source']['library'],scene,c['initial_integration_state'],c['baseline_controls'],c['body_refs'],c['foot_refs'],5,True)
+            c=r['chunks'][-1];pb=WholeBodyMPC(r['source']['library'],scene,c['initial_integration_state'],c['baseline_controls'],c['body_refs'],c['foot_refs'],5,True,top_support_only=r['config'].get('top_support_only',False))
             replay=pb.replay(c['baseline_controls']);negative=np.flatnonzero(replay['g']<0);issues=[]
             for idx in negative:
                 k=int(idx)//96;post=int(idx)//48%2

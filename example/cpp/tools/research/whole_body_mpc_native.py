@@ -10,8 +10,9 @@ from coupled_horizon_shooting import HorizonInputError,HorizonNumericalError
 from probe_coupled_mujoco_horizon import ActualModelHorizon
 P=C.POINTER(C.c_double)
 class WholeBodyMPC:
-    def __init__(self,library,scene,initial,baseline,body_refs,foot_refs,prefix,privileged=False):
+    def __init__(self,library,scene,initial,baseline,body_refs,foot_refs,prefix,privileged=False,top_support_only=False):
         self.handle=None
+        self.top_support_only=bool(top_support_only)
         if not privileged:raise HorizonInputError('observed terrain coverage unavailable')
         self.baseline=np.ascontiguousarray(baseline,dtype=np.float64)
         if self.baseline.ndim!=2 or self.baseline.shape[1]!=12:raise HorizonInputError('control shape')
@@ -30,12 +31,15 @@ class WholeBodyMPC:
         mujoco.mj_setState(self.model,self.initial,self.state,mujoco.mjtState.mjSTATE_INTEGRATION)
         self.oracle=ActualModelHorizon(self.model,self.initial,self.baseline,prefix,.02,privileged=True)
         self.lib=C.CDLL(str(pathlib.Path(library).resolve()))
-        self.lib.wm_create.argtypes=[C.c_char_p,P,C.c_int,C.c_int,C.c_int,P,P,P,C.c_char_p,C.c_int];self.lib.wm_create.restype=C.c_void_p
+        create_name='wm_create_top_support' if self.top_support_only else 'wm_create'
+        if not hasattr(self.lib,create_name):raise HorizonInputError('support-affordance backend unavailable')
+        create=getattr(self.lib,create_name)
+        create.argtypes=[C.c_char_p,P,C.c_int,C.c_int,C.c_int,P,P,P,C.c_char_p,C.c_int];create.restype=C.c_void_p
         self.lib.wm_destroy.argtypes=[C.c_void_p];self.lib.wm_destroy.restype=None
         self.lib.wm_gsize.argtypes=[C.c_void_p];self.lib.wm_gsize.restype=C.c_int
         self.lib.wm_eval.argtypes=[C.c_void_p,P,P,P,C.c_int,C.c_char_p,C.c_int];self.lib.wm_eval.restype=C.c_int
         e=C.create_string_buffer(2048)
-        self.handle=self.lib.wm_create(str(pathlib.Path(scene).resolve()).encode(),self.state.ctypes.data_as(P),len(self.state),self.steps,prefix,self.baseline.ctypes.data_as(P),self.body.ctypes.data_as(P),self.feet.ctypes.data_as(P),e,len(e))
+        self.handle=create(str(pathlib.Path(scene).resolve()).encode(),self.state.ctypes.data_as(P),len(self.state),self.steps,prefix,self.baseline.ctypes.data_as(P),self.body.ctypes.data_as(P),self.feet.ctypes.data_as(P),e,len(e))
         if not self.handle:raise HorizonInputError(e.value.decode())
         self.gsize=self.lib.wm_gsize(self.handle)
         if self.gsize!=self.steps*96:self.close();raise HorizonInputError('native output coverage')
@@ -55,16 +59,30 @@ class WholeBodyMPC:
         if status:raise HorizonNumericalError(e.value.decode())
         if not np.isfinite(cost.value) or not np.isfinite(g).all():raise HorizonNumericalError('nonfinite native output')
         return cost.value,g
+    def observe(self,data):
+        g,f,nonfoot=self.oracle.observe(data)
+        if self.top_support_only:
+            forbidden=0.
+            for i,c in enumerate(data.contact):
+                legs=[gid for gid in self.oracle.gids if gid in (c.geom1,c.geom2)]
+                if len(legs)!=1:continue
+                foot=legs[0];other=c.geom2 if c.geom1==foot else c.geom1
+                if self.model.geom_bodyid[other]!=0:continue
+                top=self.model.geom_pos[other,2]+(self.model.geom_size[other,2] if self.model.geom_type[other]==mujoco.mjtGeom.mjGEOM_BOX else 0.)
+                if abs(c.frame[2])<1-1e-6 or data.geom_xpos[foot,2]<top-1e-9:
+                    force=np.empty(6);mujoco.mj_contactForce(self.model,data,i,force);forbidden+=np.linalg.norm(force[:3])
+            g[-1]-=forbidden
+        return g,f,nonfoot
     def replay(self,u):
         u=self.controls(u);m=self.model;d=copy.copy(self.initial);gs=[];rows=[];cost=0.
         for k,tau in enumerate(u):
             pre=copy.copy(d);pre.ctrl[:]=tau;mujoco.mj_forward(m,pre)
-            g,fp,npf=self.oracle.observe(pre);gs.append(g)
+            g,fp,npf=self.observe(pre);gs.append(g)
             d.ctrl[:]=tau;mujoco.mj_step(m,d);post=copy.copy(d);mujoco.mj_forward(m,post)
             for sample in (pre,post):
                 if not np.isfinite(np.r_[sample.qpos,sample.qvel,sample.qacc]).all() or any(sample.warning[w].number for w in (mujoco.mjtWarning.mjWARN_BADQPOS,mujoco.mjtWarning.mjWARN_BADQVEL,mujoco.mjtWarning.mjWARN_BADQACC,mujoco.mjtWarning.mjWARN_BADCTRL)):raise HorizonNumericalError('independent replay numerical failure')
             if abs(d.time-self.initial.time-(k+1)*m.opt.timestep)>1e-10:raise HorizonNumericalError('absolute clock mismatch')
-            g,ff,nff=self.oracle.observe(post);gs.append(g)
+            g,ff,nff=self.observe(post);gs.append(g)
             b=self.body[k];angle=np.empty(3);mujoco.mju_subQuat(angle,post.qpos[3:7],b[3:7])
             e=np.r_[(post.qpos[:3]-b[:3])/.025,angle/.10,(post.qvel[:3]-b[7:10])/.30,(post.qvel[3:6]-b[10:13])/.60,(post.geom_xpos[self.oracle.gids].ravel()-self.feet[k])/.025]
             cost+=float(e@e)+.01*float(np.sum(((tau-self.baseline[k])/35)**2))

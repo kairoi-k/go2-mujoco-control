@@ -29,5 +29,117 @@
     "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0001/sequential_verifier_fixture.json",
     "sha256": "8ce087074ac4d81b4ffa2e490dbfea80e85cbdcd3349dc02b6a4311616f631ee",
     "source_sha": "56e0b1e2c8649283ef0a39a50beccbd9b366bdcf"
-  }
+  },
+  "schema": "whole-body-mpc-oracle-evidence-manifest-v2",
+  "curated_scope": "raw oracle runs 0002/0003/0004 plus prior evidence; raw archives are byte-verifiable gzip streams",
+  "raw_archives": [
+    {
+      "run_id": "0002",
+      "artifact": "input.json",
+      "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0002/input.json",
+      "archived_path": "raw/0002/input.json.gz",
+      "compression": "gzip -n -9",
+      "raw_size_bytes": 976660,
+      "raw_sha256": "f0eff3d09413c8efe3db914c46292ab554100b2d4dd58a442bd955f6ae90cd18",
+      "archive_size_bytes": 332834,
+      "archive_sha256": "636aa4e552bb3f03d0ba6c46dd7420f25d95ff25ccfc7535c7394814d52a3384",
+      "byte_check": "gzip -cd archived_path equals original_path"
+    },
+    {
+      "run_id": "0002",
+      "artifact": "run.json",
+      "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0002/run.json",
+      "archived_path": "raw/0002/run.json.gz",
+      "compression": "gzip -n -9",
+      "raw_size_bytes": 1296648,
+      "raw_sha256": "d1043df199c53acc2ac5b33edb334ba285b07cbef88a64c11fa5a552e8104369",
+      "archive_size_bytes": 209689,
+      "archive_sha256": "b2a0bc23c795877b887cdcc500f47a6dfc89dce5676aee0344c892a76d4a7284",
+      "byte_check": "gzip -cd archived_path equals original_path"
+    },
+    {
+      "run_id": "0003",
+      "artifact": "input.json",
+      "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0003/input.json",
+      "archived_path": "raw/0003/input.json.gz",
+      "compression": "gzip -n -9",
+      "raw_size_bytes": 976660,
+      "raw_sha256": "f0eff3d09413c8efe3db914c46292ab554100b2d4dd58a442bd955f6ae90cd18",
+      "archive_size_bytes": 332834,
+      "archive_sha256": "636aa4e552bb3f03d0ba6c46dd7420f25d95ff25ccfc7535c7394814d52a3384",
+      "byte_check": "gzip -cd archived_path equals original_path"
+    },
+    {
+      "run_id": "0003",
+      "artifact": "run.json",
+      "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0003/run.json",
+      "archived_path": "raw/0003/run.json.gz",
+      "compression": "gzip -n -9",
+      "raw_size_bytes": 12982245,
+      "raw_sha256": "f017c8fa605771f3c3317ebeecd4f43823632fd4759eec42bbb7b9a64503eb13",
+      "archive_size_bytes": 2152452,
+      "archive_sha256": "f09e7438990e88eda22dfd1ef034dd7f02c5d9ca636d9fb727913a1c1d014caf",
+      "byte_check": "gzip -cd archived_path equals original_path"
+    },
+    {
+      "run_id": "0003",
+      "artifact": "failure_audit.json",
+      "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0003/failure_audit.json",
+      "archived_path": "raw/0003/failure_audit.json.gz",
+      "compression": "gzip -n -9",
+      "raw_size_bytes": 3540,
+      "raw_sha256": "a7fa6520ba1506fbd62e812f56095fac07d0893b2f2dc9b109867adbca5bd7a9",
+      "archive_size_bytes": 1486,
+      "archive_sha256": "71d6f3276bcac27d1175fcde34f9d12aea1aa2381fd321f652b2bcf910eaa823",
+      "byte_check": "gzip -cd archived_path equals original_path"
+    },
+    {
+      "run_id": "0003",
+      "artifact": "same_state_20_iterations.json",
+      "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0003/same_state_20_iterations.json",
+      "archived_path": "raw/0003/same_state_20_iterations.json.gz",
+      "compression": "gzip -n -9",
+      "raw_size_bytes": 26389,
+      "raw_sha256": "26a2b9421707b13988cba47e7ce1cb8cea61a859b1cb5a354fc1917940626423",
+      "archive_size_bytes": 9729,
+      "archive_sha256": "3bd33fa3c572b1e28a91011384375a65138459e7fbb7afe14a4cc20b210ed1ee",
+      "byte_check": "gzip -cd archived_path equals original_path"
+    },
+    {
+      "run_id": "0004",
+      "artifact": "input.json",
+      "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0004/input.json",
+      "archived_path": "raw/0004/input.json.gz",
+      "compression": "gzip -n -9",
+      "raw_size_bytes": 976660,
+      "raw_sha256": "f0eff3d09413c8efe3db914c46292ab554100b2d4dd58a442bd955f6ae90cd18",
+      "archive_size_bytes": 332834,
+      "archive_sha256": "636aa4e552bb3f03d0ba6c46dd7420f25d95ff25ccfc7535c7394814d52a3384",
+      "byte_check": "gzip -cd archived_path equals original_path"
+    },
+    {
+      "run_id": "0004",
+      "artifact": "run.json",
+      "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0004/run.json",
+      "archived_path": "raw/0004/run.json.gz",
+      "compression": "gzip -n -9",
+      "raw_size_bytes": 24529895,
+      "raw_sha256": "5ff0b17508c12e187d2564fea3c792c5648a7d32b1df12004ab65d7448c720e7",
+      "archive_size_bytes": 4204910,
+      "archive_sha256": "9e1395e7a4ff46325ac1da9c1a0842fdd08233b07c708fa81b45093d7ac21989",
+      "byte_check": "gzip -cd archived_path equals original_path"
+    },
+    {
+      "run_id": "0004",
+      "artifact": "audit.json",
+      "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260908_0004/audit.json",
+      "archived_path": "raw/0004/audit.json.gz",
+      "compression": "gzip -n -9",
+      "raw_size_bytes": 19459,
+      "raw_sha256": "fd8aca888faaee190f36f452863515092105716d1f079f8bb14f1f4199be14f3",
+      "archive_size_bytes": 4100,
+      "archive_sha256": "020c401cbe508b8525c83f38fa76b4c60596920e3f4602dcb28cfdbf80af52f7",
+      "byte_check": "gzip -cd archived_path equals original_path"
+    }
+  ]
 }

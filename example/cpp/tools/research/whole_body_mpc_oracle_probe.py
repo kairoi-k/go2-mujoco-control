@@ -31,6 +31,7 @@ from coupled_horizon_shooting import solve
 from whole_body_horizon_probe import control as nominal_feedback
 from whole_body_horizon_probe import packet, step
 from whole_body_mpc_native import WholeBodyMPC
+from swing_surface_reference import surface_envelope,height_at
 from verify_whole_body_mpc_oracle import verify_rows
 DT = 0.002
 HORIZON_STEPS = 70
@@ -152,6 +153,8 @@ class PeriodicTemplate:
         self.vx = float(nominal["command_vx"])
         self.offsets = np.asarray(nominal.get("leg_offsets", [0.0, 0.46, 0.46, 0.0]), dtype=float)
         self.box_x0, self.box_x1, self.box_top, self.box_geom_id = scene_step_box(model)
+        self.box_xy=np.array([model.geom_pos[self.box_geom_id,:2]-model.geom_size[self.box_geom_id,:2],model.geom_pos[self.box_geom_id,:2]+model.geom_size[self.box_geom_id,:2]])
+        self._surface_envelopes={}
         self.transition_m = min(TERRAIN_TRANSITION_M, 0.25 * (self.box_x1 - self.box_x0))
         if not self.transition_m > 0.0:
             raise ValueError("world step box has no usable width")
@@ -225,32 +228,27 @@ class PeriodicTemplate:
         entry = smoothstep01((float(x) - (self.box_x0 - self.transition_m)) / (2.0 * self.transition_m))
         exit_ = smoothstep01(((self.box_x1 + self.transition_m) - float(x)) / (2.0 * self.transition_m))
         return entry * exit_
-    def touchdown_elevation(self, leg, touchdown_number):
-        # The touchdown phase is leg_phase=0. Sample the fixed periodic template
-        # at that phase and add only the corresponding absolute cycle distance.
-        base_phase = float(touchdown_number) - float(self.offsets[leg])
-        delta = base_phase - self.phase
-        cycles = math.floor(delta + 1e-12)
-        fraction = delta - cycles
-        extra_cycle, row = divmod(int(np.rint(fraction * HORIZON_STEPS)), HORIZON_STEPS)
-        cycles += extra_cycle
-        x = float(self.flat_feet[row, leg, 0] + cycles * self.step_length)
-        return self.box_top if self.box_x0 <= x <= self.box_x1 else 0.0
-    def foot_elevation(self, global_post_tick, leg):
-        # Fixed phase avoids an instantaneous terrain(x) jump in flight. On a
-        # stance, hold the current touchdown target; during swing, interpolate
-        # previous and next touchdown heights with C1 smoothstep.
-        base_phase = self.phase + float(global_post_tick) / HORIZON_STEPS
-        leg_phase_unwrapped = base_phase + float(self.offsets[leg])
-        touchdown_number = math.floor(leg_phase_unwrapped + 1e-12)
-        leg_phase = leg_phase_unwrapped - touchdown_number
-        if leg_phase < self.duty:
-            return self.touchdown_elevation(leg, touchdown_number)
-        swing_fraction = (leg_phase - self.duty) / (1.0 - self.duty)
-        blend = smoothstep01(swing_fraction)
-        previous = self.touchdown_elevation(leg, touchdown_number)
-        following = self.touchdown_elevation(leg, touchdown_number + 1)
-        return (1.0 - blend) * previous + blend * following
+    def continuous_foot_position(self,tick,leg):
+        k=math.floor(tick);alpha=tick-k
+        return (1-alpha)*self.foot_position(k,leg)+alpha*self.foot_position(k+1,leg)
+    def touchdown_elevation(self,leg,touchdown_number):
+        tick=(touchdown_number-self.offsets[leg]-self.phase)*HORIZON_STEPS
+        xy=self.continuous_foot_position(tick,leg)[:2]
+        return self.box_top if np.all(xy>=self.box_xy[0]) and np.all(xy<=self.box_xy[1]) else 0.
+    def foot_elevation(self,global_post_tick,leg):
+        unwrapped=self.phase+global_post_tick/HORIZON_STEPS+self.offsets[leg]
+        event=math.floor(unwrapped+1e-12);phase=unwrapped-event
+        if phase<self.duty:return self.touchdown_elevation(leg,event)
+        key=(leg,event)
+        if key not in self._surface_envelopes:
+            touchdown_tick=(event-self.offsets[leg]-self.phase)*HORIZON_STEPS
+            first=touchdown_tick+self.duty*HORIZON_STEPS;last=touchdown_tick+HORIZON_STEPS
+            ticks=np.r_[first,np.arange(math.floor(first)+1,math.ceil(last)),last]
+            progress=(ticks-first)/(last-first)
+            points=np.array([self.continuous_foot_position(t,leg)[:2] for t in ticks])
+            radius=float(self.model.geom_size[self.gids[leg],0])
+            self._surface_envelopes[key]=surface_envelope(progress,points,self.box_xy,self.box_top,radius,self.touchdown_elevation(leg,event),self.touchdown_elevation(leg,event+1))
+        return height_at(self._surface_envelopes[key],float((phase-self.duty)/(1-self.duty)))
     def references(self, start_tick):
         body = np.empty((HORIZON_STEPS, 13), dtype=float)
         feet = np.empty((HORIZON_STEPS, 12), dtype=float)
@@ -316,6 +314,7 @@ def source_identity(packet_dir, scene, library, nominal_path):
         HERE / "whole_body_mpc_native.cpp",
         HERE / "whole_body_horizon_probe.py",
         HERE / "coupled_horizon_shooting.py",
+        HERE / "swing_surface_reference.py",
     }
     if (HERE / "verify_whole_body_mpc_oracle.py").is_file():
         files.add(HERE / "verify_whole_body_mpc_oracle.py")
@@ -347,10 +346,13 @@ def run(args):
     out.parent.mkdir(parents=True, exist_ok=True)
     out.mkdir()
     report = {
-        "schema": "whole-body-mpc-oracle-probe-v1",
+        "schema": "whole-body-mpc-oracle-probe-v3",
         "scope": "privileged known-scene full-state research oracle; not runtime authority or B1 acceptance",
         "status": "started",
         "config": {
+            "top_support_only": True,
+            "numerical_admission": "V2 normwise1e-8; old absolute/componentwise reported",
+            "scheduling": "synchronous; solver wall budget only; no realtime admission claim",
             "horizon_steps": HORIZON_STEPS,
             "commit_steps": COMMIT_STEPS,
             "timestep_s": DT,
@@ -384,7 +386,7 @@ def run(args):
                 "spatial_transition_m": template.transition_m,
                 "touchdown_height": "exact known box top at fixed-phase foothold X, no spatial ramp in support surface",
                 "body": "base z adds smoothstep terrain elevation at base x",
-                "feet": "stance holds current fixed-phase touchdown elevation; swing C1-interpolates previous/next touchdown elevations",
+                "feet": "stance holds fixed-phase touchdown elevation; swing C1 surface envelope clears expanded obstacle footprint before entry",
                 "contact_policy": "none added; MuJoCo scene contacts remain authoritative in the oracle",
             }
             input_record = {
@@ -432,6 +434,7 @@ def run(args):
                         foot_refs,
                         COMMIT_STEPS,
                         privileged=True,
+                        top_support_only=True,
                     )
                     if mpc.gsize != HORIZON_STEPS * 96:
                         raise ValueError("unexpected native constraint size")
