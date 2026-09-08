@@ -1,0 +1,3 @@
+example/cpp/tools/research/coupled_horizon_native.cpp:40:6: warning: ‘void {anonymous}::WriteError(char*, int, const string&)’ defined but not used [-Wunused-function]
+   40 | void WriteError(char* error, int cap, const std::string& message) noexcept {
+      |      ^~~~~~~~~~

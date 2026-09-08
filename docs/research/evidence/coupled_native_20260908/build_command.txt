@@ -1,0 +1,1 @@
+g++ -std=c++17 -O3 -fPIC -shared -Wall -Wextra -I/home/che/.local/lib/python3.10/site-packages/mujoco/include example/cpp/tools/research/coupled_horizon_native.cpp -L/home/che/.local/lib/python3.10/site-packages/mujoco -l:libmujoco.so.3.3.6 -Wl,-rpath,/home/che/.local/lib/python3.10/site-packages/mujoco -o example/cpp/experiments/_runs/coupled_native_20260908_0002/libcoupled.so

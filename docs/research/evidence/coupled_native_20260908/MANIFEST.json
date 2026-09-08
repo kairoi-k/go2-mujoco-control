@@ -1,0 +1,13 @@
+{
+  "schema": "coupled-native-curation-v1",
+  "files": {
+    "libcoupled.so.gz": "71b9eb632b80629583d2a9ce80d0f586ecf9b9abdeada149f17c1d95c9ca19b6",
+    "build.txt": "27dd3a5496a30c1fba236c2b8c1cd1078144dfdd618e4f3d251f15de9a915d64",
+    "README.md": "b685b2c461ea1fb7720d77b2b1074431bf736844ae6654c4419683eb09911e81",
+    "audit.json": "3ce3275ff2ef56260a4b5412d0f4117ec1eb1bb96ca98fc0853944e53e20137e",
+    "runtime.json": "488a7d94832dcfa118fe57b4917c39da8eef4a208b775634806fc67e01835cbe",
+    "verification.json": "6204de105f3e1fbe2c1a1cfc2268c80ff4a61197685e93479b9bed8a0e3abc81",
+    "solve.json": "4cd9f5de8fe63e9fe46df1216b9f3d741049a45915c16fccafa87ed2d2fa0840",
+    "build_command.txt": "1d1d384c63d8b6f06daef3f0a9e5cffa10cc3b8ed9d451a0594f1256747c1ca3"
+  }
+}

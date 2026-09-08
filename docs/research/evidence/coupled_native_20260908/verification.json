@@ -1,0 +1,35 @@
+{
+  "scope": "independent32ms declared sampled constraints and replay; not swept coverage, fullcycle or B1",
+  "checks": {
+    "state_reproduction": true,
+    "force_reproduction": true,
+    "time_reproduction": true,
+    "motor_composition": true,
+    "force_bound": true,
+    "torque_bound": true,
+    "joint_speed": true,
+    "joint_range": true,
+    "height": true,
+    "posture": true,
+    "no_nonfoot_contact": true,
+    "terminal_vy": true,
+    "terminal_omega": true
+  },
+  "passed": true,
+  "state_residual": 0.0,
+  "force_residual": 0.0,
+  "clock_residual": 1.7735812818386876e-14,
+  "motor_residual": 0.0,
+  "force_peak": 159.89679968168736,
+  "torque_peak": 28.35589694605476,
+  "terminal_velocity": [
+    0.8198428582052042,
+    0.006625225980501326,
+    -0.1370132772992552,
+    -0.2999506767242959,
+    -0.29999233344041065,
+    0.06884381125764519
+  ],
+  "result_sha256": "4cd9f5de8fe63e9fe46df1216b9f3d741049a45915c16fccafa87ed2d2fa0840",
+  "verifier_sha256": "b823cab6e3157e50e35d8e8d50f1ce6bfb09eb2f693c0b42f21e3492f4d206a3"
+}

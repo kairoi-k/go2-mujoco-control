@@ -8,7 +8,19 @@ Resumed from323e51be8aca3775390636990ea2ed635d81b989. Latest diagnostic source
 is d33c47e2b0dec2d2fed770edc9a93387b0c88f5c; checkpoint HEAD is its descendant.
 Read docs/research/COUPLED_HORIZON_RESEARCH_V1.md and its evidence README first,
 then docs/research/SESSION_HANDOFF_20260908.md for the retained earlier lineage.
-## Latest continuation result and next decision
+## Active boundary after user route correction
+Source46824af native evaluation matches the Python physics oracle. One same
+32ms solve improved17.2769s to2.7669s, still nowhere near12ms publication.
+All13independent replay checks pass; evidence/coupled_native_20260908 preserves
+both exact computation and limitations. This is NOT a terrain foothold planner.
+User explicitly challenged endless local patching. Stop extending flat toys.
+The next substantive milestone is a NEW5cm closed-loop experiment with a coherent
+joint body/foothold/force producer and execution owner, not another flat benchmark.
+Reuse existing online StageC inputs/ownership and full-body validation where they
+help. Resolve the minimal source-to-execution gaps for an event-spanning horizon;
+let actual traversal failure drive the next change. Preserve historical tests,
+contracts and research artifacts, but do not turn their completion into the goal.
+## Latest continuation result and prior decision
 Clean e21bdd0 extends both32ms heads by two140ms periods under the SAME existing
 periodic feedback, preserving absolute phase. Independent b25edda verifier passes
 all11 checks per case; state/force/command residual0. Coupled peakforce174.249N,
@@ -99,4 +111,4 @@ C:/Users/w1881/Documents/Codex/2026-09-06/feat-stage-c-joint-planner-fetch/wsl_e
 MuJoCo3.3.6, native SciPy/Eigen. OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
 MKL_NUM_THREADS=1; native derivative threads explicitly4. Serialize builds and
 physics/timing; hold /tmp/go2_mujoco_experiment.lock. Preserve all _runs/stashes/
-other worktrees. User requested handoff; workers stopped, no new work pending.
+other worktrees. Luna is tracing existing online StageC execution gaps; root owns the5cm integration decision.

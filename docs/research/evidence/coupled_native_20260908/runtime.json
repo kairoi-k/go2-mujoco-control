@@ -1,0 +1,6 @@
+{
+  "mujoco": "3.3.6",
+  "mujoco_library_sha256": "b9173509d0c282a9b24b7f5825a40177a9967df0cd6395a9dc39522196e44495",
+  "compiler": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0\nCopyright (C) 2021 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+  "binary_sha256": "f36298ad0f03c9a02f81c2c88e3dc60a8e468c50b54648f3f45083476bfcfdcc"
+}

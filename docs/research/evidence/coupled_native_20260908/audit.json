@@ -1,0 +1,150 @@
+{
+  "source_sha": "46824afd8ef1422963e9ada5fb6692866d0c8c39",
+  "scope": "same complete MuJoCo integration,10control cases; latency is evaluator only, no solver or B1 claim",
+  "hashes": {
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/docs/research/evidence/coupled_horizon_20260908/0002/result.json": "f800ef75f0a9f9cf4f4fc616b5cfaeb7b7a14f72f68c7fb4b2063baff4cb25fa",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/coupled_native_20260908_0002/libcoupled.so": "f36298ad0f03c9a02f81c2c88e3dc60a8e468c50b54648f3f45083476bfcfdcc",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/audit_coupled_native.py": "dce48a378a1e7f733786e915ff06680ea6949cbcaf1ac6f36a1cde0f26d5c631",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/coupled_horizon_native.py": "1329ab5277d2e1ddabf27f330735b1f8b67a67c74a47abf3a2df29c3bed6d80b",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/coupled_horizon_native.cpp": "eadd2ac5afa7a7f6beb1b0e5a975e23317fb0ffa8136dc73fbd843e55aecacc7",
+    "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/tools/research/probe_coupled_mujoco_horizon.py": "55e80daff31ab1fe7d72f555389037fb4971c86c93a6204212aa22e89a94df62"
+  },
+  "mujoco": "3.3.6",
+  "passed": true,
+  "comparisons": [
+    {
+      "cost_delta": 0.0,
+      "constraint_delta": 0.0,
+      "same_feasibility": true
+    },
+    {
+      "cost_delta": 1.1102230246251565e-16,
+      "constraint_delta": 0.0,
+      "same_feasibility": true
+    },
+    {
+      "cost_delta": 5.551115123125783e-17,
+      "constraint_delta": 0.0,
+      "same_feasibility": true
+    },
+    {
+      "cost_delta": 1.1102230246251565e-16,
+      "constraint_delta": 0.0,
+      "same_feasibility": true
+    },
+    {
+      "cost_delta": 0.0,
+      "constraint_delta": 0.0,
+      "same_feasibility": true
+    },
+    {
+      "cost_delta": 1.1102230246251565e-16,
+      "constraint_delta": 0.0,
+      "same_feasibility": true
+    },
+    {
+      "cost_delta": 5.551115123125783e-17,
+      "constraint_delta": 0.0,
+      "same_feasibility": true
+    },
+    {
+      "cost_delta": 5.551115123125783e-17,
+      "constraint_delta": 0.0,
+      "same_feasibility": true
+    },
+    {
+      "cost_delta": 0.0,
+      "constraint_delta": 0.0,
+      "same_feasibility": true
+    },
+    {
+      "cost_delta": 5.551115123125783e-17,
+      "constraint_delta": 0.0,
+      "same_feasibility": true
+    }
+  ],
+  "deterministic": true,
+  "fail_closed": {
+    "prefix_conflict": true,
+    "nonfinite": true,
+    "wrong_shape": true,
+    "unknown_coverage": true,
+    "closed": true
+  },
+  "timing": {
+    "python": {
+      "ms": [
+        11.825728986877948,
+        13.310427981195971,
+        13.40398399042897,
+        14.310072001535445,
+        14.159647980704904,
+        13.541112013626844,
+        11.740265996195376,
+        12.112800002796575,
+        13.495947001501918,
+        12.576724984683096,
+        12.2242099896539,
+        13.268409005831927,
+        12.246731988852844,
+        12.767423002514988,
+        13.136047986336052,
+        13.047550979536027,
+        12.884645024314523,
+        13.563752989284694,
+        12.239509000210091,
+        15.102304023457691,
+        12.111497984733433,
+        12.922285997774452,
+        13.758381974184886,
+        12.789766013156623,
+        13.569675997132435,
+        12.466838001273572,
+        13.161297014448792,
+        12.997979007195681,
+        13.78279598429799,
+        11.764553986722603
+      ],
+      "p50": 13.022764993365854,
+      "p95": 14.242381192161702,
+      "max": 15.102304023457691
+    },
+    "native": {
+      "ms": [
+        2.202761999797076,
+        1.8574709829408675,
+        1.8375829968135804,
+        1.7679419834166765,
+        1.8356689834035933,
+        1.8106730130966753,
+        1.7775899905245751,
+        1.6945840034168214,
+        1.729198993416503,
+        1.7282270127907395,
+        1.7049729940481484,
+        1.6729430062696338,
+        1.7188189958687872,
+        1.709623000351712,
+        1.792679016944021,
+        1.8718980136327446,
+        1.7668099899310619,
+        2.35456699738279,
+        1.770737988408655,
+        1.8076470005325973,
+        1.7603680025786161,
+        1.7978580144699663,
+        2.257043990539387,
+        1.8582020129542798,
+        1.724480011034757,
+        1.6664710128679872,
+        1.7597069963812828,
+        1.7018470098264515,
+        1.7381960060447454,
+        1.7559200059622526
+      ],
+      "p50": 1.7673759866738692,
+      "p95": 2.232617094705347,
+      "max": 2.35456699738279
+    }
+  }
+}
