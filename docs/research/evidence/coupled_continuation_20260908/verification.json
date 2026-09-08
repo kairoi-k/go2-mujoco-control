@@ -1,0 +1,71 @@
+{
+  "scope": "independent312ms replay and sampled hard constraints; no global recovery-region or B1 certificate",
+  "cases": {
+    "baseline": {
+      "checks": {
+        "head_and_feedback_law": true,
+        "state_replay": true,
+        "force_replay": true,
+        "clock": true,
+        "force": true,
+        "torque": true,
+        "joint_speed": true,
+        "joint_range": true,
+        "height": true,
+        "pose": true,
+        "nonfoot": true
+      },
+      "passed": true,
+      "law_residual": 0.0,
+      "state_residual": 0.0,
+      "force_residual": 0.0,
+      "clock_residual": 1.7291723608536813e-13,
+      "peak_force": 179.99999999999952,
+      "peak_torque": 28.35589694605476,
+      "peak_abs_roll_pitch_rad": 0.005893519808026653,
+      "min_height": 0.3675338441789308,
+      "terminal_velocity": [
+        0.8544849593447444,
+        -0.009293161849966947,
+        -0.19103445135282626,
+        0.004543103333550236,
+        0.012623032617037637,
+        -0.031150521826766604
+      ]
+    },
+    "coupled": {
+      "checks": {
+        "head_and_feedback_law": true,
+        "state_replay": true,
+        "force_replay": true,
+        "clock": true,
+        "force": true,
+        "torque": true,
+        "joint_speed": true,
+        "joint_range": true,
+        "height": true,
+        "pose": true,
+        "nonfoot": true
+      },
+      "passed": true,
+      "law_residual": 0.0,
+      "state_residual": 0.0,
+      "force_residual": 0.0,
+      "clock_residual": 1.7291723608536813e-13,
+      "peak_force": 174.24913594266084,
+      "peak_torque": 28.35589694605476,
+      "peak_abs_roll_pitch_rad": 0.008579747532107359,
+      "min_height": 0.36805803384008684,
+      "terminal_velocity": [
+        0.8567811680747454,
+        -0.004922158978445317,
+        -0.19053157773930407,
+        0.0023050288965196395,
+        0.016777007792480043,
+        -0.03163405149531749
+      ]
+    }
+  },
+  "audit_sha256": "40764269ce0db0e6578f6ff3a7114d0abfe9f59ea042222785698c3fb469ed6f",
+  "verifier_sha256": "daff2a8904c0af6776817ea65d6d6e39870bfe60beac3043fcb6458085ee027b"
+}

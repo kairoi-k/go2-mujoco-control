@@ -8,7 +8,17 @@ Resumed from323e51be8aca3775390636990ea2ed635d81b989. Latest diagnostic source
 is d33c47e2b0dec2d2fed770edc9a93387b0c88f5c; checkpoint HEAD is its descendant.
 Read docs/research/COUPLED_HORIZON_RESEARCH_V1.md and its evidence README first,
 then docs/research/SESSION_HANDOFF_20260908.md for the retained earlier lineage.
-## Current review and next decision
+## Latest continuation result and next decision
+Clean e21bdd0 extends both32ms heads by two140ms periods under the SAME existing
+periodic feedback, preserving absolute phase. Independent b25edda verifier passes
+all11 checks per case; state/force/command residual0. Coupled peakforce174.249N,
+max roll/pitch0.008580rad, minheight0.368058m; final |omega|<0.032rad/s.
+The suspected nonrecoverable terminal momentum is NOT observed at this initial
+state. This is one privileged flat counterfactual, not global viability or B1.
+Prioritize efficient sensitivities and nonprivileged event-spanning terrain input;
+do not spend iterations fixing an unobserved recovery failure. See
+ docs/research/evidence/coupled_continuation_20260908/README.md.
+## Prior review and formulation context
 Independent review found the existing rolling tail optimizes nearest torques
 sequentially, not one coupled future-cost problem. The new SLSQP research solver
 optimizes all free controls jointly under the same actual MuJoCo dynamics and an

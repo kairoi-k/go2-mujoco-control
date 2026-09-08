@@ -1,0 +1,9 @@
+{
+  "schema": "coupled-continuation-curation-v1",
+  "raw_result_sha256": "40764269ce0db0e6578f6ff3a7114d0abfe9f59ea042222785698c3fb469ed6f",
+  "files": {
+    "README.md": "5419d7410ed23e9f5eee4550b58f004fef7f80afc125c4cb4e3578db088484f4",
+    "verification.json": "2d3242e670d3cbaf4e3301fc58bb071cef4af5e80b9feb6a3e9a5194bbbd667e",
+    "result.json.gz": "5397bbac27fe2bef294108198e48a85c7c0597502cf088a6116943ba02a251a8"
+  }
+}
