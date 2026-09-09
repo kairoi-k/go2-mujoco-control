@@ -1,0 +1,30 @@
+{
+  "input.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260909_0001/input.json",
+    "raw_sha256": "f0eff3d09413c8efe3db914c46292ab554100b2d4dd58a442bd955f6ae90cd18",
+    "archive_sha256": "7570991ac27f189e22dd3d8490d459521bb8aabad41c67af9ae27b6fc0609974",
+    "raw_bytes": 976660,
+    "archive_bytes": 332921
+  },
+  "run.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260909_0001/run.json",
+    "raw_sha256": "9d746ea620a78a3ee6c9deb68ea04115a0e5ee63a58f4270299d7168ea4c4167",
+    "archive_sha256": "020d66f59c5c9af14086e9b5b3569b6217b5069cb6925db05613747c37ec9db8",
+    "raw_bytes": 11551063,
+    "archive_bytes": 1980722
+  },
+  "audit.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260909_0001/audit.json",
+    "raw_sha256": "54a8721bd8c49984bf36555bb3098b32bd9689f4ed068387f3d24b23d11f4a0b",
+    "archive_sha256": "9d32493ea1d7506712747eb2af74e882b7877a349ad5ec3757435902ba9e7d56",
+    "raw_bytes": 6651,
+    "archive_bytes": 2018
+  },
+  "reference_diagnostic.json.gz": {
+    "original_path": "/home/che/dev/go2-workspace/feat-stage-c-joint-planner/example/cpp/experiments/_runs/whole_body_mpc_oracle_20260909_0001/reference_diagnostic.json",
+    "raw_sha256": "8db6a5968ad41b605923b7168222bf3b34bb469bb56595e27f817959d0691f6b",
+    "archive_sha256": "5d36789bebd360d54f320f4d482075148b6f975d07cf0d31f700c51f21f6f3be",
+    "raw_bytes": 1206,
+    "archive_bytes": 478
+  }
+}

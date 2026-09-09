@@ -1,9 +1,21 @@
 # Go2 current research checkpoint
-Updated2026-09-09. User explicitly resumed one bounded V4 validation.
-Run from original initialization with unchanged controller code and known near5cm
-scene, up to200chunks/2s physics so full exit is covered if successful. Stop first
-useful failure, independently audit, checkpoint and report; no architecture sweep.
-Earlier quota-stop receipts remain historical evidence, not a live process.
+Updated2026-09-09. The requested bounded V4 validation is FINISHED and failed.
+No experiment or child task is left running. Do not silently expand this completed
+validation into another parameter sweep; report the result first.
+## Latest bounded validation
+Evidence: docs/research/evidence/whole_body_mpc_oracle_20260909/README.md.
+Source edb54411741a0efb8ef5958851366fe20ed6cbea, unchanged V4 implementation.
+Run20260909_0001 requested200chunks/2s to cover exit, but stopped at16chunks/
+80steps before any actual step contact. Failed search20iteration limit, not timeout.
+Retained65control tail is exact; failures now occur only in newly appended suffix:
+forbidden side contact atstep66 and RR182.945N>180 atstep67. No feasible witness.
+Executed state/force/motor replay deltas0; actual peakforce175.757N,torque28.153Nm.
+Normwise balance5.601e-10; historical absolute2.626e-7 stillfails.
+Solver p50/p95/max16.814/17.451/17.633s. No realtime/B1 success.
+Latest fixes are insufficient for continuous traversal. Reference/foothold/landing
+and horizon continuation require scientific review, not an assumption that more
+iterations or a passed single-state counterfactual solves the problem.
+
 ## Actual outcome
 Genuine5cm dynamic running-trot B1 remains NOT_CERTIFIED.10cm not started.
 Canonical /home/che/dev/go2-workspace/feat-stage-c-joint-planner,
