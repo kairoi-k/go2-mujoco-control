@@ -1,8 +1,9 @@
 # Go2 current research checkpoint
-Updated2026-09-08. **PAUSED by explicit user quota-stop request.**
-Do not start research, simulations or agents until the user explicitly resumes.
-This file remains the only live route/status entrypoint; older instructions and
-run.json status fields do not override this stop.
+Updated2026-09-09. User explicitly resumed one bounded V4 validation.
+Run from original initialization with unchanged controller code and known near5cm
+scene, up to200chunks/2s physics so full exit is covered if successful. Stop first
+useful failure, independently audit, checkpoint and report; no architecture sweep.
+Earlier quota-stop receipts remain historical evidence, not a live process.
 ## Actual outcome
 Genuine5cm dynamic running-trot B1 remains NOT_CERTIFIED.10cm not started.
 Canonical /home/che/dev/go2-workspace/feat-stage-c-joint-planner,
