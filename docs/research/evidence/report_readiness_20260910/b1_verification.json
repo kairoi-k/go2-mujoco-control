@@ -1,0 +1,26 @@
+{
+  "historical_source": "eeb5d757620712759604d8c51b2b9075d05625dc",
+  "counts": {
+    "packet_sha256": 24,
+    "source_sha256": 155,
+    "raw_sha256": 48
+  },
+  "failures": [
+    [
+      "source_sha256",
+      "CURRENT.md"
+    ],
+    [
+      "source_sha256",
+      "docs/RESEARCH_INDEX.md"
+    ],
+    [
+      "source_sha256",
+      "docs/RESEARCH_HISTORY.md"
+    ]
+  ],
+  "binaries_verified": false,
+  "replayed_results_equal": true,
+  "runtime_source_mismatches": [],
+  "note": "Three documentation entries refer to later closeout docs. All 148 example/simulate/unitree_robots source entries match historical Git; 152/155 complete source entries match. Current binaries intentionally not used."
+}

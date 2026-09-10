@@ -1,3 +1,19 @@
+# Report preparation checkpoint, 2026-09-10
+Latest bounded user request: prepare evidence and materials for the teacher report.
+No controller changes, fresh simulations, new acceptance thresholds or planner rollout.
+Evidence and report: docs/research/evidence/report_readiness_20260910/README.md.
+Recovered 15 historical Phase1 CSVs from the verified phase1 archive, runtime source
+07cbc7efdd17b9960897e277f401654c46410e48. Settling re-audit: 9 PASS / 6 FAIL;
+42 transitions, 27 observed / 15 unsettled, independent raw-window check agrees.
+All three steps and all three varying runs fail complete settling coverage.
+Commands are linearly interpolated: the brake profile is a 12-second deceleration,
+not an emergency-stop validation. Historical verdicts remain preserved unchanged.
+Old eeb5d75 crossing replay exactly reproduces all three retained analyses;
+video and raw hashes verified. It remains NOT_CERTIFIED, not a new B1 candidate.
+Fresh rapid/phase/long-run and crossing repetitions were not started after finding
+reproducible baseline failures. Deliver a truthful report, not a falsely complete release.
+User requested Luna Extra High bounded readonly report review; core decisions root-owned.
+The historical V4 failure below remains the latest simulation. No automatic resumption.
 # Go2 current research checkpoint
 Updated2026-09-09. The requested bounded V4 validation is FINISHED and failed.
 No experiment or child task is left running. Do not silently expand this completed

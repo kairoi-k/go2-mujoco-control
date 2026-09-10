@@ -1,0 +1,19 @@
+{
+  "scope": "bounded report readiness; no fresh simulations",
+  "phase1_retained_runs": 15,
+  "settling_pass": 9,
+  "settling_fail": 6,
+  "independent_transition_agreement": 42,
+  "frozen_files_modified": false,
+  "controllers_modified": false,
+  "new_physics_trials": 0,
+  "raw_archive_sha256_verified": true,
+  "historical_b1_replay_equal": true,
+  "video_sha256_verified": true,
+  "supplementary_trials": "Not started after reproducible baseline settling failure. Rapid commands, initial gait phase and long-run robustness remain unverified.",
+  "historical_packet_document_mismatch": [
+    "CURRENT.md",
+    "docs/RESEARCH_INDEX.md",
+    "docs/RESEARCH_HISTORY.md"
+  ]
+}
