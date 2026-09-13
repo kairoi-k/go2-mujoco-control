@@ -9,6 +9,23 @@
   "transition_event_window": "profile rise onset to next rise onset; endpoint is recorded separately because the profile sampler linearly interpolates",
   "tracking_lead_source": "run_metadata argv, expected 0.20 m/s",
   "overspeed_branch_source_condition": "shaped > 0.90 and measured - shaped > tracking_lead",
+  "platform_comparison": {
+    "platform_count": 7,
+    "repeat_count": 3,
+    "run_platform_count": 21,
+    "stance_kinematic_closer_run_platform_count": 18,
+    "planner_semantic_closer_run_platform_count": 3,
+    "stance_kinematic_closer_fraction": 0.8571428571428571,
+    "note": "The three planner-closer run-platforms are the varying 0.6 m/s repeats; the other six platforms are stance-kinematic closer."
+  },
+  "conclusion_grades": {
+    "A_measured_closer_to_step_over_period": "PARTIALLY SUPPORTED",
+    "B_applied_governor_is_main_cause": "NOT SUPPORTED",
+    "C_governor_responds_to_prior_overspeed": "SUPPORTED",
+    "D_runtime_has_two_speed_semantics": "SUPPORTED",
+    "D2_semantic_mismatch_is_final_physical_settling_root_cause": "INCONCLUSIVE / UNPROVEN",
+    "E_evidence_sufficient_to_approve_single_variable_physical_ab": "SUPPORTED"
+  },
   "outputs": [
     "active_velocity_semantics.csv",
     "analysis_summary.json",
