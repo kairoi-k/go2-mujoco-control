@@ -115,6 +115,21 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_diagnostics_.enabled = true;
     const bool closure_diag =
         Full2EnvDouble("TROT_DIAG_ID_CLOSURE", 0.0) > 0.5;
+    const double closure_tick_s =
+        static_cast<double>(state_snapshot.tick()) * 0.001;
+    const bool closure_capture =
+        closure_diag && closure_tick_s >= 30.0 && closure_tick_s < 34.0 &&
+        (state_snapshot.tick() % 10U == 0U);
+    wbc_shadow_diagnostics_.closure_diag_enabled = closure_capture;
+    wbc_shadow_diagnostics_.closure_solver_returned = false;
+    wbc_shadow_diagnostics_.closure_contact_mask = 0;
+    wbc_shadow_diagnostics_.closure_force_post_delta_norm = 0.0;
+    wbc_shadow_diagnostics_.closure_tau_post_delta_norm = 0.0;
+    if (!closure_capture)
+    {
+        wbc_shadow_diagnostics_.closure_solver = {};
+        wbc_shadow_diagnostics_.closure_final = {};
+    }
     if (!rigid_body_ || !rigid_body_->loaded())
         return;
     const double pitch_abs = std::abs(
@@ -895,9 +910,8 @@ void TrotExperiment::UpdateWbcFull(
         return;
     }
 
-    if (closure_diag)
+    if (closure_capture)
     {
-        wbc_shadow_diagnostics_.closure_diag_enabled = true;
         wbc_shadow_diagnostics_.closure_solver_returned = solved;
         wbc_shadow_diagnostics_.closure_contact_mask = contact_mask;
         record_closure(
@@ -1070,7 +1084,7 @@ void TrotExperiment::UpdateWbcFull(
             wbc_out.tau[i] = std::clamp(wbc_out.tau[i], -35.0, 35.0);
     }
 
-    if (closure_diag)
+    if (closure_capture)
     {
         record_closure(
             wbc_out.qdd, wbc_out.force, wbc_out.tau,
