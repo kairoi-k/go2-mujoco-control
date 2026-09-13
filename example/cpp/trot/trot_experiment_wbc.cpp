@@ -115,12 +115,21 @@ void TrotExperiment::UpdateWbcFull(
     wbc_shadow_diagnostics_.enabled = true;
     const bool closure_diag =
         Full2EnvDouble("TROT_DIAG_ID_CLOSURE", 0.0) > 0.5;
-    const double closure_tick_s =
-        static_cast<double>(state_snapshot.tick()) * 0.001;
+    const double closure_active_time_s =
+        diagnostic_velocity_command_active_time_s_;
+    const bool closure_time_in_window =
+        closure_diag && velocity_command_state_.active &&
+        closure_active_time_s >= 31.9 && closure_active_time_s <= 33.1;
+    if (!closure_time_in_window)
+        closure_last_capture_active_time_s_ = -1.0e9;
     const bool closure_capture =
-        closure_diag && closure_tick_s >= 30.0 && closure_tick_s < 34.0 &&
-        (state_snapshot.tick() % 10U == 0U);
+        closure_time_in_window &&
+        closure_active_time_s - closure_last_capture_active_time_s_ >= 0.009;
+    if (closure_capture)
+        closure_last_capture_active_time_s_ = closure_active_time_s;
     wbc_shadow_diagnostics_.closure_diag_enabled = closure_capture;
+    wbc_shadow_diagnostics_.closure_active_relative_time_s =
+        velocity_command_state_.active ? closure_active_time_s : 0.0;
     wbc_shadow_diagnostics_.closure_solver_returned = false;
     wbc_shadow_diagnostics_.closure_contact_mask = 0;
     wbc_shadow_diagnostics_.closure_force_post_delta_norm = 0.0;
@@ -240,6 +249,20 @@ void TrotExperiment::UpdateWbcFull(
             snapshot.mx_rest_qdd_x =
                 dyn.mass_matrix.row(0).dot(qdd) - snapshot.mx0_qdd_x;
             snapshot.h_x = dyn.bias[0];
+            for (int row = 0; row < 18; ++row)
+            {
+                snapshot.bias[static_cast<std::size_t>(row)] = dyn.bias[row];
+                for (int col = 0; col < 18; ++col)
+                    snapshot.mass_matrix[
+                        static_cast<std::size_t>(row * 18 + col)] =
+                        dyn.mass_matrix(row, col);
+            }
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+                for (int row = 0; row < 3; ++row)
+                    for (int col = 0; col < 18; ++col)
+                        snapshot.foot_jac_world[
+                            static_cast<std::size_t>(leg * 54 + row * 18 + col)] =
+                            dyn.foot_jac_world[leg](row, col);
         };
 
     std::array<bool, go2::kLegCount> measured_contact{};

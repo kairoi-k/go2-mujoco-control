@@ -234,7 +234,14 @@ bool TrotExperiment::BuildGaitTargets(
     }
     const bool runtime_velocity_command = params_.runtime_velocity_command;
     if (runtime_velocity_command)
+    {
         UpdateRuntimeVelocityCommand(gait_time_s);
+        diagnostic_velocity_command_active_time_s_ = gait_time_s;
+    }
+    else
+    {
+        diagnostic_velocity_command_active_time_s_ = 0.0;
+    }
     const double requested_speed = runtime_velocity_command
         ? velocity_command_state_.shaped_mps
         : std::abs(

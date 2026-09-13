@@ -83,6 +83,7 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_full_velocity_target_x_mps,wbc_full_requested_acc_x_mps2"
          << ",wbc_full_srbd_acc_x_mps2,wbc_full_id_qdd_x_mps2"
          << ",wbc_full_id_contact_force_x_n"
+         << ",diag_active_relative_time_s"
          << ",diag_closure_enabled,diag_solver_returned,diag_contact_mask"
          << ",diag_force_post_delta_norm,diag_tau_post_delta_norm";
     for (int i = 0; i < 18; ++i)
@@ -137,6 +138,172 @@ void TrotExperiment::WriteCsvHeader()
              << "," << kMotorNames[i] << "_q_error";
     }
     csv_ << "\n";
+}
+
+void TrotExperiment::WriteClosureCsvHeader()
+{
+    closure_csv_
+        << "active_relative_time_s,state_tick_s,running_time_s"
+        << ",velocity_requested_mps,velocity_shaped_mps,velocity_applied_mps"
+        << ",velocity_measured_mps,kernel_nominal_velocity_mps"
+        << ",period_s,duty,step_length_m,foot_lift_m"
+        << ",wbc_desired_ax_mps2,srbd_ax_mps2,id_qdd_x_mps2"
+        << ",id_simple_sum_fx_n,realized_body_velocity_x_mps"
+        << ",roll_rad,pitch_rad,base_world_vx_mps,base_body_vx_mps"
+        << ",solver_returned,solver_contact_mask,physical_contact_mask"
+        << ",contact_count,wbc_solver_ok,wbc_srbd_ok,wbc_id_ok"
+        << ",id_eq_residual,torque_saturation_max"
+        << ",closure_full_residual_max,closure_base_residual_max"
+        << ",closure_base_x_residual"
+        << ",closure_mx0_qdd_x,closure_mx_rest_qdd_x,closure_h_x"
+        << ",closure_base_lhs_x,closure_base_jtf_x,closure_base_rhs_x"
+        << ",closure_jtf_fr_x,closure_jtf_fl_x,closure_jtf_rr_x,closure_jtf_rl_x"
+        << ",closure_sum_jtf_base_x,closure_simple_sum_fx_n";
+    for (int i = 0; i < 18; ++i)
+        closure_csv_ << ",qdd_" << i;
+    for (int i = 0; i < 12; ++i)
+        closure_csv_ << ",solver_force_" << i;
+    for (int i = 0; i < 12; ++i)
+        closure_csv_ << ",solver_tau_" << i;
+    for (int i = 0; i < 12; ++i)
+        closure_csv_ << ",final_force_" << i;
+    for (int i = 0; i < 12; ++i)
+        closure_csv_ << ",final_tau_" << i;
+    for (int i = 0; i < 18 * 18; ++i)
+        closure_csv_ << ",mass_" << i;
+    for (int i = 0; i < 18; ++i)
+        closure_csv_ << ",bias_" << i;
+    for (int i = 0; i < go2::kLegCount * 3 * 18; ++i)
+        closure_csv_ << ",jworld_" << i;
+    for (int i = 0; i < kMotorCount; ++i)
+        closure_csv_ << ",motor_" << i
+                     << "_q_des,motor_" << i
+                     << "_dq_des,motor_" << i
+                     << "_kp,motor_" << i
+                     << "_kd,motor_" << i
+                     << "_tau_ff,motor_" << i
+                     << "_q_state,motor_" << i
+                     << "_dq_state,motor_" << i
+                     << "_tau_est,motor_" << i
+                     << "_tau_effective";
+    closure_csv_ << "\n";
+}
+
+void TrotExperiment::WriteClosureCsvSample(
+    const unitree_go::msg::dds_::LowState_ &state_snapshot,
+    bool have_state,
+    const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
+    bool have_high_state)
+{
+    (void)high_state_snapshot;
+    (void)have_high_state;
+    if (!closure_csv_.is_open() ||
+        !wbc_shadow_diagnostics_.closure_diag_enabled ||
+        !wbc_shadow_diagnostics_.closure_solver.valid)
+        return;
+    const auto &solver = wbc_shadow_diagnostics_.closure_solver;
+    const auto &final = wbc_shadow_diagnostics_.closure_final;
+    int physical_mask = 0;
+    int contact_count = 0;
+    if (have_state)
+    {
+        for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+        {
+            if (state_snapshot.foot_force()[leg] >= kContactForceThreshold)
+            {
+                physical_mask |= 1 << leg;
+                ++contact_count;
+            }
+        }
+    }
+    const double body_vx = have_filtered_body_velocity_
+        ? latest_filtered_body_velocity_[0] : 0.0;
+    const double world_vx = have_world_velocity_ ? latest_world_velocity_[0] : 0.0;
+    const double roll = have_state ? state_snapshot.imu_state().rpy()[0] : 0.0;
+    const double pitch = have_state ? state_snapshot.imu_state().rpy()[1] : 0.0;
+    double full_residual_max = 0.0;
+    double base_residual_max = 0.0;
+    for (double value : solver.residual)
+        full_residual_max = std::max(full_residual_max, std::abs(value));
+    for (double value : solver.base_residual)
+        base_residual_max = std::max(base_residual_max, std::abs(value));
+    closure_csv_ << wbc_shadow_diagnostics_.closure_active_relative_time_s
+                 << "," << (have_state ? state_snapshot.tick() * 0.001 : 0.0)
+                 << "," << running_time_
+                 << "," << velocity_command_state_.requested_mps
+                 << "," << velocity_command_state_.shaped_mps
+                 << "," << velocity_command_state_.applied_mps
+                 << "," << body_vx
+                 << "," << kernel_nominal_velocity_x_mps_
+                 << "," << kernel_period_s_
+                 << "," << kernel_duty_factor_
+                 << "," << runtime_gait_step_length_m_
+                 << "," << runtime_gait_foot_lift_m_
+                 << "," << wbc_shadow_diagnostics_.full_requested_acc_x_mps2
+                 << "," << wbc_shadow_diagnostics_.full_srbd_acc_x_mps2
+                 << "," << wbc_shadow_diagnostics_.full_id_qdd_x_mps2
+                 << "," << wbc_shadow_diagnostics_.full_id_contact_force_x_n
+                 << "," << body_vx
+                 << "," << roll << "," << pitch
+                 << "," << world_vx << "," << body_vx
+                 << "," << (wbc_shadow_diagnostics_.closure_solver_returned ? 1 : 0)
+                 << "," << wbc_shadow_diagnostics_.closure_contact_mask
+                 << "," << physical_mask << "," << contact_count
+                 << "," << (wbc_shadow_diagnostics_.solver_ok ? 1 : 0)
+                 << "," << (wbc_shadow_diagnostics_.srbd_ok ? 1 : 0)
+                 << "," << (wbc_shadow_diagnostics_.id_wbc_ok ? 1 : 0)
+                 << "," << wbc_shadow_diagnostics_.id_eq_residual
+                 << "," << wbc_shadow_diagnostics_.max_abs_tau
+                 << "," << full_residual_max
+                 << "," << base_residual_max
+                 << "," << solver.base_residual[0]
+                 << "," << solver.mx0_qdd_x
+                 << "," << solver.mx_rest_qdd_x
+                 << "," << solver.h_x
+                 << "," << solver.base_lhs[0]
+                 << "," << solver.base_jtf[0]
+                 << "," << solver.base_rhs[0]
+                 << "," << solver.leg_base_jtf_x[0]
+                 << "," << solver.leg_base_jtf_x[1]
+                 << "," << solver.leg_base_jtf_x[2]
+                 << "," << solver.leg_base_jtf_x[3]
+                 << "," << solver.base_jtf[0]
+                 << "," << wbc_shadow_diagnostics_.full_id_contact_force_x_n;
+    for (double value : solver.qdd)
+        closure_csv_ << "," << value;
+    for (double value : solver.force)
+        closure_csv_ << "," << value;
+    for (double value : solver.tau)
+        closure_csv_ << "," << value;
+    for (double value : final.force)
+        closure_csv_ << "," << value;
+    for (double value : final.tau)
+        closure_csv_ << "," << value;
+    for (double value : solver.mass_matrix)
+        closure_csv_ << "," << value;
+    for (double value : solver.bias)
+        closure_csv_ << "," << value;
+    for (double value : solver.foot_jac_world)
+        closure_csv_ << "," << value;
+    for (int i = 0; i < kMotorCount; ++i)
+    {
+        const auto &cmd = low_cmd_.motor_cmd()[i];
+        const double q = have_state ? state_snapshot.motor_state()[i].q() : 0.0;
+        const double dq = have_state ? state_snapshot.motor_state()[i].dq() : 0.0;
+        const double tau_est = have_state ? state_snapshot.motor_state()[i].tau_est() : 0.0;
+        const double tau_effective = cmd.tau() + cmd.kp() * (cmd.q() - q) +
+            cmd.kd() * (cmd.dq() - dq);
+        closure_csv_ << "," << cmd.q()
+                     << "," << cmd.dq()
+                     << "," << cmd.kp()
+                     << "," << cmd.kd()
+                     << "," << cmd.tau()
+                     << "," << q
+                     << "," << dq
+                     << "," << tau_est
+                     << "," << tau_effective;
+    }
+    closure_csv_ << "\n";
 }
 
 // --- TrotExperiment::ResetCycleDiagnostics ---
@@ -728,6 +895,7 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.full_srbd_acc_x_mps2
          << "," << wbc_shadow_diagnostics_.full_id_qdd_x_mps2
          << "," << wbc_shadow_diagnostics_.full_id_contact_force_x_n
+         << "," << wbc_shadow_diagnostics_.closure_active_relative_time_s
          << "," << (wbc_shadow_diagnostics_.closure_diag_enabled ? 1 : 0)
          << "," << (wbc_shadow_diagnostics_.closure_solver_returned ? 1 : 0)
          << "," << wbc_shadow_diagnostics_.closure_contact_mask
@@ -801,4 +969,6 @@ void TrotExperiment::LogSample(
              << "," << (motor_cmd.q() - q_state);
     }
     csv_ << "\n";
+    WriteClosureCsvSample(
+        state_snapshot, have_state, high_state_snapshot, have_high_state);
 }

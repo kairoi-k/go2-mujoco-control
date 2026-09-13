@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -167,6 +168,19 @@ bool TrotExperiment::Init()
     }
     csv_ << std::fixed << std::setprecision(9);
     WriteCsvHeader();
+    const char *closure_diag_env = std::getenv("TROT_DIAG_ID_CLOSURE");
+    if (closure_diag_env != nullptr && std::atof(closure_diag_env) > 0.5)
+    {
+        closure_csv_.open(csv_path_ + ".id_closure.csv");
+        if (!closure_csv_)
+        {
+            std::cerr << "Failed to open closure CSV: "
+                      << csv_path_ << ".id_closure.csv\n";
+            return false;
+        }
+        closure_csv_ << std::fixed << std::setprecision(9);
+        WriteClosureCsvHeader();
+    }
     InitLowCmd();
 
     if (params_.wbc_full)
@@ -258,6 +272,7 @@ void TrotExperiment::Shutdown()
     if (low_cmd_write_thread_.joinable())
         low_cmd_write_thread_.join();
     csv_.close();
+    closure_csv_.close();
 }
 
 // --- TrotExperiment::RequestStop ---

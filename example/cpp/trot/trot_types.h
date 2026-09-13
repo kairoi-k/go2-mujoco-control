@@ -264,6 +264,9 @@ struct WbcClosureSnapshot
     double mx0_qdd_x = 0.0;
     double mx_rest_qdd_x = 0.0;
     double h_x = 0.0;
+    std::array<double, 18 * 18> mass_matrix{};
+    std::array<double, 18> bias{};
+    std::array<double, go2::kLegCount * 3 * 18> foot_jac_world{};
 };
 
 struct WbcShadowDiagnostics
@@ -296,6 +299,7 @@ struct WbcShadowDiagnostics
     bool id_wbc_ok = false;
     double id_eq_residual = 0.0;
     bool closure_diag_enabled = false;
+    double closure_active_relative_time_s = 0.0;
     bool closure_solver_returned = false;
     int closure_contact_mask = 0;
     double closure_force_post_delta_norm = 0.0;

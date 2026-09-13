@@ -83,6 +83,12 @@ private:
     void EnvironmentHeightMapMessageHandler(const void *message);
     void InitLowCmd();
     void WriteCsvHeader();
+    void WriteClosureCsvHeader();
+    void WriteClosureCsvSample(
+        const unitree_go::msg::dds_::LowState_ &state_snapshot,
+        bool have_state,
+        const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot,
+        bool have_high_state);
     bool WaitForNaturalSettle(double timeout_s);
     bool CaptureWorldReference();
     void LowStateMessageHandler(const void *message);
@@ -312,6 +318,8 @@ private:
     double runtime_gait_step_length_m_ = 0.0;
     double runtime_gait_foot_lift_m_ = 0.0;
     std::string runtime_gait_regime_ = "inactive";
+    double diagnostic_velocity_command_active_time_s_ = 0.0;
+    double closure_last_capture_active_time_s_ = -1.0e9;
     std::size_t period_plan_index_ = 0;
     double wbc_speed_cmd_mps_ = -1.0;
     // Optional health-aware cap for the sprint curriculum. It is disabled
@@ -384,6 +392,7 @@ private:
 
     std::mutex state_mutex_;
     std::ofstream csv_;
+    std::ofstream closure_csv_;
     std::atomic<bool> finished_{false};
     ChannelSubscriberPtr<unitree_go::msg::dds_::HeightMap_>
         environment_heightmap_subscriber_;
