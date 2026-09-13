@@ -1,0 +1,47 @@
+diff --git a/example/cpp/trot/trot_experiment_gait.cpp b/example/cpp/trot/trot_experiment_gait.cpp
+index d057c2f..c99dbe2 100644
+--- a/example/cpp/trot/trot_experiment_gait.cpp
++++ b/example/cpp/trot/trot_experiment_gait.cpp
+@@ -196,11 +196,11 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
+     {
+         applied_mps = high_speed_health_cap_mps_;
+     }
+     velocity_command_state_.applied_mps = applied_mps;
+     const auto schedule = ScheduleContinuousVelocityGait(applied_mps);
+-    locomotion_kernel_->SetGaitEffectiveSpeedConvention(true);
++    locomotion_kernel_->SetGaitEffectiveSpeedConvention(false);
+     locomotion_kernel_->SetGaitSlewLimits(0.060, 0.020, 0.020);
+     locomotion_kernel_->SetGaitPeriod(schedule.period_s);
+     locomotion_kernel_->SetGaitDuty(schedule.duty_factor);
+     locomotion_kernel_->SetGaitStepLength(schedule.step_length_m);
+     locomotion_kernel_->SetGaitFootLift(schedule.foot_lift_m);
+@@ -245,11 +245,11 @@ bool TrotExperiment::BuildGaitTargets(
+         !runtime_velocity_command &&
+         Full2EnvDouble("TROT_HS_DISABLE", 0.0) <= 0.5 &&
+         (params_.gait_pattern != go2_control::GaitPattern::kDiagonalTrot ||
+          requested_speed > 1.25);
+     locomotion_kernel_->SetGaitEffectiveSpeedConvention(
+-        params_.wbc_full && (high_speed_curriculum || runtime_velocity_command));
++        params_.wbc_full && high_speed_curriculum);
+     const double swing_reach_override = Full2EnvDouble(
+         "TROT_HS_SWING_REACH", -1.0);
+     if (swing_reach_override >= 0.5)
+         locomotion_kernel_->SetGaitSwingReachPhase(
+             std::clamp(swing_reach_override, 0.5, 1.0));
+diff --git a/example/cpp/trot/velocity_command.h b/example/cpp/trot/velocity_command.h
+index b2bb941..4358e4d 100644
+--- a/example/cpp/trot/velocity_command.h
++++ b/example/cpp/trot/velocity_command.h
+@@ -192,11 +192,10 @@ inline ContinuousVelocityGaitSchedule ScheduleContinuousVelocityGait(
+     const double blend = normalized * normalized * (3.0 - 2.0 * normalized);
+     ContinuousVelocityGaitSchedule schedule;
+     // Preserve the validated running-trot contact timing across commands.
+     schedule.period_s = 0.14;
+     schedule.duty_factor = 0.44;
+-    schedule.step_length_m = speed * schedule.period_s /
+-        std::max(0.20, 2.0 * schedule.duty_factor);
++    schedule.step_length_m = speed * schedule.period_s;
+     schedule.foot_lift_m = 0.200 * blend;
+     return schedule;
+ }
+ }  // namespace go2_trot
