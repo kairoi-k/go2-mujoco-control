@@ -1,0 +1,9 @@
+arm,run_id,window,start_s,end_s,usable,requested_mps,shaped_mps,applied_mps,measured_mps,tracking_error_mps,realized_ax_mps2,wbc_desired_ax_mps2,srbd_ax_mps2,id_qdd_x_mps2,id_solver_tau_ff_nm,pd_torque_nm,effective_actuator_command_nm,internal_contact_mask,physical_contact_mask,roll_rad,pitch_rad,status
+A,varying_20260913_202733,pre-pulse,31.90,32.10,0,,,,,,,,,,,,,,,not_reached_active_time_max_19.362064
+A,varying_20260913_202733,early-pulse,32.10,32.20,0,,,,,,,,,,,,,,,not_reached_active_time_max_19.362064
+A,varying_20260913_202733,late-pulse,32.20,32.40,0,,,,,,,,,,,,,,,not_reached_active_time_max_19.362064
+A,varying_20260913_202733,recovery,32.40,32.60,0,,,,,,,,,,,,,,,not_reached_active_time_max_19.362064
+B,,pre-pulse,31.90,32.10,0,,,,,,,,,,,,,,,not_run_after_A_invalid
+B,,early-pulse,32.10,32.20,0,,,,,,,,,,,,,,,not_run_after_A_invalid
+B,,late-pulse,32.20,32.40,0,,,,,,,,,,,,,,,not_run_after_A_invalid
+B,,recovery,32.40,32.60,0,,,,,,,,,,,,,,,not_run_after_A_invalid
