@@ -82,7 +82,48 @@ void TrotExperiment::WriteCsvHeader()
          << ",wbc_full_srbd_ok,wbc_full_id_ok,wbc_full_eq_residual"
          << ",wbc_full_velocity_target_x_mps,wbc_full_requested_acc_x_mps2"
          << ",wbc_full_srbd_acc_x_mps2,wbc_full_id_qdd_x_mps2"
-         << ",wbc_full_id_contact_force_x_n";
+         << ",wbc_full_id_contact_force_x_n"
+         << ",diag_closure_enabled,diag_solver_returned,diag_contact_mask"
+         << ",diag_force_post_delta_norm,diag_tau_post_delta_norm";
+    for (int i = 0; i < 18; ++i)
+        csv_ << ",diag_solver_qdd_" << i;
+    for (int i = 0; i < 12; ++i)
+        csv_ << ",diag_solver_force_" << i;
+    for (int i = 0; i < 12; ++i)
+        csv_ << ",diag_solver_tau_" << i;
+    for (int i = 0; i < 18; ++i)
+        csv_ << ",diag_solver_lhs_" << i;
+    for (int i = 0; i < 18; ++i)
+        csv_ << ",diag_solver_rhs_" << i;
+    for (int i = 0; i < 18; ++i)
+        csv_ << ",diag_solver_residual_" << i;
+    for (int i = 0; i < 6; ++i)
+        csv_ << ",diag_solver_base_lhs_" << i;
+    for (int i = 0; i < 6; ++i)
+        csv_ << ",diag_solver_base_jtf_" << i;
+    for (int i = 0; i < 6; ++i)
+        csv_ << ",diag_solver_base_rhs_" << i;
+    for (int i = 0; i < 6; ++i)
+        csv_ << ",diag_solver_base_residual_" << i;
+    for (int i = 0; i < 4; ++i)
+        csv_ << ",diag_solver_leg_base_jtf_x_" << i;
+    csv_ << ",diag_solver_mx0_qdd_x,diag_solver_mx_rest_qdd_x,diag_solver_h_x";
+    for (int i = 0; i < 12; ++i)
+        csv_ << ",diag_final_force_" << i;
+    for (int i = 0; i < 12; ++i)
+        csv_ << ",diag_final_tau_" << i;
+    for (int i = 0; i < 18; ++i)
+        csv_ << ",diag_final_rhs_" << i;
+    for (int i = 0; i < 18; ++i)
+        csv_ << ",diag_final_residual_" << i;
+    for (int i = 0; i < 6; ++i)
+        csv_ << ",diag_final_base_jtf_" << i;
+    for (int i = 0; i < 6; ++i)
+        csv_ << ",diag_final_base_rhs_" << i;
+    for (int i = 0; i < 6; ++i)
+        csv_ << ",diag_final_base_residual_" << i;
+    for (int i = 0; i < 4; ++i)
+        csv_ << ",diag_final_leg_base_jtf_x_" << i;
     for (int i = 0; i < kMotorCount; ++i)
     {
         csv_ << "," << kMotorNames[i] << "_q_target"
@@ -686,7 +727,55 @@ void TrotExperiment::LogSample(
          << "," << wbc_shadow_diagnostics_.full_requested_acc_x_mps2
          << "," << wbc_shadow_diagnostics_.full_srbd_acc_x_mps2
          << "," << wbc_shadow_diagnostics_.full_id_qdd_x_mps2
-         << "," << wbc_shadow_diagnostics_.full_id_contact_force_x_n;
+         << "," << wbc_shadow_diagnostics_.full_id_contact_force_x_n
+         << "," << (wbc_shadow_diagnostics_.closure_diag_enabled ? 1 : 0)
+         << "," << (wbc_shadow_diagnostics_.closure_solver_returned ? 1 : 0)
+         << "," << wbc_shadow_diagnostics_.closure_contact_mask
+         << "," << wbc_shadow_diagnostics_.closure_force_post_delta_norm
+         << "," << wbc_shadow_diagnostics_.closure_tau_post_delta_norm;
+    const auto &solver_closure = wbc_shadow_diagnostics_.closure_solver;
+    const auto &final_closure = wbc_shadow_diagnostics_.closure_final;
+    for (double value : solver_closure.qdd)
+        csv_ << "," << value;
+    for (double value : solver_closure.force)
+        csv_ << "," << value;
+    for (double value : solver_closure.tau)
+        csv_ << "," << value;
+    for (double value : solver_closure.lhs)
+        csv_ << "," << value;
+    for (double value : solver_closure.rhs)
+        csv_ << "," << value;
+    for (double value : solver_closure.residual)
+        csv_ << "," << value;
+    for (double value : solver_closure.base_lhs)
+        csv_ << "," << value;
+    for (double value : solver_closure.base_jtf)
+        csv_ << "," << value;
+    for (double value : solver_closure.base_rhs)
+        csv_ << "," << value;
+    for (double value : solver_closure.base_residual)
+        csv_ << "," << value;
+    for (double value : solver_closure.leg_base_jtf_x)
+        csv_ << "," << value;
+    csv_ << "," << solver_closure.mx0_qdd_x
+         << "," << solver_closure.mx_rest_qdd_x
+         << "," << solver_closure.h_x;
+    for (double value : final_closure.force)
+        csv_ << "," << value;
+    for (double value : final_closure.tau)
+        csv_ << "," << value;
+    for (double value : final_closure.rhs)
+        csv_ << "," << value;
+    for (double value : final_closure.residual)
+        csv_ << "," << value;
+    for (double value : final_closure.base_jtf)
+        csv_ << "," << value;
+    for (double value : final_closure.base_rhs)
+        csv_ << "," << value;
+    for (double value : final_closure.base_residual)
+        csv_ << "," << value;
+    for (double value : final_closure.leg_base_jtf_x)
+        csv_ << "," << value;
 
     // SECTION: log-joint-cmds (cmd vs state per joint)
     for (int i = 0; i < kMotorCount; ++i)

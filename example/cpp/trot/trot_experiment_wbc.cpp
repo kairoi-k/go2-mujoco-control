@@ -113,6 +113,8 @@ void TrotExperiment::UpdateWbcFull(
     const unitree_go::msg::dds_::SportModeState_ &high_state_snapshot)
 {
     wbc_shadow_diagnostics_.enabled = true;
+    const bool closure_diag =
+        Full2EnvDouble("TROT_DIAG_ID_CLOSURE", 0.0) > 0.5;
     if (!rigid_body_ || !rigid_body_->loaded())
         return;
     const double pitch_abs = std::abs(
@@ -174,6 +176,56 @@ void TrotExperiment::UpdateWbcFull(
                   << " com_z=" << dyn.com_world.z()
                   << " bias_z=" << dyn.bias[2] << "\n";
     }
+
+    const auto record_closure =
+        [&](const Eigen::Matrix<double, 18, 1> &qdd,
+            const Eigen::Matrix<double, 12, 1> &force,
+            const Eigen::Matrix<double, 12, 1> &tau,
+            go2_trot::WbcClosureSnapshot &snapshot) {
+            snapshot = go2_trot::WbcClosureSnapshot{};
+            snapshot.valid = true;
+            const Eigen::Matrix<double, 12, 18> J =
+                go2_control::StackFootJacobian(dyn);
+            const Eigen::Matrix<double, 18, 1> lhs =
+                dyn.mass_matrix * qdd + dyn.bias;
+            Eigen::Matrix<double, 18, 1> rhs =
+                Eigen::Matrix<double, 18, 1>::Zero();
+            rhs.tail<12>() = tau;
+            rhs += J.transpose() * force;
+            const Eigen::Matrix<double, 18, 1> residual = lhs - rhs;
+            const Eigen::Matrix<double, 6, 1> base_jtf =
+                (J.transpose() * force).head<6>();
+            for (int i = 0; i < 18; ++i)
+            {
+                snapshot.qdd[static_cast<std::size_t>(i)] = qdd[i];
+                snapshot.lhs[static_cast<std::size_t>(i)] = lhs[i];
+                snapshot.rhs[static_cast<std::size_t>(i)] = rhs[i];
+                snapshot.residual[static_cast<std::size_t>(i)] = residual[i];
+            }
+            for (int i = 0; i < 12; ++i)
+            {
+                snapshot.force[static_cast<std::size_t>(i)] = force[i];
+                snapshot.tau[static_cast<std::size_t>(i)] = tau[i];
+            }
+            for (int i = 0; i < 6; ++i)
+            {
+                snapshot.base_lhs[static_cast<std::size_t>(i)] = lhs[i];
+                snapshot.base_jtf[static_cast<std::size_t>(i)] = base_jtf[i];
+                snapshot.base_rhs[static_cast<std::size_t>(i)] = rhs[i];
+                snapshot.base_residual[static_cast<std::size_t>(i)] = residual[i];
+            }
+            for (std::size_t leg = 0; leg < go2::kLegCount; ++leg)
+            {
+                const Eigen::Matrix<double, 6, 1> leg_jtf =
+                    dyn.foot_jac_world[leg].leftCols<6>().transpose() *
+                    force.segment<3>(3 * static_cast<int>(leg));
+                snapshot.leg_base_jtf_x[leg] = leg_jtf[0];
+            }
+            snapshot.mx0_qdd_x = dyn.mass_matrix(0, 0) * qdd[0];
+            snapshot.mx_rest_qdd_x =
+                dyn.mass_matrix.row(0).dot(qdd) - snapshot.mx0_qdd_x;
+            snapshot.h_x = dyn.bias[0];
+        };
 
     std::array<bool, go2::kLegCount> measured_contact{};
     const go2_control::HystereticContactParams contact_params{
@@ -843,6 +895,16 @@ void TrotExperiment::UpdateWbcFull(
         return;
     }
 
+    if (closure_diag)
+    {
+        wbc_shadow_diagnostics_.closure_diag_enabled = true;
+        wbc_shadow_diagnostics_.closure_solver_returned = solved;
+        wbc_shadow_diagnostics_.closure_contact_mask = contact_mask;
+        record_closure(
+            wbc_out.qdd, wbc_out.force, wbc_out.tau,
+            wbc_shadow_diagnostics_.closure_solver);
+    }
+
     // Sprint-only pitch moment trim.  The ID-WBC task can lose the small
     // front/rear normal-force split needed to hold the torso while the
     // diagonal pair is accelerating.  Redistribute a bounded amount of
@@ -1006,6 +1068,28 @@ void TrotExperiment::UpdateWbcFull(
         wbc_out.tau += tau_pd;
         for (int i = 0; i < 12; ++i)
             wbc_out.tau[i] = std::clamp(wbc_out.tau[i], -35.0, 35.0);
+    }
+
+    if (closure_diag)
+    {
+        record_closure(
+            wbc_out.qdd, wbc_out.force, wbc_out.tau,
+            wbc_shadow_diagnostics_.closure_final);
+        Eigen::Matrix<double, 12, 1> force_delta;
+        Eigen::Matrix<double, 12, 1> tau_delta;
+        for (int i = 0; i < 12; ++i)
+        {
+            force_delta[i] =
+                wbc_shadow_diagnostics_.closure_final.force[static_cast<std::size_t>(i)] -
+                wbc_shadow_diagnostics_.closure_solver.force[static_cast<std::size_t>(i)];
+            tau_delta[i] =
+                wbc_shadow_diagnostics_.closure_final.tau[static_cast<std::size_t>(i)] -
+                wbc_shadow_diagnostics_.closure_solver.tau[static_cast<std::size_t>(i)];
+        }
+        wbc_shadow_diagnostics_.closure_force_post_delta_norm =
+            force_delta.norm();
+        wbc_shadow_diagnostics_.closure_tau_post_delta_norm =
+            tau_delta.norm();
     }
 
     wbc_shadow_diagnostics_.solver_ok = true;

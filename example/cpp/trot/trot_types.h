@@ -247,6 +247,25 @@ struct CycleDiagnostics
     std::array<bool, go2::kLegCount> support_reference_valid{};
 };
 
+struct WbcClosureSnapshot
+{
+    bool valid = false;
+    std::array<double, 18> qdd{};
+    std::array<double, 12> force{};
+    std::array<double, 12> tau{};
+    std::array<double, 18> lhs{};
+    std::array<double, 18> rhs{};
+    std::array<double, 18> residual{};
+    std::array<double, 6> base_lhs{};
+    std::array<double, 6> base_jtf{};
+    std::array<double, 6> base_rhs{};
+    std::array<double, 6> base_residual{};
+    std::array<double, 4> leg_base_jtf_x{};
+    double mx0_qdd_x = 0.0;
+    double mx_rest_qdd_x = 0.0;
+    double h_x = 0.0;
+};
+
 struct WbcShadowDiagnostics
 {
     bool enabled = false;
@@ -276,6 +295,13 @@ struct WbcShadowDiagnostics
     double full_id_contact_force_x_n = 0.0;
     bool id_wbc_ok = false;
     double id_eq_residual = 0.0;
+    bool closure_diag_enabled = false;
+    bool closure_solver_returned = false;
+    int closure_contact_mask = 0;
+    double closure_force_post_delta_norm = 0.0;
+    double closure_tau_post_delta_norm = 0.0;
+    WbcClosureSnapshot closure_solver{};
+    WbcClosureSnapshot closure_final{};
     int feedforward_gate_code =
         static_cast<int>(go2_control::WbcFeedforwardGateCode::kDisabled);
     bool feedforward_ready = false;
