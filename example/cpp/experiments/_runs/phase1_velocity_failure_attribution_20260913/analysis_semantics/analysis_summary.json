@@ -1,0 +1,28 @@
+{
+  "analysis": "Phase1 velocity semantic and governor causality audit",
+  "controller_reproduction_sha": "a1d4e294092a39c8e649eda6f285ea2cfe01b05d",
+  "source_branch": "research/phase1-velocity-failure-attribution-20260913",
+  "source_commit": "cb0b7eb33d8ea2ae87ee92ada353ad814a5f087c",
+  "run_count": 6,
+  "active_row_count": 266418,
+  "platform_steady_window": "last 4 seconds of each 8 second constant platform: [start+4, stop); varying 0.6 uses [4,8)",
+  "transition_event_window": "profile rise onset to next rise onset; endpoint is recorded separately because the profile sampler linearly interpolates",
+  "tracking_lead_source": "run_metadata argv, expected 0.20 m/s",
+  "overspeed_branch_source_condition": "shaped > 0.90 and measured - shaped > tracking_lead",
+  "outputs": [
+    "active_velocity_semantics.csv",
+    "analysis_summary.json",
+    "history_evidence.json",
+    "platform_steady_stats.csv",
+    "platform_steady_stats.json",
+    "raw_run_sha256.csv",
+    "raw_run_sha256.json",
+    "run_summaries.json",
+    "steady_speed_semantics.svg",
+    "transition_aligned_samples.csv",
+    "transition_aligned_samples.json",
+    "transition_causal_timing.csv",
+    "transition_causal_timing.json",
+    "transition_causal_timing.svg"
+  ]
+}

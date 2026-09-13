@@ -1,0 +1,68 @@
+[
+  {
+    "scenario": "steps",
+    "run": "steps_20260913_130149",
+    "run_relative_path": "example/cpp/experiments/_runs/phase1_velocity_failure_attribution_20260913/steps_20260913_130149",
+    "data_csv_sha256": "845934a25f8adf2e449dd723defdfe29d1b4d82c76fd6a00a7f0a4157db03741",
+    "run_manifest_sha256": "55eee9f2ebd839fb44f244061e2921adbc615f6fbf7d9c43ea22db8965b000a2",
+    "run_metadata_sha256": "3b2d251b3c38a65fdf5bb4510c89eb97b7810b740779f1c0ff9feb27e4e335b0",
+    "active_rows": 47403,
+    "active_start_cmd_time_s": 4.300072559,
+    "tracking_lead_mps": 0.2
+  },
+  {
+    "scenario": "steps",
+    "run": "steps_20260913_130415",
+    "run_relative_path": "example/cpp/experiments/_runs/phase1_velocity_failure_attribution_20260913/steps_20260913_130415",
+    "data_csv_sha256": "85f36212a18d1d36aa6f5384e855d756ebb9066891cbead879b39c58e8ac7b38",
+    "run_manifest_sha256": "747643861c2e2d0f498daa5a27bdd6c4b9d091b0c4b2fe360b6787f6aaf24476",
+    "run_metadata_sha256": "9136e334e4ffa0ef93727039493d8511210ecf50393aeef5e4af527a9c9ab725",
+    "active_rows": 47404,
+    "active_start_cmd_time_s": 4.300076853,
+    "tracking_lead_mps": 0.2
+  },
+  {
+    "scenario": "steps",
+    "run": "steps_20260913_130640",
+    "run_relative_path": "example/cpp/experiments/_runs/phase1_velocity_failure_attribution_20260913/steps_20260913_130640",
+    "data_csv_sha256": "165a124ccf1d7c628ec0f88d10c117c3262be89bfeae02bddc51f9905f68a1d6",
+    "run_manifest_sha256": "2744d76f66509b2aa8dac9d7924f264ea60596c88106a821cb125a6710b380e0",
+    "run_metadata_sha256": "c12f048cb1d752c3b3564328ee29ebe76ed23e6dbac61de2d5e1a2a7981a75cd",
+    "active_rows": 47403,
+    "active_start_cmd_time_s": 4.30007468,
+    "tracking_lead_mps": 0.2
+  },
+  {
+    "scenario": "varying",
+    "run": "varying_20260913_130859",
+    "run_relative_path": "example/cpp/experiments/_runs/phase1_velocity_failure_attribution_20260913/varying_20260913_130859",
+    "data_csv_sha256": "cb650c98b4368ea2ea2cedc27ae2bebe3f7bd73eb871550fb76d254e4451aeb3",
+    "run_manifest_sha256": "2cd67304c99cb0ab406fb56704d3e6cdbcfcac9fc2fa2639afe89ead0eb2763e",
+    "run_metadata_sha256": "98b1e8b2b8bd3a46f0a053cf8983e2c33e53bf7723ba96599b6da12ecf13c77f",
+    "active_rows": 41402,
+    "active_start_cmd_time_s": 4.300072842,
+    "tracking_lead_mps": 0.2
+  },
+  {
+    "scenario": "varying",
+    "run": "varying_20260913_131059",
+    "run_relative_path": "example/cpp/experiments/_runs/phase1_velocity_failure_attribution_20260913/varying_20260913_131059",
+    "data_csv_sha256": "58258f40286bebb1c017eb7cefde16af0aacc12580d4f5d744b56222dec0a107",
+    "run_manifest_sha256": "71c1824feebecf6f772cc1b7f2edcab16f454a01f88a2e97518791002db941c2",
+    "run_metadata_sha256": "965fc0369e9b4073db925ccbffc9de1c31035408b1ac31dd849b17f31c55d7d3",
+    "active_rows": 41403,
+    "active_start_cmd_time_s": 4.300084482,
+    "tracking_lead_mps": 0.2
+  },
+  {
+    "scenario": "varying",
+    "run": "varying_20260913_131301",
+    "run_relative_path": "example/cpp/experiments/_runs/phase1_velocity_failure_attribution_20260913/varying_20260913_131301",
+    "data_csv_sha256": "10a6be6318cb48960e26e9e778379b28bf36a5251f02662d0db6f547d8c634a0",
+    "run_manifest_sha256": "ba3d35d60d801ea233f37fc429ed3b0917f10e6f577badf2496cb5b86443361e",
+    "run_metadata_sha256": "d0a07a7a90bc0e0aa28f84c26526e39eab9bc98e2702e5178f374824430a993a",
+    "active_rows": 41403,
+    "active_start_cmd_time_s": 4.300084436,
+    "tracking_lead_mps": 0.2
+  }
+]
