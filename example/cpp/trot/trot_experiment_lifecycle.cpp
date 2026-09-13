@@ -182,6 +182,9 @@ bool TrotExperiment::Init()
         WriteClosureCsvHeader();
     }
     InitLowCmd();
+    const char *pd_pulse_env = std::getenv("TROT_PD_PULSE_AB");
+    pd_pulse_enabled_ =
+        pd_pulse_env != nullptr && std::atof(pd_pulse_env) > 0.5;
 
     if (params_.wbc_full)
     {

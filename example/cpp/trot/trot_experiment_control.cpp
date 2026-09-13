@@ -1169,7 +1169,7 @@ void TrotExperiment::WriteMotorCommands(
     // velocity-command profile; all targets, ID/WBC outputs, and tau_ff stay
     // unchanged while only the simulator-side PD contribution is suppressed.
     const bool pd_pulse_active =
-        Full2EnvDouble("TROT_PD_PULSE_AB", 0.0) > 0.5 &&
+        pd_pulse_enabled_ &&
         gait_elapsed_s >= 32.10 && gait_elapsed_s < 32.40;
     if (wbc_primary_active)
     {

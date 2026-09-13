@@ -230,6 +230,7 @@ private:
     const go2_trot::TrotParams params_;
     const int max_cycles_;
     const bool continuous_mode_;
+    bool pd_pulse_enabled_ = false;
     const std::string stop_file_path_;
     go2_control::MotionSensorSample latest_motion_sensor_{};
     std::unique_ptr<go2_control::LocomotionKernel> locomotion_kernel_;
