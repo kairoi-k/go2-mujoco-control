@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <iostream>
 #include <vector>
 #include <limits>
@@ -193,6 +194,9 @@ public:
         std::recursive_mutex *sim_mutex)
         : UnitreeSDK2BridgeBase(model, data, sim_mutex)
     {
+        const char *tau_ff_only_env = std::getenv("TROT_BRIDGE_TAU_FF_ONLY");
+        tau_ff_only_ = tau_ff_only_env != nullptr &&
+            std::atof(tau_ff_only_env) > 0.5;
         lowcmd = std::make_shared<LowCmd_t>("rt/lowcmd");
         lowstate = std::make_unique<LowState_t>();
         lowstate->joystick = joystick;
@@ -315,9 +319,12 @@ public:
             std::lock_guard<std::mutex> lock(lowcmd->mutex_);
             for(int i(0); i<num_motor_; i++) {
                 auto & m = lowcmd->msg_.motor_cmd()[i];
-                mj_data_->ctrl[i] = m.tau() +
-                                    m.kp() * (m.q() - mj_data_->sensordata[i]) +
-                                    m.kd() * (m.dq() - mj_data_->sensordata[i + num_motor_]);
+                mj_data_->ctrl[i] = tau_ff_only_
+                    ? m.tau()
+                    : m.tau() +
+                        m.kp() * (m.q() - mj_data_->sensordata[i]) +
+                        m.kd() * (m.dq() -
+                                  mj_data_->sensordata[i + num_motor_]);
             }
         }
 
@@ -440,6 +447,7 @@ public:
     std::unique_ptr<LowState_t> lowstate;
     
 private:
+    bool tau_ff_only_ = false;
     double last_environment_map_publish_s_ = -1.0e9;
     unitree::common::RecurrentThreadPtr thread_;
 };
