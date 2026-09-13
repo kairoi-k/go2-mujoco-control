@@ -194,8 +194,7 @@ inline ContinuousVelocityGaitSchedule ScheduleContinuousVelocityGait(
     // Preserve the validated running-trot contact timing across commands.
     schedule.period_s = 0.14;
     schedule.duty_factor = 0.44;
-    schedule.step_length_m = speed * schedule.period_s /
-        std::max(0.20, 2.0 * schedule.duty_factor);
+    schedule.step_length_m = speed * schedule.period_s;
     schedule.foot_lift_m = 0.200 * blend;
     return schedule;
 }

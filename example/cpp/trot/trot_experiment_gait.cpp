@@ -198,7 +198,7 @@ void TrotExperiment::UpdateRuntimeVelocityCommand(double gait_time_s)
     }
     velocity_command_state_.applied_mps = applied_mps;
     const auto schedule = ScheduleContinuousVelocityGait(applied_mps);
-    locomotion_kernel_->SetGaitEffectiveSpeedConvention(true);
+    locomotion_kernel_->SetGaitEffectiveSpeedConvention(false);
     locomotion_kernel_->SetGaitSlewLimits(0.060, 0.020, 0.020);
     locomotion_kernel_->SetGaitPeriod(schedule.period_s);
     locomotion_kernel_->SetGaitDuty(schedule.duty_factor);
@@ -247,7 +247,7 @@ bool TrotExperiment::BuildGaitTargets(
         (params_.gait_pattern != go2_control::GaitPattern::kDiagonalTrot ||
          requested_speed > 1.25);
     locomotion_kernel_->SetGaitEffectiveSpeedConvention(
-        params_.wbc_full && (high_speed_curriculum || runtime_velocity_command));
+        params_.wbc_full && high_speed_curriculum);
     const double swing_reach_override = Full2EnvDouble(
         "TROT_HS_SWING_REACH", -1.0);
     if (swing_reach_override >= 0.5)
