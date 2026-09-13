@@ -1,0 +1,248 @@
+[
+  {
+    "scenario": "steps",
+    "run": "steps_20260913_130149",
+    "run_path": "/home/che/dev/go2-workspace/phase1-velocity-failure-attribution-20260913/example/cpp/experiments/_runs/phase1_velocity_failure_attribution_20260913/steps_20260913_130149",
+    "active_duration_s": 94.80399971599999,
+    "shaped_minus_applied_max_mps": 0.5,
+    "shaped_minus_applied_positive_fraction": 0.39400459886505074,
+    "shaped_minus_measured_abs_p95_mps": 0.34261548600000014,
+    "measured_profile_error_abs_p95_mps": 0.3426154859999997,
+    "period_range_s": [
+      0.14,
+      0.14
+    ],
+    "duty_range": [
+      0.44,
+      0.44
+    ],
+    "schedule_step_range_m": [
+      0.0,
+      0.443962446
+    ],
+    "schedule_foot_lift_range_m": [
+      0.0,
+      0.197213351
+    ],
+    "kernel_velocity_error_abs_p95_mps": 0.544934816,
+    "touchdown_x_abs_max_m": 0.069500035,
+    "touchdown_y_abs_max_m": 0.060647862,
+    "wbc_requested_acc_abs_p95_mps2": 5.595598162,
+    "wbc_srbd_acc_abs_p95_mps2": 5.996946198,
+    "wbc_id_contact_force_abs_p95_n": 43.912762498,
+    "wbc_status_fraction": {
+      "wbc_shadow_solver_ok": 1.0,
+      "wbc_shadow_within_budget": 0.8990148302850031,
+      "wbc_full_srbd_ok": 1.0,
+      "wbc_full_id_ok": 1.0,
+      "kernel_footstep_plan_valid": 1.0
+    },
+    "complete_1s_pass_count": 3,
+    "complete_1s_transition_count": 5
+  },
+  {
+    "scenario": "steps",
+    "run": "steps_20260913_130415",
+    "run_path": "/home/che/dev/go2-workspace/phase1-velocity-failure-attribution-20260913/example/cpp/experiments/_runs/phase1_velocity_failure_attribution_20260913/steps_20260913_130415",
+    "active_duration_s": 94.80213007,
+    "shaped_minus_applied_max_mps": 0.5,
+    "shaped_minus_applied_positive_fraction": 0.39338452451269934,
+    "shaped_minus_measured_abs_p95_mps": 0.3401643649999997,
+    "measured_profile_error_abs_p95_mps": 0.3401643648749997,
+    "period_range_s": [
+      0.14,
+      0.14
+    ],
+    "duty_range": [
+      0.44,
+      0.44
+    ],
+    "schedule_step_range_m": [
+      0.0,
+      0.444
+    ],
+    "schedule_foot_lift_range_m": [
+      0.0,
+      0.197219478
+    ],
+    "kernel_velocity_error_abs_p95_mps": 0.52348407,
+    "touchdown_x_abs_max_m": 0.073801322,
+    "touchdown_y_abs_max_m": 0.060611865,
+    "wbc_requested_acc_abs_p95_mps2": 5.511931582,
+    "wbc_srbd_acc_abs_p95_mps2": 5.834652313,
+    "wbc_id_contact_force_abs_p95_n": 43.259653517,
+    "wbc_status_fraction": {
+      "wbc_shadow_solver_ok": 1.0,
+      "wbc_shadow_within_budget": 0.8990169605940427,
+      "wbc_full_srbd_ok": 1.0,
+      "wbc_full_id_ok": 1.0,
+      "kernel_footstep_plan_valid": 1.0
+    },
+    "complete_1s_pass_count": 3,
+    "complete_1s_transition_count": 5
+  },
+  {
+    "scenario": "steps",
+    "run": "steps_20260913_130640",
+    "run_path": "/home/che/dev/go2-workspace/phase1-velocity-failure-attribution-20260913/example/cpp/experiments/_runs/phase1_velocity_failure_attribution_20260913/steps_20260913_130640",
+    "active_duration_s": 94.804000442,
+    "shaped_minus_applied_max_mps": 0.5,
+    "shaped_minus_applied_positive_fraction": 0.3984136025146088,
+    "shaped_minus_measured_abs_p95_mps": 0.352819835,
+    "measured_profile_error_abs_p95_mps": 0.35281983550000007,
+    "period_range_s": [
+      0.14,
+      0.14
+    ],
+    "duty_range": [
+      0.44,
+      0.44
+    ],
+    "schedule_step_range_m": [
+      0.0,
+      0.464991778
+    ],
+    "schedule_foot_lift_range_m": [
+      0.0,
+      0.199609548
+    ],
+    "kernel_velocity_error_abs_p95_mps": 0.54187012,
+    "touchdown_x_abs_max_m": 0.079301885,
+    "touchdown_y_abs_max_m": 0.055380326,
+    "wbc_requested_acc_abs_p95_mps2": 5.576371684,
+    "wbc_srbd_acc_abs_p95_mps2": 5.996812289,
+    "wbc_id_contact_force_abs_p95_n": 44.123745594,
+    "wbc_status_fraction": {
+      "wbc_shadow_solver_ok": 1.0,
+      "wbc_shadow_within_budget": 0.8990570217074869,
+      "wbc_full_srbd_ok": 1.0,
+      "wbc_full_id_ok": 1.0,
+      "kernel_footstep_plan_valid": 1.0
+    },
+    "complete_1s_pass_count": 3,
+    "complete_1s_transition_count": 5
+  },
+  {
+    "scenario": "varying",
+    "run": "varying_20260913_130859",
+    "run_path": "/home/che/dev/go2-workspace/phase1-velocity-failure-attribution-20260913/example/cpp/experiments/_runs/phase1_velocity_failure_attribution_20260913/varying_20260913_130859",
+    "active_duration_s": 82.802005209,
+    "shaped_minus_applied_max_mps": 0.2999999999999998,
+    "shaped_minus_applied_positive_fraction": 0.5630645862518718,
+    "shaped_minus_measured_abs_p95_mps": 0.38467902500000006,
+    "measured_profile_error_abs_p95_mps": 0.3890117860000002,
+    "period_range_s": [
+      0.14,
+      0.14
+    ],
+    "duty_range": [
+      0.44,
+      0.44
+    ],
+    "schedule_step_range_m": [
+      0.0,
+      0.434595459
+    ],
+    "schedule_foot_lift_range_m": [
+      0.0,
+      0.195488531
+    ],
+    "kernel_velocity_error_abs_p95_mps": 0.566458477,
+    "touchdown_x_abs_max_m": 0.067039608,
+    "touchdown_y_abs_max_m": 0.056771065,
+    "wbc_requested_acc_abs_p95_mps2": 4.0,
+    "wbc_srbd_acc_abs_p95_mps2": 5.864151804,
+    "wbc_id_contact_force_abs_p95_n": 38.594828681,
+    "wbc_status_fraction": {
+      "wbc_shadow_solver_ok": 1.0,
+      "wbc_shadow_within_budget": 0.871310564707019,
+      "wbc_full_srbd_ok": 1.0,
+      "wbc_full_id_ok": 1.0,
+      "kernel_footstep_plan_valid": 1.0
+    },
+    "complete_1s_pass_count": 2,
+    "complete_1s_transition_count": 5
+  },
+  {
+    "scenario": "varying",
+    "run": "varying_20260913_131059",
+    "run_path": "/home/che/dev/go2-workspace/phase1-velocity-failure-attribution-20260913/example/cpp/experiments/_runs/phase1_velocity_failure_attribution_20260913/varying_20260913_131059",
+    "active_duration_s": 82.803988456,
+    "shaped_minus_applied_max_mps": 0.2999999999999998,
+    "shaped_minus_applied_positive_fraction": 0.5597420476777045,
+    "shaped_minus_measured_abs_p95_mps": 0.37367099700000006,
+    "measured_profile_error_abs_p95_mps": 0.37714063706250034,
+    "period_range_s": [
+      0.14,
+      0.14
+    ],
+    "duty_range": [
+      0.44,
+      0.44
+    ],
+    "schedule_step_range_m": [
+      0.0,
+      0.436363636
+    ],
+    "schedule_foot_lift_range_m": [
+      0.0,
+      0.195843732
+    ],
+    "kernel_velocity_error_abs_p95_mps": 0.557738617,
+    "touchdown_x_abs_max_m": 0.061007073,
+    "touchdown_y_abs_max_m": 0.056474389,
+    "wbc_requested_acc_abs_p95_mps2": 4.0,
+    "wbc_srbd_acc_abs_p95_mps2": 5.798435458,
+    "wbc_id_contact_force_abs_p95_n": 38.249765896,
+    "wbc_status_fraction": {
+      "wbc_shadow_solver_ok": 1.0,
+      "wbc_shadow_within_budget": 0.8709513803347584,
+      "wbc_full_srbd_ok": 1.0,
+      "wbc_full_id_ok": 1.0,
+      "kernel_footstep_plan_valid": 1.0
+    },
+    "complete_1s_pass_count": 2,
+    "complete_1s_transition_count": 5
+  },
+  {
+    "scenario": "varying",
+    "run": "varying_20260913_131301",
+    "run_path": "/home/che/dev/go2-workspace/phase1-velocity-failure-attribution-20260913/example/cpp/experiments/_runs/phase1_velocity_failure_attribution_20260913/varying_20260913_131301",
+    "active_duration_s": 82.803994354,
+    "shaped_minus_applied_max_mps": 0.27522510600000016,
+    "shaped_minus_applied_positive_fraction": 0.5675675675675675,
+    "shaped_minus_measured_abs_p95_mps": 0.3841265680000001,
+    "measured_profile_error_abs_p95_mps": 0.3881384840000002,
+    "period_range_s": [
+      0.14,
+      0.14
+    ],
+    "duty_range": [
+      0.44,
+      0.44
+    ],
+    "schedule_step_range_m": [
+      0.0,
+      0.437168011
+    ],
+    "schedule_foot_lift_range_m": [
+      0.0,
+      0.19600081
+    ],
+    "kernel_velocity_error_abs_p95_mps": 0.567412053,
+    "touchdown_x_abs_max_m": 0.064966151,
+    "touchdown_y_abs_max_m": 0.056461949,
+    "wbc_requested_acc_abs_p95_mps2": 4.0,
+    "wbc_srbd_acc_abs_p95_mps2": 5.745213311,
+    "wbc_id_contact_force_abs_p95_n": 38.145943148,
+    "wbc_status_fraction": {
+      "wbc_shadow_solver_ok": 1.0,
+      "wbc_shadow_within_budget": 0.8713378257614183,
+      "wbc_full_srbd_ok": 1.0,
+      "wbc_full_id_ok": 1.0,
+      "kernel_footstep_plan_valid": 1.0
+    },
+    "complete_1s_pass_count": 2,
+    "complete_1s_transition_count": 5
+  }
+]
