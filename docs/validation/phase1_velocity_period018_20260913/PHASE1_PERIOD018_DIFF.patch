@@ -1,0 +1,13 @@
+diff --git a/example/cpp/trot/velocity_command.h b/example/cpp/trot/velocity_command.h
+index 4358e4d..e6627bb 100644
+--- a/example/cpp/trot/velocity_command.h
++++ b/example/cpp/trot/velocity_command.h
+@@ -192,7 +192,7 @@ inline ContinuousVelocityGaitSchedule ScheduleContinuousVelocityGait(
+     const double blend = normalized * normalized * (3.0 - 2.0 * normalized);
+     ContinuousVelocityGaitSchedule schedule;
+     // Preserve the validated running-trot contact timing across commands.
+-    schedule.period_s = 0.14;
++    schedule.period_s = 0.18;
+     schedule.duty_factor = 0.44;
+     schedule.step_length_m = speed * schedule.period_s;
+     schedule.foot_lift_m = 0.200 * blend;
